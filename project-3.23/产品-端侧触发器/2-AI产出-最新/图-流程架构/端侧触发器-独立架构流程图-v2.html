@@ -1,0 +1,501 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>端侧触发器 · 完整架构流程图 v2 · 四张详细图</title>
+<style>
+body{margin:0;background:#f1f5f9;font-family:-apple-system,"PingFang SC",sans-serif;color:#1e293b;line-height:1.7}
+.wrap{max-width:1400px;margin:0 auto;padding:24px 20px 160px}
+h1{font-size:1.6rem;text-align:center;margin:0 0 4px}
+.sub{text-align:center;color:#64748b;font-size:.88rem;margin-bottom:24px}
+h2{font-size:1.2rem;margin:40px 0 8px;padding:14px 0 4px;border-top:3px solid #ea580c;color:#ea580c}
+h3{font-size:1rem;margin:20px 0 6px;color:#334155}
+p{margin:6px 0;font-size:.92rem}
+.mermaid{background:#fff;border-radius:12px;padding:28px 20px;box-shadow:0 2px 12px rgba(0,0,0,.06);margin:14px 0;overflow-x:auto}
+.note{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;font-size:.86rem;margin:10px 0}
+.nb{background:#eff6ff;border:1px solid #bfdbfe}
+.nr{background:#fef2f2;border:1px solid #fecaca}
+.toc{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:14px 20px;margin:16px 0;font-size:.86rem}
+.toc a{color:#334155;text-decoration:none;display:block;padding:2px 0}.toc a:hover{color:#ea580c}
+.toc b{color:#ea580c}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>端侧触发器 · 完整架构流程图 v2</h1>
+<div class="sub">四张图 · 每张聚焦一条完整链路 · 综合7.6定版 · 2026-07-06</div>
+
+<div class="toc">
+<b>图 1</b> <a href="#fig1">总体架构 · 信号源→信号库→触发器→VLM→结果回传→透传上报</a>
+<b>图 2</b> <a href="#fig2">AlwaysOn 生命周期 · 上电→开关判断→三任务启停→被打断→恢复→下电</a>
+<b>图 3</b> <a href="#fig3">条件触发完整链路 · 信号变更→条件匹配→穿越→防抖→命中→优先级→互斥→冷却→下发→执行→终态→续接</a>
+<b>图 4</b> <a href="#fig4">"谁调返给谁"结果回传 · VLM执行完→结果返回触发器→调度用+透传用两条路→AI Service</a>
+</div>
+
+<!-- ============================================================ -->
+<!--   图 1：总体架构                                              -->
+<!-- ============================================================ -->
+<h2 id="fig1">图 1 · 总体架构：信号从哪来、触发器怎么处理、结果到哪去</h2>
+
+<div class="mermaid">
+flowchart TB
+    subgraph SOURCES["信号源（6 类，各自写入信号库）"]
+        direction LR
+        S1["🚗 车辆端状态\n─────────\npower_state: on/off\ngear_state: P/D/R/N\nspeed: km/h\ndoor_lock: 上锁/解锁\nseat_occupy: 占用/空\nseatbelt: 系/未系\n─────────\n来源: 韩杰·端状态服务\nTTL: 5s"]
+        S2["🧭 导航/场景\n─────────\nnav_distance: 剩余m\nis_underground: 是/否\nnav_ended: 是/否\nexhibit_mode: on/off\ntest_drive: 状态\n─────────\n来源: 导航模块\nTTL: 按场景"]
+        S3["🌤️ 环境感知\n─────────\nweather_type: 雾/雨/雪/晴\nroad_surface: 干/湿/冰\nlight_condition: 明/暗\n─────────\n来源: 天气API + VLM舱外\nTTL: 30min"]
+        S4["👤 用户识别\n─────────\nface_id: 车主/乘客/陌生\npassenger_count: 人数\ngender: 男/女\nchild_detected: 是/否\n─────────\n来源: FaceID + VLM\nTTL: 30s"]
+        S5["🔌 OEM/IoT\n─────────\nbluetooth_distance: m\ncharging_state: 状态\nbattery_level: %\nremote_summon: 是/否\n─────────\n来源: 赛力斯CDC\nTTL: 10s"]
+        S6["🎙️ 用户输入\n─────────\nvqa_query: 问题文本\npark_command: 泊车指令\n─────────\n来源: 语音/云端\nTTL: 5s"]
+    end
+
+    subgraph SIGLIB["端侧信号库（统一事实源）"]
+        SL_WRITE["写入口\n覆盖写入·同key只存最新\n旧timestamp拒绝\n空值是有效数据"]
+        SL_STORE[("信号存储\nkey · value · source\ntimestamp · ttl\n─────────\n过期自动作废\n变更时通知订阅方")]
+        SL_READ["读取口\n快照读取: 一次拿全部相关key\n事件订阅: 值变化时通知\n条件订阅: 满足条件时通知"]
+    end
+
+    subgraph TRIGGER["端侧触发器 ㉔（5个模块）"]
+        M8["㉔-8 AlwaysOn 点火\n管三任务开关\n读 power + button\n开=AND · 关=OR"]
+        MJ["㉔-J 硬条件判定\n12种运算符\nAND/OR复合\nF→T穿越 + 防抖"]
+        M7["㉔-7 本地定时器\n倒计时/循环\n断网不停\n掉电持久化恢复"]
+        M9["㉔-9 VLM 调度\n优先级P0-P4排队\n互斥组VLM_CABIN/FRONT\n冷却检查·超时守卫\n组装运行指令(9字段)"]
+        MU["㉔-U 透传上报\n附 task_type\n附 timestamp + seq\n不解析·不改写·整包推送"]
+    end
+
+    subgraph AIBOX["AI Box"]
+        VLM["端侧 VLM\n方舟端VLM\n每帧5s推理·无跨帧上下文\n舱内摄像头 / 舱外前视\n输出: 精调标签 + caption"]
+    end
+
+    CDC["赛力斯 CDC\n车控执行\n开雾灯·切湿滑/雪地模式\n开充电口盖"]
+
+    subgraph CLOUD["云端"]
+        CT["云端触发器 ⑮\n全量/增量规则下发\n动态任务注册\n灰度/回滚"]
+        AIS["AI Service 数据中心\n接收透传包\n自行解析VLM原始输出\n分发给Context/Advisor等"]
+    end
+
+    %% 信号写入
+    S1 --> SL_WRITE
+    S2 --> SL_WRITE
+    S3 --> SL_WRITE
+    S4 --> SL_WRITE
+    S5 --> SL_WRITE
+    S6 --> SL_WRITE
+    SL_WRITE --> SL_STORE
+
+    %% 信号读取
+    SL_STORE --> SL_READ
+    SL_READ -->|"读 power_state\n+ awake_button"| M8
+    SL_READ -->|"信号快照\n所有相关key当前值"| MJ
+
+    %% 云端规则
+    CT -->|"全量/增量规则"| MJ
+    CT -->|"注册定时任务\ndelay/interval"| M7
+    CT -->|"动态VLM任务\n带expire_at"| M9
+
+    %% 定时器
+    M7 -->|"到期事件\n写入信号库"| SL_WRITE
+
+    %% AlwaysOn → 调度
+    M8 -->|"注册AlwaysOn任务\n舱外3s/舱内5s/静态5min"| M9
+
+    %% 硬条件 → 调度/车控
+    MJ -->|"VLM任务命中\noneshot/周期"| M9
+    MJ -->|"车控任务命中\n天气→开雾灯"| CDC
+
+    %% 调度 → VLM
+    M9 -->|"① 触发推理\n运行指令9字段"| VLM
+
+    %% VLM → 调度（谁调返给谁）
+    VLM -->|"② 结果返回\n谁调返给谁\nVLM原始输出字符串"| M9
+
+    %% 调度 → 透传
+    M9 -->|"raw_output转交"| MU
+
+    %% 透传 → AI Service
+    MU -->|"③ 整包透传\ntask_type + raw_output\n+ timestamp + seq"| AIS
+
+    %% VLM 写回信号库
+    VLM -.->|"任务状态写回\nsuccess/empty/\ntimeout/failed"| SL_WRITE
+
+    classDef src fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#1e3a5f
+    classDef sig fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef trig fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#7c2d12
+    classDef vlm fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#78350f
+    classDef cld fill:#f3e8ff,stroke:#9333ea,stroke-width:2px,color:#581c87
+    classDef exec fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#14532d
+
+    class S1,S2,S3,S4,S5,S6 src
+    class SL_WRITE,SL_STORE,SL_READ sig
+    class M8,MJ,M7,M9,MU trig
+    class VLM vlm
+    class CT,AIS cld
+    class CDC exec
+</div>
+
+<!-- ============================================================ -->
+<!--   图 2：AlwaysOn 生命周期                                     -->
+<!-- ============================================================ -->
+<h2 id="fig2">图 2 · AlwaysOn 生命周期：从上电到下电的完整状态流转</h2>
+
+<div class="mermaid">
+flowchart TB
+    START(("系统上电"))
+
+    subgraph INIT["启动初始化"]
+        I1["端侧触发器启动"]
+        I2["加载全量预置规则"]
+        I3["恢复持久化定时器"]
+        I4["初始化信号订阅"]
+    end
+
+    subgraph CHECK_OUT["舱外 AlwaysOn 开关判断"]
+        CO1["从信号库读取\npower_state"]
+        CO2{"power\n= on ?"}
+        CO3["开启舱外 AlwaysOn\ncamera=前视\n周期=3s\n订阅舱外topic"]
+        CO4["舱外不开启"]
+    end
+
+    subgraph CHECK_IN["舱内 AlwaysOn 开关判断"]
+        CI1["从信号库读取\nawake_button"]
+        CI2{"power=on\nAND\nbutton=on ?"}
+        CI3["开启舱内动态 AlwaysOn\ncamera=舱内 · 周期=5s\n─────────\n开启舱内静态 AlwaysOn\ncamera=舱内 · 周期=5min\n─────────\n订阅舱内topic"]
+        CI4["舱内不开启\n（用户隐私保护）"]
+    end
+
+    subgraph RUNNING["运行中：持续监听关条件"]
+        R1["订阅 power_state\n变更事件"]
+        R2["订阅 awake_button\n变更事件"]
+        R3{"检测到\n什么变更?"}
+        R4["power → off\n（下电）"]
+        R5["button → off\n（用户关闭）"]
+        R6["button → on\n（用户开启）"]
+    end
+
+    subgraph CLOSE_ALL["下电关闭"]
+        CA1["停止舱外 AlwaysOn"]
+        CA2["停止舱内动态"]
+        CA3["停止舱内静态"]
+        CA4["取消全部topic订阅"]
+        CA5["持久化定时器状态"]
+    end
+
+    subgraph CLOSE_CABIN["仅关舱内"]
+        CC1["停止舱内动态"]
+        CC2["停止舱内静态"]
+        CC3["取消舱内topic订阅"]
+        CC4["舱外继续运行"]
+    end
+
+    subgraph OPEN_CABIN["开启舱内"]
+        OC1["开启舱内动态\n5s周期"]
+        OC2["开启舱内静态\n5min周期"]
+        OC3["订阅舱内topic"]
+    end
+
+    subgraph INTERRUPT["被高优任务打断"]
+        INT1["高优oneshot到达\n如VQA(P0) / 下车安全(P0)"]
+        INT2["AlwaysOn挂起\n让出摄像头资源"]
+        INT3["oneshot执行完成"]
+        INT4["VLM业务自行恢复\nAlwaysOn继续\n（闲时常驻原则）"]
+    end
+
+    END(("系统下电"))
+
+    START --> I1
+    I1 --> I2 --> I3 --> I4
+    I4 --> CO1
+
+    CO1 --> CO2
+    CO2 -->|"是"| CO3
+    CO2 -->|"否（未上电）"| CO4
+    CO3 --> CI1
+    CO4 --> END
+
+    CI1 --> CI2
+    CI2 -->|"是"| CI3
+    CI2 -->|"否（Button关）"| CI4
+
+    CI3 --> R1
+    CI4 --> R1
+    R1 --> R2
+    R2 --> R3
+
+    R3 -->|"下电"| R4
+    R3 -->|"Button关"| R5
+    R3 -->|"Button开"| R6
+
+    R4 --> CA1 --> CA2 --> CA3 --> CA4 --> CA5 --> END
+    R5 --> CC1 --> CC2 --> CC3 --> CC4
+    CC4 -->|"继续监听"| R3
+    R6 --> OC1 --> OC2 --> OC3
+    OC3 -->|"继续监听"| R3
+
+    CO3 -.->|"运行中可能被打断"| INT1
+    CI3 -.->|"运行中可能被打断"| INT1
+    INT1 --> INT2 --> INT3 --> INT4
+    INT4 -.->|"恢复后继续"| R3
+
+    classDef init fill:#e0f2fe,stroke:#0284c7,stroke-width:1.5px
+    classDef check fill:#fff7ed,stroke:#ea580c,stroke-width:2px
+    classDef run fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px
+    classDef close fill:#fef2f2,stroke:#dc2626,stroke-width:2px
+    classDef open fill:#dcfce7,stroke:#16a34a,stroke-width:2px
+    classDef intr fill:#fef3c7,stroke:#d97706,stroke-width:2px
+
+    class I1,I2,I3,I4 init
+    class CO1,CO2,CO3,CO4,CI1,CI2,CI3,CI4 check
+    class R1,R2,R3 run
+    class R4,CA1,CA2,CA3,CA4,CA5 close
+    class R5,CC1,CC2,CC3,CC4 close
+    class R6,OC1,OC2,OC3 open
+    class INT1,INT2,INT3,INT4 intr
+</div>
+
+<div class="note">
+<b>关键逻辑</b>：开 = AND（两条件同时满足才开），关 = OR（任一条件不满足就关）。舱外只看 power，舱内看 power + button。
+</div>
+
+<!-- ============================================================ -->
+<!--   图 3：条件触发完整链路                                      -->
+<!-- ============================================================ -->
+<h2 id="fig3">图 3 · 条件触发完整链路：从信号变更到任务执行到续接的 15 步</h2>
+
+<div class="mermaid">
+flowchart TB
+    subgraph STEP1["步骤1-2: 信号变更"]
+        A1["信号源产生新值\n如: gear_state 从R变为P"]
+        A2["写入信号库\n覆盖旧值·更新timestamp"]
+        A3["信号库发出变更通知\n通知所有订阅该key的规则"]
+    end
+
+    subgraph STEP2["步骤3: 获取信号快照"]
+        B1["㉔-J 收到变更通知\n或周期性轮询到达"]
+        B2["从信号库拉取\n所有相关key的当前值"]
+        B3{"每个信号\nTTL有效?"}
+        B4["TTL有效\n继续匹配"]
+        B5["TTL过期\n该规则frozen\n跳过本轮"]
+    end
+
+    subgraph STEP3["步骤4: 条件匹配"]
+        C1["遍历已加载的预设规则"]
+        C2["逐条用运算符比对\n=·≠·>·<·包含·变更为…"]
+        C3["复合条件组合\nAND: 全部子条件满足\nOR: 任一子条件满足"]
+        C4{"本轮匹配\n结果?"}
+        C5["True\n条件满足"]
+        C6["False\n条件不满足\n保存结果·等下一轮"]
+    end
+
+    subgraph STEP4["步骤5: 穿越检测"]
+        D1["读取该规则上一轮结果"]
+        D2{"上一轮False\n本轮True?"}
+        D3["F→T穿越成功\n进入防抖"]
+        D4["T→T 持续满足\n不重复触发·跳过"]
+    end
+
+    subgraph STEP5["步骤6-7: 防抖→命中"]
+        E1["防抖窗口\n连续N帧都穿越才算\n默认N=1"]
+        E2{"防抖\n通过?"}
+        E3["正式命中\n进入命中后处理"]
+        E4["信号抖动\n重置·等待"]
+    end
+
+    subgraph STEP6["步骤8-10: 命中后三关"]
+        F1["优先级标记\nP0=安全不可延迟\nP1=体验高优\nP2=增值 · P3=背景\nP4=动态最低"]
+        F2["互斥组检查\nVLM_CABIN: 舱内任务互斥\nVLM_FRONT: 舱外任务互斥\n冲突时高优抢占低优"]
+        F3["冷却检查\nP0: 不设冷却·每次必触发\n其他: 按cooldown配置"]
+        F4{"通过\n三关?"}
+        F5["进入下发"]
+        F6["被冷却/互斥拦住\n本轮跳过"]
+    end
+
+    subgraph STEP7["步骤11: 下发"]
+        G1{"任务类型?"}
+        G2["VLM任务\noneshot或周期"]
+        G3["车控任务\n如开雾灯"]
+        G4["组装运行指令\ntask_id · task_goal\npriority · timeout\nmutex_group · camera\ntrigger_source · expire_at\nexecution_type"]
+        G5["下发给VLM\n① 触发推理"]
+        G6["直接下发CDC\n车控指令"]
+    end
+
+    subgraph STEP8["步骤12-13: 执行+结果"]
+        H1["VLM执行推理\n调用摄像头·模型推理"]
+        H2["超时守卫\noneshot: 5000ms\n周期: 按帧间隔"]
+        H3{"执行结果?"}
+        H4["success\n有识别结果"]
+        H5["empty\n看了没看到\n（有效结论）"]
+        H6["timeout\n执行超时"]
+        H7["failed\n执行失败"]
+    end
+
+    subgraph STEP9["步骤14: 结果处理"]
+        I1["② 结果返回触发器\n谁调返给谁"]
+        I2["成功/空结果:\n→ raw_output交㉔-U透传\n→ 任务状态写信号库"]
+        I3["超时/失败:\n→ 不写伪结果(红线)\n→ 不透传raw_output\n→ 只上报状态告警"]
+        I4["㉔-U 整包透传\n③ 推送AI Service\n附task_type+timestamp+seq"]
+    end
+
+    subgraph STEP10["步骤15: 续接"]
+        J1{"任务类型?"}
+        J2["周期任务\n等下一个周期\n回到步骤3"]
+        J3["单次任务\n标记完成\n不再触发"]
+        J4["动态任务\n检查expire_at\n未过期→继续\n已过期→清理"]
+    end
+
+    %% 连线
+    A1 --> A2 --> A3
+    A3 --> B1 --> B2 --> B3
+    B3 -->|"有效"| B4
+    B3 -->|"过期"| B5
+    B4 --> C1 --> C2 --> C3 --> C4
+    C4 -->|"True"| C5
+    C4 -->|"False"| C6
+    C5 --> D1 --> D2
+    D2 -->|"F→T"| D3
+    D2 -->|"T→T"| D4
+    D3 --> E1 --> E2
+    E2 -->|"通过"| E3
+    E2 -->|"抖动"| E4
+    E3 --> F1 --> F2 --> F3 --> F4
+    F4 -->|"通过"| F5
+    F4 -->|"拦住"| F6
+    F5 --> G1
+    G1 -->|"VLM"| G2 --> G4 --> G5
+    G1 -->|"车控"| G3 --> G6
+    G5 --> H1
+    H1 --> H2 --> H3
+    H3 -->|"success"| H4
+    H3 -->|"empty"| H5
+    H3 -->|"timeout"| H6
+    H3 -->|"failed"| H7
+    H4 --> I1
+    H5 --> I1
+    H6 --> I3
+    H7 --> I3
+    I1 --> I2 --> I4
+    I4 --> J1
+    I3 --> J1
+    J1 -->|"周期"| J2
+    J1 -->|"单次"| J3
+    J1 -->|"动态"| J4
+    J2 -->|"循环回到步骤3"| B1
+
+    classDef sig fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px
+    classDef match fill:#fff7ed,stroke:#ea580c,stroke-width:1.5px
+    classDef cross fill:#fef3c7,stroke:#d97706,stroke-width:1.5px
+    classDef hit fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px
+    classDef exec fill:#f3e8ff,stroke:#9333ea,stroke-width:1.5px
+    classDef result fill:#ecfeff,stroke:#0891b2,stroke-width:1.5px
+    classDef cont fill:#fdf4ff,stroke:#a21caf,stroke-width:1.5px
+
+    class A1,A2,A3,B1,B2,B3,B4,B5 sig
+    class C1,C2,C3,C4,C5,C6 match
+    class D1,D2,D3,D4,E1,E2,E3,E4 cross
+    class F1,F2,F3,F4,F5,F6 hit
+    class G1,G2,G3,G4,G5,G6,H1,H2 exec
+    class H3,H4,H5,H6,H7,I1,I2,I3,I4 result
+    class J1,J2,J3,J4 cont
+</div>
+
+<div class="note">
+<b>循环回路</b>：步骤15（续接）→ 回到步骤3（获取信号快照），形成触发器的持续运行循环。触发器在整个车辆运行期间（上电→下电）持续执行这个循环。
+</div>
+
+<!-- ============================================================ -->
+<!--   图 4："谁调返给谁"结果回传                                  -->
+<!-- ============================================================ -->
+<h2 id="fig4">图 4 · "谁调返给谁"结果回传：VLM 结果怎么流转</h2>
+
+<p>用充电桩 oneshot 场景走一遍完整链路：</p>
+
+<div class="mermaid">
+flowchart LR
+    subgraph TRIGGER_SIDE["端侧触发器内部"]
+        direction TB
+        T1["㉔-J 硬条件判定\n检测到: gear_state\n从R变更为P"]
+        T2["㉔-9 VLM 调度\n组装运行指令:\ntask_id=charging_port\ntask_goal=检测后方充电桩\ncamera=rear\npriority=P0\ntimeout=5000ms"]
+        T3["㉔-9 接收VLM结果\n读取终态: success\n读取raw_output: 原始字符串"]
+        T4{"结果分两路"}
+        T5["路线A: 调度用\n─────────\n读任务状态=success\n→ 更新任务队列\n→ 释放VLM_FRONT互斥\n→ 单次任务标记完成\n→ 恢复被挂起的AlwaysOn"]
+        T6["路线B: 透传用\n─────────\n㉔-U 接收 raw_output\n附 task_type=vlm_oneshot\n附 timestamp=端侧时间\n附 seq=42\n不解析·不改写"]
+    end
+
+    subgraph VLM_SIDE["AI Box · VLM"]
+        V1["接收运行指令\n调用后置摄像头"]
+        V2["VLM推理\n识别后方是否有充电桩"]
+        V3["产出原始输出\n一串JSON字符串\n包含识别结果"]
+    end
+
+    subgraph CLOUD_SIDE["云端"]
+        C1["AI Service 数据中心\n接收透传包"]
+        C2["自行解析 raw_output\n提取: 充电桩=有"]
+        C3["分发给云端触发器⑮\n事件判断: 充电桩存在"]
+        C4["云端触发器⑮\n条件满足 → 下发执行"]
+        C5["执行: 打开充电口盖\n→ 赛力斯CDC"]
+    end
+
+    subgraph SIGLIB_SIDE["信号库"]
+        SL1["VLM业务写回\ntask_status=success\nvlm.charging_station=有"]
+    end
+
+    T1 -->|"命中"| T2
+    T2 -->|"① 触发推理\n运行指令"| V1
+    V1 --> V2 --> V3
+    V3 -->|"② 结果返回\n谁调返给谁"| T3
+    T3 --> T4
+    T4 --> T5
+    T4 --> T6
+    T6 -->|"③ 整包透传"| C1
+    C1 --> C2 --> C3 --> C4 --> C5
+    V3 -.->|"VLM业务\n自行写回"| SL1
+
+    classDef trig fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#7c2d12
+    classDef vlm fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#78350f
+    classDef cld fill:#f3e8ff,stroke:#9333ea,stroke-width:2px,color:#581c87
+    classDef sig fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d
+
+    class T1,T2,T3,T4,T5,T6 trig
+    class V1,V2,V3 vlm
+    class C1,C2,C3,C4,C5 cld
+    class SL1 sig
+</div>
+
+<div class="note nr">
+<b>核心要点</b>：<br/>
+• VLM 结果<b>先回触发器</b>（因为是触发器下的单），触发器收到后<b>分两路</b>：调度用（知道任务完没完）+ 透传用（原样转给 AI Service）<br/>
+• 触发器<b>不解析</b> raw_output——"里头是啥不管，整包给"<br/>
+• AI Service 数据中心收到后<b>自行解析</b>分发，"他们之间的事跟咱没关系"<br/>
+• 如果 VLM 结果直接给 AI Service（绕过触发器），触发器不知道任务完没完 → 无法释放互斥资源 → 后续任务被卡死
+</div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+mermaid.initialize({
+  startOnLoad: true,
+  theme: 'base',
+  themeVariables: {
+    primaryColor: '#fff7ed',
+    primaryBorderColor: '#ea580c',
+    primaryTextColor: '#1e293b',
+    lineColor: '#64748b',
+    secondaryColor: '#f0fdf4',
+    tertiaryColor: '#dbeafe',
+    fontSize: '13px',
+    fontFamily: '-apple-system, PingFang SC, sans-serif'
+  },
+  flowchart: {
+    htmlLabels: true,
+    curve: 'basis',
+    rankSpacing: 50,
+    nodeSpacing: 30,
+    padding: 10,
+    useMaxWidth: true
+  }
+});
+</script>
+</body>
+</html>

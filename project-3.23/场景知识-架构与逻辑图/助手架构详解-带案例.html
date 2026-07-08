@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>豆包助手架构详解 · 带完整案例走查</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: #f8fafc;
+    color: #1f2937;
+    line-height: 1.7;
+    padding: 30px;
+  }
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  h1 {
+    text-align: center;
+    font-size: 24px;
+    margin-bottom: 6px;
+  }
+  .subtitle {
+    text-align: center;
+    color: #6b7280;
+    font-size: 14px;
+    margin-bottom: 30px;
+  }
+
+  /* 章节 */
+  .section {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+  .section-title {
+    font-size: 18px;
+    font-weight: 800;
+    color: #111827;
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #e5e7eb;
+  }
+
+  /* 架构简图 */
+  .arch-flow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin: 16px 0;
+  }
+  .arch-box {
+    background: #f1f5f9;
+    border: 2px solid #94a3b8;
+    border-radius: 10px;
+    padding: 14px 20px;
+    text-align: center;
+    min-width: 120px;
+  }
+  .arch-box.core {
+    background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+    border-color: #7c3aed;
+    color: #fff;
+    font-weight: 700;
+  }
+  .arch-arrow {
+    color: #94a3b8;
+    font-size: 20px;
+    font-weight: 700;
+  }
+
+  /* 案例场景 */
+  .case-banner {
+    background: #1e293b;
+    color: #fff;
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+  }
+  .case-banner-title {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    color: #60a5fa;
+  }
+  .case-banner-body {
+    font-size: 13px;
+    color: #cbd5e1;
+    line-height: 1.7;
+  }
+
+  /* Pre-state */
+  .prestate {
+    background: #eff6ff;
+    border-left: 4px solid #3b82f6;
+    padding: 14px 18px;
+    border-radius: 0 8px 8px 0;
+    margin-bottom: 20px;
+  }
+  .prestate-title {
+    font-weight: 700;
+    color: #1e40af;
+    margin-bottom: 6px;
+  }
+  .prestate-body {
+    font-size: 13px;
+    color: #334155;
+  }
+
+  /* 轮次 */
+  .turn {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    overflow: hidden;
+  }
+  .turn-header {
+    background: #f8fafc;
+    padding: 12px 16px;
+    font-weight: 700;
+    font-size: 15px;
+    color: #1e293b;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .turn-num {
+    background: #8b5cf6;
+    color: #fff;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+  .turn-body {
+    padding: 16px;
+  }
+
+  /* 输入展示 */
+  .input-block {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 12px;
+  }
+  .input-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+  }
+  .input-content {
+    font-size: 13px;
+    color: #334155;
+  }
+  .input-content code {
+    background: #f1f5f9;
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 12px;
+  }
+
+  /* 思考过程 */
+  .think-block {
+    background: #fff7ed;
+    border-left: 4px solid #f97316;
+    padding: 12px 16px;
+    border-radius: 0 8px 8px 0;
+    margin-bottom: 12px;
+  }
+  .think-label {
+    font-weight: 700;
+    color: #9a3412;
+    font-size: 13px;
+    margin-bottom: 4px;
+  }
+  .think-body {
+    font-size: 13px;
+    color: #7c2d12;
+  }
+
+  /* 知识高亮 */
+  .knowledge-block {
+    background: #fef2f2;
+    border: 2px solid #ef4444;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 12px;
+  }
+  .knowledge-label {
+    font-weight: 700;
+    color: #991b1b;
+    font-size: 13px;
+    margin-bottom: 4px;
+  }
+  .knowledge-body {
+    font-size: 13px;
+    color: #7f1d1d;
+  }
+
+  /* JSON输出 */
+  .json-block {
+    background: #1f2937;
+    border-radius: 8px;
+    padding: 14px;
+    font-family: "SF Mono", Monaco, monospace;
+    font-size: 12px;
+    color: #e2e8f0;
+    line-height: 1.7;
+    overflow-x: auto;
+    margin-bottom: 12px;
+  }
+  .json-key { color: #93c5fd; }
+  .json-str { color: #86efac; }
+
+  /* 状态更新 */
+  .state-block {
+    background: #f0fdf4;
+    border-left: 4px solid #22c55e;
+    padding: 12px 16px;
+    border-radius: 0 8px 8px 0;
+  }
+  .state-label {
+    font-weight: 700;
+    color: #15803d;
+    font-size: 13px;
+    margin-bottom: 4px;
+  }
+  .state-body {
+    font-size: 13px;
+    color: #166534;
+  }
+
+  /* 底部启示 */
+  .insight-box {
+    background: #1e293b;
+    color: #e2e8f0;
+    border-radius: 12px;
+    padding: 24px;
+  }
+  .insight-box h2 {
+    color: #fff;
+    font-size: 18px;
+    margin-bottom: 16px;
+  }
+  .insight-item {
+    margin-bottom: 14px;
+    padding-left: 16px;
+    position: relative;
+  }
+  .insight-item::before {
+    content: '▸';
+    position: absolute;
+    left: 0;
+    color: #60a5fa;
+  }
+  .insight-title {
+    font-weight: 700;
+    color: #60a5fa;
+    font-size: 14px;
+    margin-bottom: 4px;
+  }
+  .insight-body {
+    font-size: 13px;
+    color: #cbd5e1;
+    line-height: 1.7;
+  }
+
+  /* 标签 */
+  .tag {
+    display: inline-block;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    margin-left: 6px;
+  }
+  .tag-blue { background: #dbeafe; color: #1e40af; }
+  .tag-orange { background: #ffedd5; color: #9a3412; }
+  .tag-green { background: #dcfce7; color: #15803d; }
+  .tag-red { background: #fecaca; color: #991b1b; }
+
+  strong { font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>豆包助手架构详解</h1>
+  <div class="subtitle">基于你提供的 prompt · 用一个完整案例走查每一步</div>
+
+  <!-- 第一节：极简架构 -->
+  <div class="section">
+    <div class="section-title">一、先记住这个极简流程</div>
+    <div class="arch-flow">
+      <div class="arch-box">用户说话<br><span style="font-size:12px;color:#64748b;">user_query</span></div>
+      <div class="arch-arrow">→</div>
+      <div class="arch-box core">豆包<br><span style="font-size:12px;opacity:0.9;">读取所有输入 + 动态专业知识</span></div>
+      <div class="arch-arrow">→</div>
+      <div class="arch-box">输出 JSON<br><span style="font-size:12px;color:#64748b;">说话 / 调用工具</span></div>
+      <div class="arch-arrow">→</div>
+      <div class="arch-box">执行 / 回复<br><span style="font-size:12px;color:#64748b;">用户感知结果</span></div>
+    </div>
+    <p style="font-size:13px;color:#475569;margin-top:10px;">
+      <strong>核心逻辑：</strong>豆包每次工作时，不是只听到用户说的话。她同时会收到<strong>3类动态输入</strong>（用户说的话、专家建议、工具返回）+<strong>5份背景资料</strong>（舱内画面、任务清单、车辆状态、用户档案、<span style="color:#dc2626;font-weight:700;">动态专业知识</span>）。<br><br>
+      <span style="color:#dc2626;font-weight:700;">「动态专业知识」就是你 Excel 里 I 列写的内容。</span>系统判断当前是什么场景（比如儿童娱乐），就把对应行的知识塞进这里，告诉豆包"现在该怎么服务"。
+    </p>
+  </div>
+
+  <!-- 第二节：案例走查 -->
+  <div class="section">
+    <div class="section-title">二、完整案例走查：「后排有点吵」→ 安抚儿童</div>
+
+    <div class="case-banner">
+      <div class="case-banner-title">案例背景</div>
+      <div class="case-banner-body">
+        场景：用户开车带两个孩子出门，老二坐在后排左，不肯坐安全座椅，开始哭闹。用户（主驾）说"后面有点吵"。<br>
+        目标：通过这个案例，完整展示豆包是怎么一步步确认信息、调用工具、生成回复的。
+      </div>
+    </div>
+
+    <div class="prestate">
+      <div class="prestate-title">对话开始前的状态（Pre-state）</div>
+      <div class="prestate-body">
+        • 车辆状态：行驶中，车速 45km/h，后排屏幕关闭，空调 24℃<br>
+        • 舱内视觉：主驾（用户），后排左（儿童，正在扭动哭闹），后排右（儿童，安静）<br>
+        • 用户记忆：家里有老二（3岁，喜欢恐龙）、老三（1岁）<br>
+        • 目标队列：空<br>
+        • 已加载知识：无<br>
+        • <strong style="color:#dc2626;">动态专业知识（来自 Excel I 列）：儿童娱乐场景知识</strong><br>
+        &nbsp;&nbsp;- 场景要点：后排儿童哭闹/无聊时，可播放视频/音乐安抚<br>
+        &nbsp;&nbsp;- 执行逻辑：确认儿童位置 → 确认内容偏好 → 检查后排屏幕 → 播放 → 调节环境（空调/灯光）
+      </div>
+    </div>
+
+    <!-- Round 1 -->
+    <div class="turn">
+      <div class="turn-header"><div class="turn-num">1</div>第 1 轮：用户说"后面有点吵"</div>
+      <div class="turn-body">
+        <div class="input-block">
+          <div class="input-label">user_query（用户说的话）</div>
+          <div class="input-content">
+            <code>{"query":"后面有点吵","speaker_name":"用户","speaker_position":"主驾驶位"}</code>
+          </div>
+        </div>
+        <div class="input-block">
+          <div class="input-label">舱内视觉感知（她"看到"的）</div>
+          <div class="input-content">主驾：用户；后排左：儿童（3岁左右），正在扭动、嘴巴张开；后排右：婴儿（1岁），安静。</div>
+        </div>
+        <div class="input-block">
+          <div class="input-label">车辆状态</div>
+          <div class="input-content">车速 45km/h（行驶中），后排屏幕关闭，空调 24℃，媒体未播放。</div>
+        </div>
+
+        <div class="knowledge-block">
+          <div class="knowledge-label">动态专业知识（来自 Excel I 列）— 这是关键</div>
+          <div class="knowledge-body">
+            系统判断当前场景为「儿童娱乐」，把 Excel 里 DRV-01-01-01 的知识塞进来了：<br>
+            • 场景：后排儿童哭闹/无聊时，可通过播放视频分散注意力<br>
+            • 注意：需先确认儿童位置和内容偏好；行驶中前排不能播放视频；后排无屏时需降级为音频
+          </div>
+        </div>
+
+        <div class="think-block">
+          <div class="think-label">豆包的思考过程</div>
+          <div class="think-body">
+            1. 用户说"后面有点吵" + 视觉看到后排左儿童在扭动哭闹 → 推断是儿童不舒服/无聊<br>
+            2. 动态专业知识说"儿童哭闹可播放视频安抚"<br>
+            3. 但我现在还不知道：用户是否需要我帮忙？儿童想看什么？后排有屏幕吗？<br>
+            4. <strong>决策：先询问确认，不直接执行。</strong>因为直接放视频可能打断用户处理，也可能放错内容。
+          </div>
+        </div>
+
+        <div class="json-block">
+{ <span class="json-key">"talk_or_not"</span>: <span class="json-str">"yes"</span>,
+  <span class="json-key">"talk_content"</span>: <span class="json-str">"[轻声说]是小朋友在闹吗？需要我帮忙安抚一下吗？"</span>,
+  <span class="json-key">"action_list"</span>: [] }
+        </div>
+
+        <div class="state-block">
+          <div class="state-label">这轮结束后的 State Update</div>
+          <div class="state-body">
+            • 已知信息 += {后排有儿童哭闹, 说话人是主驾, 车速45km/h（行驶中）}<br>
+            • 缺失信息 -= {位置已确认: 后排左}<br>
+            • 仍缺失：是否需要安抚？儿童想看什么？后排是否有屏幕？
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Round 2 -->
+    <div class="turn">
+      <div class="turn-header"><div class="turn-num">2</div>第 2 轮：用户确认 + 给出新信息</div>
+      <div class="turn-body">
+        <div class="input-block">
+          <div class="input-label">user_query</div>
+          <div class="input-content">
+            <code>{"query":"是啊，老二不肯坐安全座椅，给他看点什么吧","speaker_name":"用户","speaker_position":"主驾驶位"}</code>
+          </div>
+        </div>
+
+        <div class="think-block">
+          <div class="think-label">豆包的思考过程</div>
+          <div class="think-body">
+            1. 用户确认了：是老二（3岁）在闹，原因是不肯坐安全座椅<br>
+            2. 用户明确要求："给他看点什么" → 意图：播放视频<br>
+            3. 但动态专业知识提醒：需检查后排是否有屏幕；且行驶中前排不能播放视频<br>
+            4. 用户记忆里有"老二喜欢恐龙"，但我应该先确认内容，还是直接调用记忆？<br>
+            5. <strong>决策：先查车辆状态（后排是否有屏），同时询问想看什么。</strong>如果后排没屏，我要提前告知用户并给降级方案（音频/故事）。
+          </div>
+        </div>
+
+        <div class="json-block">
+{ <span class="json-key">"talk_or_not"</span>: <span class="json-str">"yes"</span>,
+  <span class="json-key">"talk_content"</span>: <span class="json-str">"好，我先看看后排屏幕能不能用。宝宝想看什么？我记得他喜欢恐龙？"</span>,
+  <span class="json-key">"action_list"</span>: [
+    { <span class="json-key">"action_id"</span>: <span class="json-str">"1"</span>,
+      <span class="json-key">"tool_name"</span>: <span class="json-str">"search_vehicle_status_info"</span>,
+      <span class="json-key">"params"</span>: { <span class="json-key">"query"</span>: <span class="json-str">"后排屏幕状态"</span> }
+    }
+  ] }
+        </div>
+
+        <div class="state-block">
+          <div class="state-label">State Update</div>
+          <div class="state-body">
+            • 已知信息 += {儿童3岁, 不肯坐安全座椅, 用户要求播放视频, 已询问内容偏好}<br>
+            • 仍缺失：后排是否有屏幕？用户确认想看恐龙还是别的？<br>
+            • 已调用工具：查车辆状态（等待返回）
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Round 3 -->
+    <div class="turn">
+      <div class="turn-header"><div class="turn-num">3</div>第 3 轮：工具返回 + 用户回应</div>
+      <div class="turn-body">
+        <div class="input-block">
+          <div class="input-label">tool_feedback（工具返回）</div>
+          <div class="input-content">
+            <code>{"tool_feedback":"后排屏幕存在，当前状态：关闭","tool_name":"search_vehicle_status_info"}</code>
+          </div>
+        </div>
+        <div class="input-block">
+          <div class="input-label">user_query</div>
+          <div class="input-content">
+            <code>{"query":"对，就恐龙吧","speaker_name":"用户","speaker_position":"主驾驶位"}</code>
+          </div>
+        </div>
+
+        <div class="think-block">
+          <div class="think-label">豆包的思考过程</div>
+          <div class="think-body">
+            1. 工具返回：后排有屏幕，只是关着 → 可以播放！<br>
+            2. 用户确认：要看恐龙 → 跟记忆一致（老二喜欢恐龙）<br>
+            3. 现在信息齐全了：后排有屏 + 用户要看恐龙 + 儿童在后左<br>
+            4. <strong>决策：打开后排屏幕 + 搜索恐龙视频 + 播放。可以并行执行。</strong><br>
+            5. 同时，这是一个"持续目标"（安抚儿童），应该加入目标队列，让系统知道这个目标还在进行中。
+          </div>
+        </div>
+
+        <div class="json-block">
+{ <span class="json-key">"talk_or_not"</span>: <span class="json-str">"yes"</span>,
+  <span class="json-key">"talk_content"</span>: <span class="json-str">"[开心地说]好嘞，恐龙来啦！后排屏幕打开啦，让小宝贝看恐龙~"</span>,
+  <span class="json-key">"action_list"</span>: [
+    { <span class="json-key">"action_id"</span>: <span class="json-str">"1"</span>,
+      <span class="json-key">"tool_name"</span>: <span class="json-str">"vehicle_basic_control"</span>,
+      <span class="json-key">"params"</span>: { <span class="json-key">"query"</span>: <span class="json-str">"打开后排屏幕"</span> }
+    },
+    { <span class="json-key">"action_id"</span>: <span class="json-str">"2"</span>,
+      <span class="json-key">"tool_name"</span>: <span class="json-str">"search_and_control_short_video"</span>,
+      <span class="json-key">"params"</span>: { <span class="json-key">"query"</span>: <span class="json-str">"恐龙动画片"</span> }
+    },
+    { <span class="json-key">"action_id"</span>: <span class="json-str">"3"</span>,
+      <span class="json-key">"tool_name"</span>: <span class="json-str">"goal_list_update"</span>,
+      <span class="json-key">"params"</span>: { <span class="json-key">"type"</span>: <span class="json-str">"add_goal"</span>, <span class="json-key">"goal_content"</span>: <span class="json-str">"安抚后排儿童老二"</span> }
+    }
+  ] }
+        </div>
+
+        <div class="state-block">
+          <div class="state-label">State Update</div>
+          <div class="state-body">
+            • 已知信息 += {后排有屏幕, 已打开, 内容=恐龙, 目标已创建}<br>
+            • 缺失信息：全部关键信息已确认<br>
+            • 副作用：目标队列新增「安抚后排儿童老二」；车辆状态改变（后排屏幕开启）
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Round 4 -->
+    <div class="turn">
+      <div class="turn-header"><div class="turn-num">4</div>第 4 轮：视频播放中，用户提出新需求</div>
+      <div class="turn-body">
+        <div class="input-block">
+          <div class="input-label">tool_feedback</div>
+          <div class="input-content">
+            <code>{"tool_feedback":"已找到恐龙主题短视频并播放","tool_name":"search_and_control_short_video"}</code>
+          </div>
+        </div>
+        <div class="input-block">
+          <div class="input-label">user_query</div>
+          <div class="input-content">
+            <code>{"query":"有点热，帮他调一下","speaker_name":"用户","speaker_position":"主驾驶位"}</code>
+          </div>
+        </div>
+
+        <div class="think-block">
+          <div class="think-label">豆包的思考过程</div>
+          <div class="think-body">
+            1. 视频已播放成功，儿童安抚目标仍在进行中<br>
+            2. 用户新需求："有点热"，但说的是"帮他调一下"→ 指给老二调温度<br>
+            3. 当前空调 24℃，用户说热 → 需要降温。但注意：老三是婴儿（1岁），不能直吹<br>
+            4. <strong>决策：调低后排温度，风量不要太大，同时确认主驾是否需要调。</strong>因为只调后排是部分执行，不需要等所有信息齐全。<br>
+            5. 视频已经在播放（用户能感知），所以不需要再提视频的事。
+          </div>
+        </div>
+
+        <div class="json-block">
+{ <span class="json-key">"talk_or_not"</span>: <span class="json-str">"yes"</span>,
+  <span class="json-key">"talk_content"</span>: <span class="json-str">"[轻声说]好，后排温度调低一点，风量开小些，不直吹宝宝。"</span>,
+  <span class="json-key">"action_list"</span>: [
+    { <span class="json-key">"action_id"</span>: <span class="json-str">"1"</span>,
+      <span class="json-key">"tool_name"</span>: <span class="json-str">"vehicle_basic_control"</span>,
+      <span class="json-key">"params"</span>: { <span class="json-key">"query"</span>: <span class="json-str">"后排空调22度，风量2档"</span> }
+    }
+  ] }
+        </div>
+
+        <div class="state-block">
+          <div class="state-label">State Update</div>
+          <div class="state-body">
+            • 已知信息 += {用户觉得热, 需求是针对老二, 已调后排温度}<br>
+            • 目标状态：「安抚后排儿童老二」仍在进行中（视频+温度调节都是子任务）<br>
+            • 车辆状态改变：后排空调 24℃→22℃，风量2档
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 边界情况 -->
+    <div class="turn" style="border-color:#f87171;">
+      <div class="turn-header" style="background:#fef2f2;color:#991b1b;">
+        <div class="turn-num" style="background:#ef4444;">!</div>
+        边界情况：如果后排没有屏幕，会怎么样？
+      </div>
+      <div class="turn-body">
+        <div class="think-block" style="background:#fef2f2;border-left-color:#ef4444;">
+          <div class="think-label" style="color:#991b1b;">假设第2轮工具返回：后排无屏幕</div>
+          <div class="think-body" style="color:#7f1d1d;">
+            1. 后排无屏 → 无法播放视频<br>
+            2. 车在行驶中（45km/h）→ <strong>前排绝对不能播放视频</strong>（安全限制）<br>
+            3. <strong>降级方案：</strong>播放恐龙音频故事 / 恐龙儿歌，只出声不出画<br>
+            4. 同时向用户解释："后排没有屏幕，行驶中前排也不能看视频，我给宝宝放恐龙故事听好不好？"
+          </div>
+        </div>
+        <div class="json-block">
+{ <span class="json-key">"talk_or_not"</span>: <span class="json-str">"yes"</span>,
+  <span class="json-key">"talk_content"</span>: <span class="json-str">"后排没有屏幕呢，而且我们在开车，前排也不能放视频。我给宝宝讲恐龙故事听，好不好？"</span>,
+  <span class="json-key">"action_list"</span>: [
+    { <span class="json-key">"action_id"</span>: <span class="json-str">"1"</span>,
+      <span class="json-key">"tool_name"</span>: <span class="json-str">"search_and_control_ai_broadcast"</span>,
+      <span class="json-key">"params"</span>: { <span class="json-key">"query"</span>: <span class="json-str">"恐龙故事"</span> }
+    }
+  ] }
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 第三节：Excel I列的位置 -->
+  <div class="section">
+    <div class="section-title">三、Excel I 列的内容，在这个案例里起什么作用？</div>
+    <div style="font-size:14px;color:#334155;line-height:1.8;">
+      <p style="margin-bottom:12px;">
+        上面的案例中，<strong style="color:#dc2626;">红色高亮框</strong>标注的「动态专业知识」就是来自你 Excel 里 I 列的内容。
+      </p>
+      <p style="margin-bottom:12px;">
+        <strong>如果 I 列是单轮示例（现在的情况）：</strong><br>
+        内容可能是：「用户说安抚儿童 → 系统播放动画片」<br>
+        结果：豆包只会背这一句，用户说"后面有点吵"它就懵了，因为它没学过怎么从"有点吵"推断出"需要安抚"。
+      </p>
+      <p style="margin-bottom:12px;">
+        <strong>如果 I 列是多轮示例（你要改成的）：</strong><br>
+        内容应该包含上面案例的完整流程：<br>
+        1. 听到模糊表达（"后面有点吵"）→ 先确认是不是儿童在闹<br>
+        2. 确认后 → 询问内容偏好，同时查硬件（后排是否有屏）<br>
+        3. 信息齐全 → 执行播放（并行打开屏幕+搜视频）<br>
+        4. 目标存续期间 → 继续处理子任务（调空调）<br>
+        5. 边界情况 → 无屏时降级为音频，行驶中前排禁视频
+      </p>
+      <p>
+        <strong>这就是多轮示例的价值：</strong>不是给豆包一个"标准答案"，而是给它一套"<strong>见招拆招的思维链</strong>"，让它学会信息怎么一步步确认、工具什么时候查什么时候做、意外情况怎么降级。
+      </p>
+    </div>
+  </div>
+
+  <!-- 第四节：关键启示 -->
+  <div class="insight-box">
+    <h2>四、从这个案例里提炼的 6 条写作规则</h2>
+
+    <div class="insight-item">
+      <div class="insight-title">1. 每轮必须有 State Update（状态更新）</div>
+      <div class="insight-body">
+        案例里每一轮结束后，我都写了「已知信息 += ...」。这是最关键的部分，教模型这轮之后知道了什么新东西。如果某轮结束后状态没变，这轮就是废话，删掉。
+      </div>
+    </div>
+
+    <div class="insight-item">
+      <div class="insight-title">2. 先查后做，不要假设</div>
+      <div class="insight-body">
+        案例第2轮，豆包没有直接播放视频，而是先调用 search_vehicle_status_info 查"后排是否有屏"。查完确认有才执行。多轮示例必须展示这种"先查后做"的链路。
+      </div>
+    </div>
+
+    <div class="insight-item">
+      <div class="insight-title">3. 信息不全时，询问而不是瞎猜</div>
+      <div class="insight-body">
+        第1轮用户只说"后面有点吵"，豆包没有直接放视频，而是问"是小朋友在闹吗？需要我帮忙吗？"。这对应 prompt 里的原则：信息不足时不虚构，宁可问也不要猜错。
+      </div>
+    </div>
+
+    <div class="insight-item">
+      <div class="insight-title">4. 目标存续期间，对话围绕目标推进</div>
+      <div class="insight-body">
+        第3轮创建了目标「安抚后排儿童老二」，第4轮用户说"有点热"，豆包知道这个目标还在，所以调空调是"安抚目标下的子任务"，不是独立的新场景。示例要展示这种目标关联。
+      </div>
+    </div>
+
+    <div class="insight-item">
+      <div class="insight-title">5. 能并行就并行，减少用户等待</div>
+      <div class="insight-body">
+        第3轮同时做了三件事：打开后排屏幕 + 搜恐龙视频 + 创建目标。这三个互不依赖，一起发最快。示例要展示 action_list 里有多个工具的情况。
+      </div>
+    </div>
+
+    <div class="insight-item">
+      <div class="insight-title">6. 必须覆盖边界情况（降级/拒绝/异常）</div>
+      <div class="insight-body">
+        案例中专门加了一个「如果后排无屏」的分支：行驶中前排不能放视频 → 降级为音频。这种异常路径必须在示例里出现，否则豆包只学了"顺风局"，遇到意外就崩了。
+      </div>
+    </div>
+  </div>
+
+  <p style="text-align:center;color:#6b7280;font-size:13px;margin-top:24px;">
+    打开这个 HTML 文件，对照案例走一遍，应该就能理解豆包是怎么工作的了。<br>
+    如果还有不清楚的地方，告诉我具体是哪一步，我再拆细。
+  </p>
+
+</div>
+</body>
+</html>

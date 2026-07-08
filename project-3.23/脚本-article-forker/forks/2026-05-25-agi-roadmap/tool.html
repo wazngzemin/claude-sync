@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AGI时代产品战略判断框架 — 可视化教程</title>
+<style>
+:root {
+  --bg: #1a1a2e;
+  --surface: #16213e;
+  --surface2: #0f3460;
+  --accent: #e94560;
+  --accent2: #f59e0b;
+  --text: #e2e8f0;
+  --text-dim: #94a3b8;
+  --success: #10b981;
+  --border: #334155;
+  --sidebar-w: 260px;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; }
+
+/* Progress bar */
+#progress-bar { position: fixed; top: 0; left: 0; height: 3px; background: linear-gradient(90deg, var(--accent), var(--accent2)); z-index: 1000; transition: width 0.3s; }
+
+/* Sidebar */
+#sidebar { position: fixed; top: 0; left: 0; width: var(--sidebar-w); height: 100vh; background: var(--surface); border-right: 1px solid var(--border); padding: 24px 16px; overflow-y: auto; z-index: 900; }
+#sidebar h2 { font-size: 14px; color: var(--accent); margin-bottom: 16px; letter-spacing: 1px; }
+#sidebar .nav-item { display: block; padding: 8px 12px; margin: 4px 0; border-radius: 6px; color: var(--text-dim); text-decoration: none; font-size: 13px; transition: all 0.2s; cursor: pointer; }
+#sidebar .nav-item:hover, #sidebar .nav-item.active { background: var(--surface2); color: var(--text); }
+#sidebar .nav-item .num { color: var(--accent); font-weight: 700; margin-right: 6px; }
+#sidebar .source-tag { display: inline-block; font-size: 10px; padding: 1px 5px; border-radius: 3px; margin-left: 4px; }
+#sidebar .s1 { background: #3b82f620; color: #60a5fa; }
+#sidebar .s2 { background: #8b5cf620; color: #a78bfa; }
+#sidebar .sx { background: #f59e0b20; color: #fbbf24; }
+
+/* Main */
+#main { margin-left: var(--sidebar-w); padding: 48px 48px 96px; max-width: 900px; }
+.module { margin-bottom: 72px; opacity: 0; transform: translateY(20px); transition: all 0.5s; }
+.module.visible { opacity: 1; transform: translateY(0); }
+.module-header { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.module-num { font-size: 11px; font-weight: 700; color: var(--accent); background: var(--accent)15; padding: 4px 10px; border-radius: 4px; }
+.module-title { font-size: 24px; font-weight: 700; }
+.module-objective { font-size: 14px; color: var(--text-dim); margin-bottom: 24px; padding: 12px 16px; border-left: 3px solid var(--accent2); background: var(--surface); border-radius: 0 6px 6px 0; }
+
+/* Content */
+h3 { font-size: 18px; margin: 32px 0 12px; color: var(--accent2); }
+p, li { font-size: 15px; margin-bottom: 10px; }
+ul, ol { padding-left: 24px; }
+.highlight-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; margin: 16px 0; }
+.insight { border-left: 3px solid var(--success); padding-left: 16px; margin: 16px 0; }
+.warning { border-left: 3px solid var(--accent); padding-left: 16px; margin: 16px 0; }
+table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; }
+th, td { padding: 10px 12px; border: 1px solid var(--border); text-align: left; }
+th { background: var(--surface2); color: var(--accent2); font-weight: 600; }
+td { background: var(--surface); }
+
+/* SVG container */
+.diagram { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin: 20px 0; overflow-x: auto; }
+.diagram svg { display: block; margin: 0 auto; }
+
+/* Checkpoint */
+.checkpoint { background: var(--success)10; border: 1px solid var(--success)40; border-radius: 8px; padding: 16px 20px; margin: 32px 0; }
+.checkpoint h4 { color: var(--success); font-size: 14px; margin-bottom: 8px; }
+.checkpoint p { font-size: 13px; color: var(--text-dim); margin: 0; }
+
+/* Quiz */
+.quiz { background: var(--surface); border: 1px solid var(--accent2)40; border-radius: 8px; padding: 20px; margin: 24px 0; }
+.quiz-q { font-weight: 600; margin-bottom: 12px; }
+.quiz-options label { display: block; padding: 8px 12px; margin: 4px 0; border-radius: 4px; cursor: pointer; font-size: 14px; transition: background 0.2s; }
+.quiz-options label:hover { background: var(--surface2); }
+.quiz-result { margin-top: 12px; font-size: 13px; padding: 8px 12px; border-radius: 4px; display: none; }
+.quiz-result.correct { display: block; background: var(--success)20; color: var(--success); }
+.quiz-result.wrong { display: block; background: var(--accent)20; color: var(--accent); }
+
+/* Responsive */
+@media (max-width: 768px) {
+  #sidebar { display: none; }
+  #main { margin-left: 0; padding: 24px 16px 64px; }
+}
+</style>
+</head>
+<body>
+<div id="progress-bar" style="width:0%"></div>
+
+<nav id="sidebar">
+  <h2>AGI 产品战略判断</h2>
+  <a class="nav-item" onclick="scrollTo_('m0')"><span class="num">0</span>全局地图 <span class="source-tag sx">综合</span></a>
+  <a class="nav-item" onclick="scrollTo_('m1')"><span class="num">1</span>AGI三幕路线图 <span class="source-tag s1">李</span></a>
+  <a class="nav-item" onclick="scrollTo_('m2')"><span class="num">2</span>Coding是环境 <span class="source-tag s1">李</span></a>
+  <a class="nav-item" onclick="scrollTo_('m3')"><span class="num">3</span>Agent持续学习缺口 <span class="source-tag s2">H</span></a>
+  <a class="nav-item" onclick="scrollTo_('m4')"><span class="num">4</span>AlphaFold三条件 <span class="source-tag s2">H</span></a>
+  <a class="nav-item" onclick="scrollTo_('m5')"><span class="num">5</span>壁垒窗口 <span class="source-tag sx">综合</span></a>
+  <a class="nav-item" onclick="scrollTo_('m6')"><span class="num">6</span>战略判断SOP <span class="source-tag sx">综合</span></a>
+  <hr style="border-color:var(--border);margin:16px 0">
+  <a class="nav-item" onclick="scrollTo_('m7')"><span class="num">+</span>Planner启示</a>
+</nav>
+
+<main id="main">
+
+<!-- MODULE 0 -->
+<section class="module" id="m0">
+<div class="module-header"><span class="module-num">MODULE 0</span><span class="module-title">全局地图</span></div>
+<div class="module-objective">学习目标：理解两篇访谈的认知拼图如何组合为一套可操作的产品战略判断框架。</div>
+
+<p>本教程综合两篇访谈的核心判断：</p>
+<ul>
+<li><strong>李广密</strong>（张小珺对话）：AGI路径 + 时间线 + 竞争格局</li>
+<li><strong>Hassabis</strong>（DeepMind CEO）：AGI缺失拼图 + 科学条件 + 防御方向</li>
+</ul>
+
+<div class="diagram">
+<svg viewBox="0 0 800 420" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="800" height="420" fill="#16213e" rx="8"/>
+
+  <!-- Title -->
+  <text x="400" y="30" text-anchor="middle" fill="#e94560" font-size="14" font-weight="bold">AGI时代产品战略判断框架 — 全局结构</text>
+
+  <!-- Source 1: Li -->
+  <rect x="40" y="55" width="340" height="150" rx="6" fill="#3b82f610" stroke="#3b82f6" stroke-width="1"/>
+  <text x="210" y="75" text-anchor="middle" fill="#60a5fa" font-size="12" font-weight="bold">Source 1: 李广密 — 路径+时间</text>
+  <text x="60" y="100" fill="#e2e8f0" font-size="11">• AGI 2年内实现（乐观判断）</text>
+  <text x="60" y="120" fill="#e2e8f0" font-size="11">• 三幕论：Chatbot → Coding Agent → AI研究员</text>
+  <text x="60" y="140" fill="#e2e8f0" font-size="11">• Coding = 环境（AI操作世界的接口）</text>
+  <text x="60" y="160" fill="#e2e8f0" font-size="11">• OpenAI战略分散 / Google是最领先的追随者</text>
+  <text x="60" y="180" fill="#e2e8f0" font-size="11">• Push智能才是最高目标</text>
+
+  <!-- Source 2: Hassabis -->
+  <rect x="420" y="55" width="340" height="150" rx="6" fill="#8b5cf610" stroke="#8b5cf6" stroke-width="1"/>
+  <text x="590" y="75" text-anchor="middle" fill="#a78bfa" font-size="12" font-weight="bold">Source 2: Hassabis — 条件+缺口</text>
+  <text x="440" y="100" fill="#e2e8f0" font-size="11">• 50%概率还需1-2个突破</text>
+  <text x="440" y="120" fill="#e2e8f0" font-size="11">• 三个未解：持续学习/长程推理/记忆</text>
+  <text x="440" y="140" fill="#e2e8f0" font-size="11">• Agent缺陷根因 = 不能持续学习</text>
+  <text x="440" y="160" fill="#e2e8f0" font-size="11">• AlphaFold三条件筛选器</text>
+  <text x="440" y="180" fill="#e2e8f0" font-size="11">• 小模型0.5-1年追赶 → 壁垒窗口极短</text>
+
+  <!-- Arrow down merge -->
+  <path d="M210,210 L210,240 L400,270" stroke="#f59e0b" stroke-width="2" fill="none" marker-end="url(#arrow-gold)"/>
+  <path d="M590,210 L590,240 L400,270" stroke="#f59e0b" stroke-width="2" fill="none" marker-end="url(#arrow-gold)"/>
+
+  <!-- Synthesis -->
+  <rect x="200" y="270" width="400" height="130" rx="8" fill="#f59e0b10" stroke="#f59e0b" stroke-width="2"/>
+  <text x="400" y="295" text-anchor="middle" fill="#fbbf24" font-size="13" font-weight="bold">综合产出：4步战略判断SOP</text>
+  <text x="220" y="320" fill="#e2e8f0" font-size="11">Step 1: 定位你的产品在三幕中的位置</text>
+  <text x="220" y="340" fill="#e2e8f0" font-size="11">Step 2: 用AlphaFold三条件评估问题可解性</text>
+  <text x="220" y="360" fill="#e2e8f0" font-size="11">Step 3: 评估壁垒窗口（0.5-1年追赶周期）</text>
+  <text x="220" y="380" fill="#e2e8f0" font-size="11">Step 4: 对竞争对手做"三幕定位"</text>
+
+  <defs>
+    <marker id="arrow-gold" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#f59e0b"/></marker>
+  </defs>
+</svg>
+</div>
+
+<div class="checkpoint">
+<h4>Checkpoint 0</h4>
+<p>你应该理解：本教程来自两套不同但互补的认知——李广密给出路径和速度，Hassabis给出条件和缺口。综合后得到可操作的4步SOP。</p>
+</div>
+</section>
+
+<!-- MODULE 1 -->
+<section class="module" id="m1">
+<div class="module-header"><span class="module-num">MODULE 1</span><span class="module-title">AGI三幕路线图</span></div>
+<div class="module-objective">学习目标：理解AGI到来的路径，判断你的产品/项目处于哪一幕。</div>
+
+<h3>核心判断</h3>
+<p>李广密提出AGI的实现不是一次性跳跃，而是三个连续阶段：</p>
+
+<div class="diagram">
+<svg viewBox="0 0 800 300" xmlns="http://www.w3.org/2000/svg">
+  <rect width="800" height="300" fill="#16213e" rx="8"/>
+  <text x="400" y="28" text-anchor="middle" fill="#e94560" font-size="13" font-weight="bold">AGI 三幕路线图</text>
+
+  <!-- Timeline -->
+  <line x1="80" y1="80" x2="720" y2="80" stroke="#334155" stroke-width="2"/>
+
+  <!-- Act 1 -->
+  <rect x="80" y="60" width="180" height="40" rx="6" fill="#10b98130" stroke="#10b981" stroke-width="1.5"/>
+  <text x="170" y="85" text-anchor="middle" fill="#10b981" font-size="12" font-weight="bold">第一幕：Chatbot</text>
+  <text x="170" y="115" text-anchor="middle" fill="#94a3b8" font-size="10">已完成 ✓</text>
+  <text x="170" y="135" text-anchor="middle" fill="#e2e8f0" font-size="10">证明了语言理解能力</text>
+  <text x="170" y="150" text-anchor="middle" fill="#e2e8f0" font-size="10">ChatGPT / Claude / 豆包</text>
+
+  <!-- Act 2 -->
+  <rect x="300" y="60" width="180" height="40" rx="6" fill="#f59e0b30" stroke="#f59e0b" stroke-width="1.5"/>
+  <text x="390" y="85" text-anchor="middle" fill="#f59e0b" font-size="12" font-weight="bold">第二幕：Coding Agent</text>
+  <text x="390" y="115" text-anchor="middle" fill="#fbbf24" font-size="10">正在发生 →</text>
+  <text x="390" y="135" text-anchor="middle" fill="#e2e8f0" font-size="10">理解力 → 执行力</text>
+  <text x="390" y="150" text-anchor="middle" fill="#e2e8f0" font-size="10">Cursor / Devin / Claude Code</text>
+
+  <!-- Act 3 -->
+  <rect x="520" y="60" width="200" height="40" rx="6" fill="#e9456030" stroke="#e94560" stroke-width="1.5"/>
+  <text x="620" y="85" text-anchor="middle" fill="#e94560" font-size="12" font-weight="bold">第三幕：AI研究员</text>
+  <text x="620" y="115" text-anchor="middle" fill="#f87171" font-size="10">≈ AGI（2年内?）</text>
+  <text x="620" y="135" text-anchor="middle" fill="#e2e8f0" font-size="10">执行力指向自身（AI改进AI）</text>
+  <text x="620" y="150" text-anchor="middle" fill="#e2e8f0" font-size="10">自动化科研 / 自我优化</text>
+
+  <!-- Arrows between acts -->
+  <path d="M262,80 L298,80" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow-dim)"/>
+  <path d="M482,80 L518,80" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow-dim)"/>
+
+  <!-- Key insight box -->
+  <rect x="120" y="180" width="560" height="90" rx="6" fill="#0f3460" stroke="#334155"/>
+  <text x="400" y="200" text-anchor="middle" fill="#fbbf24" font-size="11" font-weight="bold">关键关系：前一幕是后一幕的基础设施</text>
+  <text x="150" y="225" fill="#e2e8f0" font-size="11">Chatbot 证明语言理解 →</text>
+  <text x="150" y="245" fill="#e2e8f0" font-size="11">Coding Agent 把理解变成行动 →</text>
+  <text x="150" y="265" fill="#e2e8f0" font-size="11">AI研究员 把行动力指向自身 = 递归自我改进 = AGI</text>
+
+  <defs>
+    <marker id="arrow-dim" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#94a3b8"/></marker>
+  </defs>
+</svg>
+</div>
+
+<h3>与 Hassabis 判断的张力</h3>
+<div class="highlight-box">
+<p><strong>李广密</strong>：2年内，路径是连续的，不需要新范式</p>
+<p><strong>Hassabis</strong>：50%概率需要1-2个架构级突破</p>
+<p><strong>综合判断</strong>：方向正确但可能需要"架构级补丁"——2-5年区间，取决于突破是否出现</p>
+</div>
+
+<h3>对你的产品意味着什么</h3>
+<div class="insight">
+<p>问自己：我的产品在第几幕？</p>
+<ul>
+<li><strong>第一幕产品</strong>（纯对话）：高风险，窗口极短，需快速收割或转型</li>
+<li><strong>第二幕产品</strong>（能调用工具执行）：中等风险，需建数据飞轮</li>
+<li><strong>涉及物理世界</strong>：低风险，AGI到来反而加速你</li>
+</ul>
+</div>
+
+<div class="checkpoint">
+<h4>Checkpoint 1</h4>
+<p>能回答：(1) 三幕之间的递进关系是什么？(2) 你的产品在第几幕？(3) 为什么第二幕→第三幕的跳跃可能不是连续的？</p>
+</div>
+</section>
+
+<!-- MODULE 2 -->
+<section class="module" id="m2">
+<div class="module-header"><span class="module-num">MODULE 2</span><span class="module-title">Coding是环境</span></div>
+<div class="module-objective">学习目标：理解"Coding ≠ 编程能力，= AI操作世界的接口"这一认知升级。</div>
+
+<h3>概念重定义</h3>
+<p>传统理解：Coding = 一种技能（像数学、写作）。<br>李广密的重定义：Coding = 一个环境（像物理世界是人类的环境）。</p>
+
+<div class="diagram">
+<svg viewBox="0 0 800 320" xmlns="http://www.w3.org/2000/svg">
+  <rect width="800" height="320" fill="#16213e" rx="8"/>
+  <text x="400" y="28" text-anchor="middle" fill="#e94560" font-size="13" font-weight="bold">Coding作为环境 — 概念对比</text>
+
+  <!-- Left: Natural Language -->
+  <rect x="60" y="50" width="300" height="120" rx="6" fill="#64748b15" stroke="#64748b"/>
+  <text x="210" y="75" text-anchor="middle" fill="#94a3b8" font-size="12" font-weight="bold">自然语言</text>
+  <text x="210" y="100" text-anchor="middle" fill="#e2e8f0" font-size="11">描述世界（被动）</text>
+  <text x="210" y="120" text-anchor="middle" fill="#e2e8f0" font-size="11">"天气很热" — 陈述事实</text>
+  <text x="210" y="145" text-anchor="middle" fill="#94a3b8" font-size="10">功能：理解、交流、表达</text>
+  <text x="210" y="160" text-anchor="middle" fill="#94a3b8" font-size="10">对AI而言 = 输入/输出层</text>
+
+  <!-- Right: Code -->
+  <rect x="440" y="50" width="300" height="120" rx="6" fill="#10b98115" stroke="#10b981"/>
+  <text x="590" y="75" text-anchor="middle" fill="#10b981" font-size="12" font-weight="bold">代码</text>
+  <text x="590" y="100" text-anchor="middle" fill="#e2e8f0" font-size="11">描述解决方案（主动）</text>
+  <text x="590" y="120" text-anchor="middle" fill="#e2e8f0" font-size="11">"set_temp(22)" — 改变世界</text>
+  <text x="590" y="145" text-anchor="middle" fill="#94a3b8" font-size="10">功能：采集、处理、反馈、执行</text>
+  <text x="590" y="160" text-anchor="middle" fill="#94a3b8" font-size="10">对AI而言 = 行动接口</text>
+
+  <!-- Arrow -->
+  <path d="M362,110 L438,110" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4,4" marker-end="url(#arrow-gold2)"/>
+  <text x="400" y="100" text-anchor="middle" fill="#fbbf24" font-size="9">从"说"到"做"</text>
+
+  <!-- Bottom: Implication -->
+  <rect x="140" y="200" width="520" height="100" rx="8" fill="#f59e0b08" stroke="#f59e0b50"/>
+  <text x="400" y="225" text-anchor="middle" fill="#fbbf24" font-size="12" font-weight="bold">关键推论</text>
+  <text x="160" y="250" fill="#e2e8f0" font-size="11">"会Coding的AI" ≠ 只是程序员</text>
+  <text x="160" y="270" fill="#e2e8f0" font-size="11">"会Coding的AI" = 拥有了改变世界的操作接口</text>
+  <text x="160" y="290" fill="#e2e8f0" font-size="11">→ Coding Agent是AI从"理解世界"到"改变世界"的关键跳跃</text>
+
+  <defs>
+    <marker id="arrow-gold2" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#f59e0b"/></marker>
+  </defs>
+</svg>
+</div>
+
+<h3>强化学习框架类比</h3>
+<div class="highlight-box">
+<p>在强化学习中：Agent在<strong>环境</strong>中行动 → 获得<strong>反馈</strong> → 学习。</p>
+<p>Coding就是AI的"环境"——AI通过生成和执行代码来：</p>
+<ul>
+<li>采集外部信息（API调用、爬虫、传感器读取）</li>
+<li>处理数据（算法、转换、分析）</li>
+<li>执行行动（发请求、控制设备、写文件）</li>
+<li>获得反馈（执行结果、错误信息、状态变化）</li>
+</ul>
+</div>
+
+<h3>对 Planner 的直接启示</h3>
+<div class="insight">
+<p>Planner 本质上也是一个"准Coding Agent"——它通过调用23个工具（= 执行操作）来改变车内世界。进化方向：从"选择固定工具"到"组合/生成新操作序列"。</p>
+</div>
+
+<div class="checkpoint">
+<h4>Checkpoint 2</h4>
+<p>能解释：为什么"Coding能力领先 = AGI竞赛领先"？因为Coding是AI操作世界的唯一通道——没有执行力，理解力再强也只能"说"不能"做"。</p>
+</div>
+</section>
+
+<!-- MODULE 3 -->
+<section class="module" id="m3">
+<div class="module-header"><span class="module-num">MODULE 3</span><span class="module-title">Agent持续学习缺口</span></div>
+<div class="module-objective">学习目标：理解为什么当前所有Agent产品都需要人类持续维护，以及根本原因。</div>
+
+<h3>Hassabis的诊断</h3>
+<p>Agent做不到"交付后不管"的根本原因：<strong>不能在具体使用环境中持续学习和适应</strong>。</p>
+
+<div class="diagram">
+<svg viewBox="0 0 800 350" xmlns="http://www.w3.org/2000/svg">
+  <rect width="800" height="350" fill="#16213e" rx="8"/>
+  <text x="400" y="28" text-anchor="middle" fill="#e94560" font-size="13" font-weight="bold">Agent能力层次 vs 持续学习缺口</text>
+
+  <!-- Current state -->
+  <text x="200" y="60" text-anchor="middle" fill="#94a3b8" font-size="11" font-weight="bold">当前Agent架构</text>
+
+  <!-- Layer 1: SP -->
+  <rect x="60" y="75" width="280" height="40" rx="4" fill="#ef444420" stroke="#ef4444"/>
+  <text x="200" y="100" text-anchor="middle" fill="#f87171" font-size="11">System Prompt = "冻结的知识"</text>
+
+  <!-- Layer 2: Memory -->
+  <rect x="60" y="125" width="280" height="40" rx="4" fill="#f59e0b20" stroke="#f59e0b"/>
+  <text x="200" y="150" text-anchor="middle" fill="#fbbf24" font-size="11">Memory = "检索过去" ≠ "从过去学习"</text>
+
+  <!-- Layer 3: Context -->
+  <rect x="60" y="175" width="280" height="40" rx="4" fill="#3b82f620" stroke="#3b82f6"/>
+  <text x="200" y="200" text-anchor="middle" fill="#60a5fa" font-size="11">上下文窗口 = 百万token ≈ 20分钟视频</text>
+
+  <!-- Layer 4: Model -->
+  <rect x="60" y="225" width="280" height="40" rx="4" fill="#64748b20" stroke="#64748b"/>
+  <text x="200" y="250" text-anchor="middle" fill="#94a3b8" font-size="11">模型权重 = 部署后固定不变</text>
+
+  <!-- Result -->
+  <rect x="60" y="285" width="280" height="40" rx="4" fill="#ef444410" stroke="#ef444450" stroke-dasharray="4,4"/>
+  <text x="200" y="310" text-anchor="middle" fill="#f87171" font-size="11">→ 每层都是静态的 → Agent不会变好</text>
+
+  <!-- Ideal state -->
+  <text x="600" y="60" text-anchor="middle" fill="#10b981" font-size="11" font-weight="bold">需要的能力（持续学习）</text>
+
+  <rect x="460" y="75" width="280" height="40" rx="4" fill="#10b98120" stroke="#10b981"/>
+  <text x="600" y="100" text-anchor="middle" fill="#10b981" font-size="11">从每次交互中学到模式</text>
+
+  <rect x="460" y="125" width="280" height="40" rx="4" fill="#10b98120" stroke="#10b981"/>
+  <text x="600" y="150" text-anchor="middle" fill="#10b981" font-size="11">适应具体用户/环境的特殊性</text>
+
+  <rect x="460" y="175" width="280" height="40" rx="4" fill="#10b98120" stroke="#10b981"/>
+  <text x="600" y="200" text-anchor="middle" fill="#10b981" font-size="11">从失败中修正行为（不只是记住）</text>
+
+  <rect x="460" y="225" width="280" height="40" rx="4" fill="#10b98120" stroke="#10b981"/>
+  <text x="600" y="250" text-anchor="middle" fill="#10b981" font-size="11">越用越好（而非越用越慢/脏）</text>
+
+  <rect x="460" y="285" width="280" height="40" rx="4" fill="#10b98130" stroke="#10b981"/>
+  <text x="600" y="310" text-anchor="middle" fill="#10b981" font-size="11">→ "交付后不管"成为可能</text>
+
+  <!-- Gap arrow -->
+  <path d="M342,190 L458,190" stroke="#e94560" stroke-width="2" stroke-dasharray="6,3" marker-end="url(#arrow-red)"/>
+  <text x="400" y="180" text-anchor="middle" fill="#e94560" font-size="10" font-weight="bold">GAP</text>
+
+  <defs>
+    <marker id="arrow-red" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#e94560"/></marker>
+  </defs>
+</svg>
+</div>
+
+<h3>为什么Memory ≠ 持续学习</h3>
+<div class="highlight-box">
+<table>
+<tr><th>机制</th><th>能做的</th><th>不能做的</th></tr>
+<tr><td>Memory检索</td><td>回忆"用户上次说过X"</td><td>学会"这类用户通常想要Y"</td></tr>
+<tr><td>Goal List</td><td>追踪"当前目标是Z"</td><td>学会"在这种情境下应优先Z"</td></tr>
+<tr><td>SP示例</td><td>固定的69个参考case</td><td>从新badcase自动生成新规则</td></tr>
+</table>
+</div>
+
+<div class="warning">
+<p><strong>对Planner团队的直接影响</strong>：当前SP是固定的，模型不因使用变好。Badcase需要人工排查→手动修SP。这正是Hassabis指出的Agent根本缺陷。</p>
+</div>
+
+<div class="checkpoint">
+<h4>Checkpoint 3</h4>
+<p>能区分"有记忆"和"持续学习"的本质差异。能解释为什么所有Agent产品都需要人类持续维护。</p>
+</div>
+</section>
+
+<!-- MODULE 4 -->
+<section class="module" id="m4">
+<div class="module-header"><span class="module-num">MODULE 4</span><span class="module-title">AlphaFold三条件筛选器</span></div>
+<div class="module-objective">学习目标：掌握一个判断"这个问题AI能不能解决"的实用框架。</div>
+
+<h3>三个条件</h3>
+<p>Hassabis从AlphaFold的成功中提炼出AI突破的三个必要条件：</p>
+
+<div class="diagram">
+<svg viewBox="0 0 800 380" xmlns="http://www.w3.org/2000/svg">
+  <rect width="800" height="380" fill="#16213e" rx="8"/>
+  <text x="400" y="28" text-anchor="middle" fill="#e94560" font-size="13" font-weight="bold">AlphaFold三条件 — AI突破筛选器</text>
+
+  <!-- Central circle -->
+  <circle cx="400" cy="200" r="50" fill="#10b98120" stroke="#10b981" stroke-width="2"/>
+  <text x="400" y="195" text-anchor="middle" fill="#10b981" font-size="11" font-weight="bold">AI可以</text>
+  <text x="400" y="210" text-anchor="middle" fill="#10b981" font-size="11" font-weight="bold">突破</text>
+
+  <!-- Condition 1 -->
+  <rect x="80" y="60" width="220" height="80" rx="6" fill="#3b82f615" stroke="#3b82f6"/>
+  <text x="190" y="85" text-anchor="middle" fill="#60a5fa" font-size="12" font-weight="bold">① 巨大组合搜索空间</text>
+  <text x="190" y="108" text-anchor="middle" fill="#e2e8f0" font-size="10">可能的方案数 >> 暴力遍历</text>
+  <text x="190" y="125" text-anchor="middle" fill="#94a3b8" font-size="9">例：蛋白质折叠 = 10^300种构象</text>
+  <line x1="300" y1="110" x2="355" y2="175" stroke="#3b82f6" stroke-width="1.5"/>
+
+  <!-- Condition 2 -->
+  <rect x="500" y="60" width="220" height="80" rx="6" fill="#8b5cf615" stroke="#8b5cf6"/>
+  <text x="610" y="85" text-anchor="middle" fill="#a78bfa" font-size="12" font-weight="bold">② 清晰目标函数</text>
+  <text x="610" y="108" text-anchor="middle" fill="#e2e8f0" font-size="10">能定义"什么是好的解"</text>
+  <text x="610" y="125" text-anchor="middle" fill="#94a3b8" font-size="9">例：折叠能量最低 = 正确构象</text>
+  <line x1="500" y1="110" x2="445" y2="175" stroke="#8b5cf6" stroke-width="1.5"/>
+
+  <!-- Condition 3 -->
+  <rect x="290" y="280" width="220" height="80" rx="6" fill="#f59e0b15" stroke="#f59e0b"/>
+  <text x="400" y="305" text-anchor="middle" fill="#fbbf24" font-size="12" font-weight="bold">③ 足够数据/模拟器</text>
+  <text x="400" y="328" text-anchor="middle" fill="#e2e8f0" font-size="10">有训练数据或能生成合成数据</text>
+  <text x="400" y="345" text-anchor="middle" fill="#94a3b8" font-size="9">例：PDB数据库 + 物理模拟</text>
+  <line x1="400" y1="280" x2="400" y2="250" stroke="#f59e0b" stroke-width="1.5"/>
+
+  <!-- Missing conditions -->
+  <text x="100" y="180" fill="#f87171" font-size="9">缺①：搜索空间不大</text>
+  <text x="100" y="195" fill="#f87171" font-size="9">→ 可能不需要AI</text>
+
+  <text x="620" y="180" fill="#f87171" font-size="9">缺②：目标模糊</text>
+  <text x="620" y="195" fill="#f87171" font-size="9">→ 先定义评估标准</text>
+
+  <text x="100" y="320" fill="#f87171" font-size="9">缺③：无数据无模拟器</text>
+  <text x="100" y="335" fill="#f87171" font-size="9">→ 先建数据管道</text>
+</svg>
+</div>
+
+<h3>如何使用这个筛选器</h3>
+<div class="highlight-box">
+<p>对你想用AI解决的<strong>任何问题</strong>，逐一检查三条件：</p>
+<table>
+<tr><th>条件满足情况</th><th>判断</th><th>行动</th></tr>
+<tr><td>三条件都满足</td><td>AI几乎一定能突破</td><td>投入资源，时间问题</td></tr>
+<tr><td>缺目标函数</td><td>需要人定义"好"</td><td>先花时间设计评估标准</td></tr>
+<tr><td>缺数据/模拟器</td><td>AI暂时不能做</td><td>先建数据管道或模拟环境</td></tr>
+<tr><td>搜索空间不大</td><td>可能不需要AI</td><td>传统方法可能就够</td></tr>
+</table>
+</div>
+
+<h3>用三条件评估Driver Agent Planner</h3>
+<div class="insight">
+<p><strong>① 搜索空间</strong>：大（23工具 × 多步规划 × 参数组合）✓</p>
+<p><strong>② 目标函数</strong>：<span style="color:var(--accent)">模糊</span>（"好的驾驶体验"难以量化）← 这是瓶颈</p>
+<p><strong>③ 数据</strong>：有（用户交互log + tool_feedback）✓</p>
+<p><strong>→ 突破方向</strong>：定义更清晰的"好规划"评估标准（延迟? 完成率? 用户满意度?）</p>
+</div>
+
+<div class="checkpoint">
+<h4>Checkpoint 4</h4>
+<p>能用三条件评估一个具体问题。能识别Planner的瓶颈在"目标函数模糊"。</p>
+</div>
+</section>
+
+<!-- MODULE 5 -->
+<section class="module" id="m5">
+<div class="module-header"><span class="module-num">MODULE 5</span><span class="module-title">壁垒窗口与竞争格局</span></div>
+<div class="module-objective">学习目标：理解AI产品壁垒的时间窗口，判断什么才是真正的护城河。</div>
+
+<h3>0.5-1年追赶定律</h3>
+<p>Hassabis指出：前沿大模型的能力，0.5-1年后会出现在端侧小模型上。这意味着：</p>
+
+<div class="diagram">
+<svg viewBox="0 0 800 300" xmlns="http://www.w3.org/2000/svg">
+  <rect width="800" height="300" fill="#16213e" rx="8"/>
+  <text x="400" y="28" text-anchor="middle" fill="#e94560" font-size="13" font-weight="bold">壁垒窗口时间线 + 真/假壁垒对比</text>
+
+  <!-- Timeline -->
+  <line x1="80" y1="70" x2="720" y2="70" stroke="#334155" stroke-width="2"/>
+  <text x="80" y="60" fill="#94a3b8" font-size="9">今天</text>
+  <text x="280" y="60" fill="#94a3b8" font-size="9">+6个月</text>
+  <text x="480" y="60" fill="#94a3b8" font-size="9">+12个月</text>
+  <text x="680" y="60" fill="#94a3b8" font-size="9">+24个月</text>
+
+  <!-- Frontier model line -->
+  <path d="M80,90 L280,90 L480,95 L680,100" stroke="#60a5fa" stroke-width="2"/>
+  <text x="720" y="95" fill="#60a5fa" font-size="9">前沿大模型</text>
+
+  <!-- Small model catch-up -->
+  <path d="M80,140 L280,120 L480,95 L680,100" stroke="#10b981" stroke-width="2" stroke-dasharray="4,4"/>
+  <text x="720" y="105" fill="#10b981" font-size="9">小模型/开源</text>
+
+  <!-- Window -->
+  <rect x="80" y="75" width="200" height="60" fill="#e9456015" stroke="none"/>
+  <text x="180" y="150" text-anchor="middle" fill="#e94560" font-size="10" font-weight="bold">← 壁垒窗口 →</text>
+  <text x="180" y="165" text-anchor="middle" fill="#f87171" font-size="9">仅0.5-1年！</text>
+
+  <!-- False barriers -->
+  <rect x="60" y="190" width="320" height="90" rx="6" fill="#ef444410" stroke="#ef444450"/>
+  <text x="220" y="210" text-anchor="middle" fill="#f87171" font-size="11" font-weight="bold">假壁垒（0.5年后消失）</text>
+  <text x="80" y="232" fill="#e2e8f0" font-size="10">• "我们用了最新/最大的模型"</text>
+  <text x="80" y="250" fill="#e2e8f0" font-size="10">• "我们的Prompt/RAG更好"</text>
+  <text x="80" y="268" fill="#e2e8f0" font-size="10">• "我们有先发优势"（如果产品去掉AI还能用）</text>
+
+  <!-- True barriers -->
+  <rect x="420" y="190" width="320" height="90" rx="6" fill="#10b98110" stroke="#10b98150"/>
+  <text x="580" y="210" text-anchor="middle" fill="#10b981" font-size="11" font-weight="bold">真壁垒（AGI时代依然成立）</text>
+  <text x="440" y="232" fill="#e2e8f0" font-size="10">• 数据飞轮（越用数据越多越准）</text>
+  <text x="440" y="250" fill="#e2e8f0" font-size="10">• 领域关系 / 物理世界部署成本</text>
+  <text x="440" y="268" fill="#e2e8f0" font-size="10">• 用户习惯 + 硬件绑定（如车载）</text>
+</svg>
+</div>
+
+<h3>竞争格局"三幕定位"</h3>
+<div class="highlight-box">
+<table>
+<tr><th>玩家</th><th>三幕定位</th><th>判断</th></tr>
+<tr><td>OpenAI</td><td>第一幕成功(ChatGPT)，第二幕分散</td><td>战略分散+组织动荡，可能错失Coding</td></tr>
+<tr><td>Google/DeepMind</td><td>全幕跟随，科学应用独特优势</td><td>"最领先的追随者"，天花板低但不会掉队</td></tr>
+<tr><td>Anthropic</td><td>第二幕聚焦(Claude Code)</td><td>隐含被看好（李广密未明说但逻辑指向）</td></tr>
+<tr><td>Meta</td><td>开源路线，加速小模型追赶</td><td>压缩壁垒窗口的关键力量</td></tr>
+</table>
+</div>
+
+<div class="warning">
+<p><strong>危险信号检查</strong>：如果你的产品壁垒只是"我们用了更好的模型/更好的prompt"——这个壁垒的半衰期只有6个月。</p>
+</div>
+
+<div class="checkpoint">
+<h4>Checkpoint 5</h4>
+<p>能区分真假壁垒。能回答"你的产品去掉AI还能用吗？"这个试金石问题。Driver Agent的真壁垒是什么？（车端数据 + 荣威合作关系 + 物理世界部署）</p>
+</div>
+</section>
+
+<!-- MODULE 6 -->
+<section class="module" id="m6">
+<div class="module-header"><span class="module-num">MODULE 6</span><span class="module-title">战略判断SOP</span></div>
+<div class="module-objective">学习目标：掌握4步操作流程，对任何产品/战略做出"AGI时代是否成立"的判断。</div>
+
+<h3>4步SOP</h3>
+
+<div class="diagram">
+<svg viewBox="0 0 800 440" xmlns="http://www.w3.org/2000/svg">
+  <rect width="800" height="440" fill="#16213e" rx="8"/>
+  <text x="400" y="28" text-anchor="middle" fill="#e94560" font-size="13" font-weight="bold">产品战略判断SOP — 4步流程</text>
+
+  <!-- Step 1 -->
+  <rect x="60" y="50" width="680" height="75" rx="6" fill="#3b82f610" stroke="#3b82f6"/>
+  <circle cx="90" cy="88" r="16" fill="#3b82f6"/>
+  <text x="90" y="93" text-anchor="middle" fill="white" font-size="12" font-weight="bold">1</text>
+  <text x="120" y="75" fill="#60a5fa" font-size="12" font-weight="bold">定位你的产品在三幕中的位置</text>
+  <text x="120" y="95" fill="#e2e8f0" font-size="10">问：我的产品在第几幕？依赖的模型能力0.5年后会被平替吗？AGI到来后还有价值吗？</text>
+  <text x="120" y="115" fill="#94a3b8" font-size="9">第一幕(纯对话)→高风险 | 第二幕(Agent)→中等,需数据飞轮 | 物理世界→低风险,AGI加速你</text>
+
+  <!-- Arrow -->
+  <path d="M400,127 L400,145" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow-dim2)"/>
+
+  <!-- Step 2 -->
+  <rect x="60" y="148" width="680" height="75" rx="6" fill="#8b5cf610" stroke="#8b5cf6"/>
+  <circle cx="90" cy="186" r="16" fill="#8b5cf6"/>
+  <text x="90" y="191" text-anchor="middle" fill="white" font-size="12" font-weight="bold">2</text>
+  <text x="120" y="173" fill="#a78bfa" font-size="12" font-weight="bold">用AlphaFold三条件评估你的问题</text>
+  <text x="120" y="193" fill="#e2e8f0" font-size="10">检查：①搜索空间够大？ ②目标函数清晰？ ③有数据/模拟器？</text>
+  <text x="120" y="213" fill="#94a3b8" font-size="9">三条件满→时间问题 | 缺②→先定义标准 | 缺③→先建数据管道 | ①不大→可能不需要AI</text>
+
+  <!-- Arrow -->
+  <path d="M400,225 L400,243" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow-dim2)"/>
+
+  <!-- Step 3 -->
+  <rect x="60" y="246" width="680" height="75" rx="6" fill="#f59e0b10" stroke="#f59e0b"/>
+  <circle cx="90" cy="284" r="16" fill="#f59e0b"/>
+  <text x="90" y="289" text-anchor="middle" fill="white" font-size="12" font-weight="bold">3</text>
+  <text x="120" y="271" fill="#fbbf24" font-size="12" font-weight="bold">评估壁垒窗口</text>
+  <text x="120" y="291" fill="#e2e8f0" font-size="10">问：我用到的模型能力多久后出现在端侧？到时我有什么是别人没有的？</text>
+  <text x="120" y="311" fill="#94a3b8" font-size="9">真壁垒 = 数据飞轮 / 领域关系 / 物理部署 / 用户习惯（而非"更大模型"或"更好prompt"）</text>
+
+  <!-- Arrow -->
+  <path d="M400,323 L400,341" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow-dim2)"/>
+
+  <!-- Step 4 -->
+  <rect x="60" y="344" width="680" height="75" rx="6" fill="#10b98110" stroke="#10b981"/>
+  <circle cx="90" cy="382" r="16" fill="#10b981"/>
+  <text x="90" y="387" text-anchor="middle" fill="white" font-size="12" font-weight="bold">4</text>
+  <text x="120" y="369" fill="#10b981" font-size="12" font-weight="bold">对竞争对手做"三幕定位"</text>
+  <text x="120" y="389" fill="#e2e8f0" font-size="10">问：他们在第几幕？Coding能力如何？是方向定义者还是跟随者？</text>
+  <text x="120" y="409" fill="#94a3b8" font-size="9">方向定义者拿最大蛋糕 | 跟随者天花板低但不会消失 | 判断他们的壁垒vs你的壁垒</text>
+
+  <defs>
+    <marker id="arrow-dim2" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#94a3b8"/></marker>
+  </defs>
+</svg>
+</div>
+
+<h3>自测练习</h3>
+<div class="quiz" id="quiz1">
+<p class="quiz-q">用4步SOP评估"一个AI写周报的SaaS产品"：</p>
+<div class="quiz-options">
+<label><input type="radio" name="q1" value="a" onchange="checkQuiz('quiz1','c')"> A. 高壁垒——用户习惯锁定</label>
+<label><input type="radio" name="q1" value="b" onchange="checkQuiz('quiz1','c')"> B. 中等——有数据飞轮</label>
+<label><input type="radio" name="q1" value="c" onchange="checkQuiz('quiz1','c')"> C. 高风险——第一幕产品，壁垒0.5年后消失</label>
+<label><input type="radio" name="q1" value="d" onchange="checkQuiz('quiz1','c')"> D. 低风险——涉及物理世界</label>
+</div>
+<div class="quiz-result correct" id="quiz1-correct">正确！AI写周报 = 第一幕(纯文本生成)，壁垒只是"用了更好的模型"，0.5年后端侧模型就能做。去掉AI = 没有产品。</div>
+<div class="quiz-result wrong" id="quiz1-wrong">再想想：AI写周报的核心能力是文本生成，这属于第几幕？去掉AI这个产品还能存在吗？</div>
+</div>
+
+<div class="quiz" id="quiz2">
+<p class="quiz-q">Driver Agent 2.0 Planner的AlphaFold三条件哪个是瓶颈？</p>
+<div class="quiz-options">
+<label><input type="radio" name="q2" value="a" onchange="checkQuiz('quiz2','b')"> A. 搜索空间不够大</label>
+<label><input type="radio" name="q2" value="b" onchange="checkQuiz('quiz2','b')"> B. 目标函数模糊（"好的驾驶体验"难量化）</label>
+<label><input type="radio" name="q2" value="c" onchange="checkQuiz('quiz2','b')"> C. 缺少数据</label>
+<label><input type="radio" name="q2" value="d" onchange="checkQuiz('quiz2','b')"> D. 三条件都不满足</label>
+</div>
+<div class="quiz-result correct" id="quiz2-correct">正确！搜索空间大(23工具×多步)，数据有(交互log)，但"好的规划"没有清晰的评分标准。这是突破方向。</div>
+<div class="quiz-result wrong" id="quiz2-wrong">提示：23个工具的组合空间够大，用户交互log提供了数据，但"什么是好的驾驶体验规划"有明确评分标准吗？</div>
+</div>
+
+<div class="checkpoint">
+<h4>Checkpoint 6</h4>
+<p>能完整走一遍4步SOP，对自己的产品给出判断。能识别出"危险信号"（壁垒只是prompt/模型、去掉AI还能用、没有清晰目标函数）。</p>
+</div>
+</section>
+
+<!-- MODULE 7: Planner -->
+<section class="module" id="m7">
+<div class="module-header"><span class="module-num">BONUS</span><span class="module-title">对 Planner 的直接启示</span></div>
+<div class="module-objective">学习目标：将两篇访谈的框架映射到 Driver Agent 2.0 Planner 的具体工作方向。</div>
+
+<div class="diagram">
+<svg viewBox="0 0 800 320" xmlns="http://www.w3.org/2000/svg">
+  <rect width="800" height="320" fill="#16213e" rx="8"/>
+  <text x="400" y="28" text-anchor="middle" fill="#e94560" font-size="13" font-weight="bold">Planner 进化路线 — 受访谈启发</text>
+
+  <!-- Current -->
+  <rect x="40" y="50" width="240" height="250" rx="6" fill="#64748b10" stroke="#64748b"/>
+  <text x="160" y="75" text-anchor="middle" fill="#94a3b8" font-size="12" font-weight="bold">当前状态</text>
+  <text x="60" y="100" fill="#e2e8f0" font-size="10">三幕定位：1→2之间</text>
+  <text x="60" y="120" fill="#e2e8f0" font-size="10">  能对话 + 能调工具</text>
+  <text x="60" y="140" fill="#e2e8f0" font-size="10">  但不能生成新工具</text>
+  <text x="60" y="170" fill="#e2e8f0" font-size="10">持续学习：无</text>
+  <text x="60" y="190" fill="#e2e8f0" font-size="10">  SP固定，模型不变</text>
+  <text x="60" y="220" fill="#e2e8f0" font-size="10">目标函数：模糊</text>
+  <text x="60" y="240" fill="#e2e8f0" font-size="10">  "好体验"无量化标准</text>
+  <text x="60" y="270" fill="#10b981" font-size="10">壁垒：成立 ✓</text>
+  <text x="60" y="290" fill="#10b981" font-size="10">  车端数据+荣威关系+物理部署</text>
+
+  <!-- Arrow -->
+  <path d="M282,175 L360,175" stroke="#f59e0b" stroke-width="2" marker-end="url(#arrow-gold3)"/>
+  <text x="321" y="165" text-anchor="middle" fill="#fbbf24" font-size="9">进化方向</text>
+
+  <!-- Future -->
+  <rect x="365" y="50" width="395" height="250" rx="6" fill="#10b98108" stroke="#10b98150"/>
+  <text x="562" y="75" text-anchor="middle" fill="#10b981" font-size="12" font-weight="bold">进化方向（受访谈启发）</text>
+
+  <!-- Direction 1 -->
+  <text x="385" y="100" fill="#60a5fa" font-size="10" font-weight="bold">① 从"选择工具"→"组合生成操作序列"</text>
+  <text x="395" y="118" fill="#94a3b8" font-size="9">当23个工具不够时，Planner能否动态组合新行动？</text>
+
+  <!-- Direction 2 -->
+  <text x="385" y="148" fill="#a78bfa" font-size="10" font-weight="bold">② 从badcase中自动学习</text>
+  <text x="395" y="166" fill="#94a3b8" font-size="9">tool_feedback失败 → 自动提取模式 → 更新SP/示例</text>
+  <text x="395" y="182" fill="#94a3b8" font-size="9">（解决Hassabis指出的"持续学习"缺口）</text>
+
+  <!-- Direction 3 -->
+  <text x="385" y="212" fill="#fbbf24" font-size="10" font-weight="bold">③ 定义清晰的"好规划"评估标准</text>
+  <text x="395" y="230" fill="#94a3b8" font-size="9">候选指标：完成率 / 步骤效率 / 延迟 / 用户打断率</text>
+  <text x="395" y="246" fill="#94a3b8" font-size="9">（解决AlphaFold三条件中②的瓶颈）</text>
+
+  <!-- Direction 4 -->
+  <text x="385" y="276" fill="#f87171" font-size="10" font-weight="bold">④ 强化已有壁垒而非依赖模型能力</text>
+  <text x="395" y="294" fill="#94a3b8" font-size="9">用车端数据飞轮 + 场景know-how积累 + 荣威深度绑定</text>
+
+  <defs>
+    <marker id="arrow-gold3" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#f59e0b"/></marker>
+  </defs>
+</svg>
+</div>
+
+<h3>行动项清单</h3>
+<div class="highlight-box">
+<ol>
+<li><strong>短期（本Sprint）</strong>：梳理现有badcase，看有没有可自动提取的失败模式</li>
+<li><strong>中期（S9-S10）</strong>：设计"好规划"评分标准，用历史log回测</li>
+<li><strong>长期探索</strong>：研究Planner如何从tool_feedback中持续改进（而非靠人手动改SP）</li>
+</ol>
+</div>
+
+<div class="checkpoint">
+<h4>Final Checkpoint</h4>
+<p>你现在应该能：(1) 说出Planner在三幕中的位置 (2) 识别目标函数模糊是核心瓶颈 (3) 知道真壁垒不在模型能力而在数据/关系/物理部署 (4) 有3个具体的进化方向。</p>
+</div>
+</section>
+
+</main>
+
+<script>
+function scrollTo_(id) {
+  document.getElementById(id).scrollIntoView({behavior:'smooth'});
+}
+
+function checkQuiz(qid, correct) {
+  const sel = document.querySelector(`#${qid} input[name]:checked`);
+  if (!sel) return;
+  const cEl = document.getElementById(qid+'-correct');
+  const wEl = document.getElementById(qid+'-wrong');
+  if (sel.value === correct) { cEl.style.display='block'; wEl.style.display='none'; }
+  else { wEl.style.display='block'; cEl.style.display='none'; }
+}
+
+// Progress bar
+window.addEventListener('scroll', () => {
+  const h = document.documentElement.scrollHeight - window.innerHeight;
+  const p = (window.scrollY / h) * 100;
+  document.getElementById('progress-bar').style.width = p + '%';
+});
+
+// Module visibility on scroll
+const obs = new IntersectionObserver(entries => {
+  entries.forEach(e => { if(e.isIntersecting) e.target.classList.add('visible'); });
+}, {threshold: 0.1});
+document.querySelectorAll('.module').forEach(m => obs.observe(m));
+
+// Sidebar active state
+const mods = document.querySelectorAll('.module');
+const navs = document.querySelectorAll('.nav-item');
+window.addEventListener('scroll', () => {
+  let cur = 0;
+  mods.forEach((m, i) => { if(m.getBoundingClientRect().top < 200) cur = i; });
+  navs.forEach((n, i) => { n.classList.toggle('active', i === cur); });
+});
+</script>
+</body>
+</html>

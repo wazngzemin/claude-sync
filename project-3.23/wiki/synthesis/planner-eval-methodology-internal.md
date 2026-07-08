@@ -1,0 +1,1944 @@
+---
+title: 豆包上车 Driver Agent 2.0 Planner 评测方法论(内部版)
+date: 2026-05-27
+updated: 2026-05-27
+tags: [synthesis, methodology, evaluation, planner, internal]
+sources:
+  - raw/articles/AI Agent评测入门.html
+  - raw/articles/Agent评测方法论梳理.html
+  - raw/articles/Director评测重点与打分指南.html
+  - raw/articles/车载智能助手评测体系2.0.html
+  - raw/articles/豆包汽车如何更像人.html
+  - wiki/concepts/planner-jiangjie.md
+  - wiki/concepts/planner-system-deep-dive.md
+  - wiki/concepts/planner-sp-structure.md
+  - wiki/concepts/scenario-rag-arbitration.md
+status: draft
+---
+
+# 豆包上车 Driver Agent 2.0 Planner 评测方法论
+
+> **本文定位 · 内部版**
+> 这是为豆包上车 Planner 建立的业务深度评测方法论。每节都钉到 Driver Agent 2.0 的真实模块上:**三层漏斗**(句法 RAG / 情景 RAG + 仲裁 / 云端 Planner)、**SP 11 个模块**(角色 / 输入类型 / 23 工具 / 输出格式 / 10 注意事项 / 69 示例 / 车辆设备 / 工具 tips / 其他知识 / 聊天风格 / 动态变量)、**UP 结构**(对话历史 + 当前 query + advisor + tool_feedback)、**4 种任务类型**(单步复杂 S7 / 多步串行 S8 / 条件 S8 / 持续 S9-S10)、**Goal List + Advisor 协作**、**KV Cache 缓存**、**Badcase 4 层排查路径**。
+
+> **TL;DR**
+> 豆包上车 Planner 跑在云端 Seed 1.8,搭载在上汽荣威 D6X。Planner 是 Agent 系统的"大脑节点"——不是端到端 Agent。它前面有句法 RAG / 情景 RAG + 仲裁过滤,后面有 23 个下游工具执行。这意味着评测必须**穿透到 Planner 决策本身**(SP 工具选择 / 动态变量利用 / `action_list` 拆解 / `talk_content` 一致性),而不止于看 23 个工具的最终执行。本文记录我们从 1.0(单点问答)到 2.0(场景化 + 过程归因 + 像人体验)所做的**三次重构**,以及把整条链路工程化为可自动化流水线的过程——每个方法论决策都钉到具体的 Planner 模块。
+
+<div style="font-family:-apple-system,sans-serif;background:#f7f9fc;padding:24px;border-radius:12px;border:1px solid #eaeaea;">
+  <div style="display:flex;flex-direction:column;gap:10px;">
+    <div style="background:#fff;border-left:4px solid #95a5a6;padding:14px 18px;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+      <span style="color:#95a5a6;font-weight:600;font-size:13px;">Part 1 · 起点</span>
+      <div style="color:#2c3e50;font-size:14px;margin-top:4px;">1.0 评测体系做什么、为什么不够用</div>
+    </div>
+    <div style="text-align:center;color:#bdc3c7;font-size:18px;">▼</div>
+    <div style="background:#fff;border-left:4px solid #e67e22;padding:14px 18px;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+      <span style="color:#e67e22;font-weight:600;font-size:13px;">Part 2 · 转折</span>
+      <div style="color:#2c3e50;font-size:14px;margin-top:4px;">产品形态变了,评测体系暴露了 3 个漏洞</div>
+    </div>
+    <div style="text-align:center;color:#bdc3c7;font-size:18px;">▼</div>
+    <div style="background:#fff;border-left:4px solid #3498db;padding:14px 18px;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+      <span style="color:#3498db;font-weight:600;font-size:13px;">Part 3 · 重构 1</span>
+      <div style="color:#2c3e50;font-size:14px;margin-top:4px;">评测对象 — 从指令到"场景"</div>
+    </div>
+    <div style="text-align:center;color:#bdc3c7;font-size:18px;">▼</div>
+    <div style="background:#fff;border-left:4px solid #3498db;padding:14px 18px;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+      <span style="color:#3498db;font-weight:600;font-size:13px;">Part 4 · 重构 2</span>
+      <div style="color:#2c3e50;font-size:14px;margin-top:4px;">评测视角 — 从结果到过程 + 归因</div>
+    </div>
+    <div style="text-align:center;color:#bdc3c7;font-size:18px;">▼</div>
+    <div style="background:#fff;border-left:4px solid #3498db;padding:14px 18px;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+      <span style="color:#3498db;font-weight:600;font-size:13px;">Part 5 · 重构 3</span>
+      <div style="color:#2c3e50;font-size:14px;margin-top:4px;">评测维度 — 主观体验"像人"怎么测</div>
+    </div>
+    <div style="text-align:center;color:#bdc3c7;font-size:18px;">▼</div>
+    <div style="background:#fff;border-left:4px solid #27ae60;padding:14px 18px;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+      <span style="color:#27ae60;font-weight:600;font-size:13px;">Part 6 · 工程化</span>
+      <div style="color:#2c3e50;font-size:14px;margin-top:4px;">5 个 Prompt 串起一条自动化流水线</div>
+    </div>
+    <div style="text-align:center;color:#bdc3c7;font-size:18px;">▼</div>
+    <div style="background:#fff;border-left:4px solid #8e44ad;padding:14px 18px;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+      <span style="color:#8e44ad;font-weight:600;font-size:13px;">Part 7 · 难题</span>
+      <div style="color:#2c3e50;font-size:14px;margin-top:4px;">诚实地讲 — 正在解决的问题</div>
+    </div>
+    <div style="text-align:center;color:#bdc3c7;font-size:18px;">▼</div>
+    <div style="background:#fff;border-left:4px solid #c0392b;padding:14px 18px;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+      <span style="color:#c0392b;font-weight:600;font-size:13px;">Part 8 · 建议</span>
+      <div style="color:#2c3e50;font-size:14px;margin-top:4px;">给同行的 5 条建议</div>
+    </div>
+  </div>
+</div>
+
+---
+
+## 写在前面:Driver Agent 2.0 Planner 在评测视角下是什么
+
+主流 Agent 评测(SWE-bench / WebArena / τ-bench / GAIA 这类)默认评测对象是一个**端到端 Agent**——给它一个目标,它自己规划、调用工具、产出结果。但豆包上车 Planner 不是这种结构。
+
+### 我们的系统结构
+
+```
+用户语音 → ASR
+    ↓
+第一层:句法 RAG (毫秒级, 规则匹配, 处理 "打开车窗" 等明确指令)
+    ↓ 处理不了
+第二层:情景 RAG + 简单/复杂仲裁 (注入用户记忆/车况/情景, 判断简单/复杂分流)
+    ↓ 复杂需求
+第三层:Planner (云端 Seed 1.8, 深度推理, 多步规划, 调用多工具)
+    ↓
+底层:23 个下游 Agent 执行 → 返回 tool_feedback
+```
+
+Planner 是漏斗最深处的"大脑节点"。它前面有句法 RAG + 情景 RAG + 仲裁三层过滤,后面有 23 个下游 Agent 承接执行。**Planner 的任务不是把事做完,而是决定怎么做。**
+
+### Planner 评测的两个特殊点(被通用框架忽视)
+
+**特殊点 1 · 输出不是最终用户感知**
+
+Planner 输出的是一个 JSON:
+```json
+{
+  "talk_or_not": true,
+  "talk_content": "好的,座椅加热和方向盘加热都开了,空调 24 度 3 档,林俊杰的歌马上来",
+  "action_list": [
+    { "tool": "vehicle_basic_control", "params": {...} },
+    { "tool": "search_and_control_music", "params": {...} }
+  ]
+}
+```
+
+用户体验的是"空调有没有开、话术好不好听",而 Planner 决策对了不等于体验对、Planner 决策错了不等于体验错(下游工具可能擦屁股或硬失败)。
+
+**结果导向的评测会让真正的 Planner 问题被淹没在系统噪声里**——这是为什么 1.0 评测无法满足我们的根本原因。
+
+**特殊点 2 · 输入是高维 [SP, UP] 结构**
+
+Planner 一次调用接收的输入,在系统提示层(SP)是~30K-35K tokens,在用户提示层(UP)是~10K-15K tokens:
+
+| 层 | 模块 | 内容 |
+|---|------|------|
+| SP | ① 角色定义 | 你是车载助手豆包 |
+| SP | ② 输入类型 | user_query / advisor / tool_feedback |
+| SP | ③ 23 个工具定义 | 见后文 |
+| SP | ④ 输出格式 | talk_or_not / talk_content / action_list |
+| SP | ⑤ 10 条注意事项 | 必回 / 不犯 / 优先级 等行为约束 |
+| SP | ⑥ 69 个参考示例 | 占 SP 约 50% |
+| SP | ⑦ 车辆设备知识 | D6X 规格 |
+| SP | ⑧ 工具使用 tips | 各工具调用建议 |
+| SP | ⑨ 其他知识 | 通用知识补充 |
+| SP | ⑩ 聊天风格 | 温柔高知女生人设 |
+| SP | ⑪ 动态模板变量 | `{{status}}` 视觉感知 · `{{goal_list}}` 目标队列 · `{{env_info}}` 车况 · `{{memory}}` 用户记忆 |
+| UP | 多轮对话 | 最近 N 轮 role:user / role:assistant 交替 |
+| UP | 当前轮 | user query + advisor 建议 (数组形式) + tool_feedback |
+
+同一句 `"我好热"`,在 `{{env_info}}: 空调关闭` 和 `{{env_info}}: 空调已开 16℃ 1 档` 下应有完全不同的最优解。**这件事在通用 Agent 评测里很少需要被显式建模,但在 Planner 评测里它就是核心矛盾。**
+
+### 23 个下游工具(评测时归因目标)
+
+`vehicle_basic_control` · `search_vehicle_status_info` · `search_weather` · `search_poi_qa` · `route_planning_qa` · `navi_basic_control` · `vehicle_manual_qa` · `search_and_control_short_video` · `search_and_control_music` · `search_user_memory` · `face_id_register` · `operate_user_memory` · `web_search` · `goal_list_update` · `ai_broadcast_generate` · `search_and_control_broadcast` · `recording_minutes` · `image_generate` · `search_visual_info` · `ambient_light_control` · `auto_drive` · `car_log` · `car_care_qa`
+
+### 4 种任务类型(评测时分类目标)
+
+| 类型 | 含义 | 业务排期 |
+|------|------|----------|
+| **单步复杂** | 一句话拆多动作并行("我好热"→查车况+开空调+调风量) | S7 |
+| **多步** | 串行依赖("去昨天游泳馆"→查记忆→拿地址→导航) | S8 |
+| **条件** | 设定触发条件("10 分钟后关座椅加热") | S8 |
+| **持续** | 持续运行("帮我介绍沿途风景") | S9-S10 |
+
+### Goal List + Advisor 演进(评测时的协作主体)
+
+从 Planner 一人包揽 → 团队协作:**Planner** 管快速响应+执行,**4 个静态 Advisor**(舒适/出行/情感/内容) + 动态 Advisor 管深度思考+目标监控,**Goal List** 为共享看板。
+
+---
+
+所以本文的逻辑是:**通用方法论的骨架是对的,但每一根骨头都要钉到 Driver Agent 2.0 Planner 的具体模块上才有用**。下面三次重构,每一次都是把通用框架翻译到 Planner 业务的具体落地。
+
+---
+
+## Part 1 — 起点:1.0 评测体系做了什么,为什么不够用
+
+### 1.1 1.0 的工作模式
+
+1.0 评测体系是为"传统车载语音助手"设计的——市面上大部分车机都是这个形态。它的核心工作假设非常清晰:**用户每次说一句话,系统执行一次,我们评测这一次。**
+
+按这个假设,1.0 把评测拆成了五个相对独立的类目:
+
+- **导航类**:目的地解析、路线偏好、路况查询、途经点设置
+- **多媒体类**:音乐播放、点歌、调音量、切歌、电台
+- **车控类**:空调、车窗、座椅、灯光、雨刮等近百个原子动作
+- **闲聊类**:开放对话、问答、陪聊
+- **搜索类**:POI 搜索、知识问答、车书检索
+
+每个类目下,我们维护一个 case 库。一条 case 大致长这样:
+
+```
+query: "把主驾座椅加热打开,温度调到中档"
+期望:
+  - 工具: vehicle_basic_control
+  - 参数: seat_heat = on, position = driver, level = medium
+  - 话术: 包含确认信息(主驾座椅/中档)
+```
+
+跑评测就是**把整个 case 库灌进去,统计单条 case 的通过率,加权汇总成各能力域得分**。主观题(比如闲聊回复是否得体)用对抗评估(A vs B 两两对比)或者 1-5 分人工评分。整套流程跑一遍,出一份报告,然后用同一个 case 库横向对比竞品。
+
+### 1.2 1.0 体系真正解决了什么(不要全盘否定)
+
+我们要去做 2.0,不是因为 1.0 错了,而是因为 1.0 不够用。它在它服务的产品形态下做了几件**到今天我们仍然依赖**的事:
+
+1. **为基础能力提供了可重复的度量衡。** 当模型或 SP 改动后,我们能在半天内知道"车控基础能力的准确率是涨了还是跌了"。这件事看上去普通,但没有它一切都是手感。
+
+2. **跑通了回归测试的工程链路。** Case 库的版本管理、批量执行、结果归档、横向对比报告,这套基建是后面 2.0 直接复用的。
+
+3. **沉淀了"准出标准"这个产品决策机制。** 比如 v3.0 准出要求车控类 ≥ 96%、闲聊类不能比 v2.9 下降超过 2 个百分点——这种 Go/No-Go 的硬门槛,本身就是评测体系最有价值的产出之一。
+
+4. **建立了团队的统一语言。** 产品、研发、QA 在讨论"这个 case 该不该过"时,大家在同一个 case 库、同一个评分卡上对话——评测体系真正的力量不只是数字,而是把所有人拉到同一张桌上。
+
+> **这一点对外分享时要强调**:任何方法论演进的第一步,不是推翻前任,而是先承认前任在它的时代里做对了什么。否则团队和外部读者都会怀疑你只是想刷一波"重做"的工作量。
+
+### 1.3 1.0 的五个隐含假设(也是它的边界)
+
+把 1.0 的工作模式压到极简,它依赖五条隐含假设。这五条假设在传统车机时代基本成立,但每一条都会在 AI 汽车的产品形态下被打破——这就是后面"转折"的源头。
+
+<div style="font-family:-apple-system,sans-serif;background:#f7f9fc;padding:24px;border-radius:12px;border:1px solid #eaeaea;">
+  <table style="width:100%;border-collapse:separate;border-spacing:0 10px;font-size:13px;">
+    <thead>
+      <tr>
+        <th style="text-align:left;padding:8px 14px;color:#95a5a6;font-weight:600;width:38%;">1.0 的隐含假设</th>
+        <th style="text-align:left;padding:8px 14px;color:#95a5a6;font-weight:600;">何时被打破</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="background:#fff;padding:14px;border-radius:6px 0 0 6px;color:#2c3e50;font-weight:600;">① 一问一答</td>
+        <td style="background:#fff;padding:14px;border-radius:0 6px 6px 0;color:#7f8c8d;">主动服务出现 — 用户没开口,系统已经在判断要不要说话</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:14px;border-radius:6px 0 0 6px;color:#2c3e50;font-weight:600;">② Case 相互独立</td>
+        <td style="background:#fff;padding:14px;border-radius:0 6px 6px 0;color:#7f8c8d;">多步任务、持续任务出现 — 前后动作有依赖,Case 不能再被孤立评</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:14px;border-radius:6px 0 0 6px;color:#2c3e50;font-weight:600;">③ 指令是明确的</td>
+        <td style="background:#fff;padding:14px;border-radius:0 6px 6px 0;color:#7f8c8d;">"我好热""带我兜风"这类模糊指令成为主流,最优解依赖 context</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:14px;border-radius:6px 0 0 6px;color:#2c3e50;font-weight:600;">④ 只关心最终结果</td>
+        <td style="background:#fff;padding:14px;border-radius:0 6px 6px 0;color:#7f8c8d;">偶然成功 vs 稳定成功的差距开始决定信任感,过程必须被看见</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:14px;border-radius:6px 0 0 6px;color:#2c3e50;font-weight:600;">⑤ 主观维度靠人工打分</td>
+        <td style="background:#fff;padding:14px;border-radius:0 6px 6px 0;color:#7f8c8d;">"像不像人"成为产品的核心卖点,但 1-5 分卡无法定位问题</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+这张表也是本文后面几个 Part 的对应索引:Part 2 解释这些假设为什么会被打破;Part 3 解决①②③;Part 4 解决④;Part 5 解决⑤。
+
+### 1.4 钉入 Planner:1.0 评测在 Planner 视角下的盲区
+
+把 1.0 的工作模式映射到今天的 Driver Agent 2.0 架构,会发现它**根本看不到 Planner**——因为它评测的颗粒度还在"工具调用层":
+
+<div style="font-family:-apple-system,sans-serif;background:#fff8e1;padding:20px;border-radius:10px;border:1px solid #f5d8a8;margin:14px 0;">
+  <table style="width:100%;border-collapse:separate;border-spacing:0 8px;font-size:13px;">
+    <thead>
+      <tr>
+        <th style="text-align:left;padding:8px 14px;color:#95a5a6;font-weight:600;width:26%;">Driver Agent 2.0 模块</th>
+        <th style="text-align:left;padding:8px 14px;color:#95a5a6;font-weight:600;width:36%;">1.0 评测有没有覆盖?</th>
+        <th style="text-align:left;padding:8px 14px;color:#95a5a6;font-weight:600;">为什么这是盲区</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">句法 RAG</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">部分覆盖(规则匹配 case)</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">没有"它该不该走句法 RAG"的判断</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">情景 RAG + 仲裁</td>
+        <td style="background:#fff;padding:12px;color:#c0392b;">❌ 没覆盖</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">简单/复杂仲裁分流错,case 通过率会偏</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">Planner SP ① 角色定义</td>
+        <td style="background:#fff;padding:12px;color:#c0392b;">❌ 没覆盖</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">没有"它是不是豆包"的评测</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">Planner SP ③ 23 工具定义</td>
+        <td style="background:#fff;padding:12px;color:#f39c12;">间接覆盖(看最终 tool 调用对不对)</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">工具选错被下游兜底过,case 通过</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">Planner SP ⑤ 10 条注意事项</td>
+        <td style="background:#fff;padding:12px;color:#c0392b;">❌ 没覆盖</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">"必回"/"不犯"的违反,无人发现</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">Planner SP ⑪ 动态变量利用</td>
+        <td style="background:#fff;padding:12px;color:#c0392b;">❌ 没覆盖</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">{{status}}/{{memory}}/{{env_info}}/{{goal_list}} 注入了没用,无评测</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">Planner 输出 action_list</td>
+        <td style="background:#fff;padding:12px;color:#f39c12;">间接覆盖</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">单步并行 vs 多步串行 vs 条件 vs 持续——4 种任务类型混测</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">Planner 输出 talk_content</td>
+        <td style="background:#fff;padding:12px;color:#c0392b;">❌ 没覆盖</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">"说做一致性"是体验杀手,1.0 主观评分卡里测不到</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">Advisor (主动服务)</td>
+        <td style="background:#fff;padding:12px;color:#c0392b;">❌ 没覆盖</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">0 问 1 答没有 case 库可以放</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">Goal List</td>
+        <td style="background:#fff;padding:12px;color:#c0392b;">❌ 没覆盖</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">跨轮共享看板的一致性,1.0 无法测</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">KV Cache 命中</td>
+        <td style="background:#fff;padding:12px;color:#c0392b;">❌ 没覆盖</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">长对话挤出 cache → 性能崩,1.0 没有此指标</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">下游 23 个 Agent</td>
+        <td style="background:#fff;padding:12px;color:#27ae60;">✓ 覆盖(这正是 1.0 的强项)</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">这一层 1.0 评测集复用,2.0 不重写</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+**结论**:1.0 评测照亮的是最末端的"工具执行层"。从 Planner 大脑节点的视角看,**整个决策链路上的 9 类信号都没被监控**。2.0 体系要补的就是这些。
+
+---
+
+## Part 2 — 转折:产品形态变了,评测体系暴露了 3 个漏洞
+
+### 2.1 产品端的三个变化
+
+当车载助手从"语音控制工具"演进为"伙伴式 AI",有三个产品形态变化是**同时发生**的,它们各自单独都会冲击评测体系,叠加起来则让 1.0 的核心假设彻底失效。
+
+<div style="font-family:-apple-system,sans-serif;background:#f7f9fc;padding:24px;border-radius:12px;border:1px solid #eaeaea;">
+  <table style="width:100%;border-collapse:separate;border-spacing:12px 14px;">
+    <thead>
+      <tr>
+        <th style="width:30%;font-size:13px;color:#95a5a6;font-weight:600;text-align:left;padding-bottom:6px;">维度</th>
+        <th style="width:30%;font-size:13px;color:#95a5a6;font-weight:600;text-align:left;padding-bottom:6px;">1.0 形态</th>
+        <th style="width:6%;"></th>
+        <th style="text-align:left;font-size:13px;color:#3498db;font-weight:600;padding-bottom:6px;">2.0 形态</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="background:#fff;padding:14px;border-radius:6px;color:#2c3e50;font-weight:600;font-size:14px;">交互结构</td>
+        <td style="background:#fff;padding:14px;border-radius:6px;color:#7f8c8d;font-size:13px;line-height:1.6;">1 问 1 答<br/>用户主导</td>
+        <td style="text-align:center;color:#3498db;font-size:18px;font-weight:bold;">→</td>
+        <td style="background:#eaf4fc;padding:14px;border-radius:6px;color:#2c3e50;font-size:13px;line-height:1.6;border-left:3px solid #3498db;">0 问 1 答(主动服务)<br/>1 问 N 答(多步/持续)<br/>N 问 M 答(多人/角色)</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:14px;border-radius:6px;color:#2c3e50;font-weight:600;font-size:14px;">输入构成</td>
+        <td style="background:#fff;padding:14px;border-radius:6px;color:#7f8c8d;font-size:13px;line-height:1.6;">指令 = 输入</td>
+        <td style="text-align:center;color:#3498db;font-size:18px;font-weight:bold;">→</td>
+        <td style="background:#eaf4fc;padding:14px;border-radius:6px;color:#2c3e50;font-size:13px;line-height:1.6;border-left:3px solid #3498db;">指令 + Context = 输入<br/><span style="color:#7f8c8d;font-size:12px;">(端状态/记忆/感知/历史/画像/天气...)</span></td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:14px;border-radius:6px;color:#2c3e50;font-weight:600;font-size:14px;">关注焦点</td>
+        <td style="background:#fff;padding:14px;border-radius:6px;color:#7f8c8d;font-size:13px;line-height:1.6;">只关心"做了没"</td>
+        <td style="text-align:center;color:#3498db;font-size:18px;font-weight:bold;">→</td>
+        <td style="background:#eaf4fc;padding:14px;border-radius:6px;color:#2c3e50;font-size:13px;line-height:1.6;border-left:3px solid #3498db;">做对了吗 + 怎么做<br/>+ 说做一致吗 + 像人吗</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+**变化 1:从一问一答到主动服务。** 1.0 时代,系统的输入是用户开口说的那一句话。AI 助手时代,系统的输入还包括**它自己感知到的环境信号**:用户上车了、堵在通勤路上 30 分钟没说话了、副驾坐着不熟悉的人、外面下了暴雨。在这些信号下,系统要决定"要不要主动说话",这是一个全新的决策维度。
+
+**变化 2:从指令到指令+Context。** 这里的 context 不是 RAG 召回的几段文本,而是结构化的环境状态:车辆当前的开关位、电量、空调温度、用户画像里"不喜欢紫色"、记忆库里"上周去过的游泳馆"、感知到的"副驾在睡觉"、地理位置上的"前方 5 公里有充电站"。**同一句话,在不同 context 下应该走完全不同的解。**
+
+**变化 3:从动作正确到行为合理。** 用户开始期待"伙伴感"——这意味着话术要自然、节奏要得体、要懂潜台词、不能说一套做一套、不能在背单词的小朋友面前突然播报"剩余电量 58%"。**功能正确成为底线而不是目标。**
+
+### 2.2 评测端被暴露的三个漏洞
+
+这三个产品变化,在 1.0 评测体系上分别打开了三个漏洞。每一个漏洞我们都用真实例子说明。
+
+---
+
+**漏洞 ① — 单点 case 测不出"主动服务"质量**
+
+设想这样一个场景:用户上车,系统通过 Advisor 模块判断"这个时间点用户通常在通勤,且外面正在下雨",于是主动播报:"今天下班路上有雨,我提前帮你关好车窗、打开了空气循环,要不要规划一下避开拥堵的路线?"
+
+这是一次典型的 0问1答主动服务。1.0 评测体系完全无法承载它:
+
+- **没有用户 query**,case 库的每一行第一列空了
+- **触发条件是模糊的**——并不是"每次上车 + 下雨"都该主动播报,要看用户当前是否在打电话、是否在和副驾说话、最近几次是否拒绝过类似推荐
+- **未触发不等于 bug**——预设了应该主动推荐,系统没触发,可能是合理保守,也可能是 Advisor 漏判
+- **超预期触发也不等于惊喜**——系统在预设之外主动说话,可能是体验提升,也可能是噪音
+
+> 在 1.0 case 库里强行写一条"上车 + 下雨 → 期望主动播报",评测员只能判"触发了/没触发"。这个二分判断既无法度量"触发得是否得体",也无法处理"在预设之外的合理触发"。**评测维度本身就缺失了。**
+
+---
+
+**漏洞 ② — 只测结果,丢失过程信号**
+
+考虑这个 query:
+
+> "帮我把前排座椅加热和方向盘加热全部打开,全车空调都开启温度调到 24 度风量三档,顺便放点林俊杰的歌"
+
+这是一个典型的单意图多指令——一次拆解出 6 个并行任务。两个 Planner 都"完成了"这个任务,但执行轨迹差距巨大:
+
+| Planner A(好) | Planner B(差) |
+|---------------|----------------|
+| 一次 action_list 输出 6 个并行任务 | 第一次输出 3 个,工具反馈后再补 3 个 |
+| 话术:"好的,座椅加热和方向盘加热都开了,空调 24 度 3 档,林俊杰的歌马上来" | 话术:"先帮你开座椅加热"(然后多次工具反馈才把剩下的补齐) |
+| 总耗时 1.2s,token 消耗 1.4K | 总耗时 4.8s,token 消耗 3.7K |
+| 说做一致 | 中途话术与实际动作出现错位("空调已经开好啦"实际上还没下发) |
+
+在 1.0 准确率指标下,两个 Planner 都是 "case 通过"。**但用户体验差距是数量级的**:一个流畅,一个磨叽;一个值得信任,一个让人怀疑"它到底做没做"。
+
+要把这两个 Planner 区分开,必须把评测视角从"结果"扩展到过程——具体地说,要看任务拆解的颗粒度、工具调用的并行度、话术与动作的时间对齐、首 token 时延、整个 query 闭环的总耗时。这些信号在 1.0 里完全不存在。
+
+---
+
+**漏洞 ③ — 没有 Context 模拟,"最优解"无法定义**
+
+这是三个漏洞里最致命的一个,因为它**会让评测员之间的判断标准开始分裂**。
+
+考虑同一句话:**"我好热"**。
+
+<div style="font-family:-apple-system,sans-serif;background:#f7f9fc;padding:22px;border-radius:10px;border:1px solid #eaeaea;margin:18px 0;">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+    <div style="background:#fff;padding:18px;border-radius:8px;border-top:3px solid #3498db;">
+      <div style="font-weight:700;color:#3498db;font-size:13px;margin-bottom:8px;">Context 组合 A</div>
+      <div style="color:#7f8c8d;font-size:12px;line-height:1.8;">
+        天气:暴晒 35°C<br/>
+        空调:全车关闭<br/>
+        电量:充足<br/>
+        舒适偏好:无特殊
+      </div>
+      <div style="margin-top:12px;padding:10px;background:#eaf4fc;border-radius:6px;color:#2874a6;font-size:13px;font-weight:600;">
+        最优解:打开空调,调到舒适温度
+      </div>
+    </div>
+    <div style="background:#fff;padding:18px;border-radius:8px;border-top:3px solid #e67e22;">
+      <div style="font-weight:700;color:#e67e22;font-size:13px;margin-bottom:8px;">Context 组合 B</div>
+      <div style="color:#7f8c8d;font-size:12px;line-height:1.8;">
+        天气:夏季室内<br/>
+        空调:已开 16°C 风量 1 档<br/>
+        电量:充足<br/>
+        舒适偏好:不讨厌吹风
+      </div>
+      <div style="margin-top:12px;padding:10px;background:#fff3e0;border-radius:6px;color:#c0392b;font-size:13px;font-weight:600;">
+        最优解:调高风量(不是降温度,温度已经到底了)
+      </div>
+    </div>
+  </div>
+</div>
+
+这两个 case 在 1.0 评测集里,要么被合并成同一条(那这条 case 就没有标准答案了),要么被拆成两条独立的 case——但拆成两条之后,**评测员看到的是两条没有上下文的指令**,他们必须自己去想象 context,然后判断系统输出是不是合理。结果就是:同一个系统输出,A 评测员觉得过、B 评测员觉得不过,争了半天发现两人脑子里假设的 context 都不一样。
+
+更严重的是,1.0 的"模糊指令"评测会系统性地高估或低估系统能力。如果评测员默认"我好热 = 应该打开空调",那么在 Context B 下,系统正确地选择"调高风量"反而会被判错——而我们却毫无察觉。
+
+> **这个漏洞的本质是:1.0 评测把 query 当成独立单元,但 AI 助手时代,query 必须和 context 绑定才有意义。**
+
+### 2.3 一句话定调
+
+到这里,1.0 → 2.0 的必要性已经讲清楚。把它压成一句话作为后面三章的总锚点:
+
+> 评测体系不是被"做错了",而是它服务的产品形态已经迁移了。
+> 当产品从"工具"变成"伙伴",评测必须从"功能正确"扩展到"行为合理"。
+> "行为合理"这四个字,意味着评测对象、视角、维度都要重构。
+
+### 2.4 钉入 Planner:三个变化对应到 Planner 哪些模块
+
+每个产品形态变化都直接触发了 Driver Agent 2.0 架构里**特定模块**的引入或重做:
+
+<div style="font-family:-apple-system,sans-serif;background:#fff8e1;padding:20px;border-radius:10px;border:1px solid #f5d8a8;margin:14px 0;">
+  <table style="width:100%;border-collapse:separate;border-spacing:0 8px;font-size:13px;">
+    <thead>
+      <tr>
+        <th style="text-align:left;padding:8px 14px;color:#95a5a6;font-weight:600;width:26%;">产品变化</th>
+        <th style="text-align:left;padding:8px 14px;color:#95a5a6;font-weight:600;width:30%;">对应 Planner 模块</th>
+        <th style="text-align:left;padding:8px 14px;color:#95a5a6;font-weight:600;">关键评测点</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">0 问 1 答 主动服务</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">Always-On 感知 + 4 静态 Advisor (舒适/出行/情感/内容) + 动态 Advisor</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">SP ② 输入类型 = advisor 时的处理质量;Advisor 建议是否被采纳/部分采纳/否决</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">1 问 N 答 多步/持续</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">SP ④ action_list 输出格式 + goal_list_update 工具 + Goal List 看板 + 4 种任务类型(S7/S8/S8/S9-S10)</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">单步并行拆解质量(S7);多步依赖建模(S8);条件触发设置(S8);持续任务节奏(S9-S10)</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">N 问 M 答 多角色</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">UP 的 speaker_name / position 字段 + 视觉感知 {{status}} + 多音区识别</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">"副驾问的"vs"主驾问的"决策差异;视觉感知小孩 vs 记忆里副驾是妈妈的冲突仲裁</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">Context 强依赖</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">SP ⑪ 动态变量:{{status}} / {{goal_list}} / {{env_info}} / {{memory}}</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">动态变量"注入了没用"是常见 badcase;评测需检查 Planner 是否真的读了 env_info(空调状态) 才决策</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">说做一致性</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">talk_content 与 action_list 的对齐</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">"空调已开"但 action_list 里没下发 → 严重 badcase;Director 评分 0 分</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">像人体验</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">SP ⑩ 聊天风格(温柔高知女生人设) + ⑤ 注意事项里的话术约束</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">话术简洁 vs 啰嗦;对话主体正确;主动追问 vs 强行执行</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+**这张映射表的意义**:它把 Part 2 暴露的"3 个评测漏洞"翻译成了"Planner 哪些模块需要被监控"。后面 Part 3-5 三次重构的每一节,都可以回到这张表,确认是否覆盖了对应的模块。
+
+---
+
+## Part 3 — 重构 1:评测对象,从指令到"场景"
+
+### 3.1 核心定义
+
+2.0 评测体系把"场景"作为基本单元,代替了 1.0 里的"指令"。一个场景由两部分构成——**元素**(描述这个场景是什么)和**需求**(在这个场景里会发生什么)。
+
+<div style="font-family:-apple-system,sans-serif;background:#f7f9fc;padding:24px;border-radius:12px;border:1px solid #eaeaea;">
+  <div style="text-align:center;margin-bottom:18px;">
+    <span style="background:#2c3e50;color:#fff;padding:6px 18px;border-radius:20px;font-size:13px;font-weight:600;letter-spacing:0.5px;">SCENARIO 场景</span>
+  </div>
+  <div style="display:flex;align-items:stretch;gap:14px;">
+    <div style="flex:1;background:#fff;padding:18px;border-radius:8px;border-top:3px solid #3498db;">
+      <div style="color:#3498db;font-weight:700;font-size:14px;margin-bottom:10px;">元素 Elements</div>
+      <ul style="margin:0;padding-left:18px;color:#2c3e50;font-size:13px;line-height:1.9;">
+        <li>出行 / 上车目的</li>
+        <li>主驾画像</li>
+        <li>乘客 / 角色组合</li>
+        <li>重要 Context(天气/路况/身心/电量)</li>
+        <li>特殊场景 / 任务(庆生/接娃/出差)</li>
+      </ul>
+    </div>
+    <div style="display:flex;align-items:center;color:#95a5a6;font-size:24px;font-weight:bold;">×</div>
+    <div style="flex:1;background:#fff;padding:18px;border-radius:8px;border-top:3px solid #27ae60;">
+      <div style="color:#27ae60;font-weight:700;font-size:14px;margin-bottom:10px;">需求 Demands</div>
+      <ul style="margin:0;padding-left:18px;color:#2c3e50;font-size:13px;line-height:1.9;">
+        <li>场景强相关需求<br/><span style="color:#95a5a6;font-size:12px;">(重点考察,预定义检查点)</span></li>
+        <li>通用需求<br/><span style="color:#95a5a6;font-size:12px;">(导航/车控/媒体/闲聊,自然触发)</span></li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+这里有一个**关键设计选择**值得展开:为什么把"元素"和"需求"分开,而不是直接定义一组 case?
+
+因为元素是**正交维度**,可以组合;而需求是**领域知识**,需要预先定义。两者拆开,场景库才有可扩展性。如果元素和需求耦合在一起,加一个新场景就要重写一组 case;拆开之后,加一个新元素维度(比如"宠物"),所有现有场景都自动获得"带宠物时的需求"这一组分支。
+
+### 3.2 三个具体场景示例(给读者一个直观感受)
+
+抽象定义说一百遍,不如三个具体例子。下面是 2.0 场景库里的三个**风格差异极大**的场景,可以一次性展示场景化评测的覆盖广度。
+
+---
+
+**场景 A — 通勤路上的"带病司机"**
+
+<div style="font-family:-apple-system,sans-serif;background:#fff;padding:20px;border-radius:10px;border:1px solid #eaeaea;margin:14px 0;">
+  <div style="font-size:13px;color:#95a5a6;font-weight:600;letter-spacing:0.5px;margin-bottom:10px;">元素</div>
+  <div style="color:#2c3e50;font-size:13px;line-height:1.9;margin-bottom:14px;">
+    出行目的:通勤 · 主驾画像:摩登青年(28岁,程序员) · 乘客:无<br/>
+    重要 Context:重感冒(用户上车前刚提到吃过感冒药)、外面降温、路况一般
+  </div>
+  <div style="font-size:13px;color:#27ae60;font-weight:600;letter-spacing:0.5px;margin-bottom:10px;">重点需求</div>
+  <div style="color:#2c3e50;font-size:13px;line-height:1.9;">
+    缓解感冒症状,关心驾驶安全
+  </div>
+  <div style="font-size:13px;color:#3498db;font-weight:600;letter-spacing:0.5px;margin:14px 0 10px;">期望系统行为</div>
+  <ul style="margin:0;padding-left:20px;color:#2c3e50;font-size:13px;line-height:1.9;">
+    <li>主动调节温度但避免冷风直吹</li>
+    <li>建议路线时优先平稳少颠簸</li>
+    <li>用户说"我好困"时,基础应答"建议休息区";<strong>惊喜应答</strong>"刚吃过感冒药容易犯困,要不要在 5km 后的服务区停一下"</li>
+    <li>音乐推荐避免节奏剧烈、音量适中</li>
+    <li>不要话痨——感冒的人不想多说话</li>
+  </ul>
+</div>
+
+---
+
+**场景 B — 自驾游路上的庆生**
+
+<div style="font-family:-apple-system,sans-serif;background:#fff;padding:20px;border-radius:10px;border:1px solid #eaeaea;margin:14px 0;">
+  <div style="font-size:13px;color:#95a5a6;font-weight:600;letter-spacing:0.5px;margin-bottom:10px;">元素</div>
+  <div style="color:#2c3e50;font-size:13px;line-height:1.9;margin-bottom:14px;">
+    出行目的:自驾游 · 主驾画像:潮奢精质族 · 乘客:伴侣<br/>
+    重要 Context:伴侣生日、目的地是民宿、天气晴好
+  </div>
+  <div style="font-size:13px;color:#27ae60;font-weight:600;letter-spacing:0.5px;margin-bottom:10px;">重点需求</div>
+  <div style="color:#2c3e50;font-size:13px;line-height:1.9;">
+    营造仪式感、不抢戏、把氛围留给两个人
+  </div>
+  <div style="font-size:13px;color:#3498db;font-weight:600;letter-spacing:0.5px;margin:14px 0 10px;">期望系统行为</div>
+  <ul style="margin:0;padding-left:20px;color:#2c3e50;font-size:13px;line-height:1.9;">
+    <li>用户说"营造一个浪漫的氛围"时,氛围灯调粉色(<strong>不是紫色</strong>——用户画像里有"不喜欢紫色")、音乐换温柔情歌、空调降到舒适</li>
+    <li>主动祝福一次就够,不要反复提"生日快乐"</li>
+    <li>到达民宿前主动推荐附近的鲜花店或蛋糕店,但说一次就停</li>
+    <li>话术要简洁,留对话空间给两个人</li>
+    <li>整个过程的人设是"懂事的伙伴",不是"热情的客服"</li>
+  </ul>
+</div>
+
+---
+
+**场景 C — 接孩子放学路上的角色扮演**
+
+<div style="font-family:-apple-system,sans-serif;background:#fff;padding:20px;border-radius:10px;border:1px solid #eaeaea;margin:14px 0;">
+  <div style="font-size:13px;color:#95a5a6;font-weight:600;letter-spacing:0.5px;margin-bottom:10px;">元素</div>
+  <div style="color:#2c3e50;font-size:13px;line-height:1.9;margin-bottom:14px;">
+    出行目的:接孩子放学回家 · 主驾画像:潮奢精质族 · 乘客:三岁女儿<br/>
+    重要 Context:有正在进行的"背单词"长时任务、视觉感知小孩坐在副驾儿童座椅
+  </div>
+  <div style="font-size:13px;color:#27ae60;font-weight:600;letter-spacing:0.5px;margin-bottom:10px;">重点需求</div>
+  <div style="color:#2c3e50;font-size:13px;line-height:1.9;">
+    陪三岁孩子玩、保持背单词节奏、不被无关任务打断
+  </div>
+  <div style="font-size:13px;color:#3498db;font-weight:600;letter-spacing:0.5px;margin:14px 0 10px;">期望系统行为</div>
+  <ul style="margin:0;padding-left:20px;color:#2c3e50;font-size:13px;line-height:1.9;">
+    <li>切换到适合三岁儿童的语言(短句、拟声、奖励引导)</li>
+    <li>用户问"现在电量多少",回答"58% 还能跑很远"就够了——<strong>不要在儿童单词游戏中插一段"剩余 137km"的长播报</strong></li>
+    <li>"找一个和苹果有关的东西"这类游戏指令,要给出符合常识的提示(不要让小孩去车里找"苹果")</li>
+    <li>奖励机制不能用"开座椅按摩"这种与儿童无关的强化物</li>
+    <li>主动推荐要克制,避免打断游戏节奏</li>
+  </ul>
+</div>
+
+---
+
+把这三个场景放在一起看,**"评测对象从指令到场景"这件事的价值就很直观了**:
+
+- 同样的"打开空调"指令,在场景 A 里要避免直吹,在场景 B 里要营造氛围,在场景 C 里要保持儿童舒适——一个指令在三个场景里有三个最优解,这是 1.0 case 库根本承载不了的复杂度。
+- 同样的"主动推荐",在场景 A 里要克制,在场景 B 里要点睛,在场景 C 里要避让游戏节奏——主动服务的合理性必须放在场景里才能判定。
+- 同样的"话术风格",在三个场景里也完全不同——人设是"懂事的伙伴",但具体的语言风格随场景流动。
+
+### 3.3 为什么场景化能堵住前面的三个漏洞
+
+回到 Part 2 暴露的三个漏洞,场景化给出了**结构性的解法**:
+
+| 1.0 的漏洞 | 场景化怎么解 |
+|-----------|--------------|
+| ① 单点 case 测不出主动服务 | 场景里**天然定义了**"该不该主动"的语境——元素决定触发条件,需求决定触发内容 |
+| ② 只测结果丢失过程 | 场景里有**多步动作和依赖**,过程合理性必须被观测才能形成判断 |
+| ③ Context 缺失无法定义最优解 | "元素"就是 context 的**结构化建模**——同一个 query 在不同元素下的最优解被显式区分 |
+
+注意,这里的解法不是"我们设计了更细的 case",而是**改变了评测的基本单元**。基本单元从"指令"变成"场景"之后,原来的三个漏洞自然就闭合了。
+
+### 3.4 场景库的搭建原则
+
+场景化是好的,但场景库怎么建?如果不加约束,任何团队都会在三个月内把它建成一个 1000 条没人维护的烂账。下面是我们在搭建过程中固化下来的 4 条原则:
+
+<div style="font-family:-apple-system,sans-serif;background:#f7f9fc;padding:24px;border-radius:12px;border:1px solid #eaeaea;">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+    <div style="background:#fff;padding:16px 18px;border-radius:8px;border-left:4px solid #3498db;">
+      <div style="font-weight:700;color:#3498db;font-size:13px;letter-spacing:0.5px;">原则 1 · 覆盖目标用户</div>
+      <div style="margin-top:6px;color:#2c3e50;font-size:13px;line-height:1.6;">来自产品定义的核心人群 × 核心场景,不做"假想用户"</div>
+    </div>
+    <div style="background:#fff;padding:16px 18px;border-radius:8px;border-left:4px solid #27ae60;">
+      <div style="font-weight:700;color:#27ae60;font-size:13px;letter-spacing:0.5px;">原则 2 · 覆盖系统能力</div>
+      <div style="margin-top:6px;color:#2c3e50;font-size:13px;line-height:1.6;">感知 / 理解 / 执行 各能力域均有触发,避免某个能力被遗漏</div>
+    </div>
+    <div style="background:#fff;padding:16px 18px;border-radius:8px;border-left:4px solid #f39c12;">
+      <div style="font-weight:700;color:#f39c12;font-size:13px;letter-spacing:0.5px;">原则 3 · 可演进</div>
+      <div style="margin-top:6px;color:#2c3e50;font-size:13px;line-height:1.6;">Bad case 回流后场景库持续扩张,新场景必须能复用旧的元素维度</div>
+    </div>
+    <div style="background:#fff;padding:16px 18px;border-radius:8px;border-left:4px solid #8e44ad;">
+      <div style="font-weight:700;color:#8e44ad;font-size:13px;letter-spacing:0.5px;">原则 4 · 可组合</div>
+      <div style="margin-top:6px;color:#2c3e50;font-size:13px;line-height:1.6;">元素是正交维度,组合出新场景的成本要低于从零写一个</div>
+    </div>
+  </div>
+</div>
+
+第三条和第四条尤其重要,它们一起保证了场景库是**资产**而不是**负债**。
+
+### 3.5 一个决定成败的细节:预期结果分级
+
+这是 2.0 评测里**最容易被低估的设计**,但它直接决定了"主观体验评测"能不能落地。
+
+> 抛开场景、语境和角色定义来聊模糊指令的最优解,都是耍流氓。
+
+我们把每个需求对应的预期结果拆成两层:
+
+- **基础预期(及格线)**:不出错、不影响安全、能交付的核心动作
+- **惊喜预期(超出表达)**:结合 context 给出用户没说出口但符合期待的动作
+
+举两个例子:
+
+**例 1**:用户说"我好困"
+- 基础预期:提醒驾驶安全,建议前方休息区休息
+- 惊喜预期:如果记忆里知道用户刚吃过感冒药,主动提示"感冒药的困意大概还会持续一小时,建议在 5km 后的服务区休息一下"
+
+**例 2**:用户问"充电桩这个图标是什么指示灯"
+- 基础预期:结合车书回答"这是充电状态指示灯"
+- 惊喜预期:结合端状态告知"它现在是绿色,代表你的车正在充电"
+
+> **设计意图**:把"评测员凭手感打主观分"变成"评测员检查具体的检查点"。每个场景的每个需求都至少有一组检查点,分两档——这样不同评测员之间的判断标准就被锚定了。
+
+### 3.6 通用需求和场景需求的边界
+
+不是每个上车情境都需要从零设计。**通用需求**——导航、车控、多媒体、闲聊——只要上车就大概率会发生,它们不需要在每个场景里重复定义。
+
+我们的做法是:
+
+- 通用需求复用 1.0 case 库,作为"底盘评测"
+- 场景需求是 2.0 新增的部分,只针对**场景强相关的重点考察**预定义检查点
+- 评测时,场景对话生成可以自然触发通用需求,这些通用需求由模型自行发挥,只要不犯错就行
+
+这样既不浪费 1.0 已有的资产,又不会让场景库变成"几十个相似 case 的合集"。
+
+### 3.7 给同行的一个落地建议
+
+如果你也在做领域 Agent 的评测,场景化是有用的,但**不要从"我的 Agent 有什么能力"开始**——这是工程师视角,容易把评测设计成"我会的我都测一遍"。
+
+要从**业务里的"决策点"在哪里**开始。一个决策点 = 多条可选路径 + 选错有成本。在车载里,典型的决策点包括:
+
+- 主动 vs 不主动
+- 直接执行 vs 先澄清
+- 用记忆 vs 用感知(冲突时信谁)
+- 满足表面诉求 vs 满足深层诉求
+- 简单回应 vs 串联多步
+
+把每个决策点对应到一个或多个场景,**评测就有了 fixed 的"考察点"**。这是从客服 Agent、AI4SE Agent 这些领域评测里抽出来的通用方法,在车载 Planner 上同样成立。
+
+### 3.8 钉入 Planner:场景元素如何映射到 SP/UP 的具体字段
+
+场景化不是"想个故事来测",而是要能**精确地构造出 Planner 一次调用的完整 [SP, UP] 输入**。映射关系如下:
+
+<div style="font-family:-apple-system,sans-serif;background:#fff8e1;padding:20px;border-radius:10px;border:1px solid #f5d8a8;margin:14px 0;">
+  <table style="width:100%;border-collapse:separate;border-spacing:0 8px;font-size:13px;">
+    <thead>
+      <tr>
+        <th style="text-align:left;padding:8px 14px;color:#95a5a6;font-weight:600;width:22%;">场景元素</th>
+        <th style="text-align:left;padding:8px 14px;color:#95a5a6;font-weight:600;width:32%;">映射到 SP/UP 字段</th>
+        <th style="text-align:left;padding:8px 14px;color:#95a5a6;font-weight:600;">举例(场景 A · 通勤+感冒)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">出行/上车目的</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">{{goal_list}} 初始项 + 通过 goal_list_update 工具维持</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">goal_list = [ "通勤回家" ]</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">主驾画像</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">{{memory}} 中长期画像 + UP.speaker_name 当前发言人</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">memory = { "name": "明骏", "age": 28, "occupation": "程序员", ... }</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">乘客/角色组合</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">{{status}} 视觉感知字段:座位 occupancy / 角色识别</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">status.passengers = []</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">重要 Context</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">{{env_info}} 车况 + {{memory}} 短期事件 + UP 中的 advisor 输入</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">env_info.weather = "降温" · memory.recent = [ "刚吃感冒药" ]</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">用户 query</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">UP 最新一轮 role:user 内容 + speaker_name + position + timestamp</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">"我好困"(speaker="明骏", position="主驾")</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">需求(场景强相关)</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">检查点期望的 action_list 工具组合 + talk_content 关键信息</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">期望:route_planning_qa(找服务区) + 话术结合 memory 提示药效</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">通用需求(自然触发)</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">复用 1.0 case 库(导航/车控/媒体/闲聊),由模型自然发挥</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">中途可能"放点轻音乐"、"调温度"</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+**关键设计选择**:场景库的元素维度,不是凭直觉拍的——而是**精确对应到 SP ⑪ 动态变量 + UP 各字段**的可注入位置。这保证了一个场景写好后,**可以直接被翻译成一组真实的 [SP, UP] 入参**喂给 Planner,跑 trace。
+
+### 3.9 钉入 Planner:4 种任务类型在场景里如何被触发
+
+场景化评测必须**显式覆盖 4 种任务类型**——不然就会陷入"老是测单步,多步/条件/持续测不到"的失衡:
+
+<div style="font-family:-apple-system,sans-serif;background:#fff8e1;padding:20px;border-radius:10px;border:1px solid #f5d8a8;margin:14px 0;">
+  <table style="width:100%;border-collapse:separate;border-spacing:0 8px;font-size:13px;">
+    <thead>
+      <tr>
+        <th style="text-align:left;padding:8px 14px;color:#95a5a6;font-weight:600;width:20%;">任务类型</th>
+        <th style="text-align:left;padding:8px 14px;color:#95a5a6;font-weight:600;width:20%;">SP 输出形态</th>
+        <th style="text-align:left;padding:8px 14px;color:#95a5a6;font-weight:600;">场景库中典型实例</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">单步复杂 S7</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">action_list 一次性多个并行项</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">"我好热"→[查 env_info, 开空调, 调风量] 并行;场景 A 通勤+感冒时 advisor 推主动整套调节</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">多步 S8</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">轮 1 action_list → tool_feedback → 轮 2 action_list</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">"去昨天游泳馆"→search_user_memory→navi_basic_control;场景 C 接娃路上多步对话</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">条件 S8</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">goal_list_update 设置触发条件 + 后续轮 advisor 报触发</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">"10 分钟后关座椅加热";"到家前 5 分钟提醒我"</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">持续 S9-S10</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">goal_list 长期项 + 多轮持续 advisor 推进</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">"帮我介绍沿途风景";场景 C "带女儿背单词"长时任务</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+**评测设计要求**:核心评测集必须每种任务类型都有 N 个场景实例,且实例分布要能反映各任务类型在线上的真实占比。S9-S10 还没上线时,可以先建实例库不打分,但**不能没有**——否则上线就会被打个措手不及。
+
+---
+
+## Part 4 — 重构 2:评测视角,从结果到过程+归因
+
+### 4.1 为什么"只看结果"会害人
+
+在 1.0 体系下,一条 case 的判定逻辑非常简单——给一个 query,看最终系统输出,要么对要么错。这套逻辑在传统车机上能用,因为传统车机的执行链路短:语音 → 命令解析 → 直接控制。但 Planner 不一样:
+
+```
+用户 query → ASR → 仲裁 → Context 注入 → Planner 决策 → 工具调用 → 执行 → 话术播报
+              ↑       ↑         ↑              ↑           ↑         ↑          ↑
+            可能错  可能错    可能错         可能错       可能错    可能错      可能错
+```
+
+这 7 个环节中**任意一个出错,最终结果都不对**;但只看结果,你不知道是哪个环节出的错——更糟糕的是,有些环节即使错了,最终结果也会"看起来对"。比如 Planner 选了错误的工具,但下游工具兜底处理了;或者 Planner 漏选了一个工具,但用户没察觉。这些**带病通过**的 case,在结果导向的评测下被记作"成功",但在规模化运行中迟早会爆。
+
+所以 2.0 必须把视角从单层(结果)扩展到三层。
+
+### 4.2 评测视角的三层结构
+
+<div style="font-family:-apple-system,sans-serif;background:#f7f9fc;padding:24px;border-radius:12px;border:1px solid #eaeaea;">
+  <div style="display:flex;flex-direction:column;gap:0;">
+    <div style="background:#fff5e6;padding:18px 22px;border-radius:8px 8px 0 0;border:1px solid #f5d8a8;border-bottom:none;">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div style="font-weight:700;color:#d35400;font-size:14px;letter-spacing:0.5px;">⬆ 风险 / 成本层</div>
+        <div style="font-size:11px;color:#95a5a6;">Risk · Cost</div>
+      </div>
+      <div style="margin-top:8px;color:#7f6334;font-size:13px;line-height:1.7;">TTFT · Chunk Latency · Token 消耗 · 不安全调用 · 越权承诺</div>
+    </div>
+    <div style="background:#eaf4fc;padding:18px 22px;border:1px solid #bdd9ed;border-bottom:none;">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div style="font-weight:700;color:#2874a6;font-size:14px;letter-spacing:0.5px;">⬆ 过程层</div>
+        <div style="font-size:11px;color:#95a5a6;">Process</div>
+      </div>
+      <div style="margin-top:8px;color:#1f5278;font-size:13px;line-height:1.7;">各能力域得分 + 7 类归因 · 路径合理性 · 工具选择 · context 利用</div>
+    </div>
+    <div style="background:#e8f5e9;padding:18px 22px;border-radius:0 0 8px 8px;border:1px solid #b8e0b9;">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div style="font-weight:700;color:#1e8449;font-size:14px;letter-spacing:0.5px;">⬆ 结果层(基础)</div>
+        <div style="font-size:11px;color:#95a5a6;">Outcome</div>
+      </div>
+      <div style="margin-top:8px;color:#196e3b;font-size:13px;line-height:1.7;">任务完成度 · pass@3 · pass^3 · 说做一致性 · 检查点通过率</div>
+    </div>
+  </div>
+  <div style="text-align:center;margin-top:14px;color:#95a5a6;font-size:12px;font-style:italic;">三层向上递进 — 没有结果层稳定,谈过程没意义;没有过程层合理,谈成本/风险没意义</div>
+</div>
+
+这三层不是平行的,**是有依赖顺序的**:
+
+- **结果层是入口条件**——如果系统连基本任务都完不成,过程和成本谈了也没用。这一层的核心问题是:"它做没做成?在相同条件下能不能稳定地做成?"
+- **过程层决定可解释性**——同样的"做成了",过程合理 vs 满身补丁,后续优化的难度完全不同。这一层的核心问题是:"它是怎么做成的?哪些环节出过问题?"
+- **风险/成本层决定可部署性**——一个能在测试集上做对的系统,如果上车后 token 消耗翻倍、TTFT 翻三倍、偶尔会做出违反端状态的危险操作,它就不能上线。这一层的核心问题是:"它的行为有没有越过可接受边界?"
+
+> **这一节借鉴了学术体系里"结果-过程-风险"三层观测框架,但我们做了车载场景的具体绑定**:把 TTFT 和 Chunk Latency 提到与 token 同等重要的位置(车载是强时延敏感场景);把"说做一致性"提到结果层(因为话术与动作的错位是车载最常见的体验杀手)。
+
+### 4.3 结果层:端到端指标定义
+
+结果层的指标必须可量化、可重复。我们定义了 5 个核心指标:
+
+<div style="font-family:-apple-system,sans-serif;background:#f7f9fc;padding:20px;border-radius:10px;border:1px solid #eaeaea;margin:14px 0;">
+  <table style="width:100%;border-collapse:separate;border-spacing:0 8px;font-size:13px;">
+    <thead>
+      <tr>
+        <th style="text-align:left;padding:6px 12px;color:#95a5a6;font-weight:600;width:22%;">指标</th>
+        <th style="text-align:left;padding:6px 12px;color:#95a5a6;font-weight:600;width:38%;">公式 / 定义</th>
+        <th style="text-align:left;padding:6px 12px;color:#95a5a6;font-weight:600;">用途</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="background:#fff;padding:12px;border-radius:6px 0 0 6px;color:#2c3e50;font-weight:600;">任务完成度</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">Σ 通过检查点×权重 / Σ 检查点×权重</td>
+        <td style="background:#fff;padding:12px;border-radius:0 6px 6px 0;color:#7f8c8d;">加权评分,核心检查点权重高</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;border-radius:6px 0 0 6px;color:#2c3e50;font-weight:600;">pass@3</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">3 次试次至少 1 次完成的概率</td>
+        <td style="background:#fff;padding:12px;border-radius:0 6px 6px 0;color:#7f8c8d;">能力下限(偶然能不能成)</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;border-radius:6px 0 0 6px;color:#2c3e50;font-weight:600;">pass^3</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">3 次试次全部完成的概率</td>
+        <td style="background:#fff;padding:12px;border-radius:0 6px 6px 0;color:#7f8c8d;">稳定性上限(可不可靠)</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;border-radius:6px 0 0 6px;color:#2c3e50;font-weight:600;">TTFT</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">首 Token 时延</td>
+        <td style="background:#fff;padding:12px;border-radius:0 6px 6px 0;color:#7f8c8d;">用户感知的响应起点</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;border-radius:6px 0 0 6px;color:#2c3e50;font-weight:600;">Chunk Latency</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">(T_chunk_i 开始 − T_chunk_{i-1} 结束) / 总 chunks</td>
+        <td style="background:#fff;padding:12px;border-radius:0 6px 6px 0;color:#7f8c8d;">流式播报顺滑度</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+**完成定义**:一次试次中,至少 80% 检查点通过 + 所有"结果检查点"通过,才算"完成"。这个 80% 的阈值不是拍脑袋,而是和产品体验对齐:低于这个值用户的不满情绪会显著上升,即使核心任务做了。
+
+**pass@3 vs pass^3 的设计意图**:LLM 输出本身有随机性,跑一次评测就下结论是不严谨的。pass@3 反映"它会不会"——这是能力下限;pass^3 反映"它稳不稳"——这是稳定性上限。两个指标差距大,说明能力有但不稳;两个指标都低,说明能力本身没建立。这种**双指标差异性诊断**比单一指标信息量大得多。
+
+### 4.4 过程层:7 类归因体系
+
+如果说三层视角是评测的骨架,那么**归因体系是评测的灵魂**。没有归因,过程层就只是一堆零散数据,无法驱动优化。
+
+我们把 Planner 调用链路上可能出问题的位置归纳为 7 大类:
+
+<div style="font-family:-apple-system,sans-serif;background:#f7f9fc;padding:24px;border-radius:12px;border:1px solid #eaeaea;">
+  <div style="text-align:center;margin-bottom:20px;">
+    <span style="background:#c0392b;color:#fff;padding:8px 22px;border-radius:20px;font-size:14px;font-weight:600;letter-spacing:0.5px;">评测出错时,锅在哪里?</span>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+    <div style="background:#fff;padding:14px;border-radius:8px;border-top:3px solid #3498db;">
+      <div style="font-weight:700;color:#3498db;font-size:13px;margin-bottom:6px;">① 感知</div>
+      <div style="color:#7f8c8d;font-size:12px;line-height:1.6;">ASR 错<br/>拒识错</div>
+    </div>
+    <div style="background:#fff;padding:14px;border-radius:8px;border-top:3px solid #9b59b6;">
+      <div style="font-weight:700;color:#9b59b6;font-size:13px;margin-bottom:6px;">② 仲裁</div>
+      <div style="color:#7f8c8d;font-size:12px;line-height:1.6;">简单/复杂仲裁错<br/>SFT 车控模型错</div>
+    </div>
+    <div style="background:#fff;padding:14px;border-radius:8px;border-top:3px solid #f39c12;">
+      <div style="font-weight:700;color:#f39c12;font-size:13px;margin-bottom:6px;">③ Context</div>
+      <div style="color:#7f8c8d;font-size:12px;line-height:1.6;">筛选错误 / 冗余<br/>缺少必要 context</div>
+    </div>
+    <div style="background:#fff;padding:14px;border-radius:8px;border-top:3px solid #e74c3c;grid-column:span 2;">
+      <div style="font-weight:700;color:#e74c3c;font-size:13px;margin-bottom:6px;">④ Planner(核心)</div>
+      <div style="color:#7f8c8d;font-size:12px;line-height:1.6;">调用错工具 · 工具参数错 · 错用 context · 其他理解/执行错</div>
+    </div>
+    <div style="background:#fff;padding:14px;border-radius:8px;border-top:3px solid #16a085;">
+      <div style="font-weight:700;color:#16a085;font-size:13px;margin-bottom:6px;">⑤ Advisor</div>
+      <div style="color:#7f8c8d;font-size:12px;line-height:1.6;">主动服务建议质量</div>
+    </div>
+    <div style="background:#fff;padding:14px;border-radius:8px;border-top:3px solid #34495e;grid-column:span 3;">
+      <div style="font-weight:700;color:#34495e;font-size:13px;margin-bottom:6px;">⑥ 下游工具</div>
+      <div style="color:#7f8c8d;font-size:12px;line-height:1.6;">车控 / 导航 / 车书 / S2S / 记忆 / GUI / 媒体 ...</div>
+    </div>
+  </div>
+</div>
+
+每一类归因都对应一个明确的"责任人":
+
+- **感知类问题** → 语音团队(ASR、拒识)
+- **仲裁类问题** → 仲裁模型团队(简单/复杂分流、SFT 车控)
+- **Context 类问题** → Context 工程团队(筛选规则、注入完整性)
+- **Planner 类问题** → 我们(PM + 算法)
+- **Advisor 类问题** → 主动服务团队
+- **工具类问题** → 各下游 Agent 团队
+
+> **归因体系的真正价值,不只是评分,而是把"系统跑错了"翻译成"具体谁该看一眼"**。Bad case 回流时可以精准分配,飞轮才能转起来——没有归因,失败就只是失败,不会变成改进。
+
+### 4.5 Planner 类归因的四个子类(展开)
+
+Planner 是核心,所以它的归因也最细。在 2.0 报表里,Planner 类下面拆四个子项独立统计:
+
+1. **调用错工具**:意图理解对了,但选了不合适的工具。比如用户问"今天天气",应该调 `search_weather` 但调成了 `web_search`。
+2. **工具参数错**:工具选对了,但参数填错。比如"打开主驾座椅加热",但参数里 `position` 填了 `all` 而不是 `driver`。
+3. **错用 Context**:Context 注入了,但 Planner 没正确利用。比如端状态显示空调已经 16°C 1 档,用户说"我好热",Planner 仍然下指令降温度而不是调风量。
+4. **其他理解/执行错**:话术与动作不一致、任务拆解颗粒度不对、说做不一致等综合性问题。
+
+这四个子项的分布,直接对应不同的优化路径——选错工具是 SP 工具描述的问题、参数错是工具示例的问题、错用 Context 是 SP 注入策略的问题、综合性问题往往是模型本身能力的问题。
+
+### 4.6 检查点设计:把抽象的"好"翻译成可观测的具体事件
+
+评测的智能,在于把"它做得好不好"翻译成"哪些可观测的具体事件发生了"。一个场景下,我们至少定义三类检查点:
+
+- **结果检查点**(必须通过):核心需求是否被满足
+- **过程检查点**(加权):中间步骤是否合理
+- **分支检查点**:面对 ambiguity 是否选了合理路径
+
+下面用两个真实场景展示这个翻译过程。
+
+---
+
+**案例 A:多指令任务的检查点设计**
+
+> User query:"帮我把前排座椅加热和方向盘加热全部打开,全车空调都开启温度调到 24 度风量三档,顺便放点林俊杰的歌"
+
+<div style="font-family:-apple-system,sans-serif;background:#fff;padding:18px;border-radius:10px;border:1px solid #eaeaea;margin:14px 0;">
+  <div style="font-size:13px;color:#27ae60;font-weight:600;letter-spacing:0.5px;margin-bottom:10px;">✓ 结果检查点(权重高)</div>
+  <ul style="margin:0 0 16px;padding-left:20px;color:#2c3e50;font-size:13px;line-height:1.9;">
+    <li>主驾座椅加热已开启</li>
+    <li>副驾座椅加热已开启</li>
+    <li>方向盘加热已开启</li>
+    <li>全车空调已开启 + 温度 24°C + 风量 3 档</li>
+    <li>开始播放林俊杰相关音乐</li>
+  </ul>
+  <div style="font-size:13px;color:#3498db;font-weight:600;letter-spacing:0.5px;margin-bottom:10px;">✓ 过程检查点(加权)</div>
+  <ul style="margin:0 0 16px;padding-left:20px;color:#2c3e50;font-size:13px;line-height:1.9;">
+    <li>是否一次性 action_list 输出全部 6 个并行任务(而非分多轮)</li>
+    <li>话术是否在确认前明确列出动作,且与实际下发动作完全一致</li>
+    <li>风量是否精确为 3 档(不是 2 档或 4 档)——这是常见错位点</li>
+    <li>是否没有冗余动作(比如错误地多打开了二排座椅加热)</li>
+  </ul>
+  <div style="font-size:13px;color:#e67e22;font-weight:600;letter-spacing:0.5px;margin-bottom:10px;">⚠ 分支检查点</div>
+  <ul style="margin:0;padding-left:20px;color:#2c3e50;font-size:13px;line-height:1.9;">
+    <li>如果林俊杰歌单调用失败,Planner 是否有合理的兜底话术(而不是默不作声)</li>
+    <li>如果某项车控失败,是否报告失败动作而不是声称"都搞定了"</li>
+  </ul>
+</div>
+
+注意,**这一套检查点不只覆盖"对/错",还覆盖"做的方式对不对"**——这就是过程层的价值。
+
+---
+
+**案例 B:模糊指令 + Context 推理的检查点设计**
+
+> User query:"车里好热啊"
+> Context:天气暴晒、空调全关、电量充足、舒适偏好无特殊记忆
+
+<div style="font-family:-apple-system,sans-serif;background:#fff;padding:18px;border-radius:10px;border:1px solid #eaeaea;margin:14px 0;">
+  <div style="font-size:13px;color:#27ae60;font-weight:600;letter-spacing:0.5px;margin-bottom:10px;">✓ 结果检查点</div>
+  <ul style="margin:0 0 16px;padding-left:20px;color:#2c3e50;font-size:13px;line-height:1.9;">
+    <li>打开空调(因为当前空调是关闭状态)</li>
+    <li>温度设置在用户未明说但合理的范围(24°C 左右)</li>
+  </ul>
+  <div style="font-size:13px;color:#3498db;font-weight:600;letter-spacing:0.5px;margin-bottom:10px;">✓ 过程检查点</div>
+  <ul style="margin:0 0 16px;padding-left:20px;color:#2c3e50;font-size:13px;line-height:1.9;">
+    <li>调用 vehicle_basic_control 工具(而非 search_weather 等无关工具)</li>
+    <li>不调用降车窗工具(因为是暴晒天气)</li>
+    <li>话术不能空话:不能只说"我帮你查一下",必须有动作</li>
+  </ul>
+  <div style="font-size:13px;color:#e67e22;font-weight:600;letter-spacing:0.5px;margin-bottom:10px;">⚠ 分支检查点(惊喜预期)</div>
+  <ul style="margin:0;padding-left:20px;color:#2c3e50;font-size:13px;line-height:1.9;">
+    <li>是否主动启用最大制冷模式(因为暴晒)</li>
+    <li>是否一起打开座椅通风(同样能快速降温)</li>
+    <li>话术是否带情绪共鸣("外面好晒,我马上帮你凉快下来")</li>
+  </ul>
+</div>
+
+**反例对照**——同样的 query,Context 换成"空调已开 16°C 1 档"时,检查点完全不同:
+
+- 结果检查点变成:**调高风量**(不是降温度,温度已经到底了)
+- 过程检查点变成:**不要冗余地降温度**——降温度是错的执行
+
+> 这个反例对照就是 Part 2 漏洞 ③ 的具体解决方案——**通过 Context 显式建模,同一句话在不同语境下的最优解被翻译成了不同的检查点**。
+
+### 4.7 评测报表的结构
+
+把上面所有维度汇总,2.0 评测报表的结构是这样的:
+
+<div style="font-family:-apple-system,sans-serif;background:#f7f9fc;padding:20px;border-radius:10px;border:1px solid #eaeaea;margin:14px 0;">
+  <table style="width:100%;border-collapse:separate;border-spacing:0 8px;font-size:13px;">
+    <thead>
+      <tr>
+        <th style="text-align:left;padding:6px 12px;color:#95a5a6;font-weight:600;width:16%;">分类</th>
+        <th style="text-align:left;padding:6px 12px;color:#95a5a6;font-weight:600;width:36%;">维度</th>
+        <th style="text-align:left;padding:6px 12px;color:#95a5a6;font-weight:600;">指标</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td style="background:#e8f5e9;padding:10px 12px;border-radius:6px 0 0 6px;color:#1e8449;font-weight:600;" rowspan="4">端到端</td>
+          <td style="background:#fff;padding:10px 12px;color:#2c3e50;">完成情况</td>
+          <td style="background:#fff;padding:10px 12px;border-radius:0 6px 6px 0;color:#7f8c8d;">任务完成度(加权)</td></tr>
+      <tr><td style="background:#fff;padding:10px 12px;color:#2c3e50;">稳定性</td>
+          <td style="background:#fff;padding:10px 12px;border-radius:0 6px 6px 0;color:#7f8c8d;">pass@3 / pass^3</td></tr>
+      <tr><td style="background:#fff;padding:10px 12px;color:#2c3e50;">时延</td>
+          <td style="background:#fff;padding:10px 12px;border-radius:0 6px 6px 0;color:#7f8c8d;">TTFT / 平均 Chunk Latency</td></tr>
+      <tr><td style="background:#fff;padding:10px 12px;color:#2c3e50;">各能力域</td>
+          <td style="background:#fff;padding:10px 12px;border-radius:0 6px 6px 0;color:#7f8c8d;">感知 / 理解 / 执行 得分</td></tr>
+      <tr><td style="background:#eaf4fc;padding:10px 12px;border-radius:6px 0 0 6px;color:#2874a6;font-weight:600;" rowspan="7">过程指标</td>
+          <td style="background:#fff;padding:10px 12px;color:#2c3e50;">ASR</td>
+          <td style="background:#fff;padding:10px 12px;border-radius:0 6px 6px 0;color:#7f8c8d;">句准率</td></tr>
+      <tr><td style="background:#fff;padding:10px 12px;color:#2c3e50;">拒识</td>
+          <td style="background:#fff;padding:10px 12px;border-radius:0 6px 6px 0;color:#7f8c8d;">准确率</td></tr>
+      <tr><td style="background:#fff;padding:10px 12px;color:#2c3e50;">简单/复杂仲裁</td>
+          <td style="background:#fff;padding:10px 12px;border-radius:0 6px 6px 0;color:#7f8c8d;">准确率</td></tr>
+      <tr><td style="background:#fff;padding:10px 12px;color:#2c3e50;">SFT 车控</td>
+          <td style="background:#fff;padding:10px 12px;border-radius:0 6px 6px 0;color:#7f8c8d;">准确率</td></tr>
+      <tr><td style="background:#fff;padding:10px 12px;color:#2c3e50;">Context 筛选</td>
+          <td style="background:#fff;padding:10px 12px;border-radius:0 6px 6px 0;color:#7f8c8d;">准确率(错误/冗余/缺失)</td></tr>
+      <tr><td style="background:#fff;padding:10px 12px;color:#2c3e50;">Planner</td>
+          <td style="background:#fff;padding:10px 12px;border-radius:0 6px 6px 0;color:#7f8c8d;">4 子项准确率(工具/参数/Context/其他)</td></tr>
+      <tr><td style="background:#fff;padding:10px 12px;color:#2c3e50;">下游工具</td>
+          <td style="background:#fff;padding:10px 12px;border-radius:0 6px 6px 0;color:#7f8c8d;">分工具的成功率/返回错误率</td></tr>
+    </tbody>
+  </table>
+</div>
+
+这张表本身就是一份**对产品和算法都有用的产出物**——它既能回答"系统现在能力几何",又能回答"问题在哪里",还能回答"下一个版本应该优化什么"。
+
+### 4.8 钉入 Planner:7 类归因与 Badcase 4 层排查路径的对齐
+
+Driver Agent 2.0 团队内部已经有一套约定的 **Badcase 4 层排查路径**:
+
+```
+链路问题(走错模块) → 工具描述问题(SP ③ 工具定义不清) →
+上下文问题(缺记忆/车况/情景) → 模型能力问题(信息全但推理错)
+```
+
+这条路径不是评测体系发明的——它是我们日常 review badcase 时**实际在用**的诊断框架。2.0 的 7 类归因体系,就是把这条路径**显式化、可统计、可分配**的工程化版本:
+
+<div style="font-family:-apple-system,sans-serif;background:#fff8e1;padding:20px;border-radius:10px;border:1px solid #f5d8a8;margin:14px 0;">
+  <table style="width:100%;border-collapse:separate;border-spacing:0 8px;font-size:13px;">
+    <thead>
+      <tr>
+        <th style="text-align:left;padding:8px 14px;color:#95a5a6;font-weight:600;width:22%;">Badcase 排查层级</th>
+        <th style="text-align:left;padding:8px 14px;color:#95a5a6;font-weight:600;width:26%;">对应 7 类归因中的</th>
+        <th style="text-align:left;padding:8px 14px;color:#95a5a6;font-weight:600;">钉入 Planner 模块的判据</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">链路问题(走错模块)</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">① 感知 / ② 仲裁</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">trace 看是否走了句法 RAG → 情景 RAG → 复杂 Planner 这条预期分流;简单复杂仲裁误判(8 类问题)</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">工具描述问题</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">④ Planner · 调用错工具子项</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">action_list 调了 web_search 而非 search_weather → 看 SP ③ 工具定义和 ⑥ 示例是否歧义</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">上下文问题</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">③ Context / ④ Planner · 错用 Context 子项</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">SP ⑪ 动态变量是否注入了正确的值;Planner 在 trace 中是否"看到了"且"用了" env_info/memory</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">模型能力问题</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">④ Planner · 其他理解执行错 / ⑤ Advisor</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">信息齐全但话术/拆解仍不对 → 这是 Seed 1.8 本身的能力边界,要靠 SFT/RL 优化</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+> 这种对齐很重要——**评测体系不能脱离团队日常 review badcase 的语言**。如果评测报告用一套术语,daily 站会用另一套术语,落地一定崩。
+
+### 4.9 钉入 Planner:检查点设计直接引用 Director SP ⑤ 10 条注意事项
+
+Director(豆包 in car 时代的旧 Planner 名)的 SP ⑤ 模块写了 **10 条注意事项**——这些注意事项就是**最权威的检查点来源**,因为它们本来就是 Planner 被训练去遵守的硬约束。
+
+举两个例子,展示评测检查点如何直接引用 SP ⑤ 条款:
+
+<div style="font-family:-apple-system,sans-serif;background:#fff;padding:18px;border-radius:10px;border:1px solid #eaeaea;margin:14px 0;">
+  <div style="font-size:13px;color:#3498db;font-weight:600;letter-spacing:0.5px;margin-bottom:10px;">📌 例 1 · 引用"说做一致"条款</div>
+  <div style="color:#2c3e50;font-size:13px;line-height:1.8;">
+    <strong>SP ⑤ 条款</strong>(简化版):"talk_content 中承诺的所有动作必须在 action_list 里有对应工具调用,不允许说一套做一套。"<br/><br/>
+    <strong>评测检查点</strong>:对所有场景,自动比对 talk_content 中提到的动作关键词("空调开了"/"歌马上来"/"灯调粉了") 与 action_list 中的 tool 调用,差异 ≥ 1 个 → 该检查点 fail。<br/><br/>
+    <strong>归因</strong>:④ Planner · 其他理解执行错(模型能力问题)
+  </div>
+</div>
+
+<div style="font-family:-apple-system,sans-serif;background:#fff;padding:18px;border-radius:10px;border:1px solid #eaeaea;margin:14px 0;">
+  <div style="font-size:13px;color:#3498db;font-weight:600;letter-spacing:0.5px;margin-bottom:10px;">📌 例 2 · 引用"必回"条款</div>
+  <div style="color:#2c3e50;font-size:13px;line-height:1.8;">
+    <strong>SP ⑤ 条款</strong>:"输入类型 = user_query 时,talk_or_not 必须为 true(用户问的话必须回应)。"(参考 5.22 SP 评审会决议 D1)<br/><br/>
+    <strong>评测检查点</strong>:统计所有 user_query 输入下 talk_or_not = false 的占比,目标 < 0.1%。<br/><br/>
+    <strong>归因</strong>:④ Planner · 其他理解执行错
+  </div>
+</div>
+
+**意义**:检查点不要"我想测什么就测什么",而要**直接来自 SP 已经规定的约束**——这样评测结果可以被研发同学一眼看懂"我违反了哪条注意事项",优化方向极其明确。
+
+---
+
+## Part 5 — 重构 3:评测维度,主观体验"像人"怎么测
+
+### 5.1 为什么"像人"是必须被评测的东西
+
+豆包上车有一个特殊的产品张力:**它服务于一个驾驶状态下的、注意力受限的、情绪状态多变的用户**。在这种情境下,系统的"像人感"不是一个加分项——它是**核心体验**——也是 SP ⑩ 模块定义"温柔高知女生人设"的根本原因。
+
+具体地说,用户对系统的不满,绝大多数不是"它做错了什么",而是:
+
+- 话太多,在我不需要的时候插嘴(节奏)
+- 听得懂字面但听不懂意思(理解)
+- 像个客服,不像伙伴(人设)
+- 死板,不变通(常识)
+- 说一套做一套(一致性)
+
+这些都是 1.0 评测里**测不到、也没法测**的维度。但它们恰恰是用户决定"我要不要继续用"的关键。
+
+### 5.2 为什么主观评测之前一直做不好
+
+我们试过两种传统做法,都效果不佳。
+
+<div style="font-family:-apple-system,sans-serif;background:#f7f9fc;padding:24px;border-radius:12px;border:1px solid #eaeaea;">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+    <div style="background:#fff;padding:18px;border-radius:8px;border:1px dashed #e74c3c;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <span style="background:#e74c3c;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">传统做法 1</span>
+        <span style="color:#2c3e50;font-weight:600;font-size:14px;">对抗评估</span>
+      </div>
+      <ul style="margin:0;padding-left:18px;color:#7f8c8d;font-size:13px;line-height:1.8;">
+        <li>A vs B,谁更好?</li>
+        <li>只能多 Agent 横向对比</li>
+        <li>无法绝对量化</li>
+        <li>没有绝对水位</li>
+      </ul>
+    </div>
+    <div style="background:#fff;padding:18px;border-radius:8px;border:1px dashed #e74c3c;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <span style="background:#e74c3c;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;">传统做法 2</span>
+        <span style="color:#2c3e50;font-weight:600;font-size:14px;">全局打分</span>
+      </div>
+      <ul style="margin:0;padding-left:18px;color:#7f8c8d;font-size:13px;line-height:1.8;">
+        <li>共情 1-5 分</li>
+        <li>人设一致性 1-5 分</li>
+        <li>隔靴搔痒</li>
+        <li>评分员主观性极强</li>
+      </ul>
+    </div>
+  </div>
+  <div style="text-align:center;margin-top:16px;padding:12px;background:#fff;border-radius:8px;color:#c0392b;font-weight:600;font-size:14px;">↓ 两种都不解决问题 ↓</div>
+</div>
+
+**对抗评估的根本问题**:它只能告诉你"我比你强",不能告诉你"我离用户的期待还差多远"。两个都很差的 Agent 也可以分出胜负——但这个胜负对产品没有意义。
+
+**全局打分的根本问题**:"共情能力 4 分"——评测员凭什么打 4 分?哪些行为让他打了 4 分?换一个评测员会不会打 3 分?这种**结论无法被分解、无法被追因**的评分,对优化方向几乎没有指导价值。
+
+### 5.3 解法:Case-by-Case 把抽象拆为具体可观测的检查点
+
+我们最终走到的方案,本质上是把 Part 4 的"检查点设计"方法**复用到了主观维度上**——只不过这次,检查点要更细、要更贴近"人的具体体验"。
+
+不再问:"这个回复有没有共情?"
+而是问:**"在这个具体场景下,系统是否做到了 X、Y、Z 三件事?"**
+
+例如对一句"我好困"的回复,我们不打"共情分",而是检查:
+
+1. ✓ 是否优先关心驾驶安全(基础)
+2. ✓ 是否结合 context(感冒药、连续驾驶时长、当前路况)给出针对性建议(惊喜)
+3. ✓ 语气是否符合"伙伴"人设,不是机械客服式
+4. ✓ 是否避免了"假关怀"——空话(比如只说"注意休息哦"而没有任何具体动作)
+
+这种拆解的代价是**人力成本高**:每个场景的每个需求都要单独设计检查点,而且这些检查点本身需要 PM 反复打磨。但收益是:
+
+- 评分客观,不同评测员之间分歧大幅下降
+- bad case 可定位——某个检查点没过,直接对应到一个具体的优化方向
+- 优化效果可验证——下一版评测,可以看那个特定检查点的通过率是否上去了
+
+### 5.4 "像人"维度的三层拆解
+
+为了不让检查点设计变成"想到什么写什么",我们把"像人"拆成三层:**感知层 / 理解层 / 表达执行层**。每一层都有自己的关注点和典型缺陷。
+
+<div style="font-family:-apple-system,sans-serif;background:#f7f9fc;padding:24px;border-radius:12px;border:1px solid #eaeaea;">
+  <div style="display:flex;flex-direction:column;gap:14px;">
+    <div style="background:#fff;border-radius:8px;padding:18px 22px;border-left:4px solid #3498db;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div style="font-weight:700;color:#2c3e50;font-size:15px;">感知层</div>
+        <div style="color:#3498db;font-size:12px;font-weight:600;">听到 / 看到</div>
+      </div>
+      <ul style="margin:0;padding-left:18px;color:#2c3e50;font-size:13px;line-height:1.9;">
+        <li>口语化输入纠错(口癖 / 重复 / 语法错)</li>
+        <li>释义理解("我叫左晨,早晨的晨")</li>
+        <li>区分语音和环境音</li>
+        <li>听懂打断 / 插话 / 边说边听</li>
+        <li>视觉:神态 / 动作辅助意图判断</li>
+      </ul>
+    </div>
+    <div style="text-align:center;color:#bdc3c7;font-size:16px;">▼</div>
+    <div style="background:#fff;border-radius:8px;padding:18px 22px;border-left:4px solid #27ae60;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div style="font-weight:700;color:#2c3e50;font-size:15px;">理解层</div>
+        <div style="color:#27ae60;font-size:12px;font-weight:600;">听懂 / 懂得</div>
+      </div>
+      <ul style="margin:0;padding-left:18px;color:#2c3e50;font-size:13px;line-height:1.9;">
+        <li>切片思考 → 内化记忆</li>
+        <li>弦外之意 / 反讽 / 网络热梗</li>
+        <li>任务轻重缓急的"分寸感"</li>
+        <li>主动澄清而非"看似完整"地答</li>
+        <li>同频:潜台词 / 情绪 / 立场</li>
+      </ul>
+    </div>
+    <div style="text-align:center;color:#bdc3c7;font-size:16px;">▼</div>
+    <div style="background:#fff;border-radius:8px;padding:18px 22px;border-left:4px solid #e67e22;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div style="font-weight:700;color:#2c3e50;font-size:15px;">表达执行层</div>
+        <div style="color:#e67e22;font-size:12px;font-weight:600;">说出 / 做到</div>
+      </div>
+      <ul style="margin:0;padding-left:18px;color:#2c3e50;font-size:13px;line-height:1.9;">
+        <li>生活化 knowhow(下雨该关窗)</li>
+        <li>伙伴式而非客服式人设</li>
+        <li>闲聊场景的"省力原则"短句</li>
+        <li>长任务的过程反馈("做到一半了")</li>
+        <li>反思与学习(夜间反思机制)</li>
+        <li>个人喜恶与审美(稳定人格底色)</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+### 5.5 三个真实的"不像人"案例(及其检查点拆解)
+
+抽象的层级说太多就空。下面三个真实 case 直击痛点,每一个我们都拆出了具体的检查点。
+
+---
+
+**案例 1:任务节奏失控——背单词时插播电量**
+
+> 背景:用户带三岁女儿,正在和系统玩"背英语单词"的长时任务。
+> 用户:"现在电量还有多少?"
+> 系统(差):"电池剩余电量 58%,还能跑 137km 哦~好啦电量问题先到这~小公主快想想那个黄黄弯弯像小月牙的东西是什么,大声说出对应的单词,答对马上给你开座椅按摩哦🥳!"
+
+**问题诊断**:这是典型的**任务优先级与节奏失控**。
+- 用户只是顺口问一句电量,系统却把电量播报和单词游戏强行串联,信息量爆炸
+- 在三岁儿童的语境下,"137km"是没意义的信息——成人的精确数字 ≠ 儿童的体感
+- "答对开座椅按摩"作为儿童奖励完全错位——三岁孩子不会因为座椅按摩而开心
+- 整段话破坏了游戏节奏
+
+**检查点拆解**:
+- ✓ 信息量是否与 query 匹配(电量 = 短回应,游戏 = 持续状态)
+- ✓ 是否区分了任务的"前景/后景"——电量是临时插入,游戏才是主线
+- ✓ 儿童语境下,数字是否被翻译成体感("还能跑很远")
+- ✓ 奖励机制是否符合儿童心理预期
+
+---
+
+**案例 2:Context 冲突——副驾妈妈 vs 视觉感知小女孩**
+
+> 背景:记忆库里有一句"副驾是我的妈妈你认识下",但视觉感知模块显示副驾座位上是一个小女孩。
+> 用户:"副驾上是谁?"
+> 系统(差):直接根据记忆回答"是阿姨"——但事实上现在的副驾是孩子。
+
+**问题诊断**:这是**记忆和感知冲突时的判断失败**。
+- 系统没有意识到"记忆是历史事实"和"感知是当前事实"是两个独立的信息源
+- 当两者矛盾时,需要做时空判断——以当前感知为准,记忆作为补充
+- Planner 缺乏"信息源置信度"的概念
+
+**检查点拆解**:
+- ✓ 是否优先采信视觉感知(对"此时此刻"的判断)
+- ✓ 是否提示了记忆与感知的不一致(主动澄清)
+- ✓ 是否避免了基于过时记忆做出对当前不合理的判断
+
+---
+
+**案例 3:过度执行——"我想放松一下"被翻译成全自动套餐**
+
+> User query:"我想放松一下"
+> 系统(差):"那我帮你营造放松的氛围,先把座椅按摩调到 2 档,再播放舒缓的轻音乐,氛围灯调成暖黄色,你慢慢放空就好啦"
+
+**问题诊断**:这是**缺乏主动澄清的过度执行**。
+- "放松"是一个模糊指令,可能是想听歌、可能是想安静、可能是想按摩、可能只是想关掉广播
+- 系统选择了**一次性满足所有可能性**的策略,看起来贴心,实际上很可能全错
+- 用户被迫接受一个他没说要的"套餐",还要逐项关掉自己不需要的——体验反而更差
+
+**检查点拆解**:
+- ✓ 是否识别到指令的模糊性
+- ✓ 是否在执行前做了一次轻量级澄清("放松"和"安静"是两个方向,你想哪种?)
+- ✓ 如果选择直接执行,是否限制在最小可接受动作集(比如只调音乐),而不是全套
+- ✓ 话术是否给用户留了"撤回"空间("不喜欢可以让我换")
+
+---
+
+这三个 case 展示了一个共同点:**"像人"不是一个能力,而是无数个具体决策点的合集**。把它拆成检查点,就能测、能优化、能闭环。
+
+### 5.6 "意外之喜"机制:让评测维度自己生长
+
+最后一个设计细节,值得专门提一下:**评测维度必须是开放的**。
+
+"人"由数不清的特质组成。我们不可能在 v1 的检查点库里覆盖所有"像人"的维度——总会有用户在某个场景下被某个细节打动或冒犯,而那个细节我们之前根本没想到。
+
+所以我们在评测流程里加了一个机制:**意外之喜捕获**。
+
+评测员除了检查预设的检查点,还有一个固定动作——记录"虽然不在检查点里,但让我惊讶或不适的回复"。这些观察会进入一个独立的归档,**每个评测周期由 PM 例行 review**,把高频出现的"意外"提炼成新的检查点,回灌到场景库。
+
+这个机制的价值不在它能立刻发现什么,而在它**让评测体系不会僵化**。一年后的检查点库不会是今天的复制品,它会因为用户的真实反应而生长。
+
+### 5.7 钉入 Planner:"像人"维度对应 SP/UP 的具体监控点
+
+"像人"听起来很玄,但 Driver Agent 2.0 的 SP 已经把它**部分地写成了硬约束**——评测就是去检验这些约束是否被遵守:
+
+<div style="font-family:-apple-system,sans-serif;background:#fff8e1;padding:20px;border-radius:10px;border:1px solid #f5d8a8;margin:14px 0;">
+  <table style="width:100%;border-collapse:separate;border-spacing:0 8px;font-size:13px;">
+    <thead>
+      <tr>
+        <th style="text-align:left;padding:8px 14px;color:#95a5a6;font-weight:600;width:22%;">"像人"层级</th>
+        <th style="text-align:left;padding:8px 14px;color:#95a5a6;font-weight:600;width:30%;">Planner 监控点</th>
+        <th style="text-align:left;padding:8px 14px;color:#95a5a6;font-weight:600;">具体 Badcase 形态</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">感知 · 释义理解</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">ASR 输出 + Planner 对口语化输入的处理</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">"导航去呃呃无名豆花"被当成完整地名搜索;"我叫左晨,早晨的晨"识别为左成</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">理解 · 切片 vs 内化记忆</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">SP ⑪ {{memory}} 与 UP 历史对话的冲突仲裁</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">记忆"副驾是妈妈"vs 当前 {{status}} "副驾是小女孩" → Planner 信谁?(参考 案例 2)</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">理解 · 任务分寸感</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">Goal List 中的优先级 + talk_content 节奏</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">背单词任务中插播电量长报(案例 1)→ Goal List 优先级机制失效</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">理解 · 主动澄清</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">talk_or_not + talk_content 是否含追问</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">"我想放松一下"→ 直接全套执行 而非追问(案例 3)</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">表达 · 伙伴 vs 客服</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">SP ⑩ 聊天风格(温柔高知女生)在 talk_content 中的体现</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">话术过于"端着"、客气、机械;骂不还口</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">表达 · 省力原则</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">talk_content 长度 + tool_feedback 后是否再次播报</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">"空调已开,座椅通风也开了,后续不舒服随时跟我说" → 太啰嗦,Director 评分指南反例</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">表达 · 说做一致</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">talk_content 关键词 ↔ action_list 工具对齐</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">"灯调粉了" 但 action_list 没有 ambient_light_control 调用</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">执行 · 长任务反馈</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">S9-S10 持续任务的 advisor 心跳节奏</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">"10 分钟颈椎操"在 5 分钟说到了 → 没有内化时间感(SP ⑤ 时间感知条款应限制)</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+> **结论**:"像人"评测不要陷入虚空的主观评分。把每条"像人"维度,翻译到 SP 模块和 UP 字段上的**具体可观测信号**——这是 case-by-case 检查点设计在 Planner 业务下的具体玩法。
+
+---
+
+## Part 6 — 工程化:5 个 Prompt 串起一条自动化流水线
+
+### 6.1 为什么必须工程化
+
+到 Part 5 为止,我们已经把"评测什么、怎么评"讲清楚了。但还有一个现实问题:**这样评测的人力成本是 1.0 的 5-10 倍**。
+
+每个场景要写元素、需求、检查点;每条 case 要生成多轮对话、跑出执行 trace、比对检查点、做归因。如果靠人工,2.0 体系根本无法规模化——一周做完两个场景,产品迭代节奏完全跟不上。
+
+所以 2.0 必须工程化。我们把整条链路拆成 5 个 LLM 驱动的环节,每个环节都由一个独立的 Prompt 承担,人工只在两个高价值的环节里兜底。
+
+### 6.2 5 阶段流水线总览
+
+<div style="font-family:-apple-system,sans-serif;background:#f7f9fc;padding:24px;border-radius:12px;border:1px solid #eaeaea;">
+  <div style="display:flex;flex-direction:column;gap:8px;">
+
+    <div style="background:#2c3e50;color:#fff;padding:14px 20px;border-radius:8px;text-align:center;">
+      <div style="font-weight:700;font-size:14px;">核心场景库</div>
+      <div style="font-size:12px;color:#bdc3c7;margin-top:3px;">元素 × 需求 × 检查点</div>
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:center;gap:10px;color:#3498db;font-size:13px;font-weight:600;">
+      <span style="flex:1;height:1px;background:#3498db;"></span>
+      ① 场景选取 Prompt
+      <span style="flex:1;height:1px;background:#3498db;"></span>
+    </div>
+
+    <div style="background:#fff;padding:14px 20px;border-radius:8px;border-left:4px solid #3498db;">
+      <div style="color:#2c3e50;font-weight:600;font-size:14px;">本轮要评测的场景实例</div>
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:center;gap:10px;color:#3498db;font-size:13px;font-weight:600;">
+      <span style="flex:1;height:1px;background:#3498db;"></span>
+      ② 对话生成 Prompt <span style="color:#95a5a6;font-size:11px;">(LLM 扮演用户 · 核心集人工审核)</span>
+      <span style="flex:1;height:1px;background:#3498db;"></span>
+    </div>
+
+    <div style="background:#fff;padding:14px 20px;border-radius:8px;border-left:4px solid #3498db;">
+      <div style="color:#2c3e50;font-weight:600;font-size:14px;">用户-Agent 多轮对话轨迹 + 完整执行 Trace</div>
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:center;gap:10px;color:#3498db;font-size:13px;font-weight:600;">
+      <span style="flex:1;height:1px;background:#3498db;"></span>
+      ③ 检查点生成 Prompt <span style="color:#95a5a6;font-size:11px;">(核心集人工审核)</span>
+      <span style="flex:1;height:1px;background:#3498db;"></span>
+    </div>
+
+    <div style="background:#fff;padding:14px 20px;border-radius:8px;border-left:4px solid #3498db;">
+      <div style="color:#2c3e50;font-weight:600;font-size:14px;">过程检查点 + 结果检查点 + 可能分支</div>
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:center;gap:10px;color:#3498db;font-size:13px;font-weight:600;">
+      <span style="flex:1;height:1px;background:#3498db;"></span>
+      ④ 检查点验证 Prompt <span style="color:#95a5a6;font-size:11px;">(自动判定)</span>
+      <span style="flex:1;height:1px;background:#3498db;"></span>
+    </div>
+
+    <div style="background:#fff;padding:14px 20px;border-radius:8px;border-left:4px solid #3498db;">
+      <div style="color:#2c3e50;font-weight:600;font-size:14px;">检查点通过率 / 完成度</div>
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:center;gap:10px;color:#3498db;font-size:13px;font-weight:600;">
+      <span style="flex:1;height:1px;background:#3498db;"></span>
+      ⑤ 归因分析 Prompt <span style="color:#95a5a6;font-size:11px;">(人工 + 自动)</span>
+      <span style="flex:1;height:1px;background:#3498db;"></span>
+    </div>
+
+    <div style="background:#fff;padding:14px 20px;border-radius:8px;border-left:4px solid #3498db;">
+      <div style="color:#2c3e50;font-weight:600;font-size:14px;">7 类归因结论 + 建议方向</div>
+    </div>
+
+    <div style="text-align:center;color:#c0392b;font-size:18px;margin-top:6px;">↓</div>
+    <div style="background:#fff3e0;padding:12px 20px;border-radius:8px;text-align:center;border:1px dashed #e67e22;">
+      <div style="color:#c0392b;font-weight:700;font-size:13px;">回灌场景库 / 检查点库(评测飞轮闭环)</div>
+    </div>
+
+  </div>
+</div>
+
+### 6.3 每个 Prompt 的设计要点
+
+下面逐一展开,每个 Prompt 的**输入、输出、关键设计选择和易错点**。
+
+---
+
+**① 场景选取 Prompt**
+
+- **输入**:测试目标(例如"专项回归 Planner 工具选择"、"全量评测"、"S7 主动服务专项")+ 场景库
+- **输出**:本轮要评测的场景实例列表(N 个,通常 20-50)
+- **关键设计**:不能"随机抽场景"。要按**测试目标**反向找——比如要回归工具选择,就抽场景里有"多工具组合"或"工具歧义"的实例。
+- **易错点**:抽完场景后没有去重,导致几个高度相似的场景被同时纳入,虚高覆盖率。
+
+---
+
+**② 对话生成 Prompt**(LLM 角色扮演用户)
+
+- **输入**:场景实例 + 用户画像
+- **输出**:一段多轮用户-Agent 对话
+- **关键设计**:这是整个流水线**最难的一步**。LLM 扮演用户时,要同时满足三个矛盾要求:
+  1. **真实**——说话方式像真人(口语化、不完美、有口癖)
+  2. **目标导向**——围绕场景的核心需求推进
+  3. **可控对抗性**——在指定的检查点上,有意识引入歧义、追问、变更需求
+- **易错点**:模型扮演的用户太"模型味"——说话太完整、需求太清晰、缺乏真实用户的犹豫和反复。这种"理想用户"会高估系统能力。
+- **人工兜底**:核心评测集的对话必须人工审核。非核心可以全自动。
+
+---
+
+**③ 检查点生成 Prompt**
+
+- **输入**:场景实例 + 对话内容
+- **输出**:针对这段对话的检查点列表(结果检查点 + 过程检查点 + 分支检查点)
+- **关键设计**:不要泛泛产出"系统回复是否得体"这种空洞检查点。每条检查点必须**可被自动验证**——要么是工具调用层面的(调了 XX 工具、参数是 YY)、要么是话术层面的(包含 ZZ 信息 / 不包含 WW 信息),要么是状态层面的(车窗状态变为 closed)。
+- **易错点**:检查点太多导致信噪比下降。一个 8 轮对话产 30 个检查点是合理的;产 100 个就是过度。
+- **人工兜底**:核心场景的检查点必须 PM 过一遍,因为检查点本身就是产品认知的固化。
+
+---
+
+**④ 检查点验证 Prompt**
+
+- **输入**:执行 trace + 检查点列表
+- **输出**:每个检查点的通过/失败 + 原因
+- **关键设计**:这一步几乎全自动,但要解决**模糊检查点的判定一致性**。比如"话术是否带情绪共鸣"这种检查点,模型的判定要稳定——同一个回复跑 3 次判定结果要一样。我们的做法是:把这类检查点拆细到"是否包含表达情绪共鸣的关键词或句式"这种可枚举的层面。
+- **易错点**:验证模型"自我宽容"——倾向于给 borderline 的回复打"通过"。要用 prompt 显式压制这个倾向。
+
+---
+
+**⑤ 归因分析 Prompt**
+
+- **输入**:失败的检查点 + 完整 trace + 场景元素
+- **输出**:归因到 7 大类之一(感知/仲裁/Context/Planner/Advisor/工具/其他)+ 简要说明
+- **关键设计**:归因要**有判据,不是猜**。Prompt 里要给清楚每一类归因的判断条件(比如"ASR 出错"的判据是 user query 的文本与音频不一致;"Planner 工具选错"的判据是 trace 里有 action 但 action 与意图不匹配)。
+- **易错点**:归因往"Planner 其他理解错"这个垃圾桶里灌——任何说不清的失败都被甩到这个类目。必须用 Prompt 显式限制这一类的占比(超过 20% 触发人工 review)。
+- **人工兜底**:对核心 bad case 和高频归因模式,PM 要人工复核,避免被模型带偏。
+
+### 6.4 评测飞轮:让每一次失败都变成系统改进
+
+这条流水线的真正价值,不是它能跑得多快,而是它**让评测变成一个持续转动的飞轮**。
+
+<div style="font-family:-apple-system,sans-serif;background:#f7f9fc;padding:28px 24px;border-radius:12px;border:1px solid #eaeaea;">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+    <div style="flex:1;background:#fff;padding:14px 10px;border-radius:8px;text-align:center;border-top:3px solid #3498db;">
+      <div style="font-weight:700;color:#2c3e50;font-size:14px;">运行</div>
+    </div>
+    <div style="color:#3498db;font-size:20px;font-weight:bold;">→</div>
+    <div style="flex:1;background:#fff;padding:14px 10px;border-radius:8px;text-align:center;border-top:3px solid #3498db;">
+      <div style="font-weight:700;color:#2c3e50;font-size:14px;">观测</div>
+    </div>
+    <div style="color:#3498db;font-size:20px;font-weight:bold;">→</div>
+    <div style="flex:1;background:#fff;padding:14px 10px;border-radius:8px;text-align:center;border-top:3px solid #3498db;">
+      <div style="font-weight:700;color:#2c3e50;font-size:14px;">诊断</div>
+    </div>
+    <div style="color:#3498db;font-size:20px;font-weight:bold;">→</div>
+    <div style="flex:1;background:#fff;padding:14px 10px;border-radius:8px;text-align:center;border-top:3px solid #3498db;">
+      <div style="font-weight:700;color:#2c3e50;font-size:14px;">修正</div>
+    </div>
+    <div style="color:#3498db;font-size:20px;font-weight:bold;">→</div>
+    <div style="flex:1;background:#fff;padding:14px 10px;border-radius:8px;text-align:center;border-top:3px solid #3498db;">
+      <div style="font-weight:700;color:#2c3e50;font-size:14px;">再评测</div>
+    </div>
+  </div>
+  <div style="text-align:center;margin-top:12px;padding:10px;background:#eaf4fc;border-radius:6px;color:#2874a6;font-size:13px;font-weight:600;">↻ 闭环:每次循环都在压缩失败空间</div>
+  <div style="text-align:center;margin-top:10px;color:#7f8c8d;font-size:12px;font-style:italic;">⚠ 没有归因体系,飞轮转不起来</div>
+</div>
+
+具体的回流路径:
+
+- **失败的检查点** → 归因到对应模块的责任团队 → 修复后下一轮回归
+- **被发现的"意外之喜"** → PM review → 提炼为新检查点 → 下个版本评测它
+- **被验证的好 case** → 进入"金标"数据集 → 用于模型 SFT 数据生产
+- **归因分布的异常波动**(比如某周突然 30% 的失败都是 Context 类) → 触发针对性专项 review
+
+> 一个评测体系的成熟度,不看它的指标多漂亮,看它**能不能驱动系统持续改进**。这条飞轮就是判定标准。
+
+### 6.5 自动化的边界:哪些环节不能去掉人
+
+最后一个工程上的硬话:**全自动化是个陷阱**。我们在落地过程中明确划定了两个必须保留人工的环节:
+
+1. **核心评测集的对话生成与检查点设计**——这两步是产品认知的"锚"。一旦让模型自己生产、自己评测,评测的标准会随模型版本漂移,失去对比基础。
+2. **高频归因模式的复核**——评测模型有自己的盲点和偏好,如果不抽查,会形成"模型评测模型,自圆其说"的封闭循环。
+
+非核心评测可以全自动,但要承认它的结论质量低于核心评测,只能用于**趋势观察**,不能用于**版本决策**。
+
+### 6.6 钉入 Planner:5 阶段流水线如何对接现有基建
+
+5 阶段流水线不是凭空建的,要尽可能复用 Driver Agent 2.0 已经在用的基建:
+
+<div style="font-family:-apple-system,sans-serif;background:#fff8e1;padding:20px;border-radius:10px;border:1px solid #f5d8a8;margin:14px 0;">
+  <table style="width:100%;border-collapse:separate;border-spacing:0 8px;font-size:13px;">
+    <thead>
+      <tr>
+        <th style="text-align:left;padding:8px 14px;color:#95a5a6;font-weight:600;width:22%;">流水线阶段</th>
+        <th style="text-align:left;padding:8px 14px;color:#95a5a6;font-weight:600;width:32%;">对接基建</th>
+        <th style="text-align:left;padding:8px 14px;color:#95a5a6;font-weight:600;">Planner 侧关键接口</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">① 场景选取</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">Fornax / PromptPilot 已有提示词模板</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">输入:核心场景库 + 测试目标;输出:场景实例列表</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">② 对话生成</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">主动服务模拟器 + AI 汽车模拟器(PRD v1.1)</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">构造 [SP, UP] 入参 + 调用 Planner Seed 1.8 + 收集 trace</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">③ 检查点生成</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">PromptPilot + 核心集走人工审核</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">检查点必须能从 talk_content / action_list / goal_list 中机读判定</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">④ 检查点验证</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">Byteval 评测平台</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">输入:trace + 检查点;输出:通过率 + 任务完成度 + pass@3/pass^3</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">⑤ 归因分析</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">PromptPilot + PM 人工复核</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">输出:7 类归因结论 + 对应到 SP 模块/工具/Advisor 的具体定位</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+> **基建复用很重要**:Byteval 已经承载了抖音/智创/剪映/小说等 20+ 业务线、4500+ 评测集。Driver Agent 2.0 Planner 评测应该是 Byteval 上的一个业务实例,而不是另起炉灶。
+
+---
+
+## Part 7 — 诚实地讲:正在解决的难题
+
+> 这一节是分享的"价值高地"。讲难题比讲成绩更让同行愿意听,也是建立信任的关键。下面这些是我们到今天仍然没有完美解的问题。
+
+### 7.1 上下文模拟的一致性
+
+场景化评测严重依赖 context 模拟,但 context 模拟有三个内在矛盾:
+
+1. **元素之间要逻辑自洽**——"暴雨天气"和"路况通畅"不应同时出现;"用户重感冒"和"用户兴致勃勃要唱 K"不应共存。
+2. **Context 要和 query 匹配**——用户说"我好热",context 里就不该是"外面下雪、空调已开制热";如果不匹配,评测员会感到困惑,系统输出也会偏离真实分布。
+3. **多轮中 context 要动态更新**——第 1 轮用户说"我开车去机场",第 3 轮 context 里的"目的地"就应该是机场,但很多评测里这个状态没有传递。
+
+**当前尝试**:模拟器 + Prompt 自校验。我们用一个轻量的"上下文校验模型"在 context 生成后过一遍,检测明显冲突。但仍有 case 出现自相矛盾——彻底解决需要把车端模拟器接入评测链路,这是 Q2-Q3 的重点。
+
+### 7.2 主动服务的"未触发场景"判定模糊
+
+主动服务评测有一个**结构性难点**:系统不响应的情况怎么判?
+
+- 预设了"上车 + 下雨"应该主动播报,系统没触发——是 bug 还是合理保守?
+- 系统在预设之外的场景主动触发了——是体验提升还是噪音?
+
+**当前尝试**:
+- 对预设触发场景,精确到具体 case 设计验收检查点,但**不设计过高召回率**——宁可少触发,不要错触发。
+- 对非预设触发,以场景和角色视角进行二维评价:**逻辑合理性**(是否符合常识)+ **体验提升性**(与"什么都不做"相比是否更好)。
+- 节奏问题(同一场景下多次触发的间隔)还在探索。
+
+这个问题的本质是:**主动服务的评测维度,本身就是一个需要被产品定义的事情**——我们至今没有完全收敛。
+
+### 7.3 主观性消除是个伪命题
+
+我们曾经追求"消除主观性",试过让评测员之间做盲评对齐、做评分标准培训、做多人交叉打分取平均。这些都有效果,但都没有解决根本问题——**主观维度的判定本来就是主观的**,你能做的是让分歧收敛,不是消除分歧。
+
+**当前态度**:
+- 短期方向:用自动化降低人为分歧,通过把抽象拆为具体检查点来锚定判断
+- 长期方向:**接受主观性,把评测的价值从"打分"迁移到"定位问题"**
+
+一句话:**现阶段评测更多服务于问题定位和产品迭代,不要太纠结于具体分数**。这个心态调整本身就是 2.0 体系最重要的"软件升级"。
+
+### 7.4 多轮对话无法预设
+
+1.0 的 case 库可以预设——一条 case 就是一个固定的 query + 期望。但 2.0 的对话是多轮的、有分支的,你不可能预先写完所有可能的对话路径。
+
+**当前解法**:LLM 角色扮演用户,生成对话(Part 6 的第二个 Prompt)。这是有效的,但要警惕两个风险:
+- **模型扮演的"用户"太理想化**——说话太完整、目标太清晰,导致评测高估系统能力
+- **模型扮演的"用户"和模型评测的"系统"是同源模型**——可能形成"自己评自己"的循环偏差
+
+要在 LLM 角色扮演里有意识引入"真实用户的不完美"——说话停顿、口癖、突然变主意、信息提供不完整——这是 Q2 的优化重点。
+
+### 7.5 持续任务的"节奏问题"
+
+长时任务(S9-S10,比如颈椎操、单词游戏、长途驾驶陪聊)的评测,有一个独特的难题:**节奏感**。
+
+- 反馈频率高了——扰民、像唠叨的客服
+- 反馈频率低了——用户觉得系统"消失了"、不可信
+- 中间被其他任务打断后,如何优雅地继续——这是工程和体验的双重难题
+
+**当前进展**:有意识地在场景里加入"长时任务 + 打断 + 恢复"的检查点设计,但还没有形成稳定的节奏评测指标。这是 2.0 体系**最不成熟的一块**,值得整个行业一起探索。
+
+### 7.6 钉入 Planner:已知的 7 个核心挑战
+
+除了上面 5 个评测自身的难题,Driver Agent 2.0 Planner 还有 7 个**业务层面的已知挑战**——这些挑战决定了评测体系下一步要优先覆盖什么:
+
+<div style="font-family:-apple-system,sans-serif;background:#fff8e1;padding:20px;border-radius:10px;border:1px solid #f5d8a8;margin:14px 0;">
+  <table style="width:100%;border-collapse:separate;border-spacing:0 8px;font-size:13px;">
+    <thead>
+      <tr>
+        <th style="text-align:left;padding:8px 14px;color:#95a5a6;font-weight:600;width:30%;">Planner 业务挑战</th>
+        <th style="text-align:left;padding:8px 14px;color:#95a5a6;font-weight:600;">评测应当如何覆盖</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">① 任务拆解不稳定</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">同一 query 多次试次的 action_list 一致性;pass^3 指标专门反映这个</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">② 简单/复杂误分类</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">仲裁层归因专项;参考 scenario-rag-arbitration 中的 8 类问题分类</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">③ 长对话上下文捕捉弱</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">场景库设计 ≥ 10 轮长对话场景;远区精简策略下 1-8 轮信息的召回率</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">④ 车控幻觉</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">检查 action_list 中工具参数是否符合 D6X 实际规格(SP ⑦ 车辆设备知识)</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">⑤ 话术生硬</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">Part 5"像人"维度的伙伴 vs 客服检查点;SP ⑩ 聊天风格遵守度</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">⑥ Planner 过载</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">TTFT / Chunk Latency 指标 + KV Cache 命中率监控;长对话场景下时延对比</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">⑦ 性能 vs 质量矛盾</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">评测报表必须同时呈现质量指标和性能指标,看权衡曲线(如 SP 压缩从 34K→15K 的影响)</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+> 这 7 个挑战不是凭空想的——是 Driver Agent 2.0 团队日常 review 中反复出现的痛点。评测体系要做的就是**让每一个挑战都能被定量地观察、可被定向优化**。
+
+---
+
+## Part 8 — 给同行的 5 条建议
+
+把整篇文章压缩成 5 句话,每一句都希望能被独立引用。
+
+---
+
+**01 · 别先想 Agent 有什么能力,先想业务里的"决策点"在哪里。**
+
+一个决策点 = 多条可选路径 + 选错有成本。从决策点反推评测,不会陷入"我会的我都测一遍"的工程师视角,而是直接对齐产品价值。这一点对所有领域 Agent 评测都成立——不只是车载。
+
+---
+
+**02 · 评测集是和代码同等重要的资产,不是一次性产物。**
+
+一次性写的 case、临时手写的测试,产生的结论不可比。把评测集**版本化、固定化、纳入代码评审流程**。允许它演进(新场景回流、bad case 入库),但不允许它随便改——尤其不能为了"让数据好看"而改。
+
+---
+
+**03 · 失败模式比失败 case 更重要。**
+
+单个 case 的修复价值有限。把 case 抽象成"失败模式"——能力型 / 策略型 / 结构型 / 交互型 / 工具型——才能驱动结构性改进。归因体系就是把 case 翻译成模式的工具,**没有归因,评测就只是计数,不是诊断**。
+
+---
+
+**04 · 主观评测不要追求"消除主观",要把抽象拆为具体的可观测检查点。**
+
+"共情 4 分"这种评分对优化没有意义。把"共情"拆成"是否优先关心安全 / 是否结合 context 给针对性建议 / 是否避免假关怀的空话"——这些具体检查点,既能客观验证,又能驱动具体优化。**Case-by-case 的检查点设计成本高,但收益远超 1-5 分卡。**
+
+---
+
+**05 · 评测要诚实地包含"风险与成本"层,而不只是结果对错。**
+
+一个能在测试集上做对的系统,如果上车后 token 消耗翻倍、TTFT 翻三倍、偶尔会做出违反端状态的操作,它就不能上线。**端到端结果对、过程合理、成本风险可控,三者缺一不可**。少看一层,产品就少一道安全网。
+
+---
+
+### 钉入 Planner:5 条建议落到我们的具体动作
+
+<div style="font-family:-apple-system,sans-serif;background:#fff8e1;padding:20px;border-radius:10px;border:1px solid #f5d8a8;margin:14px 0;">
+  <table style="width:100%;border-collapse:separate;border-spacing:0 8px;font-size:13px;">
+    <thead>
+      <tr>
+        <th style="text-align:left;padding:8px 14px;color:#95a5a6;font-weight:600;width:22%;">建议</th>
+        <th style="text-align:left;padding:8px 14px;color:#95a5a6;font-weight:600;">对应到 Driver Agent 2.0 团队的 Q2/Q3 动作</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">01 决策点先于能力</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">用"主动 vs 不主动""执行 vs 澄清""记忆 vs 感知""单步 vs 多步"这 4 类决策点反推场景库,每个决策点 ≥ 5 个 case</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">02 评测集是资产</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">核心场景库版本化(v2.1, v2.2...)、纳入 wiki/synthesis/、bad case 回流走 PR 评审流程</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">03 失败模式 > 失败 case</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">7 类归因报表周报化;每周看归因分布异常(如 Context 类突然升高就触发专项)</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">04 主观拆为检查点</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">SP ⑤ 的 10 条注意事项 + SP ⑩ 聊天风格 → 每条都拆为机读检查点(参考 Director 打分指南 0-4 分卡)</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">05 风险/成本入报表</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">TTFT/Chunk Latency/Token 消耗/KV Cache 命中率必须每个版本回归;SP 压缩(34K→15K)对质量的影响要专项评测</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+---
+
+## 附录 · 本文知识结构来源
+
+<div style="font-family:-apple-system,sans-serif;background:#f7f9fc;padding:20px;border-radius:10px;border:1px solid #eaeaea;margin:14px 0;">
+  <table style="width:100%;border-collapse:separate;border-spacing:0 8px;font-size:13px;">
+    <thead>
+      <tr>
+        <th style="text-align:left;padding:6px 12px;color:#95a5a6;font-weight:600;width:34%;">资料</th>
+        <th style="text-align:left;padding:6px 12px;color:#95a5a6;font-weight:600;width:24%;">性质</th>
+        <th style="text-align:left;padding:6px 12px;color:#95a5a6;font-weight:600;">本文采用了什么</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="background:#fff;padding:12px;border-radius:6px 0 0 6px;color:#2c3e50;font-weight:600;">AI Agent 评测入门</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">公司通用入门</td>
+        <td style="background:#fff;padding:12px;border-radius:0 6px 6px 0;color:#7f8c8d;">4 步闭环、4 种评估器、L1/L2/L3 分层思路</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;border-radius:6px 0 0 6px;color:#2c3e50;font-weight:600;">Agent 评测方法论梳理</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">学术高水位</td>
+        <td style="background:#fff;padding:12px;border-radius:0 6px 6px 0;color:#7f8c8d;">结果/过程/风险三层、评测飞轮、4 类失败模式、领域 Agent 评测从决策点出发</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;border-radius:6px 0 0 6px;color:#2c3e50;font-weight:600;">Director 评测重点与打分指南</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">车载落地具体</td>
+        <td style="background:#fff;padding:12px;border-radius:0 6px 6px 0;color:#7f8c8d;">10 条具体要求、Director 检查点示例、0-4 分卡的对应</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;border-radius:6px 0 0 6px;color:#2c3e50;font-weight:600;">车载智能助手评测体系 2.0</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">本团队产出</td>
+        <td style="background:#fff;padding:12px;border-radius:0 6px 6px 0;color:#7f8c8d;">场景元素 × 需求、7 类归因、5 阶段流水线、报表结构、所有难题</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;border-radius:6px 0 0 6px;color:#2c3e50;font-weight:600;">豆包汽车如何更像人</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">本团队产出</td>
+        <td style="background:#fff;padding:12px;border-radius:0 6px 6px 0;color:#7f8c8d;">感知/理解/表达执行三层、"像人"维度拆解、三个真实 case</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+> 本文的方法论框架借鉴了通用 Agent 评测体系(资料 1、2),具体落地完全来自 Driver Agent 2.0 Planner 团队的实战(资料 3、4、5 + wiki/concepts/ 下的 planner-jiangjie / planner-system-deep-dive / planner-sp-structure / scenario-rag-arbitration)。**贡献不在于发明新理论,而在于把通用框架精确钉到 Planner 的具体模块上**:每一节都对应到 SP 11 个模块 / UP 字段 / 23 工具 / 4 任务类型 / Goal List + Advisor / KV Cache / Badcase 4 层排查路径中的一个或多个,让评测结论可以被研发同学一眼定位到"具体要改哪里"。
+
+---
+
+## 全文索引:每个 Part 钉入了哪些 Planner 模块
+
+<div style="font-family:-apple-system,sans-serif;background:#f7f9fc;padding:24px;border-radius:12px;border:1px solid #eaeaea;margin:14px 0;">
+  <table style="width:100%;border-collapse:separate;border-spacing:0 8px;font-size:13px;">
+    <thead>
+      <tr>
+        <th style="text-align:left;padding:8px 14px;color:#95a5a6;font-weight:600;width:18%;">Part</th>
+        <th style="text-align:left;padding:8px 14px;color:#95a5a6;font-weight:600;width:24%;">方法论命题</th>
+        <th style="text-align:left;padding:8px 14px;color:#95a5a6;font-weight:600;">钉入的 Planner 模块</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">Part 1</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">1.0 体系的盲区</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">三层漏斗各层、SP ①③⑤⑪、talk_content/action_list、Advisor、Goal List、KV Cache(12 个盲区点)</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">Part 2</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">产品形态变化</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">Always-On + 4 静态 Advisor、SP ④ action_list、4 任务类型、SP ⑪ 动态变量、SP ⑩ 聊天风格</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">Part 3</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">场景化</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">场景元素 ↔ SP/UP 字段映射表;4 任务类型在场景库中的分布</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">Part 4</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">过程 + 归因</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">Badcase 4 层排查路径 ↔ 7 类归因;检查点直接引用 SP ⑤ 注意事项</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">Part 5</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">像人维度</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">像人 8 维度 ↔ SP ⑩⑪/Goal List/talk_content/action_list/Advisor 心跳的具体监控点</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">Part 6</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">工程化</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">5 阶段流水线对接 Byteval/Fornax/PromptPilot/模拟器;trace 字段定位</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">Part 7</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">难题</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">Planner 7 个核心业务挑战与评测的对应覆盖矩阵</td>
+      </tr>
+      <tr>
+        <td style="background:#fff;padding:12px;color:#2c3e50;font-weight:600;border-radius:6px 0 0 6px;">Part 8</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;">5 条建议</td>
+        <td style="background:#fff;padding:12px;color:#7f8c8d;border-radius:0 6px 6px 0;">5 条建议落到 Q2/Q3 的 5 个具体动作(场景库/版本化/周报/检查点拆解/性能回归)</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+> **使用建议**:对于产品 PM,从 Part 0-3 + 8 入手;对于评测 QA,重点看 Part 4-6 + 7;对于 SP 优化的算法,Part 4.9(SP ⑤ 引用)+ Part 5.7(SP ⑩⑪ 监控)+ Part 7.6(7 个挑战覆盖)是最相关的。
+
+---
+
+<div style="text-align:center;color:#95a5a6;font-size:12px;margin-top:40px;padding-top:20px;border-top:1px solid #eaeaea;">
+  — 完 —
+</div>

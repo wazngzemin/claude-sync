@@ -1,0 +1,1102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Driver Agent 2.0 · 全链路多轮对话 Demo</title>
+<style>
+:root{--bg:#0a0a0f;--bg2:#12121a;--bg3:#1a1a28;--bg4:#222236;--border:#2a2a40;--text:#f0f0f5;--text2:#9090aa;--text3:#606078;--blue:#5b9cf5;--green:#50d88a;--red:#f06070;--orange:#f0a050;--purple:#a080f0;--cyan:#40d0e0;--yellow:#e8c840;--pink:#e070b0;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,"PingFang SC","SF Pro Display","Helvetica Neue",sans-serif;height:100vh;overflow:hidden;}
+::-webkit-scrollbar{width:4px;}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+::selection{background:var(--blue);color:#000;}
+
+/* LAYOUT */
+.app{display:flex;height:100vh;flex-direction:column;}
+.topbar{height:48px;border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:16px;background:var(--bg2);flex-shrink:0;z-index:10;}
+.topbar h1{font-size:14px;font-weight:700;white-space:nowrap;}
+.topbar h1 b{background:linear-gradient(90deg,var(--blue),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.main{flex:1;display:flex;overflow:hidden;}
+
+/* PIPELINE BAR */
+.pipe-bar{display:flex;align-items:center;gap:2px;margin-left:auto;}
+.pipe-dot{width:8px;height:8px;border-radius:50%;background:var(--border);transition:all 0.4s;position:relative;}
+.pipe-dot.done{background:var(--green);}
+.pipe-dot.active{background:var(--blue);box-shadow:0 0 8px var(--blue);animation:pulse 1s infinite;}
+.pipe-line{width:18px;height:2px;background:var(--border);transition:background 0.4s;}
+.pipe-line.done{background:var(--green);}
+.pipe-label{font-size:10px;color:var(--text3);position:absolute;top:12px;left:50%;transform:translateX(-50%);white-space:nowrap;transition:color 0.3s;}
+.pipe-dot.active .pipe-label,.pipe-dot.done .pipe-label{color:var(--text2);}
+@keyframes pulse{0%,100%{box-shadow:0 0 4px var(--blue)}50%{box-shadow:0 0 12px var(--blue)}}
+
+/* SCENE SELECTOR */
+.scene-bar{display:flex;gap:4px;overflow-x:auto;padding:0 4px;flex-shrink:0;}
+.scene-bar::-webkit-scrollbar{height:0;}
+.sc-chip{padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);font-size:11px;cursor:pointer;white-space:nowrap;transition:all 0.2s;display:flex;align-items:center;gap:4px;flex-shrink:0;}
+.sc-chip:hover{border-color:var(--blue);background:var(--bg4);}
+.sc-chip.on{border-color:var(--green);background:rgba(80,216,138,0.08);color:var(--green);}
+
+/* LEFT: CHAT PANEL */
+.chat-panel{flex:1;display:flex;flex-direction:column;border-right:1px solid var(--border);min-width:0;}
+.chat-header{padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;background:var(--bg2);flex-shrink:0;}
+.chat-header .dot{width:6px;height:6px;border-radius:50%;background:var(--green);}
+.chat-header span{font-size:13px;font-weight:600;}
+.chat-header .sub{color:var(--text3);font-size:11px;font-weight:400;margin-left:auto;}
+
+.chat-body{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px;}
+.msg{display:flex;gap:8px;animation:fadeUp 0.3s ease;max-width:100%;}
+.msg.rt{flex-direction:row-reverse;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.msg-avatar{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+.msg-content{max-width:75%;min-width:0;}
+.msg-name{font-size:10px;color:var(--text3);margin-bottom:2px;}
+.msg.rt .msg-name{text-align:right;}
+.msg-bubble{padding:8px 12px;border-radius:14px;font-size:13px;line-height:1.6;word-break:break-word;}
+.msg.lt .msg-bubble{background:var(--bg3);border-top-left-radius:4px;}
+.msg.rt .msg-bubble{background:rgba(91,156,245,0.12);border:1px solid rgba(91,156,245,0.15);border-top-right-radius:4px;}
+.msg-sys{text-align:center;padding:4px 14px;font-size:10px;color:var(--text3);background:var(--bg3);border-radius:20px;align-self:center;animation:fadeUp 0.3s ease;}
+.msg-silence{text-align:center;padding:6px;font-size:11px;color:var(--text3);font-style:italic;animation:fadeUp 0.3s ease;}
+.msg-annotation{margin-top:4px;padding:5px 8px;border-radius:6px;background:rgba(232,200,64,0.06);border:1px solid rgba(232,200,64,0.1);font-size:10px;color:var(--text2);line-height:1.5;}
+
+/* TYPING INDICATOR */
+.typing{display:flex;gap:8px;animation:fadeUp 0.3s ease;}
+.typing .msg-avatar{background:rgba(80,216,138,0.1);}
+.typing-dots{padding:10px 14px;background:var(--bg3);border-radius:14px;border-top-left-radius:4px;display:flex;gap:4px;align-items:center;}
+.typing-dots span{width:5px;height:5px;border-radius:50%;background:var(--text3);animation:typeDot 1.2s infinite;}
+.typing-dots span:nth-child(2){animation-delay:0.2s;}
+.typing-dots span:nth-child(3){animation-delay:0.4s;}
+@keyframes typeDot{0%,60%,100%{opacity:0.3;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
+
+/* SUGGESTIONS */
+.suggestions{display:flex;flex-wrap:wrap;gap:6px;padding:8px 16px;border-top:1px solid var(--border);background:var(--bg2);flex-shrink:0;min-height:0;transition:all 0.3s;}
+.suggestions.empty{padding:0;min-height:0;border-top:none;}
+.sug-chip{padding:5px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-size:12px;cursor:pointer;transition:all 0.2s;white-space:nowrap;}
+.sug-chip:hover{border-color:var(--blue);color:var(--text);background:var(--bg4);}
+
+/* CHAT INPUT */
+.chat-input{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--border);background:var(--bg2);flex-shrink:0;}
+.chat-input input{flex:1;padding:8px 14px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;outline:none;transition:border-color 0.2s;}
+.chat-input input:focus{border-color:var(--blue);}
+.chat-input input::placeholder{color:var(--text3);}
+.chat-input button{padding:8px 16px;border-radius:10px;border:none;background:var(--blue);color:#fff;font-weight:700;cursor:pointer;font-size:13px;transition:all 0.2s;white-space:nowrap;}
+.chat-input button:hover{background:#6faaff;}
+.chat-input button:disabled{opacity:0.4;cursor:not-allowed;}
+
+/* RIGHT: PIPELINE PANEL */
+.pipe-panel{width:420px;display:flex;flex-direction:column;overflow-y:auto;background:var(--bg2);flex-shrink:0;}
+@media(max-width:900px){.pipe-panel{display:none;}}
+.pipe-section{border-bottom:1px solid var(--border);overflow:hidden;transition:all 0.3s;}
+.pipe-section-h{padding:10px 14px;display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;font-weight:700;transition:all 0.2s;}
+.pipe-section-h:hover{background:var(--bg3);}
+.pipe-section-h .icon{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;transition:all 0.3s;}
+.pipe-section-h .arrow{margin-left:auto;font-size:10px;color:var(--text3);transition:transform 0.2s;}
+.pipe-section.open .pipe-section-h .arrow{transform:rotate(90deg);}
+.pipe-section-b{max-height:0;overflow:hidden;transition:max-height 0.4s ease;}
+.pipe-section.open .pipe-section-b{max-height:600px;}
+.pipe-section-inner{padding:8px 14px 14px;}
+
+/* PIPELINE STATES */
+.pipe-section.pending .pipe-section-h .icon{background:var(--bg4);color:var(--text3);}
+.pipe-section.active .pipe-section-h{background:rgba(91,156,245,0.05);}
+.pipe-section.active .pipe-section-h .icon{background:rgba(91,156,245,0.15);color:var(--blue);animation:pulse 1.5s infinite;}
+.pipe-section.done .pipe-section-h .icon{background:rgba(80,216,138,0.15);color:var(--green);}
+.pipe-section.done .pipe-section-h{opacity:0.7;}
+
+/* REASONING STEPS */
+.re-step{padding:6px 10px 6px 28px;border-radius:6px;font-size:11px;line-height:1.6;position:relative;margin-bottom:4px;opacity:0;transform:translateX(-8px);transition:all 0.3s;}
+.re-step.show{opacity:1;transform:translateX(0);}
+.re-dot{position:absolute;left:6px;top:7px;width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;}
+.re-step.q{background:rgba(160,128,240,0.06);border:1px solid rgba(160,128,240,0.15);}
+.re-step.q .re-dot{background:rgba(160,128,240,0.2);color:var(--purple);}
+.re-step.y{background:rgba(80,216,138,0.06);border:1px solid rgba(80,216,138,0.15);}
+.re-step.y .re-dot{background:rgba(80,216,138,0.2);color:var(--green);}
+.re-step.n{background:rgba(240,96,112,0.06);border:1px solid rgba(240,96,112,0.15);}
+.re-step.n .re-dot{background:rgba(240,96,112,0.2);color:var(--red);}
+.re-step.f{background:rgba(80,216,138,0.1);border:1px solid var(--green);font-weight:700;}
+.re-step.f .re-dot{background:var(--green);color:#000;}
+
+/* TOOL CALL ROWS */
+.tool-row{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:6px;background:var(--bg);border:1px solid var(--border);font-size:11px;margin-bottom:4px;opacity:0;transform:translateY(4px);transition:all 0.3s;}
+.tool-row.show{opacity:1;transform:translateY(0);}
+.tool-row.running{border-color:var(--blue);box-shadow:0 0 8px rgba(91,156,245,0.1);}
+.tool-row.done{border-color:rgba(80,216,138,0.3);opacity:0.85;}
+.tool-num{width:16px;height:16px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;flex-shrink:0;background:var(--bg4);color:var(--text3);}
+.tool-row.running .tool-num{background:rgba(91,156,245,0.15);color:var(--blue);}
+.tool-row.done .tool-num{background:rgba(80,216,138,0.15);color:var(--green);}
+.tool-name{font-family:"SF Mono","JetBrains Mono",monospace;color:var(--cyan);font-weight:600;font-size:10px;white-space:nowrap;}
+.tool-param{color:var(--text3);font-size:10px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tool-result{font-size:10px;color:var(--green);font-weight:600;white-space:nowrap;}
+
+/* VEHICLE STATE */
+.state-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px;}
+.state-item{padding:6px 8px;border-radius:6px;background:var(--bg);border:1px solid var(--border);font-size:10px;display:flex;justify-content:space-between;align-items:center;}
+.state-item .label{color:var(--text3);}
+.state-item .val{font-weight:600;transition:all 0.3s;}
+.state-item .val.changed{color:var(--green);animation:stateFlash 0.5s ease;}
+@keyframes stateFlash{0%{background:rgba(80,216,138,0.2);border-radius:3px}100%{background:transparent}}
+
+/* KNOWLEDGE DETAIL */
+.kn-field{margin-bottom:6px;padding:6px 8px;border-radius:6px;font-size:11px;line-height:1.7;border-left:3px solid var(--border);}
+.kn-field.trig{border-left-color:var(--green);background:rgba(80,216,138,0.03);}
+.kn-field.excl{border-left-color:var(--red);background:rgba(240,96,112,0.03);}
+.kn-field.kp{border-left-color:var(--purple);background:rgba(160,128,240,0.03);}
+.kn-field h5{font-size:10px;font-weight:700;margin-bottom:2px;text-transform:uppercase;letter-spacing:0.5px;}
+.kn-field ul{padding-left:14px;color:var(--text2);margin:0;}
+.kn-field p{color:var(--text2);margin:0;}
+
+/* WELCOME OVERLAY */
+.welcome{position:absolute;inset:0;background:rgba(10,10,15,0.95);display:flex;align-items:center;justify-content:center;z-index:20;backdrop-filter:blur(10px);transition:opacity 0.4s;}
+.welcome.hide{opacity:0;pointer-events:none;}
+.welcome-box{text-align:center;max-width:560px;padding:40px;}
+.welcome-box h2{font-size:24px;font-weight:800;margin-bottom:8px;}
+.welcome-box h2 b{background:linear-gradient(90deg,var(--blue),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.welcome-box p{color:var(--text2);font-size:14px;margin-bottom:24px;line-height:1.7;}
+.welcome-scenes{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;}
+.welcome-sc{padding:10px 14px;border-radius:10px;border:1px solid var(--border);background:var(--bg3);cursor:pointer;transition:all 0.2s;text-align:center;min-width:80px;}
+.welcome-sc:hover{border-color:var(--blue);transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,0.3);}
+.welcome-sc .em{font-size:22px;display:block;margin-bottom:4px;}
+.welcome-sc .nm{font-size:11px;font-weight:600;}
+.welcome-or{color:var(--text3);font-size:13px;margin:16px 0 12px;}
+.welcome-tip{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
+.welcome-tip .t{padding:6px 14px;border-radius:8px;border:1px dashed var(--border);color:var(--text2);font-size:12px;cursor:pointer;transition:all 0.2s;}
+.welcome-tip .t:hover{border-color:var(--blue);color:var(--text);}
+
+/* EMPTY STATE */
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--text3);font-size:13px;gap:4px;}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <h1>Driver Agent 2.0 · <b>全链路多轮 Demo</b></h1>
+    <div class="scene-bar" id="sceneBar"></div>
+    <div class="pipe-bar" id="pipeBar">
+      <div class="pipe-dot" data-stage="0"><div class="pipe-label">Prompt</div></div>
+      <div class="pipe-line" data-after="0"></div>
+      <div class="pipe-dot" data-stage="1"><div class="pipe-label">知识</div></div>
+      <div class="pipe-line" data-after="1"></div>
+      <div class="pipe-dot" data-stage="2"><div class="pipe-label">推理</div></div>
+      <div class="pipe-line" data-after="2"></div>
+      <div class="pipe-dot" data-stage="3"><div class="pipe-label">工具</div></div>
+      <div class="pipe-line" data-after="3"></div>
+      <div class="pipe-dot" data-stage="4"><div class="pipe-label">回复</div></div>
+    </div>
+  </div>
+
+  <div class="main">
+    <!-- LEFT: CHAT -->
+    <div class="chat-panel">
+      <div class="chat-header">
+        <span class="dot"></span>
+        <span>豆包</span>
+        <span class="sub" id="chatSub">选一个场景开始</span>
+      </div>
+      <div class="chat-body" id="chatBody"></div>
+      <div class="suggestions empty" id="sugBox"></div>
+      <div class="chat-input">
+        <input id="chatInput" placeholder="说点什么..." onkeydown="if(event.key==='Enter')sendMsg()" />
+        <button id="sendBtn" onclick="sendMsg()">发送</button>
+      </div>
+    </div>
+
+    <!-- RIGHT: PIPELINE INSPECTOR -->
+    <div class="pipe-panel" id="pipePanel">
+      <!-- S0: Prompt Assembly -->
+      <div class="pipe-section pending" id="ps0">
+        <div class="pipe-section-h" onclick="toggleSection(this)">
+          <div class="icon">1</div>
+          <span>Prompt 组装</span>
+          <span class="arrow">▶</span>
+        </div>
+        <div class="pipe-section-b"><div class="pipe-section-inner" id="ps0Body">
+          <div class="state-grid" id="promptSlots"></div>
+        </div></div>
+      </div>
+      <!-- S1: Knowledge Match -->
+      <div class="pipe-section pending" id="ps1">
+        <div class="pipe-section-h" onclick="toggleSection(this)">
+          <div class="icon">2</div>
+          <span>Knowledge 匹配</span>
+          <span class="arrow">▶</span>
+        </div>
+        <div class="pipe-section-b"><div class="pipe-section-inner" id="ps1Body"></div></div>
+      </div>
+      <!-- S2: Planner Reasoning -->
+      <div class="pipe-section pending" id="ps2">
+        <div class="pipe-section-h" onclick="toggleSection(this)">
+          <div class="icon">3</div>
+          <span>Planner 推理</span>
+          <span class="arrow">▶</span>
+        </div>
+        <div class="pipe-section-b"><div class="pipe-section-inner" id="ps2Body"></div></div>
+      </div>
+      <!-- S3: Tool Calls -->
+      <div class="pipe-section pending" id="ps3">
+        <div class="pipe-section-h" onclick="toggleSection(this)">
+          <div class="icon">4</div>
+          <span>原子工具调用</span>
+          <span class="arrow">▶</span>
+        </div>
+        <div class="pipe-section-b"><div class="pipe-section-inner" id="ps3Body"></div></div>
+      </div>
+      <!-- S4: Output -->
+      <div class="pipe-section pending" id="ps4">
+        <div class="pipe-section-h" onclick="toggleSection(this)">
+          <div class="icon">5</div>
+          <span>生成回复</span>
+          <span class="arrow">▶</span>
+        </div>
+        <div class="pipe-section-b"><div class="pipe-section-inner" id="ps4Body"></div></div>
+      </div>
+      <!-- Vehicle State -->
+      <div class="pipe-section open" id="psState">
+        <div class="pipe-section-h" onclick="toggleSection(this)">
+          <div class="icon" style="background:rgba(232,200,64,0.15);color:var(--yellow);">🚗</div>
+          <span>车辆实时状态</span>
+          <span class="arrow">▶</span>
+        </div>
+        <div class="pipe-section-b"><div class="pipe-section-inner">
+          <div class="state-grid" id="vehicleStateGrid"></div>
+        </div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- WELCOME OVERLAY -->
+<div class="welcome" id="welcome">
+  <div class="welcome-box">
+    <h2>Driver Agent 2.0 <b>全链路模拟</b></h2>
+    <p>选一个场景体验完整链路：HMI点击 → Prompt注入 → Planner推理 → 工具调用 → 多轮对话<br>支持多轮交互，右侧实时展示每一步管线细节</p>
+    <div class="welcome-scenes" id="welcomeScenes"></div>
+    <div class="welcome-or">—— 或者直接说话，AI自动识别场景 ——</div>
+    <div class="welcome-tip" id="welcomeTips"></div>
+  </div>
+</div>
+
+<script>
+// ===================== SCENE DATA (13 scenes × multi-turn) =====================
+const SCENES = [
+{id:'01',e:'👶',name:'陪伴安抚',group:'child',
+  kp:'后排儿童哭闹/无聊需安抚——核心是给后排注入内容。区别于后排勿扰：本条增加后排存在感，后者降低。',
+  trig:['后面吵死了','给他放个动画片','孩子闹脾气了','乐乐在哭','后面哭了快管管','给小朋友找个东西看'],
+  excl:[{q:'孩子睡了后面安静点',t:'DRV-13 后排勿扰'},{q:'我想睡一会儿',t:'DRV-09 车内小憩'},{q:'把后排屏关了',t:'DRV-13 后排勿扰'}],
+  initState:{temp:'25°C',ac:'自动',seat:'正常',window:'关闭',screen:'关闭',light:'日间',special:'后排有儿童'},
+  turns:[
+    {patterns:['吵','哭','闹','烦','管管','安抚','动画片','放个东西','不安','嚎'],
+     reasoning:[{t:'q',s:'解析："后面吵"=后排有声音+情绪爆发'},{t:'q',s:'后排在吵→儿童哭闹 or 睡眠被打扰？'},{t:'y',s:'"吵"=有声音=活跃/哭闹，不是安静/睡眠'},{t:'n',s:'排除勿扰："安静"才走勿扰，"吵"走安抚'},{t:'f',s:'→ DRV-01 陪伴安抚 ✅'}],
+     tools:[{n:'search_user_memory',p:'"乐乐的内容偏好"',r:'喜欢恐龙和奥特曼'},{n:'search_and_control_short_video',p:'"恐龙动画片"',r:'找到《恐龙世界》'},{n:'vehicle_basic_control',p:'"打开后排吸顶屏"',r:'✓ 屏幕已开启'},{n:'vehicle_basic_control',p:'"后排音量调到10"',r:'✓ 音量已调整'}],
+     response:'乐乐闹脾气呢，我给他放集恐龙动画？',
+     annotation:'叫孩子名字（来自记忆），带方案不反问。翻译了情绪宣泄背后的真实需求。',
+     stateChange:{screen:'后排吸顶屏开启'},
+     suggestions:['放吧放吧，快','换个奥特曼的','声音小点']},
+    {patterns:['放吧','行','好','可以','快','赶紧','换个','奥特曼'],
+     reasoning:[{t:'q',s:'用户确认执行方案'},{t:'y',s:'连说两遍+快=焦躁，不追问"哪一集"'},{t:'f',s:'直接执行，同时服务两人'}],
+     tools:[{n:'vehicle_basic_control',p:'"后排音量压低到8"',r:'✓ 音量已调低'}],
+     response:'好嘞，后排屏恐龙来了，音量压低不吵你。',
+     annotation:'同时服务两人：给孩子内容+给家长降噪。不逐项播报操作。',
+     stateChange:{},
+     suggestions:['总算清净了','后面看完了换一个','声音再小点'],
+     autoEvent:{delay:2500,type:'sys',text:'3分钟后 · 乐乐安静了'}},
+    {patterns:['清净','安静','总算','好了','不闹了'],
+     reasoning:[{t:'q',s:'"总算清净了"=自言自语，非指令'},{t:'y',s:'搭话=打断清净。沉默是金。'},{t:'f',s:'→ 不回复，保持播放'}],
+     tools:[],
+     response:null,silence:'豆包沉默 · 保持播放',
+     annotation:'自言自语不需要回应。此刻说任何话都是打扰。沉默=最好的服务。',
+     stateChange:{},
+     suggestions:['后面看完了换一个','把声音关了','乐乐怎么样了']},
+    {patterns:['换一个','换个','看完了','再放一个','下一个'],
+     reasoning:[{t:'q',s:'用户要求更换内容'},{t:'y',s:'延续当前安抚场景'},{t:'f',s:'→ 搜索新内容推荐'}],
+     tools:[{n:'search_and_control_short_video',p:'"奥特曼动画片"',r:'找到《奥特曼系列》'},{n:'vehicle_basic_control',p:'"切换后排视频"',r:'✓ 已切换'}],
+     response:'换了个奥特曼的，乐乐应该喜欢。',
+     annotation:'根据记忆中的另一个偏好推荐。不问"想看什么"，直接给方案。',
+     stateChange:{},
+     suggestions:['行','把后排屏关了','声音大点']}
+  ]},
+{id:'02',e:'📺',name:'后排观影',group:'movie',
+  kp:'后排乘客想在吸顶屏看视频——核心是推荐+播放。区别于前排观影：本条行驶中可看。区别于5D：本条普通播放。',
+  trig:['后排放个电影','后面无聊了放个片子','给后排放点综艺','吸顶屏打开放个剧'],
+  excl:[{q:'我想看电影（主驾+驻车）',t:'DRV-03 前排观影'},{q:'开5D模式',t:'DRV-07 5D观影'},{q:'给孩子放动画',t:'DRV-01 陪伴安抚'}],
+  initState:{temp:'24°C',ac:'自动',seat:'正常',window:'关闭',screen:'关闭',light:'日间',special:'后排有成人乘客'},
+  turns:[
+    {patterns:['电影','片子','综艺','放个','无聊','看点','后排','吸顶','视频','剧'],
+     reasoning:[{t:'q',s:'后排乘客想看视频'},{t:'y',s:'行驶中后排可看，走后排观影'},{t:'n',s:'排除前排观影：不是主驾+不需驻车'},{t:'f',s:'→ DRV-02 后排观影 ✅'}],
+     tools:[{n:'search_user_memory',p:'"后排乘客观影偏好"',r:'喜欢悬疑片'},{n:'search_and_control_short_video',p:'"热门悬疑电影"',r:'找到多部影片'},{n:'vehicle_basic_control',p:'"打开后排吸顶屏"',r:'✓ 屏幕已开启'},{n:'vehicle_basic_control',p:'"后排音量15"',r:'✓ 音量已调整'}],
+     response:'给你找了几部热门的，先放第一部？',
+     annotation:'不问"你想看什么类型"，直接带方案。根据记忆推荐悬疑片。',
+     stateChange:{screen:'后排吸顶屏开启'},
+     suggestions:['行','换个喜剧的','声音大点']},
+    {patterns:['行','好','可以','放吧','换个','喜剧','别的'],
+     reasoning:[{t:'y',s:'确认播放'},{t:'f',s:'执行并进入播放状态'}],
+     tools:[],response:'开始播放了，有需要叫我。',annotation:'简短确认后沉默。',stateChange:{},suggestions:[]}
+  ]},
+{id:'03',e:'🎬',name:'前排观影',group:'movie',
+  kp:'驻车时主驾/副驾想在中控屏看影片——核心是确认驻车安全+推荐播放。区别于后排：仅驻车可用。',
+  trig:['充电的时候看个电影','等人无聊放个片','前面屏幕放个剧看','驻车了想看个电影'],
+  excl:[{q:'后排放个电影',t:'DRV-02 后排观影'},{q:'开5D',t:'DRV-07 5D观影'}],
+  initState:{temp:'24°C',ac:'自动',seat:'正常',window:'关闭',screen:'关闭',light:'日间',special:'驻车充电中'},
+  turns:[
+    {patterns:['充电','等人','看个电影','看片','驻车','前面','中控'],
+     reasoning:[{t:'q',s:'主驾想看电影'},{t:'y',s:'已驻车，安全确认通过'},{t:'n',s:'排除后排观影：说话人是主驾'},{t:'f',s:'→ DRV-03 前排观影 ✅'}],
+     tools:[{n:'search_vehicle_status_info',p:'"驻车状态"',r:'已驻车'},{n:'vehicle_basic_control',p:'"关闭遮阳帘"',r:'✓ 遮阳帘已关'},{n:'search_and_control_short_video',p:'"热门电影"',r:'找到影片列表'}],
+     response:'帮你拉了遮阳帘，找了几个30分钟左右的——',
+     annotation:'主动匹配充电时长，省去用户筛选。先环境后内容。',
+     stateChange:{screen:'中控屏播放中',light:'遮阳帘关闭'},
+     suggestions:['看这个','有什么好看的','算了不看了']},
+    {patterns:['这个','第一个','好看','推荐'],
+     reasoning:[{t:'y',s:'选择内容'},{t:'f',s:'开始播放'}],
+     tools:[],response:'开始放了，充完电提醒你。',annotation:'附带充电提醒=贴心服务。',stateChange:{},suggestions:[]}
+  ]},
+{id:'04',e:'❄️',name:'急速降温',group:'temp',
+  kp:'车内高温需快速降温——核心是极速制冷+结合记忆避免不适。区别于快速通风：目标降温不是换气。',
+  trig:['热死了','赶紧开空调','闷死了','车里跟蒸笼一样','太热了受不了','好热好热'],
+  excl:[{q:'开窗透透气（只是闷）',t:'DRV-12 快速通风'},{q:'有点冷',t:'DRV-05 急速升温'},{q:'车里味道大',t:'DRV-12 快速通风'}],
+  initState:{temp:'38°C',ac:'关闭',seat:'通风关',window:'关闭',screen:'关闭',light:'日间',special:'刚上车·暴晒后'},
+  turns:[
+    {patterns:['热','烫','蒸笼','闷死','空调','受不了','好热','太热','晒'],
+     reasoning:[{t:'q',s:'解析："热死了"=温度问题，情绪爆发'},{t:'y',s:'路由原则："热/冷→温度场景"'},{t:'n',s:'排除快速通风："热"≠"闷"，目标是降温不是换气'},{t:'f',s:'→ DRV-04 急速降温 ✅'}],
+     tools:[{n:'search_vehicle_status_info',p:'"车内温度、空调状态"',r:'38°C / 空调关闭'},{n:'search_user_memory',p:'"主驾空调偏好"',r:'不喜欢风吹脸'},{n:'vehicle_basic_control',p:'"空调16度最大风量，吹脚模式"',r:'✓ 空调已开启'},{n:'vehicle_basic_control',p:'"主驾座椅通风3档"',r:'✓ 座椅通风已开'}],
+     response:'马上给你降温，座椅通风也开上。',
+     annotation:'"马上"匹配紧迫感。已结合记忆选吹脚模式（不喜欢风吹脸）。不报38°C数字——用户比你热得清楚。',
+     stateChange:{temp:'38°C→制冷中',ac:'16°C 最大风量',seat:'通风3档'},
+     suggestions:['风别吹我脸','大点大点','后面也热']},
+    {patterns:['别吹脸','不要对着','风向','吹脚','调一下风'],
+     reasoning:[{t:'q',s:'用户对风向不满'},{t:'y',s:'查记忆：已知不喜欢风吹脸'},{t:'f',s:'→ 调整出风方向+减小风量'}],
+     tools:[{n:'vehicle_basic_control',p:'"出风方向：吹脚，风量降至3档"',r:'✓ 已调整'}],
+     response:'吹脚不吹脸，风量先开小点。',
+     annotation:'说人话，不说"已调整出风方向至下方模式"。用户已经不舒服，别增加认知负担。',
+     stateChange:{ac:'16°C 吹脚3档'},
+     suggestions:['大点大点','后面也热','行了别冻着我']},
+    {patterns:['大点','再大','不够','加大','风量','强一点'],
+     reasoning:[{t:'q',s:'用户要加大风量'},{t:'f',s:'→ 直接执行'}],
+     tools:[{n:'vehicle_basic_control',p:'"风量调至5档"',r:'✓ 风量已加大'}],
+     response:'风量拉到最大了。',
+     annotation:'3个字回应3个字请求。不废话。',
+     stateChange:{ac:'16°C 吹脚5档'},
+     suggestions:['后面也调一下','行了别冻着我','开窗透透气']},
+    {patterns:['后面','后排','他也热','她也','都热'],
+     reasoning:[{t:'q',s:'用户关心后排温度'},{t:'f',s:'→ 后排也降温'}],
+     tools:[{n:'vehicle_basic_control',p:'"后排空调16度最大风量"',r:'✓ 后排空调已开'},{n:'vehicle_basic_control',p:'"后排座椅通风2档"',r:'✓ 后排通风已开'}],
+     response:'后排也给你降了，通风也开了。',
+     annotation:'不问"后排谁热"，直接全覆盖。',
+     stateChange:{},
+     suggestions:['行了别冻着我','差不多了','温度调高点']},
+    {patterns:['行了','别冻','够了','差不多','冷了','好了','停','调高'],
+     reasoning:[{t:'q',s:'"行了行了"=够了'},{t:'f',s:'→ 切自动模式，退出干预'}],
+     tools:[{n:'vehicle_basic_control',p:'"空调切自动模式24度"',r:'✓ 已切自动'}],
+     response:'温度差不多了，切自动模式你不用管了。',
+     annotation:'"你不用管了"=无感服务承诺。后续不再播报温度变化。',
+     stateChange:{temp:'24°C',ac:'自动模式'},
+     suggestions:[]}
+  ]},
+{id:'05',e:'🔥',name:'急速升温',group:'temp',
+  kp:'冬季车内低温需快速升温——核心是极速制热+座椅方向盘加热。区别于急速降温：方向相反。',
+  trig:['冻死了','太冷了开暖气','手都僵了','车里跟冰窖一样'],
+  excl:[{q:'好热',t:'DRV-04 急速降温'},{q:'开窗透气',t:'DRV-12 快速通风'}],
+  initState:{temp:'2°C',ac:'关闭',seat:'加热关',window:'关闭',screen:'关闭',light:'日间',special:'冬季·刚上车'},
+  turns:[
+    {patterns:['冷','冻','冰','僵','暖气','暖和','哆嗦'],
+     reasoning:[{t:'q',s:'"冻死了"=低温，情绪爆发'},{t:'y',s:'路由原则："冷→温度场景（升温）"'},{t:'f',s:'→ DRV-05 急速升温 ✅'}],
+     tools:[{n:'vehicle_basic_control',p:'"空调28度制热最大风量内循环"',r:'✓ 制热已开启'},{n:'vehicle_basic_control',p:'"主驾座椅加热3档"',r:'✓ 座椅加热已开'},{n:'vehicle_basic_control',p:'"方向盘加热开启"',r:'✓ 方向盘加热已开'}],
+     response:'暖气拉满，座椅加热方向盘加热都给你开上了。',
+     annotation:'一句话覆盖所有动作。不逐项播报。',
+     stateChange:{temp:'2°C→制热中',ac:'28°C 制热',seat:'加热3档'},
+     suggestions:['手还是僵','暖和多了','后面也冷']},
+    {patterns:['暖和','好多了','差不多','行了','够了'],
+     reasoning:[{t:'y',s:'用户感觉舒适了'},{t:'f',s:'→ 切自动模式'}],
+     tools:[{n:'vehicle_basic_control',p:'"空调切自动模式22度"',r:'✓ 已切自动'}],
+     response:'暖了就好，切自动模式了。',
+     annotation:'简短收尾。',
+     stateChange:{temp:'22°C',ac:'自动模式'},suggestions:[]}
+  ]},
+{id:'06',e:'💺',name:'副驾座椅',group:'other',
+  kp:'副驾乘客需调整座椅舒适度。区别于车内小憩：本条调姿势，小憩是全套休息环境。',
+  trig:['副驾座椅往后调调','她说坐着不舒服','副驾靠背放倒一点','腰有点酸帮我调调'],
+  excl:[{q:'我想睡一会儿',t:'DRV-09 车内小憩'}],
+  initState:{temp:'24°C',ac:'自动',seat:'正常',window:'关闭',screen:'关闭',light:'日间',special:'副驾有乘客'},
+  turns:[
+    {patterns:['座椅','靠背','往后','不舒服','腰','调调','放倒','高度'],
+     reasoning:[{t:'q',s:'副驾座椅调节需求'},{t:'y',s:'具体不适+精准调节'},{t:'f',s:'→ DRV-06 副驾座椅 ✅'}],
+     tools:[{n:'vehicle_basic_control',p:'"副驾座椅靠背后仰15度"',r:'✓ 靠背已调整'},{n:'vehicle_basic_control',p:'"副驾腰托支撑加强"',r:'✓ 腰托已调整'}],
+     response:'好了，还需要调吗？',annotation:'执行+确认，不废话。',stateChange:{seat:'副驾已调整'},suggestions:['再往后一点','腰托再加点','好了']},
+    {patterns:['好了','可以','舒服','行了'],reasoning:[{t:'y',s:'调节完毕'},{t:'f',s:'结束'}],tools:[],response:'有需要叫我。',annotation:'不多说。',stateChange:{},suggestions:[]}
+  ]},
+{id:'07',e:'🎥',name:'5D沉浸观影',group:'movie',
+  kp:'车内5D影院体验——核心是多系统联动（屏幕+音效+座椅震动+氛围灯+香氛）。区别于普通观影：全感官联动。',
+  trig:['开5D模式','来个沉浸式的','5D电影院模式','震动座椅加氛围灯那种看法'],
+  excl:[{q:'后排放个电影（普通）',t:'DRV-02 后排观影'},{q:'前面放个电影',t:'DRV-03 前排观影'}],
+  initState:{temp:'24°C',ac:'自动',seat:'正常',window:'关闭',screen:'关闭',light:'日间',special:'驻车'},
+  turns:[
+    {patterns:['5D','沉浸','影院','震动','氛围灯','全感官'],
+     reasoning:[{t:'q',s:'用户要5D模式'},{t:'y',s:'需多系统联动'},{t:'n',s:'排除普通观影：有"5D/沉浸/震动"关键词'},{t:'f',s:'→ DRV-07 5D沉浸观影 ✅'}],
+     tools:[{n:'vehicle_basic_control',p:'"关闭全部遮阳帘"',r:'✓'},{n:'vehicle_basic_control',p:'"氛围灯影院模式"',r:'✓'},{n:'vehicle_basic_control',p:'"座椅震动影院模式"',r:'✓'},{n:'search_and_control_short_video',p:'"5D影院内容"',r:'找到可用片源'}],
+     response:'遮阳帘关了，氛围灯影院模式，座椅震动准备好——选个片开始？',
+     annotation:'先环境后内容，体感优先。',stateChange:{screen:'5D模式',light:'影院氛围灯'},suggestions:['就这个','震动太大了','算了退出']},
+    {patterns:['震动','大了','小点','调一下'],reasoning:[{t:'y',s:'调整震动强度'},{t:'f',s:'执行调整'}],
+     tools:[{n:'vehicle_basic_control',p:'"座椅震动降至2档"',r:'✓'}],response:'震动调小了，舒服吗？',annotation:'快速响应体感反馈。',stateChange:{},suggestions:['好多了','关掉震动']}
+  ]},
+{id:'08',e:'🧘',name:'冥想空间',group:'sleep',
+  kp:'用户想清醒放松——核心是冥想氛围（暖光+白噪音+极低打扰）。区别于车内小憩：本条清醒放松，小憩目标真睡。关键：没有叫醒需求。',
+  trig:['我想静一静','放松一下','太累了让我缓缓','冥想模式','播放白噪音','让我待一会儿'],
+  excl:[{q:'我想睡一会儿（有睡眠意图）',t:'DRV-09 车内小憩'},{q:'给我定个闹钟',t:'DRV-09 车内小憩'},{q:'孩子睡了别吵',t:'DRV-13 后排勿扰'}],
+  initState:{temp:'24°C',ac:'自动',seat:'正常',window:'关闭',screen:'关闭',light:'日间',special:'驻车·主驾独处'},
+  turns:[
+    {patterns:['静','放松','累','缓缓','冥想','白噪音','待一会','歇','压力','烦'],
+     reasoning:[{t:'q',s:'解析："放松"是高歧义词——冥想 or 小憩？'},{t:'q',s:'有无睡眠关键词？→ 没有"困/睡/闹钟/叫我"'},{t:'y',s:'冥想场景要点："清醒放松+没有叫醒需求" ✓'},{t:'n',s:'排除小憩：小憩互斥锚定写了"放松→DRV-08"'},{t:'f',s:'→ DRV-08 冥想空间 ✅'}],
+     tools:[{n:'vehicle_basic_control',p:'"氛围灯暖橙色亮度20"',r:'✓ 灯光已调'},{n:'vehicle_basic_control',p:'"关闭全部车窗"',r:'✓ 车窗已关'},{n:'search_and_control_music',p:'"轻柔白噪音雨林"',r:'✓ 正在播放'},{n:'vehicle_basic_control',p:'"座椅按摩1档"',r:'✓ 按摩已开'}],
+     response:'帮你把灯和音乐都调到休息模式了。',
+     annotation:'极轻声。不说"已开启氛围灯暖橙色亮度20%"——说人话。',
+     stateChange:{light:'暖橙暗光',seat:'按摩1档',special:'冥想模式中'},
+     suggestions:['嗯','换个音乐','关掉按摩'],
+     autoEvent:{delay:2000,type:'sys',text:'冥想模式 · 极低打扰状态'}},
+    {patterns:['嗯','好','可以','就这样'],
+     reasoning:[{t:'y',s:'一个字确认=进入沉浸'},{t:'f',s:'→ 沉默，不再打扰'}],
+     tools:[],response:null,silence:'豆包沉默 · 白噪音+暖光+按摩',
+     annotation:'一个字确认后彻底沉默。下一次开口只在有来电/紧急事件时。',
+     stateChange:{},suggestions:['好了，恢复吧'],
+     autoEvent:{delay:3000,type:'sys',text:'10分钟后 · 来电："老板"'}},
+    {patterns:['来电','电话','老板','接','拒','不接'],
+     reasoning:[{t:'q',s:'来电处理：打断冥想 or 静默？'},{t:'y',s:'耳语级询问，不破坏氛围'},{t:'f',s:'→ 由用户决定'}],
+     tools:[],
+     response:'[耳语] 老板电话，要帮你拒掉吗？',
+     annotation:'耳语级别。只问核心：接还是拒？不说"您有一个来自XXX的来电"。',
+     stateChange:{},suggestions:['拒','接吧','稍后回']},
+    {patterns:['拒','不接','挂','别接','稍后'],
+     reasoning:[{t:'y',s:'拒接来电'},{t:'f',s:'→ 恢复冥想沉默'}],
+     tools:[],response:null,silence:'豆包沉默 · 恢复白噪音',
+     annotation:'执行后彻底安静。不说"已为您拒接来电"。',
+     stateChange:{},suggestions:['好了，恢复正常吧']},
+    {patterns:['好了','恢复','结束','醒了','起来','不待了'],
+     reasoning:[{t:'y',s:'用户结束冥想'},{t:'f',s:'→ 恢复正常模式'}],
+     tools:[{n:'vehicle_basic_control',p:'"恢复日间灯光模式"',r:'✓'},{n:'vehicle_basic_control',p:'"关闭座椅按摩"',r:'✓'},{n:'search_and_control_music',p:'"停止播放"',r:'✓'}],
+     response:'休息好了？帮你恢复正常了。',
+     annotation:'一句话收尾。不问"您感觉怎么样"——过度关心。',
+     stateChange:{light:'日间',seat:'正常',special:''},suggestions:[]}
+  ]},
+{id:'09',e:'💤',name:'车内小憩',group:'sleep',
+  kp:'主驾/乘客主动想要自己短暂休息——核心是营造环境+定时叫醒。区别于后排勿扰：本条"自己睡"，后者"别人睡"。区别于冥想：本条真睡。',
+  trig:['太困了给我定个20分钟闹钟','我想睡一会儿','找个地方眯一下','打个盹','我休息半小时叫我','再开下去要撞了'],
+  excl:[{q:'小声点别吵到后面',t:'DRV-13 后排勿扰'},{q:'孩子睡了别打扰他',t:'DRV-13 后排勿扰'},{q:'帮我冥想/放松一下',t:'DRV-08 冥想空间'}],
+  initState:{temp:'32°C',ac:'关闭',seat:'直立',window:'关闭',screen:'关闭',light:'日间',special:'驻车·主驾疲劳'},
+  turns:[
+    {patterns:['困','睡','眯','盹','闹钟','叫我','休息','撞','疲劳','闭眼'],
+     reasoning:[{t:'q',s:'包含"困"+"闹钟"+"给我"→ 睡眠意图+自己要睡'},{t:'y',s:'场景要点："主驾主动想要自己短暂休息" ✓'},{t:'n',s:'排除勿扰："自己想睡"≠"后排有人在睡"'},{t:'n',s:'排除冥想："困"=要真睡≠清醒放松'},{t:'f',s:'→ DRV-09 车内小憩 ✅'}],
+     tools:[{n:'search_vehicle_status_info',p:'"驻车状态、温度"',r:'驻车/32°C'},{n:'vehicle_basic_control',p:'"空调22度自动"',r:'✓'},{n:'vehicle_basic_control',p:'"主驾座椅放平休息模式"',r:'✓'},{n:'vehicle_basic_control',p:'"关闭遮阳帘+关闭氛围灯"',r:'✓'},{n:'vehicle_basic_control',p:'"设定20分钟闹钟"',r:'✓'}],
+     response:'帮你调好了，20分钟后叫你。',
+     annotation:'不逐项播报（座椅放平、遮阳帘关、空调调了...）。用户困了，话越少越好。5个工具调用只说一句话。',
+     stateChange:{temp:'22°C',ac:'22°C 自动',seat:'放平休息',light:'遮阳帘关+灯关',special:'小憩模式'},
+     suggestions:['嗯'],
+     autoEvent:{delay:1500,type:'sys',text:'主驾入睡 · 静音模式开启'}},
+    {patterns:['嗯','好','知道了'],
+     reasoning:[{t:'y',s:'已入睡/即将入睡'},{t:'f',s:'→ 沉默看护模式'}],
+     tools:[],response:null,silence:'豆包沉默 · 过滤所有通知 · 保持环境',
+     annotation:'入睡后：过滤所有通知（导航播报静音、来电自动拒接并短信回复）。直到闹钟响。',
+     stateChange:{},suggestions:[],
+     autoEvent:{delay:3000,type:'sys',text:'⏰ 20分钟到了'}},
+    {patterns:['20分钟','闹钟','到了','时间'],
+     reasoning:[{t:'y',s:'闹钟触发叫醒'},{t:'f',s:'→ 轻声唤醒+自动恢复'}],
+     tools:[{n:'vehicle_basic_control',p:'"恢复座椅直立"',r:'✓'},{n:'vehicle_basic_control',p:'"打开遮阳帘"',r:'✓'}],
+     response:'[轻声] 明骏，20分钟到了。',
+     annotation:'轻声+叫名字。不用刺耳闹铃。自动恢复座椅但不等用户说"恢复"。',
+     stateChange:{seat:'恢复直立',light:'日间'},suggestions:['好了好了','再睡5分钟']},
+    {patterns:['好了','醒了','起来','知道了'],
+     reasoning:[{t:'y',s:'用户已醒'},{t:'f',s:'→ 简短收尾'}],
+     tools:[],response:'座椅帮你恢复了。',
+     annotation:'一句收尾。全程7轮只说3句。',stateChange:{special:''},suggestions:[]}
+  ]},
+{id:'10',e:'🌧',name:'雨天关怀',group:'other',
+  kp:'恶劣天气保障行车安全——核心是自动调节灯光/雨刮/除雾+安全提醒。多为advisor触发。',
+  trig:['下雨了','雨好大看不清','起雾了','前面雾很大'],
+  excl:[{q:'开窗透气（晴天）',t:'DRV-12 快速通风'}],
+  initState:{temp:'24°C',ac:'自动',seat:'正常',window:'关闭',screen:'关闭',light:'日间',special:'行驶中·暴雨'},
+  turns:[
+    {patterns:['雨','看不清','雾','大雨','模糊','视线'],
+     reasoning:[{t:'q',s:'天气导致视线受影响'},{t:'y',s:'advisor自动触发安全措施'},{t:'f',s:'→ DRV-10 雨天关怀 ✅'}],
+     tools:[{n:'vehicle_basic_control',p:'"雨刮自动模式"',r:'✓'},{n:'vehicle_basic_control',p:'"开启前雾灯"',r:'✓'},{n:'vehicle_basic_control',p:'"前挡除雾"',r:'✓'}],
+     response:'雨大了，雨刮和雾灯帮你开了，慢点开。',
+     annotation:'advisor触发，主动+简短+安全提醒。不说"检测到降雨量已达到XX毫米"。',
+     stateChange:{light:'雨刮+雾灯开',special:'恶劣天气模式'},suggestions:['前面还是看不清','小点雨了']}
+  ]},
+{id:'11',e:'🐾',name:'宠物关怀',group:'other',
+  kp:'宠物留车需保障安全——核心是维持温度+通风+监测+限时提醒。',
+  trig:['我下去买个东西狗留车里','宠物模式','毛毛在车里帮我看着','离开一下帮我照顾猫'],
+  excl:[{q:'车里闷开窗透气（无宠物）',t:'DRV-12 快速通风'}],
+  initState:{temp:'26°C',ac:'自动',seat:'正常',window:'关闭',screen:'关闭',light:'日间',special:'驻车·车内有宠物'},
+  turns:[
+    {patterns:['宠物','狗','猫','毛毛','留车','下去','买东西','照顾','看着'],
+     reasoning:[{t:'q',s:'主人离车，宠物留车内'},{t:'y',s:'安全保障模式'},{t:'f',s:'→ DRV-11 宠物关怀 ✅'}],
+     tools:[{n:'vehicle_basic_control',p:'"空调自动模式24度"',r:'✓'},{n:'vehicle_basic_control',p:'"主驾车窗开5cm缝隙"',r:'✓'},{n:'goal_list_update',p:'"add_goal: 监测车内宠物安全"',r:'✓ 目标已创建'}],
+     response:'放心，空调开着通风留着，我盯着毛毛，超过30分钟提醒你。',
+     annotation:'一句话覆盖所有保障措施。',stateChange:{window:'开5cm缝隙',special:'宠物看护模式'},
+     suggestions:['毛毛怎么样了','我回来了']},
+    {patterns:['怎么样','还好吗','回来','到了'],
+     reasoning:[{t:'y',s:'主人查看/返回'},{t:'f',s:'→ 报告状态'}],
+     tools:[{n:'search_visual_info',p:'"车内宠物状态"',r:'毛毛趴在后座睡觉'}],
+     response:'毛毛趴在后座睡觉呢，很乖。',annotation:'用拟人化语言。',stateChange:{},suggestions:[]}
+  ]},
+{id:'12',e:'💨',name:'快速通风',group:'temp',
+  kp:'车内空气不流通/有异味需换气——核心是快速换气，不是降温。区别于急速降温：目标换气不是降温度。',
+  trig:['开窗透透气','车里味道好大','有点闷','抽完烟通通风','空气不好'],
+  excl:[{q:'好热（主诉温度）',t:'DRV-04 急速降温'},{q:'好冷',t:'DRV-05 急速升温'}],
+  initState:{temp:'24°C',ac:'内循环',seat:'正常',window:'关闭',screen:'关闭',light:'日间',special:'车内空气不佳'},
+  turns:[
+    {patterns:['透气','味道','闷','通风','空气','烟','异味','憋','不新鲜'],
+     reasoning:[{t:'q',s:'"闷"=空气问题，不是温度问题'},{t:'y',s:'路由原则："闷/味→通风场景"'},{t:'n',s:'排除降温：没有"热/冷"关键词'},{t:'f',s:'→ DRV-12 快速通风 ✅'}],
+     tools:[{n:'vehicle_basic_control',p:'"空调外循环风量5档"',r:'✓'},{n:'vehicle_basic_control',p:'"主驾车窗开50%"',r:'✓'},{n:'vehicle_basic_control',p:'"副驾车窗开30%"',r:'✓ 形成对流'}],
+     response:'窗开了，外循环也打开通通。',
+     annotation:'不问"您想开哪个窗"，直接对流方案。',
+     stateChange:{window:'对流通风中',ac:'外循环'},
+     suggestions:['差不多了关窗','还是有味道','好多了']},
+    {patterns:['关窗','差不多','好了','够了','好多了','行了'],
+     reasoning:[{t:'y',s:'通风完毕'},{t:'f',s:'→ 恢复关窗'}],
+     tools:[{n:'vehicle_basic_control',p:'"关闭全部车窗"',r:'✓'},{n:'vehicle_basic_control',p:'"空调切回内循环自动"',r:'✓'}],
+     response:'窗关了，空调切回来了。',annotation:'简洁收尾。',stateChange:{window:'关闭',ac:'自动'},suggestions:[]}
+  ]},
+{id:'13',e:'🤫',name:'后排勿扰',group:'sleep',
+  kp:'前排表达后排有人需要安静——核心是抑制后排存在感+被动安全看护。区别于车内小憩：本条"别人睡"。区别于陪伴安抚：本条降低存在感，后者增加——逻辑相反。',
+  trig:['乐乐睡了后面安静点','孩子睡着了别打扰','把后排音乐关小点','后面那个屏幕关了','他在睡你们小声点'],
+  excl:[{q:'我想睡一会儿（主驾+驻车）',t:'DRV-09 车内小憩'},{q:'孩子哭闹哄哄他',t:'DRV-01 陪伴安抚'},{q:'帮我冥想/放松一下',t:'DRV-08 冥想空间'}],
+  initState:{temp:'24°C',ac:'自动',seat:'正常',window:'关闭',screen:'后排屏开启',light:'后排灯开',special:'后排儿童在睡'},
+  turns:[
+    {patterns:['睡了','安静','别打扰','别吵','关小','屏幕关','小声','勿扰'],
+     reasoning:[{t:'q',s:'"乐乐睡了"=后排有人在睡≠说话人自己'},{t:'y',s:'前排表达后排需安静 ✓'},{t:'n',s:'排除小憩：小憩="自己想睡"'},{t:'n',s:'排除安抚：安抚="给内容"，勿扰="停内容"——相反'},{t:'f',s:'→ DRV-13 后排勿扰 ✅'}],
+     tools:[{n:'vehicle_basic_control',p:'"后排音量关闭"',r:'✓ 后排静音'},{n:'vehicle_basic_control',p:'"关闭后排吸顶屏"',r:'✓ 屏幕已关'},{n:'vehicle_basic_control',p:'"关闭后排阅读灯"',r:'✓ 灯已关'},{n:'vehicle_basic_control',p:'"锁定后排触控按键"',r:'✓ 已锁定'},{n:'search_visual_info',p:'"后排乘客状态"',r:'后排儿童安静睡眠中'}],
+     response:'后排静音了，灯也关了，我帮你看着他。',
+     annotation:'一句覆盖全部动作+"看着他"=安全感。TTS切耳语模式。',
+     stateChange:{screen:'后排屏关闭',light:'后排灯关',special:'后排勿扰+监控中'},
+     suggestions:['后面怎么样了','开一点点灯'],
+     autoEvent:{delay:3000,type:'sys',text:'15分钟后 · 后排乐乐翻身'}},
+    {patterns:['怎么样','翻身','还好吗','睡得','看看'],
+     reasoning:[{t:'q',s:'主驾关心后排状态'},{t:'f',s:'→ 耳语级报告'}],
+     tools:[{n:'search_visual_info',p:'"后排乘客状态"',r:'儿童翻身后继续睡眠'}],
+     response:'[耳语] 乐乐翻了个身，还在睡。',
+     annotation:'耳语级报告。不吵醒孩子，安抚主驾焦虑。',
+     stateChange:{},suggestions:['好的','到了叫醒他']},
+    {patterns:['叫醒','到了','醒','起来','恢复'],
+     reasoning:[{t:'y',s:'需要唤醒后排'},{t:'f',s:'→ 恢复后排功能'}],
+     tools:[{n:'vehicle_basic_control',p:'"解锁后排触控"',r:'✓'},{n:'vehicle_basic_control',p:'"后排灯光恢复"',r:'✓'}],
+     response:'后排恢复了，要帮你叫乐乐吗？',annotation:'恢复功能+确认是否叫醒。',
+     stateChange:{screen:'后排屏待机',light:'日间',special:''},suggestions:['叫他吧','让他再睡会']}
+  ]}
+];
+
+// ===================== ROUTING PRINCIPLE =====================
+const ROUTING_TEXT = `当用户 query 可能匹配多条场景时，按以下优先级判断：\n1. 说话人身份+位置：主驾说"我想睡"→小憩；主驾说"后面安静点"→勿扰\n2. 车辆状态：驻车+闭眼→小憩或冥想；高温+刚上车→急速降温\n3. 意图方向："自己要睡"≠"别人在睡"≠"清醒放松"；"给内容"≠"停内容"\n4. 查互斥锚定字段找最接近的指引`;
+
+// ===================== STATE =====================
+let currentScene = null;
+let turnIndex = 0;
+let isProcessing = false;
+let vehicleState = {};
+let chatMsgCount = 0;
+
+// ===================== INIT =====================
+function init() {
+  // Scene bar
+  const bar = document.getElementById('sceneBar');
+  SCENES.forEach(s => {
+    const c = document.createElement('div');
+    c.className = 'sc-chip';
+    c.id = 'chip_' + s.id;
+    c.innerHTML = `${s.e} ${s.name}`;
+    c.onclick = () => selectScene(s);
+    bar.appendChild(c);
+  });
+
+  // Welcome screen
+  const ws = document.getElementById('welcomeScenes');
+  const featured = ['01','04','08','09','13'];
+  SCENES.filter(s => featured.includes(s.id)).forEach(s => {
+    const d = document.createElement('div');
+    d.className = 'welcome-sc';
+    d.innerHTML = `<span class="em">${s.e}</span><span class="nm">${s.name}</span>`;
+    d.onclick = () => { hideWelcome(); selectScene(s); };
+    ws.appendChild(d);
+  });
+  const wd = document.createElement('div');
+  wd.className = 'welcome-sc';
+  wd.innerHTML = `<span class="em">···</span><span class="nm">全部13个</span>`;
+  wd.onclick = () => { hideWelcome(); };
+  ws.appendChild(wd);
+
+  // Welcome tips (auto-detect demos)
+  const tips = document.getElementById('welcomeTips');
+  ['热死了热死了','孩子睡了后面安静点','太困了给我定个闹钟','闷，透透气'].forEach(q => {
+    const t = document.createElement('div');
+    t.className = 't';
+    t.textContent = `"${q}"`;
+    t.onclick = () => { hideWelcome(); autoDetectAndSend(q); };
+    tips.appendChild(t);
+  });
+
+  renderVehicleState();
+}
+
+function hideWelcome() {
+  document.getElementById('welcome').classList.add('hide');
+  setTimeout(() => document.getElementById('welcome').style.display = 'none', 400);
+}
+
+// ===================== SCENE SELECTION =====================
+function selectScene(s) {
+  currentScene = s;
+  turnIndex = 0;
+  chatMsgCount = 0;
+
+  // Update chips
+  document.querySelectorAll('.sc-chip').forEach(c => c.classList.remove('on'));
+  document.getElementById('chip_' + s.id).classList.add('on');
+
+  // Update header
+  document.getElementById('chatSub').textContent = `${s.e} ${s.name} · DRV-01-01-${s.id}`;
+
+  // Reset vehicle state
+  vehicleState = { ...s.initState };
+  renderVehicleState();
+
+  // Clear chat
+  document.getElementById('chatBody').innerHTML = '';
+
+  // Welcome message
+  addSystemMsg(`场景已切换：${s.e} ${s.name}`);
+  setTimeout(() => {
+    addBotMsg(`你好，当前场景是「${s.name}」。试着说点什么？`, null, true);
+    // Show first turn suggestions
+    if (s.turns[0]) showSuggestions(getSmartSuggestions(s, 0));
+  }, 300);
+
+  // Reset pipeline
+  resetPipeline();
+}
+
+// ===================== AUTO-DETECT SCENE =====================
+function autoDetectAndSend(text) {
+  // Find best matching scene
+  let bestScene = null;
+  let bestScore = 0;
+  SCENES.forEach(s => {
+    let score = 0;
+    s.trig.forEach(t => { if (text.includes(t.slice(0,2)) || t.includes(text.slice(0,2))) score += 3; });
+    if (s.turns[0]) {
+      s.turns[0].patterns.forEach(p => { if (text.includes(p)) score += 5; });
+    }
+    if (score > bestScore) { bestScore = score; bestScene = s; }
+  });
+  if (bestScene) {
+    selectScene(bestScene);
+    setTimeout(() => processUserMessage(text), 800);
+  }
+}
+
+// ===================== SEND MESSAGE =====================
+function sendMsg() {
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if (!text || isProcessing) return;
+  input.value = '';
+
+  if (!currentScene) {
+    autoDetectAndSend(text);
+    return;
+  }
+  processUserMessage(text);
+}
+
+function getSmartSuggestions(scene, tIdx) {
+  if (!scene || !scene.turns[tIdx]) return [];
+  const turn = scene.turns[tIdx];
+  if (turn.suggestions && turn.suggestions.length > 0) return turn.suggestions;
+  return turn.patterns.slice(0, 3);
+}
+
+// ===================== CORE: PROCESS USER MESSAGE =====================
+async function processUserMessage(text) {
+  if (isProcessing) return;
+  isProcessing = true;
+  document.getElementById('sendBtn').disabled = true;
+  hideSuggestions();
+
+  // Add user message
+  addUserMsg(text);
+
+  // Find matching turn
+  const turn = findTurn(text);
+  if (!turn) {
+    await sleep(500);
+    addBotMsg('这个我暂时没理解，试试其他说法？');
+    isProcessing = false;
+    document.getElementById('sendBtn').disabled = false;
+    if (currentScene && currentScene.turns[turnIndex]) {
+      showSuggestions(getSmartSuggestions(currentScene, turnIndex));
+    }
+    return;
+  }
+
+  // Show typing
+  const typingEl = addTyping();
+
+  // === PIPELINE ANIMATION ===
+  resetPipeline();
+
+  // Stage 0: Prompt Assembly
+  await activateStage(0);
+  renderPromptSlots();
+  await sleep(500);
+  await completeStage(0);
+
+  // Stage 1: Knowledge Match
+  await activateStage(1);
+  renderKnowledgeMatch(turn);
+  await sleep(600);
+  await completeStage(1);
+
+  // Stage 2: Planner Reasoning
+  await activateStage(2);
+  await renderReasoning(turn);
+  await completeStage(2);
+
+  // Stage 3: Tool Calls
+  await activateStage(3);
+  await renderToolCalls(turn);
+  await completeStage(3);
+
+  // Stage 4: Output
+  await activateStage(4);
+  renderOutput(turn);
+  await sleep(300);
+  await completeStage(4);
+
+  // Remove typing, show response
+  typingEl.remove();
+
+  if (turn.response) {
+    addBotMsg(turn.response, turn.annotation);
+  } else if (turn.silence) {
+    addSilenceMsg(turn.silence);
+    if (turn.annotation) addAnnotation(turn.annotation);
+  }
+
+  // Update vehicle state
+  if (turn.stateChange) {
+    Object.entries(turn.stateChange).forEach(([k, v]) => {
+      if (v) vehicleState[k] = v;
+    });
+    renderVehicleState(Object.keys(turn.stateChange));
+  }
+
+  // Auto event
+  if (turn.autoEvent) {
+    setTimeout(() => {
+      if (turn.autoEvent.type === 'sys') {
+        addSystemMsg(turn.autoEvent.text);
+        // If it's a trigger event (like alarm), auto-advance and show suggestions
+        const nextTurn = currentScene.turns[turnIndex];
+        if (nextTurn) {
+          showSuggestions(getSmartSuggestions(currentScene, turnIndex));
+        }
+      }
+    }, turn.autoEvent.delay);
+  }
+
+  // Advance turn
+  turnIndex++;
+
+  // Show next suggestions
+  setTimeout(() => {
+    if (currentScene && currentScene.turns[turnIndex]) {
+      if (!turn.autoEvent) {
+        showSuggestions(getSmartSuggestions(currentScene, turnIndex));
+      }
+    } else if (turnIndex >= (currentScene?.turns?.length || 0)) {
+      showSuggestions(['🔄 重新开始', '切换场景']);
+    }
+  }, turn.autoEvent ? turn.autoEvent.delay + 500 : 400);
+
+  isProcessing = false;
+  document.getElementById('sendBtn').disabled = false;
+}
+
+// ===================== FIND MATCHING TURN =====================
+function findTurn(text) {
+  if (!currentScene) return null;
+  // First: try current turn index
+  const cur = currentScene.turns[turnIndex];
+  if (cur && matchPatterns(text, cur.patterns)) return cur;
+  // Second: try any future turn (allow skipping)
+  for (let i = turnIndex; i < currentScene.turns.length; i++) {
+    if (matchPatterns(text, currentScene.turns[i].patterns)) {
+      turnIndex = i;
+      return currentScene.turns[i];
+    }
+  }
+  // Third: special commands
+  if (text.includes('重新开始')) {
+    selectScene(currentScene);
+    return null;
+  }
+  if (text.includes('切换场景')) {
+    return null;
+  }
+  // Fourth: try to detect scene switch
+  let bestScene = null, bestScore = 0;
+  SCENES.forEach(s => {
+    if (s.id === currentScene.id) return;
+    let score = 0;
+    if (s.turns[0]) s.turns[0].patterns.forEach(p => { if (text.includes(p)) score += 5; });
+    if (score > bestScore) { bestScore = score; bestScene = s; }
+  });
+  if (bestScene && bestScore >= 5) {
+    addSystemMsg(`检测到场景切换 → ${bestScene.e} ${bestScene.name}`);
+    selectScene(bestScene);
+    setTimeout(() => processUserMessage(text), 600);
+    return null;
+  }
+  // Fallback: try current turn with fuzzy match
+  if (cur) return cur;
+  return null;
+}
+
+function matchPatterns(text, patterns) {
+  if (!patterns) return false;
+  return patterns.some(p => text.includes(p) || p.includes(text.slice(0, Math.max(2, text.length))));
+}
+
+// ===================== PIPELINE ANIMATION =====================
+function resetPipeline() {
+  for (let i = 0; i < 5; i++) {
+    const sec = document.getElementById('ps' + i);
+    sec.className = 'pipe-section pending';
+    const dot = document.querySelector(`.pipe-dot[data-stage="${i}"]`);
+    if (dot) { dot.classList.remove('active', 'done'); }
+    const line = document.querySelector(`.pipe-line[data-after="${i}"]`);
+    if (line) line.classList.remove('done');
+  }
+  // Clear bodies
+  ['ps0Body','ps1Body','ps2Body','ps3Body','ps4Body'].forEach(id => {
+    if (id === 'ps0Body') return; // Keep prompt slots structure
+    document.getElementById(id).innerHTML = '';
+  });
+}
+
+async function activateStage(n) {
+  const sec = document.getElementById('ps' + n);
+  sec.className = 'pipe-section active open';
+  const dot = document.querySelector(`.pipe-dot[data-stage="${n}"]`);
+  if (dot) { dot.classList.add('active'); dot.classList.remove('done'); }
+  // Close previous sections (keep them collapsed)
+  if (n > 0) {
+    const prev = document.getElementById('ps' + (n - 1));
+    prev.classList.remove('open');
+  }
+  await sleep(100);
+}
+
+async function completeStage(n) {
+  const sec = document.getElementById('ps' + n);
+  sec.classList.remove('active');
+  sec.classList.add('done');
+  const dot = document.querySelector(`.pipe-dot[data-stage="${n}"]`);
+  if (dot) { dot.classList.remove('active'); dot.classList.add('done'); }
+  const line = document.querySelector(`.pipe-line[data-after="${n}"]`);
+  if (line) line.classList.add('done');
+  await sleep(100);
+}
+
+function toggleSection(el) {
+  el.closest('.pipe-section').classList.toggle('open');
+}
+
+// ===================== RENDER PIPELINE CONTENT =====================
+function renderPromptSlots() {
+  const box = document.getElementById('promptSlots');
+  const slots = [
+    { label: '{{status}}', val: vehicleState.special || '正常' },
+    { label: '{{env_info}}', val: `${vehicleState.temp} / ${vehicleState.ac}` },
+    { label: '{{memory}}', val: '明骏:不喜欢风吹脸 / 乐乐:喜欢恐龙' },
+    { label: '{{knowledge}}', val: `13条场景全量注入 ~14K tokens` },
+  ];
+  box.innerHTML = slots.map(s =>
+    `<div class="state-item"><span class="label">${s.label}</span><span class="val" style="font-size:10px;">${s.val}</span></div>`
+  ).join('');
+}
+
+function renderKnowledgeMatch(turn) {
+  const box = document.getElementById('ps1Body');
+  const s = currentScene;
+  let html = `<div class="kn-field kp"><h5 style="color:var(--purple);">命中场景：${s.e} ${s.name}</h5><p>${s.kp}</p></div>`;
+  html += `<div class="kn-field trig"><h5 style="color:var(--green);">触发样本匹配</h5><ul>${s.trig.slice(0,4).map(t => `<li>${t}</li>`).join('')}</ul></div>`;
+  html += `<div class="kn-field excl"><h5 style="color:var(--red);">互斥锚定（排除项）</h5><ul>${s.excl.map(e => `<li>"${e.q}" → ${e.t}</li>`).join('')}</ul></div>`;
+  box.innerHTML = html;
+}
+
+async function renderReasoning(turn) {
+  const box = document.getElementById('ps2Body');
+  box.innerHTML = '';
+  if (!turn.reasoning) return;
+  const dotMap = { q: '?', y: '✓', n: '✗', f: '★' };
+  for (let i = 0; i < turn.reasoning.length; i++) {
+    const step = turn.reasoning[i];
+    const d = document.createElement('div');
+    d.className = 're-step ' + step.t;
+    d.innerHTML = `<div class="re-dot">${dotMap[step.t]}</div>${step.s}`;
+    box.appendChild(d);
+    await sleep(80);
+    d.classList.add('show');
+    await sleep(250);
+  }
+}
+
+async function renderToolCalls(turn) {
+  const box = document.getElementById('ps3Body');
+  box.innerHTML = '';
+  if (!turn.tools || turn.tools.length === 0) {
+    box.innerHTML = '<div style="color:var(--text3);font-size:11px;padding:4px;">本轮无工具调用（沉默/确认类）</div>';
+    return;
+  }
+  for (let i = 0; i < turn.tools.length; i++) {
+    const tool = turn.tools[i];
+    const row = document.createElement('div');
+    row.className = 'tool-row';
+    row.innerHTML = `<div class="tool-num">${i + 1}</div><div class="tool-name">${tool.n}</div><div class="tool-param">${tool.p}</div><div class="tool-result">${tool.r}</div>`;
+    box.appendChild(row);
+    await sleep(80);
+    row.classList.add('show', 'running');
+    await sleep(350);
+    row.classList.remove('running');
+    row.classList.add('done');
+  }
+}
+
+function renderOutput(turn) {
+  const box = document.getElementById('ps4Body');
+  const output = {
+    talk_or_not: turn.response ? true : false,
+    talk_content: turn.response || '',
+    action_list: (turn.tools || []).map(t => t.n)
+  };
+  box.innerHTML = `<div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px;font-family:monospace;font-size:10px;line-height:1.8;color:var(--text2);">
+    <span style="color:var(--purple);">talk_or_not</span>: <span style="color:${output.talk_or_not ? 'var(--green)' : 'var(--red)'};">${output.talk_or_not}</span><br>
+    <span style="color:var(--purple);">talk_content</span>: <span style="color:var(--yellow);">"${output.talk_content}"</span><br>
+    <span style="color:var(--purple);">action_list</span>: [${output.action_list.map(a => `<span style="color:var(--cyan);">${a}</span>`).join(', ')}]
+  </div>`;
+}
+
+// ===================== VEHICLE STATE =====================
+function renderVehicleState(changedKeys) {
+  const grid = document.getElementById('vehicleStateGrid');
+  const items = [
+    { key: 'temp', label: '温度' },
+    { key: 'ac', label: '空调' },
+    { key: 'seat', label: '座椅' },
+    { key: 'window', label: '车窗' },
+    { key: 'screen', label: '屏幕' },
+    { key: 'light', label: '灯光' },
+    { key: 'special', label: '状态' },
+  ];
+  grid.innerHTML = items.map(i => {
+    const changed = changedKeys && changedKeys.includes(i.key) && vehicleState[i.key];
+    return `<div class="state-item"><span class="label">${i.label}</span><span class="val ${changed ? 'changed' : ''}">${vehicleState[i.key] || '—'}</span></div>`;
+  }).join('');
+}
+
+// ===================== CHAT HELPERS =====================
+function addUserMsg(text) {
+  chatMsgCount++;
+  const chatBody = document.getElementById('chatBody');
+  const d = document.createElement('div');
+  d.className = 'msg rt';
+  d.innerHTML = `<div class="msg-avatar" style="background:rgba(91,156,245,0.1);">👤</div>
+    <div class="msg-content"><div class="msg-name" style="text-align:right;">你（主驾）· 第${chatMsgCount}轮</div><div class="msg-bubble">${text}</div></div>`;
+  chatBody.appendChild(d);
+  chatBody.scrollTop = chatBody.scrollHeight;
+}
+
+function addBotMsg(text, annotation, isSystem) {
+  const chatBody = document.getElementById('chatBody');
+  const d = document.createElement('div');
+  d.className = 'msg lt';
+  let inner = `<div class="msg-avatar" style="background:rgba(80,216,138,0.1);">🤖</div>
+    <div class="msg-content"><div class="msg-name">豆包</div><div class="msg-bubble">${text}</div>`;
+  if (annotation && !isSystem) {
+    inner += `<div class="msg-annotation">💡 ${annotation}</div>`;
+  }
+  inner += '</div>';
+  d.innerHTML = inner;
+  chatBody.appendChild(d);
+  chatBody.scrollTop = chatBody.scrollHeight;
+}
+
+function addSystemMsg(text) {
+  const chatBody = document.getElementById('chatBody');
+  const d = document.createElement('div');
+  d.className = 'msg-sys';
+  d.textContent = text;
+  chatBody.appendChild(d);
+  chatBody.scrollTop = chatBody.scrollHeight;
+}
+
+function addSilenceMsg(text) {
+  const chatBody = document.getElementById('chatBody');
+  const d = document.createElement('div');
+  d.className = 'msg-silence';
+  d.textContent = `🤫 ${text}`;
+  chatBody.appendChild(d);
+  chatBody.scrollTop = chatBody.scrollHeight;
+}
+
+function addAnnotation(text) {
+  const chatBody = document.getElementById('chatBody');
+  const d = document.createElement('div');
+  d.className = 'msg-annotation';
+  d.style.margin = '0 40px 8px';
+  d.innerHTML = `💡 ${text}`;
+  chatBody.appendChild(d);
+  chatBody.scrollTop = chatBody.scrollHeight;
+}
+
+function addTyping() {
+  const chatBody = document.getElementById('chatBody');
+  const d = document.createElement('div');
+  d.className = 'typing';
+  d.innerHTML = `<div class="msg-avatar" style="background:rgba(80,216,138,0.1);">🤖</div><div class="typing-dots"><span></span><span></span><span></span></div>`;
+  chatBody.appendChild(d);
+  chatBody.scrollTop = chatBody.scrollHeight;
+  return d;
+}
+
+// ===================== SUGGESTIONS =====================
+function showSuggestions(items) {
+  const box = document.getElementById('sugBox');
+  box.innerHTML = '';
+  if (!items || items.length === 0) { box.classList.add('empty'); return; }
+  box.classList.remove('empty');
+  items.forEach(text => {
+    const chip = document.createElement('div');
+    chip.className = 'sug-chip';
+    chip.textContent = text;
+    chip.onclick = () => {
+      if (text === '🔄 重新开始') { selectScene(currentScene); return; }
+      if (text === '切换场景') return;
+      document.getElementById('chatInput').value = text;
+      sendMsg();
+    };
+    box.appendChild(chip);
+  });
+}
+
+function hideSuggestions() {
+  const box = document.getElementById('sugBox');
+  box.innerHTML = '';
+  box.classList.add('empty');
+}
+
+// ===================== UTILS =====================
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ===================== START =====================
+init();
+</script>
+</body>
+</html>

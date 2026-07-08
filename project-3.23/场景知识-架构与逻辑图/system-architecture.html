@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>司机 Agent 2.0 — 系统架构全景</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #0a0a0f; color: #e0e0e0; line-height: 1.8; }
+  .container { max-width: 1260px; margin: 0 auto; padding: 40px 24px 120px; }
+  h1 { font-size: 32px; text-align: center; margin-bottom: 8px; color: #fff; }
+  .subtitle { text-align: center; color: #888; font-size: 15px; margin-bottom: 60px; }
+  .section { margin-bottom: 80px; }
+  .section-title { font-size: 22px; color: #60a5fa; margin-bottom: 8px; padding-left: 16px; border-left: 4px solid #60a5fa; }
+  .section-desc { color: #aaa; font-size: 15px; margin-bottom: 28px; max-width: 900px; }
+  .callout { background: #1a1a0e; border: 1px solid #f59e0b33; border-radius: 12px; padding: 20px; margin: 24px 0; }
+  .callout h4 { color: #f59e0b; margin-bottom: 8px; font-size: 15px; }
+  .callout p { font-size: 14px; color: #bbb; }
+  .callout-blue { background: #0e1a2e; border: 1px solid #60a5fa33; }
+  .callout-blue h4 { color: #60a5fa; }
+  .callout-green { background: #0e1e1a; border: 1px solid #10b98133; }
+  .callout-green h4 { color: #10b981; }
+  .box { background: #141420; border: 1px solid #2a2a3a; border-radius: 12px; padding: 24px; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .two-col, .three-col { grid-template-columns: 1fr; } }
+  code, .mono { font-family: "SF Mono", "Menlo", monospace; }
+  .code-block { background: #1a1a2e; border-radius: 8px; padding: 14px; font-family: "SF Mono", monospace; font-size: 12.5px; color: #a5d6ff; white-space: pre-wrap; overflow-x: auto; margin: 8px 0; line-height: 1.6; }
+  .tag { display: inline-block; padding: 2px 10px; border-radius: 6px; font-size: 12px; font-weight: bold; }
+  .tag-blue { background: #1e3a5f; color: #60a5fa; }
+  .tag-green { background: #0e2e1e; color: #10b981; }
+  .tag-yellow { background: #2e2a0e; color: #f59e0b; }
+  .tag-purple { background: #2a1e3e; color: #c4b5fd; }
+  .tag-red { background: #2e1414; color: #f87171; }
+  .tag-pink { background: #2e1428; color: #f472b6; }
+
+  /* ===== 架构图 ===== */
+  .arch-diagram { position: relative; }
+  .arch-row { display: flex; align-items: stretch; justify-content: center; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+  .arch-box { border-radius: 14px; padding: 20px; min-width: 200px; flex: 1; max-width: 380px; }
+  .arch-box h3 { font-size: 16px; margin-bottom: 8px; }
+  .arch-box ul { list-style: none; font-size: 13px; }
+  .arch-box ul li { padding: 3px 0; color: #bbb; }
+  .arch-box ul li::before { content: "· "; color: #666; }
+  .arch-arrow { display: flex; align-items: center; justify-content: center; padding: 4px 0; }
+  .arch-arrow-down { font-size: 24px; color: #60a5fa; }
+  .arch-arrow-label { font-size: 12px; color: #888; margin: 0 12px; }
+  .arch-center { text-align: center; }
+
+  /* ===== 输入卡片 ===== */
+  .input-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  @media (max-width: 768px) { .input-grid { grid-template-columns: 1fr; } }
+  .input-card { background: #141420; border: 1px solid #2a2a3a; border-radius: 12px; padding: 18px; }
+  .input-card.highlight { border-color: #60a5fa; }
+  .input-card h4 { font-size: 14px; color: #fff; margin-bottom: 6px; }
+  .input-card p { font-size: 13px; color: #888; }
+  .input-card .ex { margin-top: 8px; padding: 8px; background: #1a1a2e; border-radius: 6px; font-size: 12px; color: #7dd3fc; font-family: monospace; }
+
+  /* ===== 工具列表 ===== */
+  .tool-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  @media (max-width: 768px) { .tool-grid { grid-template-columns: repeat(2, 1fr); } }
+  .tool-item { background: #141420; border: 1px solid #2a2a3a; border-radius: 8px; padding: 12px; font-size: 13px; }
+  .tool-item .tname { color: #60a5fa; font-weight: bold; font-size: 12px; font-family: monospace; }
+  .tool-item .tdesc { color: #888; font-size: 12px; margin-top: 4px; }
+
+  /* ===== 时间线 ===== */
+  .timeline { position: relative; padding-left: 36px; }
+  .timeline::before { content: ""; position: absolute; left: 14px; top: 0; bottom: 0; width: 2px; background: #2a2a3a; }
+  .tl-step { position: relative; margin-bottom: 28px; }
+  .tl-step::before { content: ""; position: absolute; left: -28px; top: 8px; width: 12px; height: 12px; border-radius: 50%; border: 2px solid #60a5fa; background: #141420; }
+  .tl-step.t-user::before { border-color: #38bdf8; background: #38bdf8; }
+  .tl-step.t-sys::before { border-color: #10b981; background: #10b981; }
+  .tl-step.t-env::before { border-color: #f59e0b; background: #f59e0b; }
+  .tl-step.t-selector::before { border-color: #a78bfa; background: #a78bfa; }
+  .tl-step.t-advisor::before { border-color: #f472b6; background: #f472b6; }
+  .tl-step .tl-label { font-size: 12px; color: #666; margin-bottom: 4px; }
+  .tl-step .tl-title { font-size: 15px; color: #fff; margin-bottom: 6px; }
+  .tl-step .tl-body { font-size: 13px; color: #999; }
+  .tl-step .tl-box { background: #141420; border: 1px solid #2a2a3a; border-radius: 10px; padding: 16px; margin-top: 8px; }
+
+  .legend { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 20px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #888; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  /* 原则 */
+  .principle-list { display: flex; flex-direction: column; gap: 14px; }
+  .principle-row { display: flex; gap: 16px; background: #141420; border: 1px solid #2a2a3a; border-radius: 10px; padding: 18px; }
+  .principle-row .p-num { min-width: 36px; height: 36px; line-height: 36px; text-align: center; border-radius: 10px; background: #1e293b; color: #60a5fa; font-size: 16px; font-weight: bold; }
+  .principle-row h4 { font-size: 15px; color: #fff; margin-bottom: 4px; }
+  .principle-row .p-rule { font-size: 13px; color: #bbb; }
+  .principle-row .p-case { margin-top: 8px; padding: 10px; background: #1a1a2e; border-radius: 6px; font-size: 12px; color: #999; border-left: 3px solid #334155; }
+  .principle-row .p-case strong { color: #f59e0b; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>司机 Agent 2.0 · 完整系统架构</h1>
+<p class="subtitle">基于豆包主 prompt + 知识筛选 prompt 的信息流转全景图</p>
+
+<!-- ====================== 第一部分 ====================== -->
+<div class="section">
+  <div class="section-title">一、系统全景 —— 豆包是谁，它收到什么，它能做什么</div>
+  <div class="section-desc">
+    系统的核心是<strong>豆包</strong>——一个车载 AI 助手。它直接跟用户对话、调用工具、执行任务。<br>
+    豆包周围有一圈"后勤系统"：筛选 Agent 给它挑知识，advisor 给它推建议，18 个工具给它干活的能力。
+  </div>
+
+  <!-- 架构图 -->
+  <div class="arch-diagram">
+
+    <!-- 顶部：三个输入来源 -->
+    <div class="arch-row">
+      <div class="arch-box" style="background:#0e1a2e;border:1px solid #38bdf8;">
+        <h3 style="color:#38bdf8;">输入类型 1：user_query</h3>
+        <p style="font-size:13px;color:#94a3b8;">用户说的话</p>
+        <ul>
+          <li>query：用户的原话</li>
+          <li>speaker_name：谁说的</li>
+          <li>speaker_position：在哪个座位</li>
+        </ul>
+        <div class="ex" style="margin-top:10px;padding:8px;background:#1a1a2e;border-radius:6px;font-size:12px;color:#7dd3fc;font-family:monospace;">{"query":"好热啊",<br> "speaker_name":"明骏",<br> "speaker_position":"主驾驶位"}</div>
+      </div>
+
+      <div class="arch-box" style="background:#1e0e2e;border:1px solid #c4b5fd;">
+        <h3 style="color:#c4b5fd;">输入类型 2：advisor</h3>
+        <p style="font-size:13px;color:#94a3b8;">其他专家智能体的建议</p>
+        <ul>
+          <li>豆包不回应 advisor</li>
+          <li>直接面向用户做行动和表达</li>
+          <li>advisor 不是用户说的话</li>
+        </ul>
+        <div class="ex" style="margin-top:10px;padding:8px;background:#1a1a2e;border-radius:6px;font-size:12px;color:#d8b4fe;font-family:monospace;">{"advisor":"车内温度35度，<br> 建议开启空调强力制冷<br> 和座椅通风"}</div>
+      </div>
+
+      <div class="arch-box" style="background:#0e1e14;border:1px solid #10b981;">
+        <h3 style="color:#10b981;">输入类型 3：tool_feedback</h3>
+        <p style="font-size:13px;color:#94a3b8;">工具执行后的返回结果</p>
+        <ul>
+          <li>tool_feedback：工具返回信息</li>
+          <li>tool_name：是哪个工具返回的</li>
+          <li>不是用户说的话</li>
+        </ul>
+        <div class="ex" style="margin-top:10px;padding:8px;background:#1a1a2e;border-radius:6px;font-size:12px;color:#86efac;font-family:monospace;">{"tool_feedback":"执行成功",<br> "tool_name":"vehicle_basic_control"}</div>
+      </div>
+    </div>
+
+    <!-- 箭头 -->
+    <div class="arch-arrow arch-center">
+      <span class="arch-arrow-down">▼ ▼ ▼</span>
+      <span class="arch-arrow-label">三种输入都发给豆包</span>
+      <span class="arch-arrow-down">▼ ▼ ▼</span>
+    </div>
+
+    <!-- 中心：豆包 -->
+    <div style="background:linear-gradient(135deg,#1a1a2e,#0f172a);border:2px solid #60a5fa;border-radius:16px;padding:28px;margin:0 auto;max-width:800px;box-shadow:0 0 40px rgba(96,165,250,0.1);">
+      <div style="text-align:center;margin-bottom:16px;">
+        <h2 style="font-size:22px;color:#fff;">豆包 — 车载 AI 助手本体</h2>
+        <p style="font-size:13px;color:#888;">说话风格像温柔聪明的高知女生，以短回复为主</p>
+      </div>
+
+      <div class="two-col" style="gap:16px;">
+        <!-- 左：上下文槽位 -->
+        <div>
+          <h4 style="color:#f59e0b;font-size:14px;margin-bottom:10px;">5 个上下文槽位（prompt 里的模板变量）</h4>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <div style="background:#1a1a2e;border-radius:6px;padding:8px 12px;font-size:13px;">
+              <span class="tag tag-yellow">{{status}}</span> 舱内视觉感知 — 摄像头看到的人、物、动作
+            </div>
+            <div style="background:#1a1a2e;border-radius:6px;padding:8px 12px;font-size:13px;">
+              <span class="tag tag-yellow">{{goal_list}}</span> 目标队列 — 正在追踪的持续任务
+            </div>
+            <div style="background:#1a1a2e;border-radius:6px;padding:8px 12px;font-size:13px;">
+              <span class="tag tag-yellow">{{env_info}}</span> 车辆状态 — 空调/座椅/车速/导航等实时信息
+            </div>
+            <div style="background:#1a1a2e;border-radius:6px;padding:8px 12px;font-size:13px;">
+              <span class="tag tag-yellow">{{memory}}</span> 用户记忆 — 偏好、习惯、关系
+            </div>
+            <div style="background:#1e0e2e;border:1px solid #a78bfa44;border-radius:6px;padding:8px 12px;font-size:13px;">
+              <span class="tag tag-purple">{{knowledge}}</span> <strong style="color:#c4b5fd;">动态专业知识</strong> — 筛选 Agent 选中的知识注入到这里
+            </div>
+          </div>
+        </div>
+
+        <!-- 右：输出格式 -->
+        <div>
+          <h4 style="color:#10b981;font-size:14px;margin-bottom:10px;">输出格式（严格 JSON）</h4>
+          <div class="code-block">{
+  "talk_or_not": "yes/no",
+  "talk_content": "要对用户说的话",
+  "action_list": [
+    {
+      "action_id": "1",
+      "params": {"query": "..."},
+      "tool_name": "工具名"
+    }
+  ]
+}</div>
+          <p style="font-size:12px;color:#666;margin-top:8px;">
+            关键决策点：<br>
+            · 要不要说话？（有时沉默更好）<br>
+            · 说什么？（语气、长度、是否带情绪标签）<br>
+            · 调哪些工具？（能并行就并行，有依赖就串行）
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 箭头 -->
+    <div class="arch-arrow arch-center" style="margin-top:20px;">
+      <span class="arch-arrow-down">▼</span>
+      <span class="arch-arrow-label">豆包调用工具执行任务</span>
+      <span class="arch-arrow-down">▼</span>
+    </div>
+
+    <!-- 底部：18个工具 -->
+    <div style="margin-top:8px;">
+      <h4 style="color:#60a5fa;font-size:14px;margin-bottom:12px;text-align:center;">豆包可调用的 18 个工具</h4>
+      <div class="tool-grid">
+        <div class="tool-item"><div class="tname">vehicle_basic_control</div><div class="tdesc">车控：空调/座椅/灯光/导航/播控</div></div>
+        <div class="tool-item"><div class="tname">search_vehicle_status_info</div><div class="tdesc">查车辆状态：温度/胎压/电量</div></div>
+        <div class="tool-item"><div class="tname">search_weather</div><div class="tdesc">天气查询：实时+预报+路段气象</div></div>
+        <div class="tool-item"><div class="tname">search_poi_qa</div><div class="tdesc">POI 搜索：餐饮/景点/充电站</div></div>
+        <div class="tool-item"><div class="tname">route_planning_qa</div><div class="tdesc">路线规划：单/多目的地导航</div></div>
+        <div class="tool-item"><div class="tname">navi_basic_control</div><div class="tdesc">导航控制：开始/暂停/视角/路况</div></div>
+        <div class="tool-item"><div class="tname">vehicle_manual_qa</div><div class="tdesc">车书问答：功能说明/故障排查</div></div>
+        <div class="tool-item"><div class="tname">search_and_control_short_video</div><div class="tdesc">短视频搜索推荐</div></div>
+        <div class="tool-item"><div class="tname">search_and_control_music</div><div class="tdesc">音乐搜索推荐（搜后自动播放）</div></div>
+        <div class="tool-item"><div class="tname">search_user_memory</div><div class="tdesc">查记忆：偏好/习惯/关系</div></div>
+        <div class="tool-item"><div class="tname">face_id_register</div><div class="tdesc">人脸注册（需名字+座位）</div></div>
+        <div class="tool-item"><div class="tname">operate_user_memory</div><div class="tdesc">更新长期记忆</div></div>
+        <div class="tool-item"><div class="tname">web_search</div><div class="tdesc">联网搜索</div></div>
+        <div class="tool-item"><div class="tname">goal_list_update</div><div class="tdesc">目标管理：新增/删除持续目标</div></div>
+        <div class="tool-item"><div class="tname">search_and_control_ai_broadcast</div><div class="tdesc">AI 播客搜索</div></div>
+        <div class="tool-item"><div class="tname">gui_agent_operation</div><div class="tdesc">GUI 操作：点外卖/交停车费等</div></div>
+        <div class="tool-item"><div class="tname">image_generate</div><div class="tdesc">图片生成：文生图/图生图</div></div>
+        <div class="tool-item"><div class="tname">search_visual_info</div><div class="tdesc">视觉问答：车内外摄像头识别</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====================== 第二部分 ====================== -->
+<div class="section">
+  <div class="section-title">二、{{knowledge}} 从哪来？—— 筛选 Agent 的工作</div>
+  <div class="section-desc">
+    豆包 prompt 底部有一个 <code style="color:#c4b5fd;">&lt;动态专业知识&gt; {{knowledge}} &lt;/动态专业知识&gt;</code> 槽位。<br>
+    这里面的内容不是固定的，而是由另一个 Agent——<strong>知识筛选 Agent</strong>——实时决定放什么进去。
+  </div>
+
+  <!-- 筛选Agent完整结构 -->
+  <div class="box" style="border-color:#a78bfa44;">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+      <span class="tag tag-purple" style="font-size:14px;padding:4px 14px;">筛选 Agent</span>
+      <span style="font-size:13px;color:#888;">定义在 prompt.md 中</span>
+    </div>
+
+    <div class="two-col">
+      <!-- 左：它收到的8个输入 -->
+      <div>
+        <h4 style="color:#c4b5fd;font-size:14px;margin-bottom:12px;">它同时看到的 8 个信号</h4>
+        <div class="input-grid" style="grid-template-columns:1fr;">
+          <div class="input-card" style="padding:10px 14px;">
+            <h4 style="font-size:13px;">1. 用户当前 Query</h4>
+            <p>{"user_query":"好热啊", "speaker_name":"明骏", "speaker_position":"主驾"}</p>
+          </div>
+          <div class="input-card" style="padding:10px 14px;">
+            <h4 style="font-size:13px;">2. 对话历史（最近10轮）</h4>
+          </div>
+          <div class="input-card" style="padding:10px 14px;">
+            <h4 style="font-size:13px;">3. 舱内视觉感知</h4>
+            <p>摄像头看到的：表情、动作、着装、物品</p>
+          </div>
+          <div class="input-card" style="padding:10px 14px;">
+            <h4 style="font-size:13px;">4. 目标队列</h4>
+            <p>正在追踪的持续任务</p>
+          </div>
+          <div class="input-card" style="padding:10px 14px;">
+            <h4 style="font-size:13px;">5. 最新车辆状态</h4>
+            <p>优先级高于对话历史中的车辆状态</p>
+          </div>
+          <div class="input-card" style="padding:10px 14px;border-color:#f59e0b;">
+            <h4 style="font-size:13px;color:#f59e0b;">6. 车辆状态变化点 ⚡ 最关键</h4>
+            <p style="color:#fbbf24;">"趋势比绝对值更具决策价值"<br>温度22→29比"当前29度"信息量大得多</p>
+          </div>
+          <div class="input-card" style="padding:10px 14px;">
+            <h4 style="font-size:13px;">7. 用户长期记忆</h4>
+          </div>
+          <div class="input-card" style="padding:10px 14px;">
+            <h4 style="font-size:13px;">8. 当前已加载知识 ID 列表</h4>
+            <p>上一次筛选后，哪些知识已经在 {{knowledge}} 里</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右：5条原则 + 输出 -->
+      <div>
+        <h4 style="color:#c4b5fd;font-size:14px;margin-bottom:12px;">它的 5 条决策原则</h4>
+        <div class="principle-list">
+          <div class="principle-row" style="padding:12px 14px;">
+            <div class="p-num" style="min-width:28px;height:28px;line-height:28px;font-size:13px;">1</div>
+            <div>
+              <h4 style="font-size:13px;">场景绑定推理</h4>
+              <div class="p-rule">综合全部输入，先判断场景，再匹配知识 ID。不是关键词匹配。</div>
+            </div>
+          </div>
+          <div class="principle-row" style="padding:12px 14px;">
+            <div class="p-num" style="min-width:28px;height:28px;line-height:28px;font-size:13px;">2</div>
+            <div>
+              <h4 style="font-size:13px;">环境变化优先</h4>
+              <div class="p-rule">变化点信号 > 绝对值。温度急升比"当前温度高"更重要。</div>
+            </div>
+          </div>
+          <div class="principle-row" style="padding:12px 14px;">
+            <div class="p-num" style="min-width:28px;height:28px;line-height:28px;font-size:13px;">3</div>
+            <div>
+              <h4 style="font-size:13px;">目标在就不卸载</h4>
+              <div class="p-rule">目标队列有进行中任务 → 支撑知识保留，直到用户终止。</div>
+            </div>
+          </div>
+          <div class="principle-row" style="padding:12px 14px;">
+            <div class="p-num" style="min-width:28px;height:28px;line-height:28px;font-size:13px;">4</div>
+            <div>
+              <h4 style="font-size:13px;">增量更新</h4>
+              <div class="p-rule">只输出差异：要新增的和要删除的，不重复已有的。</div>
+            </div>
+          </div>
+          <div class="principle-row" style="padding:12px 14px;">
+            <div class="p-num" style="min-width:28px;height:28px;line-height:28px;font-size:13px;">5</div>
+            <div>
+              <h4 style="font-size:13px;">不确定就不加</h4>
+              <div class="p-rule">信息不足 → add 为空，在 reasoning 中说明。</div>
+            </div>
+          </div>
+        </div>
+
+        <h4 style="color:#c4b5fd;font-size:14px;margin:20px 0 10px;">它的输出</h4>
+        <div class="code-block" style="font-size:12px;">{
+  "add_knowledge_ids": ["DRV-01-01-04"],
+  "remove_knowledge_ids": ["DRV-01-01-12"],
+  "reasoning": {
+    "add_reason": "温度5分钟急升+乘员出汗，需急速降温知识",
+    "remove_reason": "通风知识已不需要，降温知识覆盖范围更大"
+  }
+}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====================== 第三部分 ====================== -->
+<div class="section">
+  <div class="section-title">三、知识从表格到豆包的完整流转</div>
+  <div class="section-desc">筛选 Agent 输出知识 ID → 系统查 xlsx 表格取完整内容 → 内容注入豆包的 {{knowledge}} 槽位。</div>
+
+  <div style="display:flex;align-items:stretch;gap:0;justify-content:center;flex-wrap:wrap;">
+
+    <div class="box" style="flex:1;min-width:220px;max-width:280px;border-color:#a78bfa44;">
+      <h4 style="color:#c4b5fd;font-size:14px;margin-bottom:8px;">Step 1</h4>
+      <p style="font-size:13px;color:#999;">筛选 Agent 输出</p>
+      <div class="code-block" style="font-size:11px;">add: ["DRV-01-01-04"]</div>
+      <p style="font-size:12px;color:#666;">只有 ID，没有内容</p>
+    </div>
+
+    <div style="display:flex;align-items:center;padding:0 12px;font-size:28px;color:#60a5fa;">→</div>
+
+    <div class="box" style="flex:1;min-width:220px;max-width:320px;border-color:#f59e0b44;">
+      <h4 style="color:#f59e0b;font-size:14px;margin-bottom:8px;">Step 2</h4>
+      <p style="font-size:13px;color:#999;">系统查 xlsx 表格</p>
+      <div style="font-size:12px;color:#bbb;margin-top:8px;">
+        找到 DRV-01-01-04 行，取出：<br>
+        <span class="tag tag-yellow" style="margin:4px 2px;">使用时机</span>
+        <span class="tag tag-yellow" style="margin:4px 2px;">场景要点 284字</span><br>
+        <span class="tag tag-yellow" style="margin:4px 2px;">执行逻辑 875字</span>
+        <span class="tag tag-yellow" style="margin:4px 2px;">示例 1217字</span>
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;padding:0 12px;font-size:28px;color:#60a5fa;">→</div>
+
+    <div class="box" style="flex:1;min-width:220px;max-width:320px;border-color:#10b98144;">
+      <h4 style="color:#10b981;font-size:14px;margin-bottom:8px;">Step 3</h4>
+      <p style="font-size:13px;color:#999;">注入豆包的 {{knowledge}}</p>
+      <div style="font-size:12px;color:#86efac;margin-top:8px;">
+        豆包 prompt 底部的<br>
+        <code>&lt;动态专业知识&gt;</code> 区域里<br>
+        现在多了一整段"急速降温"知识<br><br>
+        <strong>你写的多轮示例就在这里面</strong><br>
+        豆包会参考它来决定怎么说话、调什么工具
+      </div>
+    </div>
+  </div>
+
+  <div class="callout" style="margin-top:24px;">
+    <h4>关键理解</h4>
+    <p>
+      <strong>知识的消费者是豆包本身</strong>，不是一个独立的"思考者 Agent"。<br>
+      豆包读到你写的示例后，要能判断：该不该说话、说什么、调哪个工具、参数填什么。<br>
+      所以你的多轮示例格式必须跟豆包的输出格式一致：<code>input → output JSON</code>，而不是自然对话体。
+    </p>
+  </div>
+</div>
+
+<!-- ====================== 第四部分 ====================== -->
+<div class="section">
+  <div class="section-title">四、advisor 和 knowledge 是两条并行的路径</div>
+  <div class="section-desc">豆包同时从两条路径获得"场景指导"，但机制完全不同。</div>
+
+  <div class="two-col">
+    <div class="box" style="border-color:#c4b5fd44;">
+      <h4 style="color:#c4b5fd;margin-bottom:12px;">路径 A：advisor（实时建议）</h4>
+      <div style="font-size:13px;color:#999;">
+        <p style="margin-bottom:8px;">其他专家智能体主动推送的一句话建议。</p>
+        <p style="margin-bottom:8px;">跟 user_query 可以同时到达（见豆包 prompt 示例2）：</p>
+        <div class="code-block" style="font-size:11px;">input1：[
+  {"query":"放点音乐", ...},
+  {"advisor":"车内温度35度，建议开启空调强力制冷和座椅通风"}
+]</div>
+        <p style="margin-top:8px;">特点：<br>
+        · 一句话建议，不是长知识文档<br>
+        · 豆包不回应 advisor，直接面向用户行动<br>
+        · 需要豆包自己解释"为什么这么做"
+        </p>
+      </div>
+    </div>
+
+    <div class="box" style="border-color:#f59e0b44;">
+      <h4 style="color:#f59e0b;margin-bottom:12px;">路径 B：knowledge（场景知识注入）</h4>
+      <div style="font-size:13px;color:#999;">
+        <p style="margin-bottom:8px;">筛选 Agent 选中的完整场景知识，注入到 prompt 的 {{knowledge}} 槽位。</p>
+        <p style="margin-bottom:8px;">内容来自 xlsx 表格，包含：</p>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin:8px 0;">
+          <span class="tag tag-yellow">使用时机</span>
+          <span class="tag tag-yellow">场景要点</span>
+          <span class="tag tag-yellow">执行逻辑</span>
+          <span class="tag tag-yellow">示例</span>
+        </div>
+        <p style="margin-top:8px;">特点：<br>
+        · 结构化的长文档（数百到上千字）<br>
+        · 持续存在于上下文中，直到被卸载<br>
+        · 教豆包在这个场景里"怎么思考和行动"<br>
+        · <strong style="color:#f59e0b;">你要写的多轮示例就在这里</strong>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout callout-blue">
+    <h4>两条路径的关系</h4>
+    <p>
+      advisor 是"临时提醒"——"嘿，温度高了你注意一下"。<br>
+      knowledge 是"操作手册"——"遇到高温场景，按这个流程来处理"。<br><br>
+      它们可以同时生效。比如 advisor 提醒"温度高了"的同时，{{knowledge}} 里已经有急速降温知识告诉豆包具体该怎么操作。
+    </p>
+  </div>
+</div>
+
+<!-- ====================== 第五部分 ====================== -->
+<div class="section">
+  <div class="section-title">五、完整场景演练 —— 用急速降温走一遍真实信息流</div>
+  <div class="section-desc">
+    从"温度开始升高"到"降温完成知识卸载"，看每一步信息在系统里怎么流转，豆包怎么反应。<br>
+    <strong>注意：这次的演练用的是豆包真实的 input/output JSON 格式。</strong>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#38bdf8;"></div> 用户说话</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#f59e0b;"></div> 环境/状态变化</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#a78bfa;"></div> 筛选Agent决策</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#f472b6;"></div> advisor建议</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#10b981;"></div> 豆包输出</div>
+  </div>
+
+  <!-- 初始状态 -->
+  <div class="box" style="margin-bottom:24px;border-color:#33415544;">
+    <h4 style="color:#94a3b8;font-size:14px;margin-bottom:8px;">初始状态</h4>
+    <div class="code-block" style="font-size:11px;color:#94a3b8;">&lt;舱内视觉感知&gt; 主驾驶：明骏，灰色外套，额头干燥，开车中 &lt;/舱内视觉感知&gt;
+&lt;当前目标队列&gt; 1. 导航去公司（进行中） &lt;/当前目标队列&gt;
+&lt;最新车辆状态&gt; {车内22度}, {空调自动模式24度}, {车速45km/h} &lt;/最新车辆状态&gt;
+&lt;用户记忆&gt; 明骏：主驾常客，喜欢毒舌互动风格 &lt;/用户记忆&gt;
+&lt;动态专业知识&gt; （当前无已加载知识） &lt;/动态专业知识&gt;</div>
+  </div>
+
+  <div class="timeline">
+
+    <!-- Step 1: 环境变化 -->
+    <div class="tl-step t-env">
+      <div class="tl-label">14:05 · 环境变化</div>
+      <div class="tl-title">车辆状态发生显著变化</div>
+      <div class="tl-box">
+        <p style="font-size:13px;color:#fbbf24;">系统检测到：</p>
+        <div class="code-block" style="font-size:11px;">车内温度：22℃ → 29℃（5分钟内急升7度）
+舱内视觉更新：主驾额头出汗，用手擦额头</div>
+        <p style="font-size:12px;color:#888;margin-top:8px;">温度急升 → 触发筛选 Agent 重新评估</p>
+      </div>
+    </div>
+
+    <!-- Step 2: 筛选Agent -->
+    <div class="tl-step t-selector">
+      <div class="tl-label">14:05 · 筛选 Agent 工作</div>
+      <div class="tl-title">筛选 Agent 综合 8 个输入做判断</div>
+      <div class="tl-box">
+        <p style="font-size:12px;color:#c4b5fd;">内部推理：变化点=温度急升7℃ + 视觉=出汗 → 急速降温场景 → 加载 DRV-01-01-04</p>
+        <div class="code-block" style="font-size:11px;">{ "add_knowledge_ids": ["DRV-01-01-04"], "remove_knowledge_ids": [] }</div>
+        <p style="font-size:12px;color:#888;margin-top:6px;">→ 系统查 xlsx 表格，取出 DRV-01-01-04 全部内容，写入 {{knowledge}} 槽位</p>
+      </div>
+    </div>
+
+    <!-- Step 3: user_query + advisor 同时到达 -->
+    <div class="tl-step t-user">
+      <div class="tl-label">14:05 · 用户 + advisor 同时到达</div>
+      <div class="tl-title">豆包收到的 input</div>
+      <div class="tl-box">
+        <div class="code-block" style="font-size:11px;">input1：[
+  {"query":"好热啊","speaker_name":"明骏","speaker_position":"主驾驶位"},
+  {"advisor":"车内温度5分钟急升至29度，主驾额头出汗，建议开启急速制冷+座椅通风"}
+]</div>
+        <p style="font-size:12px;color:#888;margin-top:8px;">
+          此时豆包的 {{knowledge}} 里已经有了 DRV-01-01-04（急速降温）的完整内容：<br>
+          场景要点告诉它降温策略、执行逻辑告诉它步骤、示例告诉它怎么说话和调工具。<br>
+          advisor 又推了一句实时建议。两个信号叠加。
+        </p>
+      </div>
+    </div>
+
+    <!-- Step 4: 豆包输出 -->
+    <div class="tl-step t-sys">
+      <div class="tl-label">14:05 · 豆包输出</div>
+      <div class="tl-title">豆包的第一轮回应</div>
+      <div class="tl-box">
+        <div class="code-block" style="font-size:11px;">output1：{
+  "talk_or_not": "yes",
+  "talk_content": "[毒舌地说]哎呀，车里都快30度了，你那额头都反光了。我先急速制冷降下来，座椅通风也给你打开散散热。",
+  "action_list": [
+    {"action_id":"1","params":{"query":"空调急速制冷模式"},"tool_name":"vehicle_basic_control"},
+    {"action_id":"2","params":{"query":"主驾座椅通风3档"},"tool_name":"vehicle_basic_control"}
+  ]
+}</div>
+        <p style="font-size:12px;color:#10b981;margin-top:10px;"><strong>决策分析：</strong></p>
+        <p style="font-size:12px;color:#888;">
+          · <strong>为什么说话？</strong> 用户主动表达了不适（"好热"），需要回应确认+告知行动。<br>
+          · <strong>为什么用毒舌语气？</strong> 用户记忆显示明骏喜欢毒舌互动风格。<br>
+          · <strong>为什么并行两个工具？</strong> 急速制冷和座椅通风互不依赖，并行最快。<br>
+          · <strong>知识怎么起作用的？</strong> {{knowledge}} 里的急速降温知识告诉豆包：要急速制冷+配合座椅通风双管齐下。<br>
+          · <strong>advisor 怎么融合的？</strong> advisor 建议了同样的操作，豆包直接采纳但不提"advisor告诉我"，用自己的判断（视觉看到出汗）解释原因。
+        </p>
+      </div>
+    </div>
+
+    <!-- Step 5: tool_feedback -->
+    <div class="tl-step" style="--dot-color:#10b981;">
+      <div class="tl-label">14:05 · 工具返回</div>
+      <div class="tl-title">豆包收到 tool_feedback</div>
+      <div class="tl-box">
+        <div class="code-block" style="font-size:11px;">input2：{"tool_feedback":"执行成功","tool_name":"vehicle_basic_control"}</div>
+        <div class="code-block" style="font-size:11px;">output2：{
+  "talk_or_not": "no",
+  "talk_content": "",
+  "action_list": []
+}</div>
+        <p style="font-size:12px;color:#888;margin-top:6px;">
+          <strong>决策：沉默。</strong> 车控成功是预期结果，用户能感受到（风开了、通风开了），不需要多说。<br>
+          这符合豆包 prompt 注意事项第4条："车控返回成功时不必再说话"。
+        </p>
+      </div>
+    </div>
+
+    <!-- Step 6: 用户第二轮 -->
+    <div class="tl-step t-user">
+      <div class="tl-label">14:06 · 用户第二轮</div>
+      <div class="tl-title">用户反馈风太大</div>
+      <div class="tl-box">
+        <div class="code-block" style="font-size:11px;">input3：{"query":"风太大了吹得我头疼","speaker_name":"明骏","speaker_position":"主驾驶位"}</div>
+        <p style="font-size:12px;color:#f59e0b;margin-top:8px;">
+          <strong>这就是多轮的价值所在：</strong><br>
+          第一轮豆包开了急速制冷（大风量），用户不满意。<br>
+          如果你的 {{knowledge}} 示例里覆盖了"风大不适"的分叉情况，豆包就知道该怎么调整。<br>
+          如果没覆盖，豆包只能靠通用能力猜，大概率不够好。
+        </p>
+      </div>
+    </div>
+
+    <!-- Step 7: 豆包第二轮 -->
+    <div class="tl-step t-sys">
+      <div class="tl-label">14:06 · 豆包输出</div>
+      <div class="tl-title">豆包调整策略</div>
+      <div class="tl-box">
+        <div class="code-block" style="font-size:11px;">output3：{
+  "talk_or_not": "yes",
+  "talk_content": "风量降下来了，出风口帮你调成不直吹头部。座椅通风在给你散热，温度保持低一点慢慢降就好。",
+  "action_list": [
+    {"action_id":"1","params":{"query":"前排风量调到2档，出风模式调为吹脚"},"tool_name":"vehicle_basic_control"}
+  ]
+}</div>
+        <p style="font-size:12px;color:#10b981;margin-top:10px;"><strong>决策分析：</strong></p>
+        <p style="font-size:12px;color:#888;">
+          · <strong>新增认知：</strong> 用户对强风敏感 → 不能只追求降温速度<br>
+          · <strong>策略调整：</strong> 降风量+改出风方向，保留座椅通风作为替代散热手段<br>
+          · <strong>知识支撑：</strong> 车辆设备知识里说"前排风量2档及以下较为安静"，所以调到2档<br>
+          · <strong>没有过度反应：</strong> 用户说"头疼"但没有持续追问，不需要升级到健康关怀场景
+        </p>
+      </div>
+    </div>
+
+    <!-- Step 8: 场景结束 -->
+    <div class="tl-step t-env">
+      <div class="tl-label">14:15 · 场景结束</div>
+      <div class="tl-title">温度恢复 → 知识卸载</div>
+      <div class="tl-box">
+        <p style="font-size:12px;color:#888;">车辆状态变化点：车内温度 29℃ → 23℃，回归舒适范围。</p>
+        <p style="font-size:12px;color:#a78bfa;margin-top:6px;">筛选 Agent 再次被触发 → 判断降温场景结束 → remove: ["DRV-01-01-04"]</p>
+        <p style="font-size:12px;color:#888;margin-top:6px;">豆包 {{knowledge}} 里的急速降温内容被移除。下次用户再说话，豆包不再有这段知识。</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ====================== 第六部分 ====================== -->
+<div class="section">
+  <div class="section-title">六、豆包 prompt 的 10 条行为规则（写示例必须遵守）</div>
+  <div class="section-desc">
+    豆包 prompt 里有明确的注意事项和聊天风格规则。你写的多轮示例必须符合这些规则，否则示例和 prompt 会打架。
+  </div>
+
+  <div class="three-col">
+    <div class="box">
+      <h4 style="color:#ef4444;font-size:14px;margin-bottom:10px;">输出纪律</h4>
+      <div style="font-size:12px;color:#999;">
+        <p><span class="tag tag-red">1</span> 仅输出 JSON，不含任何额外文本</p>
+        <p style="margin-top:6px;"><span class="tag tag-red">2</span> 听不懂 / 不是对自己说的 → 不说话不调工具</p>
+        <p style="margin-top:6px;"><span class="tag tag-red">3</span> 闲聊类 → 只说话，不一定需要工具</p>
+        <p style="margin-top:6px;"><span class="tag tag-red">4</span> tool_feedback 成功 → 不一定要说话（车控/音乐成功可沉默）</p>
+      </div>
+    </div>
+    <div class="box">
+      <h4 style="color:#f59e0b;font-size:14px;margin-bottom:10px;">工具使用纪律</h4>
+      <div style="font-size:12px;color:#999;">
+        <p><span class="tag tag-yellow">5</span> 有串行依赖 → 不能一次性输出多个工具</p>
+        <p style="margin-top:6px;"><span class="tag tag-yellow">6</span> 工具反复失败 → 可暂时放弃</p>
+        <p style="margin-top:6px;"><span class="tag tag-yellow">7</span> 需要未知的车辆信息 → 先查 search_vehicle_status_info</p>
+      </div>
+    </div>
+    <div class="box">
+      <h4 style="color:#10b981;font-size:14px;margin-bottom:10px;">对话风格纪律</h4>
+      <div style="font-size:12px;color:#999;">
+        <p><span class="tag tag-green">8</span> 不重复说相同的话</p>
+        <p style="margin-top:6px;"><span class="tag tag-green">9</span> 问了用户意见 → 没回之前不自作主张执行</p>
+        <p style="margin-top:6px;"><span class="tag tag-green">10</span> 语气：温柔高知女生，以短为主，偶尔长；不说"哇塞""超级"等幼态词</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====================== 第七部分 ====================== -->
+<div class="section">
+  <div class="section-title">七、你的多轮示例最终长什么样？—— 格式模板</div>
+  <div class="section-desc">
+    基于以上所有理解，xlsx I 列里的多轮示例应该长这样（以急速降温 DRV-01-01-04 为例）。
+  </div>
+
+  <div class="box" style="border-color:#f59e0b44;">
+    <h4 style="color:#f59e0b;margin-bottom:16px;">多轮示例模板（注入到 {{knowledge}} 后，豆包读到的就是这段内容）</h4>
+
+    <div class="code-block" style="font-size:12px;line-height:1.8;color:#e2e8f0;">多轮示例：用户反馈风太大，需要调整降温策略
+
+<span style="color:#94a3b8;">【背景】车内温度急升至29度，空调刚切急速制冷，主驾通风已开。</span>
+
+<span style="color:#38bdf8;">input1：</span>
+{"query":"风太大了吹得我头疼","speaker_name":"明骏","speaker_position":"主驾驶位"}
+<span style="color:#10b981;">output1：</span>
+{
+  "talk_or_not":"yes",
+  "talk_content":"风量降下来了，出风口调成不直吹头部。座椅通风在散热，温度慢慢降就好。",
+  "action_list":[{"action_id":"1","params":{"query":"前排风量调到2档，出风模式调为吹脚"},"tool_name":"vehicle_basic_control"}]
+}
+<span style="color:#94a3b8;">决策分析：用户对大风量敏感，降风量+改方向，保留座椅通风替代。前排2档以下较安静。</span>
+
+<span style="color:#38bdf8;">input2：</span>
+{"tool_feedback":"执行成功","tool_name":"vehicle_basic_control"}
+<span style="color:#10b981;">output2：</span>
+{
+  "talk_or_not":"no",
+  "talk_content":"",
+  "action_list":[]
+}
+<span style="color:#94a3b8;">决策分析：车控成功可沉默，用户能感受到风量变化。</span>
+
+<span style="color:#38bdf8;">input3：</span>
+{"query":"这样舒服多了","speaker_name":"明骏","speaker_position":"主驾驶位"}
+<span style="color:#10b981;">output3：</span>
+{
+  "talk_or_not":"yes",
+  "talk_content":"嗯，等温度降到舒服了我帮你切回自动模式。",
+  "action_list":[]
+}
+<span style="color:#94a3b8;">决策分析：用户确认满意，告知后续计划（自动回切），体现闭环意识。不需要额外操作。</span></div>
+
+    <div class="callout callout-green" style="margin-top:16px;">
+      <h4>这个模板的关键特征</h4>
+      <p>
+        1. <strong>格式跟豆包主 prompt 的示例完全一致</strong>：input/output JSON + 决策分析<br>
+        2. <strong>每一轮都有新的情境推进</strong>：风大不适 → 调整成功 → 用户确认 → 闭环<br>
+        3. <strong>决策分析解释"为什么"</strong>：不只是教豆包说什么，还教它为什么选这个策略<br>
+        4. <strong>遵守豆包的行为规则</strong>：工具成功时沉默、不重复说话、语气匹配
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ====================== 第八部分 ====================== -->
+<div class="section">
+  <div class="section-title">八、待确认的问题</div>
+  <div class="section-desc">以下几点我不确定，需要你确认。</div>
+
+  <div class="box">
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <div style="padding:12px;background:#1a1a2e;border-radius:8px;">
+        <p style="font-size:14px;color:#f59e0b;">问题 1：advisor 是谁发的？</p>
+        <p style="font-size:13px;color:#888;margin-top:4px;">
+          豆包 prompt 示例2里 advisor 说"车内温度35度，建议开启空调强力制冷和座椅通风"。<br>
+          这是筛选 Agent 发的，还是另一个独立的监控系统？还是就是你要写的 xlsx 知识内容的一部分？
+        </p>
+      </div>
+      <div style="padding:12px;background:#1a1a2e;border-radius:8px;">
+        <p style="font-size:14px;color:#f59e0b;">问题 2：知识注入时机和 advisor 的先后关系</p>
+        <p style="font-size:13px;color:#888;margin-top:4px;">
+          在实际系统中，是先注入 {{knowledge}} 再给豆包 input？还是 knowledge 和 input 同时到达？<br>
+          这影响示例的设计——如果知识先于用户说话就已经注入，示例可以假设豆包已经"知道"场景要点。
+        </p>
+      </div>
+      <div style="padding:12px;background:#1a1a2e;border-radius:8px;">
+        <p style="font-size:14px;color:#f59e0b;">问题 3：xlsx 表格里哪些列的内容最终进入 {{knowledge}}？</p>
+        <p style="font-size:13px;color:#888;margin-top:4px;">
+          是所有列都注入（使用时机+场景要点+执行逻辑+执行逻辑简版）？还是只注入其中部分列？<br>
+          两列"执行逻辑"和"执行逻辑.1"是什么关系——一个是完整版一个是简版？还是不同用途？
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+</body>
+</html>

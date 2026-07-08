@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PRD · 触发器事件系统（导航接近/到达/离开 + 座舱车况信号）</title>
+<style>
+ :root{--c:#0e7490;--c2:#0891b2;--ink:#0f172a;--mut:#475569;--bd:#e2e8f0}
+ *{box-sizing:border-box}
+ body{margin:0;background:#f1f5f9;color:var(--ink);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;line-height:1.75}
+ .layout{max-width:1180px;margin:0 auto;display:flex;gap:20px;padding:24px 18px 80px}
+ /* TOC */
+ nav{flex:0 0 222px;position:sticky;top:16px;align-self:flex-start;background:#fff;border:1px solid var(--bd);border-radius:12px;padding:12px 10px;font-size:12.7px;max-height:94vh;overflow:auto}
+ nav .nt{font-weight:bold;color:var(--c);font-size:13px;padding:4px 8px}
+ nav a{display:block;color:#334155;text-decoration:none;padding:4px 9px;border-radius:6px;margin:1px 0}
+ nav a:hover{background:#ecfeff;color:var(--c)}
+ main{flex:1;min-width:0;background:#fff;border:1px solid var(--bd);border-radius:14px;padding:30px 34px}
+ h1{font-size:25px;margin:0 0 2px}
+ .doctag{font-size:12.5px;color:var(--mut);margin-bottom:14px}
+ h2{font-size:20px;margin:34px 0 10px;padding-bottom:6px;border-bottom:2px solid var(--c2);color:var(--c)}
+ h3{font-size:16px;margin:20px 0 7px;color:#155e75}
+ p{margin:9px 0}
+ table{width:100%;border-collapse:collapse;font-size:12.9px;margin:9px 0}
+ th,td{border:1px solid var(--bd);padding:7px 9px;text-align:left;vertical-align:top}
+ th{background:var(--ink);color:#fff;font-size:12.3px}
+ td.f{font-weight:bold;white-space:nowrap}
+ code{background:#f1f5f9;border-radius:4px;padding:1px 5px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:12px;color:#0e7490}
+ pre{background:#0f172a;color:#86efac;border-radius:9px;padding:13px 15px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:12.3px;line-height:1.65;overflow:auto;white-space:pre}
+ pre .c{color:#fca5a5}.pre .k{color:#7dd3fc}
+ .note{border-left:4px solid var(--c2);background:#ecfeff;border-radius:0 8px 8px 0;padding:9px 14px;margin:10px 0;font-size:13.2px;color:#0c4a6e}
+ .std{border-left:4px solid #16a34a;background:#ecfdf5;border-radius:0 8px 8px 0;padding:9px 14px;margin:10px 0;font-size:13.2px;color:#065f46}
+ .std b{color:#15803d}
+ .risk{border-left:4px solid #dc2626;background:#fef2f2;border-radius:0 8px 8px 0;padding:9px 14px;margin:10px 0;font-size:13.2px;color:#991b1b}
+ .warn{color:#b91c1c;font-weight:bold}.ok{color:#15803d;font-weight:bold}.mut{color:#94a3b8}
+ .hl{background:#fde68a;padding:0 4px;border-radius:3px;color:#713f12;font-weight:600}
+ .pill{display:inline-block;font-size:11px;font-weight:bold;border-radius:12px;padding:1px 9px;margin-left:4px}
+ .p0{background:#fee2e2;color:#b91c1c}.p1{background:#fef3c7;color:#92400e}.dr{background:#e0f2fe;color:#0369a1}
+ /* 流程图 */
+ .flow{background:#f8fafc;border:1px solid var(--bd);border-radius:12px;padding:18px 14px;margin:12px 0;overflow:auto}
+ .frow{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;min-width:max-content;justify-content:center}
+ .nd{background:#fff;border:1.6px solid #94a3b8;border-radius:9px;padding:8px 12px;font-size:12.5px;font-weight:600;text-align:center;min-width:84px}
+ .nd small{display:block;font-weight:400;font-size:10.3px;color:#64748b;margin-top:2px}
+ .nd.end{background:#f1f5f9;border-color:#64748b}
+ .nd.you{background:#ecfeff;border-color:var(--c2);color:var(--c)}
+ .nd.yt{background:#f5f3ff;border-color:#7c3aed;color:#7c3aed}
+ .nd.dn{background:#fffbeb;border-color:#f59e0b;color:#b45309}
+ .ar{color:var(--c2);font-weight:bold;font-size:17px}
+ .ar small{display:block;font-size:9.5px;color:#64748b;font-weight:400;text-align:center;line-height:1}
+ /* 状态机 */
+ .sm{display:flex;align-items:center;gap:4px;flex-wrap:wrap;justify-content:center;margin:6px 0}
+ .state{background:#0e7490;color:#fff;border-radius:20px;padding:8px 16px;font-size:13px;font-weight:bold;text-align:center}
+ .state.start{background:#64748b}.state.fin{background:#334155}
+ .trans{font-size:11px;color:#b45309;text-align:center;font-weight:600;padding:0 4px}
+ .trans .ev{display:block;color:#0891b2;font-size:11.5px}
+ .trans .big{font-size:16px;color:#94a3b8}
+ ul.tl{list-style:none;padding-left:0;margin:8px 0}
+ ul.tl li{position:relative;padding:7px 0 7px 30px;border-left:2px solid var(--c2);margin-left:8px}
+ ul.tl li::before{content:'';position:absolute;left:-7px;top:11px;width:11px;height:11px;border-radius:50%;background:var(--c2);border:2px solid #fff}
+ ul.tl li b{color:var(--c)}
+ /* 嵌入式深色详图 */
+ .diagram{background:#0b0f17;border:1px solid #222c3c;border-radius:12px;padding:10px;overflow:auto;margin:12px 0}
+ .diagram svg{width:100%;height:auto;min-width:3360px;display:block}
+ .dglg{display:flex;gap:13px;flex-wrap:wrap;font-size:11.5px;color:#8b9bb0;margin:2px 4px 10px}
+ .dglg span{display:inline-flex;align-items:center;gap:5px}
+ .dglg i{width:11px;height:11px;border-radius:3px;display:inline-block}
+ .dgread{background:#0e2a22;border:1px solid #14532d;border-left:4px solid #10b981;border-radius:9px;padding:10px 14px;margin:10px 0;font-size:12.6px;color:#bbf7d0;line-height:1.8}
+ .dgread b{color:#5eecc0}
+ @media print{nav{display:none}main{border:none}}
+</style>
+</head>
+<body>
+<div class="layout">
+ <nav>
+  <div class="nt">目录</div>
+  <a href="#s1">1 文档信息</a>
+  <a href="#s2">2 背景与目标</a>
+  <a href="#s3">3 术语</a>
+  <a href="#s4">4 需求范围（导航+座舱）</a>
+  <a href="#s5">5 总体架构·流程图</a>
+  <a href="#s6">6 信号清单·参数标准</a>
+  <a href="#s7">7 数据格式标准</a>
+  <a href="#s8">8 核心判定逻辑</a>
+  <a href="#s9">9 DSL 条件示例</a>
+  <a href="#s10">10 B方案落地详解</a>
+  <a href="#s11">11 依赖与待确认</a>
+  <a href="#s12">12 配置平台落地</a>
+  <a href="#s13">13 验收标准</a>
+  <a href="#s14">14 风险与对策</a>
+  <a href="#s15">15 排期（导航+座舱）</a>
+  <a href="#s16">16 来源附录</a>
+  <a href="#s17">17 车端信号条件任务必过集·未支持 case（佳杰补充）</a>
+ </nav>
+
+ <main>
+ <h1>PRD · 触发器事件系统（导航接近/到达/离开 + 座舱车况信号）</h1>
+ <div class="doctag">产品需求文档 · 云端触发器 导航 POI + 座舱车况信号专项 ｜ 版本 v1.1 ｜ 状态：评审中 ｜ 节点 P0·630 ｜ v1.0 导航事件（接近/到达/离开） · v1.1 扩入座舱车况信号（座位/空调/电量/续航/胎压/媒体）+ 必过集 19 case + 边界全集</div>
+
+ <!-- 1 -->
+ <h2 id="s1">1. 文档信息</h2>
+ <table>
+  <tr><td class="f">文档名称</td><td>触发器事件系统 PRD（导航接近/到达/离开 + 座舱车况信号）</td><td class="f">版本</td><td>v1.1</td></tr>
+  <tr><td class="f">作者</td><td>王泽民 6094（触发器产品）</td><td class="f">日期</td><td>2026-06-23</td></tr>
+  <tr><td class="f">交付/评审对象</td><td>刘杨（触发器引擎）、金龙/汪帅（端上）、仁杰（导航需求产品）、任军（运算符引擎）、施佳杰（动态 advisor·弋途）、张航（决策）、韩天亮（信号库锁版）</td><td class="f">状态</td><td>评审中</td></tr>
+  <tr><td class="f">优先级 / 节点</td><td><span class="pill p0">P0</span> 量产必须 · 630</td><td class="f">关联</td><td>《触发器条件清单》信号序号 119~133 + 200+（座舱占位）；6/16 导航触发专项会；6/23 佳杰必过集</td></tr>
+ </table>
+ <h3>修订记录</h3>
+ <table>
+  <tr><th>版本</th><th>日期</th><th>修订人</th><th>说明</th></tr>
+  <tr><td>v0.1</td><td>2026-06-16</td><td>王泽民</td><td>初版《导航信号需求-给刘杨》，列信号 + §4 判定逻辑</td></tr>
+  <tr><td>v1.0</td><td>2026-06-18</td><td>王泽民</td><td>升级为正式 PRD：补流程图/状态机图/数据格式标准/验收标准/依赖表</td></tr>
+  <tr><td>v1.1</td><td>2026-06-23</td><td>王泽民</td><td>扩入佳杰《车端信号条件任务必过集》未支持 19 case：补 §6.5 座舱/车况信号、§7 单位归一、§8.4 边界 case、§8.6 导航类判定、§9 DSL、§11/§13/§14、新 §17 标准化清单</td></tr>
+ </table>
+
+ <!-- 2 -->
+ <h2 id="s2">2. 背景与目标</h2>
+ <h3>2.1 背景</h3>
+ <p>触发器现在<b>不认识"导航目的地""剩余距离"</b>这些概念，导致一类"快到某地就主动服务"的需求<b>一个都做不了</b>。这些导航信号在《触发器条件清单》里<b>本来就有定义（序号 119~133）</b>，只是之前被删了 / 没开放。本期是把它们作为<b>新增重新开放</b>，并设计出"接近/到达/离开"的判定逻辑——<span class="warn">不是从零开发</span>。</p>
+ <h3>2.2 目标（本期要达成）</h3>
+ <ul>
+  <li>让触发器能取到导航状态、目的地/途经点位置（地址 + 剩余距离）、收藏地址等信号；</li>
+  <li>产出 <b>发起导航 / 接近 / 到达 / 离开 / 目的地变更 / 回家去公司 / 接近途经点</b> 等事件，供动态 advisor（弋途）订阅；</li>
+  <li>解决核心难点：<b>"接近/到达/离开"不是简单的"距离 &lt; 阈值"，而是 one shot 过程判定</b>（详见 §8）；</li>
+  <li><b>（v1.1）开放座舱/车况信号</b>（座位占用、空调、电量、续航、胎压、媒体播放/音量、路过 POI、围栏），覆盖佳杰必过集 19 个未支持 case，建立 <b>4 型边界 case 全集</b>（阈值穿越/状态变更/空间 POI/事件型）和<b>单位归一标准</b>（详见 §6.5/§7/§17）。</li>
+ </ul>
+ <h3>2.3 典型场景</h3>
+ <table>
+  <tr><th>场景</th><th>用户体验</th><th>背后能力</th></tr>
+  <tr><td class="f">快到公司提醒拿咖啡</td><td>早上导航去公司，距公司 500m 时主动说"快到啦，要不要提前点杯咖啡"</td><td>监控剩余距离，跨阈值触发一次</td></tr>
+  <tr><td class="f">快到外婆家找充电桩</td><td>导航回外婆家，快到时主动找附近充电桩</td><td>剩余距离 + 识别目的地是否某收藏地址</td></tr>
+  <tr><td class="f">到站提醒收拾东西</td><td>快到目的地，提醒别落随身物品</td><td>距离/时间快到目的地触发</td></tr>
+ </table>
+ <h3>2.4 非目标与能力边界（分两档，别一刀切"做不了"）</h3>
+ <table>
+  <tr><th>场景</th><th>靠什么触发</th><th>能否做</th><th>归属</th></tr>
+  <tr><td>有导航、有确定目的地 / 途经点</td><td>剩余距离触发（本 PRD §8）</td><td class="ok">✅ 能</td><td><b>触发器（你）</b></td></tr>
+  <tr><td>无导航，但进入<b>可预置区域</b>（景区/商圈/收藏地）</td><td><b>电子围栏</b>（需 10/11）</td><td class="ok">✅ 能</td><td><b>触发器（你，围栏信号源·本期/后续）</b></td></tr>
+  <tr><td>完全无目标的<b>即兴兜风</b>（"随便讲讲路过的楼"）</td><td>无目标可盯，距离/围栏都不成立</td><td class="warn">❌ 真做不了</td><td>转 Director <b>持续任务</b> / VLM（丁斌）</td></tr>
+ </table>
+ <div class="risk"><b>结论：</b>"做不了"只收敛到<b>第三档（完全无目标的即兴兜风）</b>——触发器无论距离还是围栏都没有"目标"可盯，转持续任务 / VLM。<b>能预置 POI / 设围栏的景点介绍仍是触发器范围（电子围栏·需 10/11），不甩给益图。</b></div>
+
+ <h3>2.5 v1.1 扩写概览（佳杰《车端信号条件任务必过集》，2026-06-23 新增）</h3>
+ <div class="note">📌 v1.1 在原导航专项基础上，<b>扩入佳杰必过集 19 个未支持 case</b>（已支持 5 个：序 1/3/8/9/10 不在此列）。原则：<b>只增不改</b>——原 §1~§16 导航逻辑（接近/到达/离开 + 死区 + 沿路线）<b>原样保留</b>，新增内容集中在下表位置。非导航类 12 个 case 统一收在 <b>§17</b>，与导航逻辑<b>区隔</b>。</div>
+ <table>
+  <tr><th>v1.1 新增内容</th><th>位置</th><th>要点</th></tr>
+  <tr><td class="f">座舱/车况信号（10 类）</td><td>§6.5</td><td>座位占用 / 空调 / 电量 / 续航 / 胎压 / 音量 / 媒体 / 路过 / 围栏，编号占位 200+ 待锁版</td></tr>
+  <tr><td class="f">单位归一标准</td><td>§7</td><td>胎压 bar / 续航 km / 电量 %，端报带单位串需剥尾缀</td></tr>
+  <tr><td class="f">4 型边界 case（25 条）</td><td>§8.4+ / §17.2</td><td>① 阈值穿越 ② 状态变更 ③ 空间 POI ④ 事件型</td></tr>
+  <tr><td class="f">导航类 case 判定（序 11–17）</td><td>§8.6</td><td>含新增【路过】事件 <code>poi.pass_by</code>（经过不停 ≠ 靠近）</td></tr>
+  <tr><td class="f">DSL 补例 / 缺口依赖 / 验收 / 风险</td><td>§9 / §11 #8~#17 / §13 / §14</td><td>电量 dead_zone{48,52}；10 类信号待韩天亮锁版</td></tr>
+  <tr><td class="f"><b>非导航类 12 case 标准化清单 + 边界全集</b></td><td><b>§17（新章）</b></td><td>联调验收基准；开篇 .note 明确区隔</td></tr>
+ </table>
+ <div class="risk"><b>一句话：</b>导航主链路（§1~§16）<b>没动</b>；新增的是"座舱/车况信号 + 4 型边界 + 19 个必过 case"，非导航类统一收在 §17。要看 v1.1 全貌直接跳 <a href="#s17">§17</a>。</div>
+
+ <!-- 3 -->
+ <h2 id="s3">3. 术语</h2>
+ <table>
+  <tr><th>术语</th><th>含义</th></tr>
+  <tr><td class="f">one shot</td><td>条件满足时<b>只触发一次</b>，之后即使持续满足也不再触发（门铃式，非警报器式）</td></tr>
+  <tr><td class="f">POI 状态机</td><td>给每个被监控目的地/途经点维护的状态：远 → 已接近 → 已到达 → 已离开</td></tr>
+  <tr><td class="f">接近阈值 / 到达阈值 / 离开阈值</td><td>判定接近/到达/离开的距离门限（默认 500m / 50m / 500m，按场景可配）</td></tr>
+  <tr><td class="f">缓冲死区（dead_zone）</td><td>为防数值抖动设的双阈值区间。距离：&lt;480m 算接近、&gt;520m 算离开，中间不动作；座舱信号同理（如电量 48/52、续航 98/102、音量 80/82）</td></tr>
+  <tr><td class="f">动态 advisor</td><td>弋途（施佳杰）维护的主动服务消费方，订阅触发器事件后产 advice</td></tr>
+  <tr><td class="f">导航剩余距离</td><td><b>沿导航路线</b>的剩余距离，<span class="warn">非直线距离</span></td></tr>
+  <tr><td class="f">单位归一</td><td>端上报带单位字符串（"200m""50%""1.8bar"），引擎按 DSL <code>unit</code> 字段剥尾缀取纯数值再比较。固定制式：m(距离)、%(电量/音量)、km(续航)、bar(胎压)</td></tr>
+  <tr><td class="f">trigger_source</td><td>事件触发来源标记：<code>user</code>（用户主动操作）/ <code>system</code>（系统自动恢复），用于区分切歌、播放器重启等场景</td></tr>
+  <tr><td class="f">changed_to</td><td>状态变更运算符，仅在值从旧态跳到目标态时触发一次（如 off→on），持续保持不重复触发；需持续 ≥2s 才认（防瞬时闪变）</td></tr>
+  <tr><td class="f">4 型边界 case</td><td>v1.1 归纳的 4 种易错边界类型：① 阈值穿越（数值抖动）② 状态变更（语义模糊）③ 空间 POI（路过/靠近/围栏）④ 事件型（切歌/暂停/结束）</td></tr>
+ </table>
+
+ <!-- 4 -->
+ <h2 id="s4">4. 需求范围</h2>
+ <h3>4.1 导航信号范围（6/16 会议拍板）</h3>
+ <table>
+  <tr><th>档</th><th>内容</th><th>说明</th></tr>
+  <tr><td class="f"><span class="ok">✅ 做</span></td><td>导航状态 + 目的地/途经点位置（地址、剩余距离）+ 收藏地址</td><td>用「目的地位置 + 剩余距离」实现接近/到达/离开</td></tr>
+  <tr><td class="f"><span class="p1" style="padding:1px 7px;border-radius:10px">❓ 待评估</span></td><td>剩余时长（duration）、到达时间（time）等<b>时间类</b></td><td><b>不是砍</b>——先确认端上报格式能否转统一单位 + 是否真有必要（见 §7/§11）</td></tr>
+  <tr><td class="f"><span class="warn">❌ 真做不了</span></td><td>完全无目标的<b>即兴兜风</b>（"随便讲讲路过的楼"）</td><td>无目标可盯，转 Director 持续任务 / VLM。<b>注：能预置 POI / 设围栏的景点 → 走电子围栏（需10/11），仍属触发器</b></td></tr>
+ </table>
+ <h3>4.2 座舱/车况信号范围（v1.1 · 6/23 佳杰必过集扩入）</h3>
+ <table>
+  <tr><th>档</th><th>内容</th><th>说明</th></tr>
+  <tr><td class="f"><span class="ok">✅ 做</span></td><td>座位占用、空调电源/风量、电池电量、剩余续航、媒体播放/音量、胎压（10 类信号，详见 §6.5）</td><td>复用同一套状态机 + dead_zone + one_shot 机制；覆盖佳杰 19 个未支持 case</td></tr>
+  <tr><td class="f"><span class="ok">✅ 做</span></td><td>路过 POI（<code>poi.pass_by</code>）：经过不停 ≠ 靠近</td><td>新增【路过】事件，需路径与围栏相交判定（§8.6 序 13）</td></tr>
+  <tr><td class="f"><span class="p1" style="padding:1px 7px;border-radius:10px">❓ 待确认</span></td><td>无导航围栏兜底（<code>poi.geofence</code>）</td><td>未开导航时靠近/离开收藏地址，端侧是否提供围栏能力（§11 #16）</td></tr>
+  <tr><td class="f"><span class="warn">⚠ 前置</span></td><td>10 类信号编号锁版 + 单位归一口径</td><td>编号 200+ 为占位，待韩天亮锁版替换正式编号；单位标准见 §7</td></tr>
+ </table>
+
+ <!-- 5 -->
+ <h2 id="s5">5. 总体架构与主链路流程图</h2>
+ <h3>5.1 主链路·端云双泳道详图（一条主链路 L1→L10）</h3>
+ <div class="dglg">
+  <span><i style="background:#f59e0b"></i>触发器/信号源</span>
+  <span><i style="background:#a855f7"></i>配置平台/规则</span>
+  <span><i style="background:#10b981"></i>信号库/Advisor</span>
+  <span><i style="background:#8b5cf6"></i>Director</span>
+  <span><i style="background:#ef4444"></i>播报/输出</span>
+  <span><i style="background:#e8a13a"></i>橙粗线=跨端云</span>
+  <span><i style="background:#64748b"></i>状态节点</span>
+ </div>
+ <div class="diagram">
+<svg viewBox="0 0 3400 1480" xmlns="http://www.w3.org/2000/svg" font-family="PingFang SC,Heiti SC,sans-serif">
+<defs>
+<marker id="a" markerWidth="10" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L9,4 L0,8 z" fill="#8593a8"/></marker>
+<marker id="ap" markerWidth="10" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L9,4 L0,8 z" fill="#a78bfa"/></marker>
+<marker id="ax" markerWidth="11" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L10,4.5 L0,9 z" fill="#e8a13a"/></marker>
+<marker id="ag" markerWidth="10" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L9,4 L0,8 z" fill="#34d399"/></marker>
+<marker id="ao" markerWidth="10" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L9,4 L0,8 z" fill="#f59e0b"/></marker>
+<marker id="av" markerWidth="10" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L9,4 L0,8 z" fill="#8b5cf6"/></marker>
+<marker id="ar" markerWidth="10" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L9,4 L0,8 z" fill="#ef4444"/></marker>
+</defs>
+<!-- 泳道 -->
+<rect x="16" y="92" width="3368" height="700" rx="10" fill="#0a1726"/>
+<rect x="16" y="808" width="3368" height="636" rx="10" fill="#0a1c14"/>
+<line x1="16" y1="800" x2="3384" y2="800" stroke="#33415c" stroke-width="2" stroke-dasharray="12 8"/>
+<text x="30" y="120" font-size="17" font-weight="700" fill="#5aa0e0">☁ 云端 Cloud —— 配置平台 · 信号库 · 触发器引擎(原子流水线) · POI状态机 · 事件层 · Advisor/Director</text>
+<text x="30" y="836" font-size="17" font-weight="700" fill="#46b07a">▣ 端侧 Device（车机·Navi/GPS）—— 导航引擎 · 信号采集 · 端侧信号库 · [B方案]端侧预算 · 播报/任务中心</text>
+
+<!-- ⑥ 配置平台 -->
+<rect x="36" y="140" width="560" height="540" rx="10" fill="#160d28" stroke="#a855f7" stroke-width="1.8"/>
+<circle cx="54" cy="160" r="12" fill="#a855f7"/><text x="54" y="165" font-size="13" font-weight="700" fill="#06121f" text-anchor="middle">⑥</text>
+<text x="74" y="165" font-size="14" font-weight="700" fill="#cfa0ff">火山后台 / 规则配置平台</text>
+<rect x="52" y="182" width="528" height="30" rx="5" fill="#1a1030" stroke="#a855f7" stroke-width="1"/>
+<text x="62" y="202" font-size="10.5" fill="#cfa0ff">6 API: signals / actions / scene / update / query / status</text>
+<rect x="52" y="218" width="528" height="86" rx="5" fill="#1a1030" stroke="#a855f7" stroke-width="1"/>
+<text x="62" y="236" font-size="11" font-weight="700" fill="#cfa0ff">signals 注册（7 导航信号 + 档位，逐条）</text>
+<text x="62" y="253" font-size="10" fill="#b79ad6">119导航状态status · 123目的地址address · 124剩余距离distance★</text>
+<text x="62" y="269" font-size="10" fill="#b79ad6">128/130途经点址+距离 · 121/122收藏(type家公司+address)</text>
+<text x="62" y="285" font-size="10" fill="#b79ad6">6档位states(D/P/R/N) ｜ 每条带 类型/取值/运算符/单位</text>
+<text x="62" y="300" font-size="9.5" fill="#a98c52">运算符: 等于/大于/小于/≥/≤/变更为</text>
+<rect x="52" y="310" width="528" height="56" rx="5" fill="#1a1030" stroke="#a855f7" stroke-width="1"/>
+<text x="62" y="328" font-size="10.5" font-weight="700" fill="#cfa0ff">scene 五结构</text>
+<text x="62" y="344" font-size="10" fill="#b79ad6">Condition + dynamic_condition + Action + Param + ExecuteInfo</text>
+<text x="62" y="360" font-size="10" fill="#b79ad6">+ priority(1-10) + effective_scope（上汽D6X/赛力斯）</text>
+<rect x="52" y="372" width="528" height="48" rx="5" fill="#1a1030" stroke="#a855f7" stroke-width="1"/>
+<text x="62" y="390" font-size="10.5" font-weight="700" fill="#cfa0ff">dynamic_condition（接近核心）</text>
+<text x="62" y="406" font-size="10" fill="#b79ad6">distance ≤500m · trigger_type=one_shot · dead_zone(480/520)</text>
+<rect x="52" y="426" width="528" height="30" rx="5" fill="#1a1030" stroke="#a855f7" stroke-width="1"/>
+<text x="62" y="446" font-size="10" fill="#cfa0ff">DSL: signal / field / operator / value / unit / trigger_type</text>
+<rect x="52" y="462" width="528" height="30" rx="5" fill="#1a1030" stroke="#f59e0b" stroke-width="1"/>
+<text x="62" y="482" font-size="10" fill="#ffce6e">execute_policy: 单程触发1次 · 离车/重导航→状态重置</text>
+<rect x="52" y="498" width="528" height="28" rx="5" fill="#1a1030" stroke="#a855f7" stroke-width="1"/>
+<text x="62" y="517" font-size="10" fill="#b79ad6">注册来源: 产品预设 / 用户App / 动态Advisor 回注</text>
+<rect x="52" y="532" width="528" height="40" rx="5" fill="#2a1d05" stroke="#f59e0b" stroke-width="1.1" stroke-dasharray="4 3"/>
+<text x="62" y="550" font-size="10" font-weight="700" fill="#f59e0b">⚠ 注册依赖</text>
+<text x="62" y="566" font-size="9.5" fill="#e2c98a">编号→韩天亮锁版 ｜ 运算符→任军确认 ｜ 坐标源→金龙</text>
+<rect x="52" y="580" width="528" height="88" rx="6" fill="#101725" stroke="#ef4444" stroke-width="1.2" stroke-dasharray="5 3"/>
+<text x="62" y="599" font-size="11" font-weight="700" fill="#fca5a5">💥 为什么不能配"距离&lt;500"（数字走查）</text>
+<text x="62" y="616" font-size="9.5" fill="#f0a9a9">8:25 首次进500m触发1次✅ ｜ 499…50m每帧都&lt;500</text>
+<text x="62" y="631" font-size="9.5" fill="#f0a9a9">无记忆→连触几十次刷屏 ∴ 必须 one_shot（门铃非警报器）</text>
+<text x="62" y="650" font-size="9.5" fill="#c98a8a">这正是刘杨说"现协议做不了"的点（§8.1）</text>
+
+<!-- ⑦ 云端信号库 -->
+<rect x="640" y="600" width="540" height="90" rx="9" fill="#0e2a22" stroke="#10b981" stroke-width="1.6"/>
+<circle cx="658" cy="620" r="12" fill="#10b981"/><text x="658" y="625" font-size="13" font-weight="700" fill="#06121f" text-anchor="middle">⑦</text>
+<text x="678" y="625" font-size="13" font-weight="700" fill="#5eecc0">云端信号库（全集）+ 扫描调度</text>
+<text x="658" y="648" font-size="10" fill="#9fd9c4">端信号 L2 同步上来 + 云信号 ｜ distance/address/status 最新快照</text>
+<text x="658" y="666" font-size="10" fill="#9fd9c4">调度: distance 变化触发扫描 OR 每 5s 扫一遍该车</text>
+<text x="658" y="683" font-size="9.5" fill="#7fb8a0">⚠ 铁律：触发器只读信号库，不直接监听信号源</text>
+
+<!-- ⑧ 触发器引擎 原子流水线 -->
+<rect x="640" y="140" width="1000" height="430" rx="11" fill="#1c1407" stroke="#f59e0b" stroke-width="2.2"/>
+<circle cx="660" cy="160" r="13" fill="#f59e0b"/><text x="660" y="165" font-size="13" font-weight="700" fill="#06121f" text-anchor="middle">⑧</text>
+<text x="682" y="165" font-size="14.5" font-weight="700" fill="#ffce6e">触发器引擎（云端）—— 原子流水线 a→k</text>
+<text x="660" y="186" font-size="10" fill="#e2c98a">输入: ⑦信号快照(distance) + ⑥场景库 ｜ 输出: 命中事件 Callback</text>
+<rect x="658" y="196" width="478" height="34" rx="5" fill="#2a1d05" stroke="#f59e0b" stroke-width="1"/>
+<text x="668" y="217" font-size="10.5" fill="#ffce6e">a. 场景注册/排队（收 ⑥ 配的场景）</text>
+<rect x="1148" y="196" width="478" height="34" rx="5" fill="#2a1d05" stroke="#f59e0b" stroke-width="1"/>
+<text x="1158" y="217" font-size="10.5" fill="#ffce6e">b. 信号扫描（distance 变化 / 每5s）</text>
+<rect x="658" y="238" width="478" height="34" rx="5" fill="#2a1d05" stroke="#f59e0b" stroke-width="1"/>
+<text x="668" y="259" font-size="10.5" fill="#ffce6e">c. 取该 POI 状态卡片（远/已接近/已到达）</text>
+<rect x="1148" y="238" width="478" height="34" rx="5" fill="#241a06" stroke="#f59e0b" stroke-width="1.3"/>
+<text x="1158" y="259" font-size="10.5" font-weight="700" fill="#ffce6e">d. ◇ 在导航中 且 有确定目的地？ 否→转围栏(需10/11)/持续任务</text>
+<rect x="658" y="280" width="478" height="34" rx="5" fill="#2a1d05" stroke="#f59e0b" stroke-width="1"/>
+<text x="668" y="301" font-size="10.5" fill="#ffce6e">e. 方向判定：距离较上帧递减？（防"远离也触发"）</text>
+<rect x="1148" y="280" width="478" height="34" rx="5" fill="#241a06" stroke="#f59e0b" stroke-width="1.3"/>
+<text x="1158" y="301" font-size="10.5" font-weight="700" fill="#ffce6e">f. ◇ 死区判定：d≤480(接近) / d&gt;520(离开)？</text>
+<rect x="658" y="322" width="478" height="34" rx="5" fill="#2a1d05" stroke="#f59e0b" stroke-width="1"/>
+<text x="668" y="343" font-size="10.5" fill="#ffce6e">g. 状态机转移 + one_shot 自锁（翻格不再发）</text>
+<rect x="1148" y="322" width="478" height="34" rx="5" fill="#2a1d05" stroke="#f59e0b" stroke-width="1"/>
+<text x="1158" y="343" font-size="10.5" fill="#ffce6e">h. 组合条件：到达 = d≤50 且 档位变更为 P</text>
+<rect x="658" y="364" width="478" height="34" rx="5" fill="#2a1d05" stroke="#f59e0b" stroke-width="1"/>
+<text x="668" y="385" font-size="10.5" fill="#ffce6e">i. 抖动过滤（30s 窗 / 缓冲死区）</text>
+<rect x="1148" y="364" width="478" height="34" rx="5" fill="#241a06" stroke="#f59e0b" stroke-width="1.3"/>
+<text x="1158" y="385" font-size="10.5" font-weight="700" fill="#ffce6e">j. ◇ 目的地 address = 收藏地址？→回家/去公司</text>
+<rect x="658" y="406" width="968" height="40" rx="5" fill="#101725" stroke="#f59e0b" stroke-width="1.3" stroke-dasharray="5 3"/>
+<text x="668" y="424" font-size="11" font-weight="700" fill="#ffce6e">k. 事件构造 payload → Callback 扇出</text>
+<text x="668" y="439" font-size="9.5" fill="#e2c98a">payload = { event:接近, poi_id, distance:480, threshold:500, ts, trigger_type:one_shot }</text>
+<text x="658" y="466" font-size="9.5" fill="#f0b252">▸ d/f/j 三个 ◇ 判定 = 现协议没有的"过程/状态判定"，决定 A/B（见右下卡点）</text>
+<rect x="658" y="478" width="968" height="78" rx="6" fill="#0e2a22" stroke="#10b981" stroke-width="1.1"/>
+<text x="668" y="497" font-size="10.5" font-weight="700" fill="#5eecc0">⑨ 其它导航事件（简单条件·不走状态机，现协议直接能配）</text>
+<text x="668" y="514" font-size="9.5" fill="#9fd9c4">· 发起导航 = status 变更为 导航中 ｜ · 目的地变更 = address 变更为</text>
+<text x="668" y="530" font-size="9.5" fill="#9fd9c4">· 导航回家/去公司 = 目的地 address 等于 收藏地址.address（来自 j◇）</text>
+<text x="668" y="546" font-size="9.5" fill="#9fd9c4">· 接近途经点 = 途经点 distance ≤ 阈值（复用同一状态机）</text>
+
+<!-- ⑩ POI 状态机 band -->
+<rect x="1680" y="140" width="1280" height="190" rx="12" fill="#1c1407" stroke="#f59e0b" stroke-width="2.4"/>
+<circle cx="1700" cy="162" r="13" fill="#f59e0b"/><text x="1700" y="167" font-size="13" font-weight="700" fill="#06121f" text-anchor="middle">⑩</text>
+<text x="1722" y="167" font-size="14.5" font-weight="700" fill="#ffce6e">POI 状态机（每目的地一张状态卡片）—— 用"记状态"换 one_shot</text>
+<rect x="1700" y="216" width="80" height="46" rx="23" fill="#475569" stroke="#94a3b8" stroke-width="1.5"/>
+<text x="1740" y="245" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">远</text>
+<line x1="1780" y1="239" x2="1818" y2="239" stroke="#f59e0b" stroke-width="1.6" marker-end="url(#ao)"/>
+<polygon points="1892,203 1966,239 1892,275 1818,239" fill="#241a06" stroke="#f59e0b" stroke-width="1.6"/>
+<text x="1892" y="236" font-size="10.5" font-weight="700" fill="#ffce6e" text-anchor="middle">d≤480m?</text>
+<text x="1892" y="250" font-size="8.5" fill="#e2c98a" text-anchor="middle">接近阈值死区</text>
+<text x="1892" y="194" font-size="9" font-weight="700" fill="#34d399" text-anchor="middle">是↑【接近】one_shot</text>
+<line x1="1966" y1="239" x2="2004" y2="239" stroke="#f59e0b" stroke-width="1.6" marker-end="url(#ao)"/>
+<rect x="2004" y="216" width="96" height="46" rx="23" fill="#0e4f5e" stroke="#22d3ee" stroke-width="1.5"/>
+<text x="2052" y="245" font-size="12.5" font-weight="700" fill="#a5f3fc" text-anchor="middle">已接近</text>
+<line x1="2100" y1="239" x2="2138" y2="239" stroke="#f59e0b" stroke-width="1.6" marker-end="url(#ao)"/>
+<polygon points="2226,201 2318,239 2226,277 2134,239" fill="#241a06" stroke="#f59e0b" stroke-width="1.6"/>
+<text x="2226" y="235" font-size="9.5" font-weight="700" fill="#ffce6e" text-anchor="middle">d≤50且</text>
+<text x="2226" y="249" font-size="9.5" font-weight="700" fill="#ffce6e" text-anchor="middle">档位→P?</text>
+<text x="2226" y="192" font-size="9" font-weight="700" fill="#34d399" text-anchor="middle">是↑【到达】组合</text>
+<line x1="2318" y1="239" x2="2356" y2="239" stroke="#f59e0b" stroke-width="1.6" marker-end="url(#ao)"/>
+<rect x="2356" y="216" width="96" height="46" rx="23" fill="#0e4f5e" stroke="#22d3ee" stroke-width="1.5"/>
+<text x="2404" y="245" font-size="12.5" font-weight="700" fill="#a5f3fc" text-anchor="middle">已到达</text>
+<line x1="2452" y1="239" x2="2490" y2="239" stroke="#f59e0b" stroke-width="1.6" marker-end="url(#ao)"/>
+<polygon points="2562,203 2636,239 2562,275 2488,239" fill="#241a06" stroke="#f59e0b" stroke-width="1.6"/>
+<text x="2562" y="236" font-size="10.5" font-weight="700" fill="#ffce6e" text-anchor="middle">d&gt;520m?</text>
+<text x="2562" y="250" font-size="8.5" fill="#e2c98a" text-anchor="middle">离开阈值死区</text>
+<text x="2562" y="194" font-size="9" font-weight="700" fill="#34d399" text-anchor="middle">是↑【离开】</text>
+<line x1="2636" y1="239" x2="2674" y2="239" stroke="#f59e0b" stroke-width="1.6" marker-end="url(#ao)"/>
+<rect x="2674" y="216" width="96" height="46" rx="23" fill="#334155" stroke="#64748b" stroke-width="1.5"/>
+<text x="2722" y="245" font-size="12.5" font-weight="700" fill="#cbd5e1" text-anchor="middle">已离开</text>
+<text x="1700" y="298" font-size="9.5" fill="#f0b252">▸ 状态翻格→旧事件不再触发=one_shot自锁 ｜ 距离一律沿路线(非直线) ｜ 阈值按场景产品配</text>
+<text x="1700" y="316" font-size="9.5" fill="#f0b252">▸ 离车/重新导航 → L14 把状态卡片重置回"远"（回写端侧信号库）</text>
+
+<!-- ⑪ 事件层 -->
+<rect x="1680" y="360" width="430" height="210" rx="9" fill="#1c1407" stroke="#f59e0b" stroke-width="1.6"/>
+<circle cx="1698" cy="380" r="12" fill="#f59e0b"/><text x="1698" y="385" font-size="13" font-weight="700" fill="#06121f" text-anchor="middle">⑪</text>
+<text x="1718" y="385" font-size="13" font-weight="700" fill="#ffce6e">事件层（7 事件 + payload）</text>
+<text x="1696" y="408" font-size="9.8" fill="#e2c98a">发起导航 / 接近 / 到达 / 离开 /</text>
+<text x="1696" y="424" font-size="9.8" fill="#e2c98a">目的地变更 / 回家去公司 / 接近途经点</text>
+<rect x="1696" y="434" width="398" height="58" rx="5" fill="#101725" stroke="#f59e0b" stroke-width="1"/>
+<text x="1706" y="452" font-size="9.3" fill="#f0b252">event payload schema:</text>
+<text x="1706" y="467" font-size="9" fill="#e2c98a">{ event, poi_id, distance, threshold,</text>
+<text x="1706" y="481" font-size="9" fill="#e2c98a">  ts, trigger_type, address }</text>
+<text x="1696" y="512" font-size="9.5" fill="#a98c52">事件 Callback 接口：可查可验证，透出下游</text>
+<text x="1696" y="530" font-size="9.5" fill="#a98c52">[需12] 透出给弋途，对外暴露 6API+DSL</text>
+<text x="1696" y="552" font-size="9.5" fill="#7fb8a0">↑ 全部 one_shot（接近途经点复用状态机）</text>
+
+<!-- ⑫ 动态Advisor -->
+<rect x="2150" y="360" width="400" height="280" rx="9" fill="#0e2a22" stroke="#10b981" stroke-width="1.7"/>
+<circle cx="2168" cy="380" r="12" fill="#10b981"/><text x="2168" y="385" font-size="13" font-weight="700" fill="#06121f" text-anchor="middle">⑫</text>
+<text x="2188" y="385" font-size="13" font-weight="700" fill="#5eecc0">动态 Advisor（弋途·施佳杰）</text>
+<text x="2166" y="408" font-size="10" fill="#9fd9c4">订阅 接近/到达/离开 事件 → 产 advice：</text>
+<text x="2166" y="425" font-size="9.8" fill="#7fb8a0">· 接近公司→"点杯咖啡" · 接近外婆家→"找充电桩"</text>
+<text x="2166" y="441" font-size="9.8" fill="#7fb8a0">· 到达→"别落随身物品" · 离开→收尾</text>
+<rect x="2166" y="450" width="368" height="74" rx="5" fill="#0c3a2d" stroke="#10b981" stroke-width="1"/>
+<text x="2176" y="468" font-size="10" font-weight="700" fill="#5eecc0">4 类任务（含上限）:</text>
+<text x="2176" y="484" font-size="9.3" fill="#9fd9c4">长时2 / 持续GUI1 / 条件→订阅触发器6 / 定时6</text>
+<text x="2176" y="499" font-size="9.3" fill="#9fd9c4">创建脚本 → {iCanDo, action: select/create}</text>
+<text x="2176" y="515" font-size="9.3" fill="#9fd9c4">↔触发器接口: 订阅/callback/事件/能力描述/兜底</text>
+<text x="2166" y="544" font-size="9.5" fill="#a98c52">advisor 自闭环：事件被拒/降级由弋途处理</text>
+<text x="2166" y="562" font-size="9.5" fill="#a98c52">（触发器只负责"准时准确给事件"）</text>
+<text x="2166" y="584" font-size="9.5" fill="#f0a9a9">阻塞: 接近类事件依赖 ⑩ 状态机 = A/B 卡点</text>
+
+<!-- ⑬ Director -->
+<rect x="2590" y="360" width="370" height="160" rx="9" fill="#1a1030" stroke="#8b5cf6" stroke-width="1.8"/>
+<circle cx="2608" cy="380" r="12" fill="#8b5cf6"/><text x="2608" y="385" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">⑬</text>
+<text x="2628" y="385" font-size="13" font-weight="700" fill="#c4b5fd">Director（大脑·生成话术）</text>
+<text x="2606" y="408" font-size="9.8" fill="#b79ad6">SP~30K(角色+23工具+示例+D6X+风格)</text>
+<text x="2606" y="425" font-size="9.8" fill="#b79ad6">advice → talk_content（温柔高知女生）</text>
+<text x="2606" y="442" font-size="9.8" fill="#b79ad6">"快到公司啦，记得拿咖啡 ☕"</text>
+<text x="2606" y="462" font-size="9.8" fill="#b79ad6">扇出 → L11 TTS / L12 任务中心 / L13 GoalList</text>
+<text x="2606" y="482" font-size="9.5" fill="#f0a9a9">L_R 对话产生的条件任务 → 回注 ⑧ 注册</text>
+<text x="2606" y="502" font-size="9.5" fill="#a98c52">talk_or_not / talk_content / action_list</text>
+
+<!-- ⑭ GoalList -->
+<rect x="2590" y="540" width="370" height="56" rx="8" fill="#1c1407" stroke="#f59e0b" stroke-width="1.4"/>
+<circle cx="2608" cy="560" r="11" fill="#f59e0b"/><text x="2608" y="564" font-size="12" font-weight="700" fill="#06121f" text-anchor="middle">⑭</text>
+<text x="2626" y="564" font-size="12" font-weight="700" fill="#ffce6e">GoalList 共享看板</text>
+<text x="2606" y="584" font-size="9.5" fill="#e2c98a">目标队列 · goal_list_update（接近/到达进度）</text>
+
+<!-- ⑮ 卡点 A/B -->
+<rect x="1200" y="600" width="850" height="92" rx="10" fill="#2a1d05" stroke="#f59e0b" stroke-width="1.8" stroke-dasharray="6 3"/>
+<text x="1216" y="621" font-size="12.5" font-weight="700" fill="#ffce6e">🔴 核心卡点（决策二·待张航拍）：one_shot / 状态机 谁来实现？</text>
+<text x="1216" y="642" font-size="10" fill="#e2c98a"><tspan font-weight="700" fill="#ffce6e">方案A</tspan> 状态机放触发器引擎(⑧d/f/j+⑩)→统一、所有距离需求复用；改引擎、工期没底</text>
+<text x="1216" y="660" font-size="10" fill="#e2c98a"><tspan font-weight="700" fill="#ffce6e">方案B</tspan> 端上算好"接近事件"上报(端侧 ⑤)→触发器不改、快；逻辑散、多端各写一遍</text>
+<text x="1216" y="681" font-size="9.5" fill="#5eecc0">产品倾向A，听刘杨工期；A顶不上630则B兜本期 ▸ 走B则 ⑩状态机整块挪到端侧 ⑤</text>
+
+<!-- ⑯ 待确认 -->
+<rect x="2070" y="600" width="430" height="92" rx="10" fill="#101725" stroke="#ef4444" stroke-width="1.4" stroke-dasharray="5 3"/>
+<text x="2086" y="621" font-size="11.5" font-weight="700" fill="#fca5a5">🔴 待确认（找对人）</text>
+<text x="2086" y="641" font-size="9.5" fill="#f0a9a9">距离单位=整数米（PRD已定·汪帅实现·仁杰补PRD）</text>
+<text x="2086" y="658" font-size="9.5" fill="#f0a9a9">编号→韩天亮 ｜ 运算符→任军 ｜ A/B→刘杨+张航</text>
+<text x="2086" y="675" font-size="9.5" fill="#f0a9a9">POI坐标源(Navi/商情)→金龙 ｜ 时间类是否本期→潘伟</text>
+
+<!-- ===== 端侧 ===== -->
+<!-- ① 导航引擎 -->
+<rect x="40" y="900" width="250" height="120" rx="9" fill="#1c1407" stroke="#f59e0b" stroke-width="1.7"/>
+<circle cx="58" cy="920" r="12" fill="#f59e0b"/><text x="58" y="925" font-size="13" font-weight="700" fill="#06121f" text-anchor="middle">①</text>
+<text x="78" y="925" font-size="13" font-weight="700" fill="#ffce6e">导航引擎（高德/Navi插件）</text>
+<text x="56" y="948" font-size="10" fill="#e2c98a">路线规划 · 目的地 · 实时定位</text>
+<text x="56" y="965" font-size="10" fill="#e2c98a">沿路线剩余距离计算（非直线）</text>
+<text x="56" y="985" font-size="9.5" fill="#a98c52">POI 坐标源：Navi 插件 / 商情（待金龙定）</text>
+<text x="56" y="1004" font-size="9.5" fill="#a98c52">⚠ 仅"无目标即兴兜风"做不了→转持续任务/VLM（可预置→围栏仍是你）</text>
+
+<!-- ② 端信号采集层 -->
+<rect x="330" y="885" width="370" height="340" rx="9" fill="#1c1407" stroke="#f59e0b" stroke-width="1.6"/>
+<circle cx="348" cy="905" r="12" fill="#f59e0b"/><text x="348" y="910" font-size="13" font-weight="700" fill="#06121f" text-anchor="middle">②</text>
+<text x="368" y="910" font-size="13" font-weight="700" fill="#ffce6e">端信号采集层（导航 6 原子 + 座舱 10 类 + 采样）</text>
+<text x="346" y="932" font-size="10" font-weight="600" fill="#7dd3fc">── 导航信号（119~133 + 档位6）──</text>
+<text x="346" y="948" font-size="10" fill="#e2c98a">119 导航状态 status（enum，~1Hz）</text>
+<text x="346" y="964" font-size="10" fill="#e2c98a">123 目的地 address（str + 经纬度）</text>
+<text x="346" y="980" font-size="10" font-weight="700" fill="#ffce6e">124 剩余距离 distance（整数米·沿路线，~1Hz）★</text>
+<text x="346" y="996" font-size="10" fill="#e2c98a">128/130 途经点 address + distance</text>
+<text x="346" y="1012" font-size="10" fill="#e2c98a">121/122 收藏地址 type(家/公司) + address</text>
+<text x="346" y="1028" font-size="10" fill="#e2c98a">6 档位 states（D/P/R/N）</text>
+<text x="346" y="1048" font-size="10" font-weight="600" fill="#fca5a5">── 座舱/车况信号（v1.1·编号200+占位）──</text>
+<text x="346" y="1064" font-size="10" fill="#e2c98a">200 座位占用 seat.*.occupied ｜ 201/202 空调 ac.*</text>
+<text x="346" y="1080" font-size="10" fill="#e2c98a">203 电量 battery.soc ｜ 204 续航 vehicle.range</text>
+<text x="346" y="1096" font-size="10" fill="#e2c98a">205/206 媒体 media.* ｜ 207 胎压 tire.pressure</text>
+<text x="346" y="1112" font-size="10" fill="#e2c98a">208 路过 poi.pass_by ｜ 209 围栏 poi.geofence</text>
+<rect x="346" y="1122" width="338" height="96" rx="6" fill="#0e2a22" stroke="#10b981" stroke-width="1.1"/>
+<text x="356" y="1140" font-size="10" font-weight="700" fill="#5eecc0">📏 数据格式标准（本 PRD 定，端上实现）</text>
+<text x="356" y="1157" font-size="9.3" fill="#9fd9c4">距离=整数米 ｜ 时长=秒 ｜ 到达时间=时间戳</text>
+<text x="356" y="1173" font-size="9.3" fill="#9fd9c4">地址=字符串+经纬度 ｜ 距离=沿路线(非直线)</text>
+<text x="356" y="1189" font-size="9.3" fill="#9fd9c4">单位归一: m·%·km·bar（剥尾缀取纯数值）</text>
+<text x="356" y="1206" font-size="9" fill="#a98c52">⚠ 格式归"产品约束"（汪帅确认），仁杰补 PRD</text>
+
+<!-- ③ 端侧信号库 -->
+<rect x="740" y="885" width="320" height="150" rx="9" fill="#0e2a22" stroke="#10b981" stroke-width="1.6"/>
+<circle cx="758" cy="905" r="12" fill="#10b981"/><text x="758" y="910" font-size="13" font-weight="700" fill="#06121f" text-anchor="middle">③</text>
+<text x="778" y="910" font-size="13" font-weight="700" fill="#5eecc0">端侧信号库（标准化快照）</text>
+<text x="756" y="934" font-size="10" fill="#9fd9c4">key / value / unit / timestamp / ttl / 编号</text>
+<text x="756" y="952" font-size="10" fill="#9fd9c4">{ distance:480, unit:"m", status:"导航中",</text>
+<text x="756" y="968" font-size="10" fill="#9fd9c4">  address:"上海中心", gear:"D" }</text>
+<text x="756" y="988" font-size="10" fill="#9fd9c4">[B方案]状态卡片镜像在此（远/已接近…）</text>
+<text x="756" y="1008" font-size="9.5" fill="#7fb8a0">⚠ 铁律：触发器只读信号库</text>
+<text x="756" y="1026" font-size="9.5" fill="#7fb8a0">L14 收云端状态重置（离车/重导航）</text>
+
+<!-- ④ B方案 端侧预算 -->
+<rect x="740" y="1055" width="320" height="90" rx="9" fill="#2a1d05" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="6 3"/>
+<text x="756" y="1076" font-size="12" font-weight="700" fill="#ffce6e">④ [方案B] 端侧接近事件预算器</text>
+<text x="756" y="1096" font-size="9.5" fill="#e2c98a">若走 B：端上自己跑状态机（远/已接近…），</text>
+<text x="756" y="1112" font-size="9.5" fill="#e2c98a">算好"接近事件"再上报，触发器只接事件不算</text>
+<text x="756" y="1132" font-size="9" fill="#a98c52">▸ 即把云端 ⑩状态机 整块下沉到端侧</text>
+
+<!-- TTS / 任务中心 / 用户 -->
+<rect x="2480" y="900" width="290" height="62" rx="9" fill="#2a0f0f" stroke="#ef4444" stroke-width="1.6"/>
+<circle cx="2498" cy="921" r="12" fill="#ef4444"/><text x="2498" y="926" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">⑰</text>
+<text x="2518" y="926" font-size="13" font-weight="700" fill="#ff9a9a">TTS 播报 + 卡片（端）</text>
+<text x="2498" y="949" font-size="10" fill="#e6a3a3">"快到公司啦，记得拿咖啡 ☕"</text>
+<rect x="2480" y="980" width="290" height="70" rx="9" fill="#1a1030" stroke="#a855f7" stroke-width="1.5"/>
+<circle cx="2498" cy="1000" r="12" fill="#a855f7"/><text x="2498" y="1005" font-size="13" font-weight="700" fill="#06121f" text-anchor="middle">⑱</text>
+<text x="2518" y="1005" font-size="13" font-weight="700" fill="#cfa0ff">任务中心（端显示）</text>
+<text x="2498" y="1028" font-size="9.8" fill="#b79ad6">导航主动服务卡片 · 进度 · 可关闭预设</text>
+<text x="2498" y="1044" font-size="9.5" fill="#a98c52">来自 ⑬ GoalList / ⑬ Director 推送</text>
+<rect x="2840" y="908" width="120" height="46" rx="9" fill="#0c2433" stroke="#38bdf8" stroke-width="1.5"/>
+<text x="2900" y="936" font-size="13" font-weight="700" fill="#7dd3fc" text-anchor="middle">→ 用户</text>
+
+<!-- ===== 连线 ===== -->
+<line x1="290" y1="945" x2="330" y2="945" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#ao)"/>
+<text x="294" y="938" font-size="9" fill="#e2c98a">L1 原始</text>
+<line x1="700" y1="960" x2="740" y2="960" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#ao)"/>
+<text x="702" y="952" font-size="9" fill="#e2c98a">L1' 写库</text>
+<line x1="900" y1="885" x2="900" y2="700" stroke="#e8a13a" stroke-width="2.6" marker-end="url(#ax)"/>
+<text x="906" y="800" font-size="10" font-weight="700" fill="#e8a13a">L2 端→云同步 {distance:480}</text>
+<line x1="908" y1="600" x2="908" y2="446" stroke="#10b981" stroke-width="1.6" marker-end="url(#ag)"/>
+<text x="916" y="540" font-size="9.5" fill="#34d399">L3 信号快照→b 扫描</text>
+<line x1="596" y1="300" x2="640" y2="300" stroke="#a78bfa" stroke-width="1.6" marker-end="url(#ap)"/>
+<text x="598" y="292" font-size="9.5" fill="#a78bfa">L4 场景+动态条件</text>
+<line x1="1640" y1="300" x2="1680" y2="235" stroke="#f59e0b" stroke-width="1.8" marker-end="url(#ao)"/>
+<text x="1644" y="278" font-size="9.5" font-weight="700" fill="#ffce6e">L5 g→状态机</text>
+<line x1="2280" y1="330" x2="2100" y2="360" stroke="#34d399" stroke-width="1.8" marker-end="url(#ag)"/>
+<text x="2150" y="348" font-size="9.5" font-weight="700" fill="#34d399">L6 命中事件</text>
+<line x1="2110" y1="450" x2="2150" y2="450" stroke="#34d399" stroke-width="1.6" marker-end="url(#ag)"/>
+<text x="2112" y="443" font-size="9" fill="#34d399">L7 订阅callback</text>
+<line x1="2550" y1="450" x2="2590" y2="430" stroke="#8b5cf6" stroke-width="1.6" marker-end="url(#av)"/>
+<text x="2552" y="443" font-size="9" fill="#a78bfa">L8 advice</text>
+<line x1="2700" y1="520" x2="2700" y2="900" stroke="#e8a13a" stroke-width="2.6" marker-end="url(#ax)"/>
+<text x="2706" y="720" font-size="10" font-weight="700" fill="#e8a13a">L11 talk 云→端</text>
+<line x1="2620" y1="520" x2="2620" y2="980" stroke="#e8a13a" stroke-width="2" stroke-dasharray="6 3" marker-end="url(#ax)"/>
+<text x="2500" y="720" font-size="9.5" fill="#e8a13a">L12 任务中心卡片</text>
+<line x1="2770" y1="930" x2="2840" y2="930" stroke="#38bdf8" stroke-width="1.5" marker-end="url(#a)"/>
+<text x="2774" y="922" font-size="9" fill="#38bdf8">L13</text>
+<path d="M 2606,470 L 1660,470 L 1660,360 L 1670,360" fill="none" stroke="#f59e0b" stroke-width="1.3" stroke-dasharray="5 3" marker-end="url(#ao)"/>
+<text x="1900" y="464" font-size="9" fill="#e2c98a">L_R 对话条件任务回注 ⑧ 注册</text>
+<path d="M 2770,300 L 1060,300 L 1060,940 L 1060,960" fill="none" stroke="#34d399" stroke-width="1.2" stroke-dasharray="5 3" marker-end="url(#ag)"/>
+<text x="1400" y="294" font-size="9" fill="#34d399">L14 状态重置回写端侧信号库（离车/重导航）</text>
+<path d="M 1000,1090 L 1140,1090 L 1140,560 L 1180,560" fill="none" stroke="#f59e0b" stroke-width="1.3" stroke-dasharray="6 3" marker-end="url(#ao)"/>
+<text x="1020" y="1084" font-size="9" fill="#e2c98a">L15 [走B] 端侧预算→上报现成事件（绕过云端状态机）</text>
+</svg>
+ </div>
+ <div class="dgread"><b>读图（18 节点 / a→k 原子流水线 / L1→L15）：</b>① 导航引擎算<b>沿路线剩余距离</b> → ② 采集层(<b>导航 6 原子 + v1.1 座舱 10 类</b> + 格式标准/单位归一) →L1 写 ③ 端侧信号库 →L2 端→云同步到 ⑦ 云端信号库 →L3 给 ⑧ 触发器引擎(a场景排队/b扫描/c取状态卡/<b>d◇在导航中?/e方向判定/f◇死区/g转移自锁/h组合到达/i抖动/j◇收藏地址?/k事件构造</b>)；⑥ 配置平台 →L4 注册场景；引擎 →L5 进 <b>⑩ POI状态机</b>(远→已接近→已到达→已离开，三菱形判定) → ⑪ 事件层(7 导航事件 + 座舱事件 + payload) →L6/L7 给 <b>⑫ 弋途Advisor</b>(订阅/4类任务/callback) → 产 advice →L8 给 ⑬ Director → talk_content →L11 TTS播报⑰ / L12 任务中心⑱ / L13 用户。<b>回环</b>：L14 离车/重导航→状态卡片重置回写端侧；L_R 对话条件任务回注引擎。<b>🔴 两个虚线红框（⑮卡点A/B、⑯待确认）= 上会重点；⑮ 若走B，⑩状态机整块下沉到端侧 ④。</b><br><b>v1.1 座舱/车况信号走同一条链路</b>（②采集→③信号库→L2同步→⑦→⑧引擎），复用 one_shot 状态机 + dead_zone + 单位归一，不新增链路。10 类信号详见 §6.5，4 型边界 case 见 §8.4+/§17.2。</div>
+
+ <h3>5.2 单次判定时序（以"接近公司"为例）</h3>
+ <ul class="tl">
+  <li><b>① 上报</b>：端上每隔几秒上报 <code>nav_status=导航中, distance=15000(m)</code> → 写端侧信号库 → 同步云端</li>
+  <li><b>② 扫描</b>：云端触发器每 5s 扫一遍该 POI 的 one_shot 条件，读取最新 distance</li>
+  <li><b>③ 判定</b>：套 §8 状态机——distance 从 15000 递减，<b>>接近阈值时不触发</b></li>
+  <li><b>④ 命中</b>：某帧 distance 首次 ≤480m（含死区）→ 触发【接近】，状态 远→已接近（自锁，本程不再触发接近）</li>
+  <li><b>⑤ 透出</b>：事件 Callback 给弋途 advisor</li>
+  <li><b>⑥ 服务</b>：advisor 产 advice"提醒拿咖啡" → Director 播报</li>
+ </ul>
+
+ <!-- 6 -->
+ <h2 id="s6">6. 信号清单与参数标准（核心交付）</h2>
+ <p>下列各列与《可订阅信号能力清单》同构，「序号」可在原表定位。<b>新增?</b> 列说明本期动作。</p>
+ <h3>6.1 必须支持·核心（接近/到达/离开 就靠这三个）</h3>
+ <table>
+  <tr><th>序号</th><th>信号名称</th><th>字段(中文)</th><th>英文 key</th><th>类型</th><th>取值范围</th><th>建议运算符</th><th>新增?</th></tr>
+  <tr><td>119</td><td>导航状态</td><td>导航状态</td><td><code>status</code></td><td>enum</td><td>未发起导航/导航中/巡航中</td><td>等于 / 变更为</td><td>重新开放</td></tr>
+  <tr><td>123</td><td>目的地位置</td><td>地址</td><td><code>address</code></td><td>str</td><td>地址字符串</td><td>等于 / 变更为</td><td>重新开放</td></tr>
+  <tr style="background:#fef9c3"><td>124</td><td>目的地位置</td><td><b>剩余距离</b></td><td><code>distance</code></td><td>数值</td><td>最小 0</td><td>等于/大于/小于/大于等于/小于等于/变更为</td><td><span class="warn">重新开放</span></td></tr>
+ </table>
+ <h3>6.2 关联支持（途经点 / 回家去公司，建议一并开放）</h3>
+ <table>
+  <tr><th>序号</th><th>信号名称</th><th>字段</th><th>英文 key</th><th>类型</th><th>建议运算符</th><th>新增?</th></tr>
+  <tr><td>128</td><td>途经点位置</td><td>地址</td><td><code>address</code></td><td>str</td><td>等于 / 变更为</td><td>重新开放</td></tr>
+  <tr><td>130</td><td>途经点位置</td><td>剩余距离</td><td><code>distance</code></td><td>数值</td><td>≤/≥/变更为 等</td><td>重新开放</td></tr>
+  <tr><td>121</td><td>收藏地址位置</td><td>类型</td><td><code>type</code></td><td>enum</td><td>等于（家/公司）</td><td>重新开放</td></tr>
+  <tr><td>122</td><td>收藏地址位置</td><td>地址</td><td><code>address</code></td><td>str</td><td>等于</td><td>重新开放</td></tr>
+ </table>
+ <h3>6.3 组合依赖（非导航信号，"到达"要和它一起判断）</h3>
+ <table>
+  <tr><th>序号</th><th>信号名称</th><th>字段</th><th>英文 key</th><th>类型</th><th>运算符</th><th>说明</th></tr>
+  <tr><td>6</td><td>车辆行进状态</td><td>档位</td><td><code>states</code></td><td>enum（D/P/R/N）</td><td>等于 / 变更为</td><td>「到达」= 档位变更为 P <b>且</b> 导航到达，组合条件</td></tr>
+ </table>
+ <h3>6.4 待评估（时间类，先评估端格式能否处理）</h3>
+ <table>
+  <tr><th>序号</th><th>字段</th><th>英文 key</th><th>待评估原因</th></tr>
+  <tr><td>125</td><td>剩余时长</td><td><code>duration</code></td><td>上报是"几小时几分钟"，需转统一单位；先确认能否转</td></tr>
+  <tr><td>127</td><td>到达时间</td><td><code>time</code></td><td>预估值不准，但潘伟认为有用（提前 10 分钟提醒）</td></tr>
+  <tr><td>131</td><td>途经点剩余时长</td><td><code>duration</code></td><td>时间类一并评估</td></tr>
+ </table>
+
+ <h3>6.5 座舱/车况信号（佳杰必过集·待开放，v1.1 新增）</h3>
+ <div class="note">📌 v1.1 扩入：佳杰《车端信号条件任务必过集》涉及的非导航信号，现有导航信号清单（119~133 + 档位 6）<b>全部没有</b>，需作为<b>新增信号</b>开放。编号占位 <code>200+</code>，待 §11 #8~#17 推韩天亮锁版后替换为正式编号。重点行（★）= 阈值/口径需重点锁死的信号。</div>
+ <table>
+  <tr><th>序号(占位)</th><th>信号名称</th><th>字段(中文)</th><th>英文 key</th><th>类型</th><th>取值范围</th><th>建议运算符</th><th>新增?</th></tr>
+  <tr style="background:#fef9c3"><td>200</td><td>座位状态</td><td><b>占用 ★</b>（副驾/后排逐座）</td><td><code>seat.{pos}.occupied</code></td><td>bool/enum</td><td>occupied / unoccupied</td><td>等于 / 变更为</td><td><span class="warn">新增·待锁版</span></td></tr>
+  <tr><td>201</td><td>空调电源</td><td>开关</td><td><code>ac.power</code></td><td>enum</td><td>on / off</td><td>等于 / 变更为</td><td>新增·待锁版</td></tr>
+  <tr><td>202</td><td>空调风量</td><td>档位</td><td><code>ac.fan_level</code></td><td>enum</td><td>low / mid / high（本车档位归一）</td><td>等于 / 大于等于</td><td>新增·待锁版</td></tr>
+  <tr style="background:#fef9c3"><td>203</td><td>电池</td><td><b>剩余电量 SOC ★</b></td><td><code>battery.soc</code></td><td>数值</td><td>0–100（%）</td><td>小于 / 小于等于</td><td><span class="warn">新增·待锁版</span></td></tr>
+  <tr style="background:#fef9c3"><td>204</td><td>续航</td><td><b>剩余里程 ★</b></td><td><code>vehicle.range</code></td><td>数值</td><td>≥0（km）</td><td>小于 / 小于等于</td><td><span class="warn">新增·待锁版</span></td></tr>
+  <tr><td>205</td><td>媒体播放</td><td>播放状态</td><td><code>media.playback</code></td><td>enum</td><td>playing / paused / stopped</td><td>变更为</td><td>新增·待锁版</td></tr>
+  <tr><td>206</td><td>媒体音量</td><td>音量</td><td><code>media.volume</code></td><td>数值</td><td>0–100（%）</td><td>大于 / 大于等于</td><td>新增·待锁版</td></tr>
+  <tr style="background:#fef9c3"><td>207</td><td>轮胎</td><td><b>胎压 ★</b>（四轮逐轮）</td><td><code>tire.pressure</code></td><td>数值(数组)</td><td>bar（单位归一见 §7）</td><td>小于 / 大于（逐轮判）</td><td><span class="warn">新增·待锁版</span></td></tr>
+  <tr><td>208</td><td>POI 路径</td><td>路过（经过不停）</td><td><code>poi.pass_by</code></td><td>bool/event</td><td>true / false</td><td>等于(路过)</td><td>新增·待锁版</td></tr>
+  <tr><td>209</td><td>收藏地址围栏</td><td>靠近/离开（无导航兜底）</td><td><code>poi.geofence</code></td><td>event</td><td>enter / exit</td><td>变更为</td><td>新增·能力待确认</td></tr>
+ </table>
+ <div class="risk"><b>占用语义口径（必须锁死）：</b><code>occupied</code> = <b>座垫承重传感器判定有人</b>（承重 &gt; 阈值）；<b>放包 / 宠物 / 仅系安全带均 ≠ 占用</b>。否则"副驾上车""副驾没人关加热"会误触发。承重阈值、逐座字段结构列入 §11 #8 待追。</div>
+
+ <!-- 7 -->
+ <h2 id="s7">7. 数据格式标准（本 PRD 定义，端上按此实现）</h2>
+ <div class="note">⚠️ <b>归属说明：</b>端上报信号的格式/单位<b>由产品（本 PRD）约束</b>，端上"产品要什么就实现什么"（汪帅 6/18 确认）。此前 v0.1 把格式列为"待端上确认"是问错链路——本节作为<b>产品标准</b>定死，端上据此实现，差异由仁杰在导航需求侧对齐。</div>
+ <table>
+  <tr><th>信号</th><th>PRD 规定格式</th><th>端上实际（仁杰 6/20 确认·上汽）</th><th>结论 / 待办</th></tr>
+  <tr><td class="f">剩余距离 distance</td><td><b>整数 · 米(m)</b></td><td>上汽<b>固定 m</b>；但当前是<b>带单位字符串</b>"200m"（老协议无单位字段，客户端拼好上报）</td><td><span class="ok">✅ 单位对上</span>；<span class="warn">⚠ 需剥单位→纯数值</span>：引擎解析"200m"取 200 再比，或推端上给纯数字。找刘杨/任军定</td></tr>
+  <tr><td class="f">剩余时长 duration</td><td><b>整数 · 秒</b></td><td>秒</td><td><span class="ok">✅ 一致</span></td></tr>
+  <tr><td class="f">到达时间 time</td><td><b>Unix 时间戳</b></td><td><b>hh:mm</b> 字符串</td><td><span class="warn">⚠ 不一致</span>：hh:mm 难做"还有 N 分钟"运算、有跨天/时区歧义；确认本期是否要、要则推秒/时间戳。潘伟/仁杰</td></tr>
+  <tr><td class="f">地址 address</td><td><b>字符串 + 经纬度 lat/lng</b></td><td>待确认（落库格式）</td><td>推进中：等值比对收藏地址要同源同格式</td></tr>
+  <tr><td class="f">收藏地址</td><td><b>类型枚举(home/company) + 字符串 + 经纬度</b></td><td>待确认</td><td>推进中</td></tr>
+  <tr><td class="f">电池电量 battery.soc</td><td><b>整数 · %(0–100)</b></td><td>带单位字符串"50%"（同距离老协议）</td><td><span class="warn">⚠ 剥尾缀"%"取 50</span>；unit="%"；dead_zone{48,52} 防抖</td></tr>
+  <tr><td class="f">剩余续航 vehicle.range</td><td><b>整数 · km</b></td><td>待确认（km/mi）</td><td><span class="warn">⚠ 统一 km</span>；mi÷1.609 归一；dead_zone{98,102}</td></tr>
+  <tr><td class="f">胎压 tire.pressure</td><td><b>数值 · bar（逐轮）</b></td><td>多制式：bar / kpa / psi</td><td><span class="warn">⚠ 统一 bar</span>；kpa÷100、psi×0.0689 归一；四轮逐轮判</td></tr>
+  <tr><td class="f">音量 media.volume</td><td><b>整数 · %(0–100)</b></td><td>待确认（是否归一、mute 枚举）</td><td>统一 0–100；dead_zone{80,82} 防抖</td></tr>
+  <tr><td class="f">空调风量 ac.fan_level</td><td><b>枚举 low/mid/high</b></td><td>本车档位数不一（1-4 / 1-7 档）</td><td>端上归一三档后上报；"高档"=high（最高档或 ≥80%）</td></tr>
+ </table>
+ <div class="note">📩 <b>仁杰 6/20 确认（上汽）：</b>距离<b>固定单位 m</b>、时长<b>秒</b>、到达时间 <b>hh:mm</b>；当前端上报的是<b>带单位的字符串</b>（如"200m"），因老协议不支持单位字段、由客户端拼好上报。<b>两个要解决：</b>① 距离"200m"是字符串、触发器配"≤500"是数值比较，<b>需明确谁剥单位</b>（建议：上汽既固定 m，引擎解析剥尾缀"m"取整数最省事）；② 到达时间 hh:mm <b>不利于运算</b>，确认时间类本期是否要、要则推秒/时间戳格式。</div>
+ <div class="std"><b>地址比对标准：</b>"导航回家/去公司" = 目的地 address <code>等于</code> 收藏地址 address。两边<b>必须同源、同格式</b>（建议统一以经纬度做主判、字符串做辅），否则等值比对失败。</div>
+ <div class="std"><b>距离来源标准：</b>一律用 <span class="hl">导航沿路线剩余距离</span>，<span class="warn">禁止用直线距离</span>（高架绕行场景直线 300m 实际 2km，会误触发）。POI 坐标源需固定（Navi 插件/商情，见 §11 待确认 #5）。</div>
+ <div class="std"><b>单位归一标准（v1.1 新增·座舱/车况信号）：</b>端上报多为<b>带单位字符串</b>（"50%""1.8bar""200m"），引擎一律<b>按 DSL <code>unit</code> 字段剥尾缀取纯数值</b>再比较。固定：<code>%</code>(电量/音量)、<code>km</code>(续航，mi÷1.609)、<code>bar</code>(胎压，kpa÷100、psi×0.0689)、<code>m</code>(距离·已有)。数值型阈值均配 <code>dead_zone</code> 防穿越抖动（沿用 §8.4 死区思路，±2~10%）。</div>
+
+ <!-- 8 -->
+ <h2 id="s8">8. 核心判定逻辑：接近 / 到达 / 离开（重点）</h2>
+ <h3>8.1 为什么不能简单配"距离 &lt; 阈值"</h3>
+ <p>用一个完整场景看（周一早 8:00 从家导航去公司，出发 15km，做"距公司 500m 提醒拿咖啡"）：</p>
+ <table>
+  <tr><th>时刻</th><th>剩余距离</th><th>"距离&lt;500"满足?</th><th>实际该不该提醒</th></tr>
+  <tr><td>8:00–8:25</td><td>15km → 501m</td><td class="mut">不满足</td><td>不提醒 ✅</td></tr>
+  <tr style="background:#fef9c3"><td>8:25:30</td><td><b>500m（第一次进）</b></td><td>满足</td><td>🔔 提醒一次 ✅</td></tr>
+  <tr><td>8:25:31 起</td><td>499、498…50m</td><td class="warn">一直满足！</td><td class="warn">不该再提醒 ❌ 崩在这</td></tr>
+ </table>
+ <div class="risk">💥 直接配"距离&lt;500"，从 499m 到公司每帧都满足，触发器<b>无记忆</b>不知道提醒过了 → <b>连续触发几十上百次刷屏</b>。所以必须是「<b>从远到近第一次跨过 500m → 触发一次 → 然后闭嘴</b>」= <b>one shot</b>，这正是刘杨说"现有协议做不了"的点。</div>
+
+ <h3>8.2 解法：给每个 POI 维护一个状态机</h3>
+ <div class="flow"><div class="sm">
+  <div class="state start">远</div>
+  <div class="trans"><span class="big">→</span><span class="ev">距离≤接近阈值(死区&lt;480m)</span>触发【接近】one shot</div>
+  <div class="state">已接近</div>
+  <div class="trans"><span class="big">→</span><span class="ev">距离≤到达阈值(50m) 且 档位变更为P</span>触发【到达】</div>
+  <div class="state">已到达</div>
+  <div class="trans"><span class="big">→</span><span class="ev">距离&gt;离开阈值(死区&gt;520m)</span>触发【离开】</div>
+  <div class="state fin">已离开</div>
+ </div></div>
+ <p><b>关键：状态一旦从「远」翻到「已接近」，接近事件就再也不会触发</b>——这就是用"记状态"换来 one shot 的机制。</p>
+ <h3>8.3 判定伪代码</h3>
+ <pre>state = 该POI当前状态          <span class="c"># 初始：远</span>
+d     = 当前剩余距离（沿路线·米）
+
+if state == 远  and  d &lt;= 接近阈值(500m):
+    触发【接近】;  state = 已接近   <span class="c"># ← one shot 关键：状态一变，接近不再触发</span>
+if state == 已接近  and  d &lt;= 到达阈值(50m)  and  档位 变更为 P:
+    触发【到达】;  state = 已到达
+if state in (已接近, 已到达)  and  d &gt; 离开阈值(500m):
+    触发【离开】;  state = 已离开</pre>
+ <h3>8.4 三个必须处理的坑</h3>
+ <table>
+  <tr><th>坑</th><th>具体</th><th>解法（标准）</th></tr>
+  <tr><td class="f">坑1 · 防抖</td><td>500m 红灯口 GPS 抖动 498↔502 反复跳，一个红灯触发好几次</td><td>状态机天然防一部分 + <b>缓冲死区</b>：&lt;480m 才算接近、&gt;520m 才算离开，中间不动作</td></tr>
+  <tr><td class="f">坑2 · 阈值</td><td>500m 谁定？加油站 2km、咖啡 500m 不一样</td><td>阈值<b>按场景由产品配</b>，给默认值；是否展示"距 X 500m"也由产品定</td></tr>
+  <tr><td class="f">坑3 · 立体空间</td><td>高架旁直线 300m 但沿路 2km，用直线会误触发</td><td>一律用 <b>导航沿路线剩余距离</b></td></tr>
+ </table>
+ <h3>8.4+ 佳杰必过集边界 case（v1.1 新增·4 型，完整 25 条见 §17.2）</h3>
+ <p>座舱/车况信号复用<b>同一套机制</b>（one_shot 自锁 + 死区 + 沿路线），按 4 型归类：</p>
+ <table>
+  <tr><th>型</th><th>代表边界场景</th><th>易错点</th><th>解法（复用现有机制）</th></tr>
+  <tr><td class="f">① 阈值穿越</td><td>续航 100km 附近抖 99.8↔100.3；胎压单位 bar/kpa/psi 混</td><td>来回穿越刷屏；单位剥错乱触</td><td><b>死区</b> dead_zone{98,102} + 状态机自锁；<b>单位归一</b>按 §7（kpa÷100、psi×0.0689 → bar）</td></tr>
+  <tr><td class="f">② 状态变更</td><td>副驾放包/宠物；信号瞬时闪一下</td><td>occupied 语义模糊；抖动误触</td><td>占用=承重传感器（§6.5 口径）；changed_to 需状态<b>持续 ≥2s</b> 才认；one_shot 自锁</td></tr>
+  <tr><td class="f">③ 空间 POI</td><td>"路过徐浦大桥"(经过不停) vs "靠近外婆家"(接近目的地)；未开导航</td><td>路过/靠近混用；无目的地无 distance</td><td><b>路过</b>=poi.pass_by(路径相交且非目的地)；<b>靠近</b>=distance≤阈值；无导航退化<b>围栏</b> poi.geofence</td></tr>
+  <tr><td class="f">④ 事件型</td><td>切歌；暂停；播放器重启</td><td>切歌算"开始"？暂停算"结束"？</td><td>playback 状态机：仅 stopped→playing 算开始、→stopped(非 paused)算结束；事件 ≥2s 去抖；带 trigger_source(user/system)</td></tr>
+ </table>
+
+ <h3>8.5 事件定义（信号 → 事件 完整映射）</h3>
+ <table>
+  <tr><th>事件</th><th>触发逻辑（信号·运算符·值）</th><th>触发类型</th><th>举例</th></tr>
+  <tr><td class="f">发起导航</td><td>导航状态 <code>变更为</code> 导航中</td><td>one shot</td><td>用户点"导航去公司"</td></tr>
+  <tr style="background:#fef9c3"><td class="f">接近目的地</td><td>目的地.剩余距离 <code>第一次 ≤</code> 阈值</td><td><b>one shot</b></td><td>距公司 500m → 提醒拿咖啡</td></tr>
+  <tr><td class="f">到达目的地</td><td>剩余距离 ≤ 到达阈值 <b>且</b> 档位 <code>变更为</code> P</td><td>one shot</td><td>停进车位 → "到啦"</td></tr>
+  <tr><td class="f">离开目的地/某点</td><td>距离 <code>&gt;</code> 离开阈值</td><td>one shot / 循环</td><td>开出 500m → 标记离开</td></tr>
+  <tr><td class="f">目的地变更</td><td>目的地.地址 <code>变更为</code></td><td>one shot</td><td>改导航去别处</td></tr>
+  <tr><td class="f">导航回家/去公司</td><td>目的地.地址 <code>等于</code> 收藏地址(家/公司).地址</td><td>one shot</td><td>识别"在回家"</td></tr>
+  <tr><td class="f">接近途经点</td><td>途经点.剩余距离 <code>≤</code> 阈值</td><td>one shot</td><td>快到路上的加油站</td></tr>
+ </table>
+
+ <h3>8.6 佳杰必过集·导航/空间类未支持 case 判定（序 11–17，v1.1 新增）</h3>
+ <div class="note">7 个导航/空间类 case 复用 §8.2 状态机与 §8.5 事件，<b>不新增判定引擎</b>，只补阈值/事件类型：</div>
+ <table>
+  <tr><th>序</th><th>case</th><th>判定逻辑（复用）</th><th>事件/类型</th><th>阈值默认</th></tr>
+  <tr><td class="f">11/12</td><td>靠近外婆家/公司 → 打电话/找充电桩</td><td>目的地.剩余距离 <code>第一次 ≤</code> 阈值（§8.5 接近）</td><td>接近(收藏地址)·one_shot</td><td>500m</td></tr>
+  <tr style="background:#fef9c3"><td class="f">13</td><td>路过徐浦大桥 → 准备右转</td><td><b>新增【路过】事件</b>：<code>poi.pass_by</code>=true（路径与 POI 围栏相交 <b>且</b> 目的地≠该 POI）</td><td>路过·one_shot</td><td>围栏半径(待定)</td></tr>
+  <tr><td class="f">14</td><td>离目的地 ≤1km → 绕去拿咖啡</td><td>目的地.剩余距离 <code>≤</code> 1000m（§8.5 接近，阈值放大）</td><td>接近·one_shot</td><td>1000m</td></tr>
+  <tr><td class="f">15/16</td><td>快到途经点 ≤1km → 介绍/找停车位</td><td>途经点.剩余距离 <code>≤</code> 1000m（§8.5 接近途经点，阈值放大）</td><td>接近途经点·one_shot</td><td>1000m</td></tr>
+  <tr><td class="f">17</td><td>离开公司 &gt;500m → 放音乐+按摩</td><td>目的地(公司).剩余距离 <code>&gt;</code> 500m（§8.5 离开）<b>沿路线</b></td><td>离开·one_shot</td><td>500m</td></tr>
+ </table>
+ <div class="risk"><b>两个新增依赖：</b>① <b>【路过】事件</b>（序 13）现有协议没有——需判定"路径与 POI 围栏相交且非目的地"，列为 §11 待确认；② <b>无导航围栏兜底</b>（序 11/17 未开导航时）= poi.geofence enter/exit，端侧是否提供见 §11 #17。</div>
+
+ <!-- 9 -->
+ <h2 id="s9">9. DSL 条件示例（五结构 Condition 部分）</h2>
+ <p>触发器固定解析格式：Condition / Option / Action / Param / ExecuteInfo。下表为 Condition：</p>
+ <table>
+  <tr><th>示例</th><th>signal</th><th>field</th><th>operator</th><th>value</th><th>trigger_type</th></tr>
+  <tr><td class="f">例1·接近目的地</td><td>目的地位置</td><td>distance</td><td>小于等于(≤)</td><td>500（米）</td><td>one_shot</td></tr>
+  <tr><td class="f">例2·发起导航</td><td>导航状态</td><td>status</td><td>变更为</td><td>导航中</td><td>one_shot</td></tr>
+  <tr><td class="f">例3·导航回家</td><td>目的地位置</td><td>address</td><td>等于</td><td>收藏地址(家).address</td><td>one_shot</td></tr>
+  <tr><td class="f">例4·到达目的地</td><td>目的地位置 + 车辆行进状态</td><td>distance + states</td><td>小于等于 + 变更为</td><td>≤到达阈值 且 档位=P</td><td>one_shot</td></tr>
+  <tr><td colspan="6" style="background:#fef9c3"><b>v1.1 新增·佳杰必过集 DSL 示例（4 型代表，完整 19 case 见 §17.1）</b></td></tr>
+  <tr><td class="f">例5·电量低</td><td>电池</td><td>battery.soc</td><td>小于(lt)</td><td>50（%）</td><td>one_shot</td></tr>
+  <tr><td class="f">例6·续航低</td><td>续航</td><td>vehicle.range</td><td>小于(lt)</td><td>100（km）</td><td>one_shot</td></tr>
+  <tr><td class="f">例7·胎压低</td><td>轮胎</td><td>tire.pressure</td><td>小于(lt)</td><td>1.8（bar）</td><td>one_shot</td></tr>
+  <tr><td class="f">例8·副驾上车</td><td>座位状态</td><td>seat.passenger.occupied</td><td>变更为(changed_to)</td><td>occupied</td><td>one_shot</td></tr>
+  <tr><td class="f">例9·空调开启</td><td>空调电源</td><td>ac.power</td><td>变更为(changed_to)</td><td>on</td><td>one_shot</td></tr>
+  <tr><td class="f">例10·路过 POI</td><td>POI 路径</td><td>poi.pass_by</td><td>等于(eq)</td><td>true</td><td>one_shot</td></tr>
+  <tr><td class="f">例11·音乐开始</td><td>媒体播放</td><td>media.playback</td><td>变更为(changed_to)</td><td>playing</td><td>one_shot</td></tr>
+  <tr><td class="f">例12·音量过大</td><td>媒体音量</td><td>media.volume</td><td>大于(gt)</td><td>80（%）</td><td>one_shot</td></tr>
+ </table>
+ <pre>{
+  "condition": {
+    "signal": "目的地位置", "field": "distance",
+    "operator": "lte", "value": 500, "unit": "m",
+    "trigger_type": "one_shot",
+    "dead_zone": { "near": 480, "leave": 520 }
+  }
+}</pre>
+ <p>v1.1 新增·座舱信号 DSL（电量，带死区防穿越）：</p>
+ <pre>{
+  "condition": {
+    "signal": "电池", "field": "battery.soc",
+    "operator": "lt", "value": 50, "unit": "%",
+    "trigger_type": "one_shot",
+    "dead_zone": { "near": 48, "leave": 52 }
+  }
+}</pre>
+
+ <!-- 10 -->
+ <h2 id="s10">10. 方案 B 落地详解（端上算好事件，触发器只收事件）</h2>
+
+ <h3>10.1 决策结论</h3>
+ <div class="std"><b>✅ 选定方案 B</b>：端侧算好「接近/到达/离开」事件后上报，触发器引擎<b>不改</b>状态机、只收事件匹配场景。原因：A 方案改引擎工期顶不上 630。策略：<b>本期 B 兜底上量产，A 排下版统一</b>。</div>
+ <table>
+  <tr><th>方案</th><th>做法</th><th>优点</th><th>缺点</th></tr>
+  <tr><td class="f">A · 触发器侧加过程判定</td><td>状态机放触发器，引擎存每个 POI 的"远/已接近/已到达"状态</td><td>统一、所有距离类需求复用；端上不改</td><td>引擎要存状态、改动大、<span class="warn">工期顶不上 630</span></td></tr>
+  <tr style="background:#ecfdf5"><td class="f">B · 端上算好事件 <span class="pill dr">✅ 选定</span></td><td>端上跑状态机，算好「接近/到达/离开」事件后上报，触发器只收事件</td><td class="ok">触发器不改、快、对 630 友好</td><td>逻辑散端上，多端各写一遍、难统一（下版 A 收编）</td></tr>
+ </table>
+
+ <h3>10.2 B 方案完整链路（8 步 · 谁→给谁→给什么）</h3>
+ <p>核心变化：§8 的 POI 状态机（远→已接近→已到达→已离开）从云端⑧引擎 <b>整块下沉到端侧④</b>，云端只收「现成事件信号」做场景匹配。</p>
+ <table>
+  <tr><th>步骤</th><th>模块</th><th>做什么</th><th>输出</th><th>上游→下游</th><th>Owner</th></tr>
+  <tr><td class="f">Step 0<br>配置下发</td><td>⑥ 配置平台</td><td>产品在火山后台配好场景规则（事件类型、阈值、死区、触发类型），<b>打包下发到端侧</b></td><td>场景配置包：<code>{event_type, threshold, dead_zone, trigger_type, poi_match_rule}</code></td><td>产品(配置) → 配置平台 → 端侧④</td><td>王泽民(配) · 刘杨(下发通道) · 金龙(端侧接收)</td></tr>
+  <tr><td class="f">Step 1<br>导航原始数据</td><td>① 上汽高德 Navi 插件</td><td>实时计算<b>沿路线剩余距离</b>（非直线），推送目的地/途经点地址、导航状态</td><td><code>{distance:15000, status:"导航中", dest_address:"上海中心", dest_lat/lng, waypoints[…]}</code></td><td>高德Navi SDK → ②端侧采集层</td><td>上汽/高德(SDK能力) · 仁杰(对齐格式)</td></tr>
+  <tr><td class="f">Step 2<br>端侧信号采集</td><td>② 端侧采集层</td><td>收集 Navi 推送的导航信号 + 车况信号（档位 gear），按 §7 格式标准<b>剥单位取纯数值</b>，写入端侧信号库</td><td><code>{distance:15000, unit:"m", status:"导航中", gear:"D", address:"上海中心"}</code></td><td>①Navi + 车身CAN → ③端侧信号库</td><td>汪帅</td></tr>
+  <tr style="background:#fef9c3"><td class="f">Step 3<br><b>端侧事件计算</b><br>(核心新增)</td><td>④ 端侧接近事件计算模块<br><span class="warn">新增开发</span></td><td>每当 distance 变化（~1Hz），读信号库快照，<b>跑 POI 状态机</b>（远→已接近→已到达→已离开），做方向判定 + 死区判定 + 组合条件 + one_shot 自锁 → 产出事件。<b>详细逻辑见 §10.3</b></td><td>事件 payload：<code>{event:"approach", poi_id, distance:480, threshold:500, ts, trigger_type:"one_shot"}</code></td><td>③端侧信号库(读快照) + Step 0 配置(读阈值) → 产出事件</td><td><b>金龙/汪帅</b>（核心开发量在这）</td></tr>
+  <tr><td class="f">Step 4<br>事件写入信号库</td><td>③ 端侧信号库</td><td>将 Step 3 产出的事件<b>作为信号写入</b>端侧信号库，与原始导航信号并存</td><td><code>key:"nav_event", value:{event:"approach", …}</code></td><td>④计算模块 → ③信号库</td><td>金龙/汪帅</td></tr>
+  <tr><td class="f">Step 5<br>端→云同步</td><td>L2 同步通道</td><td>事件信号通过<b>现有 L2 通道</b>同步到云端信号库（复用，不新建通道）</td><td>与 Step 4 相同 payload</td><td>③端侧信号库 →L2→ ⑦云端信号库</td><td>金龙(端侧) · 刘杨(云端接收)</td></tr>
+  <tr><td class="f">Step 6<br>云端场景匹配</td><td>⑧ 触发器引擎</td><td>引擎收到事件信号后，做<b>简单场景匹配</b>：event_type == "approach" → 命中 → 产出 Callback。<span class="ok">不需要状态机、不需要死区——端上已做完</span></td><td>Callback payload → ⑪事件层</td><td>⑦信号库 → ⑧引擎 → ⑪事件层</td><td>刘杨（改动极小）</td></tr>
+  <tr><td class="f">Step 7<br>下游消费</td><td>⑫ 弋途 Advisor → ⑬ Director → ⑰ TTS</td><td>Advisor 订阅事件 → 产 advice（"快到公司，拿杯咖啡"）→ Director 生成话术 → TTS 播报 / 任务中心卡片</td><td>talk_content → 用户</td><td>⑪→⑫→⑬→⑰→用户</td><td>施佳杰(Advisor) · Director 团队</td></tr>
+ </table>
+ <div class="note">💡 <b>一句话总结 B 方案链路：</b>上汽Navi 给<b>沿路线距离</b> → 端侧采集层<b>标准化</b> → 端侧计算模块<b>跑状态机产事件</b> → 现有 L2 通道<b>同步云端</b> → 触发器引擎<b>简单匹配</b> → Advisor → 播报。<b>核心开发量在 Step 3（端侧状态机），其他步骤复用现有链路。</b></div>
+
+ <h3>10.3 端侧事件计算模块详解（Step 3 · 核心新增 · ④）</h3>
+ <p><b>这是 B 方案的心脏</b>——把 §8 的状态机逻辑从云端搬到端上。</p>
+ <h4>输入 / 输出</h4>
+ <table>
+  <tr><th>项</th><th>内容</th><th>来源</th></tr>
+  <tr><td class="f">输入 1</td><td>distance（整数·米·沿路线），~1Hz 更新</td><td>③端侧信号库（原始信号）</td></tr>
+  <tr><td class="f">输入 2</td><td>status（导航状态：未导航/导航中/巡航中）</td><td>③端侧信号库</td></tr>
+  <tr><td class="f">输入 3</td><td>address（目的地地址 + 经纬度）</td><td>③端侧信号库</td></tr>
+  <tr><td class="f">输入 4</td><td>gear（档位：D/P/R/N）</td><td>③端侧信号库（车身 CAN）</td></tr>
+  <tr><td class="f">输入 5</td><td>收藏地址列表（home/company + address + 经纬度）</td><td>③端侧信号库</td></tr>
+  <tr><td class="f">输入 6</td><td>场景配置（阈值/死区/触发类型）</td><td>Step 0 配置平台下发（本期 hardcode 默认值）</td></tr>
+  <tr style="background:#ecfdf5"><td class="f"><b>输出</b></td><td>事件 payload：<code>{event_type, poi_id, distance, threshold, ts, trigger_type, address, favorite_type}</code></td><td>→ 写入 ③端侧信号库 → L2 同步云端</td></tr>
+ </table>
+
+ <h4>核心逻辑（伪代码）</h4>
+ <pre><span class="c"># ============================================================</span>
+<span class="c"># 端侧接近事件计算模块（每秒执行一次，distance 变化驱动）</span>
+<span class="c"># ============================================================</span>
+
+<span class="c"># 全局：每个 POI 一张状态卡片（内存常驻）</span>
+poi_states = {}   <span class="c"># {poi_id: {state:"远", last_d:None}}</span>
+
+def on_distance_update(signals):
+    <span class="c"># ① 前置检查：必须在导航中且有目的地</span>
+    if signals.status != "导航中" or not signals.address:
+        return   <span class="c"># 无导航 → 不处理（围栏场景走 poi.geofence）</span>
+
+    poi_id = hash(signals.address + signals.lat_lng)
+    card   = poi_states.get(poi_id, {state:"远", last_d:None})
+    d      = signals.distance
+    config = get_scene_config(poi_id)  <span class="c"># Step 0 下发的阈值/死区</span>
+
+    <span class="c"># ② 方向判定：距离是否在递减（防"远离也触发"）</span>
+    approaching = (card.last_d is not None) and (d &lt; card.last_d)
+    card.last_d = d
+
+    <span class="c"># ③ 状态机判定（带死区）</span>
+    if card.state == "远":
+        if d &lt;= config.approach_near(480) and approaching:
+            card.state = "已接近"
+            emit("approach", poi_id, d, config)   <span class="c"># 🔔 接近！one_shot</span>
+            <span class="c"># 附加：是否回家/去公司</span>
+            fav = match_favorite(signals.address, signals.favorites)
+            if fav:
+                emit("home_or_company", poi_id, d, config, fav.type)
+
+    elif card.state == "已接近":
+        if d &lt;= config.arrive_threshold(50) and signals.gear_changed_to("P"):
+            card.state = "已到达"
+            emit("arrive", poi_id, d, config)      <span class="c"># 🔔 到达！组合条件</span>
+        elif d &gt; config.leave_far(520):
+            card.state = "已离开"
+            emit("leave", poi_id, d, config)       <span class="c"># 🔔 离开（未到达就走了）</span>
+
+    elif card.state == "已到达":
+        if d &gt; config.leave_far(520):
+            card.state = "已离开"
+            emit("leave", poi_id, d, config)       <span class="c"># 🔔 离开</span>
+
+    <span class="c"># ④ "已离开"= 终态，本程不再触发任何事件</span>
+    poi_states[poi_id] = card
+
+<span class="c"># ⑤ 重置条件</span>
+def on_nav_session_end():      <span class="c"># 重新导航 / 取消导航</span>
+    poi_states.clear()
+
+def on_vehicle_off():          <span class="c"># 离车（熄火 / 钥匙离开）</span>
+    poi_states.clear()
+
+<span class="c"># ⑥ 事件构造 → 写入端侧信号库 → L2 同步云端</span>
+def emit(event_type, poi_id, distance, config, fav_type=None):
+    payload = {
+        "event_type":    event_type,
+        "poi_id":        poi_id,
+        "distance":      distance,
+        "threshold":     config.threshold,
+        "dead_zone":     {"near": config.near, "leave": config.far},
+        "ts":            now(),
+        "trigger_type":  "one_shot",
+        "address":       current_address,
+        "favorite_type": fav_type        <span class="c"># "home"/"company"/null</span>
+    }
+    write_to_signal_store("nav_event", payload)   <span class="c"># → Step 4</span></pre>
+
+ <div class="risk"><b>注意：途经点复用同一套逻辑</b>——为途经点也创建独立的状态卡片（poi_id 不同），独立走状态机。一次导航可能有 1 个目的地 + N 个途经点，每个 POI 独立一张卡片、独立触发。</div>
+
+ <h4>B 方案下的 7 个事件产出点（与 §8.5 一一对应）</h4>
+ <table>
+  <tr><th>事件</th><th>端侧判定逻辑</th><th>产出时机</th></tr>
+  <tr><td class="f">approach（接近）</td><td>distance 首次 ≤ 死区近值(480m) 且方向递减</td><td>状态 远→已接近</td></tr>
+  <tr><td class="f">arrive（到达）</td><td>distance ≤ 到达阈值(50m) <b>且</b> gear changed_to P</td><td>状态 已接近→已到达</td></tr>
+  <tr><td class="f">leave（离开）</td><td>distance &gt; 死区远值(520m)</td><td>状态 已接近/已到达→已离开</td></tr>
+  <tr><td class="f">nav_start（发起导航）</td><td>status changed_to "导航中"</td><td>导航 session 开始</td></tr>
+  <tr><td class="f">dest_change（目的地变更）</td><td>address changed_to 新地址</td><td>导航中途改目的地（旧 POI 卡片清除、新建）</td></tr>
+  <tr><td class="f">home_or_company（回家/去公司）</td><td>address 等于收藏地址(home/company).address</td><td>伴随 nav_start 或 dest_change 一并产出</td></tr>
+  <tr><td class="f">waypoint_approach（接近途经点）</td><td>途经点 distance ≤ 阈值（复用同一状态机，独立 poi_id）</td><td>途经点维度 远→已接近</td></tr>
+ </table>
+
+ <h3>10.4 各角色任务分工（B 方案）</h3>
+ <table>
+  <tr><th>角色</th><th>具体任务</th><th>工作量</th><th>前置依赖</th></tr>
+  <tr style="background:#fef9c3"><td class="f">金龙 / 汪帅<br>（端上开发）<br><span class="warn">核心</span></td><td><b>① 实现端侧 POI 状态机模块</b>（§10.3 伪代码全部逻辑）<br>② 实现死区判定 + 方向判定 + one_shot 自锁<br>③ 实现组合条件：到达 = distance≤50 且 gear→P<br>④ 实现收藏地址匹配（回家/去公司判定）<br>⑤ 实现途经点接近（复用状态机，多 POI 实例）<br>⑥ 实现重置逻辑（离车/重新导航 → 清空所有 POI 状态卡片）<br>⑦ 事件 payload 写入端侧信号库 → L2 同步云端<br>⑧ 接收 Step 0 配置平台下发的阈值配置（本期可先 hardcode 默认值）</td><td class="warn">大<br>（B 方案核心开发量）</td><td>仁杰确认 Navi SDK 接口格式；韩天亮给事件信号编号</td></tr>
+  <tr><td class="f">仁杰<br>（导航需求产品）</td><td>① 确认上汽高德 Navi SDK 的<b>距离 API 输出</b>：是整数米还是带单位字符串？是沿路线还是直线？推送频率？<br>② 对齐目的地/途经点/收藏地址的<b>地址格式</b>（同源同格式，经纬度主判）<br>③ 将 §7 数据格式标准写入导航侧 PRD<br>④ 确认 Navi SDK 的<b>导航状态变更</b>回调是否可用（发起导航/取消/重新导航）</td><td>中</td><td>上汽/高德 SDK 文档</td></tr>
+  <tr><td class="f">上汽 / 高德<br>（Navi 插件）</td><td>① 提供<b>沿路线剩余距离</b> API（整数·米，非直线距离）<br>② 提供目的地/途经点的坐标与地址<br>③ 提供导航状态变更回调（发起/取消/重新导航/到达）<br>④ 确认推送频率（≥1Hz）与延迟（≤200ms）</td><td>小<br>（已有能力确认即可）</td><td>仁杰对接</td></tr>
+  <tr><td class="f">刘杨<br>（触发器引擎）</td><td>① 支持 <code>event_type</code> 类信号的场景匹配（<code>event_type eq "approach"</code> → 命中）<br>② Callback 接口透出事件 payload 给 Advisor<br>③ <span class="ok">不需要实现状态机/死区/one_shot</span>（端上做了）<br>④ 提供配置下发通道（Step 0 场景配置 → 端侧）</td><td class="ok">小</td><td>韩天亮给编号</td></tr>
+  <tr><td class="f">韩天亮<br>（信号库）</td><td>① 注册<b>事件类型信号</b>编号（nav_event 大类 + approach/arrive/leave 等子类型）<br>② 与 §6.5 座舱信号一并锁版</td><td>小</td><td>—</td></tr>
+  <tr><td class="f">任军<br>（运算符引擎）</td><td>① 确认 <code>eq</code> 运算符支持事件类型字符串值（<code>event_type eq "approach"</code>）<br>② 确认事件类信号无需扩展新运算符</td><td>小</td><td>刘杨确认引擎侧能力</td></tr>
+  <tr><td class="f">施佳杰<br>（弋途 Advisor）</td><td>① 订阅 7 个导航事件（approach / arrive / leave / nav_start / dest_change / home_or_company / waypoint_approach）<br>② 编写对应 advice 脚本（"快到公司，拿杯咖啡"等）<br>③ 验证 Callback payload 字段完整可消费</td><td>中</td><td>刘杨 Callback 接口 ready</td></tr>
+ </table>
+
+ <h3>10.5 关键接口定义（5 个交接面）</h3>
+ <table>
+  <tr><th>#</th><th>接口</th><th>上游→下游</th><th>数据格式</th><th>频率/触发</th></tr>
+  <tr><td class="f">接口 1<br>Navi→采集</td><td>Navi SDK 推送</td><td>①高德Navi → ②采集层</td><td><code>{distance:int(m), status:enum, dest_address:str, dest_lat:float, dest_lng:float, waypoints:[{address, distance, lat, lng}]}</code></td><td>~1Hz</td></tr>
+  <tr><td class="f">接口 2<br>信号库→计算</td><td>信号库快照读取</td><td>③信号库 → ④计算模块（读）</td><td><code>{distance:15000, status:"导航中", gear:"D", address:"上海中心", favorites:[{type:"home", address:"…", lat, lng}]}</code></td><td>~1Hz（distance 变化触发）</td></tr>
+  <tr style="background:#fef9c3"><td class="f">接口 3<br><b>计算→信号库</b><br>(核心新增)</td><td>事件写入</td><td>④计算模块 → ③信号库（写）</td><td><pre style="margin:0;padding:4px 8px;font-size:11px">{
+  "signal":        "nav_event",
+  "event_type":    "approach",
+  "poi_id":        "sha256_of_addr_latlng",
+  "distance":      480,
+  "threshold":     500,
+  "dead_zone":     {"near":480,"leave":520},
+  "ts":            1750723200,
+  "trigger_type":  "one_shot",
+  "address":       "上海中心大厦",
+  "favorite_type": "company"
+}</pre></td><td>事件驱动（状态翻转时才写）</td></tr>
+  <tr><td class="f">接口 4<br>端→云同步</td><td>L2 通道</td><td>③端侧信号库 →L2→ ⑦云端信号库</td><td>同接口 3 payload（复用现有 L2 协议封装）</td><td>事件驱动</td></tr>
+  <tr><td class="f">接口 5<br>配置下发</td><td>配置平台→端侧</td><td>⑥配置平台 → ④端侧计算模块</td><td><code>{scenes:[{event_type, threshold, dead_zone, trigger_type, poi_match_rule}]}</code></td><td>配置变更时推送（本期 hardcode 可跳过）</td></tr>
+ </table>
+
+ <h3>10.6 B 方案下 DSL 变化（对比 A 方案）</h3>
+ <table>
+  <tr><th>维度</th><th>A 方案 DSL（云端做状态机）</th><th>B 方案 DSL（端上做状态机）</th></tr>
+  <tr><td class="f">配置平台配什么</td><td>配<b>原始距离条件</b>：distance ≤ 500, one_shot, dead_zone(480,520)</td><td>配<b>事件匹配条件</b>：event_type == "approach"</td></tr>
+  <tr><td class="f">引擎做什么</td><td>引擎跑状态机 + 死区 + 方向 + 组合条件</td><td>引擎只做 event_type 字符串匹配</td></tr>
+  <tr><td class="f">端上做什么</td><td>只上报 distance 原始值</td><td>跑完状态机、上报现成 event</td></tr>
+  <tr><td class="f">复杂度归属</td><td>复杂度在云端（统一、可复用）</td><td>复杂度在端侧（快、但多端各写一遍）</td></tr>
+ </table>
+ <p>B 方案 DSL 示例（"接近目的地"的云端场景配置）：</p>
+ <pre>{
+  "condition": {
+    "signal": "nav_event",
+    "field": "event_type",
+    "operator": "eq",
+    "value": "approach"
+  },
+  "action": {
+    "callback": "advisor_trigger",
+    "target": "弋途"
+  }
+}</pre>
+ <div class="note">💡 对比 §9 的 A 方案 DSL（distance ≤ 500 + one_shot + dead_zone）——B 方案<b>大幅简化了云端 DSL</b>，复杂判定全在端上完成。配置平台只需支持 <code>event_type</code> 字段类型，无需 one_shot / dead_zone 协议扩展。</div>
+
+ <h3>10.7 阈值管理策略</h3>
+ <table>
+  <tr><th>阶段</th><th>阈值来源</th><th>说明</th></tr>
+  <tr style="background:#ecfdf5"><td class="f">本期（630）</td><td>端侧 <b>hardcode 默认值</b>：接近 500m(死区 480/520)、到达 50m、离开 500m(死区 480/520)</td><td>最快上线，不依赖配置下发通道；产品验收后可 OTA 微调</td></tr>
+  <tr><td class="f">下版（A 统一后）</td><td>云端配置平台 → 下发到端侧 / 直接在引擎判定</td><td>不同场景用不同阈值（加油站 2km、咖啡 500m）；B→A 切时端侧 hardcode 废弃</td></tr>
+ </table>
+
+ <h3>10.8 B 方案局限与 B→A 迁移路径</h3>
+ <table>
+  <tr><th>局限</th><th>影响</th><th>后续（A 方案统一）</th></tr>
+  <tr><td class="f">逻辑散在端上</td><td>上汽 D6X 写一遍、赛力斯再写一遍，维护成本高</td><td>A 方案统一到云端引擎，端上只报原始 distance</td></tr>
+  <tr><td class="f">阈值不灵活</td><td>本期 hardcode，不同场景不能配不同阈值</td><td>A 方案支持配置平台按场景下发阈值</td></tr>
+  <tr><td class="f">调试难</td><td>端上状态机出错要查端侧日志，不如云端集中看</td><td>A 方案全链路可在云端调试</td></tr>
+  <tr><td class="f">端→云延迟</td><td>事件上报多一跳（端算完→同步→匹配），比 A 多 ~100-500ms</td><td>A 方案云端直接算，延迟更低</td></tr>
+ </table>
+ <div class="note"><b>B→A 迁移路径：</b>下版将端侧④的状态机逻辑<b>原封搬到云端⑧引擎</b>，端上恢复只报原始 distance，④模块废弃。迁移期可两套并行验证、灰度切换。端侧逻辑不删，作为云端不可用时的降级兜底。</div>
+
+ <!-- 11 -->
+ <h2 id="s11">11. 依赖与待确认项</h2>
+ <table>
+  <tr><th>#</th><th>待确认/依赖</th><th>找谁</th><th>为什么</th><th>状态</th></tr>
+  <tr><td>1</td><td>剩余距离单位/格式（PRD 已定整数·米）按此实现</td><td>汪帅/金龙(端上) · 仁杰(导航产品)</td><td>单位不统一阈值就废；格式归产品约束，端上据 §7 实现</td><td class="warn">推进中</td></tr>
+  <tr><td>2</td><td>时间类(剩余时长/到达时间)能否转统一单位、本期加不加</td><td>金龙 / 潘伟</td><td>决定 §6.4 是否纳入本期</td><td class="warn">待评估</td></tr>
+  <tr><td>3</td><td>目的地 address 落库格式（用于等值比对收藏地址）</td><td>金龙 / 潘伟</td><td>address 等值比对要先对齐格式</td><td class="warn">待确认</td></tr>
+  <tr><td>4</td><td><b>§8 one shot 判定走方案 A 还是 B</b></td><td>刘杨 + 张航(决策)</td><td>已定：<b>本期走 B（端上算事件）</b>，A 排下版统一。详见 §10</td><td class="ok">✅ 已定 B</td></tr>
+  <tr><td>5</td><td>POI 坐标/目的地数据最终源（Navi 插件 / 商情）</td><td>金龙</td><td>围栏判定要坐标来源固定</td><td class="warn">待确认</td></tr>
+  <tr><td>6</td><td>distance 运算符引擎支持范围确认</td><td>任军</td><td>清单已补 6 种运算符，需引擎背书</td><td class="warn">待确认</td></tr>
+  <tr><td>7</td><td>信号库 v2.5 锁版、导航信号编号定死</td><td>韩天亮</td><td>编号不定，配置平台注册无法定稿</td><td class="warn">待锁版</td></tr>
+  <tr><td colspan="5" style="background:#fef9c3"><b>v1.1 新增·佳杰必过集缺口信号待追（§6.5 编号 200+ 占位，待替换正式编号）</b></td></tr>
+  <tr><td>8</td><td>座位占用 <code>seat.*.occupied</code>：承重阈值、逐座字段结构</td><td>韩天亮(编号) · 金龙(字段)</td><td>序 2/4 依赖；占用口径=承重传感器（§6.5）</td><td class="warn">待锁版</td></tr>
+  <tr><td>9</td><td>空调电源/风量 <code>ac.power / ac.fan_level</code>："高档"档位映射</td><td>韩天亮 · 仁杰</td><td>序 5/6/7；本车档位归一为 low/mid/high</td><td class="warn">待锁版</td></tr>
+  <tr><td>10</td><td>电池电量 <code>battery.soc</code>："%"剥取、上报频率</td><td>仁杰 · 汪帅</td><td>序 18；端上报"50%"需剥单位</td><td class="warn">待确认</td></tr>
+  <tr><td>11</td><td>续航 <code>vehicle.range</code>：km/mi、与 SOC 同源(CLTP/WLTC)</td><td>仁杰 · 汪帅</td><td>序 19；统一 km</td><td class="warn">待确认</td></tr>
+  <tr><td>12</td><td>媒体播放 <code>media.playback</code>：切歌/暂停/结束粒度、trigger_source 字段</td><td>韩天亮 · 施佳杰</td><td>序 20/21；区分用户主动 vs 系统恢复</td><td class="warn">待确认</td></tr>
+  <tr><td>13</td><td>媒体音量 <code>media.volume</code>：0–100 归一、mute 枚举</td><td>仁杰</td><td>序 22</td><td class="warn">待确认</td></tr>
+  <tr><td>14</td><td>胎压 <code>tire.pressure</code>：单位归一(bar/kpa/psi)、四轮结构、冷热胎修正</td><td>韩天亮 · 汪帅</td><td>序 23/24；逐轮判</td><td class="warn">待确认</td></tr>
+  <tr><td>15</td><td>POI 路过 <code>poi.pass_by</code>：路径与围栏相交判定方(端/云)、围栏半径默认</td><td>金龙 · 任军</td><td>序 13【路过】事件依赖</td><td class="warn">待确认</td></tr>
+  <tr><td>16</td><td>无导航围栏兜底 <code>poi.geofence</code>：端侧是否提供靠近/离开收藏地址围栏事件</td><td>金龙</td><td>序 11/17 未开导航场景；§2.4 能力边界</td><td class="warn">待确认(能力边界)</td></tr>
+  <tr><td>17</td><td>座舱阈值 <code>dead_zone</code> 默认值（电量 48/52、续航 98/102、音量 80/82、胎压）</td><td>刘杨</td><td>数值型阈值防穿越抖动</td><td class="warn">待拍板</td></tr>
+ </table>
+
+ <!-- 12 -->
+ <h2 id="s12">12. 配置平台落地配置（火山后台"新建场景"页）</h2>
+ <table>
+  <tr><th>配置区</th><th>本需求要配什么</th></tr>
+  <tr><td class="f">基础信息</td><td>场景名（如"接近目的地提醒"）、所属业务、负责人</td></tr>
+  <tr><td class="f">signals 注册</td><td>注册 119/123/124/128/130/121/122 七条导航信号 + 复用 6(档位)；每条填 中文名/英文key/类型/取值/<b>运算符/单位</b></td></tr>
+  <tr><td class="f">动态条件区</td><td>配 <code>距离 ≤ 500m, trigger_type=one_shot, dead_zone(480/520)</code>；到达=距离≤50 且 档位变更为P 的组合条件</td></tr>
+  <tr><td class="f">执行动作 / 执行策略</td><td>命中后 Callback 给 advisor；one_shot 设"单程触发一次"，离车/重新导航后状态重置</td></tr>
+  <tr><td class="f">发布范围</td><td>上汽这版（D6X）；赛力斯按各自版本</td></tr>
+ </table>
+
+ <!-- 13 -->
+ <h2 id="s13">13. 验收标准（可测试）</h2>
+ <table>
+  <tr><th>#</th><th>验收项</th><th>预期</th></tr>
+  <tr><td>1</td><td>导航去公司，距公司从远到近</td><td>剩余距离首次 ≤480m 时<b>触发【接近】恰好 1 次</b>，479…50m <b>不再触发</b></td></tr>
+  <tr><td>2</td><td>500m 红灯口 GPS 抖动 498↔502</td><td>死区生效，<b>不重复触发接近</b></td></tr>
+  <tr><td>3</td><td>到达车位、挂 P 档</td><td>距离≤50 且 档位变更为P 时<b>触发【到达】1 次</b></td></tr>
+  <tr><td>4</td><td>驶离目的地 &gt;520m</td><td>触发【离开】1 次，状态置「已离开」</td></tr>
+  <tr><td>5</td><td>高架绕行（直线近、沿路远）</td><td>按<b>沿路线距离</b>判定，不提前误触发</td></tr>
+  <tr><td>6</td><td>导航目的地等于收藏地址(家)</td><td>触发【导航回家】事件</td></tr>
+  <tr><td>7</td><td>事件透出</td><td>各事件 Callback 字段完整、能被弋途 advisor 正确订阅消费</td></tr>
+  <tr><td>8</td><td>单位一致性</td><td>配置阈值 500 = 实车 500m，单位对齐无误触发</td></tr>
+  <tr><td colspan="3" style="background:#fef9c3"><b>v1.1 新增·佳杰必过集（座舱/车况）验收</b></td></tr>
+  <tr><td>9</td><td>电量边界（序 18）</td><td>50.0% <b>不触发</b>（lt 严格小于）；49.9% 触发 1 次；48↔52 区间不重复</td></tr>
+  <tr><td>10</td><td>胎压单位归一（序 23）</td><td>端上报 180kpa / 26psi → 归一为 1.8bar 后比对，不乱触/不漏触</td></tr>
+  <tr><td>11</td><td>占用判定口径（序 2/4）</td><td>副驾放包/宠物 <b>不触发</b>"上车"；承重传感器判有人 → 触发 1 次</td></tr>
+  <tr><td>12</td><td>音乐切歌（序 20）</td><td>自动切下一首 <b>不重复触发</b>"开始播放"；仅首次 stopped→playing 触发 1 次</td></tr>
+  <tr><td>13</td><td>暂停 vs 结束（序 21）</td><td>接电话暂停 <b>不触发</b>"结束"；仅真正 stopped 触发调低音量</td></tr>
+  <tr><td>14</td><td>无导航围栏兜底（序 11/17）</td><td>未开导航靠近收藏地址 → 围栏 enter 触发（若端侧支持）；无围栏能力 → 不误触、标能力边界</td></tr>
+ </table>
+
+ <!-- 14 -->
+ <h2 id="s14">14. 风险与对策</h2>
+ <table>
+  <tr><th>风险</th><th>影响</th><th>对策</th></tr>
+  <tr><td class="f"><s>A 方案改引擎工期顶不上 630</s></td><td><s>接近类服务整块延期</s></td><td><span class="ok">✅ 已用 B 兜底</span>（§10 · 端上算事件），A 排下版统一</td></tr>
+  <tr><td class="f">单位/格式产品文档缺口</td><td>配置阈值与实车对不上、误触发</td><td>§7 已定标准，推仁杰写进导航 PRD、汪帅据此实现</td></tr>
+  <tr><td class="f">信号库未锁版、编号变动</td><td>配置平台注册无法定稿</td><td>推韩天亮锁版或给临时稳定编号</td></tr>
+  <tr><td class="f">GPS 抖动 / 立体空间误触发</td><td>用户被骚扰、提前误报</td><td>死区 + 沿路线距离（§8.4）</td></tr>
+  <tr><td class="f">时间类格式无法转统一单位</td><td>到站时间类服务做不了</td><td>§6.4 待评估，不阻塞核心距离类</td></tr>
+  <tr><td colspan="3" style="background:#fef9c3"><b>v1.1 新增·佳杰必过集（座舱/车况）风险</b></td></tr>
+  <tr><td class="f">座舱信号未锁版（编号 200+ 占位）</td><td>配置平台注册无法定稿</td><td>推韩天亮尽快锁版给正式编号（§11 #8~#14）</td></tr>
+  <tr><td class="f">占用语义口径未对齐</td><td>上车/下车类误触发</td><td>§6.5 已定承重传感器口径，推汪帅/金龙确认承重阈值</td></tr>
+  <tr><td class="f">单位多制式（胎压 bar/kpa/psi、续航 km/mi）</td><td>阈值比对错乱、乱触/漏触</td><td>§7 归一标准 + 引擎按 unit 剥单位</td></tr>
+  <tr><td class="f">媒体事件风暴（切歌/播放器重启）</td><td>反复触发刷屏</td><td>playback 状态机 + ≥2s 去抖 + trigger_source(user/system)</td></tr>
+  <tr><td class="f">无导航围栏能力边界</td><td>序 11/17 未开导航场景做不了</td><td>推金龙确认端侧围栏 poi.geofence；无则标能力边界，不阻塞导航类主链路</td></tr>
+ </table>
+
+ <!-- 15 -->
+ <h2 id="s15">15. 排期与节点</h2>
+ <h3>15.1 导航信号（v1.0）</h3>
+ <ul class="tl">
+  <li><b>已完成</b>：v0.1 信号+判定逻辑文档；清单审计（补 31 运算符）；§7 格式标准已定并推仁杰</li>
+  <li><b>本周</b>：刘杨拍 A/B 方案 + 工期（决策，含张航）；韩天亮锁版给导航信号编号（119~133）；任军确认运算符；仁杰补格式进导航 PRD</li>
+  <li><b>开发期</b>：配置平台注册七导航信号 + 状态机/死区实现 + 事件 Callback</li>
+  <li><b>联调验证</b>：按 §13 #1~#8 验收实车跑通 → 标 pass → 通知弋途订阅</li>
+  <li><b>节点</b>：<span class="pill p0">P0·630 量产必须</span></li>
+ </ul>
+ <h3>15.2 座舱/车况信号（v1.1 · 6/23 新增）</h3>
+ <ul class="tl">
+  <li><b>已完成</b>：佳杰必过集 19 case 标准化 + 4 型边界全集 + 10 类信号定义 + DSL 示例 + 单位归一标准</li>
+  <li><b>本周</b>：推韩天亮<b>锁版给座舱信号正式编号</b>（替换 200+ 占位）；金龙确认座位占用字段结构/承重阈值；仁杰确认电量/续航上报格式</li>
+  <li><b>开发期</b>：配置平台注册 10 类座舱信号 + 单位剥尾缀解析 + dead_zone 防穿越 + 事件去抖(≥2s)</li>
+  <li><b>联调验证</b>：按 §13 #9~#14 验收 + §17.2 边界 case 25 条全过 → 标 pass</li>
+  <li><b>前置依赖</b>：<span class="warn">韩天亮锁版</span>（编号）+ <span class="warn">刘杨拍 dead_zone 默认值</span>（§11 #17）；未锁版前座舱信号无法在配置平台注册定稿</li>
+ </ul>
+
+ <!-- 16 -->
+ <h2 id="s16">16. 来源附录（可回溯）</h2>
+ <table>
+  <tr><th>类型</th><th>文件/来源</th><th>用途</th></tr>
+  <tr><td class="f">信号定义</td><td>《触发器条件清单》→ 可订阅信号能力清单（序号 119~133）</td><td>信号名/key/类型/取值/运算符</td></tr>
+  <tr><td class="f">场景依据</td><td>同上 → 主动服务(Advisor) 序号 11~16、22；主动服务覆盖（发起导航/目的地变更/回家去公司/接近/到达，均 P0）</td><td>P0 场景与逻辑表达</td></tr>
+  <tr><td class="f">决策依据</td><td>2026-06-16 与刘杨、潘伟、施佳杰 导航触发专项会</td><td>做/待评估/做不了三档 + 判定逻辑要求</td></tr>
+  <tr><td class="f">格式归属</td><td>2026-06-18 汪帅确认"端状态上报产品约束"</td><td>§7 数据格式标准归属</td></tr>
+  <tr><td class="f">原始需求</td><td>《触发器-导航信号需求-给刘杨.md》v0.1</td><td>本 PRD 前身</td></tr>
+ </table>
+
+ <!-- 17 -->
+ <h2 id="s17">17. 车端信号条件任务必过集·未支持 case（佳杰补充，v1.1 新增）</h2>
+ <div class="note">📌 本章收编佳杰 6/23 提交的《DNA-车端信号条件任务必过集》中<b>尚未支持</b>的 19 个 case（已支持 5 个：序 1/3/8/9/10 不在此列）。其中 <b>12 个为非导航类</b>（座舱/车况），与 §1–§16 导航逻辑<b>区隔</b>；导航/空间类 7 个（序 11–17）的判定见 §8.6。本章是这批 case 的<b>标准化清单 + 边界全集 + 信号缺口</b>，作为联调验收基准。</div>
+
+ <h3>17.1 未支持 case 标准化清单（19）</h3>
+ <table>
+  <tr><th>序</th><th>场景</th><th>用户 Query</th><th>触发条件</th><th>信号域</th><th>信号 key</th><th>operator</th><th>阈值/值</th><th>unit</th><th>trigger_type</th><th>动作</th><th>归属</th></tr>
+  <tr><td>2</td><td>上车</td><td>副驾上车→开玩笑导航派出所</td><td>副驾座位变更为已占用</td><td>座位</td><td><code>seat.passenger.occupied</code></td><td>changed_to</td><td>occupied</td><td>—</td><td>one_shot</td><td>车控:导航最近派出所</td><td>§17</td></tr>
+  <tr><td>4</td><td>上下车</td><td>副驾没人→关座椅加热</td><td>副驾座位 = 未占用</td><td>座位</td><td><code>seat.passenger.occupied</code></td><td>eq</td><td>unoccupied</td><td>—</td><td>one_shot(状态型)</td><td>车控:关副驾座椅加热</td><td>§17</td></tr>
+  <tr><td>5</td><td>空调</td><td>开空调→关车窗</td><td>空调状态变更为 on</td><td>空调</td><td><code>ac.power</code></td><td>changed_to</td><td>on</td><td>enum</td><td>one_shot</td><td>车控:关车窗</td><td>§17</td></tr>
+  <tr><td>6</td><td>空调</td><td>风量高档→关车窗</td><td>空调风量 = 高档</td><td>空调</td><td><code>ac.fan_level</code></td><td>gte</td><td>high</td><td>enum</td><td>one_shot</td><td>车控:关车窗</td><td>§17</td></tr>
+  <tr><td>7</td><td>空调</td><td>风量太大→提醒别吹</td><td>空调风量 ≥ 高档</td><td>空调</td><td><code>ac.fan_level</code></td><td>gte</td><td>high</td><td>enum</td><td>one_shot(延时)</td><td>播报:别一直吹</td><td>§17</td></tr>
+  <tr><td>11</td><td>导航</td><td>快到外婆家→打电话</td><td>靠近 {POI}</td><td>收藏地址</td><td><code>poi.distance</code></td><td>lte</td><td>500</td><td>m</td><td>one_shot</td><td>播报:打电话</td><td>§8.6</td></tr>
+  <tr><td>12</td><td>导航</td><td>快到公司→找充电桩</td><td>靠近 {POI}</td><td>收藏地址</td><td><code>poi.distance</code></td><td>lte</td><td>500</td><td>m</td><td>one_shot</td><td>播报+搜充电桩</td><td>§8.6</td></tr>
+  <tr style="background:#fef9c3"><td>13</td><td>导航</td><td>路过徐浦大桥→准备右转</td><td>路过 {POI}</td><td>POI 路径</td><td><code>poi.pass_by</code></td><td>eq</td><td>true</td><td>—</td><td>one_shot</td><td>播报:准备右转</td><td>§8.6</td></tr>
+  <tr><td>14</td><td>导航</td><td>离目的地 ≤1km→拿咖啡</td><td>目的地剩余距离 ≤ 1km</td><td>目的地</td><td><code>distance</code></td><td>lte</td><td>1000</td><td>m</td><td>one_shot</td><td>播报+搜咖啡</td><td>§8.6</td></tr>
+  <tr><td>15</td><td>导航</td><td>快到途经点 ≤1km→介绍</td><td>途经点剩余距离 ≤ 1km</td><td>途经点</td><td><code>waypoint.distance</code></td><td>lte</td><td>1000</td><td>m</td><td>one_shot</td><td>播报:介绍</td><td>§8.6</td></tr>
+  <tr><td>16</td><td>导航</td><td>快到途经点 ≤1km→找车位</td><td>途经点剩余距离 ≤ 1km</td><td>途经点</td><td><code>waypoint.distance</code></td><td>lte</td><td>1000</td><td>m</td><td>one_shot</td><td>搜停车场</td><td>§8.6</td></tr>
+  <tr><td>17</td><td>通勤</td><td>离开公司 &gt;500m→音乐+按摩</td><td>离开公司距离 &gt; 500m</td><td>收藏地址</td><td><code>poi.distance</code></td><td>gt</td><td>500</td><td>m</td><td>one_shot</td><td>车控:音乐+按摩</td><td>§8.6</td></tr>
+  <tr><td>18</td><td>充电</td><td>电量 &lt;50%→提醒充电</td><td>电池剩余电量 &lt; 50%</td><td>电池</td><td><code>battery.soc</code></td><td>lt</td><td>50</td><td>%</td><td>one_shot</td><td>播报:去充电</td><td>§17</td></tr>
+  <tr><td>19</td><td>充电</td><td>续航 &lt;100km→找充电桩</td><td>剩余续航 &lt; 100km</td><td>续航</td><td><code>vehicle.range</code></td><td>lt</td><td>100</td><td>km</td><td>one_shot</td><td>播报+搜桩</td><td>§17</td></tr>
+  <tr><td>20</td><td>媒体</td><td>音乐开始→音量调 60</td><td>音乐开始播放</td><td>媒体</td><td><code>media.playback</code></td><td>changed_to</td><td>playing</td><td>enum</td><td>one_shot</td><td>车控:音量=60</td><td>§17</td></tr>
+  <tr><td>21</td><td>媒体</td><td>音乐结束→音量调低</td><td>音乐结束播放</td><td>媒体</td><td><code>media.playback</code></td><td>changed_to</td><td>stopped</td><td>enum</td><td>one_shot</td><td>车控:音量调低</td><td>§17</td></tr>
+  <tr><td>22</td><td>媒体</td><td>音量 &gt;80→提醒小点声</td><td>音量状态 &gt; 80</td><td>媒体</td><td><code>media.volume</code></td><td>gt</td><td>80</td><td>%</td><td>one_shot(状态型)</td><td>播报:小点声</td><td>§17</td></tr>
+  <tr><td>23</td><td>驾驶</td><td>胎压 &lt;1.8→检查轮胎</td><td>轮胎胎压 &lt; 1.8bar</td><td>轮胎</td><td><code>tire.pressure</code></td><td>lt</td><td>1.8</td><td>bar</td><td>one_shot(每程首次)</td><td>播报:检查轮胎</td><td>§17</td></tr>
+  <tr><td>24</td><td>驾驶</td><td>胎压 &gt;2.9→检查轮胎</td><td>轮胎胎压 &gt; 2.9bar</td><td>轮胎</td><td><code>tire.pressure</code></td><td>gt</td><td>2.9</td><td>bar</td><td>one_shot</td><td>播报:检查轮胎</td><td>§17</td></tr>
+ </table>
+
+ <h3>17.2 边界 case 全集（25·4 型，判定机制见 §8.4+）</h3>
+ <table>
+  <tr><th>型</th><th>边界场景</th><th>易错点</th><th>预期行为</th><th>解法</th></tr>
+  <tr><td colspan="5" style="background:#fef9c3"><b>① 阈值穿越型（车速/续航/电量/胎压/音量/距离）</b></td></tr>
+  <tr><td class="f">①</td><td>电量正好 50.0%（序 18）</td><td>lt vs lte 混用</td><td>50.0 不触，49.9 才触</td><td>operator 明确；电量用 lt 严格小于</td></tr>
+  <tr><td class="f">①</td><td>续航 100km 附近抖 99.8↔100.3（序 19）</td><td>来回穿越刷屏</td><td>进一次发一次，不重复</td><td>死区 dead_zone{98,102} + 自锁，gt 102 才重置</td></tr>
+  <tr><td class="f">①</td><td>胎压单位混乱 1.8bar/180kpa/26psi（序 23）</td><td>单位剥错乱触</td><td>统一 bar 比较</td><td>unit 强制 bar，kpa÷100、psi×0.0689 归一（§7）</td></tr>
+  <tr><td class="f">①</td><td>续航 mi vs km（出口车型，序 19）</td><td>100mi≈160km 漂移</td><td>统一 km</td><td>unit 固定 km，mi÷1.609</td></tr>
+  <tr><td class="f">①</td><td>电量缓降 vs 胎压骤变（漏气秒跌）</td><td>骤变需即报</td><td>都 one_shot 首次穿越即发</td><td>状态机自锁，死区只防来回抖</td></tr>
+  <tr><td class="f">①</td><td>多阈值同帧（续航&lt;100 且 电量&lt;50）</td><td>连发两条</td><td>各自独立 one_shot，允许同帧</td><td>规则不互斥；Action 层可选 30s 合并播报</td></tr>
+  <tr><td class="f">①</td><td>胎压四轮不一（左前 1.7、右后 2.0）</td><td>取哪轮</td><td>任一轮低即报，payload 带 wheel</td><td>逐轮判，任一命中触发</td></tr>
+  <tr><td class="f">①</td><td>音量 80 附近手动拖（序 22）</td><td>79↔81 反复提醒</td><td>升过 82 才能再触</td><td>死区 dead_zone{80,82} + 自锁</td></tr>
+  <tr><td colspan="5" style="background:#fef9c3"><b>② 状态变更型（座位占用/空调/座椅加热）</b></td></tr>
+  <tr><td class="f">②</td><td>副驾放包/宠物/仅系安全带（序 2/4）</td><td>occupied 语义模糊</td><td>包/宠物不触发</td><td>occupied=承重传感器（§6.5 口径）</td></tr>
+  <tr><td class="f">②</td><td>占用信号瞬时闪一下</td><td>闪一下误触</td><td>稳定 ≥2s 才认</td><td>changed_to 需持续 ≥2s + 自锁</td></tr>
+  <tr><td class="f">②</td><td>空调"高档"档位映射（序 6/7）</td><td>几档算 high 不一</td><td>统一 low/mid/high 或 ≥80%</td><td>fan_level 枚举，端上归一三档</td></tr>
+  <tr><td class="f">②</td><td>空调 on 持续开着（序 5）</td><td>changed_to vs eq 混用</td><td>仅 off→on 一跳触发一次</td><td>用 changed_to 非 eq，自锁</td></tr>
+  <tr><td class="f">②</td><td>序 4 副驾"没坐人" eq false</td><td>eq 每帧满足触发</td><td>状态型 one_shot 首次满足</td><td>trigger_type=one_shot 状态型，自锁</td></tr>
+  <tr><td class="f">②</td><td>关加热动作执行失败</td><td>重复触发</td><td>动作有 ack，失败不重置</td><td>Action 层幂等 + execute_strategy</td></tr>
+  <tr><td colspan="5" style="background:#fef9c3"><b>③ 空间 POI 型（靠近/路过/离开）</b></td></tr>
+  <tr><td class="f">③</td><td>"外婆家"同名多 POI（序 11）</td><td>匹配错地点</td><td>优先收藏地址&gt;目的地&gt;POI 搜索</td><td>§8.5 POI 解析，多候选不触发记日志</td></tr>
+  <tr><td class="f">③</td><td>未开导航却要"靠近外婆家"（序 11）</td><td>没目的地无 distance</td><td>无导航走围栏</td><td>退化 poi.geofence（§2.4），列 §11 #16</td></tr>
+  <tr><td class="f">③</td><td>一天多次经过同一 POI（序 11/17）</td><td>one_shot 一次还是每次</td><td>默认单程一次</td><td>离车/重导航重置（§12 执行策略）</td></tr>
+  <tr><td class="f">③</td><td>路过(经过不停) vs 靠近(接近目的地)</td><td>语义混用</td><td>路过=路径相交非目的地；靠近=distance≤阈值</td><td>新增【路过】事件 poi.pass_by（§8.6）</td></tr>
+  <tr><td class="f">③</td><td>离开公司 500m 直线 vs 沿路线（序 17）</td><td>直线 300m 绕路 2km 误判</td><td>沿路线</td><td>一律沿路线（§7），dead_zone{480,520}</td></tr>
+  <tr><td class="f">③</td><td>离开公司无导航（序 17）</td><td>没沿路线距离</td><td>退化围栏驶出即算离开</td><td>围栏兜底，列 §11 #16</td></tr>
+  <tr><td colspan="5" style="background:#fef9c3"><b>④ 事件型（音乐开始/结束播放）</b></td></tr>
+  <tr><td class="f">④</td><td>切歌（下一首自动，序 20）</td><td>切歌算开始？每首触发</td><td>切歌不算，仅 stopped→playing</td><td>playback 状态机，playing 内切歌不重发</td></tr>
+  <tr><td class="f">④</td><td>暂停 vs 结束（序 21）</td><td>暂停算结束？</td><td>暂停 paused ≠ 结束 stopped</td><td>仅 →stopped 触发，接电话暂停不触</td></tr>
+  <tr><td class="f">④</td><td>快速切歌事件风暴（0.5s 切 10 首）</td><td>每切一首发开始</td><td>playing 持续 ≥2s 才认</td><td>事件去抖 ≥2s</td></tr>
+  <tr><td class="f">④</td><td>播放器崩溃重启误发 playing</td><td>重启恢复误判</td><td>区分用户主动 vs 系统恢复</td><td>payload 带 trigger_source(user/system)</td></tr>
+  <tr><td class="f">④</td><td>音乐开始时音量已 60（序 20 目标值）</td><td>调 60 无变化重复执行</td><td>目标=当前则跳过</td><td>Action 层幂等</td></tr>
+ </table>
+
+ <h3>17.3 信号缺口（10 类，详见 §6.5 / §11 #8~#17）</h3>
+ <table>
+  <tr><th>信号</th><th>英文 key</th><th>对应序</th><th>待追（找谁）</th></tr>
+  <tr><td class="f">座位占用</td><td><code>seat.*.occupied</code></td><td>2 / 4</td><td>承重阈值、逐座字段（韩天亮·金龙 → §11 #8）</td></tr>
+  <tr><td class="f">空调电源/风量</td><td><code>ac.power / ac.fan_level</code></td><td>5 / 6 / 7</td><td>"高档"档位映射（韩天亮·仁杰 → §11 #9）</td></tr>
+  <tr><td class="f">电池电量</td><td><code>battery.soc</code></td><td>18</td><td>"%"剥取、上报频率（仁杰·汪帅 → §11 #10）</td></tr>
+  <tr><td class="f">剩余续航</td><td><code>vehicle.range</code></td><td>19</td><td>km/mi、与 SOC 同源（仁杰·汪帅 → §11 #11）</td></tr>
+  <tr><td class="f">媒体播放</td><td><code>media.playback</code></td><td>20 / 21</td><td>切歌/暂停/结束粒度、trigger_source（韩天亮·佳杰 → §11 #12）</td></tr>
+  <tr><td class="f">媒体音量</td><td><code>media.volume</code></td><td>22</td><td>0–100 归一、mute 枚举（仁杰 → §11 #13）</td></tr>
+  <tr><td class="f">轮胎胎压</td><td><code>tire.pressure</code></td><td>23 / 24</td><td>单位归一、四轮结构、冷热胎修正（韩天亮·汪帅 → §11 #14）</td></tr>
+  <tr><td class="f">POI 路过</td><td><code>poi.pass_by</code></td><td>13</td><td>路径与围栏相交判定方、围栏半径（金龙·任军 → §11 #15）</td></tr>
+  <tr><td class="f">无导航围栏兜底</td><td><code>poi.geofence</code></td><td>11 / 17</td><td>端侧是否提供靠近/离开收藏地址围栏（金龙 → §11 #16，能力边界）</td></tr>
+ </table>
+ <div class="risk"><b>结论：</b>本批 19 个 case 中，<b>序 13（路过）、序 11/17（无导航围栏）依赖新增能力</b>（现有协议没有），其余复用 §8 状态机/死区/沿路线即可落地。<b>落地前置</b>：§6.5 信号锁版（韩天亮）+ §7 单位口径（仁杰·汪帅）+ §11 #17 死区默认值（刘杨）。</div>
+
+ <h3>17.4 来源</h3>
+ <table>
+  <tr><th>类型</th><th>文件/来源</th><th>说明</th></tr>
+  <tr><td class="f">原始素材</td><td>《DNA-车端信号条件任务必过集.xlsx》（佳杰 2026-06-23，<code>Downloads/yx-files</code>）</td><td>24 case 必过集；本文档收编其中未支持 19 个，已支持 5 个（序 1/3/8/9/10）不在此列</td></tr>
+  <tr><td class="f">上游引用</td><td>《主动服务-Attention触发器-需求》《场景感知状态信号库 v2.5》《触发器条件库 v4》</td><td>信号/场景上游，已核对不重复造；条件库 v4 内有"佳杰 10 必过 case 覆盖度"追踪表，本批 24 为其扩充</td></tr>
+ </table>
+
+ </main>
+</div>
+</body>
+</html>

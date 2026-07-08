@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>动态知识注入系统 — 逻辑全解</title>
+<style>
+  :root {
+    --bg: #0f0f1a;
+    --card: #161625;
+    --border: #2a2a40;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --dim: #64748b;
+    --purple: #a855f7;
+    --blue: #3b82f6;
+    --green: #10b981;
+    --orange: #f97316;
+    --red: #ef4444;
+    --yellow: #eab308;
+    --cyan: #06b6d4;
+    --pink: #ec4899;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    padding: 40px 60px;
+    line-height: 1.8;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    background: linear-gradient(135deg, #a855f7, #3b82f6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .subtitle { color: var(--muted); font-size: 14px; margin-bottom: 40px; }
+  h2 {
+    font-size: 20px;
+    font-weight: 600;
+    margin: 48px 0 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  h3 { font-size: 16px; font-weight: 600; margin: 24px 0 10px; color: var(--text); }
+  p { margin-bottom: 14px; color: var(--muted); font-size: 15px; }
+  strong { color: var(--text); }
+
+  /* 一句话卡片 */
+  .oneliner {
+    background: linear-gradient(135deg, #1a1030, #101a30);
+    border: 1px solid #3a2a60;
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin: 20px 0;
+    font-size: 17px;
+    color: var(--text);
+    line-height: 1.8;
+  }
+  .oneliner em { color: var(--purple); font-style: normal; font-weight: 600; }
+  .oneliner .tag {
+    display: inline-block;
+    background: #2a1a4a;
+    color: var(--purple);
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-bottom: 8px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+  }
+
+  /* 流程大图 */
+  .flow-container {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    margin: 24px 0;
+    overflow-x: auto;
+  }
+  .flow-row {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin: 16px 0;
+    flex-wrap: nowrap;
+  }
+  .flow-box {
+    border-radius: 10px;
+    padding: 14px 18px;
+    text-align: center;
+    min-width: 130px;
+    flex-shrink: 0;
+  }
+  .flow-box .icon { font-size: 24px; margin-bottom: 4px; }
+  .flow-box .name { font-size: 13px; font-weight: 600; }
+  .flow-box .desc { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .flow-box.user { background: #1a2040; border: 1.5px solid var(--blue); }
+  .flow-box.user .name { color: var(--blue); }
+  .flow-box.selector { background: #1e1040; border: 1.5px solid var(--purple); }
+  .flow-box.selector .name { color: var(--purple); }
+  .flow-box.knowledge { background: #201a08; border: 1.5px solid var(--orange); }
+  .flow-box.knowledge .name { color: var(--orange); }
+  .flow-box.director { background: #0a2018; border: 1.5px solid var(--green); }
+  .flow-box.director .name { color: var(--green); }
+  .flow-box.tool { background: #1a1020; border: 1.5px solid var(--pink); }
+  .flow-box.tool .name { color: var(--pink); }
+  .flow-box.output { background: #0a1a2a; border: 1.5px solid var(--cyan); }
+  .flow-box.output .name { color: var(--cyan); }
+  .flow-arrow {
+    font-size: 20px;
+    color: var(--dim);
+    padding: 0 8px;
+    flex-shrink: 0;
+  }
+  .flow-label {
+    font-size: 10px;
+    color: var(--dim);
+    text-align: center;
+    margin-top: -8px;
+    margin-bottom: 4px;
+  }
+
+  /* 编号步骤 */
+  .step-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin: 20px 0;
+    position: relative;
+  }
+  .step-grid::before {
+    content: '';
+    position: absolute;
+    left: 23px;
+    top: 24px;
+    bottom: 24px;
+    width: 2px;
+    background: var(--border);
+  }
+  .step-item {
+    display: flex;
+    gap: 16px;
+    padding: 16px 0;
+    position: relative;
+  }
+  .step-num {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 700;
+    flex-shrink: 0;
+    z-index: 1;
+  }
+  .step-content { flex: 1; padding-top: 4px; }
+  .step-content .title { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+  .step-content .body { font-size: 14px; color: var(--muted); }
+  .step-content .body strong { color: var(--text); }
+  .step-content .detail {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-top: 10px;
+    font-size: 13px;
+  }
+
+  /* 对比表 */
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 14px;
+  }
+  .compare-table th {
+    background: #1a1a30;
+    padding: 10px 14px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 13px;
+    border-bottom: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .compare-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid #1a1a28;
+    color: var(--muted);
+  }
+  .compare-table tr:hover td { background: #1a1a25; }
+  .compare-table .highlight { color: var(--text); font-weight: 600; }
+
+  pre {
+    background: #0a0a15;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    font-size: 13px;
+    font-family: "SF Mono", "Fira Code", monospace;
+    overflow-x: auto;
+    line-height: 1.6;
+    color: var(--muted);
+    margin: 12px 0;
+    white-space: pre-wrap;
+  }
+
+  .callout {
+    border-radius: 0 10px 10px 0;
+    padding: 14px 18px;
+    margin: 16px 0;
+    font-size: 14px;
+  }
+  .callout.purple { background: #1a1030; border-left: 3px solid var(--purple); }
+  .callout.green { background: #0a1a15; border-left: 3px solid var(--green); }
+  .callout.orange { background: #1a1508; border-left: 3px solid var(--orange); }
+  .callout.blue { background: #0a1020; border-left: 3px solid var(--blue); }
+  .callout.red { background: #1a0a0a; border-left: 3px solid var(--red); }
+  .callout strong { color: var(--text); }
+
+  .tag-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 10px 0;
+  }
+  .tag {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .scenario-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    margin: 12px 0;
+  }
+  .scenario-box .scene-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .scenario-box .scene-label {
+    font-size: 12px;
+    color: var(--dim);
+    background: var(--bg);
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+  .scenario-box .scene-title { font-size: 15px; font-weight: 600; }
+  .dialog { margin: 8px 0; }
+  .dialog .line {
+    display: flex;
+    gap: 10px;
+    margin: 6px 0;
+    font-size: 13px;
+  }
+  .dialog .role {
+    flex-shrink: 0;
+    font-weight: 600;
+    width: 60px;
+    text-align: right;
+  }
+  .dialog .role.user { color: var(--blue); }
+  .dialog .role.system { color: var(--dim); }
+  .dialog .role.ai { color: var(--green); }
+  .dialog .role.tool { color: var(--orange); }
+  .dialog .msg { color: var(--muted); flex: 1; }
+
+  .section-divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border), transparent);
+    margin: 40px 0;
+  }
+
+  .footer {
+    margin-top: 48px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--dim);
+  }
+</style>
+</head>
+<body>
+
+<h1>动态知识注入系统 — 逻辑全解</h1>
+<p class="subtitle">司机 Agent 2.0 / PRD 逻辑骨架 + 数据流完整讲解 / 2026-05-18</p>
+
+<!-- ==================== 一句话 ==================== -->
+<div class="oneliner">
+  <div class="tag">一句话理解整个系统</div><br>
+  用户说一句话 → <em>Selector 判断</em>「这句话需要什么领域知识」→ 从知识库里<em>挑出对应的行为指南</em> → 塞进 Director 的 prompt 里 → Director <em>带着这份"专业手册"</em>来回答用户、调用工具。
+</div>
+
+<p>核心思想很简单：<strong>不是把所有知识塞给模型，而是每一轮对话动态挑选最相关的知识注入。</strong>就像一个全科医生，接诊时根据症状先翻开对应科室的诊疗手册，而不是抱着全部 64 本手册看病。</p>
+
+<!-- ==================== 全局数据流 ==================== -->
+<h2>一、全局数据流：一句话从进来到出去经历了什么</h2>
+
+<div class="flow-container">
+  <div class="flow-row">
+    <div class="flow-box user">
+      <div class="icon">🗣</div>
+      <div class="name">用户说话</div>
+      <div class="desc">"帮我接我爸妈，<br>航班CA1234"</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box selector">
+      <div class="icon">🔍</div>
+      <div class="name">Selector</div>
+      <div class="desc">知识筛选Agent<br>判断需要哪些知识</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box knowledge">
+      <div class="icon">📋</div>
+      <div class="name">知识拼接</div>
+      <div class="desc">按ID取出知识全文<br>拼成 {{knowledge}}</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box director">
+      <div class="icon">🧠</div>
+      <div class="name">Director</div>
+      <div class="desc">对话推理Agent<br>带着知识回答+行动</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box output">
+      <div class="icon">💬</div>
+      <div class="name">回复 + 行动</div>
+      <div class="desc">说话 + 调工具<br>（导航/车控/搜索…）</div>
+    </div>
+  </div>
+  <div class="flow-label" style="margin-top:12px;">↻ 工具返回结果 → 回到 Director 继续推理 → 下一轮用户说话 → 重新触发 Selector</div>
+</div>
+
+<!-- ==================== 第一层详解 ==================== -->
+<h2>二、第一层：Knowledge Selector（知识筛选 Agent）</h2>
+
+<div class="callout purple">
+  <strong>它的职责只有一件事：</strong>根据"用户说了什么 + 当前什么状态"，从知识库里挑出最相关的知识 ID。它不回答用户，不调工具。
+</div>
+
+<h3>它看到什么（5 个输入）</h3>
+
+<div class="step-grid">
+  <div class="step-item">
+    <div class="step-num" style="background:#1a2040;color:var(--blue);">1</div>
+    <div class="step-content">
+      <div class="title">user_query — 用户说的话</div>
+      <div class="body">不只是文字，还包含<strong>谁在说</strong>（speaker_name）和<strong>坐在哪</strong>（speaker_position: 主驾/副驾/二排左…）。<br>同一句"好热啊"，主驾说和后排小孩说，需要的知识可能完全不同。</div>
+    </div>
+  </div>
+  <div class="step-item">
+    <div class="step-num" style="background:#1a2040;color:var(--blue);">2</div>
+    <div class="step-content">
+      <div class="title">conversation_history — 最近 10 轮对话</div>
+      <div class="body">让 Selector 理解上下文。比如用户前面说了"去机场"，现在问"还要多久"，Selector 需要知道这是在问<strong>去机场的行程</strong>，而不是随便问时间。</div>
+    </div>
+  </div>
+  <div class="step-item">
+    <div class="step-num" style="background:#1a2040;color:var(--blue);">3</div>
+    <div class="step-content">
+      <div class="title">goal_list — 当前目标队列</div>
+      <div class="body">正在进行中的持续目标。比如"导航去周末游目的地"还没结束，相关知识就不能删。<br><strong>关键原则：目标在，知识就留。</strong></div>
+    </div>
+  </div>
+  <div class="step-item">
+    <div class="step-num" style="background:#1a2040;color:var(--blue);">4</div>
+    <div class="step-content">
+      <div class="title">env_info — 实时车辆状态</div>
+      <div class="body">空调/座椅/速度/电量/位置/导航/温度/音量… 全车实时状态。<br><strong>关键原则：趋势比绝对值更重要。</strong>温度从 22℃ 涨到 29℃ 比"当前 29℃"更有决策价值。</div>
+    </div>
+  </div>
+  <div class="step-item">
+    <div class="step-num" style="background:#1a2040;color:var(--blue);">5</div>
+    <div class="step-content">
+      <div class="title">loaded_knowledge_ids — 当前已加载的知识</div>
+      <div class="body">上一轮已经塞进 Director 的知识列表。Selector 输出的是<strong>增量</strong>——哪些要新加，哪些要删掉。<br>避免每次全量替换，减少不必要的上下文波动。</div>
+    </div>
+  </div>
+</div>
+
+<h3>它有什么（知识库索引）</h3>
+
+<p>知识库按 <strong>6 个"专家角色"</strong> 组织，每个角色覆盖不同领域。一共约 64 条知识，用四段式编码：</p>
+
+<table class="compare-table">
+  <tr>
+    <th style="width:60px;">代码</th>
+    <th style="width:120px;">专家角色</th>
+    <th style="width:50px;">数量</th>
+    <th>覆盖范围</th>
+    <th style="width:160px;">举例</th>
+  </tr>
+  <tr>
+    <td><span style="color:var(--orange);font-weight:700;">EXP</span></td>
+    <td class="highlight">销售/体验官</td>
+    <td>15 条</td>
+    <td>展厅看车、试驾伴行、离车送别</td>
+    <td>EXP-01-03-01 主驾落座首次体验</td>
+  </tr>
+  <tr>
+    <td><span style="color:var(--blue);font-weight:700;">DRV</span></td>
+    <td class="highlight">司机/导游</td>
+    <td>20 条</td>
+    <td>通勤、接送人、办事、充电、兜风、泊车指引</td>
+    <td>DRV-01-01-03 接机/火车</td>
+  </tr>
+  <tr>
+    <td><span style="color:var(--green);font-weight:700;">COM</span></td>
+    <td class="highlight">随侍/管家</td>
+    <td>8 条</td>
+    <td>调温/调光/调坐姿/晕车/小憩/冥想</td>
+    <td>COM-01-01-06 晕车干预</td>
+  </tr>
+  <tr>
+    <td><span style="color:var(--yellow);font-weight:700;">ENT</span></td>
+    <td class="highlight">DJ/主播</td>
+    <td>7 条</td>
+    <td>听歌/播客/新闻/听书/游戏/节目编排</td>
+    <td>ENT-01-01-01 听歌</td>
+  </tr>
+  <tr>
+    <td><span style="color:var(--pink);font-weight:700;">LIFE</span></td>
+    <td class="highlight">管家/助理</td>
+    <td>7 条</td>
+    <td>停车缴费/天气/航班/比赛/金融/快递/百科</td>
+    <td>LIFE-01-02-02 查航班</td>
+  </tr>
+  <tr>
+    <td><span style="color:var(--cyan);font-weight:700;">EMO</span></td>
+    <td class="highlight">伙伴</td>
+    <td>7 条</td>
+    <td>迎宾仪式/生日彩蛋/闲聊共情</td>
+    <td>EMO-01-02-01 生日惊喜</td>
+  </tr>
+</table>
+
+<h3>它怎么判断（5 条筛选原则）</h3>
+
+<div class="scenario-box">
+  <table class="compare-table">
+    <tr><th style="width:40px;">#</th><th style="width:140px;">原则</th><th>具体含义</th><th style="width:200px;">例子</th></tr>
+    <tr>
+      <td class="highlight">1</td>
+      <td class="highlight">场景绑定推理</td>
+      <td>先判断用户处于什么<strong>具体场景</strong>，再匹配对应知识。不是关键词匹配，是场景理解。</td>
+      <td>"好热啊" + 暴晒刚上车 → 急速降温<br>"好热啊" + 开了一小时 → 调温度</td>
+    </tr>
+    <tr>
+      <td class="highlight">2</td>
+      <td class="highlight">关注环境变化</td>
+      <td>趋势比绝对值更有价值。温度在涨、人数在变、车在进地库——这些<strong>变化</strong>触发知识切换。</td>
+      <td>温度 5 分钟涨 7℃ → 需要 COM-01-01-01<br>车辆进入地库 → 需要 DRV-01-02-02</td>
+    </tr>
+    <tr>
+      <td class="highlight">3</td>
+      <td class="highlight">目标持续关联</td>
+      <td>只要目标队列里有进行中的目标，支撑它的知识就<strong>不能删</strong>。</td>
+      <td>目标"导航去餐厅"还在 → DRV 知识保留<br>用户说"算了不去了" → 才可以删</td>
+    </tr>
+    <tr>
+      <td class="highlight">4</td>
+      <td class="highlight">增量更新</td>
+      <td>只输出<strong>变化部分</strong>（新增 + 删除），不重复输出已加载的知识。</td>
+      <td>上轮已加载 ENT-01-01-01 → 这轮只输出新增的 COM-01-01-06</td>
+    </tr>
+    <tr>
+      <td class="highlight">5</td>
+      <td class="highlight">不虚构</td>
+      <td>信息不足以判断场景时，<strong>不猜</strong>。宁可输出空列表，让 Director 自己问用户。</td>
+      <td>用户只说"帮我弄一下" → 不瞎匹配，add 为空</td>
+    </tr>
+  </table>
+</div>
+
+<h3>它输出什么</h3>
+
+<pre>{
+  "add_knowledge_ids": ["DRV-01-01-03"],      <span style="color:var(--green);">// 本轮新增的知识</span>
+  "remove_knowledge_ids": ["ENT-01-01-01"],    <span style="color:var(--red);">// 本轮删掉的知识</span>
+  "reasoning": {
+    "add_reason": "用户要去机场接人且提供航班号，匹配接机场景",
+    "remove_reason": "之前的听歌知识在接机任务中不再需要"
+  }
+}</pre>
+
+<!-- ==================== 中间层 ==================== -->
+<h2>三、中间层：知识拼接</h2>
+
+<div class="callout orange">
+  <strong>这一步没有 AI，纯机械操作：</strong>拿到 Selector 输出的 ID 列表 → 去知识数据库（Excel）里查出每个 ID 对应的全文 → 拼接成一个字符串 → 塞进 Director 的 system prompt 的 {{knowledge}} 占位符里。
+</div>
+
+<p>每条知识全文约 <strong>1500-2500 字</strong>，不是一句话摘要，而是一份完整的<strong>行为指南</strong>，包含：</p>
+
+<table class="compare-table">
+  <tr><th>组成部分</th><th>内容</th><th>作用</th></tr>
+  <tr>
+    <td class="highlight">场景名称 + 描述</td>
+    <td>这个知识覆盖什么情况</td>
+    <td>让 Director 知道"我现在在处理什么场景"</td>
+  </tr>
+  <tr>
+    <td class="highlight">互斥锚定</td>
+    <td>容易混淆的相似场景怎么区分</td>
+    <td>防止 Director 用错知识</td>
+  </tr>
+  <tr>
+    <td class="highlight">行为规则</td>
+    <td>具体怎么做，什么能做什么不能做</td>
+    <td>指导 Director 的回复和工具调用</td>
+  </tr>
+  <tr>
+    <td class="highlight">执行步骤</td>
+    <td>1→2→3 的操作流程</td>
+    <td>告诉 Director 先做什么后做什么</td>
+  </tr>
+  <tr>
+    <td class="highlight">示例</td>
+    <td>具体输入→输出的对照</td>
+    <td>让 Director 理解输出格式和语气</td>
+  </tr>
+</table>
+
+<div class="callout blue">
+  <strong>打个比方：</strong>Selector 是"导诊台"，告诉你去哪个科室；知识全文是那个科室的"诊疗手册"；Director 是拿着手册看诊的医生。
+</div>
+
+<!-- ==================== 第二层详解 ==================== -->
+<h2>四、第二层：Director / Thinker（对话推理 Agent）</h2>
+
+<div class="callout green">
+  <strong>它是真正面对用户的角色。</strong>它拿到动态注入的知识后，负责：说什么话、调什么工具、什么时候沉默。
+</div>
+
+<h3>它的 System Prompt 长什么样</h3>
+
+<p>Director 的 SP 是固定模板 + 动态知识的组合：</p>
+
+<pre><span style="color:var(--dim);">// ===== 固定部分 =====</span>
+你是豆包，一台AI汽车的个人助手。你的工作是与用户交流并执行任务。
+
+<span style="color:var(--dim);">// 输入类型定义（3种）</span>
+<span style="color:var(--dim);">// 工具列表（18个）</span>
+<span style="color:var(--dim);">// 输出格式要求</span>
+<span style="color:var(--dim);">// 注意事项（14条）</span>
+<span style="color:var(--dim);">// 参考示例（8个多轮对话）</span>
+
+<span style="color:var(--dim);">// ===== 动态部分（每轮都可能变） =====</span>
+<span style="color:var(--orange);">## 动态专业知识：</span>
+<span style="color:var(--orange);">&lt;动态专业知识&gt;</span>
+<span style="color:var(--orange);">{{knowledge}}  ← Selector 选出的知识全文在这里</span>
+<span style="color:var(--orange);">&lt;/动态专业知识&gt;</span></pre>
+
+<h3>它处理 3 种输入</h3>
+
+<div class="tag-row">
+  <div class="tag" style="background:#0a1a30;color:var(--blue);border:1px solid #1a3060;">user_query — 用户说的话</div>
+  <div class="tag" style="background:#1a1a08;color:var(--yellow);border:1px solid #3a3000;">advisor — 其他 Agent 的建议</div>
+  <div class="tag" style="background:#1a1008;color:var(--orange);border:1px solid #3a2000;">tool_feedback — 工具的返回结果</div>
+</div>
+
+<p><strong>advisor</strong> 是特殊输入：比如"车内温度过高建议降温"——这是系统主动触发的，不是用户说的。Director 需要把 advisor 的建议融合进回复里，但<strong>不能让用户感觉是系统在替他决定</strong>，要解释"为什么这样做"。</p>
+
+<h3>它能调用 18 个工具（分 5 组）</h3>
+
+<table class="compare-table">
+  <tr><th style="width:80px;">类别</th><th>工具</th><th>什么时候用</th></tr>
+  <tr>
+    <td class="highlight">车控类</td>
+    <td>车控 / 车状态查询 / 导航控制</td>
+    <td>开空调、查电量、开始导航</td>
+  </tr>
+  <tr>
+    <td class="highlight">搜索类</td>
+    <td>天气 / POI / 路线规划 / 联网搜索 / 车书问答</td>
+    <td>找餐厅、查路线、查天气</td>
+  </tr>
+  <tr>
+    <td class="highlight">媒体类</td>
+    <td>音乐 / 短视频 / AI 播客 / 图片生成</td>
+    <td>放歌、看视频、生成图片</td>
+  </tr>
+  <tr>
+    <td class="highlight">记忆类</td>
+    <td>记忆检索 / 人脸注册 / 长期记忆更新</td>
+    <td>记住偏好、认识新乘客</td>
+  </tr>
+  <tr>
+    <td class="highlight">管理类</td>
+    <td>目标管理 / GUI 操作 / 视觉问答</td>
+    <td>点外卖、持续追踪目标</td>
+  </tr>
+</table>
+
+<h3>它输出什么</h3>
+
+<pre>{
+  "talk_or_not": "yes",                          <span style="color:var(--dim);">// 要不要说话</span>
+  "talk_content": "好的，我先规划去T2的路线",      <span style="color:var(--dim);">// 说什么</span>
+  "action_list": [                                <span style="color:var(--dim);">// 做什么</span>
+    { "action_id": "1",
+      "params": {"query": "去虹桥机场T2航站楼"},
+      "tool_name": "route_planning_qa" }
+  ]
+}</pre>
+
+<h3>它的关键判断逻辑（14 条注意事项精华）</h3>
+
+<div class="scenario-box">
+  <table class="compare-table">
+    <tr><th style="width:180px;">情况</th><th>怎么做</th><th style="width:200px;">为什么</th></tr>
+    <tr>
+      <td>听不懂 / 不是对自己说的</td>
+      <td class="highlight">沉默（不说话、不调工具）</td>
+      <td>车里人聊天不需要 AI 插嘴</td>
+    </tr>
+    <tr>
+      <td>工具成功返回（如"车窗已关"）</td>
+      <td class="highlight">大多数情况沉默</td>
+      <td>用户看得见结果，不用复述</td>
+    </tr>
+    <tr>
+      <td>需求模糊</td>
+      <td class="highlight">问一句就好</td>
+      <td>不要猜，但也不要连问三个</td>
+    </tr>
+    <tr>
+      <td>工具之间有先后依赖</td>
+      <td class="highlight">串行调用，不并发</td>
+      <td>先查电量再决定充电站</td>
+    </tr>
+    <tr>
+      <td>工具之间互不依赖</td>
+      <td class="highlight">并行调用</td>
+      <td>导航 + 搜餐厅可以同时发起</td>
+    </tr>
+    <tr>
+      <td>GUI 任务等待中，用户说了短话</td>
+      <td class="highlight">优先当作 GUI 回复</td>
+      <td>"确认""好"大概率是回 GUI 的</td>
+    </tr>
+    <tr>
+      <td>工具反复失败</td>
+      <td class="highlight">暂时放弃，不死循环</td>
+      <td>别让用户一直等</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ==================== 完整场景走一遍 ==================== -->
+<h2>五、完整走一遍：用户说"帮我接我爸妈，航班 CA1234"</h2>
+
+<div class="step-grid">
+  <div class="step-item">
+    <div class="step-num" style="background:#1a2040;color:var(--blue);">1</div>
+    <div class="step-content">
+      <div class="title">用户开口</div>
+      <div class="body">
+        <code>{"query":"去机场接我爸妈，航班CA1234", "speaker_name":"明骏", "speaker_position":"主驾"}</code><br>
+        同时系统采集到：车刚启动、车内 1 人、舱内视觉正常、目标队列为空、当前无已加载知识。
+      </div>
+    </div>
+  </div>
+
+  <div class="step-item">
+    <div class="step-num" style="background:#1e1040;color:var(--purple);">2</div>
+    <div class="step-content">
+      <div class="title">Selector 开始工作</div>
+      <div class="body">
+        读取 5 个输入 → 扫描知识索引 → 判断：
+        <div class="detail">
+          <strong>场景匹配</strong>：用户明确说"去机场接人" + 提供航班号 → 命中 <strong>DRV-01-01-03（接机/火车）</strong><br>
+          <strong>环境判断</strong>：车刚启动、1 人、无特殊状态 → 无需额外知识<br>
+          <strong>已加载知识</strong>：空 → 纯新增，无需删除
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step-item">
+    <div class="step-num" style="background:#1e1040;color:var(--purple);">3</div>
+    <div class="step-content">
+      <div class="title">Selector 输出</div>
+      <div class="body">
+<pre style="margin:4px 0;">{ "add_knowledge_ids": ["DRV-01-01-03"], "remove_knowledge_ids": [] }</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="step-item">
+    <div class="step-num" style="background:#201a08;color:var(--orange);">4</div>
+    <div class="step-content">
+      <div class="title">知识拼接</div>
+      <div class="body">
+        系统拿 DRV-01-01-03 去知识数据库查出全文（~2000字），内容包括：<br>
+        • 实时跟踪航班动态、自动调整出发时间<br>
+        • 航站楼精准导航至指定到达口<br>
+        • 特殊人群接送适配（老人→走无障碍通道）<br>
+        • 接到人后座椅/温度自动调整<br><br>
+        全文塞进 Director 的 SP 的 <code>{{knowledge}}</code> 占位符。
+      </div>
+    </div>
+  </div>
+
+  <div class="step-item">
+    <div class="step-num" style="background:#0a2018;color:var(--green);">5</div>
+    <div class="step-content">
+      <div class="title">Director 推理</div>
+      <div class="body">
+        Director 读到了接机知识，知道应该：<br>
+        ① 先查航班状态 → 但当前没有航班查询工具，用联网搜索代替<br>
+        ② 规划去机场的路线<br>
+        ③ 利用记忆（"用户父母常住外地"）做个性化回复
+        <div class="detail">
+<pre style="margin:0;">{
+  "talk_or_not": "yes",
+  "talk_content": "好的，我帮你查一下CA1234的到达时间，同时规划去机场的路线。",
+  "action_list": [
+    {"action_id":"1", "params":{"query":"CA1234航班实时状态"}, "tool_name":"web_search"},
+    {"action_id":"2", "params":{"query":"去机场T2航站楼"}, "tool_name":"route_planning_qa"}
+  ]
+}</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step-item">
+    <div class="step-num" style="background:#1a1020;color:var(--pink);">6</div>
+    <div class="step-content">
+      <div class="title">工具执行 → 返回 → Director 继续</div>
+      <div class="body">
+        两个工具并行执行（互不依赖），结果返回给 Director：<br>
+        • web_search："CA1234 预计 14:30 到达 T2"<br>
+        • route_planning_qa："路线规划成功，预计 45 分钟"<br><br>
+        Director 综合结果继续回复，<strong>这轮不需要重新触发 Selector</strong>（tool_feedback 不触发重新检索）。
+      </div>
+    </div>
+  </div>
+
+  <div class="step-item">
+    <div class="step-num" style="background:#0a1a2a;color:var(--cyan);">7</div>
+    <div class="step-content">
+      <div class="title">下一轮：用户说新的话 → 重新走 Selector</div>
+      <div class="body">
+        当用户说了新的话（比如到达机场后说"爸妈到了，后座温度调高一点"），<br>
+        Selector 重新判断 → 可能<strong>保留</strong> DRV-01-01-03（接机还在进行）+ <strong>新增</strong> COM-01-01-01（温度调节）。<br>
+        Director 拿到两份知识，既懂接机流程又懂温度调节。
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 两套系统对比 ==================== -->
+<h2>六、当前实现 vs PRD 设计目标</h2>
+
+<p>目前系统中存在两套方案，对应不同阶段：</p>
+
+<table class="compare-table">
+  <tr>
+    <th></th>
+    <th style="color:var(--orange);">当前实现（场景匹配）</th>
+    <th style="color:var(--purple);">PRD 目标（动态知识检索）</th>
+  </tr>
+  <tr>
+    <td class="highlight">Selector 做什么</td>
+    <td>纯分类：query → 场景 ID（ID_001~013）</td>
+    <td>情境推理：5 个输入 → 知识 ID 增删</td>
+  </tr>
+  <tr>
+    <td class="highlight">知识编码</td>
+    <td>三位数编码 ID_001</td>
+    <td>四段式编码 DRV-01-01-03</td>
+  </tr>
+  <tr>
+    <td class="highlight">场景数量</td>
+    <td>13 个</td>
+    <td>64 个（6 专家角色）</td>
+  </tr>
+  <tr>
+    <td class="highlight">输入信号</td>
+    <td>主要看 query + context</td>
+    <td>query + 历史 + 目标 + 车辆状态 + 已加载知识</td>
+  </tr>
+  <tr>
+    <td class="highlight">更新方式</td>
+    <td>每轮全量替换</td>
+    <td>增量更新（add + remove）</td>
+  </tr>
+  <tr>
+    <td class="highlight">知识全文</td>
+    <td>已产出 13 条（~2500 字/条）</td>
+    <td>目标 64 条（产出中）</td>
+  </tr>
+  <tr>
+    <td class="highlight">延迟</td>
+    <td>~1.8s（需优化）</td>
+    <td>需控制在 500ms 以内</td>
+  </tr>
+</table>
+
+<div class="callout red">
+  <strong>核心矛盾：</strong>当前实现的 13 个场景已经导致 1.8s 延迟。PRD 目标是 64 个场景 + 更复杂的 5 输入推理。如果不优化 prompt 结构和检索方式，延迟只会更高。<br><br>
+  <strong>建议路径：</strong>先用压缩锚词表把当前 13 场景的延迟压到 500ms 以内 → 验证准确率 → 再逐步扩展到 64 场景 → 如果 64 场景锚词表仍然可控（~1500 tokens），继续用 LLM 分类；否则引入 embedding 预筛。
+</div>
+
+<div class="footer">
+  司机 Agent 2.0 / 动态知识注入系统逻辑全解<br>
+  基于「动态知识检索&使用 需求说明」PRD + 【场景知识】测试用例 分析
+</div>
+
+</body>
+</html>

@@ -1,0 +1,2 @@
+- [User role](user_role.md) — ByteDance PM on Driver Agent 2.0, new hire, analyzing Planner badcases for SAIC project
+- [Communication style](feedback_style.md) — Direct review-meeting style, iterative discussion, no corporate speak

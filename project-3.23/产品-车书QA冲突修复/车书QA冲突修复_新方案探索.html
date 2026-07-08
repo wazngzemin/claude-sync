@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>车书QA冲突修复 — 新方案探索</title>
+<style>
+  :root {
+    --bg: #0f1117; --card: #1a1d27; --card-alt: #21242f; --border: #2a2d3a;
+    --text: #e2e4e9; --text-dim: #8b8fa3; --accent: #6c7eff; --accent2: #4ecdc4;
+    --red: #ff6b6b; --orange: #ffa94d; --green: #51cf66; --yellow: #ffd43b; --purple: #b197fc;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: -apple-system,'SF Pro Text','PingFang SC','Helvetica Neue',sans-serif;
+    background: var(--bg); color: var(--text); line-height:1.7; padding:40px 20px;
+  }
+  .container { max-width:1200px; margin:0 auto; }
+  .header { text-align:center; padding:50px 0 40px; border-bottom:1px solid var(--border); margin-bottom:50px; }
+  .header h1 {
+    font-size:32px; font-weight:700;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent; margin-bottom:12px;
+  }
+  .header .subtitle { color:var(--text-dim); font-size:15px; margin-bottom:16px; }
+  .section { margin-bottom:60px; }
+  .section-title {
+    font-size:22px; font-weight:700; margin-bottom:24px;
+    padding-left:16px; border-left:4px solid var(--accent);
+  }
+  .card {
+    background:var(--card); border:1px solid var(--border);
+    border-radius:16px; padding:28px; margin-bottom:24px;
+  }
+  .card.highlight { border-color:var(--accent); box-shadow:0 0 20px rgba(108,126,255,0.1); }
+  .card.new-idea { border-color:var(--yellow); box-shadow:0 0 15px rgba(255,212,59,0.08); }
+  .card h3 { font-size:18px; margin-bottom:6px; }
+  .card .sub { color:var(--text-dim); font-size:13px; margin-bottom:20px; }
+  .detail-block {
+    background:var(--card-alt); border-radius:10px; padding:20px; margin-bottom:16px;
+  }
+  .detail-block h4 { font-size:14px; color:var(--accent2); margin-bottom:10px; }
+  .detail-block p,.detail-block li { font-size:14px; line-height:1.8; }
+  .detail-block ul,.detail-block ol { padding-left:20px; }
+  .pro-box,.con-box,.risk-box,.key-box,.versus-box {
+    border-radius:12px; padding:20px 24px; margin:12px 0;
+  }
+  .pro-box { background:linear-gradient(135deg,#1a3d1a,#152015); border:1px solid #2a5d2a; }
+  .pro-box h4 { color:var(--green); font-size:15px; margin-bottom:10px; }
+  .pro-box li { color:#aaddaa; font-size:13px; line-height:2; }
+  .pro-box ul { padding-left:20px; }
+  .con-box { background:linear-gradient(135deg,#3d1a1a,#2d1515); border:1px solid #5d2a2a; }
+  .con-box h4 { color:var(--red); font-size:15px; margin-bottom:10px; }
+  .con-box li { color:#ffaaaa; font-size:13px; line-height:2; }
+  .con-box ul { padding-left:20px; }
+  .key-box { background:linear-gradient(135deg,#2d2a1a,#201d15); border:1px solid #5d4a2a; }
+  .key-box h4 { color:var(--yellow); font-size:15px; margin-bottom:10px; }
+  .key-box p,.key-box li { color:#eedd99; font-size:13px; line-height:1.8; }
+  .key-box ul { padding-left:20px; }
+  .versus-box { background:linear-gradient(135deg,#1a2d4d,#152035); border:1px solid #2a4d7d; }
+  .versus-box h4 { color:#7eb8ff; font-size:15px; margin-bottom:10px; }
+  .versus-box p { color:#aaccee; font-size:13px; line-height:1.8; }
+  .verdict-box {
+    background:linear-gradient(135deg,#1a3d3a,#152d2a); border:2px solid var(--accent2);
+    border-radius:12px; padding:20px 24px; margin:12px 0;
+  }
+  .verdict-box h4 { color:var(--accent2); font-size:15px; margin-bottom:10px; }
+  .verdict-box p { color:#aaddcc; font-size:14px; line-height:1.8; }
+  .compare-table { width:100%; border-collapse:collapse; margin:16px 0; font-size:13px; }
+  .compare-table th {
+    background:var(--card-alt); padding:12px 16px; text-align:left;
+    font-weight:600; border-bottom:2px solid var(--border); color:var(--accent);
+  }
+  .compare-table td { padding:10px 16px; border-bottom:1px solid var(--border); vertical-align:top; }
+  .compare-table tr:hover td { background:rgba(108,126,255,0.05); }
+  .tag { display:inline-block; padding:2px 10px; border-radius:10px; font-size:11px; font-weight:600; }
+  .tag.green { background:#1a3d1a; color:var(--green); }
+  .tag.orange { background:#3d2a1a; color:var(--orange); }
+  .tag.red { background:#3d1a1a; color:var(--red); }
+  .tag.blue { background:#1a2d4d; color:#7eb8ff; }
+  .tag.purple { background:#2d1a4d; color:var(--purple); }
+  .tag.yellow { background:#3d3a1a; color:var(--yellow); }
+  .code-block {
+    background:#0d0f15; border:1px solid var(--border); border-radius:8px;
+    padding:16px 20px; margin:12px 0;
+    font-family:'SF Mono','Fira Code',monospace;
+    font-size:13px; line-height:1.6; overflow-x:auto; white-space:pre-wrap; color:#c9d1d9;
+  }
+  .code-block .comment { color:#6a737d; }
+  .code-block .highlight { color:var(--green); font-weight:600; }
+  .code-block .label { color:var(--orange); }
+  .code-block .key { color:var(--purple); }
+  .divider { height:1px; background:var(--border); margin:40px 0; }
+  .flow-diagram {
+    background:var(--card); border:1px solid var(--border);
+    border-radius:16px; padding:28px; margin-bottom:24px; overflow-x:auto;
+  }
+  .flow-diagram h3 { font-size:16px; color:var(--accent); margin-bottom:20px; }
+  .flow-row { display:flex; align-items:center; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
+  .flow-box {
+    padding:10px 18px; border-radius:10px; font-size:13px;
+    font-weight:600; white-space:nowrap;
+  }
+  .flow-box.input { background:#1e3a5f; color:#7eb8ff; border:1px solid #2d5a8a; }
+  .flow-box.process { background:#2d2350; color:#b197fc; border:1px solid #4a3880; }
+  .flow-box.inject { background:#1a3d3a; color:#4ecdc4; border:1px solid #2a5d5a; }
+  .flow-box.decision { background:#3d2a1a; color:#ffa94d; border:1px solid #5d4a2a; }
+  .flow-box.output-good { background:#1a3d1a; color:#51cf66; border:1px solid #2a5d2a; }
+  .flow-box.output-bad { background:#3d1a1a; color:#ff6b6b; border:1px solid #5d2a2a; }
+  .flow-box.new { background:#3d3a1a; color:var(--yellow); border:1px solid #5d5a2a; }
+  .flow-arrow { color:var(--text-dim); font-size:18px; font-weight:bold; }
+  .insight-banner {
+    background:linear-gradient(135deg,#3d3a1a,#2d2a15); border:2px solid var(--yellow);
+    border-radius:12px; padding:24px; margin-bottom:24px; text-align:center;
+  }
+  .insight-banner h3 { color:var(--yellow); font-size:18px; margin-bottom:8px; }
+  .insight-banner p { color:#eedd99; font-size:14px; }
+  .num-highlight {
+    font-size:36px; font-weight:800; line-height:1;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  }
+  .meter-row { display:flex; align-items:center; gap:12px; margin-bottom:10px; }
+  .meter-label { font-size:13px; color:var(--text-dim); width:130px; text-align:right; }
+  .meter-bar { flex:1; height:20px; background:var(--card-alt); border-radius:10px; overflow:hidden; }
+  .meter-fill {
+    height:100%; border-radius:10px;
+    display:flex; align-items:center; justify-content:flex-end; padding-right:8px;
+    font-size:11px; font-weight:700;
+  }
+  .meter-fill.green { background:linear-gradient(90deg,#1a5d1a,#2a8d2a); color:#aaffaa; }
+  .meter-fill.orange { background:linear-gradient(90deg,#5d3a1a,#8d5a2a); color:#ffddaa; }
+  .meter-fill.red { background:linear-gradient(90deg,#5d1a1a,#8d2a2a); color:#ffaaaa; }
+  .meter-fill.blue { background:linear-gradient(90deg,#1a3d6d,#2a5d9d); color:#aaddff; }
+  .meter-fill.purple { background:linear-gradient(90deg,#3d1a6d,#5d2a9d); color:#ddaaff; }
+  .meter-fill.yellow { background:linear-gradient(90deg,#5d5a1a,#8d8a2a); color:#ffffaa; }
+  @media (max-width:768px) {
+    .flow-row { flex-direction:column; align-items:flex-start; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<div class="header">
+  <h1>新方案探索 — 超越A/B/C的思路</h1>
+  <div class="subtitle">重新审视系统架构后发现的新可能性</div>
+  <p style="color:var(--text-dim); font-size:13px;">本文档是对前版三方案（A/B/C）的补充和升级。重新分析SP后发现了被忽略的系统设计和新的操作杠杆。</p>
+</div>
+
+<!-- ==================== 关键发现 ==================== -->
+<div class="section">
+  <h2 class="section-title">零、重新审视后的关键发现</h2>
+
+  <div class="insight-banner">
+    <h3>被忽略的关键事实：SP中已经有一个 vehicle_manual_qa 工具</h3>
+    <p>SP的第7个工具是 <code>vehicle_manual_qa</code> —— 一个专门用于回答车辆手册问题的独立工具。<br>
+    这意味着系统设计中，车书知识有<strong>两条路径</strong>到达Director：预检索注入（被动）和工具调用（主动）。<br>
+    当前问题的本质是：被动注入的知识"抢跑"了主动工具调用。</p>
+  </div>
+
+  <div class="card">
+    <h3>系统中实际存在的知识路径</h3>
+    <div class="flow-diagram" style="margin:0;">
+      <h3>路径全景（之前只关注了路径1和路径3）</h3>
+      <table class="compare-table">
+        <thead>
+          <tr><th>路径</th><th>机制</th><th>触发方式</th><th>Director感知方式</th><th>当前问题</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>路径1</strong><br><span class="tag red">问题源</span></td>
+            <td><code>{{car_function_simple_qa}}</code><br>QA向量检索top3，注入SP</td>
+            <td>全量触发（每轮都检索）</td>
+            <td>作为context直接可见</td>
+            <td>执行型query也被注入了手动操作步骤，Director跟随知识做文字回答</td>
+          </tr>
+          <tr>
+            <td><strong>路径2</strong><br><span class="tag blue">被忽略的</span></td>
+            <td><code>vehicle_manual_qa</code> 工具<br>Director主动调用</td>
+            <td>Director判断需要时才调用</td>
+            <td>工具调用→等待返回→再处理</td>
+            <td>无问题。但路径1的存在让Director觉得"不需要调这个工具了，context里已经有答案了"</td>
+          </tr>
+          <tr>
+            <td><strong>路径3</strong><br><span class="tag green">我们可控的</span></td>
+            <td><code>{{knowledge}}</code><br>动态专业知识注入</td>
+            <td>Knowledge Selector选择</td>
+            <td>作为context直接可见</td>
+            <td>当前未利用。方案B提出通过这里注入规则。</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>重新理解问题：不只是"知识误导"，还有"路径抢占"</h3>
+    <div class="detail-block">
+      <h4>之前的理解（不完整）</h4>
+      <p>Director看到了QA知识中的手动操作步骤 → 直接用它回答 → 没调工具。</p>
+      <p style="margin-top:8px;"><strong>补充的理解：</strong></p>
+      <p><code>{{car_function_simple_qa}}</code> 的预注入不仅"提供了一个现成答案"，还<strong>抑制了Director对 vehicle_manual_qa 工具的调用动机</strong>。如果context中没有车书知识，Director在面对咨询型问题时本来会调用 vehicle_manual_qa 工具获取信息。但现在context已经有了，Director认为"信息已充足，不需要再调工具"。</p>
+      <p style="margin-top:8px;">这意味着 <code>{{car_function_simple_qa}}</code> 的全量注入实际上产生了<strong>两个副作用</strong>：</p>
+      <ol>
+        <li><strong>执行型query</strong>：用手动操作步骤替代了 vehicle_basic_control 工具调用</li>
+        <li><strong>咨询型query</strong>：用预注入知识替代了 vehicle_manual_qa 工具调用（这个副作用可能是设计意图——预注入是为了减少工具调用延迟）</li>
+      </ol>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- ==================== 新方案D ==================== -->
+<div class="section">
+  <h2 class="section-title">一、新方案D — 竞争性QA检索对（从检索机制层面解决）</h2>
+
+  <div class="card new-idea">
+    <h3>核心思路：不改现有QA，新增QA对"抢占"检索top位</h3>
+    <div class="sub">利用向量检索的相似度排序机制，让执行型query检索到"引导工具调用"的答案，而非"手动操作步骤"</div>
+
+    <div class="detail-block">
+      <h4>原理说明</h4>
+      <p>当前向量检索是 top-3。当用户说"打开定速巡航"时，检索匹配到的是：</p>
+      <div class="code-block"><span class="label">当前检索结果（问题根源）</span>
+Q: "定速巡航怎么开"  ← 匹配关键词"定速巡航"，相似度中等
+A: "进入【车辆设置】-【辅助驾驶】，打开..."  ← Director拿这个做了回答</div>
+
+      <p style="margin-top:16px;">如果我们<strong>新增一条QA对</strong>：</p>
+      <div class="code-block"><span class="highlight">新增的竞争性QA对</span>
+Q: "打开定速巡航"    ← 与用户query"打开定速巡航"<span class="highlight">完全匹配</span>，相似度极高
+A: "该操作由系统直接执行，无需手动操作。"</div>
+
+      <p style="margin-top:16px;">检索结果变成：</p>
+      <div class="code-block"><span class="label">修改后的检索结果</span>
+<span class="highlight">Top-1（新增）: Q:"打开定速巡航" → A:"该操作由系统直接执行，无需手动操作。"</span>
+Top-2（原有）: Q:"定速巡航怎么开" → A:"进入【车辆设置】-【辅助驾驶】..."
+Top-3（原有）: Q:"巡航功能介绍" → A:"自适应巡航辅助是..."</div>
+
+      <p style="margin-top:16px;"><strong>Director看到Top-1说"由系统直接执行"，自然倾向调用工具。</strong></p>
+      <p style="margin-top:8px;">关键机制：<strong>向量检索的相似度排序意味着"打开定速巡航"与"打开定速巡航"的匹配度远高于与"定速巡航怎么开"的匹配度。新QA对必然排在top-1。</strong></p>
+    </div>
+
+    <div class="detail-block">
+      <h4>与方案A的本质区别</h4>
+      <table class="compare-table">
+        <thead>
+          <tr><th>维度</th><th>方案A：改现有QA answer</th><th>方案D：新增竞争性QA对</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>操作对象</td>
+            <td>修改现有80-150条QA的answer文本</td>
+            <td>新增80-150条全新QA对，现有数据完全不动</td>
+          </tr>
+          <tr>
+            <td>作用机制</td>
+            <td>改变answer内容，但检索排序不变（手动操作步骤仍是top-1）</td>
+            <td><strong>改变检索排序本身</strong>——"执行引导"answer跃升为top-1，手动操作步骤被挤到top-2/3</td>
+          </tr>
+          <tr>
+            <td>Director看到的信号强度</td>
+            <td>answer开头有前缀但后面仍跟着详细操作步骤</td>
+            <td>top-1结果本身就是"系统直接执行"，操作步骤被推到次要位置</td>
+          </tr>
+          <tr>
+            <td>对现有数据的风险</td>
+            <td>修改了原始answer，有改错的风险</td>
+            <td><strong>零风险</strong>——原始QA完全不动，新增QA删掉就回滚</td>
+          </tr>
+          <tr>
+            <td>对咨询型query的影响</td>
+            <td>咨询型query（"怎么用"）检索到的answer也被改了前缀，多了一句赘言</td>
+            <td><strong>不受影响</strong>——"定速巡航怎么用"与"打开定速巡航"向量距离远，新QA不会被咨询型query检索到</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="detail-block">
+      <h4>具体实施：新增QA对的模板和覆盖范围</h4>
+
+      <p style="margin-bottom:12px;"><strong>模板1：车控执行类</strong>（对应 vehicle_basic_control）</p>
+      <div class="code-block"><span class="label"># 每个语音可控功能，生成2-4条不同说法的QA对</span>
+
+<span class="key">功能：空调</span>
+Q: "打开空调"      → A: "空调可通过语音直接控制，说'打开空调'由系统执行。"
+Q: "关闭空调"      → A: "空调可通过语音直接控制，说'关闭空调'由系统执行。"
+Q: "把空调调到25度" → A: "空调温度可通过语音直接调节，说出目标温度由系统执行。"
+
+<span class="key">功能：车窗</span>
+Q: "打开车窗"      → A: "车窗可通过语音直接控制，说'打开车窗'由系统执行。"
+Q: "关闭车窗"      → A: "车窗可通过语音直接控制，说'关闭车窗'由系统执行。"
+Q: "打开主驾车窗"  → A: "各车窗可通过语音分别控制，指定位置即可由系统执行。"
+
+<span class="key">功能：座椅</span>
+Q: "打开座椅加热"  → A: "座椅加热可通过语音直接控制，说'打开座椅加热'由系统执行。"
+Q: "关闭座椅通风"  → A: "座椅通风可通过语音直接控制，由系统执行开关操作。"
+
+<span class="comment"># ... 同理覆盖：氛围灯、阅读灯、音量、车载冰箱、驾驶模式、后视镜、屏幕、遮阳帘、方向盘加热等</span></div>
+
+      <p style="margin:16px 0 12px;"><strong>模板2：状态查询类</strong>（对应 search_vehicle_status_info）</p>
+      <div class="code-block"><span class="key">功能：车速</span>
+Q: "现在时速多少"    → A: "车速信息支持语音实时查询，系统将返回当前精确车速数据。"
+Q: "现在开多快"      → A: "当前车速支持语音实时查询，由系统返回精确数值。"
+
+<span class="key">功能：电量</span>
+Q: "剩余电量多少"    → A: "电池电量支持语音实时查询，系统将返回当前剩余电量数据。"
+Q: "还能跑多远"      → A: "续航里程支持语音实时查询，系统将返回当前预估续航。"
+
+<span class="key">功能：胎压</span>
+Q: "胎压正常吗"      → A: "胎压数据支持语音实时查询，系统将返回各轮胎压信息。"
+
+<span class="comment"># ... 同理覆盖：车内温度、空调状态、门窗状态等</span></div>
+
+      <p style="margin:16px 0 12px;"><strong>覆盖范围估算</strong></p>
+      <table class="compare-table">
+        <thead>
+          <tr><th>功能大类</th><th>预计新增QA对数</th><th>说明</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>空调（开关/温度/风量/模式等）</td><td>10-15</td><td>操作动词多样：打开/关闭/调高/调低/设为</td></tr>
+          <tr><td>车窗（四窗+整体）</td><td>8-10</td><td>需要覆盖不同位置</td></tr>
+          <tr><td>座椅（加热/通风/按摩/位置）</td><td>8-10</td><td></td></tr>
+          <tr><td>氛围灯/阅读灯</td><td>6-8</td><td></td></tr>
+          <tr><td>音量（多种音量类型）</td><td>5-6</td><td></td></tr>
+          <tr><td>车载冰箱</td><td>4-5</td><td></td></tr>
+          <tr><td>驾驶模式</td><td>8-10</td><td>8种模式各一条</td></tr>
+          <tr><td>导航相关</td><td>5-8</td><td>导航由route_planning_qa处理</td></tr>
+          <tr><td>后视镜/屏幕/遮阳帘/方向盘</td><td>6-8</td><td></td></tr>
+          <tr><td>状态查询类</td><td>10-15</td><td>车速/电量/胎压/温度/空调状态等</td></tr>
+          <tr><td style="font-weight:700;">总计</td><td style="font-weight:700;">约70-100条</td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pro-box">
+      <h4>优势（5条）</h4>
+      <ul>
+        <li><strong>从检索机制层面解决问题</strong>：不是在Director端"教它怎么用知识"，而是直接控制它"看到什么知识"。这是上游治理，比下游修补更彻底。</li>
+        <li><strong>完全不修改现有数据</strong>：原有500-2000条QA一字不动。新增的QA对删掉就完全回滚，零残留风险。</li>
+        <li><strong>对咨询型query天然免疫</strong>：用户说"定速巡航怎么用"，向量检索会匹配到原有的"定速巡航怎么开"而非新增的"打开定速巡航"。两者的向量距离足够大，不会互相干扰。<strong>这是方案A做不到的——方案A改了answer后，咨询型query检索到的也是带前缀的answer。</strong></li>
+        <li><strong>可批量脚本化生成</strong>：模板固定（"XX可通过语音直接控制，由系统执行"），只需要一张"功能→说法变体"的映射表，Python脚本10分钟生成。</li>
+        <li><strong>效果确定性最高</strong>：Director看到的top-1就是"由系统执行"，不需要它去"理解规则"或"解读前缀"。这是最直接的信号。</li>
+      </ul>
+    </div>
+
+    <div class="con-box">
+      <h4>劣势（4条）</h4>
+      <ul>
+        <li><strong>新增QA数量较多（70-100条）</strong>：虽然可以脚本生成，但需要逐条审核"说法变体"是否合理。如果用户的真实说法没被覆盖（如方言、口语化表达"把那个巡航给我打开"），新QA对不会被检索到，回退到原有问题。</li>
+        <li><strong>向量数据库的管理成本</strong>：新增100条QA对意味着向量库多了100个embedding。需要确认向量库是否有容量或质量问题（如新QA对是否会影响其他query的检索结果）。</li>
+        <li><strong>说法覆盖的长尾问题</strong>：用户说"帮我定速巡航一下""把巡航开着""那个定速的给我开了" 等非标准表达，可能不会匹配到新QA对。<strong>这个问题可以通过每个功能增加3-5种说法变体来缓解，但无法100%覆盖。</strong></li>
+        <li><strong>需要产品/数据侧配合</strong>：新增QA对需要入库到向量数据库。泽民不一定有直接操作权限。</li>
+      </ul>
+    </div>
+
+    <div class="key-box">
+      <h4>与方案A/B的关系</h4>
+      <p>
+        <strong>方案D可以替代方案A</strong>：两者都是数据层操作，但D不改现有数据、对咨询型query无干扰、信号更直接。<br>
+        <strong>方案D可以与方案B叠加</strong>：D（检索层）+ B（推理层）= 更强的双保险。<br>
+        <strong>推荐组合：D + B</strong> 替代原来的 A + B（方案C）。
+      </p>
+    </div>
+
+    <div style="margin-top:20px;">
+      <div class="meter-row">
+        <span class="meter-label">效果确定性</span>
+        <div class="meter-bar"><div class="meter-fill green" style="width:85%;">85%</div></div>
+      </div>
+      <div class="meter-row">
+        <span class="meter-label">实施难度</span>
+        <div class="meter-bar"><div class="meter-fill orange" style="width:50%;">中等</div></div>
+      </div>
+      <div class="meter-row">
+        <span class="meter-label">资源消耗</span>
+        <div class="meter-bar"><div class="meter-fill orange" style="width:55%;">0.5-1天</div></div>
+      </div>
+      <div class="meter-row">
+        <span class="meter-label">泽民可控度</span>
+        <div class="meter-bar"><div class="meter-fill orange" style="width:55%;">需数据入库配合</div></div>
+      </div>
+      <div class="meter-row">
+        <span class="meter-label">回滚安全性</span>
+        <div class="meter-bar"><div class="meter-fill green" style="width:98%;">删除新QA即可</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- ==================== 新方案E ==================== -->
+<div class="section">
+  <h2 class="section-title">二、新方案E — Knowledge注入few-shot示例（方案B的增强版）</h2>
+
+  <div class="card new-idea">
+    <h3>核心思路：在 {{knowledge}} 中注入的不是规则，而是具体的输入输出示例</h3>
+    <div class="sub">LLM对few-shot示例的遵循度远高于抽象规则。用示例替代规则，效果更强。</div>
+
+    <div class="detail-block">
+      <h4>为什么示例比规则更有效？</h4>
+      <p>方案B注入的RULE-01是<strong>抽象规则</strong>：</p>
+      <div class="code-block"><span class="comment">// 方案B的规则格式</span>
+"当用户说出带动作词的指令 → 必须调用 vehicle_basic_control"
+"当用户询问实时数据 → 必须调用 search_vehicle_status_info"</div>
+      <p style="margin-top:12px;">Director需要先<strong>理解规则</strong>，再<strong>判断当前case属于哪类</strong>，再<strong>执行对应动作</strong>。三步推理，每步都可能出错。</p>
+
+      <p style="margin-top:16px;">方案E注入的是<strong>具体示例</strong>：</p>
+      <div class="code-block"><span class="comment">// 方案E的示例格式</span>
+"用户说'打开空调'（context中有'空调可通过中控面板开启'的知识）
+→ 正确：调用vehicle_basic_control  ← Director直接模式匹配"</div>
+      <p style="margin-top:12px;">Director只需要做<strong>模式匹配</strong>：当前case和哪个示例最像？找到了就直接跟着示例做。一步完成，出错概率大幅降低。</p>
+      <p style="margin-top:8px;"><strong>学术支撑</strong>：大量Prompt Engineering研究表明，few-shot示例对LLM行为的引导效果比instruction-only（纯规则）高出20-40%。这在GPT-4、Claude等模型上都被验证过。</p>
+    </div>
+
+    <div class="detail-block">
+      <h4>知识条目完整内容（替代RULE-01）</h4>
+      <div class="code-block"><span class="label">知识ID: RULE-01-V2</span>
+<span class="label">知识名称: 车辆功能知识使用指南（示例版）</span>
+
+<span class="highlight">【车辆功能问答知识正确使用示例】</span>
+
+你的context中可能包含「基础车辆功能问答」中检索到的车辆手册参考知识。以下示例展示了正确的处理方式：
+
+<span class="key">--- 示例1：执行指令 → 调工具（不用知识回答）---</span>
+用户说："打开空调"
+context中有知识："空调可以通过中控屏底部的空调按钮开启，也可以通过..."
+<span class="highlight">正确做法：调用 vehicle_basic_control("打开空调")，说"好的，正在为你打开空调"</span>
+<span class="comment">错误做法：回答"空调可以通过中控屏底部的空调按钮开启..."</span>
+判断依据："打开"是执行动作词 → 用户要的是执行，不是操作说明
+
+<span class="key">--- 示例2：实时查询 → 调工具（不用知识回答）---</span>
+用户说："现在时速多少"
+context中有知识："当前车速是仪表屏常显信息，非P挡时可直接在仪表屏查看"
+<span class="highlight">正确做法：调用 search_vehicle_status_info("查询当前车速")</span>
+<span class="comment">错误做法：回答"车速信息在仪表屏上可以查看"</span>
+判断依据："现在XX多少"是查实时数据 → 用户要的是数值，不是在哪里看
+
+<span class="key">--- 示例3：操作咨询 → 用知识回答（这时才该用）---</span>
+用户说："定速巡航怎么用"
+context中有知识："定速巡航开启方法：进入【车辆设置】-【辅助驾驶】..."
+<span class="highlight">正确做法：参考知识回答"定速巡航可以这样开：进入车辆设置..."</span>
+判断依据："怎么用"是咨询操作方法 → 知识中的操作步骤正是用户想要的
+
+<span class="key">--- 示例4：工具失败 → 用知识兜底 ---</span>
+用户说："打开定速巡航" → 调用vehicle_basic_control → 工具返回失败
+<span class="highlight">正确做法：告诉用户"暂时无法语音开启，你可以手动操作：进入车辆设置..."</span>
+判断依据：工具失败时，知识中的手动操作方法就是最好的兜底方案</div>
+    </div>
+
+    <div class="versus-box">
+      <h4>方案B（规则版）vs 方案E（示例版）效果对比</h4>
+      <p>
+        <strong>方案B</strong>（RULE-01规则版）预估修复率：<span class="tag orange">60-80%</span><br>
+        规则需要Director做三步推理（理解规则→分类意图→执行动作），每步都有误差。<br><br>
+        <strong>方案E</strong>（RULE-01-V2示例版）预估修复率：<span class="tag green">75-90%</span><br>
+        示例只需Director做一步模式匹配（当前case像哪个示例→跟着做），效果显著提升。<br><br>
+        <strong>增量收益</strong>：~10-15个百分点的修复率提升，但token开销从约250 tokens增加到约500 tokens。<br><br>
+        <strong>额外收益</strong>：示例中的"错误做法"是显式的负面示例（"不要这样做"），这种正反对比对LLM的约束效果非常强。方案B的纯规则没有负面示例。
+      </p>
+    </div>
+
+    <div class="pro-box">
+      <h4>相比方案B的额外优势</h4>
+      <ul>
+        <li><strong>模式匹配 > 规则推理</strong>：LLM的in-context learning本质就是模式匹配。示例直接提供了pattern，模型只需copy，不需要think。</li>
+        <li><strong>包含负面示例</strong>：每个示例都有"错误做法"，这是一种"对比学习"信号。Director不仅知道该怎么做，还知道不该怎么做。</li>
+        <li><strong>四种场景全覆盖</strong>：执行/查询/咨询/兜底四个示例，覆盖了所有可能的决策场景。Director面对任何case都能找到最相似的示例参照。</li>
+        <li><strong>与SP中已有示例格式一致</strong>：SP已有21个示例，Director对"示例→模仿"的模式已经建立了强关联。在 {{knowledge}} 中也给示例，Director会自然地将其视为"额外的行为参考"。</li>
+      </ul>
+    </div>
+
+    <div class="con-box">
+      <h4>劣势</h4>
+      <ul>
+        <li><strong>token开销翻倍</strong>：从方案B的~250 tokens增加到~500 tokens。始终加载的话，月度成本也翻倍。</li>
+        <li><strong>知识条目较长</strong>：500 tokens的"知识"在 {{knowledge}} 中算长了。如果同时有其他场景知识需要注入，总token可能较高。</li>
+        <li><strong>权重仍是"参考"级</strong>：虽然示例比规则更强，但 {{knowledge}} 本身的"参考"定位没变。Director仍有一定概率不完全遵循。</li>
+      </ul>
+    </div>
+
+    <div class="verdict-box">
+      <h4>方案E判定</h4>
+      <p>
+        <strong>方案E应该替代方案B</strong>，而非与B共存。它们占用同一个位置（{{knowledge}} 中的知识条目），但E的效果显著优于B。<br>
+        建议：直接用RULE-01-V2（示例版）替换RULE-01（规则版）。如果token预算紧张，可以精简示例到3个（去掉兜底示例）。
+      </p>
+    </div>
+
+    <div style="margin-top:20px;">
+      <div class="meter-row">
+        <span class="meter-label">效果确定性</span>
+        <div class="meter-bar"><div class="meter-fill green" style="width:82%;">82%</div></div>
+      </div>
+      <div class="meter-row">
+        <span class="meter-label">实施难度</span>
+        <div class="meter-bar"><div class="meter-fill green" style="width:25%;">低</div></div>
+      </div>
+      <div class="meter-row">
+        <span class="meter-label">资源消耗</span>
+        <div class="meter-bar"><div class="meter-fill green" style="width:22%;">3h/1人</div></div>
+      </div>
+      <div class="meter-row">
+        <span class="meter-label">泽民可控度</span>
+        <div class="meter-bar"><div class="meter-fill green" style="width:95%;">完全自主</div></div>
+      </div>
+      <div class="meter-row">
+        <span class="meter-label">token开销</span>
+        <div class="meter-bar"><div class="meter-fill orange" style="width:55%;">~500 tok/轮</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- ==================== 新方案F ==================== -->
+<div class="section">
+  <h2 class="section-title">三、新方案F — QA答案结构化重塑（"双通道"格式）</h2>
+
+  <div class="card new-idea">
+    <h3>核心思路：将QA answer改为"语音控制通道 + 手动操作通道"双格式</h3>
+    <div class="sub">不是简单加前缀，而是重新组织answer的信息结构，让"语音控制"成为第一推荐路径</div>
+
+    <div class="detail-block">
+      <h4>与方案A的区别</h4>
+      <p><strong>方案A</strong>：在answer开头<em>加一句话</em>（"该功能支持语音控制"），但answer的主体结构不变，手动操作步骤仍然是主要内容。</p>
+      <p style="margin-top:8px;"><strong>方案F</strong>：彻底<em>重组answer结构</em>，把answer变成两个并列的"通道"，语音通道放在第一位。</p>
+    </div>
+
+    <div class="detail-block">
+      <h4>answer格式示例</h4>
+
+      <p style="margin-bottom:8px;"><strong>方案A的做法（加前缀）：</strong></p>
+      <div class="code-block"><span class="comment">// 方案A：一句前缀 + 原始answer</span>
+A: "<span class="highlight">该功能支持语音直接控制，用户说'打开定速巡航'即可由系统执行。</span>若需手动操作：进入【车辆设置】-【辅助驾驶】，打开【自适应巡航辅助】，然后按方向盘PILOT按键激活。"
+
+<span class="comment">// 问题：手动操作步骤仍然是answer的主体内容（占80%篇幅），Director可能"跳过前缀"直接采用步骤</span></div>
+
+      <p style="margin:16px 0 8px;"><strong>方案F的做法（双通道结构化）：</strong></p>
+      <div class="code-block"><span class="comment">// 方案F：结构化双通道格式</span>
+A: "
+<span class="highlight">[语音控制] 对车机说"打开定速巡航"即可自动执行，推荐使用。</span>
+<span class="comment">[手动操作] 进入【车辆设置】→【辅助驾驶】→ 打开【自适应巡航辅助】→ 按方向盘PILOT键激活。</span>
+"
+
+<span class="comment">// 效果：
+// 1. [语音控制]标签在前，且标注"推荐使用"，Director天然优先采信第一通道
+// 2. [手动操作]标签明确告诉Director这是"备选方案"
+// 3. 结构化标签让Director的决策更"有据可依"，而非需要从连续文本中提取信号</span></div>
+
+      <p style="margin:16px 0 8px;"><strong>不支持语音控制的功能（不改结构）：</strong></p>
+      <div class="code-block"><span class="comment">// 雨刮器等不支持语音控制的功能，只保留手动操作通道</span>
+A: "
+[手动操作] 通过方向盘右侧拨杆调节雨刮器速度。上拨增速，下拨减速。
+"
+
+<span class="comment">// 没有[语音控制]通道 → Director看到只有手动操作方案 → 自然用知识回答</span></div>
+    </div>
+
+    <div class="pro-box">
+      <h4>相比方案A的额外优势</h4>
+      <ul>
+        <li><strong>结构化标签比自然语言前缀更强</strong>：<code>[语音控制]</code> 和 <code>[手动操作]</code> 是显式的分类标签，LLM对标签化信息的解析精度远高于从段落中提取信息。</li>
+        <li><strong>"推荐使用"标注的引导效果</strong>：明确写了"推荐使用"，Director在决策时会倾向于被推荐的路径。</li>
+        <li><strong>有无[语音控制]通道本身就是信号</strong>：支持语音控制的功能有两个通道，不支持的只有一个。Director看到只有[手动操作]通道时，自然知道"没法调工具，用知识回答"。</li>
+        <li><strong>手动操作步骤被降级为次要位置</strong>：方案A中步骤仍是主体内容；方案F中步骤变成了[手动操作]通道下的子内容，视觉和语义权重都降低了。</li>
+      </ul>
+    </div>
+
+    <div class="con-box">
+      <h4>劣势</h4>
+      <ul>
+        <li><strong>改造工作量比方案A大</strong>：不是简单加前缀，需要重组每条answer的结构。即使有脚本辅助，也需要更多人工审核。</li>
+        <li><strong>仍需改现有数据</strong>：和方案A一样需要修改原始QA对的answer字段。</li>
+        <li><strong>格式可能影响咨询型回答质量</strong>：用户问"定速巡航怎么用"时，Director看到结构化格式后的回答可能也带上了[语音控制]/[手动操作]标签，不如自然语言回答友好。</li>
+      </ul>
+    </div>
+
+    <div class="verdict-box">
+      <h4>方案F判定</h4>
+      <p>
+        方案F是方案A的"升级版"。如果要走"改QA数据"这条路，F比A更有效。<br>
+        但<strong>方案D（竞争性QA）比F更优</strong>：D不改现有数据、对咨询型免疫、回滚更安全。<br>
+        建议：如果团队决定改QA数据，优先考虑F而非A。但如果可以新增QA对，首选D。
+      </p>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- ==================== 方案G ==================== -->
+<div class="section">
+  <h2 class="section-title">四、新方案G — 利用 vehicle_manual_qa 工具重定向</h2>
+
+  <div class="card new-idea">
+    <h3>核心思路：在Knowledge规则中引导Director对咨询型问题调用vehicle_manual_qa工具</h3>
+    <div class="sub">减少Director对 {{car_function_simple_qa}} 预注入知识的依赖，让咨询型问题也走工具路径</div>
+
+    <div class="detail-block">
+      <h4>思路说明</h4>
+      <p>当前SP中 vehicle_manual_qa 工具的描述是：</p>
+      <div class="code-block">"当用户询问如车辆功能（如OTA更新说明、故障排查指导、保养维护建议...）等时，可使用此工具帮助用户充分了解和使用此车。"
+参数示例："如何进行OTA更新""空调怎么设置最省油""座椅记忆功能怎么设置""雨刮器快慢咋调"</div>
+
+      <p style="margin-top:12px;">注意看参数示例——<strong>"座椅记忆功能怎么设置""雨刮器快慢咋调"这些本来就应该走vehicle_manual_qa工具</strong>，但因为 {{car_function_simple_qa}} 预注入了相关知识，Director觉得"不需要再调工具了"。</p>
+
+      <p style="margin-top:12px;"><strong>方案G的逻辑</strong>：在 {{knowledge}} 注入的规则/示例中，不仅处理"执行型→调vehicle_basic_control"，还处理"咨询型→引导调vehicle_manual_qa获取更详细信息"。这样做的效果：</p>
+      <ul style="margin-top:8px;">
+        <li>执行型query → vehicle_basic_control（不用QA知识）</li>
+        <li>查询型query → search_vehicle_status_info（不用QA知识）</li>
+        <li>咨询型query → 可以参考QA知识，<strong>也可以调vehicle_manual_qa获取更完整信息</strong></li>
+      </ul>
+      <p style="margin-top:12px;">这个方案的巧妙之处：<strong>它把 {{car_function_simple_qa}} 的定位从"可以直接用的答案"变成了"初筛参考"</strong>。Director看到QA知识后会想："这只是初步信息，我可以调vehicle_manual_qa获取更详细的"——这个思维模式也会让它对执行型query更倾向于调工具。</p>
+    </div>
+
+    <div class="pro-box">
+      <h4>优势</h4>
+      <ul>
+        <li><strong>一石二鸟</strong>：不仅解决了执行型query的问题，还提升了咨询型query的回答质量（vehicle_manual_qa工具返回的信息比预检索top3更完整）</li>
+        <li><strong>降低了 {{car_function_simple_qa}} 的整体"权威性"</strong>：当Director形成了"这只是初筛"的理解后，所有类型的query都不会过度依赖预注入知识</li>
+        <li><strong>不改任何数据</strong>，通过 {{knowledge}} 注入即可</li>
+      </ul>
+    </div>
+
+    <div class="con-box">
+      <h4>劣势</h4>
+      <ul>
+        <li><strong>增加工具调用次数</strong>：如果咨询型query也走vehicle_manual_qa工具，每个咨询问题多一次工具调用。增加延迟和成本。</li>
+        <li><strong>与预检索的设计初衷冲突</strong>：{{car_function_simple_qa}} 预检索的目的可能就是为了减少vehicle_manual_qa的调用延迟。如果又引导Director调工具，相当于绕开了优化。</li>
+        <li><strong>效果不确定</strong>：Director可能不会仅因为规则说"可以调vehicle_manual_qa"就去调——当context中已经有信息时，模型倾向不做额外工具调用。</li>
+      </ul>
+    </div>
+
+    <div class="verdict-box">
+      <h4>方案G判定</h4>
+      <p>
+        有价值但<strong>不建议单独使用</strong>。可以作为方案E（示例注入）的一个附加策略——在示例的"咨询型"部分提到："也可以调用vehicle_manual_qa获取更完整信息"。<br>
+        不建议把所有咨询型query都引导去调工具，因为这违背了预检索的性能优化初衷。
+      </p>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- ==================== 全局对比 ==================== -->
+<div class="section">
+  <h2 class="section-title">五、全部方案（含新方案）终极对比</h2>
+
+  <table class="compare-table">
+    <thead>
+      <tr>
+        <th style="width:120px;">方案</th>
+        <th>核心机制</th>
+        <th>修复率</th>
+        <th>资源</th>
+        <th>泽民自主</th>
+        <th>改现有数据</th>
+        <th>咨询型干扰</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>A</strong> 改QA前缀</td>
+        <td>answer加"支持语音控制"前缀</td>
+        <td><span class="tag orange">70-85%</span></td>
+        <td>1天/需配合</td>
+        <td><span class="tag red">低</span></td>
+        <td><span class="tag red">改80-150条</span></td>
+        <td><span class="tag orange">有</span>（前缀赘言）</td>
+      </tr>
+      <tr>
+        <td><strong>B</strong> Knowledge规则</td>
+        <td>{{knowledge}}注入if-then规则</td>
+        <td><span class="tag orange">60-80%</span></td>
+        <td>3h/自主</td>
+        <td><span class="tag green">高</span></td>
+        <td><span class="tag green">不改</span></td>
+        <td><span class="tag green">无</span></td>
+      </tr>
+      <tr style="background:rgba(255,212,59,0.05);">
+        <td><strong>D</strong> <span class="tag yellow">新</span><br>竞争性QA对</td>
+        <td>新增执行型QA对，抢占检索top-1</td>
+        <td><span class="tag green">80-90%</span></td>
+        <td>0.5-1天/需入库</td>
+        <td><span class="tag orange">中</span></td>
+        <td><span class="tag green">不改</span></td>
+        <td><span class="tag green">无</span></td>
+      </tr>
+      <tr style="background:rgba(255,212,59,0.05);">
+        <td><strong>E</strong> <span class="tag yellow">新</span><br>Knowledge示例</td>
+        <td>{{knowledge}}注入few-shot示例</td>
+        <td><span class="tag green">75-90%</span></td>
+        <td>3h/自主</td>
+        <td><span class="tag green">高</span></td>
+        <td><span class="tag green">不改</span></td>
+        <td><span class="tag green">无</span></td>
+      </tr>
+      <tr style="background:rgba(255,212,59,0.05);">
+        <td><strong>F</strong> <span class="tag yellow">新</span><br>QA结构化</td>
+        <td>answer改为双通道结构</td>
+        <td><span class="tag green">80-90%</span></td>
+        <td>1-1.5天/需配合</td>
+        <td><span class="tag red">低</span></td>
+        <td><span class="tag red">改80-150条</span></td>
+        <td><span class="tag orange">轻微</span></td>
+      </tr>
+      <tr style="background:rgba(255,212,59,0.05);">
+        <td><strong>G</strong> <span class="tag yellow">新</span><br>工具重定向</td>
+        <td>引导调vehicle_manual_qa</td>
+        <td><span class="tag orange">50-65%</span></td>
+        <td>纳入E中</td>
+        <td><span class="tag green">高</span></td>
+        <td><span class="tag green">不改</span></td>
+        <td><span class="tag green">无</span></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="divider"></div>
+
+<!-- ==================== 最优组合 ==================== -->
+<div class="section">
+  <h2 class="section-title">六、新的最优组合推荐</h2>
+
+  <div class="card highlight">
+    <h3>推荐组合：E + D（替代原来的 B + A）</h3>
+    <div class="sub">方案E（Knowledge示例注入）+ 方案D（竞争性QA对）= 推理层 + 检索层双保障</div>
+
+    <div class="flow-diagram">
+      <h3>E + D 组合的工作链路</h3>
+
+      <div class="flow-row">
+        <div class="flow-box input">用户："打开定速巡航"</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box process">QA向量检索 top3</div>
+      </div>
+
+      <div style="margin:12px 0; padding:16px; background:#3d3a1a; border:1px solid #5d5a2a; border-radius:8px;">
+        <div style="font-size:13px; color:var(--yellow); font-weight:600; margin-bottom:8px;">第一层保障（方案D · 检索层）</div>
+        <div style="font-size:13px; color:#eedd99;">
+          Top-1检索结果（新增的竞争性QA）：<code style="background:#2d2a1a; padding:2px 6px; border-radius:4px;">"该操作由系统语音直接执行，无需手动操作。"</code><br>
+          Top-2/3（原有QA）：<code style="background:#2d2a1a; padding:2px 6px; border-radius:4px;">"手动操作：进入车辆设置..."</code><br>
+          → Director首先看到的是"由系统执行"信号
+        </div>
+      </div>
+
+      <div style="margin:12px 0; padding:16px; background:#1a1a3d; border:1px solid #2a2a5d; border-radius:8px;">
+        <div style="font-size:13px; color:var(--purple); font-weight:600; margin-bottom:8px;">第二层保障（方案E · 推理层）</div>
+        <div style="font-size:13px; color:#aaaadd;">
+          {{knowledge}} 中的示例：<code style="background:#1a1a3d; padding:2px 6px; border-radius:4px;">"用户说'打开空调'→ 正确：调vehicle_basic_control；错误：用知识回答"</code><br>
+          → Director通过模式匹配确认应该调工具
+        </div>
+      </div>
+
+      <div class="flow-row">
+        <div class="flow-box decision">Director：两层信号一致</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box output-good">调用 vehicle_basic_control("打开定速巡航")</div>
+      </div>
+    </div>
+
+    <div class="detail-block">
+      <h4>为什么 E+D 优于原来的 B+A？</h4>
+      <table class="compare-table">
+        <thead>
+          <tr><th>维度</th><th>原方案C (B+A)</th><th>新方案 E+D</th><th>为什么更好</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>推理层</td>
+            <td>B：抽象规则</td>
+            <td>E：具体示例</td>
+            <td>示例的LLM遵循度比规则高20-40%</td>
+          </tr>
+          <tr>
+            <td>数据层</td>
+            <td>A：改现有answer加前缀</td>
+            <td>D：新增竞争性QA对</td>
+            <td>D不改现有数据、对咨询型免疫、改变检索排序本身</td>
+          </tr>
+          <tr>
+            <td>组合修复率</td>
+            <td><span class="tag green">90-95%</span></td>
+            <td><span class="tag green">93-98%</span></td>
+            <td>两层都更强</td>
+          </tr>
+          <tr>
+            <td>对咨询型干扰</td>
+            <td><span class="tag orange">方案A有轻微干扰</span></td>
+            <td><span class="tag green">无干扰</span></td>
+            <td>D的竞争性QA不会被咨询型query检索到</td>
+          </tr>
+          <tr>
+            <td>回滚风险</td>
+            <td><span class="tag orange">A需要恢复原始answer</span></td>
+            <td><span class="tag green">删除新增QA + 删知识条目</span></td>
+            <td>D完全不碰现有数据</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="detail-block">
+      <h4>E+D 执行计划</h4>
+      <table class="compare-table">
+        <thead>
+          <tr><th>时间</th><th>泽民（方案E）</th><th>泽民 or 产品（方案D）</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Day 1 上午</strong></td>
+            <td>
+              1. 创建 RULE-01-V2 示例版知识条目<br>
+              2. 配置 Knowledge Selector 始终加载<br>
+              3. 用3条badcase在FORNAX验证<strong>方案E单独效果</strong><br>
+              4. 记录修复率
+            </td>
+            <td>
+              1. 准备"功能→说法变体"映射表<br>
+              2. 写Python脚本批量生成竞争性QA对<br>
+              3. 人工审核生成结果
+            </td>
+          </tr>
+          <tr>
+            <td><strong>Day 1 下午</strong></td>
+            <td colspan="2" style="text-align:center;">
+              4. 将竞争性QA对入库到向量数据库<br>
+              5. 验证 E+D 组合效果（22条完整测试case）<br>
+              6. 记录修复率，对比E单独vs E+D
+            </td>
+          </tr>
+          <tr>
+            <td><strong>Day 1 晚上</strong></td>
+            <td colspan="2" style="text-align:center;">
+              7. 整理实验结论<br>
+              8. 同步给陈西钺、李浩然、李强
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="verdict-box">
+      <h4>最终执行建议</h4>
+      <p>
+        <strong>今天立刻做的</strong>：方案E — 创建RULE-01-V2示例版知识条目，始终加载，3小时内验证完。这是泽民完全自主可控的部分。<br><br>
+        <strong>今天同步推进的</strong>：方案D — 编写竞争性QA对生成脚本。如果泽民有QA数据入库权限，自己做。如果没有，先把生成好的QA对交给产品侧入库。<br><br>
+        <strong>如果E单独修复率已>85%</strong>：可以先上线E，D作为"锦上添花"在第二天补充。<br><br>
+        <strong>如果E单独修复率<75%</strong>：说明 {{knowledge}} 的"参考"权重确实不够强。此时D变得关键——检索层的信号更直接，不依赖Director的"遵循规则"能力。<br><br>
+        <strong>终极兜底</strong>：如果E+D都到不了90%，带数据推动SP最小改动（改 {{car_function_simple_qa}} 那一句引导语）。有了E+D的实验数据做支撑，推动成本很低。
+      </p>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- ==================== 方案全景图 ==================== -->
+<div class="section">
+  <h2 class="section-title">七、方案全景图 — 从"应急止血"到"长期治本"</h2>
+
+  <div class="card">
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>时间线</th>
+          <th>方案</th>
+          <th>目标</th>
+          <th>执行人</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="background:rgba(81,207,102,0.08);">
+          <td><strong>今天3h</strong></td>
+          <td><span class="tag green">方案E</span> Knowledge示例注入</td>
+          <td>快速止血，验证基础效果</td>
+          <td>泽民独立</td>
+        </tr>
+        <tr style="background:rgba(255,212,59,0.05);">
+          <td><strong>今天-明天</strong></td>
+          <td><span class="tag yellow">方案D</span> 竞争性QA对</td>
+          <td>检索层双保险，提升到90%+</td>
+          <td>泽民+产品数据入库</td>
+        </tr>
+        <tr>
+          <td><strong>本周（如需要）</strong></td>
+          <td><span class="tag orange">SP最小改动</span> 改引导语一句话</td>
+          <td>兜底补充，冲击98%+修复率</td>
+          <td>需团队同意</td>
+        </tr>
+        <tr>
+          <td><strong>2-4周</strong></td>
+          <td><span class="tag blue">方案F</span> QA结构化改造</td>
+          <td>从数据源头彻底解决</td>
+          <td>产品+标注团队</td>
+        </tr>
+        <tr>
+          <td><strong>1-2月</strong></td>
+          <td><span class="tag purple">工程方案</span> 检索前意图分类</td>
+          <td>执行型query不触发QA检索</td>
+          <td>工程团队</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Footer -->
+<div style="text-align:center; padding:40px 0; color:var(--text-dim); font-size:12px; border-top:1px solid var(--border); margin-top:40px;">
+  生成时间：2026-05-19 &nbsp;|&nbsp; 新方案探索版 &nbsp;|&nbsp; 包含方案D/E/F/G四个新思路
+</div>
+
+</div>
+</body>
+</html>

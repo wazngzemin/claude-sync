@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>舱内语音交互 — 全流程图解</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --bg: #0f1117;
+    --card: #1a1d27;
+    --border: #2a2d3a;
+    --accent: #6c8cff;
+    --accent2: #ff7eb3;
+    --accent3: #7affc7;
+    --text: #e8e8ef;
+    --text-dim: #9a9ab0;
+    --section-bg: #14161f;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.8;
+    padding: 0;
+  }
+
+  .hero {
+    text-align: center;
+    padding: 60px 20px 40px;
+    background: linear-gradient(180deg, #1a1f35 0%, var(--bg) 100%);
+    border-bottom: 1px solid var(--border);
+  }
+  .hero h1 {
+    font-size: 2.4rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 12px;
+  }
+  .hero .subtitle {
+    color: var(--text-dim);
+    font-size: 1.05rem;
+  }
+
+  .toc {
+    max-width: 900px;
+    margin: 40px auto;
+    padding: 0 24px;
+  }
+  .toc h2 {
+    font-size: 1.2rem;
+    color: var(--accent);
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .toc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 10px;
+  }
+  .toc-item {
+    display: block;
+    padding: 10px 16px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    text-decoration: none;
+    font-size: 0.95rem;
+    transition: all 0.2s;
+  }
+  .toc-item:hover {
+    border-color: var(--accent);
+    background: #1e2233;
+  }
+  .toc-item .num {
+    color: var(--accent);
+    font-weight: 700;
+    margin-right: 8px;
+  }
+
+  .section {
+    max-width: 1100px;
+    margin: 48px auto;
+    padding: 0 24px;
+  }
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--accent);
+  }
+  .section-header .badge {
+    background: var(--accent);
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 700;
+    padding: 4px 12px;
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+  .section-header h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+  }
+
+  .desc-block {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin-bottom: 24px;
+  }
+  .desc-block h3 {
+    color: var(--accent2);
+    font-size: 1.1rem;
+    margin-bottom: 10px;
+  }
+  .desc-block p, .desc-block li {
+    color: var(--text-dim);
+    font-size: 0.95rem;
+    margin-bottom: 6px;
+  }
+  .desc-block ul {
+    padding-left: 20px;
+  }
+  .desc-block li::marker {
+    color: var(--accent);
+  }
+
+  .chart-container {
+    background: var(--section-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px 20px;
+    margin-bottom: 24px;
+    overflow-x: auto;
+  }
+  .chart-container .mermaid {
+    display: flex;
+    justify-content: center;
+  }
+
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+    margin-top: 16px;
+  }
+  .kpi-card {
+    background: var(--section-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    text-align: center;
+  }
+  .kpi-card .label {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+  .kpi-card .value {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--accent3);
+  }
+
+  .detail-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 12px;
+    font-size: 0.9rem;
+  }
+  .detail-table th {
+    background: var(--section-bg);
+    color: var(--accent);
+    font-weight: 600;
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 2px solid var(--border);
+  }
+  .detail-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-dim);
+  }
+  .detail-table tr:hover td {
+    background: rgba(108, 140, 255, 0.05);
+  }
+
+  .callout {
+    border-left: 4px solid var(--accent2);
+    background: rgba(255, 126, 179, 0.06);
+    padding: 14px 20px;
+    border-radius: 0 8px 8px 0;
+    margin: 16px 0;
+    font-size: 0.9rem;
+    color: var(--text-dim);
+  }
+
+  .divider {
+    max-width: 1100px;
+    margin: 0 auto;
+    border: none;
+    border-top: 1px solid var(--border);
+  }
+
+  @media (max-width: 768px) {
+    .hero h1 { font-size: 1.6rem; }
+    .section { padding: 0 14px; }
+    .desc-block { padding: 16px; }
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>舱内语音交互 — 全流程图解</h1>
+  <p class="subtitle">Driver Agent 2.0 | 豆包上车 AI 座舱 — 舱内语音 7 大子系统完整链路</p>
+</div>
+
+<!-- ========== 目录 ========== -->
+<div class="toc">
+  <h2>目录导航</h2>
+  <div class="toc-grid">
+    <a class="toc-item" href="#sec1"><span class="num">01</span>唤醒与唤醒抑制</a>
+    <a class="toc-item" href="#sec2"><span class="num">02</span>主驾免唤醒</a>
+    <a class="toc-item" href="#sec3"><span class="num">03</span>降噪与回声消除</a>
+    <a class="toc-item" href="#sec4"><span class="num">04</span>音区识别</a>
+    <a class="toc-item" href="#sec5"><span class="num">05</span>语音识别（离在线仲裁）</a>
+    <a class="toc-item" href="#sec6"><span class="num">06</span>声纹识别</a>
+    <a class="toc-item" href="#sec7"><span class="num">07</span>全时免唤醒交互</a>
+    <a class="toc-item" href="#sec8"><span class="num">08</span>多音区并发交互</a>
+    <a class="toc-item" href="#sec9"><span class="num">09</span>免唤醒上云策略</a>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ============================================================ -->
+<!-- SECTION 1: 唤醒与唤醒抑制 -->
+<!-- ============================================================ -->
+<div class="section" id="sec1">
+  <div class="section-header">
+    <span class="badge">01</span>
+    <h2>唤醒与唤醒抑制</h2>
+  </div>
+
+  <div class="desc-block">
+    <h3>流程说明</h3>
+    <p>唤醒是用户与豆包交互的第一道门。用户说出唤醒词"豆包豆包"后，端侧唤醒引擎在 <strong>350ms 内</strong>完成检测并激活 AI 伙伴。</p>
+    <p>但并非所有包含"豆包"的声音都应触发唤醒。系统需要识别并抑制两类误唤醒源：</p>
+    <ul>
+      <li><strong>车外人声抑制</strong>：车外有人喊"豆包豆包"时，通过声源隔离 + 舱内摄像头视觉感知，判定声源在车外 → 抑制唤醒，HMI 显示 Toast "车外人唤醒已抑制"</li>
+      <li><strong>电子设备音频抑制</strong>：手机/平板播放的视频或音乐中包含唤醒词时，系统需识别这类音源并拒绝唤醒</li>
+    </ul>
+    <div class="callout">供应商当前不支持唤醒抑制能力，此功能为 TBD 状态。</div>
+  </div>
+
+  <div class="chart-container">
+    <div class="mermaid">
+flowchart TD
+    A["用户发出声音<br/>(含'豆包豆包')"] --> B{"声源来自<br/>车内还是车外？"}
+
+    B -->|"车内声源"| C{"是否为电子设备<br/>播放的音频？"}
+    B -->|"车外声源"| D["声源隔离 + 视觉感知<br/>确认声源在车外"]
+
+    D --> E["抑制唤醒<br/>Toast: 车外人唤醒已抑制"]
+
+    C -->|"是电子设备音"| F["电子设备音频抑制<br/>不触发唤醒"]
+    C -->|"是真人语音"| G["唤醒引擎检测<br/>唤醒词匹配"]
+
+    G --> H{"唤醒词是否<br/>完整匹配？"}
+    H -->|"匹配成功"| I["唤醒成功<br/>≤350ms 响应"]
+    H -->|"不匹配"| J["忽略<br/>继续监听"]
+
+    I --> K["AI 伙伴激活<br/>进入对话模式"]
+    K --> L["机器人头部转向<br/>声源方向"]
+    K --> M["屏幕显示唤醒状态<br/>开始录音"]
+
+    style A fill:#2d3148,stroke:#6c8cff,color:#e8e8ef
+    style I fill:#1a3d2a,stroke:#7affc7,color:#7affc7
+    style E fill:#3d1a1a,stroke:#ff7eb3,color:#ff7eb3
+    style F fill:#3d1a1a,stroke:#ff7eb3,color:#ff7eb3
+    style J fill:#2d2d2d,stroke:#666,color:#999
+    </div>
+  </div>
+
+  <div class="desc-block">
+    <h3>性能指标</h3>
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="label">唤醒响应时间</div><div class="value">≤350ms</div></div>
+      <div class="kpi-card"><div class="label">安静环境唤醒率</div><div class="value">≥98%</div></div>
+      <div class="kpi-card"><div class="label">嘈杂环境唤醒率</div><div class="value">≥95%</div></div>
+      <div class="kpi-card"><div class="label">误唤醒率</div><div class="value">≤1次/12h</div></div>
+      <div class="kpi-card"><div class="label">唤醒抑制成功率</div><div class="value">≥95%</div></div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ============================================================ -->
+<!-- SECTION 2: 主驾免唤醒 -->
+<!-- ============================================================ -->
+<div class="section" id="sec2">
+  <div class="section-header">
+    <span class="badge">02</span>
+    <h2>主驾免唤醒</h2>
+  </div>
+
+  <div class="desc-block">
+    <h3>流程说明</h3>
+    <p>主驾免唤醒是全时免唤醒的前身/子集。当开关打开后，主驾音区的用户无需说唤醒词即可直接下达指令。核心判断逻辑如下：</p>
+    <ul>
+      <li><strong>自动开启条件</strong>：当 Watcher/端状态模块检测到车内仅主驾一人时，默认开启免唤醒</li>
+      <li><strong>手持电话抑制</strong>：舱内摄像头识别到主驾正在手持电话通话 → 强制拒识，不把音频送云端</li>
+      <li><strong>车外人/电子设备抑制</strong>：与唤醒抑制逻辑一致，需将其判定为非用户对话并 Toast 提示</li>
+      <li><strong>退出语音 ≠ 关闭免唤醒</strong>：用户说"退出语音""别播报"只打断当前 TTS，豆包仍继续监听。要完全退出需手动关闭开关</li>
+      <li><strong>被抢占</strong>：主驾免唤醒交互中，其他音区用唤醒词唤醒 → 打断主驾交互，转向响应新音区</li>
+    </ul>
+  </div>
+
+  <div class="chart-container">
+    <div class="mermaid">
+flowchart TD
+    START["主驾发出语音"] --> CHK1{"主驾免唤醒<br/>开关是否开启？"}
+
+    CHK1 -->|"未开启"| NORMAL["走标准唤醒流程<br/>(需说'豆包豆包')"]
+    CHK1 -->|"已开启"| CHK2{"Watcher: 主驾是否<br/>正在手持电话通话？"}
+
+    CHK2 -->|"正在通话"| REJECT["强制拒识<br/>不响应 & 不上云"]
+    CHK2 -->|"未通话"| CHK3{"声源是否来自<br/>车外/电子设备？"}
+
+    CHK3 -->|"是车外/设备"| TOAST["抑制 + Toast 提示<br/>'非用户对话'"]
+    CHK3 -->|"确认是主驾本人"| CHK4{"其他音区是否<br/>正在唤醒？"}
+
+    CHK4 -->|"有其他音区唤醒"| PREEMPT["打断主驾交互<br/>响应新唤醒音区"]
+    CHK4 -->|"无抢占"| PROCESS["直接进入对话<br/>跳过唤醒 → 送意图/Agent"]
+
+    PROCESS --> EXEC["执行指令 / 回复"]
+    EXEC --> LISTEN["继续监听<br/>(免唤醒状态不退出)"]
+
+    subgraph 自动开启逻辑
+      AUTO1["Watcher 检测<br/>车内仅主驾一人"] --> AUTO2["默认开启<br/>主驾免唤醒开关"]
+      AUTO2 --> AUTO3["设置项中<br/>显示说明文案"]
+    end
+
+    style REJECT fill:#3d1a1a,stroke:#ff7eb3,color:#ff7eb3
+    style TOAST fill:#3d1a1a,stroke:#ff7eb3,color:#ff7eb3
+    style PREEMPT fill:#3d2d1a,stroke:#ffa857,color:#ffa857
+    style PROCESS fill:#1a3d2a,stroke:#7affc7,color:#7affc7
+    style LISTEN fill:#1a2d3d,stroke:#6c8cff,color:#6c8cff
+    style AUTO2 fill:#1a3d2a,stroke:#7affc7,color:#7affc7
+    </div>
+  </div>
+
+  <div class="desc-block">
+    <h3>关键规则汇总</h3>
+    <table class="detail-table">
+      <thead>
+        <tr><th>规则</th><th>行为</th><th>依赖模块</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>仅主驾一人</td><td>自动开启免唤醒</td><td>Watcher / 端状态模块</td></tr>
+        <tr><td>手持电话通话</td><td>强拒识，音频不上云</td><td>舱内摄像头 + Watcher</td></tr>
+        <tr><td>"退出语音"语义</td><td>仅打断 TTS，不退出免唤醒</td><td>语义理解模块</td></tr>
+        <tr><td>其他音区唤醒</td><td>打断主驾，优先响应新唤醒</td><td>音区识别</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ============================================================ -->
+<!-- SECTION 3: 降噪与回声消除 -->
+<!-- ============================================================ -->
+<div class="section" id="sec3">
+  <div class="section-header">
+    <span class="badge">03</span>
+    <h2>降噪与回声消除</h2>
+  </div>
+
+  <div class="desc-block">
+    <h3>流程说明</h3>
+    <p>在车内复杂声学环境下，用户语音需经过两级处理后才能被 ASR 识别：</p>
+    <ul>
+      <li><strong>噪声降噪</strong>：抑制车辆机械噪音（空调运转、轮胎噪声、风雨声）和电子设备声音（手机视频/音乐）。系统根据不同噪声强度动态调节抑制阈值。每个座位区域独立配置高灵敏度麦克风。</li>
+      <li><strong>回声消除（AEC）</strong>：车载扬声器播放的音乐、导航语音、电话通话等音频会被麦克风再次采集形成回声。系统实时采集 <strong>4 路参考信号</strong>（多个扬声器输出），从麦克风信号中精准抵消回声，覆盖从最小音量到最大音量的全范围。</li>
+    </ul>
+    <p>两级处理总延迟要求 <strong>≤50ms</strong>，处理后信噪比 <strong>≥20dB</strong>。</p>
+  </div>
+
+  <div class="chart-container">
+    <div class="mermaid">
+flowchart LR
+    subgraph 原始输入
+      MIC["麦克风阵列<br/>(每座位独立)"]
+      SPK["扬声器输出<br/>(4路参考信号)"]
+      ENV["环境噪声源<br/>空调/轮胎/风雨"]
+      DEV["电子设备声<br/>手机/平板音频"]
+    end
+
+    MIC --> MIX["麦克风采集到的<br/>混合信号"]
+    ENV -.->|"叠加"| MIX
+    DEV -.->|"叠加"| MIX
+    SPK -.->|"回声叠加"| MIX
+
+    MIX --> STAGE1["第一级：噪声降噪<br/>动态阈值调节"]
+    STAGE1 --> STAGE2["第二级：回声消除 AEC<br/>4路参考信号抵消"]
+    SPK -->|"参考信号"| STAGE2
+
+    STAGE2 --> CLEAN["干净语音信号<br/>信噪比 ≥20dB"]
+
+    CLEAN --> ASR["送入 ASR<br/>语音识别"]
+
+    style MIX fill:#3d2d1a,stroke:#ffa857,color:#ffa857
+    style STAGE1 fill:#1a2d3d,stroke:#6c8cff,color:#6c8cff
+    style STAGE2 fill:#1a2d3d,stroke:#6c8cff,color:#6c8cff
+    style CLEAN fill:#1a3d2a,stroke:#7affc7,color:#7affc7
+    </div>
+  </div>
+
+  <div class="desc-block">
+    <h3>性能指标</h3>
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="label">处理总延迟</div><div class="value">≤50ms</div></div>
+      <div class="kpi-card"><div class="label">信噪比</div><div class="value">≥20dB</div></div>
+      <div class="kpi-card"><div class="label">回声参考路数</div><div class="value">4路</div></div>
+      <div class="kpi-card"><div class="label">音量覆盖</div><div class="value">最小~最大全范围</div></div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ============================================================ -->
+<!-- SECTION 4: 音区识别 -->
+<!-- ============================================================ -->
+<div class="section" id="sec4">
+  <div class="section-header">
+    <span class="badge">04</span>
+    <h2>音区识别</h2>
+  </div>
+
+  <div class="desc-block">
+    <h3>流程说明</h3>
+    <p>音区识别让系统知道"谁在说话"以及"从哪个座位说的"。核心能力：</p>
+    <ul>
+      <li><strong>基础音区划分</strong>：5 座车 = 5 个音区，6 座车 = 6 个音区。用户语音指令到达后，系统输出"主驾/副驾/二排左/二排右/二排中"等位置信息</li>
+      <li><strong>声源定位精度</strong>：定位误差 <strong>≤±20cm</strong>，可以区分同音区内不同乘客</li>
+      <li><strong>多模态融合</strong>：不仅靠麦克风阵列的声学特征，还结合舱内摄像头识别人体位置（锥形特征），二者融合做更精准的收音和定位</li>
+      <li><strong>特殊场景</strong>：座椅靠背放倒 >120° 时，不能把主驾误判为二排左侧，仍需正确识别为前排左侧音区</li>
+      <li><strong>音区开关</strong>：用户可单独关闭某个音区的交互；被关闭的音区有人说话时 Toast "该音区已关闭"</li>
+    </ul>
+  </div>
+
+  <div class="chart-container">
+    <div class="mermaid">
+flowchart TD
+    VOICE["用户语音输入"] --> ACOUSTIC["声学特征提取<br/>(麦克风阵列)"]
+    VOICE --> VISUAL["视觉特征提取<br/>(舱内摄像头人体识别)"]
+
+    ACOUSTIC --> FUSION["多模态融合定位<br/>声学 + 视觉锥形特征"]
+    VISUAL --> FUSION
+
+    FUSION --> ZONE{"定位到哪个音区？<br/>误差 ≤±20cm"}
+
+    ZONE --> Z1["主驾<br/>(前排左)"]
+    ZONE --> Z2["副驾<br/>(前排右)"]
+    ZONE --> Z3["二排左"]
+    ZONE --> Z4["二排右"]
+    ZONE --> Z5["二排中<br/>(如有)"]
+
+    Z1 --> SWITCH{"该音区<br/>是否已开启？"}
+    Z2 --> SWITCH
+    Z3 --> SWITCH
+    Z4 --> SWITCH
+    Z5 --> SWITCH
+
+    SWITCH -->|"已开启"| SPECIAL{"座椅靠背<br/>>120° ?"}
+    SWITCH -->|"已关闭"| BLOCKED["Toast: 该音区已关闭<br/>不处理语音"]
+
+    SPECIAL -->|"是"| CORRECT["修正音区归属<br/>仍归前排,不误判后排"]
+    SPECIAL -->|"否"| PASS["音区信息确认"]
+    CORRECT --> PASS
+
+    PASS --> OUTPUT["输出: 音区位置<br/>+ 机器人头部转向"]
+    OUTPUT --> NEXT["送入后续模块<br/>(ASR / 拒识 / Agent)"]
+
+    style FUSION fill:#1a2d3d,stroke:#6c8cff,color:#6c8cff
+    style ZONE fill:#2d2848,stroke:#a78bfa,color:#a78bfa
+    style BLOCKED fill:#3d1a1a,stroke:#ff7eb3,color:#ff7eb3
+    style CORRECT fill:#3d2d1a,stroke:#ffa857,color:#ffa857
+    style PASS fill:#1a3d2a,stroke:#7affc7,color:#7affc7
+    </div>
+  </div>
+
+  <div class="desc-block">
+    <h3>音区定位精度指标</h3>
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="label">定位误差</div><div class="value">≤±20cm</div></div>
+      <div class="kpi-card"><div class="label">主驾/副驾准确率</div><div class="value">≥99%</div></div>
+      <div class="kpi-card"><div class="label">后排左/右准确率</div><div class="value">≥98%</div></div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ============================================================ -->
+<!-- SECTION 5: 语音识别（离在线仲裁） -->
+<!-- ============================================================ -->
+<div class="section" id="sec5">
+  <div class="section-header">
+    <span class="badge">05</span>
+    <h2>语音识别（离在线仲裁）</h2>
+  </div>
+
+  <div class="desc-block">
+    <h3>流程说明</h3>
+    <p>语音识别是将用户声音转文字的核心环节。系统采用 <strong>离在线并行 + 仲裁</strong> 架构：</p>
+    <ul>
+      <li><strong>在线 ASR</strong>：音频送云端，走云云对接接入供应商/字节内部在线 ASR。针对车载场景做定向优化——支持车辆专有名词、通讯录人名、POI 地名的热词增强（≥3000 热词）。还支持地域 POI 增强（同一个发音，浙江识别为"云和"，黑龙江识别为"云河"）</li>
+      <li><strong>离线 ASR</strong>：端侧本地运行，支持中文普通话和中英混合，兼容口音</li>
+      <li><strong>仲裁策略</strong>：不论网络好坏，离线场景用离线 ASR，在线场景用在线 ASR。上屏时先流式展示离线结果（速度快），最终用在线 ASR 的 final 结果刷新。断网时完全使用离线结果</li>
+      <li><strong>方言二遍识别</strong>：第一遍追求低延迟先上屏（普通话为主），第二遍侧重高精度修正方言/强口音（粤语字错率约 7%，口音约 10%）</li>
+      <li><strong>识别纠错</strong>：不需要修改 ASR 输出，而是由后续模型根据上下文理解最终语义（"虹煤路"→"虹梅路"）</li>
+    </ul>
+  </div>
+
+  <div class="chart-container">
+    <div class="mermaid">
+flowchart TD
+    INPUT["用户语音<br/>(降噪+回声消除后)"] --> FORK["离在线并行处理"]
+
+    FORK --> OFFLINE["离线 ASR<br/>(端侧本地)"]
+    FORK --> ONLINE["在线 ASR<br/>(云端)"]
+
+    OFFLINE --> OFF_RESULT["离线识别结果<br/>(速度快, 先上屏)"]
+
+    ONLINE --> ENHANCE["车载定向优化"]
+    ENHANCE --> HW["热词增强<br/>专有名词/通讯录/POI<br/>≥3000个"]
+    ENHANCE --> GEO["地域POI增强<br/>根据用户位置<br/>动态调权重"]
+    HW --> ON_P1["第一遍: 低延迟<br/>首字≤200ms"]
+    GEO --> ON_P1
+    ON_P1 --> ON_P2["第二遍: 高精度<br/>方言/口音修正"]
+    ON_P2 --> ON_RESULT["在线 final 结果"]
+
+    OFF_RESULT --> SCREEN["流式上屏<br/>(先展示离线结果)"]
+    ON_RESULT --> ARB{"仲裁: 有网络？"}
+
+    ARB -->|"有网络"| REFRESH["用在线 final 结果<br/>刷新上屏文字"]
+    ARB -->|"无网络"| KEEP["保留离线结果<br/>作为最终文字"]
+
+    REFRESH --> CORRECT["模型语义纠错<br/>(虹煤路→虹梅路)"]
+    KEEP --> CORRECT
+
+    CORRECT --> NEXT["送入后续模块<br/>(拒识/意图/Planner)"]
+
+    style FORK fill:#2d2848,stroke:#a78bfa,color:#a78bfa
+    style OFF_RESULT fill:#1a3d2a,stroke:#7affc7,color:#7affc7
+    style ON_RESULT fill:#1a3d2a,stroke:#7affc7,color:#7affc7
+    style REFRESH fill:#1a2d3d,stroke:#6c8cff,color:#6c8cff
+    style CORRECT fill:#3d2d1a,stroke:#ffa857,color:#ffa857
+    </div>
+  </div>
+
+  <div class="desc-block">
+    <h3>性能指标</h3>
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="label">首字延迟</div><div class="value">≤200ms</div></div>
+      <div class="kpi-card"><div class="label">尾字延迟</div><div class="value">≤500ms</div></div>
+      <div class="kpi-card"><div class="label">安静环境句准率</div><div class="value">≥95%</div></div>
+      <div class="kpi-card"><div class="label">嘈杂环境句准率</div><div class="value">≥90%</div></div>
+      <div class="kpi-card"><div class="label">方言字错率(粤语)</div><div class="value">~7%</div></div>
+      <div class="kpi-card"><div class="label">方言字错率(口音)</div><div class="value">~10%</div></div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ============================================================ -->
+<!-- SECTION 6: 声纹识别 -->
+<!-- ============================================================ -->
+<div class="section" id="sec6">
+  <div class="section-header">
+    <span class="badge">06</span>
+    <h2>声纹识别</h2>
+  </div>
+
+  <div class="desc-block">
+    <h3>流程说明</h3>
+    <p>声纹识别让豆包知道"是谁在说话"，而不仅仅是"从哪里在说话"。分为注册和应用两个阶段：</p>
+    <ul>
+      <li><strong>显性注册</strong>：用户在界面主动录入，说 3 次唤醒词+指令（如"豆包豆包，空调调到 23 度"），系统提取声纹特征。注册上限 <strong>5 个</strong>声纹。注册后设置昵称/年龄/性别</li>
+      <li><strong>隐性注册(TBD)</strong>：锁定某音区，该音区语音交互 ≥10 次后，豆包主动询问"你的声音很好听诶，可以告诉我你的名字么？"，用户回答昵称后绑定声纹</li>
+      <li><strong>应用场景</strong>：
+        <ul>
+          <li>声纹识人：唤醒时叫出用户昵称（"你好晓晓~"）</li>
+          <li>Context 丰富：将声纹属性（昵称/年龄/性别）传给 Context 模块，做个性化交互（如识别为儿童 → 更简短的对话风格）</li>
+          <li>安全校验：识别为儿童 → 禁止操作车窗/车门/驾驶类等安全功能</li>
+          <li>车外语音安全校验（跨舱）</li>
+        </ul>
+      </li>
+      <li><strong>隐私</strong>：声纹特征仅存储在本地，录入时需用户授权</li>
+    </ul>
+  </div>
+
+  <div class="chart-container">
+    <div class="mermaid">
+flowchart TD
+    subgraph 注册阶段
+      REG_START["用户进入声纹注册界面"] --> REG_SAY["说3次唤醒词+指令<br/>'豆包豆包,空调调到23度'<br/>'豆包豆包,导航回家'<br/>'豆包豆包,播放收藏的音乐'"]
+      REG_SAY --> REG_CHK{"录制是否<br/>出现错误？"}
+      REG_CHK -->|"有错误"| REG_RETRY["提示二次录入"]
+      REG_RETRY --> REG_SAY
+      REG_CHK -->|"录制完成"| REG_INFO["设置用户信息<br/>昵称 / 年龄 / 性别"]
+      REG_INFO --> REG_SAVE["提取特征 + 本地存储<br/>(需用户授权)"]
+      REG_SAVE --> REG_LIMIT["注册上限: 5个声纹"]
+    end
+
+    subgraph 隐性注册 TBD
+      H_LOCK["锁定某音区"] --> H_COUNT["该音区交互 ≥10次"]
+      H_COUNT --> H_ASK["豆包主动询问:<br/>'你的声音很好听诶,<br/>可以告诉我你的名字么?'"]
+      H_ASK --> H_BIND["用户说出昵称<br/>→ 绑定声纹特征"]
+    end
+
+    subgraph 应用阶段
+      APP_WAKE["唤醒时声纹匹配"] --> APP_GREET["叫出用户昵称<br/>'你好晓晓~'"]
+      APP_WAKE --> APP_CTX["属性传入Context<br/>昵称/年龄/性别"]
+      APP_CTX --> APP_STYLE["个性化对话风格<br/>儿童→简短/亲切"]
+      APP_WAKE --> APP_SAFE{"识别为儿童？"}
+      APP_SAFE -->|"是"| APP_BLOCK["禁止操作安全功能<br/>车窗/车门/驾驶"]
+      APP_SAFE -->|"否"| APP_ALLOW["正常执行所有指令"]
+    end
+
+    style REG_SAVE fill:#1a3d2a,stroke:#7affc7,color:#7affc7
+    style REG_LIMIT fill:#3d2d1a,stroke:#ffa857,color:#ffa857
+    style APP_GREET fill:#1a2d3d,stroke:#6c8cff,color:#6c8cff
+    style APP_BLOCK fill:#3d1a1a,stroke:#ff7eb3,color:#ff7eb3
+    style H_ASK fill:#2d2848,stroke:#a78bfa,color:#a78bfa
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ============================================================ -->
+<!-- SECTION 7: 全时免唤醒交互 -->
+<!-- ============================================================ -->
+<div class="section" id="sec7">
+  <div class="section-header">
+    <span class="badge">07</span>
+    <h2>全时免唤醒交互</h2>
+  </div>
+
+  <div class="desc-block">
+    <h3>流程说明</h3>
+    <p>全时免唤醒是舱内语音的终极形态——所有音区的所有乘客都无需唤醒词，随时随地直接和豆包说话。</p>
+    <p>核心机制分三层：</p>
+    <ul>
+      <li><strong>持续监听 + 拒识</strong>：豆包始终在听，但大部分话是人人对话（聊天/唱歌/自言自语）。端侧拒识模型区分人机对话和人人对话，只召回真正对豆包说的话</li>
+      <li><strong>强召回</strong>：用户语句中出现"豆包"或指令句式时，不管拒识模型怎么判，强制召回为人机对话</li>
+      <li><strong>强拒识</strong>：摄像头识别到用户正在手持电话通话 → 该音区所有语音强拒识，不上云</li>
+    </ul>
+    <p>上下文继承机制：豆包将被拒识的对话做话题分类和总结（每 5 轮一次），当后续有正例召回时，将前 5 个话题总结作为上文补充，辅助理解用户意图。</p>
+    <p>激活后进入连续对话模式（30 秒超时）。30 秒内全是无效文本 → 退回免唤醒未激活状态；有有效指令 → 重新计时 30 秒。</p>
+  </div>
+
+  <div class="chart-container">
+    <div class="mermaid">
+flowchart TD
+    ON["全时免唤醒开关开启<br/>(默认开启)"] --> SEAT{"座椅传感器 + FaceID<br/>该位置是否有人？"}
+
+    SEAT -->|"无人"| SKIP["不开启该音区交互"]
+    SEAT -->|"有人"| LISTEN["持续监听状态<br/>(屏幕显示'正在监听')"]
+
+    LISTEN --> USER_TALK["用户说话"]
+    USER_TALK --> PHONE{"摄像头: 用户<br/>正在手持电话？"}
+
+    PHONE -->|"正在通话"| FORCE_REJ["强拒识<br/>不响应 不上云"]
+    PHONE -->|"未通话"| REJECT_MODEL["端侧拒识模型判断"]
+
+    REJECT_MODEL --> TYPE{"判定结果"}
+    TYPE -->|"人人对话<br/>(聊天/唱歌/自言自语)"| REJ_LOG["拒识 → 不上屏<br/>记入话题分类"]
+    TYPE -->|"含'豆包'/指令句式"| FORCE_RECALL["强召回<br/>(不管模型怎么判)"]
+    TYPE -->|"人机对话指令"| RECALL["正常召回"]
+
+    REJ_LOG --> TOPIC["每5轮做一次<br/>话题分类+总结"]
+    TOPIC --> LISTEN
+
+    FORCE_RECALL --> ACTIVATE["激活 → 进入连续对话<br/>上屏显示 ASR 文本"]
+    RECALL --> ACTIVATE
+
+    ACTIVATE --> CONT["连续对话模式<br/>倒计时30秒"]
+    CONT --> VALID{"30秒内<br/>是否有有效指令？"}
+
+    VALID -->|"有效指令"| RESET["重置30秒倒计时<br/>+ 上文拼接话题总结"]
+    VALID -->|"全是无效文本"| DEACT["超时退回<br/>免唤醒未激活状态"]
+    RESET --> PROCESS["处理指令<br/>(ASR → 意图 → Planner)"]
+    PROCESS --> CONT
+
+    DEACT --> LISTEN
+
+    style ON fill:#1a2d3d,stroke:#6c8cff,color:#6c8cff
+    style FORCE_REJ fill:#3d1a1a,stroke:#ff7eb3,color:#ff7eb3
+    style FORCE_RECALL fill:#1a3d2a,stroke:#7affc7,color:#7affc7
+    style ACTIVATE fill:#1a3d2a,stroke:#7affc7,color:#7affc7
+    style DEACT fill:#2d2d2d,stroke:#666,color:#999
+    style TOPIC fill:#2d2848,stroke:#a78bfa,color:#a78bfa
+    </div>
+  </div>
+
+  <div class="desc-block">
+    <h3>拒识 vs 召回的完整判定矩阵</h3>
+    <table class="detail-table">
+      <thead>
+        <tr><th>场景</th><th>判定</th><th>行为</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>乘客间闲聊、唱歌、自言自语</td><td>拒识</td><td>不上屏，记入话题分类</td></tr>
+        <tr><td>用户手持电话通话</td><td>强拒识</td><td>不响应，不上云</td></tr>
+        <tr><td>语句中出现"豆包"或其泛化</td><td>强召回</td><td>激活对话，上屏 ASR</td></tr>
+        <tr><td>明确指令句式（"打开XX""导航去XX"）</td><td>召回</td><td>激活对话，上屏 ASR</td></tr>
+        <tr><td>模糊表达但含意图（"我好冷"）</td><td>召回</td><td>激活 + 模型推理执行</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="desc-block">
+    <h3>话题分类体系</h3>
+    <p>被拒识的对话按以下 8 类做话题总结，作为后续召回时的上下文补充：</p>
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="label">分类 1</div><div class="value">生活日常</div></div>
+      <div class="kpi-card"><div class="label">分类 2</div><div class="value">兴趣爱好</div></div>
+      <div class="kpi-card"><div class="label">分类 3</div><div class="value">科技趋势</div></div>
+      <div class="kpi-card"><div class="label">分类 4</div><div class="value">工作学习</div></div>
+      <div class="kpi-card"><div class="label">分类 5</div><div class="value">社会时事</div></div>
+      <div class="kpi-card"><div class="label">分类 6</div><div class="value">情感人际</div></div>
+      <div class="kpi-card"><div class="label">分类 7</div><div class="value">健康养生</div></div>
+      <div class="kpi-card"><div class="label">分类 8</div><div class="value">旅行见闻</div></div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ============================================================ -->
+<!-- SECTION 8: 多音区并发交互 -->
+<!-- ============================================================ -->
+<div class="section" id="sec8">
+  <div class="section-header">
+    <span class="badge">08</span>
+    <h2>多音区并发交互</h2>
+  </div>
+
+  <div class="desc-block">
+    <h3>流程说明</h3>
+    <p>一台车只有一个豆包伙伴，它可以同时听到所有人说话，但同时只能回答一个人。当多个音区同时或先后发起指令时，系统需做冲突仲裁和排队调度。</p>
+    <p>核心设计原则：<strong>能不播报就不播报</strong>。执行结果用视觉反馈（图标/卡片）就够的，不额外占用 TTS 通道。必须播报的，按紧急程度排队或插队。</p>
+    <p>系统将多音区并发拆分为两大场景：</p>
+    <ul>
+      <li><strong>同时说</strong>：多人的 query 还没分发出去，合并文本给 Planner 统一处理（"主驾驶说XXX，副驾驶说XXX"）</li>
+      <li><strong>任务执行中</strong>：某个任务正在执行/播报，新指令到达 → 根据 5 种类型决定打断/排队/合并</li>
+    </ul>
+  </div>
+
+  <div class="chart-container">
+    <div class="mermaid">
+flowchart TD
+    MULTI["多音区同时/先后<br/>发起指令"] --> TIMING{"指令到达时机？"}
+
+    TIMING -->|"同时说<br/>(FC还没下发)"| MERGE["合并文本给Planner<br/>'主驾说XXX,副驾说XXX'"]
+    MERGE --> PLAN["Planner统一处理<br/>考虑上下文+任务相关性"]
+
+    TIMING -->|"任务执行中<br/>(某任务正在进行)"| CLASSIFY{"新指令是否<br/>需要TTS播报？"}
+
+    CLASSIFY -->|"不需要TTS"| T1["类型1: 非必要播报"]
+    CLASSIFY -->|"需要TTS"| CONFLICT{"与当前任务<br/>是否冲突？"}
+
+    T1 --> T1_OK["提示音(成功/失败)<br/>+ 图标反馈(2s)"]
+    T1 --> T1_FAIL["失败时: 文字提示原因<br/>(5s后消失)"]
+
+    CONFLICT -->|"不冲突"| SAFETY{"是否安全类<br/>功能？"}
+    CONFLICT -->|"冲突"| T5["类型5: 意图冲突"]
+
+    SAFETY -->|"安全类"| T3["类型3: 安全优先"]
+    SAFETY -->|"非安全"| RELATED{"是否关联<br/>补充？"}
+
+    RELATED -->|"是补充"| T4["类型4: 关联合并"]
+    RELATED -->|"非补充"| T2["类型2: 排队等待"]
+
+    T3 --> T3_ACT["立即打断当前播报<br/>→ 执行安全指令<br/>→ 恢复原播报"]
+    T2 --> T2_ACT["提示音 + 过渡话术<br/>'等主驾任务结束后...'<br/>→ 排队 → 轮到时播报"]
+    T4 --> T4_ACT["合并执行<br/>'空调温度调好了'"]
+    T5 --> T5_ACT["请主驾确认<br/>弹出卡片选择"]
+
+    style MERGE fill:#1a2d3d,stroke:#6c8cff,color:#6c8cff
+    style T1_OK fill:#1a3d2a,stroke:#7affc7,color:#7affc7
+    style T3_ACT fill:#3d1a1a,stroke:#ff7eb3,color:#ff7eb3
+    style T2_ACT fill:#3d2d1a,stroke:#ffa857,color:#ffa857
+    style T4_ACT fill:#1a3d2a,stroke:#7affc7,color:#7affc7
+    style T5_ACT fill:#2d2848,stroke:#a78bfa,color:#a78bfa
+    </div>
+  </div>
+
+  <div class="desc-block">
+    <h3>5 种冲突类型详解</h3>
+    <table class="detail-table">
+      <thead>
+        <tr><th>类型</th><th>场景示例</th><th>处理策略</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>类型1</strong><br/>非必要播报</td>
+          <td>主驾播报天气中 → 副驾说"打开车窗"</td>
+          <td>提示音+图标反馈，不打断天气播报</td>
+        </tr>
+        <tr>
+          <td><strong>类型2</strong><br/>排队等待</td>
+          <td>主驾播报天气中 → 副驾说"讲个笑话"</td>
+          <td>提示音 → 过渡话术 → 天气播完 → 笑话</td>
+        </tr>
+        <tr>
+          <td><strong>类型3</strong><br/>安全优先</td>
+          <td>主驾播报天气中 → 副驾说"打开雾灯"</td>
+          <td>立即打断 → 雾灯结果播报 → 恢复天气</td>
+        </tr>
+        <tr>
+          <td><strong>类型4</strong><br/>关联合并</td>
+          <td>主驾说"温度调23度" → 副驾说"再高一点"</td>
+          <td>合并为一个意图执行，统一播报</td>
+        </tr>
+        <tr>
+          <td><strong>类型5</strong><br/>意图冲突</td>
+          <td>主驾说"导航去北京" → 副驾说"导航去海南"</td>
+          <td>请主驾确认，弹出选择卡片</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="callout">以上体验目标是由模型（Planner）来做决策，当前阶段先用规则聚合实现。</div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ============================================================ -->
+<!-- SECTION 9: 免唤醒上云策略 -->
+<!-- ============================================================ -->
+<div class="section" id="sec9">
+  <div class="section-header">
+    <span class="badge">09</span>
+    <h2>免唤醒上云策略</h2>
+  </div>
+
+  <div class="desc-block">
+    <h3>流程说明</h3>
+    <p>全时免唤醒意味着用户随时可能对豆包说话，如果所有音频都送云端，会产生巨大的流量和 token 消耗。因此端侧需做预拦截：</p>
+    <ul>
+      <li><strong>端侧预处理</strong>：端侧模型先做一轮判断——能处理的（明确指令/明确拒识）直接在端侧完成，不上云</li>
+      <li><strong>端侧无法处理的 query</strong>：需要上云。上云有两条路径同时走：
+        <ul>
+          <li><strong>文本上云</strong>：端侧 ASR 识别出的文本作为 soft VAD 结果，提前触发云端 LLM 请求（但只跑到拒识意图模块，不做全量推理）</li>
+          <li><strong>音频流式上云</strong>：用户语音音频流式传到云端，云端做在线 ASR 得到 hard VAD 结果</li>
+        </ul>
+      </li>
+      <li><strong>端云 ASR 对比</strong>：soft VAD 和 hard VAD 结果一致 → 不重新请求；不一致 → 用 hard VAD 结果重新请求云端 LLM</li>
+      <li><strong>激活后</strong>：免唤醒激活进入连续对话后，后续指令通常是继续和豆包对话，此时端云并行同步处理以保证速度和准确性</li>
+    </ul>
+    <div class="callout">注意：S08 未完成通过座舱云接入在线 ASR，需要将端上获取到的在线 ASR 上云做端云 ASR 对比。</div>
+  </div>
+
+  <div class="chart-container">
+    <div class="mermaid">
+flowchart TD
+    INPUT["用户语音输入<br/>(免唤醒状态)"] --> LOCAL["端侧模型预处理"]
+
+    LOCAL --> JUDGE{"端侧能否处理？"}
+
+    JUDGE -->|"明确指令<br/>(车控等高频)"| LOCAL_EXEC["端侧直接处理<br/>不上云, 省流量"]
+    JUDGE -->|"明确拒识<br/>(人人对话)"| LOCAL_REJ["端侧拒识<br/>不上云"]
+    JUDGE -->|"无法判断<br/>需要云端"| CLOUD["上云处理"]
+
+    CLOUD --> DUAL["双路同时上云"]
+
+    DUAL --> SOFT["路径1: 文本上云<br/>(端侧ASR文本)<br/>= soft VAD"]
+    DUAL --> HARD["路径2: 音频流式上云<br/>(用户原始音频)<br/>= hard VAD"]
+
+    SOFT --> PRE_REQ["提前请求云端LLM<br/>(仅跑拒识意图模块)"]
+    HARD --> CLOUD_ASR["云端在线ASR<br/>生成 hard VAD 结果"]
+
+    PRE_REQ --> COMPARE{"soft VAD vs hard VAD<br/>结果是否一致？"}
+    CLOUD_ASR --> COMPARE
+
+    COMPARE -->|"一致"| REUSE["复用已有LLM请求<br/>继续执行"]
+    COMPARE -->|"不一致"| REDO["用 hard VAD 结果<br/>重新请求云端LLM"]
+
+    REUSE --> RESULT["返回结果<br/>→ 端侧执行/播报"]
+    REDO --> RESULT
+
+    subgraph 激活后连续对话
+      CONT_INPUT["后续用户指令"] --> PARALLEL["端云并行同步处理<br/>保证速度+准确性"]
+      PARALLEL --> CONT_RESULT["返回结果"]
+    end
+
+    style LOCAL_EXEC fill:#1a3d2a,stroke:#7affc7,color:#7affc7
+    style LOCAL_REJ fill:#2d2d2d,stroke:#666,color:#999
+    style DUAL fill:#2d2848,stroke:#a78bfa,color:#a78bfa
+    style COMPARE fill:#3d2d1a,stroke:#ffa857,color:#ffa857
+    style REUSE fill:#1a3d2a,stroke:#7affc7,color:#7affc7
+    style REDO fill:#1a2d3d,stroke:#6c8cff,color:#6c8cff
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<div style="text-align:center; padding: 40px 20px; color: var(--text-dim); font-size: 0.85rem;">
+  Driver Agent 2.0 — 舱内语音交互全流程图解 v1 | 2026-07-08
+</div>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    themeVariables: {
+      primaryColor: '#2d3148',
+      primaryTextColor: '#e8e8ef',
+      primaryBorderColor: '#6c8cff',
+      lineColor: '#6c8cff',
+      secondaryColor: '#1a1d27',
+      tertiaryColor: '#14161f',
+      fontFamily: '-apple-system, PingFang SC, Microsoft YaHei, sans-serif',
+      fontSize: '14px'
+    },
+    flowchart: {
+      useMaxWidth: true,
+      htmlLabels: true,
+      curve: 'basis'
+    }
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>车书QA与车控冲突修复方案 — 详细版</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --card: #1a1d27;
+    --card-alt: #21242f;
+    --border: #2a2d3a;
+    --text: #e2e4e9;
+    --text-dim: #8b8fa3;
+    --accent: #6c7eff;
+    --accent2: #4ecdc4;
+    --red: #ff6b6b;
+    --orange: #ffa94d;
+    --green: #51cf66;
+    --yellow: #ffd43b;
+    --purple: #b197fc;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    padding: 40px 20px;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+
+  /* Header */
+  .header {
+    text-align: center;
+    padding: 50px 0 40px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 50px;
+  }
+  .header h1 {
+    font-size: 32px;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 12px;
+  }
+  .header .subtitle {
+    color: var(--text-dim);
+    font-size: 15px;
+  }
+  .header .constraints {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    margin-top: 24px;
+    flex-wrap: wrap;
+  }
+  .constraint-tag {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 6px 16px;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+  .constraint-tag strong { color: var(--orange); }
+
+  /* Section */
+  .section {
+    margin-bottom: 60px;
+  }
+  .section-title {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 24px;
+    padding-left: 16px;
+    border-left: 4px solid var(--accent);
+  }
+  .section-desc {
+    color: var(--text-dim);
+    font-size: 14px;
+    margin-bottom: 24px;
+    padding-left: 20px;
+  }
+
+  /* Flow Diagram */
+  .flow-diagram {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    margin-bottom: 32px;
+    overflow-x: auto;
+  }
+  .flow-diagram h3 {
+    font-size: 16px;
+    color: var(--accent);
+    margin-bottom: 20px;
+  }
+  .flow-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .flow-box {
+    padding: 10px 18px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .flow-box.input { background: #1e3a5f; color: #7eb8ff; border: 1px solid #2d5a8a; }
+  .flow-box.process { background: #2d2350; color: #b197fc; border: 1px solid #4a3880; }
+  .flow-box.inject { background: #1a3d3a; color: #4ecdc4; border: 1px solid #2a5d5a; }
+  .flow-box.decision { background: #3d2a1a; color: #ffa94d; border: 1px solid #5d4a2a; }
+  .flow-box.output-good { background: #1a3d1a; color: #51cf66; border: 1px solid #2a5d2a; }
+  .flow-box.output-bad { background: #3d1a1a; color: #ff6b6b; border: 1px solid #5d2a2a; }
+  .flow-arrow {
+    color: var(--text-dim);
+    font-size: 18px;
+    font-weight: bold;
+  }
+  .flow-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 4px;
+    text-align: center;
+  }
+  .flow-branch {
+    margin-left: 40px;
+    padding-left: 20px;
+    border-left: 2px dashed var(--border);
+    margin-top: 8px;
+    margin-bottom: 8px;
+  }
+
+  /* Problem highlight */
+  .problem-box {
+    background: linear-gradient(135deg, #3d1a1a, #2d1515);
+    border: 1px solid #5d2a2a;
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 32px;
+  }
+  .problem-box h3 {
+    color: var(--red);
+    font-size: 16px;
+    margin-bottom: 12px;
+  }
+  .problem-box p {
+    color: #ffaaaa;
+    font-size: 14px;
+  }
+  .problem-box code {
+    background: #4d1a1a;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 13px;
+    color: #ff9999;
+  }
+
+  /* Solution Cards */
+  .solution-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    margin-bottom: 32px;
+    position: relative;
+  }
+  .solution-card.recommended {
+    border-color: var(--accent);
+    box-shadow: 0 0 20px rgba(108, 126, 255, 0.1);
+  }
+  .solution-badge {
+    position: absolute;
+    top: -12px;
+    right: 24px;
+    padding: 4px 16px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .solution-badge.a { background: var(--accent2); color: #0f1117; }
+  .solution-badge.b { background: var(--purple); color: #0f1117; }
+  .solution-badge.c { background: var(--accent); color: #fff; }
+  .solution-card h3 {
+    font-size: 20px;
+    margin-bottom: 8px;
+  }
+  .solution-card .who {
+    color: var(--text-dim);
+    font-size: 13px;
+    margin-bottom: 20px;
+  }
+
+  /* Detail blocks */
+  .detail-block {
+    background: var(--card-alt);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .detail-block h4 {
+    font-size: 14px;
+    color: var(--accent2);
+    margin-bottom: 10px;
+  }
+  .detail-block p, .detail-block li {
+    font-size: 14px;
+    color: var(--text);
+    line-height: 1.8;
+  }
+  .detail-block ul {
+    padding-left: 20px;
+  }
+
+  /* Code blocks */
+  .code-block {
+    background: #0d0f15;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 12px 0;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    color: #c9d1d9;
+  }
+  .code-block .comment { color: #6a737d; }
+  .code-block .highlight { color: var(--green); font-weight: 600; }
+  .code-block .old { color: var(--red); text-decoration: line-through; opacity: 0.7; }
+  .code-block .new { color: var(--green); }
+  .code-block .label { color: var(--orange); }
+
+  /* Step list */
+  .step-list {
+    counter-reset: step;
+  }
+  .step-item {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 20px;
+    align-items: flex-start;
+  }
+  .step-num {
+    counter-increment: step;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .step-content {
+    flex: 1;
+  }
+  .step-content h5 {
+    font-size: 14px;
+    margin-bottom: 4px;
+  }
+  .step-content p {
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+
+  /* Comparison table */
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 13px;
+  }
+  .compare-table th {
+    background: var(--card-alt);
+    padding: 12px 16px;
+    text-align: left;
+    font-weight: 600;
+    border-bottom: 2px solid var(--border);
+    color: var(--accent);
+  }
+  .compare-table td {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+  }
+  .compare-table tr:hover td {
+    background: rgba(108, 126, 255, 0.05);
+  }
+  .tag {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .tag.green { background: #1a3d1a; color: var(--green); }
+  .tag.orange { background: #3d2a1a; color: var(--orange); }
+  .tag.red { background: #3d1a1a; color: var(--red); }
+  .tag.blue { background: #1a2d4d; color: #7eb8ff; }
+  .tag.purple { background: #2d1a4d; color: var(--purple); }
+
+  /* Why box */
+  .why-box {
+    background: linear-gradient(135deg, #1a2d1a, #152015);
+    border: 1px solid #2a5d2a;
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin: 16px 0;
+  }
+  .why-box h4 {
+    color: var(--green);
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+  .why-box p {
+    font-size: 13px;
+    color: #aaddaa;
+    line-height: 1.8;
+  }
+
+  /* Risk box */
+  .risk-box {
+    background: linear-gradient(135deg, #2d2a1a, #201d15);
+    border: 1px solid #5d4a2a;
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin: 16px 0;
+  }
+  .risk-box h4 {
+    color: var(--orange);
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+  .risk-box p, .risk-box li {
+    font-size: 13px;
+    color: #ddcc99;
+    line-height: 1.8;
+  }
+  .risk-box ul { padding-left: 20px; }
+
+  /* Timeline */
+  .timeline {
+    position: relative;
+    padding-left: 30px;
+  }
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--border);
+  }
+  .timeline-item {
+    position: relative;
+    margin-bottom: 24px;
+  }
+  .timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -26px;
+    top: 6px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+  .timeline-item.done::before { background: var(--green); }
+  .timeline-item h5 {
+    font-size: 14px;
+    margin-bottom: 4px;
+  }
+  .timeline-item .time {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+  .timeline-item p {
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+
+  /* QA example */
+  .qa-example {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 16px 0;
+  }
+  .qa-before, .qa-after {
+    border-radius: 10px;
+    padding: 20px;
+  }
+  .qa-before {
+    background: linear-gradient(135deg, #2d1515, #1d1010);
+    border: 1px solid #4d2a2a;
+  }
+  .qa-after {
+    background: linear-gradient(135deg, #152d15, #101d10);
+    border: 1px solid #2a4d2a;
+  }
+  .qa-before h5 { color: var(--red); font-size: 13px; margin-bottom: 10px; }
+  .qa-after h5 { color: var(--green); font-size: 13px; margin-bottom: 10px; }
+  .qa-before p, .qa-after p { font-size: 13px; line-height: 1.7; }
+  .qa-field {
+    color: var(--text-dim);
+    font-size: 12px;
+    margin-bottom: 4px;
+  }
+  .qa-value {
+    font-size: 13px;
+    margin-bottom: 8px;
+  }
+
+  /* Test case */
+  .test-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 16px 0;
+  }
+  .test-card {
+    background: var(--card-alt);
+    border-radius: 10px;
+    padding: 16px;
+    border-left: 3px solid;
+  }
+  .test-card.tool { border-left-color: var(--green); }
+  .test-card.knowledge { border-left-color: var(--accent); }
+  .test-card h5 { font-size: 13px; margin-bottom: 8px; }
+  .test-card .query { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .test-card .expect { font-size: 12px; color: var(--text-dim); }
+
+  @media (max-width: 768px) {
+    .qa-example, .test-grid { grid-template-columns: 1fr; }
+    .flow-row { flex-direction: column; align-items: flex-start; }
+    .flow-arrow { transform: rotate(90deg); }
+    .header .constraints { flex-direction: column; align-items: center; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- ==================== HEADER ==================== -->
+<div class="header">
+  <h1>车书QA与车控冲突修复方案</h1>
+  <div class="subtitle">基于实际FORNAX SP分析 · 不改SP · 三套可行方案详细说明</div>
+  <div class="constraints">
+    <span class="constraint-tag"><strong>角色</strong> 泽民 · 场景知识/Skill注入</span>
+    <span class="constraint-tag"><strong>约束</strong> 不修改SP固定内容</span>
+    <span class="constraint-tag"><strong>时间</strong> 1-2天出结论</span>
+    <span class="constraint-tag"><strong>数据</strong> QA对500-2000条 · 车控功能80-150个</span>
+  </div>
+</div>
+
+<!-- ==================== 问题分析 ==================== -->
+<div class="section">
+  <h2 class="section-title">一、问题是什么</h2>
+
+  <div class="problem-box">
+    <h3>核心问题：车控指令被车书QA知识"劫持"</h3>
+    <p>用户说 <code>打开定速巡航</code>（执行指令），系统检索到车书QA知识"定速巡航的手动操作步骤..."，<br>
+    Director看到这段知识后，直接用它做了文字回答，而没有调用 <code>vehicle_basic_control</code> 工具执行操作。</p>
+  </div>
+
+  <!-- 当前链路 -->
+  <div class="flow-diagram">
+    <h3>当前链路：问题是怎么发生的</h3>
+
+    <div class="flow-row">
+      <div class="flow-box input">用户说："打开定速巡航"</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-box process">QA向量检索（全量触发，top3）</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-box inject">检索到："定速巡航开启方法：进入车辆设置..."</div>
+    </div>
+
+    <div class="flow-row" style="margin-left: 40px;">
+      <span class="flow-arrow">↓</span>
+      <span style="font-size:12px; color:var(--text-dim);">注入到 SP 的 <code style="color:var(--accent2);">{{car_function_simple_qa}}</code> 变量中</span>
+    </div>
+
+    <div class="flow-row">
+      <div class="flow-box decision">Director 看到知识 + 用户query</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-box output-bad">❌ 用知识做文字回答："可以这样开启定速巡航：进入车辆设置..."</div>
+    </div>
+
+    <div style="margin-top:16px; padding:12px 16px; background:#2d1515; border-radius:8px; font-size:13px; color:#ff9999;">
+      <strong>根因</strong>：SP中 <code>{{car_function_simple_qa}}</code> 的引导语只写了"可能会用上的一些基础车辆问答信息"，<br>
+      没有告诉Director"这只是参考，执行指令时应该优先调工具"。Director默认把它当成了"可以直接用的答案"。
+    </div>
+  </div>
+
+  <!-- 期望链路 -->
+  <div class="flow-diagram">
+    <h3>期望链路：修复后应该怎么走</h3>
+
+    <div class="flow-row">
+      <div class="flow-box input">用户说："打开定速巡航"</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-box process">QA向量检索 → 检索到知识</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-box inject">知识注入（含"该功能支持语音控制"标注）</div>
+    </div>
+
+    <div class="flow-row" style="margin-left: 40px;">
+      <span class="flow-arrow">↓</span>
+      <span style="font-size:12px; color:var(--text-dim);">同时 <code style="color:var(--purple);">{{knowledge}}</code> 中有处理规则："执行指令→调工具"</span>
+    </div>
+
+    <div class="flow-row">
+      <div class="flow-box decision">Director 综合判断：用户意图是执行</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-box output-good">✅ 调用 vehicle_basic_control 执行操作</div>
+    </div>
+
+    <div class="flow-branch">
+      <div class="flow-row">
+        <span style="font-size:12px; color:var(--text-dim);">如果工具失败 →</span>
+        <div class="flow-box output-good">✅ 用QA知识做兜底："你也可以手动操作..."</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 三类意图判断 ==================== -->
+<div class="section">
+  <h2 class="section-title">二、三类用户意图的判断逻辑</h2>
+  <p class="section-desc">修复的核心是让Director能区分三种不同的用户意图，对每种意图采取不同的处理方式。</p>
+
+  <table class="compare-table">
+    <thead>
+      <tr>
+        <th>意图类型</th>
+        <th>用户说法特征</th>
+        <th>示例</th>
+        <th>正确处理</th>
+        <th>错误处理</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="tag green">执行型</span></td>
+        <td>带动作词："打开""关闭""调高""调低""开启""设为"</td>
+        <td>"打开定速巡航"<br>"关闭车窗"<br>"温度调到24度"</td>
+        <td>调用 <code>vehicle_basic_control</code></td>
+        <td>用QA知识做文字回答</td>
+      </tr>
+      <tr>
+        <td><span class="tag blue">查询型</span></td>
+        <td>问实时数据："XX多少""当前XX""剩余XX""XX正常吗"</td>
+        <td>"现在时速多少"<br>"剩余电量多少"<br>"胎压正常吗"</td>
+        <td>调用 <code>search_vehicle_status_info</code></td>
+        <td>用QA知识回答"去仪表盘看"</td>
+      </tr>
+      <tr>
+        <td><span class="tag purple">咨询型</span></td>
+        <td>问方法："怎么用""如何设置""步骤""方法""咋调"</td>
+        <td>"定速巡航怎么用"<br>"雨刮器快慢咋调"<br>"座椅记忆怎么弄"</td>
+        <td>参考QA知识回答（这才是知识的正确场景）</td>
+        <td>不使用知识，调工具（矫枉过正）</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ==================== 方案A ==================== -->
+<div class="section">
+  <h2 class="section-title">三、方案A — 定向修改QA数据</h2>
+
+  <div class="solution-card">
+    <span class="solution-badge a">方案A</span>
+    <h3>在车控功能相关的QA对answer中加入"支持语音控制"标注</h3>
+    <div class="who">执行人：产品侧标注 + 泽民验证 &nbsp;|&nbsp; 工作量：1天 &nbsp;|&nbsp; 不改SP，不改工程</div>
+
+    <!-- 原理 -->
+    <div class="detail-block">
+      <h4>核心原理</h4>
+      <p>不改全部500-2000条QA，只改和车控功能重叠的80-150条。方法是：在answer开头加一句标准前缀，告诉Director"这个功能支持语音控制"。当Director看到这个信息时，遇到执行型指令就会倾向于调用工具而非复述手动操作步骤。</p>
+    </div>
+
+    <!-- 改动范围 -->
+    <div class="detail-block">
+      <h4>第一步：确定哪些QA对需要改</h4>
+      <ul>
+        <li><strong>判断标准</strong>：该QA描述的功能是否支持语音控制（即 <code>vehicle_basic_control</code> 或 <code>search_vehicle_status_info</code> 能处理的功能）</li>
+        <li><strong>数据来源</strong>：SP中的"车辆设备知识"部分已经列出了所有功能的语音控制能力，直接参考</li>
+        <li><strong>参考清单（从SP提取）</strong>：</li>
+      </ul>
+
+      <table class="compare-table" style="margin-top:12px;">
+        <thead>
+          <tr><th>功能大类</th><th>支持语音控制</th><th>不支持语音控制</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>空调</td>
+            <td>开关、温度、风量、吹风模式、AUTO、AC、内外循环、除霜除雾</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td>车窗</td>
+            <td>四窗分别开关、开度调节</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td>座椅</td>
+            <td>加热、通风、按摩（强度/模式/时长）、座椅位移</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td>氛围灯</td>
+            <td>开关、颜色、亮度、模式</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td>阅读灯</td>
+            <td>开关、亮度</td>
+            <td>分区亮度</td>
+          </tr>
+          <tr>
+            <td>音量</td>
+            <td>多媒体/导航/语音/铃声/通话音量</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td>车载冰箱</td>
+            <td>开关、温度、模式、制冰、净味</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td>驾驶模式</td>
+            <td>8种模式切换</td>
+            <td>悬架、档位</td>
+          </tr>
+          <tr>
+            <td>导航</td>
+            <td>设目的地、途经点增删、路线选择、开始/暂停/结束导航、地图控制</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td>后视镜</td>
+            <td>加热、展开/折叠</td>
+            <td>方向调节</td>
+          </tr>
+          <tr>
+            <td>屏幕</td>
+            <td>亮度、显示模式</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td>遮阳帘</td>
+            <td>后排遮阳帘</td>
+            <td>前排（手动）、天窗</td>
+          </tr>
+          <tr>
+            <td>方向盘</td>
+            <td>加热</td>
+            <td>位置调节</td>
+          </tr>
+          <tr>
+            <td>雨刮器</td>
+            <td>—</td>
+            <td>开关、速度（方向盘拨杆）</td>
+          </tr>
+          <tr>
+            <td>智能驾驶</td>
+            <td>—</td>
+            <td>开关（方向盘拨杆）</td>
+          </tr>
+          <tr>
+            <td>车门/儿童锁</td>
+            <td>—</td>
+            <td>全部（物理控制）</td>
+          </tr>
+          <tr>
+            <td>充电口盖</td>
+            <td>—</td>
+            <td>不支持（手动按压）</td>
+          </tr>
+          <tr>
+            <td>加油口盖</td>
+            <td>开/关</td>
+            <td>—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 改法示例 -->
+    <div class="detail-block">
+      <h4>第二步：怎么改 — 两种标准前缀模板</h4>
+
+      <p style="margin-bottom:12px;"><strong>模板1：功能支持语音控制的QA对</strong></p>
+
+      <div class="qa-example">
+        <div class="qa-before">
+          <h5>❌ 改之前</h5>
+          <div class="qa-field">Q:</div>
+          <div class="qa-value">定速巡航怎么开</div>
+          <div class="qa-field">A:</div>
+          <div class="qa-value">进入【车辆设置】-【辅助驾驶】，打开【自适应巡航辅助】，然后按方向盘PILOT按键激活。</div>
+        </div>
+        <div class="qa-after">
+          <h5>✅ 改之后</h5>
+          <div class="qa-field">Q:</div>
+          <div class="qa-value">定速巡航怎么开</div>
+          <div class="qa-field">A:</div>
+          <div class="qa-value"><span style="color:var(--green); font-weight:600;">该功能支持语音直接控制，用户说"打开定速巡航"即可由系统执行。</span>若需手动操作：进入【车辆设置】-【辅助驾驶】，打开【自适应巡航辅助】，然后按方向盘PILOT按键激活。</div>
+        </div>
+      </div>
+
+      <p style="margin:16px 0 12px;"><strong>模板2：功能支持实时状态查询的QA对</strong></p>
+
+      <div class="qa-example">
+        <div class="qa-before">
+          <h5>❌ 改之前</h5>
+          <div class="qa-field">Q:</div>
+          <div class="qa-value">怎么看车速</div>
+          <div class="qa-field">A:</div>
+          <div class="qa-value">当前车速是仪表屏常显信息，非P挡时你可以直接在仪表屏查看当前车速。</div>
+        </div>
+        <div class="qa-after">
+          <h5>✅ 改之后</h5>
+          <div class="qa-field">Q:</div>
+          <div class="qa-value">怎么看车速</div>
+          <div class="qa-field">A:</div>
+          <div class="qa-value"><span style="color:var(--green); font-weight:600;">该信息支持语音实时查询，用户说"现在时速多少"即可由系统查询并返回实时数据。</span>此外，当前车速也是仪表屏常显信息，非P挡时可直接在仪表屏查看。</div>
+        </div>
+      </div>
+
+      <p style="margin:16px 0 12px;"><strong>模板3：功能不支持语音控制的QA对 — 不改</strong></p>
+      <p style="font-size:13px; color:var(--text-dim);">如"雨刮器怎么调""智能驾驶怎么开"等只能手动操作的功能，保持原样不改。这类QA不会引起冲突，因为Director本身也没有对应的工具可调。</p>
+    </div>
+
+    <!-- 标准化前缀 -->
+    <div class="detail-block">
+      <h4>第三步：标准前缀（可直接批量拼接）</h4>
+      <div class="code-block"><span class="label"># 对于"支持语音控制"的功能QA：</span>
+前缀 = "该功能支持语音直接控制，用户说\"{对应的语音指令示例}\"即可由系统执行。若需手动操作："
+新answer = 前缀 + 原answer
+
+<span class="label"># 对于"支持实时查询"的功能QA：</span>
+前缀 = "该信息支持语音实时查询，用户说\"{对应的语音指令示例}\"即可由系统查询并返回实时数据。此外，"
+新answer = 前缀 + 原answer
+
+<span class="label"># 对于"不支持语音控制"的功能QA：</span>
+<span class="comment"># 不改，保持原样</span></div>
+
+      <p style="font-size:13px; color:var(--text-dim); margin-top:8px;">
+        这个拼接可以脚本化：准备一份 <code>功能名 → 是否语音可控 → 对应指令示例</code> 的映射表，批量对QA数据执行字符串拼接。
+      </p>
+    </div>
+
+    <!-- 为什么可行 -->
+    <div class="why-box">
+      <h4>为什么这个方案可行？</h4>
+      <p>
+        <strong>1. LLM对context中的显式声明非常敏感</strong> — 当answer开头就说"该功能支持语音直接控制"，Director在做决策时会把这个信息纳入考量，大幅降低"用手动操作步骤回答执行指令"的概率。<br>
+        <strong>2. 工作量可控</strong> — 不是改全部500-2000条，而是只改与车控重叠的80-150条。对照车辆设备知识表即可快速判断。<br>
+        <strong>3. 不侵入任何系统组件</strong> — 只改数据内容，不改SP、不改检索逻辑、不改工程代码。<br>
+        <strong>4. 可脚本化</strong> — 标准前缀+映射表+批量拼接，人工只需要审核映射表的准确性。<br>
+        <strong>5. 会上李明骏认可的方向</strong> — "此功能支持直接使用XX工具来控制，也可以告知用户手动操作"。
+      </p>
+    </div>
+
+    <div class="risk-box">
+      <h4>风险和局限</h4>
+      <ul>
+        <li><strong>不是100%保证</strong>：加了"支持语音控制"后Director大概率会调工具，但不是绝对（LLM行为有随机性）。需要实验验证通过率。</li>
+        <li><strong>映射表准确性</strong>：需要仔细核对哪些功能真的支持语音控制。SP中"车辆设备知识"已经标注了，但要逐条确认。</li>
+        <li><strong>新增QA对时需要同步</strong>：未来新增QA数据也要遵循这个标注规范，否则问题会复发。</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 方案B ==================== -->
+<div class="section">
+  <h2 class="section-title">四、方案B — 通过动态专业知识注入处理规则</h2>
+
+  <div class="solution-card">
+    <span class="solution-badge b">方案B</span>
+    <h3>在 {{knowledge}} 中注入"车书知识使用规则"</h3>
+    <div class="who">执行人：泽民独立完成 &nbsp;|&nbsp; 工作量：2-3小时 &nbsp;|&nbsp; 不改SP，不改工程，不改QA数据</div>
+
+    <!-- 原理 -->
+    <div class="detail-block">
+      <h4>核心原理</h4>
+      <p>SP中 <code>{{knowledge}}</code> 的引导语写着："根据当前情景、任务，动态加载的专业知识，<strong>灵活参考能有效帮助你把事情做得更好</strong>"。这意味着Director会认真参考这里注入的内容。我们在这里注入一条"处理规则"类的知识，教Director如何正确处理 <code>{{car_function_simple_qa}}</code> 中的知识。</p>
+    </div>
+
+    <!-- 知识条目内容 -->
+    <div class="detail-block">
+      <h4>要创建的知识条目内容（可直接复制）</h4>
+      <div class="code-block"><span class="label">知识ID建议：RULE-01（或 COM-99-01-01）</span>
+<span class="label">知识名称：车辆功能问答知识的使用规则</span>
+
+<span class="highlight">【车辆功能问答知识使用规则】</span>
+
+当你收到「基础车辆功能问答」中的参考知识时，必须根据用户的真实意图决定处理方式，而非直接使用知识内容作为回答：
+
+<span class="highlight">规则1 — 执行型指令 → 调用工具，不用知识回答</span>
+当用户说出带动作词的指令（"打开XX""关闭XX""调高XX""调低XX""开启XX""设为XX"），
+必须调用 vehicle_basic_control 工具执行操作。
+「基础车辆功能问答」中的手动操作步骤不能替代工具调用。
+→ 例：用户说"打开定速巡航" → 调用 vehicle_basic_control，不要回答"进入车辆设置..."
+
+<span class="highlight">规则2 — 实时状态查询 → 调用工具，不用知识回答</span>
+当用户询问实时数据（"现在XX多少""当前XX""剩余XX""XX正常吗"），
+必须调用 search_vehicle_status_info 工具查询真实数据。
+「基础车辆功能问答」中"去仪表盘看"类的指引不能替代实时数据查询。
+→ 例：用户说"现在时速多少" → 调用 search_vehicle_status_info，不要回答"可以在仪表盘查看"
+
+<span class="highlight">规则3 — 操作方法咨询 → 使用知识回答</span>
+仅当用户明确询问操作方法（"怎么用""如何设置""步骤是什么""咋调"）时，
+才参考「基础车辆功能问答」中的知识进行回答。
+→ 例：用户说"定速巡航怎么用" → 参考知识回答操作步骤
+
+<span class="highlight">规则4 — 工具失败兜底</span>
+当工具调用失败时，可以用「基础车辆功能问答」中的知识作为兜底方案，
+告诉用户手动操作的方法。</div>
+    </div>
+
+    <!-- 触发策略 -->
+    <div class="detail-block">
+      <h4>Knowledge Selector 触发策略：三种选择</h4>
+
+      <table class="compare-table">
+        <thead>
+          <tr><th>策略</th><th>做法</th><th>优点</th><th>缺点</th><th>推荐度</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>始终加载</strong></td>
+            <td>把 RULE-01 设为基线知识，每轮都注入 {{knowledge}}</td>
+            <td>最简单，不会漏匹配；泽民直接控制</td>
+            <td>每轮多占 ~150 tokens；非车控场景也会注入（浪费）</td>
+            <td><span class="tag green">推荐先用这个</span></td>
+          </tr>
+          <tr>
+            <td><strong>关键词触发</strong></td>
+            <td>在 Selector 中加一条规则：query含"打开/关闭/调高/调低/开启/多少/剩余" + 车控设备词时加载</td>
+            <td>精准，不浪费token</td>
+            <td>需要维护关键词表；可能漏匹配边缘case</td>
+            <td><span class="tag orange">效果验证后可切换</span></td>
+          </tr>
+          <tr>
+            <td><strong>与 car_function_simple_qa 联动</strong></td>
+            <td>工程侧：当 {{car_function_simple_qa}} 非空时自动注入 RULE-01</td>
+            <td>最精准——只有检索到QA知识时才注入规则</td>
+            <td>需要工程侧配合（短期不可行）</td>
+            <td><span class="tag blue">中期优化方向</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 为什么可行 -->
+    <div class="why-box">
+      <h4>为什么这个方案可行？</h4>
+      <p>
+        <strong>1. {{knowledge}} 的权重高</strong> — SP引导语明确说"灵活参考能有效帮助你把事情做得更好"，Director会认真对待这里的内容。<br>
+        <strong>2. 规则明确、有示例</strong> — 不是抽象的原则，而是具体的"如果用户说X→做Y"的规则+示例，LLM对这种格式的遵循度高。<br>
+        <strong>3. 泽民完全自主可控</strong> — 不需要任何其他人配合，不改SP、不改工程、不改数据。创建一条知识+配置触发条件就完成了。<br>
+        <strong>4. 可快速验证</strong> — 2小时内可完成创建+配置+测试3条badcase。
+      </p>
+    </div>
+
+    <div class="risk-box">
+      <h4>风险和局限</h4>
+      <ul>
+        <li><strong>knowledge是"参考"不是"指令"</strong>：{{knowledge}} 在SP中的定位是"专业知识参考"，不如注意事项/示例那样是"硬性规则"。Director可能不会100%遵循。</li>
+        <li><strong>"始终加载"策略有token浪费</strong>：每轮多150 tokens，在token预算紧张时可能需要切换为条件加载。</li>
+        <li><strong>无法覆盖所有边缘case</strong>：如果用户的表述很模糊（既像执行又像咨询），规则可能不够精确。</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 方案C ==================== -->
+<div class="section">
+  <h2 class="section-title">五、方案C（推荐） — A + B 组合双保险</h2>
+
+  <div class="solution-card recommended">
+    <span class="solution-badge c">推荐方案</span>
+    <h3>QA数据标注 + Knowledge规则注入 = 双层保障</h3>
+    <div class="who">执行人：泽民（方案B）+ 产品标注（方案A）并行 &nbsp;|&nbsp; 工作量：1天 &nbsp;|&nbsp; 不改SP，不改工程</div>
+
+    <!-- 原理图 -->
+    <div class="flow-diagram">
+      <h3>方案C的完整链路</h3>
+
+      <div class="flow-row">
+        <div class="flow-box input">用户："打开定速巡航"</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box process">QA检索top3</div>
+      </div>
+
+      <div style="margin:12px 0; padding:16px; background:#152d15; border:1px solid #2a4d2a; border-radius:8px;">
+        <div style="font-size:13px; color:var(--green); font-weight:600; margin-bottom:8px;">🛡️ 第一层保障（方案A · 数据层）</div>
+        <div style="font-size:13px; color:#aaddaa;">
+          检索到的answer开头是：<code style="background:#1a3d1a; padding:2px 6px; border-radius:4px;">"该功能支持语音直接控制，用户说'打开定速巡航'即可由系统执行。若需手动操作：..."</code><br>
+          → Director看到"支持语音控制"，倾向调用工具
+        </div>
+      </div>
+
+      <div style="margin:12px 0; padding:16px; background:#1a1a3d; border:1px solid #2a2a5d; border-radius:8px;">
+        <div style="font-size:13px; color:var(--purple); font-weight:600; margin-bottom:8px;">🛡️ 第二层保障（方案B · 推理层）</div>
+        <div style="font-size:13px; color:#aaaadd;">
+          {{knowledge}} 中注入了处理规则：<code style="background:#1a1a3d; padding:2px 6px; border-radius:4px;">"执行型指令 → 必须调用 vehicle_basic_control，不用知识回答"</code><br>
+          → Director看到明确规则，确认应该调工具
+        </div>
+      </div>
+
+      <div class="flow-row">
+        <div class="flow-box decision">Director综合两层信号</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box output-good">✅ 调用 vehicle_basic_control("打开定速巡航")</div>
+      </div>
+    </div>
+
+    <!-- 为什么组合最优 -->
+    <div class="why-box">
+      <h4>为什么组合方案效果最好？</h4>
+      <p>
+        <strong>单靠方案A</strong>：QA数据说了"支持语音控制"，但Director不一定会因此改变行为 — 它可能仍然选择用后面的手动步骤回答。<br><br>
+        <strong>单靠方案B</strong>：{{knowledge}} 中有处理规则，但它的权重是"参考"级别，不如SP中的"指令"级别强，Director可能不完全遵循。<br><br>
+        <strong>A + B 组合</strong>：两层信号同时告诉Director同一件事 —— 数据层说"这个功能支持语音控制"，知识层说"执行指令要调工具"。<strong>两个独立信号指向同一方向，Director做出正确决策的概率大幅提升</strong>。这就像考试时同一道题从两个不同角度给了提示，答对概率比只有一个提示高得多。
+      </p>
+    </div>
+
+    <!-- 并行执行计划 -->
+    <div class="detail-block">
+      <h4>并行执行计划（1天完成）</h4>
+
+      <table class="compare-table">
+        <thead>
+          <tr><th>时间</th><th>泽民（方案B）</th><th>产品标注侧（方案A）</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>上午 9:00-11:00</strong></td>
+            <td>
+              ① 创建 RULE-01 知识条目<br>
+              ② 配置Knowledge Selector为"始终加载"<br>
+              ③ 用3条badcase在FORNAX验证方案B单独效果
+            </td>
+            <td>
+              ① 导出当前QA数据<br>
+              ② 对照"车辆设备知识"表，标注每条QA：语音可控/实时可查/仅手动<br>
+              ③ 准备映射表
+            </td>
+          </tr>
+          <tr>
+            <td><strong>上午 11:00-12:00</strong></td>
+            <td>
+              ④ 同步方案B的验证结论<br>
+              ⑤ 如果方案B单独效果已经不错，记录通过率
+            </td>
+            <td>
+              ④ 写脚本批量给"语音可控"类QA加标准前缀<br>
+              ⑤ 人工审核10-20条确认前缀准确性
+            </td>
+          </tr>
+          <tr>
+            <td><strong>下午 14:00-16:00</strong></td>
+            <td colspan="2" style="text-align:center;">
+              ⑥ 将改好的QA数据更新到向量数据库<br>
+              ⑦ 用完整测试case（执行型+查询型+咨询型+矫枉过正）验证A+B组合效果<br>
+              ⑧ 记录修复率
+            </td>
+          </tr>
+          <tr>
+            <td><strong>下午 16:00-17:00</strong></td>
+            <td colspan="2" style="text-align:center;">
+              ⑨ 整理实验结论<br>
+              ⑩ 同步给陈西钺、李浩然、李强
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 三方案对比 ==================== -->
+<div class="section">
+  <h2 class="section-title">六、三方案对比总览</h2>
+
+  <table class="compare-table">
+    <thead>
+      <tr>
+        <th>维度</th>
+        <th>方案A<br><span style="font-weight:400;font-size:11px;">改QA数据</span></th>
+        <th>方案B<br><span style="font-weight:400;font-size:11px;">改knowledge</span></th>
+        <th>方案C（推荐）<br><span style="font-weight:400;font-size:11px;">A+B组合</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>效果确定性</td>
+        <td><span class="tag orange">中高</span> 数据层引导，但不绝对</td>
+        <td><span class="tag orange">中</span> 规则是"参考"级，非"指令"级</td>
+        <td><span class="tag green">高</span> 双层信号叠加</td>
+      </tr>
+      <tr>
+        <td>工作量</td>
+        <td><span class="tag orange">1天</span> 映射表+批量修改+审核</td>
+        <td><span class="tag green">2-3小时</span> 写知识条目+配触发</td>
+        <td><span class="tag orange">1天</span> 两边并行</td>
+      </tr>
+      <tr>
+        <td>执行人</td>
+        <td>产品标注+泽民验证</td>
+        <td>泽民独立完成</td>
+        <td>泽民+产品标注并行</td>
+      </tr>
+      <tr>
+        <td>需要改SP</td>
+        <td><span class="tag green">不需要</span></td>
+        <td><span class="tag green">不需要</span></td>
+        <td><span class="tag green">不需要</span></td>
+      </tr>
+      <tr>
+        <td>需要工程配合</td>
+        <td><span class="tag green">不需要</span> 只改QA数据内容</td>
+        <td><span class="tag green">不需要</span> 只改knowledge内容</td>
+        <td><span class="tag green">不需要</span></td>
+      </tr>
+      <tr>
+        <td>对其他功能的影响</td>
+        <td><span class="tag green">无</span> 只改了answer文本</td>
+        <td><span class="tag orange">极小</span> 始终加载多150 tokens</td>
+        <td><span class="tag orange">极小</span></td>
+      </tr>
+      <tr>
+        <td>可维护性</td>
+        <td><span class="tag orange">中</span> 新增QA要同步标注</td>
+        <td><span class="tag green">高</span> 规则写一次长期有效</td>
+        <td><span class="tag green">高</span> 规则兜底+数据标注</td>
+      </tr>
+      <tr>
+        <td>今天能出结论吗</td>
+        <td><span class="tag orange">能</span> 先验证2-3条</td>
+        <td><span class="tag green">能</span> 2小时内验证完</td>
+        <td><span class="tag green">能</span> 上午B先出，下午A+B验证</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ==================== 验证 ==================== -->
+<div class="section">
+  <h2 class="section-title">七、验证测试Case</h2>
+  <p class="section-desc">修改完后在FORNAX上逐条验证。注意要同时提供 <code>{{car_function_simple_qa}}</code> 的模拟内容。</p>
+
+  <h4 style="margin-bottom:12px; color:var(--green);">应该调工具的（执行型+查询型）</h4>
+  <div class="test-grid">
+    <div class="test-card tool">
+      <div class="query">"打开定速巡航"</div>
+      <div class="expect">→ vehicle_basic_control</div>
+    </div>
+    <div class="test-card tool">
+      <div class="query">"开启辅助驾驶"</div>
+      <div class="expect">→ vehicle_basic_control</div>
+    </div>
+    <div class="test-card tool">
+      <div class="query">"打开空调"</div>
+      <div class="expect">→ vehicle_basic_control</div>
+    </div>
+    <div class="test-card tool">
+      <div class="query">"关闭车窗"</div>
+      <div class="expect">→ vehicle_basic_control</div>
+    </div>
+    <div class="test-card tool">
+      <div class="query">"把温度调到24度"</div>
+      <div class="expect">→ vehicle_basic_control</div>
+    </div>
+    <div class="test-card tool">
+      <div class="query">"打开座椅加热"</div>
+      <div class="expect">→ vehicle_basic_control</div>
+    </div>
+    <div class="test-card tool">
+      <div class="query">"现在时速多少"</div>
+      <div class="expect">→ search_vehicle_status_info</div>
+    </div>
+    <div class="test-card tool">
+      <div class="query">"剩余电量多少"</div>
+      <div class="expect">→ search_vehicle_status_info</div>
+    </div>
+  </div>
+
+  <h4 style="margin:20px 0 12px; color:var(--accent);">应该用知识回答的（咨询型）</h4>
+  <div class="test-grid">
+    <div class="test-card knowledge">
+      <div class="query">"定速巡航怎么用"</div>
+      <div class="expect">→ 参考QA知识回答操作步骤</div>
+    </div>
+    <div class="test-card knowledge">
+      <div class="query">"雨刮器快慢咋调"</div>
+      <div class="expect">→ 参考QA知识回答（不支持语音控制）</div>
+    </div>
+    <div class="test-card knowledge">
+      <div class="query">"座椅记忆功能怎么弄"</div>
+      <div class="expect">→ 参考QA知识回答</div>
+    </div>
+    <div class="test-card knowledge">
+      <div class="query">"怎么设置自动大灯"</div>
+      <div class="expect">→ 参考QA知识回答</div>
+    </div>
+  </div>
+
+  <h4 style="margin:20px 0 12px; color:var(--text-dim);">矫枉过正检测（不应受影响）</h4>
+  <div class="test-grid">
+    <div class="test-card" style="border-left-color:var(--text-dim);">
+      <div class="query">"帮我放首歌"</div>
+      <div class="expect">→ search_and_control_music（不受影响）</div>
+    </div>
+    <div class="test-card" style="border-left-color:var(--text-dim);">
+      <div class="query">"导航去浦东机场"</div>
+      <div class="expect">→ route_planning_qa（不受影响）</div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 备选 ==================== -->
+<div class="section">
+  <h2 class="section-title">八、备选建议：最小SP改动（如果团队后续愿意微调）</h2>
+
+  <div class="detail-block" style="border-left:3px solid var(--text-dim);">
+    <h4 style="color:var(--text-dim);">仅改一句引导语（5分钟，~80字）</h4>
+    <p>如果后续团队愿意做一个极小的SP调整，只需要把 <code>{{car_function_simple_qa}}</code> section的引导语从：</p>
+    <div class="code-block"><span class="old">可能会用用上的一些基础车辆问答信息</span></div>
+    <p>改为：</p>
+    <div class="code-block"><span class="new">以下是从车辆手册检索到的参考知识。执行指令时优先调用工具，仅在咨询操作方法或工具失败时参考以下内容回答</span></div>
+    <p style="margin-top:8px; font-size:13px; color:var(--text-dim);">
+      这不是结构性改动，只是改了一句描述性文字。但效果会比方案A+B更直接，因为它在知识注入的"最近点"告诉了Director怎么用这些知识。如果A+B验证后修复率还不够理想，建议推动这个最小SP改动作为补充。
+    </p>
+  </div>
+</div>
+
+<!-- Footer -->
+<div style="text-align:center; padding:40px 0; color:var(--text-dim); font-size:12px; border-top:1px solid var(--border); margin-top:40px;">
+  生成时间：2026-05-19 &nbsp;|&nbsp; 基于FORNAX实际SP分析 &nbsp;|&nbsp; 约束：不改SP · 1-2天出结论
+</div>
+
+</div>
+</body>
+</html>

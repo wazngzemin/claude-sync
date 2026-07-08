@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>检索机制深度解析 - 为什么动态知识需要 Selector SP 而动态示例不需要</title>
+<style>
+body{margin:0;padding:20px;background:#f0f2f5;font-family:-apple-system,sans-serif}
+.wrap{max-width:1900px;margin:0 auto;background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.1);padding:24px}
+.svg-box{width:100%;overflow-x:auto}
+.svg-box svg{width:100%;height:auto;min-width:1600px}
+.tip{text-align:center;color:#9ca3af;font-size:12px;margin-top:12px}
+</style>
+</head>
+<body>
+<div class="wrap"><div class="svg-box">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1800 2800">
+<style>
+text{font-family:'PingFang SC','Microsoft YaHei',Arial,sans-serif}
+.th{font-size:22px;font-weight:800;fill:#1e3a5f}
+.h2{font-size:15px;font-weight:700;fill:#1e293b}
+.h3{font-size:12px;font-weight:700;fill:#374151}
+.bd{font-size:11px;fill:#475569}
+.sm{font-size:10px;fill:#6b7280}
+.dt{font-size:10px;fill:#1e3a5f;font-family:Consolas,Monaco,monospace}
+.wh{font-size:11px;fill:#fff}
+.whb{font-size:12px;fill:#fff;font-weight:700}
+.pur{fill:#7c3aed;font-weight:600}
+.ora{fill:#ea580c;font-weight:600}
+.grn{fill:#047857;font-weight:600}
+.red{fill:#dc2626;font-weight:600}
+.blu{fill:#2563eb;font-weight:600}
+</style>
+<defs>
+<marker id="a-blue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#2563eb"/></marker>
+<marker id="a-pur" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#7c3aed"/></marker>
+<marker id="a-ora" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#ea580c"/></marker>
+<marker id="a-grn" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#16a34a"/></marker>
+<marker id="a-red" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#dc2626"/></marker>
+<marker id="a-gray" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#9ca3af"/></marker>
+<marker id="a-yel" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#d97706"/></marker>
+<filter id="sh"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.08"/></filter>
+<linearGradient id="gd" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1e40af"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient>
+</defs>
+<rect width="1800" height="2800" fill="#fff"/>
+<text x="900" y="38" text-anchor="middle" class="th">检索机制深度解析：为什么动态知识需要 Selector SP 而动态示例不需要</text>
+<text x="900" y="60" text-anchor="middle" class="sm">核心问题：系统怎么知道该把哪条知识、哪条示例注入给 Planner？</text>
+<rect x="50" y="85" width="1700" height="30" rx="6" fill="#1e3a5f"/>
+<text x="900" y="105" text-anchor="middle" class="whb">SECTION 1: 两套检索机制的核心区别</text>
+<rect x="100" y="135" width="1600" height="100" rx="12" fill="#f8fafc" stroke="#e2e8f0" stroke-width="2" filter="url(#sh)"/>
+<text x="900" y="155" text-anchor="middle" class="h2">核心答案</text>
+<text x="900" y="177" text-anchor="middle" class="bd" style="font-size:13px;">动态知识的检索 = 一次独立的 LLM 调用（Selector SP），花掉额外的时间和 token</text>
+<text x="900" y="195" text-anchor="middle" class="bd" style="font-size:13px;">动态示例的检索 = 不需要额外调用，直接绑定在知识 ID 上，搭便车</text>
+<text x="900" y="217" text-anchor="middle" class="bd" style="font-size:13px;font-weight:700;">因为：Selector 输出的 ID 同时索引两张表 -- 知识表 + 示例表。一次检索，两张表都命中。</text>
+<rect x="50" y="265" width="1700" height="30" rx="6" fill="#1e3a5f"/>
+<text x="900" y="285" text-anchor="middle" class="whb">SECTION 2: 完整检索链路时序图（以 "我好热好闷" 为例，每一步的耗时和数据流）</text>
+<rect x="95" y="315" width="110" height="40" rx="6" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
+<text x="150" y="331" text-anchor="middle" class="h3" style="font-size:10px;">用户</text>
+<line x1="150" y1="355" x2="150" y2="1065" stroke="#cbd5e0" stroke-width="1" stroke-dasharray="4,3"/>
+<rect x="345" y="315" width="110" height="40" rx="6" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
+<text x="400" y="331" text-anchor="middle" class="h3" style="font-size:10px;">ASR</text>
+<line x1="400" y1="355" x2="400" y2="1065" stroke="#cbd5e0" stroke-width="1" stroke-dasharray="4,3"/>
+<rect x="545" y="315" width="110" height="40" rx="6" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
+<text x="600" y="331" text-anchor="middle" class="h3" style="font-size:10px;">拒识仲裁</text>
+<line x1="600" y1="355" x2="600" y2="1065" stroke="#cbd5e0" stroke-width="1" stroke-dasharray="4,3"/>
+<rect x="795" y="315" width="110" height="40" rx="6" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
+<text x="850" y="331" text-anchor="middle" class="h3" style="font-size:10px;">Selector SP</text>
+<text x="850" y="345" text-anchor="middle" class="h3" style="font-size:10px;">(独立LLM调用!)</text>
+<line x1="850" y1="355" x2="850" y2="1065" stroke="#cbd5e0" stroke-width="1" stroke-dasharray="4,3"/>
+<rect x="1045" y="315" width="110" height="40" rx="6" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
+<text x="1100" y="331" text-anchor="middle" class="h3" style="font-size:10px;">知识表</text>
+<text x="1100" y="345" text-anchor="middle" class="h3" style="font-size:10px;">(Excel/DB)</text>
+<line x1="1100" y1="355" x2="1100" y2="1065" stroke="#cbd5e0" stroke-width="1" stroke-dasharray="4,3"/>
+<rect x="1295" y="315" width="110" height="40" rx="6" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
+<text x="1350" y="331" text-anchor="middle" class="h3" style="font-size:10px;">示例表</text>
+<text x="1350" y="345" text-anchor="middle" class="h3" style="font-size:10px;">(Excel/DB)</text>
+<line x1="1350" y1="355" x2="1350" y2="1065" stroke="#cbd5e0" stroke-width="1" stroke-dasharray="4,3"/>
+<rect x="1545" y="315" width="110" height="40" rx="6" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
+<text x="1600" y="331" text-anchor="middle" class="h3" style="font-size:10px;">Planner SP</text>
+<text x="1600" y="345" text-anchor="middle" class="h3" style="font-size:10px;">拼接后的完整prompt</text>
+<line x1="1600" y1="355" x2="1600" y2="1065" stroke="#cbd5e0" stroke-width="1" stroke-dasharray="4,3"/>
+<rect x="80" y="375" width="140" height="22" rx="4" fill="#fee2e2"/>
+<text x="150" y="390" text-anchor="middle" class="dt" style="font-size:9px;">"我好热好闷"</text>
+<line x1="150" y1="405" x2="400" y2="405" stroke="#7c3aed" stroke-width="2" marker-end="url(#a-blue)"/>
+<rect x="259" y="391" width="40" height="13" rx="2" fill="#fff" opacity="0.95"/>
+<text x="275" y="401" text-anchor="middle" class="dt" style="font-size:9px;">语音数据</text>
+<rect x="340" y="410" width="120" height="20" rx="4" fill="#dbeafe"/>
+<text x="400" y="424" text-anchor="middle" class="sm" style="font-size:8px;">语音转文字 ~200ms</text>
+<line x1="400" y1="440" x2="600" y2="440" stroke="#7c3aed" stroke-width="2" marker-end="url(#a-blue)"/>
+<rect x="440" y="426" width="128" height="13" rx="2" fill="#fff" opacity="0.95"/>
+<text x="500" y="436" text-anchor="middle" class="dt" style="font-size:9px;">文字+speaker_info</text>
+<rect x="540" y="445" width="120" height="20" rx="4" fill="#fef3c7"/>
+<text x="600" y="459" text-anchor="middle" class="sm" style="font-size:8px;">判定:复杂/场景类</text>
+<line x1="600" y1="475" x2="850" y2="475" stroke="#7c3aed" stroke-width="2" marker-end="url(#a-pur)"/>
+<rect x="633" y="461" width="192" height="13" rx="2" fill="#fff" opacity="0.95"/>
+<text x="725" y="471" text-anchor="middle" class="dt" style="font-size:9px;">query+context发给Selector</text>
+<rect x="760" y="480" width="180" height="130" rx="8" fill="#faf5ff" stroke="#7c3aed" stroke-width="2.5"/>
+<text x="850" y="498" text-anchor="middle" class="pur" style="font-size:11px;">Selector SP 执行</text>
+<text x="850" y="513" text-anchor="middle" class="sm" style="font-size:8px;">这是一次独立的LLM调用!</text>
+<text x="850" y="528" text-anchor="middle" class="sm" style="font-size:8px;">输入: query+历史+env+goal</text>
+<text x="850" y="543" text-anchor="middle" class="sm" style="font-size:8px;">+已加载知识ID</text>
+<text x="850" y="560" text-anchor="middle" class="dt" style="font-size:9px;fill:#7c3aed;">输出: add=[ID_004,ID_012]</text>
+<text x="850" y="575" text-anchor="middle" class="dt" style="font-size:9px;fill:#7c3aed;">       remove=[]</text>
+<text x="850" y="595" text-anchor="middle" class="red" style="font-size:9px;">耗时: ~500ms-1.8s!</text>
+<text x="850" y="605" text-anchor="middle" class="sm" style="font-size:7px;">(当前1.8s,目标500ms以内)</text>
+<line x1="850" y1="630" x2="1100" y2="630" stroke="#7c3aed" stroke-width="2" marker-end="url(#a-pur)"/>
+<rect x="923" y="616" width="112" height="13" rx="2" fill="#fff" opacity="0.95"/>
+<text x="975" y="626" text-anchor="middle" class="dt" style="font-size:9px;">ID_004,ID_012</text>
+<rect x="1040" y="638" width="120" height="65" rx="6" fill="#faf5ff" stroke="#7c3aed" stroke-width="1.5"/>
+<text x="1100" y="655" text-anchor="middle" class="pur" style="font-size:10px;">知识表查找</text>
+<text x="1100" y="670" text-anchor="middle" class="sm" style="font-size:8px;">ID_004 -> 极速降温Skill</text>
+<text x="1100" y="683" text-anchor="middle" class="sm" style="font-size:8px;">ID_012 -> 快速通风Skill</text>
+<text x="1100" y="698" text-anchor="middle" class="sm" style="font-size:7px;">纯查表,无AI,~1ms</text>
+<line x1="850" y1="720" x2="1350" y2="720" stroke="#7c3aed" stroke-width="2" marker-end="url(#a-ora)"/>
+<rect x="1032" y="706" width="144" height="13" rx="2" fill="#fff" opacity="0.95"/>
+<text x="1100" y="716" text-anchor="middle" class="dt" style="font-size:9px;">同样的 ID_004,ID_012</text>
+<rect x="1290" y="728" width="120" height="65" rx="6" fill="#fff7ed" stroke="#ea580c" stroke-width="1.5"/>
+<text x="1350" y="745" text-anchor="middle" class="ora" style="font-size:10px;">示例表查找</text>
+<text x="1350" y="760" text-anchor="middle" class="sm" style="font-size:8px;">ID_004 -> 降温few-shot</text>
+<text x="1350" y="773" text-anchor="middle" class="sm" style="font-size:8px;">ID_012 -> 通风few-shot</text>
+<text x="1350" y="788" text-anchor="middle" class="sm" style="font-size:7px;">纯查表,无AI,~1ms</text>
+<rect x="970" y="625" width="450" height="180" rx="10" fill="none" stroke="#d97706" stroke-width="2" stroke-dasharray="6,3"/>
+<text x="1195" y="620" text-anchor="middle" style="font-size:11px;fill:#d97706;font-weight:700;">同一个 ID 同时索引两张表!</text>
+<line x1="1100" y1="820" x2="1600" y2="820" stroke="#7c3aed" stroke-width="2" marker-end="url(#a-pur)"/>
+<rect x="1282" y="806" width="144" height="13" rx="2" fill="#fff" opacity="0.95"/>
+<text x="1350" y="816" text-anchor="middle" class="dt" style="font-size:9px;">Skill全文(~2000字x2)</text>
+<line x1="1350" y1="845" x2="1600" y2="845" stroke="#7c3aed" stroke-width="2" marker-end="url(#a-ora)"/>
+<rect x="1399" y="831" width="160" height="13" rx="2" fill="#fff" opacity="0.95"/>
+<text x="1475" y="841" text-anchor="middle" class="dt" style="font-size:9px;">few-shot样本(~800字x2)</text>
+<rect x="1540" y="858" width="120" height="85" rx="6" fill="url(#gd)" stroke="#1e3a5f" stroke-width="2"/>
+<text x="1600" y="878" text-anchor="middle" class="whb" style="font-size:10px;">SP 拼接</text>
+<text x="1600" y="893" text-anchor="middle" class="wh" style="font-size:8px;">固定部分(~25K)</text>
+<text x="1600" y="906" text-anchor="middle" style="font-size:8px;fill:#c4b5fd;">+ Skill({knowledge})</text>
+<text x="1600" y="919" text-anchor="middle" style="font-size:8px;fill:#fed7aa;">+ 示例({examples})</text>
+<text x="1600" y="932" text-anchor="middle" style="font-size:8px;fill:#86efac;">+ env + memory</text>
+<text x="1600" y="965" text-anchor="middle" class="blu" style="font-size:10px;">完整SP ~40K tokens</text>
+<text x="1600" y="980" text-anchor="middle" class="sm" style="font-size:9px;">送入 Planner LLM 推理</text>
+<text x="1600" y="995" text-anchor="middle" class="red" style="font-size:9px;">推理耗时 ~800ms</text>
+<rect x="60" y="480" width="70" height="130" rx="6" fill="#fef2f2" stroke="#fca5a5" stroke-width="1"/>
+<text x="95" y="520" text-anchor="middle" class="red" style="font-size:9px;">额外</text>
+<text x="95" y="535" text-anchor="middle" class="red" style="font-size:9px;">开销</text>
+<text x="95" y="555" text-anchor="middle" class="red" style="font-size:10px;">1.8s!</text>
+<text x="95" y="575" text-anchor="middle" class="sm" style="font-size:7px;">Selector</text>
+<text x="95" y="585" text-anchor="middle" class="sm" style="font-size:7px;">的LLM调用</text>
+<rect x="60" y="820" width="70" height="40" rx="6" fill="#f0fdf4" stroke="#86efac" stroke-width="1"/>
+<text x="95" y="838" text-anchor="middle" class="grn" style="font-size:9px;">免费!</text>
+<text x="95" y="852" text-anchor="middle" class="sm" style="font-size:7px;">纯查表~1ms</text>
+<rect x="50" y="1125" width="1700" height="30" rx="6" fill="#1e3a5f"/>
+<text x="900" y="1145" text-anchor="middle" class="whb">SECTION 3: 为什么动态知识需要 Selector SP 检索，而动态示例不需要？</text>
+<rect x="100" y="1175" width="780" height="220" rx="12" fill="#faf5ff" stroke="#7c3aed" stroke-width="2" filter="url(#sh)"/>
+<text x="490" y="1197" text-anchor="middle" class="pur" style="font-size:14px;">为什么动态知识需要 Selector SP？</text>
+<line x1="120" y1="1205" x2="860" y2="1205" stroke="#c4b5fd" stroke-width="1"/>
+<text x="130" y="1227" class="pur" style="font-size:10px;">问题:</text>
+<text x="230" y="1227" class="bd" style="font-size:10px;">知识库有 13~64 条知识，全塞给 Planner 会撑爆上下文（64x2000字=128K tokens，远超模型上限）</text>
+<text x="130" y="1247" class="pur" style="font-size:10px;">所以:</text>
+<text x="230" y="1247" class="bd" style="font-size:10px;">必须筛选：每次只挑 1-3 条最相关的注入</text>
+<text x="130" y="1267" class="pur" style="font-size:10px;">谁来筛？:</text>
+<text x="230" y="1267" class="bd" style="font-size:10px;">不能用关键词匹配（太死板,"我车里有猫"匹配不到"宠物模式"）</text>
+<text x="230" y="1287" class="bd" style="font-size:10px;">不能用 embedding 向量检索（目前没建向量库）</text>
+<text x="230" y="1307" class="bd" style="font-size:10px;">所以用 LLM 做筛选 = Selector SP</text>
+<text x="130" y="1327" class="pur" style="font-size:10px;">Selector 的本质:</text>
+<text x="230" y="1327" class="bd" style="font-size:10px;">一个独立的 LLM agent，专门做场景分类。</text>
+<text x="230" y="1341" class="bd" style="font-size:10px;">输入: query+上下文+env+目标+已加载ID</text>
+<text x="230" y="1355" class="bd" style="font-size:10px;">输出: 需要新增的 ID + 需要删除的 ID</text>
+<text x="130" y="1375" class="pur" style="font-size:10px;">代价:</text>
+<text x="230" y="1375" class="bd" style="font-size:10px;">额外一次 LLM 调用 = 额外 500ms-1.8s 延迟</text>
+<text x="230" y="1389" class="bd" style="font-size:10px;">这就是为什么场景 Planner 耗时高达 800ms+</text>
+<rect x="920" y="1175" width="780" height="220" rx="12" fill="#fff7ed" stroke="#ea580c" stroke-width="2" filter="url(#sh)"/>
+<text x="1310" y="1197" text-anchor="middle" class="ora" style="font-size:14px;">为什么动态示例不需要单独的 SP？</text>
+<line x1="940" y1="1205" x2="1680" y2="1205" stroke="#fed7aa" stroke-width="1"/>
+<text x="950" y="1227" class="ora" style="font-size:10px;">关键:</text>
+<text x="1050" y="1227" class="bd" style="font-size:10px;">示例是绑定在知识 ID 上的！</text>
+<text x="1050" y="1241" class="bd" style="font-size:10px;">ID_004 同时对应: 1份Skill + 2-3条示例</text>
+<text x="950" y="1261" class="ora" style="font-size:10px;">所以:</text>
+<text x="1050" y="1261" class="bd" style="font-size:10px;">Selector 已经输出了 ID_004</text>
+<text x="1050" y="1275" class="bd" style="font-size:10px;">去知识表查 = 拿到 Skill</text>
+<text x="1050" y="1289" class="bd" style="font-size:10px;">去示例表查 = 拿到 few-shot</text>
+<text x="1050" y="1303" class="bd" style="font-size:10px;">一次检索，两张表都命中</text>
+<text x="950" y="1323" class="ora" style="font-size:10px;">为什么能搭便车?:</text>
+<text x="1050" y="1323" class="bd" style="font-size:10px;">因为示例和知识是 1:1 绑定的</text>
+<text x="1050" y="1337" class="bd" style="font-size:10px;">一个场景的示例只有在该场景被命中时才需要注入</text>
+<text x="1050" y="1351" class="bd" style="font-size:10px;">这和知识的命中条件完全一样</text>
+<text x="950" y="1371" class="ora" style="font-size:10px;">好处:</text>
+<text x="1050" y="1371" class="bd" style="font-size:10px;">不需要额外的 LLM 调用</text>
+<text x="1050" y="1385" class="bd" style="font-size:10px;">= 零额外延迟</text>
+<text x="1050" y="1399" class="bd" style="font-size:10px;">= 零额外 token 开销</text>
+<rect x="50" y="1425" width="1700" height="30" rx="6" fill="#1e3a5f"/>
+<text x="900" y="1445" text-anchor="middle" class="whb">SECTION 4: 两张表的实际结构 -- 同一个 ID 索引两张表</text>
+<text x="480" y="1475" text-anchor="middle" class="pur" style="font-size:13px;">知识表（泽民维护） -- 每行 = 一个场景的完整 Skill</text>
+<rect x="100" y="1483" width="760" height="30" rx="4" fill="#7c3aed"/>
+<text x="140" y="1503" text-anchor="middle" class="wh" style="font-size:10px;">ID</text>
+<text x="230" y="1503" text-anchor="middle" class="wh" style="font-size:10px;">场景名</text>
+<text x="480" y="1503" text-anchor="middle" class="wh" style="font-size:10px;">Skill全文(~2000字)</text>
+<text x="720" y="1503" text-anchor="middle" class="wh" style="font-size:10px;">状态</text>
+<text x="810" y="1503" text-anchor="middle" class="wh" style="font-size:10px;">更新日期</text>
+<rect x="100" y="1513" width="80" height="24" fill="#faf5ff" stroke="#e9d5ff" stroke-width="0.5"/>
+<text x="105" y="1529" class="dt" style="font-size:9px;">ID_004</text>
+<rect x="180" y="1513" width="100" height="24" fill="#faf5ff" stroke="#e9d5ff" stroke-width="0.5"/>
+<text x="185" y="1529" class="dt" style="font-size:9px;">极速降温</text>
+<rect x="280" y="1513" width="400" height="24" fill="#faf5ff" stroke="#e9d5ff" stroke-width="0.5"/>
+<text x="285" y="1529" class="dt" style="font-size:9px;">vehicle_basic_control:空调ON/温度LO/风量11...</text>
+<rect x="680" y="1513" width="80" height="24" fill="#faf5ff" stroke="#e9d5ff" stroke-width="0.5"/>
+<text x="685" y="1529" class="dt" style="font-size:9px;">v1待修</text>
+<rect x="760" y="1513" width="100" height="24" fill="#faf5ff" stroke="#e9d5ff" stroke-width="0.5"/>
+<text x="765" y="1529" class="dt" style="font-size:9px;">6/3</text>
+<rect x="100" y="1537" width="80" height="24" fill="#fff" stroke="#e9d5ff" stroke-width="0.5"/>
+<text x="105" y="1553" class="dt" style="font-size:9px;">ID_012</text>
+<rect x="180" y="1537" width="100" height="24" fill="#fff" stroke="#e9d5ff" stroke-width="0.5"/>
+<text x="185" y="1553" class="dt" style="font-size:9px;">快速通风</text>
+<rect x="280" y="1537" width="400" height="24" fill="#fff" stroke="#e9d5ff" stroke-width="0.5"/>
+<text x="285" y="1553" class="dt" style="font-size:9px;">vehicle_basic_control:主驾车窗/右后车窗...</text>
+<rect x="680" y="1537" width="80" height="24" fill="#fff" stroke="#e9d5ff" stroke-width="0.5"/>
+<text x="685" y="1553" class="dt" style="font-size:9px;">v1待修</text>
+<rect x="760" y="1537" width="100" height="24" fill="#fff" stroke="#e9d5ff" stroke-width="0.5"/>
+<text x="765" y="1553" class="dt" style="font-size:9px;">6/3</text>
+<rect x="100" y="1561" width="80" height="24" fill="#faf5ff" stroke="#e9d5ff" stroke-width="0.5"/>
+<text x="105" y="1577" class="dt" style="font-size:9px;">ID_009</text>
+<rect x="180" y="1561" width="100" height="24" fill="#faf5ff" stroke="#e9d5ff" stroke-width="0.5"/>
+<text x="185" y="1577" class="dt" style="font-size:9px;">车内小憩</text>
+<rect x="280" y="1561" width="400" height="24" fill="#faf5ff" stroke="#e9d5ff" stroke-width="0.5"/>
+<text x="285" y="1577" class="dt" style="font-size:9px;">vehicle_basic_control:座椅零重力/遮阳帘...</text>
+<rect x="680" y="1561" width="80" height="24" fill="#faf5ff" stroke="#e9d5ff" stroke-width="0.5"/>
+<text x="685" y="1577" class="dt" style="font-size:9px;">v1待修</text>
+<rect x="760" y="1561" width="100" height="24" fill="#faf5ff" stroke="#e9d5ff" stroke-width="0.5"/>
+<text x="765" y="1577" class="dt" style="font-size:9px;">6/3</text>
+<rect x="100" y="1585" width="80" height="24" fill="#fff" stroke="#e9d5ff" stroke-width="0.5"/>
+<text x="105" y="1601" class="dt" style="font-size:9px;">...</text>
+<rect x="180" y="1585" width="100" height="24" fill="#fff" stroke="#e9d5ff" stroke-width="0.5"/>
+<text x="185" y="1601" class="dt" style="font-size:9px;">...</text>
+<rect x="280" y="1585" width="400" height="24" fill="#fff" stroke="#e9d5ff" stroke-width="0.5"/>
+<text x="285" y="1601" class="dt" style="font-size:9px;">...(共13条,PRD目标64条)</text>
+<rect x="680" y="1585" width="80" height="24" fill="#fff" stroke="#e9d5ff" stroke-width="0.5"/>
+<text x="685" y="1601" class="dt" style="font-size:9px;">...</text>
+<rect x="760" y="1585" width="100" height="24" fill="#fff" stroke="#e9d5ff" stroke-width="0.5"/>
+<text x="765" y="1601" class="dt" style="font-size:9px;">...</text>
+<text x="1310" y="1475" text-anchor="middle" class="ora" style="font-size:13px;">示例表（明骏维护） -- 每行 = 一条 few-shot 对话样本</text>
+<rect x="920" y="1483" width="760" height="30" rx="4" fill="#ea580c"/>
+<text x="960" y="1503" text-anchor="middle" class="wh" style="font-size:10px;">绑定ID</text>
+<text x="1030" y="1503" text-anchor="middle" class="wh" style="font-size:10px;">示例#</text>
+<text x="1160" y="1503" text-anchor="middle" class="wh" style="font-size:10px;">user输入</text>
+<text x="1420" y="1503" text-anchor="middle" class="wh" style="font-size:10px;">assistant输出(JSON)</text>
+<text x="1630" y="1503" text-anchor="middle" class="wh" style="font-size:10px;">用途</text>
+<rect x="920" y="1513" width="80" height="24" fill="#fff7ed" stroke="#fed7aa" stroke-width="0.5"/>
+<text x="925" y="1529" class="dt" style="font-size:9px;">ID_004</text>
+<rect x="1000" y="1513" width="60" height="24" fill="#fff7ed" stroke="#fed7aa" stroke-width="0.5"/>
+<text x="1005" y="1529" class="dt" style="font-size:9px;">#1</text>
+<rect x="1060" y="1513" width="200" height="24" fill="#fff7ed" stroke="#fed7aa" stroke-width="0.5"/>
+<text x="1065" y="1529" class="dt" style="font-size:9px;">"好热啊赶紧降温"</text>
+<rect x="1260" y="1513" width="320" height="24" fill="#fff7ed" stroke="#fed7aa" stroke-width="0.5"/>
+<text x="1265" y="1529" class="dt" style="font-size:9px;">{talk:"好的~",action:[空调ON...]}</text>
+<rect x="1580" y="1513" width="100" height="24" fill="#fff7ed" stroke="#fed7aa" stroke-width="0.5"/>
+<text x="1585" y="1529" class="dt" style="font-size:9px;">标准降温</text>
+<rect x="920" y="1537" width="80" height="24" fill="#fff" stroke="#fed7aa" stroke-width="0.5"/>
+<text x="925" y="1553" class="dt" style="font-size:9px;">ID_004</text>
+<rect x="1000" y="1537" width="60" height="24" fill="#fff" stroke="#fed7aa" stroke-width="0.5"/>
+<text x="1005" y="1553" class="dt" style="font-size:9px;">#2</text>
+<rect x="1060" y="1537" width="200" height="24" fill="#fff" stroke="#fed7aa" stroke-width="0.5"/>
+<text x="1065" y="1553" class="dt" style="font-size:9px;">"太热了"[memory:偏好24C]</text>
+<rect x="1260" y="1537" width="320" height="24" fill="#fff" stroke="#fed7aa" stroke-width="0.5"/>
+<text x="1265" y="1553" class="dt" style="font-size:9px;">{talk:"好~",action:[温度24C...]}</text>
+<rect x="1580" y="1537" width="100" height="24" fill="#fff" stroke="#fed7aa" stroke-width="0.5"/>
+<text x="1585" y="1553" class="dt" style="font-size:9px;">有记忆时</text>
+<rect x="920" y="1561" width="80" height="24" fill="#fff7ed" stroke="#fed7aa" stroke-width="0.5"/>
+<text x="925" y="1577" class="dt" style="font-size:9px;">ID_004</text>
+<rect x="1000" y="1561" width="60" height="24" fill="#fff7ed" stroke="#fed7aa" stroke-width="0.5"/>
+<text x="1005" y="1577" class="dt" style="font-size:9px;">#3</text>
+<rect x="1060" y="1561" width="200" height="24" fill="#fff7ed" stroke="#fed7aa" stroke-width="0.5"/>
+<text x="1065" y="1577" class="dt" style="font-size:9px;">"好热好闷开窗"</text>
+<rect x="1260" y="1561" width="320" height="24" fill="#fff7ed" stroke="#fed7aa" stroke-width="0.5"/>
+<text x="1265" y="1577" class="dt" style="font-size:9px;">{action:[空调+车窗+外循环]}</text>
+<rect x="1580" y="1561" width="100" height="24" fill="#fff7ed" stroke="#fed7aa" stroke-width="0.5"/>
+<text x="1585" y="1577" class="dt" style="font-size:9px;">降温+通风</text>
+<rect x="920" y="1585" width="80" height="24" fill="#fff" stroke="#fed7aa" stroke-width="0.5"/>
+<text x="925" y="1601" class="dt" style="font-size:9px;">ID_012</text>
+<rect x="1000" y="1585" width="60" height="24" fill="#fff" stroke="#fed7aa" stroke-width="0.5"/>
+<text x="1005" y="1601" class="dt" style="font-size:9px;">#1</text>
+<rect x="1060" y="1585" width="200" height="24" fill="#fff" stroke="#fed7aa" stroke-width="0.5"/>
+<text x="1065" y="1601" class="dt" style="font-size:9px;">"车里有味道通通风"</text>
+<rect x="1260" y="1585" width="320" height="24" fill="#fff" stroke="#fed7aa" stroke-width="0.5"/>
+<text x="1265" y="1601" class="dt" style="font-size:9px;">{action:[主驾窗+右后窗]}</text>
+<rect x="1580" y="1585" width="100" height="24" fill="#fff" stroke="#fed7aa" stroke-width="0.5"/>
+<text x="1585" y="1601" class="dt" style="font-size:9px;">标准通风</text>
+<rect x="920" y="1609" width="80" height="24" fill="#fff7ed" stroke="#fed7aa" stroke-width="0.5"/>
+<text x="925" y="1625" class="dt" style="font-size:9px;">ID_009</text>
+<rect x="1000" y="1609" width="60" height="24" fill="#fff7ed" stroke="#fed7aa" stroke-width="0.5"/>
+<text x="1005" y="1625" class="dt" style="font-size:9px;">#1</text>
+<rect x="1060" y="1609" width="200" height="24" fill="#fff7ed" stroke="#fed7aa" stroke-width="0.5"/>
+<text x="1065" y="1625" class="dt" style="font-size:9px;">"我想打会盹"[env:P档]</text>
+<rect x="1260" y="1609" width="320" height="24" fill="#fff7ed" stroke="#fed7aa" stroke-width="0.5"/>
+<text x="1265" y="1625" class="dt" style="font-size:9px;">{talk:"休息多久?",action:[]}</text>
+<rect x="1580" y="1609" width="100" height="24" fill="#fff7ed" stroke="#fed7aa" stroke-width="0.5"/>
+<text x="1585" y="1625" class="dt" style="font-size:9px;">先问时长</text>
+<rect x="920" y="1633" width="80" height="24" fill="#fff" stroke="#fed7aa" stroke-width="0.5"/>
+<text x="925" y="1649" class="dt" style="font-size:9px;">ID_009</text>
+<rect x="1000" y="1633" width="60" height="24" fill="#fff" stroke="#fed7aa" stroke-width="0.5"/>
+<text x="1005" y="1649" class="dt" style="font-size:9px;">#2</text>
+<rect x="1060" y="1633" width="200" height="24" fill="#fff" stroke="#fed7aa" stroke-width="0.5"/>
+<text x="1065" y="1649" class="dt" style="font-size:9px;">"我想睡觉"[env:D档]</text>
+<rect x="1260" y="1633" width="320" height="24" fill="#fff" stroke="#fed7aa" stroke-width="0.5"/>
+<text x="1265" y="1649" class="dt" style="font-size:9px;">{talk:"行驶中不能哦",action:[]}</text>
+<rect x="1580" y="1633" width="100" height="24" fill="#fff" stroke="#fed7aa" stroke-width="0.5"/>
+<text x="1585" y="1649" class="dt" style="font-size:9px;">拒绝执行!</text>
+<rect x="920" y="1657" width="80" height="24" fill="#fff7ed" stroke="#fed7aa" stroke-width="0.5"/>
+<text x="925" y="1673" class="dt" style="font-size:9px;">...</text>
+<rect x="1000" y="1657" width="60" height="24" fill="#fff7ed" stroke="#fed7aa" stroke-width="0.5"/>
+<text x="1005" y="1673" class="dt" style="font-size:9px;">...</text>
+<rect x="1060" y="1657" width="200" height="24" fill="#fff7ed" stroke="#fed7aa" stroke-width="0.5"/>
+<text x="1065" y="1673" class="dt" style="font-size:9px;">...</text>
+<rect x="1260" y="1657" width="320" height="24" fill="#fff7ed" stroke="#fed7aa" stroke-width="0.5"/>
+<text x="1265" y="1673" class="dt" style="font-size:9px;">...</text>
+<rect x="1580" y="1657" width="100" height="24" fill="#fff7ed" stroke="#fed7aa" stroke-width="0.5"/>
+<text x="1585" y="1673" class="dt" style="font-size:9px;">...</text>
+<line x1="180" y1="1537" x2="920" y2="1537" stroke="#d97706" stroke-width="1.5" stroke-dasharray="4,3"/>
+<text x="550" y="1533" text-anchor="middle" style="font-size:10px;fill:#d97706;font-weight:700;">ID_004 同时索引左表和右表的对应行</text>
+<rect x="50" y="1705" width="1700" height="30" rx="6" fill="#1e3a5f"/>
+<text x="900" y="1725" text-anchor="middle" class="whb">SECTION 5: Selector SP 内部怎么工作？（这是理解检索的关键）</text>
+<rect x="100" y="1755" width="1600" height="420" rx="12" fill="#faf5ff" stroke="#7c3aed" stroke-width="2" filter="url(#sh)"/>
+<text x="900" y="1777" text-anchor="middle" class="pur" style="font-size:14px;">Selector SP 是一个独立的 LLM Agent -- 它自己也有一份 System Prompt</text>
+<rect x="130" y="1790" width="1540" height="370" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+<text x="900" y="1810" text-anchor="middle" style="font-size:13px;fill:#c4b5fd;font-weight:700;">Selector 的 System Prompt 结构</text>
+<rect x="150" y="1820" width="1500" height="28" rx="5" fill="#1a1a30" stroke="#2a2a50" stroke-width="0.5"/>
+<text x="170" y="1834" style="font-size:10px;fill:#93c5fd;font-weight:700;">1. 角色定义</text>
+<text x="170" y="1848" style="font-size:9px;fill:#94a3b8;">你是车载智能助手的知识筛选专家。你拥有一个基于"专家角色-场景层级"架构的结构化知识库。</text>
+<rect x="150" y="1853" width="1500" height="42" rx="5" fill="#1a1a30" stroke="#2a2a50" stroke-width="0.5"/>
+<text x="170" y="1867" style="font-size:10px;fill:#93c5fd;font-weight:700;">2. 输入信息结构</text>
+<text x="170" y="1881" style="font-size:9px;fill:#94a3b8;">接收5个字段: user_query(用户说的话) / conversation_history(最近10轮) / goal_list(目标队列)</text>
+<text x="170" y="1895" style="font-size:9px;fill:#94a3b8;">/ env_info(车辆状态) / loaded_knowledge_ids(当前已加载的知识ID)</text>
+<rect x="150" y="1900" width="1500" height="70" rx="5" fill="#1a1a30" stroke="#2a2a50" stroke-width="0.5"/>
+<text x="170" y="1914" style="font-size:10px;fill:#93c5fd;font-weight:700;">3. 知识库索引表</text>
+<text x="170" y="1928" style="font-size:9px;fill:#94a3b8;">这是Selector"看到"的全部知识的摘要索引，不是全文! 类似一本书的"目录":</text>
+<text x="170" y="1942" style="font-size:9px;fill:#94a3b8;">ID_004: 极速降温 -- 触发词:好热/暴晒/快速降温 -- 场景:夏天暴晒后/行车感知风量不适</text>
+<text x="170" y="1956" style="font-size:9px;fill:#94a3b8;">ID_012: 快速通风 -- 触发词:抽烟/通风/异味/闷/换气 -- 场景:车内异味/湿气</text>
+<text x="170" y="1970" style="font-size:9px;fill:#94a3b8;">...(共13条索引，每条约50字，总共~650字)</text>
+<rect x="150" y="1975" width="1500" height="42" rx="5" fill="#1a1a30" stroke="#2a2a50" stroke-width="0.5"/>
+<text x="170" y="1989" style="font-size:10px;fill:#93c5fd;font-weight:700;">4. 筛选5原则</text>
+<text x="170" y="2003" style="font-size:9px;fill:#94a3b8;">场景绑定推理(不是关键词匹配) / 关注环境变化(趋势比绝对值重要) / 目标持续关联</text>
+<text x="170" y="2017" style="font-size:9px;fill:#94a3b8;">/ 增量更新(只输出变化) / 信息不足时不虚构</text>
+<rect x="150" y="2022" width="1500" height="28" rx="5" fill="#1a1a30" stroke="#2a2a50" stroke-width="0.5"/>
+<text x="170" y="2036" style="font-size:10px;fill:#93c5fd;font-weight:700;">5. 输出格式</text>
+<text x="170" y="2050" style="font-size:9px;fill:#94a3b8;">{add_knowledge_ids: ["ID_004","ID_012"], remove_knowledge_ids: [], reasoning: {...}}</text>
+<rect x="150" y="2055" width="1500" height="56" rx="5" fill="#1a1a30" stroke="#2a2a50" stroke-width="0.5"/>
+<text x="170" y="2069" style="font-size:10px;fill:#93c5fd;font-weight:700;">6. 参考示例</text>
+<text x="170" y="2083" style="font-size:9px;fill:#94a3b8;">给Selector自己看的few-shot(不是给Planner看的!):</text>
+<text x="170" y="2097" style="font-size:9px;fill:#94a3b8;">示例1: 用户说"好热啊" -> 输出 add=[COM-01-01-01]</text>
+<text x="170" y="2111" style="font-size:9px;fill:#94a3b8;">示例2: 用户说"去机场接人" -> 输出 add=[DRV-01-01-03]</text>
+<text x="900" y="2124" text-anchor="middle" style="font-size:11px;fill:#fca5a5;font-weight:700;">注意：Selector 只看"索引"(每条50字的摘要)，不看"全文"(每条2000字的Skill)!</text>
+<text x="900" y="2140" text-anchor="middle" style="font-size:10px;fill:#94a3b8;">这样 Selector 自己的 prompt 只有 ~3K tokens，推理很快。但准确率取决于索引写得好不好。</text>
+<rect x="50" y="2195" width="1700" height="30" rx="6" fill="#1e3a5f"/>
+<text x="900" y="2215" text-anchor="middle" class="whb">SECTION 6: 检索准确率怎么保证？知识检索错了 = 示例也跟着错</text>
+<rect x="100" y="2240" width="1600" height="130" rx="12" fill="#fef2f2" stroke="#dc2626" stroke-width="2" filter="url(#sh)"/>
+<text x="900" y="2260" text-anchor="middle" class="red" style="font-size:13px;">准确率链条：Selector准确率 = 知识检索准确率 = 示例检索准确率</text>
+<text x="900" y="2280" text-anchor="middle" class="bd">因为示例搭便车绑定在知识ID上，所以：</text>
+<text x="150" y="2307" style="font-size:11px;fill:#16a34a;font-weight:700;">Selector 判对了</text>
+<text x="420" y="2307" class="bd" style="font-size:10px;">ID正确 -> 知识对 -> 示例也对 -> Planner编排正确</text>
+<rect x="1450" y="2295" width="70" height="16" rx="4" fill="#16a34a" opacity="0.15"/>
+<text x="1485" y="2307" text-anchor="middle" style="font-size:9px;fill:#16a34a;font-weight:600;">理想路径</text>
+<text x="150" y="2331" style="font-size:11px;fill:#dc2626;font-weight:700;">Selector 判错了</text>
+<text x="420" y="2331" class="bd" style="font-size:10px;">ID错误 -> 注入了错误的知识和示例 -> Planner拿着错误信息编排 -> badcase</text>
+<rect x="1450" y="2319" width="70" height="16" rx="4" fill="#dc2626" opacity="0.15"/>
+<text x="1485" y="2331" text-anchor="middle" style="font-size:9px;fill:#dc2626;font-weight:600;">灾难路径</text>
+<text x="150" y="2355" style="font-size:11px;fill:#ea580c;font-weight:700;">Selector 漏判了</text>
+<text x="420" y="2355" class="bd" style="font-size:10px;">ID没命中 -> 知识没注入+示例没注入 -> Planner没有参考信息 -> 瞎猜</text>
+<rect x="1450" y="2343" width="70" height="16" rx="4" fill="#ea580c" opacity="0.15"/>
+<text x="1485" y="2355" text-anchor="middle" style="font-size:9px;fill:#ea580c;font-weight:600;">次灾难路径</text>
+<rect x="100" y="2390" width="1600" height="180" rx="12" fill="#f0fdf4" stroke="#16a34a" stroke-width="2" filter="url(#sh)"/>
+<text x="900" y="2412" text-anchor="middle" class="grn" style="font-size:13px;">提升检索准确率的 4 个方法</text>
+<text x="130" y="2437" class="grn" style="font-size:10px;">方法1: 优化 Selector SP 的索引表</text>
+<text x="130" y="2451" class="bd" style="font-size:10px;">每条知识的摘要/触发词写得越准，Selector 分类越准。</text>
+<text x="130" y="2465" class="bd" style="font-size:10px;">当前命中率60-70% = 索引表写得不够好 + 互斥场景区分不清(如小憩vs冥想)</text>
+<text x="130" y="2487" class="grn" style="font-size:10px;">方法2: 给 Selector 加更多参考示例</text>
+<text x="130" y="2501" class="bd" style="font-size:10px;">Selector 自己也需要 few-shot! 当前示例太少，边界case覆盖不够。</text>
+<text x="130" y="2515" class="bd" style="font-size:10px;">比如"方向盘冻得握不住开加热" = ID_000(纯控制)还是ID_005(升温)?需要示例明确</text>
+<text x="130" y="2537" class="grn" style="font-size:10px;">方法3: 构建评测集量化回归</text>
+<text x="130" y="2551" class="bd" style="font-size:10px;">每个场景20+条query，跑Selector量化precision/recall，找出低分场景针对性优化</text>
+<text x="130" y="2573" class="grn" style="font-size:10px;">方法4: 远期引入 embedding 预筛</text>
+<text x="130" y="2587" class="bd" style="font-size:10px;">当知识扩展到64条时，LLM分类可能不够快。可以先用向量检索筛出top5候选，</text>
+<text x="130" y="2601" class="bd" style="font-size:10px;">再用LLM精选。两级漏斗 = 快+准</text>
+<rect x="50" y="2600" width="1700" height="30" rx="6" fill="#1e3a5f"/>
+<text x="900" y="2620" text-anchor="middle" class="whb">SECTION 7: 当前实现 vs PRD目标 -- 检索机制的演进路线</text>
+<rect x="100" y="2645" width="350" height="28" rx="4" fill="#e2e8f0"/>
+<text x="275" y="2663" text-anchor="middle" class="h3" style="font-size:11px;">对比维度</text>
+<rect x="450" y="2645" width="550" height="28" rx="4" fill="#fef2f2" stroke="#fca5a5" stroke-width="1"/>
+<text x="725" y="2663" text-anchor="middle" class="red" style="font-size:11px;">当前实现（你现在用的）</text>
+<rect x="1000" y="2645" width="600" height="28" rx="4" fill="#f0fdf4" stroke="#86efac" stroke-width="1"/>
+<text x="1300" y="2663" text-anchor="middle" class="grn" style="font-size:11px;">PRD 目标（远期演进方向）</text>
+<rect x="100" y="2673" width="350" height="24" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="115" y="2689" class="h3" style="font-size:9px;">Selector 做什么</text>
+<rect x="450" y="2673" width="550" height="24" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="465" y="2689" class="bd" style="font-size:9px;">纯分类: query -> 场景ID (ID_001~013)</text>
+<rect x="1000" y="2673" width="600" height="24" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="1015" y="2689" class="bd" style="font-size:9px;">情境推理: 5个输入 -> 知识ID增删(add/remove)</text>
+<rect x="100" y="2697" width="350" height="24" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="115" y="2713" class="h3" style="font-size:9px;">知识编码</text>
+<rect x="450" y="2697" width="550" height="24" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="465" y="2713" class="bd" style="font-size:9px;">三位数: ID_001, ID_004, ID_012</text>
+<rect x="1000" y="2697" width="600" height="24" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="1015" y="2713" class="bd" style="font-size:9px;">四段式: DRV-01-01-03, COM-01-01-01</text>
+<rect x="100" y="2721" width="350" height="24" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="115" y="2737" class="h3" style="font-size:9px;">知识数量</text>
+<rect x="450" y="2721" width="550" height="24" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="465" y="2737" class="bd" style="font-size:9px;">13条</text>
+<rect x="1000" y="2721" width="600" height="24" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="1015" y="2737" class="bd" style="font-size:9px;">64条 (6个专家角色覆盖)</text>
+<rect x="100" y="2745" width="350" height="24" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="115" y="2761" class="h3" style="font-size:9px;">Selector 输入</text>
+<rect x="450" y="2745" width="550" height="24" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="465" y="2761" class="bd" style="font-size:9px;">主要看 query + 少量context</text>
+<rect x="1000" y="2745" width="600" height="24" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="1015" y="2761" class="bd" style="font-size:9px;">query + 历史10轮 + 目标队列 + 车辆状态 + 已加载ID</text>
+<rect x="100" y="2769" width="350" height="24" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="115" y="2785" class="h3" style="font-size:9px;">更新方式</text>
+<rect x="450" y="2769" width="550" height="24" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="465" y="2785" class="bd" style="font-size:9px;">每轮全量替换</text>
+<rect x="1000" y="2769" width="600" height="24" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="1015" y="2785" class="bd" style="font-size:9px;">增量更新 (add + remove)</text>
+<rect x="100" y="2793" width="350" height="24" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="115" y="2809" class="h3" style="font-size:9px;">示例检索方式</text>
+<rect x="450" y="2793" width="550" height="24" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="465" y="2809" class="bd" style="font-size:9px;">同上: 绑定在知识ID上搭便车</text>
+<rect x="1000" y="2793" width="600" height="24" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="1015" y="2809" class="bd" style="font-size:9px;">同上: 绑定在知识ID上搭便车</text>
+<rect x="100" y="2817" width="350" height="24" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="115" y="2833" class="h3" style="font-size:9px;">Selector 延迟</text>
+<rect x="450" y="2817" width="550" height="24" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="465" y="2833" class="bd" style="font-size:9px;">~1.8s (太慢!)</text>
+<rect x="1000" y="2817" width="600" height="24" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="1015" y="2833" class="bd" style="font-size:9px;">目标 500ms 以内</text>
+<rect x="100" y="2841" width="350" height="24" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="115" y="2857" class="h3" style="font-size:9px;">瓶颈</text>
+<rect x="450" y="2841" width="550" height="24" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="465" y="2857" class="bd" style="font-size:9px;">索引表不够精准 + 示例太少</text>
+<rect x="1000" y="2841" width="600" height="24" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="1015" y="2857" class="bd" style="font-size:9px;">64条知识的索引表可能太长 -> 需要embedding预筛</text>
+<rect x="100" y="2885" width="1600" height="35" rx="6" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1"/>
+<rect x="160" y="2897" width="12" height="8" rx="2" fill="#7c3aed"/>
+<text x="178" y="2905" style="font-size:9px;fill:#374151;">Selector SP检索(额外LLM调用,有延迟)</text>
+<rect x="550" y="2897" width="12" height="8" rx="2" fill="#ea580c"/>
+<text x="568" y="2905" style="font-size:9px;fill:#374151;">示例表查找(绑定ID搭便车,无额外延迟)</text>
+<rect x="980" y="2897" width="12" height="8" rx="2" fill="#16a34a"/>
+<text x="998" y="2905" style="font-size:9px;fill:#374151;">知识表查找(绑定ID,无额外延迟)</text>
+<rect x="1350" y="2897" width="12" height="8" rx="2" fill="#dc2626"/>
+<text x="1368" y="2905" style="font-size:9px;fill:#374151;">当前query</text>
+</svg></div><p class="tip">Ctrl/Cmd+滚轮缩放 · SVG矢量图无限放大</p></div></body></html>

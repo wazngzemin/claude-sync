@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>深度讲义1：系统全景与入口分流</title>
+<style>
+:root{--bg:#020617;--panel:rgba(15,23,42,.82);--ink:#e8eef9;--muted:#9fb0c7;--line:#26344b;--blue:#60a5fa;--cyan:#22d3ee;--green:#34d399;--amber:#fbbf24;--orange:#fb923c;--rose:#fb7185;--violet:#a78bfa;}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;color:var(--ink);line-height:1.82;font-family:ui-sans-serif,system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:linear-gradient(rgba(20,30,55,.18) 1px,transparent 1px),linear-gradient(90deg,rgba(20,30,55,.18) 1px,transparent 1px),radial-gradient(circle at 10% 2%,rgba(34,211,238,.10),transparent 22%),radial-gradient(circle at 90% 0,rgba(96,165,250,.10),transparent 28%),var(--bg);background-size:48px 48px,48px 48px,auto,auto,auto;}
+.wrap{max-width:860px;margin:0 auto;padding:32px 24px 120px}
+h1{font-size:26px;margin:0 0 6px;color:#f1f5f9}
+.lead{color:var(--muted);font-size:14px;margin:0 0 28px}
+h2{font-size:21px;margin:40px 0 10px;padding-bottom:8px;border-bottom:2px solid var(--line);color:#f1f5f9}
+h3{font-size:17px;margin:28px 0 8px;color:var(--cyan)}
+h4{font-size:15px;margin:22px 0 6px;color:#cbd5e1}
+p{margin:10px 0;font-size:15px}
+svg{max-width:100%;height:auto;display:block;margin:16px 0}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+th{background:rgba(30,41,59,.7);color:#e2e8f0;font-weight:700}
+td code,p code,li code{color:#7dd3fc;background:rgba(8,47,73,.5);border:1px solid rgba(34,211,238,.18);border-radius:4px;padding:1px 5px;font-size:12.5px}
+tr:nth-child(even) td{background:rgba(15,23,42,.4)}
+pre{background:#040a18;border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow:auto;font-size:13px;color:#cbd5e1;margin:12px 0;line-height:1.65}
+ul,ol{margin:8px 0;padding-left:22px}li{margin:5px 0;font-size:15px}
+blockquote{margin:14px 0;padding:14px 18px;border-left:4px solid var(--blue);background:rgba(30,64,175,.12);border-radius:0 8px 8px 0;color:#bfdbfe;font-size:14.5px}
+.warn{margin:14px 0;padding:14px 18px;border-left:4px solid var(--orange);background:rgba(124,45,18,.18);border-radius:0 8px 8px 0;color:#fed7aa;font-size:14.5px}
+.eg{margin:14px 0;padding:14px 18px;border:1px solid rgba(52,211,153,.3);background:rgba(6,78,59,.16);border-radius:8px;font-size:14.5px}
+.key{margin:14px 0;padding:14px 18px;border:1px solid rgba(34,211,238,.3);background:rgba(8,47,73,.25);border-radius:8px;font-size:14.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>深度讲义 1/5：系统全景与入口分流</h1>
+<p class="lead">这份只讲两件事：① 整套系统的骨架是什么、为什么这样搭；② 一句话进来后怎么被分流的——三级拒识的每一级怎么判、句法RAG和情景RAG各自的输入输出格式、仲裁模型的判定逻辑、端云协同超时降级的完整链路。每个细节都讲到你能给技术团队复述的程度。</p>
+
+<!-- ============================================================ -->
+<h2>一、整套系统的骨架：三层漏斗 + 目标驱动层</h2>
+
+<h3>1.1 为什么是三层漏斗</h3>
+
+<p>车载场景对时延的要求比手机/PC 严苛得多。用户说"打开车窗"，期望的是<b>瞬间响应</b>——如果等了两秒窗户才动，用户会觉得"这车是不是坏了"。但用户说"帮我规划一个周末去莫干山的自驾行程，中间要充电和休息"，这种请求天然需要时间思考，用户能接受等几秒。</p>
+
+<p>问题在于：<b>用一个大模型处理所有请求，简单的也要等大模型跑完</b>（至少500ms），这对"打开车窗"是不可接受的；但<b>只用规则引擎，复杂的处理不了</b>。所以系统被设计成一个<b>三层漏斗</b>——越简单的请求越早被拦截、用越快越轻的方式处理；只有真正需要"思考"的请求才进入大模型。</p>
+
+<p>这个思路的原文表述是三条设计原则：</p>
+
+<blockquote>
+"(1) <b>层层过滤</b>，能通过简单方法搞定的不要漏到后面复杂模型去处理；(2) 在<b>不同阶段选择合适的节点注入知识</b>，注入的方式也是从简单（固定）到复杂（泛化）；(3) 通过用户<b>数据回流</b>逐步把后面复杂任务的处理推到前面知识注入环节。"
+</blockquote>
+
+<p>第三条尤其重要——它意味着这个漏斗<b>会自己进化</b>。Planner 处理的那些难 case 会被回流成训练数据，反过来训练前面的句法 RAG 和情景 RAG，让它们能接住更多的请求。随着时间推移，进入 Planner 的流量会越来越少，系统整体会越来越快。</p>
+
+<h3>1.2 三层各自是什么</h3>
+
+<h4>第一层：句法 RAG</h4>
+
+<p>句法 RAG 是最轻最快的一层，本质是<b>规则匹配 + 工程直接下发</b>，不涉及任何大模型。它处理的是"明确的单轮 query"——用户说的话能直接映射到一个确定的动作，不需要任何推理。</p>
+
+<p><b>输入</b>：单轮 query 文本。</p>
+
+<p><b>处理</b>：规则匹配（类似正则/模板匹配），判断这句话是否在已知的指令集里。</p>
+
+<p><b>输出</b>（原文给出了完整的 JSON 格式）：</p>
+
+<pre>{
+  "type": "directExecute",        // 直接执行，不需要模型
+  "reject_ornot": "react/reject", // react=放行执行，reject=拒识
+  "talk_content": "",             // 要说的话（通常为空，直接执行不说话）
+  "task_list": [...]              // 要执行的任务列表
+}</pre>
+
+<p><b>时延</b>：毫秒级。因为是规则匹配没有模型推理，几乎瞬间完成。</p>
+
+<p><b>能处理什么</b>：如"打开车窗""空调调到25度""关闭氛围灯"这类明确的单指令。</p>
+
+<p><b>不能处理什么</b>："我好热"（模糊，需要结合车况判断是调空调还是回话）、"帮我规划周末行程"（复杂，需要多步推理）。</p>
+
+<p><b>拒识能力</b>：句法 RAG 也能做拒识。比如用户说"妈妈帮我拿一下水杯"，规则匹配发现这不是车机能执行的指令 → 输出 <code>"reject_ornot": "reject"</code>。</p>
+
+<div class="eg">用户说"打开主驾车窗"→ 句法 RAG 规则匹配命中 → 输出 <code>{"type":"directExecute","reject_ornot":"react","talk_content":"","task_list":[{"action":"打开主驾车窗","tool":"vehicle_basic_control"}]}</code> → 直接下发给车控执行 → 车窗打开 → 全程不到 200ms，用户几乎感觉不到延迟。</div>
+
+<h4>第二层：情景 RAG + 仲裁模型</h4>
+
+<p>句法 RAG 处理不了的 query（模糊的、复杂的）会漏到第二层。这一层做两件事：<b>① 情景 RAG 注入场景知识 ② 仲裁模型判断简单/复杂</b>。</p>
+
+<p><b>情景 RAG</b> 的作用不是直接给答案，而是<b>给仲裁模型和 Director "补课"</b>——把当前场景下可能用到的知识以 few-shot 的形式注入，帮模型理解"这种情况应该怎么处理"。</p>
+
+<p><b>情景 RAG 的输出</b>（原文格式）：</p>
+
+<pre>{
+  "type": "modelExecute",          // 需要模型处理
+  "knowledge": "...",              // 注入的场景知识（few-shot 示例）
+  "agentLimit": [...]              // 能力边界约束
+}</pre>
+
+<p>注意 <code>type</code> 的区别：句法 RAG 输出 <code>"directExecute"</code>（直接执行），情景 RAG 输出 <code>"modelExecute"</code>（交给模型）。这就是两层的分水岭。</p>
+
+<p><b>仲裁模型</b>接收情景 RAG 注入了知识的 query，做一个核心判断：<b>这个 query 简单还是复杂？</b></p>
+
+<ul>
+<li><b>简单</b>（"未拒识 + 仲裁为车控 + 命中6大意图"）→ 交给云侧 FC 模型快速生成指令下发，走<b>快车道</b>（FC.SFT 解析 300ms → 端控执行 150ms）</li>
+<li><b>复杂</b>（上述条件不同时成立）→ 交给 Director/Planner 做深度推理，走<b>慢思考</b>（思考 500ms + 回答 500ms）</li>
+</ul>
+
+<p><b>仲裁模型的选型</b>：Seed1.6 flash SFT。为什么用这么轻的模型？因为它只需要做<b>二分类</b>（简单 or 复杂），不需要深度推理能力。用大模型做这件事太浪费——它的推理时延就是白花的等待。轻模型 + 情景 RAG 注入的 few-shot，足以在低时延内做出准确的路由判断。</p>
+
+<div class="eg">用户说"我好热啊"。句法 RAG 匹配不到直接指令（"我好热"不是"打开空调"这种明确表达）→ 漏到第二层。情景 RAG 注入当前车况知识：<code>{"knowledge":"当车内温度>28度且空调关闭时，'我好热'类表达通常意味着需要开空调降温；当空调已开到最冷时，可能只是在抱怨。","agentLimit":[...]}</code>。仲裁模型拿到这个 few-shot 后判断：如果当前空调关闭 → 简单车控 → 快车道；如果空调已开到最冷 → 需要思考怎么回应 → 复杂 → Director。</div>
+
+<div class="warn"><b>仲裁模型为什么经常判错？</b>原文分析了三大根因：<br><br>
+<b>① 输入太单一</b>——仲裁模型只能从 query 和注入的 knowledge 判断，但同一句话因车况不同结论完全不同。"我好热"在空调没开时和空调已开到最冷时是两回事，如果情景 RAG 没注入正确的车况 knowledge，仲裁就会判错。<br><br>
+<b>② 靠造数据学习，case 造不完</b>——仲裁的 SFT 训练数据需要人工标注"这句话是简单还是复杂"，但真实场景无穷无尽，标注永远追不上长尾。原文说这"仍然是 NLU 的人肉解 bug 方法"。<br><br>
+<b>③ 意图处理信息量太少</b>——仲裁只对粗 domain 分类（如"这是车控类 query"），但车控下面有上千个具体函数（开哪个窗？调哪个座椅？调到多少度？），粗分类后交给 FC 模型从上千函数里选，效果远差于少量函数的情况。原文用了一个很好的类比："人说到热，就只会在开窗、空调、加热几个选项里思考解决，不会想到车控这个大类然后在1千个范围内搜索。"</div>
+
+<h4>第三层：Director / Planner</h4>
+
+<p>这是漏斗的最底层，也是最"重"的一层——云端大模型深度推理。它接收的都是前两层处理不了的复杂请求。Director 的详细机制在下一份讲义（第2份）里展开，这里只讲它在漏斗中的角色定位。</p>
+
+<p>Director 有<b>双重身份</b>（原文）：</p>
+
+<ol>
+<li><b>兜底</b>——前面全部漏过来的、任何模块都接不住的 query，Director 兜底处理。哪怕它处理得慢一点，至少不会让用户"完全没有回应"。</li>
+<li><b>云端 teacher</b>——Director 处理完的 case 不是用完就扔，而是<b>回流成训练数据</b>，用来训练前面的句法 RAG、情景 RAG 和仲裁模型。这就是第三设计原则"数据回流"的落地——前期 Director 作为 teacher 引导数据回流，中后期用积累的数据训练，让漏斗自己变聪明。</li>
+</ol>
+
+<p>原文对这个设计的评价是：<b>"这是一个过渡方案。当前的大模型技术水平达不到能兼顾速度和对复杂任务的处理，所以用漏斗分层。如果后面模型能力提升起来了，把漏斗的下层提到前面去就行了——工作量非常小，是一个可以持续演进的架构。"</b></p>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>二、三级拒识：每一级怎么判、判的依据是什么</h2>
+
+<h3>2.1 整体架构：为什么是三级</h3>
+
+<p>拒识的目的是<b>把不该由车机处理的 query 拦住</b>——比如"妈妈帮我拿水杯"（不是对车说的）、"世界毁灭吧"（无意义的）、"帮我叫个滴滴"（车机能力范围外的）。但拒识本身也有<b>漏判和误判</b>：漏判（该拒的没拒）会浪费 Director 的推理资源；误判（不该拒的拒了）会让用户觉得"车没反应"。所以系统用<b>三级冗余</b>：三道关各有不同的判断视角，一道漏了还有下一道。</p>
+
+<h3>2.2 第一级：端侧白名单 + 离线 fc 模型</h3>
+
+<p><b>位置</b>：在端侧（车机本地），不上云。</p>
+
+<p><b>组成</b>：一个离线的 function call 小模型 + 一张<b>白名单</b>（已知的高频车控指令集合）。</p>
+
+<p><b>判定逻辑</b>（原文完整规则）：</p>
+
+<ol>
+<li>query 进来后，离线 fc 模型对它做 function call 匹配</li>
+<li>如果匹配结果在<b>白名单</b>里 → <b>端侧直接执行</b>，不上云，约 150ms 完成</li>
+<li>如果匹配结果不在白名单里 → <b>优先云端结果</b>：同时上报给云端处理</li>
+<li>如果云端<b>超时无结果</b> → 看端侧有没有结果：有 → 采纳端侧；无 → 做<b>超时播报兜底</b></li>
+</ol>
+
+<p><b>白名单里有什么</b>：简单高频的车控指令——"打开车窗""关闭空调""座椅加热3档""打开阅读灯"这类。白名单由车厂可配置，不需要改模型。</p>
+
+<p><b>为什么要白名单而不是让 fc 模型自己判断</b>：因为 fc 模型可能把模糊表达也匹配到某个车控函数上（比如把"我好热"匹配成"打开空调"），但这不一定是对的。白名单起到<b>双保险</b>的作用——即使 fc 模型匹配了，也要在白名单里才端侧直接执行，否则交给云端做更精确的判断。</p>
+
+<div class="eg"><b>端云协同超时降级链路</b>（完整时序）：<br><br>
+T=0ms：用户说"帮我查下油耗"→ ASR 转文字<br>
+T=200ms：端侧 fc 模型匹配 → 匹配到 search_vehicle_status_info（查车辆状态）→ 不在白名单里（白名单只有简单车控如开关窗/调温度，不包含查询类）<br>
+T=200ms：同时上报给云端<br>
+T=200~700ms：等云端结果<br>
+<b>情况A</b>：云端 500ms 内返回了仲裁结果 → 按云端结果走（简单→FC快车道 / 复杂→Director）<br>
+<b>情况B</b>：云端超时了（比如弱网）→ 回看端侧 fc 匹配结果：端侧匹配到了 search_vehicle_status_info → <b>采纳端侧结果</b>，执行查询<br>
+<b>情况C</b>：云端超时 + 端侧也没匹配到 → <b>超时播报兜底</b>（系统说"抱歉没听清，能再说一次吗"）</div>
+
+<h3>2.3 第二级：云侧前置拒识</h3>
+
+<p><b>位置</b>：云端，在 Director 之前。</p>
+
+<p><b>组成</b>：云端拒识模型（和仲裁模型配合工作）。</p>
+
+<p><b>判定逻辑</b>（原文）：</p>
+
+<ol>
+<li>端侧白名单没命中的 query 上到云端</li>
+<li>云端拒识模型判断：<b>这句话是否该由车机处理？</b></li>
+<li>如果<b>该拒识</b>（不是对车说的、非车机能力范围的）→ 拒识。<b>但拒识不是丢弃</b>——拒识的内容会做两件事：
+   <ul>
+     <li>写入 <b>context 事件日志</b></li>
+     <li>被 <b>advisor 感知</b>（advisor 会扫描事件日志，发现有用信息时触发主动服务）</li>
+   </ul>
+</li>
+<li>如果<b>不拒识</b>（是合理的车机请求）→ 进入仲裁判定（简单/复杂分流）</li>
+<li>如果<b>拒识超时</b>（拒识模型没来得及返回结果）→ <b>交给 Director 处理</b>（宁可让 Director 多花点时间判断，也不能因为拒识模型慢就让用户没有响应）</li>
+</ol>
+
+<div class="why"><b>为什么拒识不丢弃而是写入 context？</b>这是一个精妙的设计。比如用户说"妈妈帮我拿一下水杯"——车机确实做不了，应该拒识。但这句话透露了一个信息："车里可能有小孩"。拒识的内容写入事件日志后，<b>情感 advisor</b> 扫描到这条日志，可能触发主动服务——比如判断"车内有儿童，当前温度偏高"→ 给 Director 建议"调低温度、注意儿童舒适"。所以<b>拒识的 query 不是没用的，只是不该由 Director 直接处理</b>。</div>
+
+<h3>2.4 第三级：Director 内部兜底拒识</h3>
+
+<p><b>位置</b>：在 Director 的推理流程内部，<code>plan_describe</code> 阶段之前。</p>
+
+<p><b>判定逻辑</b>（原文）：</p>
+
+<blockquote>"在 Plan Describe 阶段之前，引入拒识思考。content 直接输出 reject，不进行后续的拆解等其他逻辑。若是，则直接输出 reject，结束回复，不再进入后续 plan 流程。"</blockquote>
+
+<p>这是最后一道防线。即使前两道拒识都没拦住，Director 在开始拆解任务之前还会再想一下"这个 query 我到底该不该处理"。如果此时判定不该处理 → 直接输出 reject，不浪费后续的工具调用资源。</p>
+
+<p><b>原文也承认这一级的问题</b>："该方式存在一些缺点，包括格式输出不符合规定等，暂时没有想到好的解决办法。"——也就是说 Director 偶尔会在本该 reject 的时候输出格式不对的内容（既不是正常 JSON 也不是干净的 reject），这是已知 bug。</p>
+
+<h3>2.5 云端仲裁的完整判定树</h3>
+
+<p>过了拒识的 query 进入仲裁。完整规则（原文逐条）：</p>
+
+<table>
+<tr><th>条件</th><th>结果</th><th>走哪条路</th></tr>
+<tr><td>离线 fc <b>命中白名单</b></td><td>端侧直接执行</td><td>不上云，约 150ms</td></tr>
+<tr><td>离线 fc <b>未命中白名单</b></td><td>上云，优先云端结果</td><td>云端超时→端上→兜底（三级降级）</td></tr>
+<tr><td>云端<b>未拒识 + 仲裁为车控 + 6大意图</b></td><td>直接给 fc 模型处理</td><td><b>简单快车道</b>：FC.SFT 300ms→端控 150ms</td></tr>
+<tr><td>上述条件<b>不同时成立</b></td><td>给 Director 处理</td><td><b>复杂慢思考</b>：思考 500ms + 回答 500ms</td></tr>
+<tr><td>云端<b>拒识超时</b></td><td>给 Director 处理</td><td>兜底（宁可慢不可无响应）</td></tr>
+<tr><td>云端<b>拒识成功</b></td><td>写入 context 事件日志，被 advisor 感知</td><td>不走 Director，可能触发主动服务</td></tr>
+</table>
+
+<p>注意"未拒识 + 仲裁为车控 + 6大意图"这三个条件必须<b>同时满足</b>才走简单快车道。任何一个不满足就交给 Director。这个设计的逻辑是<b>宁可让复杂的走慢路（多花几百ms），不可让简单的走错路（执行错误的指令）</b>。</p>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>三、时延预算：每一段花多少时间</h2>
+
+<p>这是优化性能时的"标尺"——每一段的预算是多少，超了就是问题。</p>
+
+<table>
+<tr><th>段</th><th>时延</th><th>说明</th></tr>
+<tr><td>ASR（语音转文字）</td><td>200ms</td><td>端侧处理</td></tr>
+<tr><td>NLU（自然语言理解）</td><td>300ms</td><td>端侧初步理解</td></tr>
+<tr><td>端侧 fc + 白名单命中</td><td>~0ms（规则匹配）</td><td>命中后端侧执行 150ms</td></tr>
+<tr><td>云端拒识 + 仲裁</td><td>含在 Planner 首 token 内</td><td>—</td></tr>
+<tr><td>FC.SFT 解析（简单快车道）</td><td>300ms</td><td>云侧轻量 FC 模型</td></tr>
+<tr><td>端控执行</td><td>150ms</td><td>车控指令下发到执行</td></tr>
+<tr><td>Planner 思考（复杂慢思考）</td><td>500ms</td><td>Director 第一次推理</td></tr>
+<tr><td>Planner 回答（含工具调用后二次推理）</td><td>500ms</td><td>总结/继续/结束</td></tr>
+<tr><td>TTS 生成</td><td>200ms</td><td>文字转语音</td></tr>
+</table>
+
+<p><b>总目标</b>（原文）：</p>
+<ul>
+<li><b>P50 首 token ≤ 500ms</b>（50% 的请求在 500ms 内出第一个字）</li>
+<li><b>P90 首 token ≤ 800ms</b>（90% 的请求在 800ms 内出第一个字）</li>
+<li><b>推理 ACC ≥ 90%</b>（推理正确率）</li>
+<li><b>端状态回复 ACC ≥ 93%</b>（查车辆状态的回复正确率）</li>
+</ul>
+
+<p><b>SP 优化前后的实测数据</b>（来自 Sp 优化专项文档）：</p>
+
+<table>
+<tr><th>指标</th><th>优化前（Baseline）</th><th>优化后（PE3-0415）</th><th>变化</th></tr>
+<tr><td>首包时延 P50</td><td>2309 ms</td><td>998 ms</td><td><b>降 57%</b></td></tr>
+<tr><td>首包时延 P90</td><td>3439 ms</td><td>1317 ms</td><td><b>降 62%</b></td></tr>
+<tr><td>总耗时 P50</td><td>12231 ms</td><td>6179 ms</td><td><b>降 49%</b></td></tr>
+<tr><td>拒识+待确认 ACC</td><td>79.38%</td><td>88.38%</td><td><b>升 9pp</b></td></tr>
+</table>
+
+<p>优化前首包时延 P50 = 2309ms 意味着<b>一半的请求要等 2.3 秒才出第一个字</b>，这在车载场景完全不可接受。优化后降到 998ms（不到 1 秒），接近了 500ms 的目标但还没完全达到。</p>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>四、Badcase 排查：入口分流出了问题怎么查</h2>
+
+<p>当一个 case 的结果不对时，<b>第一步永远是确认它走了哪条路</b>。排查路径：</p>
+
+<ol>
+<li><b>先看 <code>reject_ornot</code> 字段</b>：query 是被 reject 了还是被 react（放行）了？
+  <ul>
+    <li>被 reject 了但不该被 reject → 哪一级拒识拒错了？（端侧白名单误拒？云侧拒识模型误拒？Director 内部误拒？）</li>
+    <li>该 reject 但被 react 了 → 三级拒识都没拦住，说明这类 query 在训练数据/规则里缺覆盖</li>
+  </ul>
+</li>
+<li><b>再看仲裁的简单/复杂分类</b>：
+  <ul>
+    <li>复杂的被判成简单 → 走了快车道，FC 模型从上千函数里选，大概率选错或执行不全 → 回看情景 RAG 注入的 knowledge 是否缺失</li>
+    <li>简单的被判成复杂 → 走了 Director 慢思考，时延爆炸但结果可能是对的 → 性能问题不是正确性问题</li>
+  </ul>
+</li>
+<li><b>看端云协同降级</b>：
+  <ul>
+    <li>云端超时 → 降级到端侧结果 → 端侧结果对吗？（端侧 fc 模型匹配的准确度本身就低于云端）</li>
+    <li>端侧白名单该命中没命中（白名单覆盖不全）/ 不该命中却命中了（白名单过宽）→ 找白名单的配置问题</li>
+  </ul>
+</li>
+</ol>
+
+<hr>
+
+<p style="text-align:center;color:var(--muted);font-size:14px;margin-top:40px"><b>第1份完。下一份（第2份）讲：Director 的 ReAct 机制全解（什么是 ReAct / 怎么运行 / 什么时候结束 / 失败怎么 Replan）+ SP 的完整结构（13块每块装什么 / SP 优化六项措施的技术细节——静态示例 vs 动态示例 vs 动态知识各自怎么加载）。</b></p>
+
+</div>
+</body>
+</html>

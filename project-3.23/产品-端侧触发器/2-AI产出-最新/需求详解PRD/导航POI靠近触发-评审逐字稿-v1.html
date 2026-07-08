@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>导航POI靠近触发 · 评审逐字稿 v1</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; line-height: 1.9; color: #1f2937; max-width: 980px; margin: 0 auto; padding: 32px 24px 80px; background: #fafaf9; }
+  h1 { font-size: 1.6rem; border-bottom: 3px solid #dc2626; padding-bottom: 12px; color: #b91c1c; }
+  h2 { font-size: 1.28rem; margin-top: 48px; padding: 10px 14px; background: #1f2937; color: #fff; border-radius: 8px; }
+  h3 { font-size: 1.05rem; margin-top: 28px; color: #b91c1c; border-left: 4px solid #dc2626; padding-left: 10px; }
+  h4 { font-size: 1rem; margin-top: 20px; color: #92400e; }
+  p { margin: 10px 0; }
+  ul, ol { margin: 8px 0; padding-left: 26px; }
+  li { margin: 5px 0; }
+  code { background: #fef3c7; padding: 1px 6px; border-radius: 4px; font-size: 0.92em; color: #92400e; }
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 0.93rem; background: #fff; }
+  th { background: #1f2937; color: #fff; padding: 9px 10px; text-align: left; }
+  td { border: 1px solid #e5e7eb; padding: 9px 10px; vertical-align: top; }
+  tr:nth-child(even) { background: #f9fafb; }
+  .act { color: #dc2626; font-weight: 700; }
+  .pause { color: #16a34a; font-weight: 700; }
+  .at { color: #2563eb; font-weight: 700; }
+  .key { background: #fef3c7; padding: 2px 8px; border-radius: 4px; font-weight: 700; }
+  .box { padding: 16px 20px; border-radius: 8px; margin: 16px 0; }
+  .red { background: #fef2f2; border-left: 4px solid #dc2626; }
+  .blue { background: #eff6ff; border-left: 4px solid #2563eb; }
+  .orange { background: #fff7ed; border-left: 4px solid #ea580c; }
+  .green { background: #f0fdf4; border-left: 4px solid #16a34a; }
+  .gray { background: #f3f4f6; border-left: 4px solid #6b7280; }
+  .purple { background: #faf5ff; border-left: 4px solid #7c3aed; }
+  .scene { background: #faf5ff; border: 1px dashed #a78bfa; border-radius: 8px; padding: 14px 18px; margin: 12px 0; }
+  .scene::before { content: "场景演示："; font-weight: 700; color: #7c3aed; }
+  .qa { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 16px 20px; margin: 16px 0; }
+  .qa-q { font-weight: 700; color: #7c3aed; margin-bottom: 4px; }
+  .qa-a { color: #1f2937; margin-bottom: 12px; }
+  .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
+  .compare > div { padding: 16px; border-radius: 8px; }
+  .vs-a { background: #eff6ff; border: 2px solid #2563eb; }
+  .vs-b { background: #fff7ed; border: 2px solid #ea580c; }
+  .meta { color: #6b7280; font-size: 0.88em; margin-top: -8px; }
+  .toc { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px 22px; margin: 20px 0; }
+  .toc a { color: #2563eb; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .lead { font-size: 1.02rem; background: #fff; border: 1px solid #fecaca; padding: 16px 20px; border-radius: 10px; }
+  .tag { display: inline-block; font-size: 0.78rem; font-weight: 700; padding: 1px 7px; border-radius: 4px; margin-left: 4px; }
+  .tag-time { background: #dbeafe; color: #1e40af; }
+  .tag-who { background: #fef3c7; color: #92400e; }
+  .fence-table td:first-child { font-weight: 700; width: 30%; }
+</style>
+</head>
+<body>
+
+<h1>导航 POI 靠近触发 · 需求评审逐字稿 v1</h1>
+<p class="meta">王泽民 · 2026-06-25 · 评审对象：地图（宫丽萍）/ 端侧研发（金龙、汪帅）/ 触发器引擎（刘杨）/ Advisor（施佳杰）/ 信号库（韩天亮）/ 导航产品 · 全篇照着念，约 12-15 分钟</p>
+
+<div class="lead">
+<b>念之前记住四句话：</b><br/>
+① 今天评审的核心是 <b>B 方案（端侧做状态机）</b>，它能落地但有难点，你要把难点摆出来、让大家评估可行性。<br/>
+② 你要的不是让大家同意你，而是 <b>逼出每个人手上的卡点和工期</b>。<br/>
+③ 如果 B 方案大家觉得做不了，退路是 <b>地理围栏</b>，但围栏比 B 更重——你要让他们知道这一点。<br/>
+④ 你是产品，把需求讲清楚、把活分出去、把结论带走。
+</div>
+
+<div class="toc">
+<b>目录（按讲的顺序）</b>
+<ol>
+  <li><a href="#s1">开场：今天评什么、要拿到什么</a> <span class="tag tag-time">1 分钟</span></li>
+  <li><a href="#s2">背景：这事到底要干嘛</a> <span class="tag tag-time">2 分钟</span></li>
+  <li><a href="#s3">核心难点演示：为什么"距离 &lt; 500m"行不通</a> <span class="tag tag-time">3 分钟</span></li>
+  <li><a href="#s4">B 方案怎么做 + 链路走一遍</a> <span class="tag tag-time">2 分钟</span></li>
+  <li><a href="#s5">B 方案的难点和我的顾虑</a> <span class="tag tag-time">2 分钟</span></li>
+  <li><a href="#s6">和传统地理围栏的区别</a> <span class="tag tag-time">2 分钟</span></li>
+  <li><a href="#s7">如果 B 不行，走围栏需要什么</a> <span class="tag tag-time">1 分钟</span></li>
+  <li><a href="#s8">各方分工和待确认项</a> <span class="tag tag-time">2 分钟</span></li>
+  <li><a href="#s9">应答策略</a></li>
+  <li><a href="#s10">收口：散会要拿到的 5 件事</a> <span class="tag tag-time">1 分钟</span></li>
+</ol>
+</div>
+
+<!-- ============ 1. 开场 ============ -->
+<h2 id="s1">① 开场：今天评什么、要拿到什么</h2>
+<p class="tag tag-time">~1 分钟</p>
+
+<p>今天评审导航 POI 靠近触发这个需求。一句话说就是——让触发器能做"快到某个地方就提醒你"这件事。</p>
+
+<p>触发器目前压根不认"目的地""剩余距离"这些概念。用户说"快到外婆家提醒我打电话"，系统注册不了、监测不了、触发不了，<span class="key">一个字都做不了</span>。本期就是把这个能力补上。</p>
+
+<p>今天我要跟大家对齐三件事：</p>
+<ol>
+  <li>B 方案（端侧做状态机）的完整链路，大家看看能不能落地。</li>
+  <li>B 方案有几个难点，我说出来，请各方评估。</li>
+  <li>每个人要做什么，工期什么时候能给我。</li>
+</ol>
+
+<p>PRD 文档已经发到群里了，今天我不念 PRD，<span class="key">我只讲关键的几个点</span>，细节你们对着文档看。</p>
+
+<!-- ============ 2. 背景 ============ -->
+<h2 id="s2">② 背景：这事到底要干嘛</h2>
+<p class="tag tag-time">~2 分钟</p>
+
+<p>先说三个真实场景，让大家有个画面。</p>
+
+<div class="scene">
+<b>场景一</b>：早上导航去公司，距公司 500 米的时候车主动说"快到啦，要不要提前点杯咖啡"。<br/>
+<b>场景二</b>：导航回外婆家，快到的时候主动帮你搜附近充电桩。<br/>
+<b>场景三</b>：路过徐浦大桥，提醒你"准备右转下匝道"。
+</div>
+
+<p>这三个场景，630 量产要上。但现在触发器<span class="key">全都做不了</span>——因为它不认"距离"这个信号。本期就是把导航状态、目的地地址、剩余距离、收藏地址这些信号补进触发器，让它能用起来。</p>
+
+<h3>两类 Case 要分清</h3>
+
+<p>刚才三个场景，其实分两类，性质不一样。</p>
+
+<div class="compare">
+  <div class="vs-a">
+    <b style="color:#2563eb">A 类：目的地/途经点距离</b><br/><br/>
+    POI <b>就是</b>你当前导航的目的地或途经点。<br/>
+    导航<b>已经在实时算</b>到它的剩余距离。<br/>
+    端状态信号已支持，<b>只缺 one_shot 状态机</b>。<br/><br/>
+    <i>例："离目的地还有 1km 提醒我拿咖啡"</i>
+  </div>
+  <div class="vs-b">
+    <b style="color:#ea580c">B 类：靠近任意 POI</b><br/><br/>
+    POI <b>不是</b>当前导航目标。<br/>
+    导航<b>没有在算</b>到它的距离。<br/>
+    需要先把它<b>动态添加为途经点</b>，地图才能给你距离。<br/><br/>
+    <i>例："快到外婆家提醒我打电话"</i>
+  </div>
+</div>
+
+<p>A 类相对简单，导航在算距离，我们加个状态机就行。<br/>
+B 类难很多——"外婆家"不在导航路线上，系统不知道到它多远。要先把"外婆家"从用户记忆/收藏地址里解析出一个真实地址，再动态插入导航的途经点，地图才开始算到它的距离。<span class="key">地图能不能动态插途经点，是 B 类 Case 的生死问题。</span></p>
+
+<p><span class="pause">停一下。</span>这个区别很重要，后面讲链路的时候还会用到。大家心里先有这个数。</p>
+
+<!-- ============ 3. 核心难点 ============ -->
+<h2 id="s3">③ 核心难点演示：为什么"距离 &lt; 500m"行不通</h2>
+<p class="tag tag-time">~3 分钟</p>
+
+<p>有人可能会想——这事不是很简单吗？配一条规则"剩余距离小于 500 就触发"不就行了？<span class="key">不行。</span>我用数字走一遍你就知道了。</p>
+
+<div class="scene">
+周一早 8 点，用户从家出发导航去公司，出发时 15 公里。产品想做"距公司 500 米时提醒拿咖啡"。<br/><br/>
+
+<table>
+<tr><th>时刻</th><th>剩余距离</th><th>如果配"&lt;500m 就触发"</th></tr>
+<tr><td>8:00 - 8:25</td><td>15km → 501m</td><td>一路递减，都 &gt;500m，不触发。没问题。</td></tr>
+<tr><td style="background:#fef2f2"><b>8:25:30</b></td><td style="background:#fef2f2"><b>500m</b></td><td style="background:#fef2f2"><b>第一次 ≤ 500m，触发！提醒拿咖啡。</b></td></tr>
+<tr><td>8:25:31</td><td>499m</td><td style="color:#dc2626"><b>又满足 &lt;500m → 又触发</b></td></tr>
+<tr><td>8:25:32</td><td>498m</td><td style="color:#dc2626"><b>还满足 → 又触发</b></td></tr>
+<tr><td>8:25:33 …</td><td>497m … 50m</td><td style="color:#dc2626"><b>每一帧都满足 → 一路触发几十上百次</b></td></tr>
+</table>
+</div>
+
+<p>看到了吧。从 500 米一路开到停车场，距离 499、498、一直到 50，<span class="key">每次刷新都满足"小于 500"</span>，触发器没有记忆——它不知道刚才已经提醒过了——就会从 499 开始"该拿咖啡了、该拿咖啡了"<span class="key">连着刷屏几十次</span>。用户直接崩溃。</p>
+
+<p>我要的是什么？<span class="key">第一次跨过 500 米这条线的时候提醒一次，然后就闭嘴。</span>像门铃——按一下响一声，不是防空警报一直响。这就是 one_shot。</p>
+
+<p>现有的信号协议做不了这事。它每次刷新独立判断"当前值满不满足"，没有三样东西：</p>
+<ol>
+  <li><b>记不住</b>上一次的距离和状态——不知道之前是不是已经提醒过了。</li>
+  <li><b>判不了方向</b>——不知道你是在靠近还是在远离。</li>
+  <li><b>标不了"已触发"</b>——触发了不能自动闭嘴。</li>
+</ol>
+
+<p>所以必须加一套 <span class="key">POI 状态机</span>——给每个被监控的目的地记一个状态，走过就不回来。</p>
+
+<div class="box blue">
+<b>状态机长这样（四个格子，单向翻）：</b><br/><br/>
+<code>远 ──d≤480──→ 已接近 ──d≤50+挡P──→ 已到达 ──d>520──→ 已离开</code><br/><br/>
+每条箭头只走一次。"远"的时候距离跌破 480 米，翻成"已接近"，触发一次接近事件，以后再也不触发了。这就是 one_shot。<br/><br/>
+为什么是 480 不是 500？<b>防抖。</b>用户在 500 米路口等红灯，GPS 会在 498 和 502 之间来回抖。如果阈值卡在 500，每抖一下进 500 就触发一次。所以真正的判定线往里收 20 米——小于 480 才算接近，大于 520 才算离开，480 到 520 之间是<b>死区</b>，不动作。
+</div>
+
+<!-- ============ 4. B 方案怎么做 ============ -->
+<h2 id="s4">④ B 方案怎么做 + 链路走一遍</h2>
+<p class="tag tag-time">~2 分钟</p>
+
+<p>之前周会上讲过 A/B 两条路。A 是引擎自己做状态机，B 是端上把事件算好了报给引擎。后来综合评估，<span class="key">630 本期走 B 方案</span>——端侧做状态机、端上算好"接近"事件再同步云端。</p>
+
+<p>整条链路分两段：</p>
+
+<h3>第一段 · 注册（用户说出话的那一刻，~10 秒内完成）</h3>
+
+<p>用户说"快到外婆家提醒我打电话"。系统听懂了——条件是"接近外婆家"，动作是"提醒打电话"。</p>
+<ol>
+  <li>Director 理解意图 → 调工具注册到云端触发器</li>
+  <li>云端触发器生成条件 DSL，包括 <code>type:"approach"</code>、<code>poi:"外婆家"</code>、<code>threshold:500</code></li>
+  <li>条件下发到端侧，端侧持久化，状态机初始化为"远"</li>
+</ol>
+
+<p>注册完成。系统记住了"快到外婆家就提醒打电话"，端上盯着这个 POI。</p>
+
+<h3>第二段 · 触发（可能半小时后，真的快到了）</h3>
+
+<ol>
+  <li>端侧信号库持续收地图给的剩余距离，写入标准化快照</li>
+  <li>端侧状态机每次距离刷新都跑一遍判定：<code>state==远 且 d≤480</code>？</li>
+  <li>条件满足 → 产出 <code>approach</code> 事件 → state 翻成"已接近" → 以后不再触发</li>
+  <li>事件同步到云端信号库</li>
+  <li>云端触发器拿到事件 → 匹配到注册的条件 → push 给 Advisor</li>
+  <li>Advisor 组装 advice → Director 决策 → 播报"快到外婆家了，要不要打电话？"</li>
+</ol>
+
+<p><span class="pause">这条链路大家对着 PRD 里的流程图看一下。</span>重点在第 2、3 步，<b>状态机逻辑全在端侧跑</b>。</p>
+
+<!-- ============ 5. B 方案难点 ============ -->
+<h2 id="s5">⑤ B 方案的难点和我的顾虑</h2>
+<p class="tag tag-time">~2 分钟</p>
+
+<p>B 方案能做，630 来得及，但有几个问题我得说清楚。</p>
+
+<div class="box red">
+<h4>难点一：状态机逻辑散在端上，多端要各写一遍</h4>
+<p>上汽一套端、赛力斯一套端，以后可能还有更多车型。B 方案的状态机跑在端侧，意味着每个端都得自己实现一遍"远→已接近→已到达→已离开"这套判定。逻辑一样，但代码各写各的。</p>
+<p><b>我的顾虑：</b>写的时候可能不一致，改的时候更容易漏。比如后面产品想把死区从 480/520 改成 450/550，我得找每个端的人说一遍"你改一下"，漏了就出 bug。如果是 A 方案（引擎统一做），我改一个地方就全生效了。</p>
+<p><b>但这不阻塞 630。</b>本期先这么做，能跑起来。长期看，如果端越来越多，再考虑迁到引擎也来得及。</p>
+</div>
+
+<div class="box red">
+<h4>难点二：B 类 Case——地图能不能动态插途经点</h4>
+<p>A 类 Case（"快到目的地提醒"）好办，目的地本来就在导航里，距离现成的。</p>
+<p>B 类 Case（"快到外婆家提醒"）问题大——外婆家不在导航路线上。你得先把"外婆家"解析成一个真实地址，再动态插到导航的途经点里去，地图才会开始算到它的距离。</p>
+<p><b>地图能不能动态插途经点？</b>这个能力直接决定 B 类 Case 做不做得了。<span class="at">@宫丽萍 @导航产品</span> 需要你们确认。做不了的话，B 类 Case 本期就只能砍掉，只做 A 类。</p>
+</div>
+
+<div class="box red">
+<h4>难点三：收藏地址匹配——"外婆家"怎么变成经纬度</h4>
+<p>用户说"快到外婆家"，系统里存的收藏地址可能是"上海市浦东新区XX路XX号"这样一串字。导航目的地的 address 也是一串字。这两串字<b>格式不一定一样</b>——一个写"上海浦东新区"，一个写"浦东新区"，字符串直接比对就对不上。</p>
+<p>得定清楚：匹配是用<b>字符串等值比对</b>还是<b>经纬度距离比对</b>？<span class="at">@导航产品 @金龙</span></p>
+</div>
+
+<div class="box red">
+<h4>难点四：状态重置</h4>
+<p>状态机翻到"已接近"之后不会再翻回"远"。那如果用户中途取消导航、再重新导航去同一个地方呢？状态得清掉重来。什么条件下重置？离车熄火？重新发起导航？要定清楚，不然出怪 bug。<span class="at">@金龙 @汪帅</span></p>
+</div>
+
+<p><span class="act">说完这四个难点，停一下。</span>我想听一下大家觉得哪个最棘手、哪个有方案了，我们一个一个过。</p>
+
+<!-- ============ 6. 和地理围栏的区别 ============ -->
+<h2 id="s6">⑥ 和传统地理围栏的区别</h2>
+<p class="tag tag-time">~2 分钟</p>
+
+<p>可能有人会问——这东西不就是地理围栏吗？手机上早就有了，你进入一个区域就触发通知。</p>
+
+<p><span class="key">不一样。</span>我说清楚区别，这个很关键。</p>
+
+<table>
+<tr><th style="width:20%">维度</th><th style="width:40%">我们的方案（导航沿路线距离）</th><th style="width:40%">传统地理围栏</th></tr>
+<tr>
+  <td><b>距离怎么算</b></td>
+  <td>用导航给的<b>沿路线剩余距离</b>。你在高架上要绕到下一个出口再绕回来，导航会告诉你"还有 2 公里"。</td>
+  <td>画一个圆或多边形，用 <b>GPS 直线距离</b>判断你在不在圈里。</td>
+</tr>
+<tr>
+  <td><b>高架旁场景</b></td>
+  <td>沿路线 2km → 不触发"接近"。<b>准。</b></td>
+  <td>直线 300m → 触发了，但你其实还得绕 2 公里才到。<b>误触发。</b></td>
+</tr>
+<tr>
+  <td><b>前提条件</b></td>
+  <td><b>必须发起导航</b>，有目的地/途经点。没在导航就没有"沿路线距离"。</td>
+  <td>不需要导航。只要 GPS 在，进围栏就触发。</td>
+</tr>
+<tr>
+  <td><b>能做"路过"吗</b></td>
+  <td>A 类能做"接近目的地/途经点"。B 类"路过任意 POI"需要动态插途经点，<b>依赖地图能力</b>。</td>
+  <td>天然支持。画个围栏在那里，路过就进去了。</td>
+</tr>
+<tr>
+  <td><b>地图 SDK 支持</b></td>
+  <td>高德已有导航剩余距离。<b>可用。</b></td>
+  <td>宫丽萍已确认：<b>高德不支持地理围栏 API。</b></td>
+</tr>
+<tr>
+  <td><b>状态机</b></td>
+  <td>需要我们自己做（端侧状态机）</td>
+  <td>围栏本身就有进出状态，<b>但高德没提供这个能力</b></td>
+</tr>
+</table>
+
+<p>所以我们选"导航沿路线距离"这条路，核心原因有两个：</p>
+<ol>
+  <li><b>准。</b>高架、隧道、绕行这些场景，沿路线距离比直线距离靠谱得多。</li>
+  <li><b>高德没给围栏 API。</b>想做围栏得自己从头搭，重得多。</li>
+</ol>
+
+<p>代价是——<b>必须在导航状态下才能用</b>。没发起导航、纯兜风，这套方案做不了。</p>
+
+<!-- ============ 7. 如果走围栏 ============ -->
+<h2 id="s7">⑦ 如果 B 方案大家觉得做不了，走围栏需要什么</h2>
+<p class="tag tag-time">~1 分钟</p>
+
+<p>我先把退路说清楚。如果大家评估下来觉得 B 方案的端侧状态机做不了，或者工期撑不住，那唯一的退路就是<b>自己实现地理围栏</b>。</p>
+
+<p>围栏方案要做什么？我列一下，大家感受一下工作量。</p>
+
+<div class="box orange">
+<table class="fence-table">
+<tr><th>要做的事</th><th>谁来做</th><th>难度</th></tr>
+<tr>
+  <td>实现围栏引擎</td>
+  <td>端侧研发（金龙/汪帅）</td>
+  <td>高德不提供围栏 API，得<b>自己写</b>。核心是持续的 GPS 点和围栏多边形做"点在区域内"判定，还要处理 GPS 漂移、低频采样漏判、省电模式下的唤醒。这不是写个 if-else 的事。</td>
+</tr>
+<tr>
+  <td>POI 经纬度获取</td>
+  <td>导航产品 + 地图</td>
+  <td>用户说"外婆家"，你得先把它变成经纬度坐标才能画围栏。收藏地址有经纬度吗？地图搜索结果能拿到吗？得确认。</td>
+</tr>
+<tr>
+  <td>围栏形状和半径</td>
+  <td>产品定义</td>
+  <td>每个场景画多大的围栏？加油站画 2 公里、咖啡画 500 米？圆形还是沿路线的带状？产品得一个一个定。</td>
+</tr>
+<tr>
+  <td>进出状态管理</td>
+  <td>端侧</td>
+  <td>围栏也得有"进入过了就不再触发"的逻辑，本质还是要一个状态机。</td>
+</tr>
+<tr>
+  <td>高架/隧道误判</td>
+  <td>端侧 + 产品</td>
+  <td>直线距离 300 米但沿路线 2 公里，围栏方案<b>天然会误触发</b>。要么忍、要么叠加海拔/路线修正，更复杂。</td>
+</tr>
+</table>
+</div>
+
+<p>大家看到了——围栏不是更简单，是<b>更重</b>。没有高德的围栏 API 兜底，所有东西都得自己写。而且围栏用直线距离，高架旁场景它<b>天然不准</b>。</p>
+
+<p><span class="key">所以我的建议是：B 方案能做就做 B。</span>除非端侧状态机的工期确实顶不上 630，再谈围栏。</p>
+
+<!-- ============ 8. 分工 ============ -->
+<h2 id="s8">⑧ 各方分工和待确认项</h2>
+<p class="tag tag-time">~2 分钟</p>
+
+<p>下面说每个人要做什么。我按优先级讲。</p>
+
+<table>
+<tr><th>谁</th><th>要做的事</th><th>优先级</th></tr>
+<tr>
+  <td><span class="at">金龙 / 汪帅</span><br/>端侧研发</td>
+  <td>
+    ① 实现端侧 POI 状态机（远→已接近→已到达→已离开），含死区防抖<br/>
+    ② 地图数据采集 → 写入端侧信号库（标准化字段）<br/>
+    ③ approach/arrive/leave 事件产出 → 同步云端<br/>
+    ④ 确认"路过"判定能力——能不能判断"路线经过某 POI 但不是目的地"<br/>
+    ⑤ 状态重置逻辑（离车/取消导航/重新导航 → 清空状态机）
+  </td>
+  <td>P0</td>
+</tr>
+<tr>
+  <td><span class="at">导航产品</span><br/>地图接口确认</td>
+  <td>
+    ① 地图 SDK 输出距离的格式——整数米？还是字符串？带不带单位？<br/>
+    ② 收藏地址匹配方式——经纬度比对还是字符串比对？<br/>
+    ③ <b>地图能不能动态插入途经点</b>——B 类 Case 做不做得了全看这个
+  </td>
+  <td>P0</td>
+</tr>
+<tr>
+  <td><span class="at">宫丽萍</span><br/>地图</td>
+  <td>
+    配合导航产品确认上面三点。已确认高德不支持地理围栏，导航距离判断可用。
+  </td>
+  <td>P0</td>
+</tr>
+<tr>
+  <td><span class="at">刘杨</span><br/>触发器引擎</td>
+  <td>
+    ① 支持 event_type 类信号的场景匹配（端上报 approach 事件，引擎能收、能匹配）<br/>
+    ② 事件组装 → push 给 Advisor 的链路打通<br/>
+    B 方案下引擎<b>不做状态机</b>，改动相对小。
+  </td>
+  <td>中</td>
+</tr>
+<tr>
+  <td><span class="at">施佳杰</span><br/>Advisor</td>
+  <td>
+    ① 订阅 approach / pass_by 事件<br/>
+    ② 编写 advice 脚本——"提醒打电话""搜充电桩""准备右转"<br/>
+    ③ 验证 Callback payload 格式
+  </td>
+  <td>中</td>
+</tr>
+<tr>
+  <td><span class="at">韩天亮</span><br/>信号库</td>
+  <td>
+    注册 nav_event 信号编号，含子类型 approach / arrive / leave / pass_by
+  </td>
+  <td>前置</td>
+</tr>
+<tr>
+  <td><span class="at">任军</span><br/>运算符</td>
+  <td>
+    ① 确认 eq 运算符支持 event_type 类字符串<br/>
+    ② 确认围栏相交运算能力（Case 3 前置）
+  </td>
+  <td>前置</td>
+</tr>
+</table>
+
+<h3>待确认项——需要当场或本周内给我答案的</h3>
+
+<table>
+<tr><th>#</th><th>待确认</th><th>找谁</th><th>备注</th></tr>
+<tr><td>1</td><td>地图 SDK 输出距离格式</td><td>导航产品 / 宫丽萍</td><td>整数米还是"200m"字符串？影响解析逻辑</td></tr>
+<tr><td>2</td><td>收藏地址匹配方式</td><td>导航产品 / 金龙</td><td>经纬度 vs 字符串——"外婆家"怎么和目的地地址对上</td></tr>
+<tr><td>3</td><td><b>地图能否动态插入途经点</b></td><td>导航产品 / 宫丽萍</td><td>B 类 Case 的生死线</td></tr>
+<tr><td>4</td><td>端侧状态机开发工期</td><td>金龙 / 汪帅</td><td>能不能赶上 630？粗估就行</td></tr>
+<tr><td>5</td><td>nav_event 信号编号注册</td><td>韩天亮</td><td>前置依赖，越快越好</td></tr>
+<tr><td>6</td><td>eq 运算符支持 event_type 字符串</td><td>任军</td><td>前置</td></tr>
+<tr><td>7</td><td>意图模型能否区分"快到" vs "路过"</td><td>佳杰</td><td>两种意图触发不同事件</td></tr>
+</table>
+
+<!-- ============ 9. 应答 ============ -->
+<h2 id="s9">⑨ 应答策略：他们这么问，你这么接</h2>
+
+<div class="qa">
+<p class="qa-q">金龙/汪帅："端侧状态机工期太紧了，630 来不及"</p>
+<p class="qa-a">"那我们看一下——A 类 Case（目的地/途经点）的状态机逻辑不复杂，四个状态、三条判定，能不能<b>先做 A 类，B 类排后面</b>？A 类做出来，'快到公司提醒拿咖啡'这个主场景就能跑了。"</p>
+
+<p class="qa-q">有人："为什么不做地理围栏？手机上早就有了"</p>
+<p class="qa-a">"两个原因。第一，<b>高德不支持围栏 API</b>，宫丽萍已经确认了，要做得自己从头写围栏引擎，工期更大。第二，围栏用直线距离，高架旁你离家直线 300 米但要绕 2 公里才到，<b>围栏会误触发</b>，我们用导航沿路线距离就不会。"</p>
+
+<p class="qa-q">刘杨："引擎不改可以，但 event_type 匹配你得给我定义清楚"</p>
+<p class="qa-a">"PRD 里事件定义那张表就是给你的，event_type 的值是 approach / arrive / leave / pass_by，都是字符串，引擎做 eq 匹配就行。细节你看文档，有问题我们随时对。"</p>
+
+<p class="qa-q">导航产品："动态插途经点做不了"</p>
+<p class="qa-a">"如果真做不了，B 类 Case（'快到外婆家提醒'）本期就得砍。<b>A 类不受影响</b>——目的地本来就在导航里，照做。B 类我们记一个技术债，后面看地图能力什么时候到位再补。"</p>
+
+<p class="qa-q">有人："直接配'距离小于 500'不就行了，搞什么状态机？"</p>
+<p class="qa-a">"不行。距离小于 500，从 499 到 50 <b>每帧都满足</b>，触发器会连着响几十次。必须只响一次就闭嘴。这就是状态机要解决的事。"</p>
+
+<p class="qa-q">施佳杰："Advisor 怎么知道接近的是公司还是外婆家？"</p>
+<p class="qa-a">"事件 payload 里带 poi_id 和 address。注册的时候条件里就绑了具体的 POI——接近公司触发的 advice 和接近外婆家的不一样，在 Advisor 侧按 poi_id 分就行。"</p>
+
+<p class="qa-q">有人："这个方案以后能不能迁到引擎统一做？"</p>
+<p class="qa-a">"能。B 方案先落地，等端多了、维护成本上来了，状态机逻辑往引擎迁就行。接口不变——端上报事件 → 引擎匹配——变的只是'事件谁来算'。留了口子。"</p>
+</div>
+
+<!-- ============ 10. 收口 ============ -->
+<h2 id="s10">⑩ 收口：散会我要拿到的 5 件事</h2>
+<p class="tag tag-time">~1 分钟</p>
+
+<div class="box green">
+<ol>
+  <li><b>端侧状态机工期</b> <span class="tag tag-who">金龙/汪帅</span> —— 粗估，本周内给我。据此判断 630 范围。</li>
+  <li><b>地图能不能动态插途经点</b> <span class="tag tag-who">导航产品/宫丽萍</span> —— 这个定了 B 类 Case 做不做。</li>
+  <li><b>距离格式 + 收藏地址匹配方式</b> <span class="tag tag-who">导航产品/金龙</span> —— 整数米还是字符串？经纬度还是字符串比对？</li>
+  <li><b>nav_event 信号编号</b> <span class="tag tag-who">韩天亮</span> —— 前置依赖，越快越好。</li>
+  <li><b>eq 运算符支持 event_type 字符串</b> <span class="tag tag-who">任军</span> —— 前置，确认一下就行。</li>
+</ol>
+</div>
+
+<p>这五个我都不需要当场有完整答案，<span class="key">给我一个"什么时候能给我答案"的时间就行</span>。有了这些，PRD 终稿就能锁、跨团队推进就能启动。</p>
+
+<p><span class="act">说完闭嘴。等大家回复。一个一个过待确认项，当场能拍的拍，不能拍的约时间。把结论记下来。</span></p>
+
+</body>
+</html>

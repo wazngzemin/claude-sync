@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>检索机制深度解析（修正版）- 动态知识 LLM检索 vs 动态示例 向量检索</title>
+<style>
+body{margin:0;padding:20px;background:#f0f2f5;font-family:-apple-system,sans-serif}
+.wrap{max-width:1900px;margin:0 auto;background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.1);padding:24px}
+.svg-box{width:100%;overflow-x:auto}
+.svg-box svg{width:100%;height:auto;min-width:1600px}
+.tip{text-align:center;color:#9ca3af;font-size:12px;margin-top:12px}
+</style>
+</head>
+<body>
+<div class="wrap"><div class="svg-box">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1800 2000">
+<style>
+text{font-family:'PingFang SC','Microsoft YaHei',Arial,sans-serif}
+.th{font-size:22px;font-weight:800;fill:#1e3a5f}
+.h2{font-size:15px;font-weight:700;fill:#1e293b}
+.h3{font-size:12px;font-weight:700;fill:#374151}
+.bd{font-size:11px;fill:#475569}
+.sm{font-size:10px;fill:#6b7280}
+.dt{font-size:10px;fill:#1e3a5f;font-family:Consolas,Monaco,monospace}
+.wh{font-size:11px;fill:#fff}
+.whb{font-size:12px;fill:#fff;font-weight:700}
+.pur{fill:#7c3aed;font-weight:600}
+.ora{fill:#ea580c;font-weight:600}
+.grn{fill:#047857;font-weight:600}
+.red{fill:#dc2626;font-weight:600}
+.blu{fill:#2563eb;font-weight:600}
+</style>
+<defs>
+<marker id="a-blue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#2563eb"/></marker>
+<marker id="a-pur" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#7c3aed"/></marker>
+<marker id="a-ora" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#ea580c"/></marker>
+<marker id="a-grn" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#16a34a"/></marker>
+<marker id="a-red" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#dc2626"/></marker>
+<marker id="a-gray" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#9ca3af"/></marker>
+<marker id="a-yel" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#d97706"/></marker>
+<filter id="sh"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.08"/></filter>
+<linearGradient id="gd" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1e40af"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient>
+</defs>
+<rect width="1800" height="2000" fill="#fff"/>
+<text x="900" y="38" text-anchor="middle" class="th">检索机制深度解析（修正版）</text>
+<text x="900" y="58" text-anchor="middle" class="sm">动态知识 = LLM 检索 (Selector SP)  vs  动态示例 = 纯向量检索 (Embedding)</text>
+<text x="900" y="74" text-anchor="middle" class="sm">两套完全独立的检索机制，不同的技术路线，不同的性能开销</text>
+<rect x="50" y="95" width="1700" height="30" rx="6" fill="#1e3a5f"/>
+<text x="900" y="115" text-anchor="middle" class="whb">SECTION 1: 两套检索机制的核心区别（修正版）</text>
+<rect x="100" y="140" width="770" height="140" rx="12" fill="#faf5ff" stroke="#7c3aed" stroke-width="2.5" filter="url(#sh)"/>
+<text x="485" y="162" text-anchor="middle" class="pur" style="font-size:15px;">动态知识检索 = LLM 推理 (Selector SP)</text>
+<line x1="120" y1="170" x2="850" y2="170" stroke="#c4b5fd" stroke-width="1"/>
+<text x="485" y="190" text-anchor="middle" class="bd">技术路线：用一个独立的 LLM Agent（Selector）做场景分类</text>
+<text x="485" y="208" text-anchor="middle" class="bd">输入：query + 对话历史 + env + 目标队列 + 已加载知识</text>
+<text x="485" y="226" text-anchor="middle" class="bd">输出：需要注入的知识 ID 列表</text>
+<text x="485" y="246" text-anchor="middle" style="font-size:13px;fill:#dc2626;font-weight:700;">耗时：500ms - 1.8s（额外一次 LLM 调用！）</text>
+<text x="485" y="264" text-anchor="middle" class="sm">负责人：徐燃已做好 / 超然改开始时机到 softVAD</text>
+<rect x="930" y="140" width="770" height="140" rx="12" fill="#fff7ed" stroke="#ea580c" stroke-width="2.5" filter="url(#sh)"/>
+<text x="1315" y="162" text-anchor="middle" class="ora" style="font-size:15px;">动态示例检索 = 纯向量检索 (Embedding)</text>
+<line x1="950" y1="170" x2="1680" y2="170" stroke="#fed7aa" stroke-width="1"/>
+<text x="1315" y="190" text-anchor="middle" class="bd">技术路线：把 query 转成向量，和示例库里的向量做相似度匹配</text>
+<text x="1315" y="208" text-anchor="middle" class="bd">输入：当前 query 的 embedding 向量</text>
+<text x="1315" y="226" text-anchor="middle" class="bd">输出：最相似的 few-shot 示例</text>
+<text x="1315" y="246" text-anchor="middle" style="font-size:13px;fill:#16a34a;font-weight:700;">耗时：几十 ms（纯数学计算，对性能没有影响！）</text>
+<text x="1315" y="264" text-anchor="middle" class="sm">4月份做过一次，现在有更新要重新弄</text>
+<rect x="870" y="190" width="60" height="40" rx="20" fill="#1e293b"/>
+<text x="900" y="215" text-anchor="middle" style="font-size:14px;fill:#fff;font-weight:800;">VS</text>
+<rect x="50" y="310" width="1700" height="30" rx="6" fill="#1e3a5f"/>
+<text x="900" y="330" text-anchor="middle" class="whb">SECTION 2: 完整时序图 - 两套检索并行执行（以"我好热好闷"为例）</text>
+<rect x="100" y="360" width="1600" height="50" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2" filter="url(#sh)"/>
+<text x="900" y="380" text-anchor="middle" class="blu" style="font-size:13px;">Step 1: 用户说 "我好热好闷赶紧帮我降降温通通风"</text>
+<text x="900" y="398" text-anchor="middle" class="sm">ASR转文字(~200ms) + 拒识仲裁判定为"复杂/场景类"(~50ms) = query 到达检索层</text>
+<line x1="900" y1="410" x2="900" y2="435" stroke="#475569" stroke-width="2"/>
+<text x="900" y="430" text-anchor="middle" style="font-size:11px;fill:#1e293b;font-weight:700;">分两路并行检索</text>
+<line x1="900" y1="435" x2="485" y2="460" stroke="#7c3aed" stroke-width="2.5" marker-end="url(#a-pur)"/>
+<line x1="900" y1="435" x2="1315" y2="460" stroke="#ea580c" stroke-width="2.5" marker-end="url(#a-ora)"/>
+<rect x="100" y="460" width="770" height="260" rx="12" fill="#faf5ff" stroke="#7c3aed" stroke-width="2" filter="url(#sh)"/>
+<text x="485" y="482" text-anchor="middle" class="pur" style="font-size:14px;">Step 2A: 动态知识检索（LLM 推理，慢）</text>
+<rect x="130" y="495" width="710" height="85" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+<text x="485" y="512" text-anchor="middle" style="font-size:11px;fill:#c4b5fd;font-weight:700;">Selector SP 被调用（独立的 LLM 推理）</text>
+<text x="150" y="530" style="font-size:9px;fill:#94a3b8;">输入: query="我好热好闷" + env={P档,32C,SOC78%} + history=[] + goals=[]</text>
+<text x="150" y="544" style="font-size:9px;fill:#94a3b8;">Selector 内部: 扫描13条知识索引 --&gt; 场景匹配 --&gt; "好热"命中降温, "好闷"命中通风</text>
+<text x="150" y="558" style="font-size:9px;fill:#86efac;">输出: {"add": ["ID_004","ID_012"], "remove": []}</text>
+<text x="150" y="572" style="font-size:9px;fill:#fca5a5;font-weight:600;">耗时: 500ms ~ 1.8s （这是一次完整的 LLM 推理！）</text>
+<line x1="485" y1="585" x2="485" y2="600" stroke="#7c3aed" stroke-width="1.5" marker-end="url(#a-pur)"/>
+<text x="500" y="596" class="sm" style="font-size:8px;">拿到ID后查知识表</text>
+<rect x="130" y="602" width="710" height="55" rx="8" fill="#ede9fe" stroke="#c4b5fd" stroke-width="1"/>
+<text x="485" y="620" text-anchor="middle" class="pur" style="font-size:11px;">知识表查找（纯查表，无 AI，~1ms）</text>
+<text x="150" y="638" style="font-size:9px;fill:#475569;">ID_004 --&gt; 取出"极速降温 Skill"全文(~2000字) : 空调ON/温度LO/风量11/对角线通风...</text>
+<text x="150" y="652" style="font-size:9px;fill:#475569;">ID_012 --&gt; 取出"快速通风 Skill"全文(~1500字) : 主驾车窗/右后车窗/外循环...</text>
+<rect x="130" y="665" width="710" height="40" rx="6" fill="#7c3aed"/>
+<text x="485" y="682" text-anchor="middle" class="wh" style="font-size:11px;">产出: 2份 Skill 全文 --&gt; 拼接后注入 SP 的 {{knowledge}} 位置</text>
+<text x="485" y="698" text-anchor="middle" style="font-size:9px;fill:#c4b5fd;">总耗时: 500ms-1.8s (Selector推理) + 1ms (查表) = 主要瓶颈在Selector!</text>
+<rect x="930" y="460" width="770" height="260" rx="12" fill="#fff7ed" stroke="#ea580c" stroke-width="2" filter="url(#sh)"/>
+<text x="1315" y="482" text-anchor="middle" class="ora" style="font-size:14px;">Step 2B: 动态示例检索（向量检索，快）</text>
+<rect x="960" y="495" width="710" height="55" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+<text x="1315" y="512" text-anchor="middle" style="font-size:11px;fill:#fed7aa;font-weight:700;">Step 2B-1: Query 转向量（Embedding）</text>
+<text x="980" y="530" style="font-size:9px;fill:#94a3b8;">"我好热好闷赶紧帮我降降温通通风" --&gt; [0.82, -0.15, 0.67, ...] (高维向量)</text>
+<text x="980" y="544" style="font-size:9px;fill:#86efac;">耗时: ~10ms (小模型/API调用，非常快)</text>
+<line x1="1315" y1="555" x2="1315" y2="570" stroke="#ea580c" stroke-width="1.5" marker-end="url(#a-ora)"/>
+<rect x="960" y="572" width="710" height="75" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+<text x="1315" y="590" text-anchor="middle" style="font-size:11px;fill:#fed7aa;font-weight:700;">Step 2B-2: 向量相似度检索</text>
+<text x="980" y="608" style="font-size:9px;fill:#94a3b8;">示例库里每条示例都预先算好了向量:</text>
+<text x="980" y="622" style="font-size:9px;fill:#94a3b8;">  "好热啊赶紧降温" --&gt; [0.85, -0.12, 0.70, ...]  cosine相似度 = 0.96 (最高!)</text>
+<text x="980" y="636" style="font-size:9px;fill:#94a3b8;">  "帮我接我爸妈航班CA1234" --&gt; [0.10, 0.88, -0.30, ...]  cosine相似度 = 0.12 (不相关)</text>
+<text x="980" y="644" style="font-size:9px;fill:#86efac;">取 Top-K 最相似的示例 | 耗时: ~20ms (纯数学运算: 余弦相似度)</text>
+<line x1="1315" y1="652" x2="1315" y2="665" stroke="#ea580c" stroke-width="1.5" marker-end="url(#a-ora)"/>
+<rect x="960" y="665" width="710" height="40" rx="6" fill="#ea580c"/>
+<text x="1315" y="682" text-anchor="middle" class="wh" style="font-size:11px;">产出: Top-K 条最相似的 few-shot 示例 --&gt; 注入 SP 的 {{examples}} 位置</text>
+<text x="1315" y="698" text-anchor="middle" style="font-size:9px;fill:#fed7aa;">总耗时: 10ms (embedding) + 20ms (检索) = ~30ms，对性能几乎无影响!</text>
+<line x1="485" y1="720" x2="900" y2="750" stroke="#7c3aed" stroke-width="2" marker-end="url(#a-pur)"/>
+<line x1="1315" y1="720" x2="900" y2="750" stroke="#ea580c" stroke-width="2" marker-end="url(#a-ora)"/>
+<rect x="300" y="750" width="1200" height="70" rx="12" fill="url(#gd)" stroke="#1e3a5f" stroke-width="2" filter="url(#sh)"/>
+<text x="900" y="772" text-anchor="middle" class="whb" style="font-size:13px;">Step 3: SP 拼接 -- 两份检索结果汇合</text>
+<text x="900" y="790" text-anchor="middle" class="wh" style="font-size:10px;">固定SP(~25K) + Skill全文({{knowledge}}) + few-shot({{examples}}) + env + memory + 对话历史 = 完整 prompt ~40K tokens</text>
+<text x="900" y="808" text-anchor="middle" style="font-size:10px;fill:#fca5a5;">Skill 检索等 Selector 回来(500ms-1.8s)才能拼 | few-shot 检索 30ms 就到了，先等着</text>
+<line x1="900" y1="820" x2="900" y2="840" stroke="#1e3a5f" stroke-width="2" marker-end="url(#a-blue)"/>
+<rect x="500" y="840" width="800" height="45" rx="10" fill="url(#gd)" stroke="#1e3a5f" stroke-width="2" filter="url(#sh)"/>
+<text x="900" y="860" text-anchor="middle" class="whb">Step 4: Planner LLM 推理（~800ms）</text>
+<text x="900" y="878" text-anchor="middle" style="font-size:10px;fill:#bfdbfe;">带着 Skill知识 + few-shot示例 + env + memory 生成 action_list</text>
+<rect x="50" y="915" width="1700" height="30" rx="6" fill="#1e3a5f"/>
+<text x="900" y="935" text-anchor="middle" class="whb">SECTION 3: 为什么知识用 LLM 检索，示例用向量检索？</text>
+<rect x="100" y="965" width="780" height="260" rx="12" fill="#faf5ff" stroke="#7c3aed" stroke-width="2" filter="url(#sh)"/>
+<text x="490" y="987" text-anchor="middle" class="pur" style="font-size:13px;">动态知识为什么用 LLM 检索（Selector SP）？</text>
+<line x1="120" y1="995" x2="860" y2="995" stroke="#c4b5fd" stroke-width="1"/>
+<text x="130" y="1013" style="font-size:10px;fill:#7c3aed;font-weight:600;">1. 知识检索需要「场景推理」，不是简单的文本相似度</text>
+<text x="130" y="1028" style="font-size:10px;fill:#475569;font-weight:400;">   例: 用户说"我车里有只猫" = 宠物模式</text>
+<text x="130" y="1043" style="font-size:10px;fill:#475569;font-weight:400;">   但"猫"和"宠物模式"的文本向量相似度很低!</text>
+<text x="130" y="1058" style="font-size:10px;fill:#475569;font-weight:400;">   需要 LLM 理解语义: 猫 = 宠物 = 宠物模式</text>
+<text x="130" y="1073" style="font-size:10px;fill:#475569;font-weight:400;"></text>
+<text x="130" y="1088" style="font-size:10px;fill:#7c3aed;font-weight:600;">2. 知识检索需要「多信号综合判断」</text>
+<text x="130" y="1103" style="font-size:10px;fill:#475569;font-weight:400;">   不光看 query，还看 env(温度在涨)、目标(导航中)、历史(前面聊了什么)</text>
+<text x="130" y="1118" style="font-size:10px;fill:#475569;font-weight:400;">   向量检索只能匹配文本相似度，做不了多信号融合</text>
+<text x="130" y="1133" style="font-size:10px;fill:#475569;font-weight:400;"></text>
+<text x="130" y="1148" style="font-size:10px;fill:#7c3aed;font-weight:600;">3. 知识检索需要「增量更新」</text>
+<text x="130" y="1163" style="font-size:10px;fill:#475569;font-weight:400;">   不是每次全量替换，而是 add + remove</text>
+<text x="130" y="1178" style="font-size:10px;fill:#475569;font-weight:400;">   需要 LLM 对比「已加载的知识」和「当前需要的知识」做差异判断</text>
+<text x="130" y="1193" style="font-size:10px;fill:#475569;font-weight:400;"></text>
+<text x="130" y="1208" style="font-size:10px;fill:#7c3aed;font-weight:600;">4. 代价：额外一次 LLM 调用 = 500ms-1.8s</text>
+<text x="130" y="1223" style="font-size:10px;fill:#475569;font-weight:400;">   这是场景 Planner 耗时高的主要原因之一</text>
+<text x="130" y="1238" style="font-size:10px;fill:#475569;font-weight:400;">   当前目标: 压缩 Selector prompt，降到 500ms 以内</text>
+<rect x="920" y="965" width="780" height="260" rx="12" fill="#fff7ed" stroke="#ea580c" stroke-width="2" filter="url(#sh)"/>
+<text x="1310" y="987" text-anchor="middle" class="ora" style="font-size:13px;">动态示例为什么用向量检索（Embedding）？</text>
+<line x1="940" y1="995" x2="1680" y2="995" stroke="#fed7aa" stroke-width="1"/>
+<text x="950" y="1013" style="font-size:10px;fill:#ea580c;font-weight:600;">1. 示例检索只需要「文本相似度」</text>
+<text x="950" y="1028" style="font-size:10px;fill:#475569;font-weight:400;">   找和当前 query 最像的历史 query-answer 对</text>
+<text x="950" y="1043" style="font-size:10px;fill:#475569;font-weight:400;">   "我好热好闷" 和 "好热啊赶紧降温" 的向量相似度 = 0.96</text>
+<text x="950" y="1058" style="font-size:10px;fill:#475569;font-weight:400;">   纯文本匹配，不需要推理</text>
+<text x="950" y="1073" style="font-size:10px;fill:#475569;font-weight:400;"></text>
+<text x="950" y="1088" style="font-size:10px;fill:#ea580c;font-weight:600;">2. 不需要多信号融合</text>
+<text x="950" y="1103" style="font-size:10px;fill:#475569;font-weight:400;">   不需要看 env/目标/历史，只看 query 本身就够了</text>
+<text x="950" y="1118" style="font-size:10px;fill:#475569;font-weight:400;">   因为示例的目的是「展示输出格式」，不是「决定做什么」</text>
+<text x="950" y="1133" style="font-size:10px;fill:#475569;font-weight:400;"></text>
+<text x="950" y="1148" style="font-size:10px;fill:#ea580c;font-weight:600;">3. 不需要增量更新</text>
+<text x="950" y="1163" style="font-size:10px;fill:#475569;font-weight:400;">   每轮直接取 Top-K 最相似的，全量替换，简单直接</text>
+<text x="950" y="1178" style="font-size:10px;fill:#475569;font-weight:400;"></text>
+<text x="950" y="1193" style="font-size:10px;fill:#ea580c;font-weight:600;">4. 优势：纯数学运算，几十 ms</text>
+<text x="950" y="1208" style="font-size:10px;fill:#475569;font-weight:400;">   不需要调 LLM = 不增加延迟 = 不增加 token 成本</text>
+<text x="950" y="1223" style="font-size:10px;fill:#475569;font-weight:400;">   4月份已经做过一次，现在有更新要重新弄（更新示例库的向量）</text>
+<text x="950" y="1238" style="font-size:10px;fill:#475569;font-weight:400;">   对性能完全没有影响</text>
+<rect x="50" y="1255" width="1700" height="30" rx="6" fill="#1e3a5f"/>
+<text x="900" y="1275" text-anchor="middle" class="whb">SECTION 4: 详细对比表</text>
+<rect x="140" y="1300" width="200" height="28" rx="4" fill="#e2e8f0" stroke="#e2e8f0" stroke-width="1"/>
+<text x="240" y="1318" text-anchor="middle" class="h3" style="font-size:11px;">对比维度</text>
+<rect x="340" y="1300" width="660" height="28" rx="4" fill="#faf5ff" stroke="#7c3aed" stroke-width="1"/>
+<text x="670" y="1318" text-anchor="middle" class="pur" style="font-size:11px;">动态知识检索 (Selector SP)</text>
+<rect x="1000" y="1300" width="660" height="28" rx="4" fill="#fff7ed" stroke="#ea580c" stroke-width="1"/>
+<text x="1330" y="1318" text-anchor="middle" class="ora" style="font-size:11px;">动态示例检索 (Embedding)</text>
+<rect x="140" y="1328" width="200" height="24" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="145" y="1344" class="bd" style="font-size:9px;">检索技术</text>
+<rect x="340" y="1328" width="660" height="24" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="345" y="1344" class="bd" style="font-size:9px;">LLM 推理（Selector 是一个独立的 LLM Agent）</text>
+<rect x="1000" y="1328" width="660" height="24" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="1005" y="1344" class="bd" style="font-size:9px;">纯向量检索（Embedding + cosine similarity）</text>
+<rect x="140" y="1352" width="200" height="24" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="145" y="1368" class="bd" style="font-size:9px;">检索依据</text>
+<rect x="340" y="1352" width="660" height="24" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="345" y="1368" class="bd" style="font-size:9px;">语义推理：query+env+历史+目标+已加载ID = 5个输入</text>
+<rect x="1000" y="1352" width="660" height="24" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="1005" y="1368" class="bd" style="font-size:9px;">文本相似度：只看 query 的 embedding 向量</text>
+<rect x="140" y="1376" width="200" height="24" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="145" y="1392" class="bd" style="font-size:9px;">检索逻辑</text>
+<rect x="340" y="1376" width="660" height="24" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="345" y="1392" class="bd" style="font-size:9px;">场景分类：理解"猫"=宠物 / "好热"+温度在涨=降温</text>
+<rect x="1000" y="1376" width="660" height="24" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="1005" y="1392" class="bd" style="font-size:9px;">模式匹配：query向量和示例库向量做余弦相似度</text>
+<rect x="140" y="1400" width="200" height="24" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="145" y="1416" class="bd" style="font-size:9px;">检索结果</text>
+<rect x="340" y="1400" width="660" height="24" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="345" y="1416" class="bd" style="font-size:9px;">知识 ID 列表（add + remove 增量更新）</text>
+<rect x="1000" y="1400" width="660" height="24" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="1005" y="1416" class="bd" style="font-size:9px;">Top-K 条最相似的 few-shot 示例（全量替换）</text>
+<rect x="140" y="1424" width="200" height="24" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="145" y="1440" class="bd" style="font-size:9px;">耗时</text>
+<rect x="340" y="1424" width="660" height="24" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="345" y="1440" class="bd" style="font-size:9px;">500ms - 1.8s（额外一次 LLM 推理!）</text>
+<rect x="1000" y="1424" width="660" height="24" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="1005" y="1440" class="bd" style="font-size:9px;">几十 ms（纯数学运算，对性能无影响）</text>
+<rect x="140" y="1448" width="200" height="24" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="145" y="1464" class="bd" style="font-size:9px;">需要 SP 吗？</text>
+<rect x="340" y="1448" width="660" height="24" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="345" y="1464" class="bd" style="font-size:9px;">需要! Selector 自己有一份独立的 SP（~3K tokens）</text>
+<rect x="1000" y="1448" width="660" height="24" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="1005" y="1464" class="bd" style="font-size:9px;">不需要! 没有 SP，纯算法检索</text>
+<rect x="140" y="1472" width="200" height="24" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="145" y="1488" class="bd" style="font-size:9px;">准确率依赖</text>
+<rect x="340" y="1472" width="660" height="24" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="345" y="1488" class="bd" style="font-size:9px;">Selector SP 写得好不好 / 索引表精不精准</text>
+<rect x="1000" y="1472" width="660" height="24" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="1005" y="1488" class="bd" style="font-size:9px;">示例库的向量质量 / embedding 模型质量</text>
+<rect x="140" y="1496" width="200" height="24" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="145" y="1512" class="bd" style="font-size:9px;">负责人</text>
+<rect x="340" y="1496" width="660" height="24" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="345" y="1512" class="bd" style="font-size:9px;">徐燃（已做好）/ 超然（改时机到softVAD）</text>
+<rect x="1000" y="1496" width="660" height="24" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="1005" y="1512" class="bd" style="font-size:9px;">4月做过一次 / 现在有更新要重新弄</text>
+<rect x="140" y="1520" width="200" height="24" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="145" y="1536" class="bd" style="font-size:9px;">当前状态</text>
+<rect x="340" y="1520" width="660" height="24" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="345" y="1536" class="bd" style="font-size:9px;">已上线但延迟高(1.8s)，需优化到500ms以内</text>
+<rect x="1000" y="1520" width="660" height="24" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="1005" y="1536" class="bd" style="font-size:9px;">需要更新示例库（Skill改了，示例也要跟着改）</text>
+<rect x="140" y="1544" width="200" height="24" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="145" y="1560" class="bd" style="font-size:9px;">注入SP位置</text>
+<rect x="340" y="1544" width="660" height="24" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="345" y="1560" class="bd" style="font-size:9px;">检索到的Skill全文 --> {{knowledge}}</text>
+<rect x="1000" y="1544" width="660" height="24" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="1005" y="1560" class="bd" style="font-size:9px;">检索到的few-shot --> {{examples}} (替换静态示例)</text>
+<rect x="50" y="1593" width="1700" height="30" rx="6" fill="#1e3a5f"/>
+<text x="900" y="1613" text-anchor="middle" class="whb">SECTION 5: 两套检索的准确率怎么保证？（独立的问题）</text>
+<rect x="100" y="1638" width="780" height="160" rx="12" fill="#faf5ff" stroke="#7c3aed" stroke-width="2" filter="url(#sh)"/>
+<text x="490" y="1660" text-anchor="middle" class="pur" style="font-size:13px;">知识检索准确率 = Selector SP 的分类准确率</text>
+<line x1="120" y1="1668" x2="860" y2="1668" stroke="#c4b5fd" stroke-width="1"/>
+<text x="130" y="1686" style="font-size:10px;fill:#dc2626;">当前: 60-70%（目标 >=85%）</text>
+<text x="130" y="1702" style="font-size:10px;fill:#7c3aed;">提升方法:</text>
+<text x="130" y="1718" style="font-size:10px;fill:#475569;">  1. 优化 Selector SP 的知识索引表（我负责）</text>
+<text x="130" y="1734" style="font-size:10px;fill:#475569;">  2. 给 Selector 加更多 few-shot 参考示例</text>
+<text x="130" y="1750" style="font-size:10px;fill:#475569;">  3. 构建评测集量化回归（每场景20+条query）</text>
+<text x="130" y="1766" style="font-size:10px;fill:#475569;">  4. 远期: 从13条扩到64条时可能需要embedding预筛</text>
+<text x="130" y="1782" style="font-size:10px;fill:#7c3aed;">准确率不够 = Skill注入错误 = Planner拿错误知识编排 = badcase</text>
+<rect x="920" y="1638" width="780" height="160" rx="12" fill="#fff7ed" stroke="#ea580c" stroke-width="2" filter="url(#sh)"/>
+<text x="1310" y="1660" text-anchor="middle" class="ora" style="font-size:13px;">示例检索准确率 = 向量相似度的匹配质量</text>
+<line x1="940" y1="1668" x2="1680" y2="1668" stroke="#fed7aa" stroke-width="1"/>
+<text x="950" y="1686" style="font-size:10px;fill:#ea580c;">依赖: embedding模型质量 + 示例库覆盖度</text>
+<text x="950" y="1702" style="font-size:10px;fill:#475569;">提升方法:</text>
+<text x="950" y="1718" style="font-size:10px;fill:#475569;">  1. 示例库要覆盖各种query变体(标准/泛化/边界)</text>
+<text x="950" y="1734" style="font-size:10px;fill:#475569;">  2. 每个场景2-3条示例，覆盖不同输入模式</text>
+<text x="950" y="1750" style="font-size:10px;fill:#475569;">  3. Skill 改了，示例也要同步更新（当前需要更新!）</text>
+<text x="950" y="1766" style="font-size:10px;fill:#475569;">  4. embedding模型本身的质量（通常不是瓶颈）</text>
+<text x="950" y="1782" style="font-size:10px;fill:#ea580c;">准确率不够 = 检索到不相关的示例 = Planner模仿了错误的格式</text>
+<rect x="100" y="1813" width="1600" height="50" rx="10" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+<text x="900" y="1831" text-anchor="middle" style="font-size:12px;fill:#dc2626;font-weight:700;">关键: 两套检索是独立的！知识检索错了不影响示例检索，反之亦然</text>
+<text x="900" y="1849" text-anchor="middle" class="bd" style="font-size:11px;">但如果知识检索对了（注入了正确的Skill）而示例检索错了（注入了不相关的few-shot），Planner会拿着正确的知识但输出错误的格式</text>
+<rect x="100" y="1878" width="1600" height="35" rx="6" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1"/>
+<text x="900" y="1892" text-anchor="middle" style="font-size:10px;font-weight:600;fill:#374151;">图例</text>
+<rect x="180" y="1898" width="12" height="8" rx="2" fill="#7c3aed"/>
+<text x="198" y="1906" style="font-size:9px;fill:#374151;">动态知识检索(LLM推理, 500ms-1.8s)</text>
+<rect x="560" y="1898" width="12" height="8" rx="2" fill="#ea580c"/>
+<text x="578" y="1906" style="font-size:9px;fill:#374151;">动态示例检索(向量检索, 几十ms)</text>
+<rect x="940" y="1898" width="12" height="8" rx="2" fill="#1e40af"/>
+<text x="958" y="1906" style="font-size:9px;fill:#374151;">Planner推理(800ms)</text>
+<rect x="1260" y="1898" width="12" height="8" rx="2" fill="#dc2626"/>
+<text x="1278" y="1906" style="font-size:9px;fill:#374151;">性能瓶颈</text>
+</svg></div><p class="tip">Ctrl/Cmd+滚轮缩放</p></div></body></html>

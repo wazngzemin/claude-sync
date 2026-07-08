@@ -1,0 +1,613 @@
+<!-- ============================================================
+     第1章 · 系统全景与入口分流
+     豆包上车 Director/Planner 架构讲义
+     ============================================================ -->
+
+<!-- ==================== Section 1: 系统全景骨架 ==================== -->
+<section id="ch1-overview">
+  <h2>1.1 系统全景骨架</h2>
+
+  <!-- 全景 SVG -->
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 720" style="width:100%;background:#0f172a;border-radius:12px;">
+    <defs>
+      <marker id="arrow-cyan-ov" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="#22d3ee"/>
+      </marker>
+      <marker id="arrow-green-ov" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="#34d399"/>
+      </marker>
+      <marker id="arrow-blue-ov" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="#60a5fa"/>
+      </marker>
+      <marker id="arrow-yellow-ov" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="#fbbf24"/>
+      </marker>
+      <marker id="arrow-purple-ov" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="#a78bfa"/>
+      </marker>
+      <marker id="arrow-red-ov" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="#fb7185"/>
+      </marker>
+    </defs>
+
+    <!-- ========== 顶部 Context 看板 ========== -->
+    <rect x="30" y="12" width="760" height="52" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+    <text x="410" y="30" text-anchor="middle" fill="#9fb0c7" font-size="9" font-family="sans-serif">CONTEXT 看板（每次请求注入）</text>
+    <text x="80" y="48" text-anchor="middle" fill="#e8eef9" font-size="10" font-family="sans-serif">{{status}}</text>
+    <text x="200" y="48" text-anchor="middle" fill="#e8eef9" font-size="10" font-family="sans-serif">{{env_info}}</text>
+    <text x="330" y="48" text-anchor="middle" fill="#e8eef9" font-size="10" font-family="sans-serif">{{memory}}</text>
+    <text x="460" y="48" text-anchor="middle" fill="#e8eef9" font-size="10" font-family="sans-serif">{{goal_list}}</text>
+    <text x="590" y="48" text-anchor="middle" fill="#e8eef9" font-size="10" font-family="sans-serif">视觉VLM感知</text>
+    <text x="720" y="48" text-anchor="middle" fill="#e8eef9" font-size="10" font-family="sans-serif">端状态信号</text>
+
+    <!-- ========== 感知层（左侧） ========== -->
+    <!-- 用户 -->
+    <rect x="30" y="90" width="100" height="36" rx="8" fill="#064e3b" stroke="#34d399" stroke-width="1.5"/>
+    <text x="80" y="113" text-anchor="middle" fill="#e8eef9" font-size="11" font-family="sans-serif">用户语音</text>
+    <!-- ASR -->
+    <rect x="30" y="148" width="100" height="36" rx="8" fill="#064e3b" stroke="#34d399" stroke-width="1.5"/>
+    <text x="80" y="171" text-anchor="middle" fill="#e8eef9" font-size="11" font-family="sans-serif">ASR 语音转文字</text>
+    <line x1="80" y1="126" x2="80" y2="148" stroke="#34d399" stroke-width="1.2" marker-end="url(#arrow-green-ov)"/>
+
+    <!-- ========== 三级拒识漏斗 ========== -->
+    <rect x="160" y="100" width="160" height="130" rx="8" fill="#1e1b4b" stroke="#a78bfa" stroke-width="1.5" stroke-dasharray="4,2"/>
+    <text x="240" y="118" text-anchor="middle" fill="#a78bfa" font-size="10" font-family="sans-serif">三级拒识漏斗</text>
+
+    <!-- 一级：端侧白名单 -->
+    <rect x="172" y="126" width="136" height="26" rx="6" fill="#312e81" stroke="#22d3ee" stroke-width="1"/>
+    <text x="240" y="143" text-anchor="middle" fill="#e8eef9" font-size="10" font-family="sans-serif">L1 端侧白名单+LLM</text>
+
+    <!-- 二级：云侧前置拒识 -->
+    <rect x="172" y="158" width="136" height="26" rx="6" fill="#312e81" stroke="#22d3ee" stroke-width="1"/>
+    <text x="240" y="175" text-anchor="middle" fill="#e8eef9" font-size="10" font-family="sans-serif">L2 云侧前置拒识</text>
+
+    <!-- 三级：Director内拒识 -->
+    <rect x="172" y="190" width="136" height="26" rx="6" fill="#312e81" stroke="#22d3ee" stroke-width="1"/>
+    <text x="240" y="207" text-anchor="middle" fill="#e8eef9" font-size="10" font-family="sans-serif">L3 Director内拒识</text>
+
+    <!-- ASR→漏斗 -->
+    <line x1="130" y1="166" x2="160" y2="152" stroke="#34d399" stroke-width="1.2" marker-end="url(#arrow-green-ov)"/>
+
+    <!-- ========== 仲裁模型 ========== -->
+    <rect x="350" y="120" width="130" height="50" rx="8" fill="#172554" stroke="#60a5fa" stroke-width="1.5"/>
+    <text x="415" y="142" text-anchor="middle" fill="#e8eef9" font-size="11" font-family="sans-serif">仲裁模型</text>
+    <text x="415" y="158" text-anchor="middle" fill="#9fb0c7" font-size="9" font-family="sans-serif">Seed1.6 flash SFT</text>
+    <!-- 漏斗→仲裁 -->
+    <line x1="308" y1="145" x2="350" y2="145" stroke="#a78bfa" stroke-width="1.2" marker-end="url(#arrow-purple-ov)"/>
+
+    <!-- 简单路径标注 -->
+    <text x="340" y="112" fill="#9fb0c7" font-size="9" font-family="sans-serif">未命中白名单</text>
+
+    <!-- ========== 分流箭头 ========== -->
+    <!-- 仲裁→FC快车道 -->
+    <rect x="350" y="200" width="130" height="36" rx="8" fill="#422006" stroke="#fbbf24" stroke-width="1.5"/>
+    <text x="415" y="223" text-anchor="middle" fill="#e8eef9" font-size="11" font-family="sans-serif">FC.SFT 快车道</text>
+    <line x1="415" y1="170" x2="415" y2="200" stroke="#fbbf24" stroke-width="1.2" marker-end="url(#arrow-yellow-ov)"/>
+    <text x="440" y="190" fill="#fbbf24" font-size="9" font-family="sans-serif">简单</text>
+
+    <!-- 仲裁→Director -->
+    <line x1="480" y1="145" x2="540" y2="145" stroke="#60a5fa" stroke-width="1.8" marker-end="url(#arrow-blue-ov)"/>
+    <text x="510" y="138" fill="#60a5fa" font-size="9" font-family="sans-serif">复杂</text>
+
+    <!-- ========== Director / Planner ========== -->
+    <rect x="540" y="100" width="160" height="100" rx="8" fill="#172554" stroke="#60a5fa" stroke-width="2"/>
+    <text x="620" y="125" text-anchor="middle" fill="#e8eef9" font-size="12" font-weight="bold" font-family="sans-serif">Director / Planner</text>
+    <text x="620" y="143" text-anchor="middle" fill="#9fb0c7" font-size="9" font-family="sans-serif">Seed 1.8 云端 LLM</text>
+    <text x="620" y="158" text-anchor="middle" fill="#9fb0c7" font-size="9" font-family="sans-serif">SP ~30K tok + UP ~10K tok</text>
+    <text x="620" y="173" text-anchor="middle" fill="#9fb0c7" font-size="9" font-family="sans-serif">plan_describe → action_list</text>
+    <text x="620" y="188" text-anchor="middle" fill="#9fb0c7" font-size="9" font-family="sans-serif">talk_or_not / talk_content</text>
+
+    <!-- ========== 情景RAG ========== -->
+    <rect x="350" y="260" width="130" height="36" rx="8" fill="#1e1b4b" stroke="#a78bfa" stroke-width="1"/>
+    <text x="415" y="283" text-anchor="middle" fill="#e8eef9" font-size="10" font-family="sans-serif">情景RAG知识注入</text>
+    <line x1="415" y1="236" x2="415" y2="260" stroke="#a78bfa" stroke-width="1" marker-end="url(#arrow-purple-ov)"/>
+    <text x="448" y="252" fill="#9fb0c7" font-size="8" font-family="sans-serif">few-shot</text>
+
+    <!-- ========== 目标驱动层 ========== -->
+    <rect x="540" y="230" width="160" height="70" rx="8" fill="#1e1b4b" stroke="#a78bfa" stroke-width="1.5"/>
+    <text x="620" y="250" text-anchor="middle" fill="#a78bfa" font-size="10" font-family="sans-serif">目标驱动层</text>
+    <text x="620" y="268" text-anchor="middle" fill="#e8eef9" font-size="10" font-family="sans-serif">Goal List 共享看板</text>
+    <text x="620" y="284" text-anchor="middle" fill="#9fb0c7" font-size="9" font-family="sans-serif">4 静态Advisor + N 动态Advisor</text>
+    <!-- Director→Goal List -->
+    <line x1="620" y1="200" x2="620" y2="230" stroke="#a78bfa" stroke-width="1.2" marker-end="url(#arrow-purple-ov)"/>
+
+    <!-- ========== 26 下游工具 ========== -->
+    <rect x="540" y="330" width="250" height="90" rx="8" fill="#422006" stroke="#fbbf24" stroke-width="1.5"/>
+    <text x="665" y="350" text-anchor="middle" fill="#fbbf24" font-size="10" font-family="sans-serif">26 下游工具 / Agent</text>
+    <text x="665" y="368" text-anchor="middle" fill="#e8eef9" font-size="9" font-family="sans-serif">vehicle_basic_control | search_weather | route_planning_qa</text>
+    <text x="665" y="382" text-anchor="middle" fill="#e8eef9" font-size="9" font-family="sans-serif">search_and_control_music | web_search | image_generate</text>
+    <text x="665" y="396" text-anchor="middle" fill="#e8eef9" font-size="9" font-family="sans-serif">gui_agent_operation | goal_list_update | search_visual_info ...</text>
+    <text x="665" y="410" text-anchor="middle" fill="#9fb0c7" font-size="9" font-family="sans-serif">tool_feedback 回传 Director 继续推理</text>
+    <!-- Director→工具 -->
+    <line x1="620" y1="300" x2="665" y2="330" stroke="#fbbf24" stroke-width="1.2" marker-end="url(#arrow-yellow-ov)"/>
+    <!-- FC→工具 -->
+    <line x1="415" y1="236" x2="560" y2="345" stroke="#fbbf24" stroke-width="1" stroke-dasharray="4,2" marker-end="url(#arrow-yellow-ov)"/>
+    <text x="470" y="300" fill="#fbbf24" font-size="8" font-family="sans-serif">直达车控</text>
+
+    <!-- ========== 感知层（底部） ========== -->
+    <rect x="30" y="330" width="200" height="90" rx="8" fill="#064e3b" stroke="#34d399" stroke-width="1.5"/>
+    <text x="130" y="350" text-anchor="middle" fill="#34d399" font-size="10" font-family="sans-serif">感知层 / Watcher (端侧)</text>
+    <text x="130" y="368" text-anchor="middle" fill="#e8eef9" font-size="9" font-family="sans-serif">端状态：四门两盖/车速/档位</text>
+    <text x="130" y="382" text-anchor="middle" fill="#e8eef9" font-size="9" font-family="sans-serif">视觉VLM：人物动作/表情</text>
+    <text x="130" y="396" text-anchor="middle" fill="#e8eef9" font-size="9" font-family="sans-serif">埋点/电子围栏/音频/时间</text>
+    <text x="130" y="410" text-anchor="middle" fill="#9fb0c7" font-size="9" font-family="sans-serif">Always-on，信号→信号库→触发器</text>
+
+    <!-- 感知层→Director（事件上报） -->
+    <path d="M230,370 C350,370 450,230 540,175" fill="none" stroke="#34d399" stroke-width="1" stroke-dasharray="4,2" marker-end="url(#arrow-green-ov)"/>
+    <text x="380" y="290" fill="#34d399" font-size="8" font-family="sans-serif">事件上报</text>
+
+    <!-- ========== 端侧信号库 + 触发器引擎 ========== -->
+    <rect x="30" y="450" width="200" height="50" rx="8" fill="#1e293b" stroke="#22d3ee" stroke-width="1"/>
+    <text x="130" y="472" text-anchor="middle" fill="#22d3ee" font-size="10" font-family="sans-serif">端侧信号库</text>
+    <text x="130" y="488" text-anchor="middle" fill="#9fb0c7" font-size="9" font-family="sans-serif">key/value/source/timestamp/ttl</text>
+    <line x1="130" y1="420" x2="130" y2="450" stroke="#22d3ee" stroke-width="1" marker-end="url(#arrow-cyan-ov)"/>
+
+    <rect x="260" y="450" width="200" height="50" rx="8" fill="#1e293b" stroke="#22d3ee" stroke-width="1"/>
+    <text x="360" y="472" text-anchor="middle" fill="#22d3ee" font-size="10" font-family="sans-serif">触发器引擎 (云端+端侧)</text>
+    <text x="360" y="488" text-anchor="middle" fill="#9fb0c7" font-size="9" font-family="sans-serif">扫描/规则判定/模型推理/冲突仲裁</text>
+    <line x1="230" y1="475" x2="260" y2="475" stroke="#22d3ee" stroke-width="1" marker-end="url(#arrow-cyan-ov)"/>
+
+    <!-- 触发器→Advisor -->
+    <path d="M460,465 C490,465 510,290 540,275" fill="none" stroke="#a78bfa" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#arrow-purple-ov)"/>
+    <text x="502" y="370" fill="#a78bfa" font-size="8" font-family="sans-serif">命中通知</text>
+
+    <!-- ========== HMI 输出 ========== -->
+    <rect x="540" y="450" width="250" height="50" rx="8" fill="#1e293b" stroke="#22d3ee" stroke-width="1.5"/>
+    <text x="665" y="472" text-anchor="middle" fill="#22d3ee" font-size="10" font-family="sans-serif">HMI 呈现层</text>
+    <text x="665" y="488" text-anchor="middle" fill="#9fb0c7" font-size="9" font-family="sans-serif">TTS语音 | GUI卡片 | 生成式UI | 角色表情</text>
+    <line x1="665" y1="420" x2="665" y2="450" stroke="#22d3ee" stroke-width="1.2" marker-end="url(#arrow-cyan-ov)"/>
+
+    <!-- ========== 端云分界线 ========== -->
+    <line x1="30" y1="540" x2="790" y2="540" stroke="#475569" stroke-width="1" stroke-dasharray="6,3"/>
+    <text x="410" y="555" text-anchor="middle" fill="#475569" font-size="9" font-family="sans-serif">--- 端云分界 ---</text>
+
+    <!-- ========== 数据回流 ========== -->
+    <rect x="260" y="565" width="300" height="36" rx="8" fill="#1c1917" stroke="#fb7185" stroke-width="1"/>
+    <text x="410" y="583" text-anchor="middle" fill="#fb7185" font-size="10" font-family="sans-serif">数据回流：后面推前面，Planner 是云端 teacher</text>
+    <text x="410" y="596" text-anchor="middle" fill="#9fb0c7" font-size="8" font-family="sans-serif">badcase 标注 → FC.SFT 蒸馏 → 白名单扩充 → 拒识模型迭代</text>
+
+    <!-- ========== 三个时间面标注 ========== -->
+    <rect x="30" y="620" width="240" height="36" rx="8" fill="#064e3b" stroke="#34d399" stroke-width="1"/>
+    <text x="150" y="643" text-anchor="middle" fill="#e8eef9" font-size="10" font-family="sans-serif">已上线 S7: 单步复杂+FC快车道</text>
+
+    <rect x="290" y="620" width="240" height="36" rx="8" fill="#172554" stroke="#60a5fa" stroke-width="1"/>
+    <text x="410" y="643" text-anchor="middle" fill="#e8eef9" font-size="10" font-family="sans-serif">落地中 S8: 多步+条件+触发器</text>
+
+    <rect x="550" y="620" width="240" height="36" rx="8" fill="#1e1b4b" stroke="#a78bfa" stroke-width="1"/>
+    <text x="670" y="643" text-anchor="middle" fill="#e8eef9" font-size="10" font-family="sans-serif">实验 S9-10: 持续任务+多Agent</text>
+
+    <!-- ========== 三原则 ========== -->
+    <rect x="30" y="672" width="760" height="36" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+    <text x="155" y="694" text-anchor="middle" fill="#22d3ee" font-size="10" font-family="sans-serif">原则1: 层层过滤</text>
+    <text x="410" y="694" text-anchor="middle" fill="#34d399" font-size="10" font-family="sans-serif">原则2: 分阶段注入知识</text>
+    <text x="665" y="694" text-anchor="middle" fill="#fb7185" font-size="10" font-family="sans-serif">原则3: 数据回流</text>
+  </svg>
+
+  <div class="explain">
+    <div class="step">
+      <strong>一句话定位</strong>：豆包上车是搭载在上汽荣威D6X上的车载AI助手。Director（又名Planner）是整个系统的"大脑"——它不直接控制车辆，而是理解用户意图、制定计划、调度26个下游工具/Agent执行任务、跟踪进度并反馈用户。底层模型为字节豆包Seed 1.8，部署在云端。整套系统的设计哲学可以浓缩为三个原则：层层过滤、分阶段注入、数据回流。
+    </div>
+
+    <div class="step">
+      <strong>三个时间面</strong>：<br/>
+      (1) <strong>已上线 (S7)</strong>：单步复杂任务（一句话拆多个并行动作）、FC快车道（简单车控端侧毫秒级执行）。这是系统的"底座"，保证日常车控指令"打开车窗""空调调低"不经过大脑、不走云端推理。<br/>
+      (2) <strong>落地中 (S8)</strong>：多步任务（串行依赖，如"去昨天游泳馆"需先查记忆再拿地址再导航）、条件任务（"十分钟后关座椅加热"）、触发器引擎上线。这是当前的开发主线。<br/>
+      (3) <strong>实验 (S9-S10)</strong>：持续任务（"帮我介绍沿途风景"）、多Agent架构（4个静态Advisor+N个动态Advisor并行深度思考），向1.0长期架构靠拢。
+    </div>
+
+    <div class="step">
+      <strong>设计三原则详解</strong>：<br/>
+      <strong>原则1 — 层层过滤：</strong>能用简单方法搞定的绝不漏到后面。用户说"打开车窗"，端侧白名单150ms就解决了，凭什么还要走云端大模型？每一层都是一道筛子：端侧白名单筛掉最确定的指令 → 云侧前置拒识筛掉不该接的 → 仲裁模型分流简单/复杂 → Director内部plan_describe前还有一道拒识。四道关卡把进入深度推理的请求量压缩到只剩真正"需要动脑子"的那部分。<br/>
+      <strong>原则2 — 分阶段注入知识：</strong>不是一开始就把所有信息塞给模型。端侧只需要query本身；到云侧前置时注入情景RAG（几条few-shot示例 + 知识片段）；真正进入Director时才注入完整的SP（角色定义、26个工具描述、69个参考示例、车辆规格、用户记忆、目标队列等~30K tokens）。这样做的核心原因是token成本和推理延迟——在前面几层处理掉70%以上的请求后，后面的"重炮"才用得值。<br/>
+      <strong>原则3 — 数据回流，后面推前面：</strong>Director/Planner是整个系统的"云端教师"。它处理过的复杂case会被标注、蒸馏回FC.SFT模型（让简单链路能处理的范围越来越广）；badcase分析结果会回流到拒识模型、仲裁模型的迭代训练中；白名单也会根据高频命中的新指令不断扩充。系统是一个持续学习的闭环。
+    </div>
+
+    <div class="eg">
+      <strong>真实走通案例："我好热啊"</strong><br/>
+      用户说"我好热啊" → ASR转文字 → 端侧白名单没有精确命中（这不是"打开空调"这种标准指令） → 上云 → 云侧前置：不拒识（是合理需求） → 仲裁模型判断：这是模糊表达、需要推理（要查车内温度、判断开空调还是开车窗、还是调低温度）→ 分流到Director → Director调用search_vehicle_status_info查温度 → 发现30度 → 规划action_list: [开空调26度, 调风速3档, 关车窗] → 下发执行 → tool_feedback回传 → Director组织话术"帮你把空调打开到26度啦，车窗也关上了"。整个链路约1.5秒。
+    </div>
+
+    <div class="why">
+      <strong>为什么不直接让大模型处理所有请求？</strong><br/>
+      三个硬约束：(1) 延迟——云端LLM一次推理TTFT P50约500ms，加上回答生成又500ms，总共1秒起步。而端侧车控150ms就完成了，用户感知差距巨大。(2) 成本——每次Director调用消耗~40K tokens输入，按云端推理定价算，如果每句话都走Director，日均成本会是现在的5-8倍。(3) 稳定性——弱网/隧道/地库场景下云端不可用，端侧必须有兜底能力。所以"能不走大脑就不走大脑"不是可选优化，而是产品底线。
+    </div>
+
+    <div class="trap">
+      <strong>全景层面的常见坑</strong>：<br/>
+      (1) <strong>链路断裂</strong>：ASR错误（如把"虹梅路"识别成"虹煤路"）会导致后续所有模块判断错误。好消息是Director有上下文纠错能力（用户第二句说"是梅花的梅"），但前提是对话要连续，一旦session断开纠错就失效。<br/>
+      (2) <strong>KV Cache断裂</strong>：Director的SP约30K tokens，如果动态变量（{{status}}/{{memory}}/{{goal_list}}）频繁变化，会导致每次请求都无法命中KV Cache前缀，推理延迟翻倍。这是长对话场景下性能退化的主因。<br/>
+      (3) <strong>端云同步延迟</strong>：端侧信号库→云端信号库的同步链路如果出现延迟（如网络抖动），触发器引擎扫描到的信号可能是过时的。比如用户已经下车了，但云端还以为人在车上，导致误触发。
+    </div>
+  </div>
+</section>
+
+<!-- ==================== Section 2: 多级拒识和召回 ==================== -->
+<section id="ch1-reject">
+  <h2>1.2 多级拒识和召回</h2>
+
+  <!-- 三级拒识内部结构 SVG -->
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 480" style="width:100%;background:#0f172a;border-radius:12px;">
+    <defs>
+      <marker id="arr-c-rj" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="#22d3ee"/>
+      </marker>
+      <marker id="arr-g-rj" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="#34d399"/>
+      </marker>
+      <marker id="arr-b-rj" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="#60a5fa"/>
+      </marker>
+      <marker id="arr-y-rj" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="#fbbf24"/>
+      </marker>
+      <marker id="arr-r-rj" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="#fb7185"/>
+      </marker>
+      <marker id="arr-p-rj" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="#a78bfa"/>
+      </marker>
+    </defs>
+
+    <text x="410" y="28" text-anchor="middle" fill="#e8eef9" font-size="12" font-weight="bold" font-family="sans-serif">三级拒识内部结构（三道安检）</text>
+
+    <!-- 输入 -->
+    <rect x="30" y="50" width="110" height="40" rx="8" fill="#064e3b" stroke="#34d399" stroke-width="1.5"/>
+    <text x="85" y="67" text-anchor="middle" fill="#e8eef9" font-size="10" font-family="sans-serif">用户 query</text>
+    <text x="85" y="80" text-anchor="middle" fill="#9fb0c7" font-size="8" font-family="sans-serif">ASR 文字 + 位置</text>
+
+    <!-- === 第一级 === -->
+    <rect x="180" y="42" width="180" height="110" rx="8" fill="#1e293b" stroke="#22d3ee" stroke-width="1.5"/>
+    <text x="270" y="60" text-anchor="middle" fill="#22d3ee" font-size="10" font-weight="bold" font-family="sans-serif">第一级：端侧白名单 + LLM</text>
+    <text x="270" y="78" text-anchor="middle" fill="#9fb0c7" font-size="9" font-family="sans-serif">位置：端侧（车机本地）</text>
+    <text x="270" y="93" text-anchor="middle" fill="#e8eef9" font-size="9" font-family="sans-serif">白名单精确匹配 ~500条</text>
+    <text x="270" y="108" text-anchor="middle" fill="#e8eef9" font-size="9" font-family="sans-serif">端侧小LLM辅助判定</text>
+    <text x="270" y="123" text-anchor="middle" fill="#34d399" font-size="10" font-family="sans-serif">命中 → 150ms 直达执行</text>
+    <text x="270" y="140" text-anchor="middle" fill="#fb7185" font-size="9" font-family="sans-serif">reject → 不应答</text>
+    <!-- 连线 -->
+    <line x1="140" y1="70" x2="180" y2="70" stroke="#34d399" stroke-width="1.2" marker-end="url(#arr-g-rj)"/>
+
+    <!-- 命中→端侧执行 -->
+    <rect x="180" y="170" width="80" height="32" rx="6" fill="#422006" stroke="#fbbf24" stroke-width="1"/>
+    <text x="220" y="190" text-anchor="middle" fill="#fbbf24" font-size="9" font-family="sans-serif">端侧执行</text>
+    <line x1="230" y1="152" x2="220" y2="170" stroke="#fbbf24" stroke-width="1" marker-end="url(#arr-y-rj)"/>
+    <text x="218" y="163" fill="#34d399" font-size="8" font-family="sans-serif">命中</text>
+
+    <!-- 未命中→第二级 -->
+    <line x1="360" y1="90" x2="410" y2="90" stroke="#22d3ee" stroke-width="1.2" marker-end="url(#arr-c-rj)"/>
+    <text x="385" y="84" fill="#fb7185" font-size="8" font-family="sans-serif">未命中</text>
+
+    <!-- === 第二级 === -->
+    <rect x="410" y="42" width="180" height="140" rx="8" fill="#1e293b" stroke="#60a5fa" stroke-width="1.5"/>
+    <text x="500" y="60" text-anchor="middle" fill="#60a5fa" font-size="10" font-weight="bold" font-family="sans-serif">第二级：云侧前置拒识</text>
+    <text x="500" y="78" text-anchor="middle" fill="#9fb0c7" font-size="9" font-family="sans-serif">位置：云端，Director之前</text>
+    <text x="500" y="96" text-anchor="middle" fill="#e8eef9" font-size="9" font-family="sans-serif">拒识仲裁意图模型（⑨）</text>
+    <text x="500" y="111" text-anchor="middle" fill="#e8eef9" font-size="9" font-family="sans-serif">判定分流：4条路径</text>
+    <text x="500" y="128" text-anchor="middle" fill="#fbbf24" font-size="9" font-family="sans-serif">车控 → FC快车道</text>
+    <text x="500" y="143" text-anchor="middle" fill="#a78bfa" font-size="9" font-family="sans-serif">条件话 → 意图解析</text>
+    <text x="500" y="158" text-anchor="middle" fill="#60a5fa" font-size="9" font-family="sans-serif">复杂 → Director</text>
+    <text x="500" y="173" text-anchor="middle" fill="#fb7185" font-size="9" font-family="sans-serif">拒识 → 静默/记录</text>
+
+    <!-- 四条输出 -->
+    <!-- FC路 -->
+    <rect x="410" y="200" width="80" height="28" rx="6" fill="#422006" stroke="#fbbf24" stroke-width="1"/>
+    <text x="450" y="218" text-anchor="middle" fill="#fbbf24" font-size="9" font-family="sans-serif">FC.SFT</text>
+    <line x1="450" y1="182" x2="450" y2="200" stroke="#fbbf24" stroke-width="1" marker-end="url(#arr-y-rj)"/>
+
+    <!-- 条件 -->
+    <rect x="500" y="200" width="80" height="28" rx="6" fill="#1e1b4b" stroke="#a78bfa" stroke-width="1"/>
+    <text x="540" y="218" text-anchor="middle" fill="#a78bfa" font-size="9" font-family="sans-serif">意图解析</text>
+    <line x1="520" y1="182" x2="540" y2="200" stroke="#a78bfa" stroke-width="1" marker-end="url(#arr-p-rj)"/>
+
+    <!-- 拒识记录 -->
+    <rect x="330" y="200" width="70" height="28" rx="6" fill="#1c1917" stroke="#fb7185" stroke-width="1"/>
+    <text x="365" y="218" text-anchor="middle" fill="#fb7185" font-size="9" font-family="sans-serif">拒识记录</text>
+    <line x1="430" y1="182" x2="365" y2="200" stroke="#fb7185" stroke-width="1" marker-end="url(#arr-r-rj)"/>
+
+    <!-- === 第三级 === -->
+    <rect x="630" y="42" width="160" height="110" rx="8" fill="#1e293b" stroke="#fb7185" stroke-width="1.5"/>
+    <text x="710" y="60" text-anchor="middle" fill="#fb7185" font-size="10" font-weight="bold" font-family="sans-serif">第三级：Director内拒识</text>
+    <text x="710" y="78" text-anchor="middle" fill="#9fb0c7" font-size="9" font-family="sans-serif">位置：Director推理内部</text>
+    <text x="710" y="96" text-anchor="middle" fill="#e8eef9" font-size="9" font-family="sans-serif">plan_describe阶段前</text>
+    <text x="710" y="111" text-anchor="middle" fill="#e8eef9" font-size="9" font-family="sans-serif">content输出reject</text>
+    <text x="710" y="128" text-anchor="middle" fill="#e8eef9" font-size="9" font-family="sans-serif">不进plan/action流程</text>
+    <text x="710" y="143" text-anchor="middle" fill="#9fb0c7" font-size="8" font-family="sans-serif">兜底：防止不该答的漏到执行</text>
+    <line x1="590" y1="90" x2="630" y2="90" stroke="#60a5fa" stroke-width="1.2" marker-end="url(#arr-b-rj)"/>
+    <text x="610" y="84" fill="#60a5fa" font-size="8" font-family="sans-serif">复杂</text>
+
+    <!-- === "空调调低"实走流程图 === -->
+    <text x="410" y="262" text-anchor="middle" fill="#e8eef9" font-size="11" font-weight="bold" font-family="sans-serif">实走流程："空调调低一点"</text>
+
+    <rect x="30" y="280" width="90" height="30" rx="6" fill="#064e3b" stroke="#34d399" stroke-width="1"/>
+    <text x="75" y="299" text-anchor="middle" fill="#e8eef9" font-size="9" font-family="sans-serif">"空调调低一点"</text>
+
+    <line x1="120" y1="295" x2="145" y2="295" stroke="#34d399" stroke-width="1" marker-end="url(#arr-g-rj)"/>
+
+    <rect x="148" y="280" width="70" height="30" rx="6" fill="#1e293b" stroke="#22d3ee" stroke-width="1"/>
+    <text x="183" y="299" text-anchor="middle" fill="#e8eef9" font-size="9" font-family="sans-serif">ASR</text>
+
+    <line x1="218" y1="295" x2="243" y2="295" stroke="#22d3ee" stroke-width="1" marker-end="url(#arr-c-rj)"/>
+
+    <!-- 一级判定 -->
+    <polygon points="275,280 310,295 275,310 240,295" fill="#1e293b" stroke="#22d3ee" stroke-width="1"/>
+    <text x="275" y="299" text-anchor="middle" fill="#e8eef9" font-size="8" font-family="sans-serif">L1?</text>
+
+    <!-- 命中！ -->
+    <line x1="275" y1="310" x2="275" y2="340" stroke="#34d399" stroke-width="1.2" marker-end="url(#arr-g-rj)"/>
+    <text x="288" y="330" fill="#34d399" font-size="8" font-family="sans-serif">命中!</text>
+
+    <rect x="235" y="344" width="80" height="28" rx="6" fill="#064e3b" stroke="#34d399" stroke-width="1"/>
+    <text x="275" y="362" text-anchor="middle" fill="#e8eef9" font-size="9" font-family="sans-serif">端侧白名单</text>
+
+    <line x1="275" y1="372" x2="275" y2="396" stroke="#fbbf24" stroke-width="1.2" marker-end="url(#arr-y-rj)"/>
+
+    <rect x="220" y="398" width="110" height="28" rx="6" fill="#422006" stroke="#fbbf24" stroke-width="1"/>
+    <text x="275" y="416" text-anchor="middle" fill="#fbbf24" font-size="9" font-family="sans-serif">directExecute</text>
+
+    <line x1="275" y1="426" x2="275" y2="450" stroke="#fbbf24" stroke-width="1" marker-end="url(#arr-y-rj)"/>
+    <text x="275" y="466" text-anchor="middle" fill="#34d399" font-size="10" font-family="sans-serif">150ms 完成!</text>
+
+    <!-- 另一条：模糊表达 -->
+    <text x="560" y="262" text-anchor="middle" fill="#e8eef9" font-size="11" font-weight="bold" font-family="sans-serif">对比："车里好吵调安静点"</text>
+
+    <rect x="430" y="280" width="100" height="30" rx="6" fill="#064e3b" stroke="#34d399" stroke-width="1"/>
+    <text x="480" y="299" text-anchor="middle" fill="#e8eef9" font-size="9" font-family="sans-serif">"车里好吵调安静"</text>
+
+    <line x1="530" y1="295" x2="555" y2="295" stroke="#34d399" stroke-width="1" marker-end="url(#arr-g-rj)"/>
+
+    <polygon points="587,280 622,295 587,310 552,295" fill="#1e293b" stroke="#22d3ee" stroke-width="1"/>
+    <text x="587" y="299" text-anchor="middle" fill="#e8eef9" font-size="8" font-family="sans-serif">L1?</text>
+
+    <line x1="622" y1="295" x2="650" y2="295" stroke="#fb7185" stroke-width="1" marker-end="url(#arr-r-rj)"/>
+    <text x="636" y="288" fill="#fb7185" font-size="8" font-family="sans-serif">未命中</text>
+
+    <polygon points="682,280 717,295 682,310 647,295" fill="#1e293b" stroke="#60a5fa" stroke-width="1"/>
+    <text x="682" y="299" text-anchor="middle" fill="#e8eef9" font-size="8" font-family="sans-serif">L2?</text>
+
+    <text x="700" y="274" fill="#9fb0c7" font-size="8" font-family="sans-serif">仲裁</text>
+
+    <line x1="682" y1="310" x2="682" y2="338" stroke="#60a5fa" stroke-width="1.2" marker-end="url(#arr-b-rj)"/>
+    <text x="696" y="328" fill="#60a5fa" font-size="8" font-family="sans-serif">复杂</text>
+
+    <rect x="635" y="340" width="95" height="30" rx="6" fill="#172554" stroke="#60a5fa" stroke-width="1.5"/>
+    <text x="682" y="359" text-anchor="middle" fill="#e8eef9" font-size="9" font-family="sans-serif">Director</text>
+
+    <line x1="682" y1="370" x2="682" y2="396" stroke="#fbbf24" stroke-width="1" marker-end="url(#arr-y-rj)"/>
+
+    <rect x="620" y="398" width="125" height="28" rx="6" fill="#422006" stroke="#fbbf24" stroke-width="1"/>
+    <text x="682" y="416" text-anchor="middle" fill="#fbbf24" font-size="9" font-family="sans-serif">查状态→关窗+调音量</text>
+
+    <line x1="682" y1="426" x2="682" y2="450" stroke="#fbbf24" stroke-width="1" marker-end="url(#arr-y-rj)"/>
+    <text x="682" y="466" text-anchor="middle" fill="#fb7185" font-size="10" font-family="sans-serif">~1500ms</text>
+  </svg>
+
+  <div class="explain">
+    <div class="step">
+      <strong>三道安检类比</strong>：把用户的每句话想象成进机场——<br/>
+      <strong>第一道安检（端侧白名单 + 端侧LLM）</strong>：就像机场入口的身份证扫描。白名单里存了约500条最高频的确定性指令（"打开车窗""空调调到25度""下一首歌"），精确匹配。如果命中，直接放行到端侧执行，150ms完成，根本不上云。如果是明确的拒识（用户自言自语、乘客间聊天），端侧LLM也能直接判断不应答。这一道处理掉大约40-50%的请求。<br/>
+      <strong>第二道安检（云侧前置拒识 + 仲裁模型）</strong>：就像安检X光机。请求上云后，拒识仲裁意图模型（⑨）做四路分流：判定是车控的甩回端侧FC.SFT执行、判定是条件话的送去意图模型解析、判定是复杂需求的才放进Director、判定不该接的拒识并记录。这一道又过滤掉约30%。<br/>
+      <strong>第三道安检（Director内部拒识）</strong>：就像登机口的最后核查。即使请求进了Director，在plan_describe阶段之前还有一道拒识思考：在当前语境下（有完整的对话历史、用户记忆、车辆状态），是否应当拒识？如果是，content直接输出reject，不进后续plan流程。这是最后的兜底防线。
+    </div>
+
+    <div class="step">
+      <strong>"空调调低一点"实走详解</strong>：<br/>
+      Step 1：用户说"空调调低一点"，ASR转成文字，带上speaker_name和position。<br/>
+      Step 2：进入第一级——端侧白名单查找。"空调调低"这种短指令在白名单里有精确匹配（属于vehicle_basic_control的高频子集）。<br/>
+      Step 3：命中！输出格式为 {"type":"directExecute","reject_ornot":"react","task_list":[{vehicle_basic_control: "空调温度降低2度"}]}。<br/>
+      Step 4：直达端侧车控执行，150ms内空调温度调低2度，弹卡片通知用户。<br/>
+      <strong>全程不经过云端、不经过Director。</strong>
+    </div>
+
+    <div class="step">
+      <strong>对比："车里好吵调安静点"实走详解</strong>：<br/>
+      Step 1：ASR转文字。注意这句话是模糊复杂表达——"好吵"可能指音乐太大声、可能指车窗开着路噪大、可能指空调风量太大。<br/>
+      Step 2：第一级白名单——未命中。"车里好吵调安静点"不在白名单中（白名单只有确定性指令，不处理模糊表达）。<br/>
+      Step 3：上云，进入第二级。仲裁模型判断：这不是纯句法能解的车控指令、需要结合情景推理（当前音乐音量、车窗状态、空调风量）→ 判定为"复杂" → 分流到Director。<br/>
+      Step 4：Director接收query，注入完整context（当前车内正在播音乐音量80%、前排车窗开着、空调风速4档）→ plan_describe推理 → 输出action_list: [music音量调到40%, 关闭前排车窗, 空调风速调到2档] → talk_content: "帮你把音乐调小了、车窗关上了、空调风也调低了，这样安静多了"。<br/>
+      <strong>全程约1500ms。</strong>这就是为什么约30%的车控指令是模糊复杂表达，必须走Director。
+    </div>
+
+    <div class="eg">
+      <strong>时延预算表</strong>：<br/>
+      <table style="border-collapse:collapse;margin:8px 0;">
+        <tr style="border-bottom:1px solid #334155;">
+          <td style="padding:4px 12px;color:#9fb0c7;">环节</td>
+          <td style="padding:4px 12px;color:#9fb0c7;">P50</td>
+          <td style="padding:4px 12px;color:#9fb0c7;">P90</td>
+          <td style="padding:4px 12px;color:#9fb0c7;">说明</td>
+        </tr>
+        <tr><td style="padding:4px 12px;color:#e8eef9;">ASR → NLU</td><td style="padding:4px 12px;color:#34d399;">200ms</td><td style="padding:4px 12px;color:#fbbf24;">300ms</td><td style="padding:4px 12px;color:#9fb0c7;">端侧语音转文字+基础理解</td></tr>
+        <tr><td style="padding:4px 12px;color:#e8eef9;">端侧白名单命中</td><td style="padding:4px 12px;color:#34d399;">150ms</td><td style="padding:4px 12px;color:#34d399;">200ms</td><td style="padding:4px 12px;color:#9fb0c7;">最快路径</td></tr>
+        <tr><td style="padding:4px 12px;color:#e8eef9;">FC.SFT 快车道</td><td style="padding:4px 12px;color:#34d399;">300ms</td><td style="padding:4px 12px;color:#fbbf24;">500ms</td><td style="padding:4px 12px;color:#9fb0c7;">简单车控云端执行</td></tr>
+        <tr><td style="padding:4px 12px;color:#e8eef9;">Director 思考</td><td style="padding:4px 12px;color:#fbbf24;">500ms</td><td style="padding:4px 12px;color:#fb7185;">800ms</td><td style="padding:4px 12px;color:#9fb0c7;">TTFT P50目标700ms</td></tr>
+        <tr><td style="padding:4px 12px;color:#e8eef9;">Director 回答生成</td><td style="padding:4px 12px;color:#fbbf24;">500ms</td><td style="padding:4px 12px;color:#fb7185;">800ms</td><td style="padding:4px 12px;color:#9fb0c7;">talk_content流式输出</td></tr>
+        <tr style="border-top:1px solid #60a5fa;"><td style="padding:4px 12px;color:#60a5fa;font-weight:bold;">端到端（简单路径）</td><td style="padding:4px 12px;color:#34d399;font-weight:bold;">P50 ≤ 500ms</td><td style="padding:4px 12px;color:#fbbf24;font-weight:bold;">P90 ≤ 800ms</td><td style="padding:4px 12px;color:#9fb0c7;">端侧命中 or FC快车道</td></tr>
+        <tr><td style="padding:4px 12px;color:#60a5fa;font-weight:bold;">端到端（复杂路径）</td><td style="padding:4px 12px;color:#fbbf24;font-weight:bold;">P50 ≤ 1200ms</td><td style="padding:4px 12px;color:#fb7185;font-weight:bold;">P90 ≤ 2000ms</td><td style="padding:4px 12px;color:#9fb0c7;">经Director完整推理</td></tr>
+      </table>
+    </div>
+
+    <div class="why">
+      <strong>为什么是三级而不是一级或两级？</strong><br/>
+      如果只有一级（端侧白名单），那所有模糊表达都处理不了——"我好热"不在白名单里，系统就卡死了。如果只有两级（端侧+Director），所有未命中白名单的请求都直接打到Director，Director就成了瓶颈——它要同时处理"打开空调"（本来FC就能搞定）和"帮我规划一条去昨天那个游泳馆的路线"（真正需要推理的），既浪费推理资源又拉高延迟。第二级（云侧仲裁）的存在，就是在端侧和Director之间加了一个"快速分诊台"：能走简单FC的走FC（300ms），需要条件解析的走解析，只有真正复杂的才进Director。三级架构把Director的负载压缩了60-70%。
+    </div>
+
+    <div class="trap">
+      <strong>拒识环节的典型坑点</strong>：<br/>
+      (1) <strong>过度拒识（误拒）</strong>：用户语气比较随意地说"这个温度还行吧"，端侧LLM可能误判为"用户在自言自语"而拒识。但实际上用户是在确认空调设置、期待一个回应。解法：在对话上下文中如果上一轮是系统在调温度，当前轮的模糊表达大概率是对系统行为的反馈，不应拒识。<br/>
+      (2) <strong>过度召回（漏拒）</strong>：副驾对主驾说"你帮我把空调调低"，ASR识别后系统以为是对它说的，直接执行了。解法：结合speaker_position和对话方向判断——如果副驾面朝主驾说话（视觉VLM可以判断面部朝向），大概率不是对系统说的。<br/>
+      (3) <strong>白名单维护成本</strong>：白名单需要持续人工维护，新功能上线后对应的指令变体要及时添加。如果一个新工具上线了但白名单没更新，用户的简单指令就会被推到Director，白白增加延迟。这就是"数据回流"原则的落地点——Director处理过的高频简单case要定期蒸馏回白名单和FC.SFT。
+    </div>
+  </div>
+</section>
+
+<!-- ==================== Section 3: 仲裁模型 ==================== -->
+<section id="ch1-arbiter">
+  <h2>1.3 仲裁模型</h2>
+
+  <!-- 仲裁模型骨架 SVG -->
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 420" style="width:100%;background:#0f172a;border-radius:12px;">
+    <defs>
+      <marker id="arr-c-ab" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="#22d3ee"/>
+      </marker>
+      <marker id="arr-g-ab" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="#34d399"/>
+      </marker>
+      <marker id="arr-b-ab" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="#60a5fa"/>
+      </marker>
+      <marker id="arr-y-ab" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="#fbbf24"/>
+      </marker>
+      <marker id="arr-r-ab" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="#fb7185"/>
+      </marker>
+      <marker id="arr-p-ab" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="#a78bfa"/>
+      </marker>
+    </defs>
+
+    <text x="410" y="28" text-anchor="middle" fill="#e8eef9" font-size="12" font-weight="bold" font-family="sans-serif">仲裁模型架构与分流</text>
+
+    <!-- 输入 -->
+    <rect x="30" y="60" width="120" height="50" rx="8" fill="#064e3b" stroke="#34d399" stroke-width="1.5"/>
+    <text x="90" y="80" text-anchor="middle" fill="#e8eef9" font-size="10" font-family="sans-serif">user query</text>
+    <text x="90" y="96" text-anchor="middle" fill="#9fb0c7" font-size="8" font-family="sans-serif">已过第一级拒识</text>
+
+    <!-- 情景RAG注入 -->
+    <rect x="30" y="140" width="120" height="60" rx="8" fill="#1e1b4b" stroke="#a78bfa" stroke-width="1"/>
+    <text x="90" y="158" text-anchor="middle" fill="#a78bfa" font-size="10" font-family="sans-serif">情景RAG注入</text>
+    <text x="90" y="174" text-anchor="middle" fill="#e8eef9" font-size="9" font-family="sans-serif">用户记忆片段</text>
+    <text x="90" y="188" text-anchor="middle" fill="#e8eef9" font-size="9" font-family="sans-serif">车况/情景/few-shot</text>
+
+    <!-- 仲裁模型 -->
+    <rect x="200" y="50" width="200" height="160" rx="8" fill="#172554" stroke="#60a5fa" stroke-width="2"/>
+    <text x="300" y="75" text-anchor="middle" fill="#60a5fa" font-size="11" font-weight="bold" font-family="sans-serif">仲裁模型</text>
+    <text x="300" y="95" text-anchor="middle" fill="#e8eef9" font-size="10" font-family="sans-serif">Seed 1.6 flash SFT</text>
+    <text x="300" y="115" text-anchor="middle" fill="#9fb0c7" font-size="9" font-family="sans-serif">输入: query + 情景RAG</text>
+    <text x="300" y="132" text-anchor="middle" fill="#9fb0c7" font-size="9" font-family="sans-serif">判定维度: 句式 + 意图</text>
+    <text x="300" y="149" text-anchor="middle" fill="#9fb0c7" font-size="9" font-family="sans-serif">输出: modelExecute</text>
+    <text x="300" y="165" text-anchor="middle" fill="#9fb0c7" font-size="9" font-family="sans-serif">{type, knowledge, agentLimit}</text>
+    <text x="300" y="185" text-anchor="middle" fill="#22d3ee" font-size="9" font-family="sans-serif">关键：只给分流结论，不给答案</text>
+    <text x="300" y="200" text-anchor="middle" fill="#9fb0c7" font-size="8" font-family="sans-serif">情景RAG注入知识但不输出结果</text>
+
+    <line x1="150" y1="85" x2="200" y2="85" stroke="#34d399" stroke-width="1.2" marker-end="url(#arr-g-ab)"/>
+    <line x1="150" y1="170" x2="200" y2="150" stroke="#a78bfa" stroke-width="1" marker-end="url(#arr-p-ab)"/>
+
+    <!-- 四条输出路径 -->
+    <!-- 简单→FC快车道 -->
+    <rect x="470" y="40" width="140" height="55" rx="8" fill="#422006" stroke="#fbbf24" stroke-width="1.5"/>
+    <text x="540" y="58" text-anchor="middle" fill="#fbbf24" font-size="10" font-weight="bold" font-family="sans-serif">FC.SFT 快车道</text>
+    <text x="540" y="74" text-anchor="middle" fill="#e8eef9" font-size="9" font-family="sans-serif">未拒识 + 车控 + 6大意图</text>
+    <text x="540" y="88" text-anchor="middle" fill="#34d399" font-size="10" font-family="sans-serif">~300ms</text>
+    <line x1="400" y1="75" x2="470" y2="65" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arr-y-ab)"/>
+    <text x="435" y="60" fill="#fbbf24" font-size="9" font-family="sans-serif">简单</text>
+
+    <!-- 条件→意图解析 -->
+    <rect x="470" y="110" width="140" height="40" rx="8" fill="#1e1b4b" stroke="#a78bfa" stroke-width="1"/>
+    <text x="540" y="130" text-anchor="middle" fill="#a78bfa" font-size="10" font-family="sans-serif">条件话 → 意图解析</text>
+    <text x="540" y="143" text-anchor="middle" fill="#9fb0c7" font-size="8" font-family="sans-serif">带时间/条件的触发指令</text>
+    <line x1="400" y1="115" x2="470" y2="125" stroke="#a78bfa" stroke-width="1.2" marker-end="url(#arr-p-ab)"/>
+
+    <!-- 复杂→Director -->
+    <rect x="470" y="165" width="140" height="55" rx="8" fill="#172554" stroke="#60a5fa" stroke-width="2"/>
+    <text x="540" y="185" text-anchor="middle" fill="#60a5fa" font-size="10" font-weight="bold" font-family="sans-serif">Director / Planner</text>
+    <text x="540" y="200" text-anchor="middle" fill="#e8eef9" font-size="9" font-family="sans-serif">模糊/多步/需推理</text>
+    <text x="540" y="214" text-anchor="middle" fill="#fb7185" font-size="10" font-family="sans-serif">~500ms + 500ms</text>
+    <line x1="400" y1="155" x2="470" y2="180" stroke="#60a5fa" stroke-width="1.5" marker-end="url(#arr-b-ab)"/>
+    <text x="435" y="174" fill="#60a5fa" font-size="9" font-family="sans-serif">复杂</text>
+
+    <!-- 拒识→记录 -->
+    <rect x="470" y="235" width="140" height="36" rx="8" fill="#1c1917" stroke="#fb7185" stroke-width="1"/>
+    <text x="540" y="253" text-anchor="middle" fill="#fb7185" font-size="10" font-family="sans-serif">拒识 → 静默记录</text>
+    <text x="540" y="266" text-anchor="middle" fill="#9fb0c7" font-size="8" font-family="sans-serif">不应答/非对系统说的</text>
+    <line x1="400" y1="195" x2="470" y2="245" stroke="#fb7185" stroke-width="1" marker-end="url(#arr-r-ab)"/>
+
+    <!-- 超时兜底 -->
+    <rect x="650" y="110" width="140" height="40" rx="8" fill="#1c1917" stroke="#fb7185" stroke-width="1" stroke-dasharray="3,2"/>
+    <text x="720" y="130" text-anchor="middle" fill="#fb7185" font-size="9" font-family="sans-serif">云端超时 → 端侧兜底</text>
+    <text x="720" y="143" text-anchor="middle" fill="#9fb0c7" font-size="8" font-family="sans-serif">弱网/隧道场景</text>
+    <line x1="610" y1="67" x2="650" y2="125" stroke="#fb7185" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#arr-r-ab)"/>
+
+    <!-- ====== 仲裁误判三大根因 ====== -->
+    <text x="410" y="300" text-anchor="middle" fill="#fb7185" font-size="12" font-weight="bold" font-family="sans-serif">仲裁误判三大根因</text>
+
+    <!-- 根因1 -->
+    <rect x="30" y="320" width="240" height="85" rx="8" fill="#1c1917" stroke="#fb7185" stroke-width="1.5"/>
+    <text x="150" y="340" text-anchor="middle" fill="#fb7185" font-size="10" font-weight="bold" font-family="sans-serif">根因1：意图分类错误 + 简单过召</text>
+    <text x="150" y="358" text-anchor="middle" fill="#e8eef9" font-size="9" font-family="sans-serif">"语气演绎被误判为车控"</text>
+    <text x="150" y="374" text-anchor="middle" fill="#e8eef9" font-size="9" font-family="sans-serif">"Face ID被误判为车控"</text>
+    <text x="150" y="390" text-anchor="middle" fill="#9fb0c7" font-size="8" font-family="sans-serif">占比最高，属bug级问题</text>
+
+    <!-- 根因2 -->
+    <rect x="290" y="320" width="240" height="85" rx="8" fill="#1c1917" stroke="#fb7185" stroke-width="1.5"/>
+    <text x="410" y="340" text-anchor="middle" fill="#fb7185" font-size="10" font-weight="bold" font-family="sans-serif">根因2：判断标准单一</text>
+    <text x="410" y="358" text-anchor="middle" fill="#e8eef9" font-size="9" font-family="sans-serif">仅看句式复杂度，不看意图</text>
+    <text x="410" y="374" text-anchor="middle" fill="#e8eef9" font-size="9" font-family="sans-serif">"需要记忆/推理的被简单过召"</text>
+    <text x="410" y="390" text-anchor="middle" fill="#9fb0c7" font-size="8" font-family="sans-serif">需重训：句式+意图综合判定</text>
+
+    <!-- 根因3 -->
+    <rect x="550" y="320" width="240" height="85" rx="8" fill="#1c1917" stroke="#fb7185" stroke-width="1.5"/>
+    <text x="670" y="340" text-anchor="middle" fill="#fb7185" font-size="10" font-weight="bold" font-family="sans-serif">根因3：情景信息缺失</text>
+    <text x="670" y="358" text-anchor="middle" fill="#e8eef9" font-size="9" font-family="sans-serif">"车里好吵调安静点"——需查车况</text>
+    <text x="670" y="374" text-anchor="middle" fill="#e8eef9" font-size="9" font-family="sans-serif">情景RAG未召回关键context</text>
+    <text x="670" y="390" text-anchor="middle" fill="#9fb0c7" font-size="8" font-family="sans-serif">向量检索召回不全/记忆滞后</text>
+  </svg>
+
+  <div class="explain">
+    <div class="step">
+      <strong>仲裁模型的位置和选型</strong>：<br/>
+      仲裁模型位于"三级拒识漏斗"的第二级，是云侧的快速分诊台。选型为 <strong>Seed 1.6 flash SFT</strong>——为什么用flash？因为它要快。仲裁模型的职责不是给答案，而是快速做出路由决策：这句话该走哪条路。所以用轻量级flash模型 + SFT微调足矣，不需要动用Seed 1.8的完整推理能力。仲裁模型本身的推理时间控制在50-100ms，不能成为延迟瓶颈。
+    </div>
+
+    <div class="step">
+      <strong>情景RAG的关键设计：注入知识但不输出结果</strong>：<br/>
+      这是仲裁模型最容易被误解的设计点。情景RAG会在仲裁阶段向模型注入用户记忆片段、当前车况、情景信息、以及少量few-shot示例，但仲裁模型的输出格式是 {"type":"modelExecute","knowledge":"...","agentLimit":[...]}——注意它只输出路由决策和关联知识摘要，<strong>不输出最终答案</strong>。为什么？因为仲裁模型是flash级别的轻量模型，让它直接给答案质量不够；但让它带着情景信息做分流判断，准确率会高得多。真正的答案留给Director这个"重炮"去生成。
+    </div>
+
+    <div class="step">
+      <strong>四条分流路径的判定规则</strong>：<br/>
+      <strong>路径1 - FC快车道（~300ms）</strong>：条件是"未拒识 + 车控意图 + 命中6大标准意图"。6大意图包括空调控制、座椅控制、车窗车门、灯光控制、导航基础控制、音乐播控。满足这三个条件才走FC.SFT，保证快速且准确。<br/>
+      <strong>路径2 - 条件话 → 意图模型解析</strong>：识别出用户表达中包含时间条件或触发条件（"十分钟后""到家的时候""超过25度就"），转给意图模型做条件提槽，生成触发器协议。<br/>
+      <strong>路径3 - Director（~500ms+500ms）</strong>：兜底路径。所有不满足路径1和2的、以及超时的请求都进Director。包括：模糊表达、多步任务、需要记忆推理、需要联网搜索、闲聊等。<br/>
+      <strong>路径4 - 拒识</strong>：判定为不应接的（自言自语、乘客间对话、无意义噪声），静默记录不应答。
+    </div>
+
+    <div class="step">
+      <strong>超时兜底逻辑</strong>：<br/>
+      如果云端仲裁超时（弱网、隧道场景），系统不会让用户空等。回退逻辑是：端侧有结果就用端侧的（白名单命中），端侧也没有就走Director兜底（Director是最终兜底层）。如果连云端Director都不可达，则端侧LLM给出最基本的应答（"现在网络不太好，基础车控我可以帮你，复杂的等一下"）。永远不能让用户觉得系统"死了"。
+    </div>
+
+    <div class="eg">
+      <strong>简单路径 vs 复杂路径的完整对比</strong>：<br/>
+      <strong>简单路径实例："打开座椅加热"</strong><br/>
+      → 仲裁判定：未拒识 + 车控意图 + 命中"座椅控制"标准意图 → FC.SFT快车道<br/>
+      → FC模型直接输出function call: vehicle_basic_control("打开主驾座椅加热") → 端侧执行<br/>
+      → 总耗时：ASR 200ms + 仲裁 80ms + FC 100ms = ~380ms<br/><br/>
+      <strong>复杂路径实例："去昨天那个游泳馆，顺便帮我查一下今天水温"</strong><br/>
+      → 仲裁判定：需要记忆推理（"昨天那个"= 要查记忆）+ 多步串行 + 联网搜索 → Director<br/>
+      → Director: step1 调 search_user_memory("昨天去的游泳馆") → 得到"星辉游泳馆 浦东新区XX路" → step2 调 route_planning_qa("导航到星辉游泳馆") → step3 调 web_search("星辉游泳馆今天水温") → 综合输出<br/>
+      → 总耗时：ASR 200ms + 仲裁 80ms + Director 3轮推理(500ms*3) + 工具调用耗时 = ~2500ms<br/>
+      注意Director是流式输出的，talk_content "好的，我帮你查一下昨天那个游泳馆..." 在第一轮推理结束后就开始吐给用户了，用户不会感觉等了2.5秒。
+    </div>
+
+    <div class="why">
+      <strong>仲裁误判的三大根因深度分析</strong>：<br/><br/>
+      <strong>根因1：意图分类错误叠加简单过召（双重路由错误）</strong><br/>
+      这是当前最严重的问题，属于bug级别。具体表现：语气演绎类表达（用户模仿别人说话）被误判为车控意图、Face ID相关query被归入车控、人名座位映射被简单过召。测试报告中8类问题中多数都是"意图错误分类 + 仲裁简单过召"的组合——意图模型先把query归错了类，然后仲裁模型又判定为"简单"，结果送到FC.SFT链路后完全处理不了。<strong>本质原因</strong>：仲裁模型训练时的正样本覆盖不全，大量边界case没有标注。<br/><br/>
+      <strong>根因2：判断标准单一——只看句式复杂度</strong><br/>
+      当前仲裁模型主要依据句式复杂度来判断简单/复杂。"导航去浦东机场"句式简单但确实简单；"帮我查一下上次那个什么什么餐厅"句式也不算复杂，但需要记忆推理。"十分钟后关空调"句式极其简单，但它是条件任务，FC根本处理不了。<strong>核心建议</strong>：重训仲裁模型，从"纯句式复杂度"改为"句式 + 意图（SFT能处理的走，其他都进Planner）"综合判定。具体做法是把SFT链路能处理的case做成正样本，其他全部做成负样本（应该进Director），以此为训练目标。<br/><br/>
+      <strong>根因3：情景信息缺失导致误判</strong><br/>
+      "车里好吵调安静点"——这句话如果只看文字，句式像一个简单车控指令，仲裁模型可能把它分到FC快车道。但实际上"好吵"可能指音乐、车窗噪音、空调风声中的任意一种，需要查车况才能决定怎么做。如果情景RAG恰好没有召回当前音乐播放状态或车窗状态，仲裁模型就缺少了关键判断依据。<strong>上游链路问题</strong>：记忆模块滞后、向量检索召回不全、context可用性差——这些在Director优化讨论会上被明确列为四大问题之一。
+    </div>
+
+    <div class="trap">
+      <strong>仲裁相关的排查路径（Badcase排查SOP）</strong>：<br/>
+      当遇到用户反馈"系统答错了/没答/执行错了"时，按以下顺序排查：<br/>
+      <strong>Step 1 — 链路问题（走错模块了吗？）</strong>：query到底走了哪条路？是白名单命中？还是FC快车道？还是Director？用链路日志确认。如果走错了模块，问题出在仲裁层。<br/>
+      <strong>Step 2 — 工具描述问题（SP里工具定义清楚吗？）</strong>：如果确实走到了Director但执行错误，检查是不是Director的SP中工具描述不够清晰，导致模型调错了工具或传错了参数。<br/>
+      <strong>Step 3 — 上下文问题（缺记忆/车况/情景吗？）</strong>：Director拿到的context够不够？用户记忆有没有召回？车况信号是不是最新的？情景RAG有没有注入关键信息？<br/>
+      <strong>Step 4 — 模型能力问题（信息全了但推理还是错了？）</strong>：如果前三步都没问题，query走对了模块、工具描述清楚、context完整，但输出还是错——那就是模型本身的推理能力不够。这种case要攒起来做SFT训练数据。<br/><br/>
+      <strong>当前数据</strong>：177条badcase中，任务规划与拆解问题占14%（26条）、稳定性/交互问题占7.3%（13条）、下游工具问题占6.2%（11条）。仲裁误判导致的问题没有单独统计，但根据测试报告分析，约30-40%的badcase根因可追溯到仲裁分流阶段。
+    </div>
+  </div>
+</section>

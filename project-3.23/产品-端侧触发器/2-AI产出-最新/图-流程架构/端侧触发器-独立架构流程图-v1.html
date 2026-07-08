@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>端侧触发器 · 完整架构流程图 · Mermaid</title>
+<style>
+body{margin:0;background:#f8fafc;font-family:-apple-system,"PingFang SC",sans-serif;color:#1e293b}
+.wrap{max-width:1400px;margin:0 auto;padding:24px 20px 120px}
+h1{font-size:1.5rem;text-align:center;margin:0 0 4px}
+.sub{text-align:center;color:#64748b;font-size:.88rem;margin-bottom:20px}
+.mermaid{background:#fff;border-radius:12px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,.06);margin:16px 0;overflow-x:auto}
+.note{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;font-size:.88rem;margin:12px 0}
+.legend{display:flex;flex-wrap:wrap;gap:12px;margin:16px 0;font-size:.82rem}
+.legend span{display:flex;align-items:center;gap:5px}
+.legend .dot{width:14px;height:14px;border-radius:3px;flex-shrink:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>端侧触发器 · 完整架构流程图</h1>
+<div class="sub">只含端侧触发器㉔全部模块 · 综合7.6定版 · 2026-07-06</div>
+
+<div class="legend">
+<span><span class="dot" style="background:#ffedd5;border:2px solid #ea580c"></span>端侧触发器模块</span>
+<span><span class="dot" style="background:#dbeafe;border:2px solid #2563eb"></span>信号源/外部系统</span>
+<span><span class="dot" style="background:#fef3c7;border:2px solid #d97706"></span>VLM（AI Box）</span>
+<span><span class="dot" style="background:#dcfce7;border:2px solid #16a34a"></span>执行/输出</span>
+<span><span class="dot" style="background:#f3e8ff;border:2px solid #9333ea"></span>云端</span>
+</div>
+
+<div class="mermaid">
+flowchart TB
+    %% ============ 信号源层 ============
+    subgraph SOURCES["📡 信号源（写入信号库）"]
+        direction LR
+        S1["🚗 车辆端状态\n挡位·车速·电源·车门锁\n座椅占位·安全带"]
+        S2["🧭 导航模块\n剩余距离·地下停车场\n导航结束"]
+        S3["🌤️ 天气 API\n天气类型·路面状态"]
+        S4["👤 FaceID / VLM\n人脸识别·占座·性别"]
+        S5["🔌 OEM / IoT\n蓝牙钥匙·充电状态\n远程备车"]
+        S6["🎙️ 用户输入\nVQA问题·泊车指令"]
+    end
+
+    %% ============ 信号库 ============
+    subgraph SIGLIB["📦 端侧信号库（统一事实源）"]
+        SL["每条信号标准化存储\nkey · value · source · timestamp · ttl\n只存最新值 · 过期自动作废"]
+    end
+
+    %% ============ 核心：端侧触发器 ============
+    subgraph TRIGGER["⚙️ 端侧触发器 ㉔"]
+        direction TB
+
+        subgraph M8["㉔-8 AlwaysOn 点火"]
+            M8A["读取 power_state\n+ awake_button"]
+            M8B{"开关条件\n判断"}
+            M8C["舱外: power=on → 开\n舱内: power=on AND button=on → 开\n关条件: power=off OR button=off"]
+        end
+
+        subgraph MJ["㉔-J 硬条件判定"]
+            MJA["获取信号快照"]
+            MJB["12种运算符逐条匹配\n=·≠·>·<·包含·变更为…"]
+            MJC{"F→T\n穿越检测"}
+            MJD["防抖确认\n→ 命中"]
+        end
+
+        subgraph M7["㉔-7 本地定时器"]
+            M7A["倒计时 / 循环定时\n断网不停 · 最多30次\n掉电持久化恢复"]
+        end
+
+        subgraph M9["㉔-9 VLM 调度"]
+            M9A["优先级排队\nP0 > P1 > P2 > P3 > P4"]
+            M9B["互斥组检查\nVLM_CABIN / VLM_FRONT"]
+            M9C["冷却检查\nP0不设冷却"]
+            M9D["组装运行指令\ntask_id · task_goal · priority\ntimeout · mutex_group · camera"]
+        end
+
+        subgraph MU["㉔-U 透传上报"]
+            MUA["附 task_type + timestamp + seq\n不解析 · 不改写 · 不截断"]
+        end
+    end
+
+    %% ============ VLM ============
+    subgraph AIBOX["🧠 AI Box · VLM"]
+        VLM["端侧 VLM\n方舟端 VLM · 每帧5s推理\n舱内摄像头 / 舱外前视"]
+    end
+
+    %% ============ 执行层 ============
+    subgraph EXEC["🔧 执行"]
+        CDC["赛力斯 CDC\n车控执行\n开雾灯·切雪地模式"]
+    end
+
+    %% ============ 云端 ============
+    subgraph CLOUD["☁️ 云端"]
+        CT["云端触发器 ⑮\n规则下发 · 动态任务注册"]
+        AIS["AI Service 数据中心\n接收透传 · 自行解析分发"]
+    end
+
+    %% ============ 连线：信号写入 ============
+    S1 -->|"持续写入"| SL
+    S2 -->|"事件写入"| SL
+    S3 -->|"定期写入"| SL
+    S4 -->|"识别写入"| SL
+    S5 -->|"状态写入"| SL
+    S6 -->|"即时写入"| SL
+
+    %% ============ 连线：信号库 → 触发器 ============
+    SL -->|"读取 power + button"| M8A
+    SL -->|"信号快照"| MJA
+
+    %% ============ AlwaysOn 点火流程 ============
+    M8A --> M8B
+    M8B -->|"条件满足"| M8C
+    M8C -->|"注册 AlwaysOn\n任务到调度器"| M9A
+
+    %% ============ 硬条件判定流程 ============
+    MJA --> MJB
+    MJB --> MJC
+    MJC -->|"穿越成功"| MJD
+    MJD -->|"VLM类任务\noneshot/周期"| M9A
+    MJD -->|"车控类任务\n如开雾灯"| CDC
+
+    %% ============ 定时器 ============
+    M7A -->|"到期事件\n写入信号库"| SL
+    CT -->|"注册定时任务"| M7A
+    CT -->|"全量/增量规则"| MJB
+    CT -->|"动态VLM任务"| M9A
+
+    %% ============ VLM 调度流程 ============
+    M9A --> M9B
+    M9B --> M9C
+    M9C --> M9D
+    M9D -->|"① 触发推理\n运行指令"| VLM
+
+    %% ============ 谁调返给谁 ============
+    VLM -->|"② 结果返回\n谁调返给谁"| M9D
+    M9D -->|"raw_output 转交"| MUA
+
+    %% ============ 透传上报 ============
+    MUA -->|"③ 整包透传\ntask_type + raw_output\n+ timestamp + seq"| AIS
+
+    %% ============ VLM 结果写回信号库 ============
+    VLM -.->|"任务状态写回\nsuccess/empty/timeout/failed"| SL
+
+    %% ============ 样式 ============
+    classDef source fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#1e3a5f
+    classDef siglib fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef trigger fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#7c2d12
+    classDef vlm fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#78350f
+    classDef cloud fill:#f3e8ff,stroke:#9333ea,stroke-width:2px,color:#581c87
+    classDef exec fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#14532d
+
+    class S1,S2,S3,S4,S5,S6 source
+    class SL siglib
+    class M8A,M8B,M8C,MJA,MJB,MJC,MJD,M7A,M9A,M9B,M9C,M9D,MUA trigger
+    class VLM vlm
+    class CT,AIS cloud
+    class CDC exec
+</div>
+
+<div class="note">
+<b>图例说明</b>：<br/>
+• <b>实线箭头</b> = 数据/指令流向<br/>
+• <b>虚线箭头</b> = VLM 业务自行写回信号库（非触发器写入）<br/>
+• <b>三根关键箭头</b>：① 触发推理（触发器→VLM）→ ② 结果返回（VLM→触发器，"谁调返给谁"）→ ③ 整包透传（触发器→AI Service）<br/>
+• ㉔-SP（SP注入）一期不做，未画入图中
+</div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+mermaid.initialize({
+  startOnLoad: true,
+  theme: 'base',
+  themeVariables: {
+    primaryColor: '#fff7ed',
+    primaryBorderColor: '#ea580c',
+    primaryTextColor: '#1e293b',
+    lineColor: '#64748b',
+    secondaryColor: '#f0fdf4',
+    tertiaryColor: '#dbeafe',
+    fontSize: '14px'
+  },
+  flowchart: {
+    htmlLabels: true,
+    curve: 'basis',
+    rankSpacing: 60,
+    nodeSpacing: 40,
+    padding: 12
+  }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>能力位移分析工作台 — 从"标配→选配"到产品设计决策</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0d1117;--bg2:#161b22;--bg3:#21262d;--bg4:#30363d;
+  --t1:#e6edf3;--t2:#8b949e;--t3:#6e7681;
+  --ac:#58a6ff;--ac2:#1f6feb;--ac3:#388bfd26;
+  --gn:#3fb950;--yl:#d29922;--rd:#f85149;--pp:#bc8cff;--pk:#f778ba;
+  --r:8px;--shadow:0 2px 8px rgba(0,0,0,.3);
+}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;background:var(--bg);color:var(--t1);line-height:1.6;min-height:100vh;display:flex;flex-direction:column}
+a{color:var(--ac);text-decoration:none}
+
+.top-bar{background:var(--bg2);border-bottom:1px solid var(--bg4);padding:12px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:100}
+.top-bar h1{font-size:15px;font-weight:600;white-space:nowrap}
+.top-bar .tag{font-size:11px;padding:2px 8px;border-radius:12px;background:var(--ac3);color:var(--ac);border:1px solid var(--ac2)}
+.progress-bar{flex:1;height:4px;background:var(--bg4);border-radius:2px;overflow:hidden;min-width:80px}
+.progress-bar .fill{height:100%;background:linear-gradient(90deg,var(--ac),var(--gn));border-radius:2px;transition:width .4s ease}
+
+.layout{display:flex;flex:1;overflow:hidden}
+nav{width:220px;min-width:220px;background:var(--bg2);border-right:1px solid var(--bg4);padding:16px 0;overflow-y:auto;position:sticky;top:49px;height:calc(100vh - 49px)}
+nav .nav-section{padding:0 16px;margin-bottom:8px;font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px}
+nav .nav-item{display:flex;align-items:center;gap:8px;padding:8px 16px;cursor:pointer;font-size:13px;color:var(--t2);transition:all .15s;border-left:2px solid transparent}
+nav .nav-item:hover{color:var(--t1);background:var(--bg3)}
+nav .nav-item.active{color:var(--ac);border-left-color:var(--ac);background:var(--ac3)}
+nav .nav-item .num{font-size:11px;color:var(--t3);font-weight:500;min-width:18px}
+nav .nav-item .dot{width:6px;height:6px;border-radius:50%;background:var(--bg4);flex-shrink:0}
+nav .nav-item.done .dot{background:var(--gn)}
+
+main{flex:1;overflow-y:auto;height:calc(100vh - 49px);padding:0}
+.module{display:none;padding:32px 40px;max-width:900px;animation:fadeIn .3s ease}
+.module.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+h2{font-size:20px;font-weight:600;margin-bottom:8px}
+h3{font-size:15px;font-weight:600;margin:24px 0 8px;color:var(--t1)}
+.subtitle{font-size:13px;color:var(--t2);margin-bottom:24px}
+
+.card{background:var(--bg2);border:1px solid var(--bg4);border-radius:var(--r);padding:20px;margin-bottom:16px}
+.card-title{font-size:14px;font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.card p,.card li{font-size:13px;color:var(--t2);line-height:1.7}
+.card ul{padding-left:20px;margin-top:8px}
+.card li{margin-bottom:4px}
+
+.quote{border-left:3px solid var(--ac);padding:12px 16px;background:var(--ac3);border-radius:0 var(--r) var(--r) 0;margin:16px 0;font-size:13px;color:var(--t1)}
+
+.input-group{margin-bottom:16px}
+.input-group label{display:block;font-size:13px;font-weight:500;margin-bottom:6px;color:var(--t2)}
+.input-group input,.input-group textarea,.input-group select{width:100%;background:var(--bg3);border:1px solid var(--bg4);border-radius:var(--r);padding:10px 12px;color:var(--t1);font-size:13px;font-family:inherit;transition:border-color .15s}
+.input-group input:focus,.input-group textarea:focus{outline:none;border-color:var(--ac)}
+.input-group textarea{resize:vertical;min-height:80px}
+
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--r);font-size:13px;font-weight:500;cursor:pointer;border:1px solid var(--bg4);background:var(--bg3);color:var(--t1);transition:all .15s}
+.btn:hover{background:var(--bg4)}
+.btn-primary{background:var(--ac2);border-color:var(--ac2);color:#fff}
+.btn-primary:hover{background:var(--ac);border-color:var(--ac)}
+.btn-sm{padding:4px 10px;font-size:12px}
+.btn-danger{border-color:var(--rd);color:var(--rd)}
+.btn-danger:hover{background:rgba(248,81,73,.15)}
+
+.badge{font-size:11px;padding:2px 8px;border-radius:12px;font-weight:500}
+.badge-green{background:rgba(63,185,80,.15);color:var(--gn)}
+.badge-yellow{background:rgba(210,153,34,.15);color:var(--yl)}
+.badge-red{background:rgba(248,81,73,.15);color:var(--rd)}
+.badge-blue{background:var(--ac3);color:var(--ac)}
+.badge-purple{background:rgba(188,140,255,.15);color:var(--pp)}
+
+table{width:100%;border-collapse:collapse;font-size:13px;margin:12px 0}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--bg4)}
+th{font-weight:600;color:var(--t2);font-size:12px;background:var(--bg3)}
+td{color:var(--t1)}
+tr:hover td{background:var(--bg3)}
+
+.slider-group{display:flex;align-items:center;gap:12px;margin:8px 0}
+.slider-group input[type=range]{flex:1;-webkit-appearance:none;height:4px;background:var(--bg4);border-radius:2px;outline:none}
+.slider-group input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--ac);cursor:pointer;border:2px solid var(--bg)}
+.slider-label{min-width:24px;text-align:center;font-size:14px;font-weight:600;color:var(--ac)}
+
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+@media(max-width:768px){.layout{flex-direction:column}nav{width:100%;min-width:100%;height:auto;position:static;display:flex;overflow-x:auto;padding:8px}nav .nav-section{display:none}nav .nav-item{white-space:nowrap;border-left:none;border-bottom:2px solid transparent}nav .nav-item.active{border-bottom-color:var(--ac)}main{height:auto}.grid-2,.grid-3{grid-template-columns:1fr}.module{padding:20px 16px}}
+
+.radar-container{display:flex;justify-content:center;margin:24px 0}
+.result-section{margin:20px 0}
+.result-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.score-big{font-size:48px;font-weight:700;color:var(--ac);line-height:1}
+.score-desc{font-size:13px;color:var(--t2);margin-top:4px}
+
+.stage-pill{display:inline-block;padding:4px 12px;border-radius:12px;font-size:12px;font-weight:500}
+.stage-1{background:rgba(63,185,80,.15);color:var(--gn)}
+.stage-2{background:rgba(210,153,34,.15);color:var(--yl)}
+.stage-3{background:rgba(248,81,73,.15);color:var(--rd)}
+.stage-4{background:rgba(188,140,255,.15);color:var(--pp)}
+
+.scenario-item{background:var(--bg3);border:1px solid var(--bg4);border-radius:var(--r);padding:16px;margin-bottom:12px}
+.scenario-item .head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.scenario-item .head span{font-weight:600;font-size:14px}
+.remove-btn{width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:4px;cursor:pointer;color:var(--t3);background:none;border:none;font-size:16px}
+.remove-btn:hover{background:rgba(248,81,73,.15);color:var(--rd)}
+
+.check-item{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--bg4)}
+.check-item:last-child{border-bottom:none}
+.check-item input[type=checkbox]{margin-top:3px;accent-color:var(--ac)}
+.check-item .text{font-size:13px;color:var(--t2)}
+.check-item .text.checked{color:var(--gn);text-decoration:line-through}
+
+.copy-btn{padding:2px 8px;font-size:11px;border-radius:4px;cursor:pointer;background:var(--bg4);color:var(--t2);border:1px solid transparent;transition:all .15s}
+.copy-btn:hover{color:var(--t1);border-color:var(--bg4)}
+.copy-btn.copied{color:var(--gn);border-color:var(--gn)}
+pre{background:var(--bg3);border:1px solid var(--bg4);border-radius:var(--r);padding:16px;font-size:12px;line-height:1.7;overflow-x:auto;white-space:pre-wrap;color:var(--t2);position:relative;margin:12px 0}
+pre .copy-btn{position:absolute;top:8px;right:8px}
+
+.svg-diagram{display:flex;justify-content:center;margin:24px 0}
+.tab-bar{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--bg4);padding-bottom:0}
+.tab-item{padding:8px 16px;font-size:13px;cursor:pointer;color:var(--t2);border-bottom:2px solid transparent;transition:all .15s}
+.tab-item:hover{color:var(--t1)}
+.tab-item.active{color:var(--ac);border-bottom-color:var(--ac)}
+.tab-content{display:none}.tab-content.active{display:block}
+.empty-state{text-align:center;padding:40px;color:var(--t3);font-size:13px}
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <h1>能力位移分析工作台</h1>
+  <span class="tag">v1 · 基于刘润「健脑房」</span>
+  <div class="progress-bar"><div class="fill" id="progressFill" style="width:0%"></div></div>
+  <span id="progressText" style="font-size:12px;color:var(--t3)">0/5</span>
+</div>
+
+<div class="layout">
+  <nav id="sideNav">
+    <div class="nav-section">分析流程</div>
+    <div class="nav-item active" data-mod="m0"><span class="num">00</span>核心原理<span class="dot"></span></div>
+    <div class="nav-item" data-mod="m1"><span class="num">01</span>场景录入<span class="dot"></span></div>
+    <div class="nav-item" data-mod="m2"><span class="num">02</span>五区评估<span class="dot"></span></div>
+    <div class="nav-item" data-mod="m3"><span class="num">03</span>阶段判定<span class="dot"></span></div>
+    <div class="nav-item" data-mod="m4"><span class="num">04</span>哑铃检验<span class="dot"></span></div>
+    <div class="nav-item" data-mod="m5"><span class="num">05</span>分析报告<span class="dot"></span></div>
+  </nav>
+
+  <main>
+    <!-- M0: 核心原理 -->
+    <div class="module active" id="m0">
+      <h2>核心原理：标配→选配→刻意训练</h2>
+      <p class="subtitle">理解"能力位移"模型，再开始分析</p>
+
+      <div class="svg-diagram">
+        <svg width="780" height="320" viewBox="0 0 780 320" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="g1" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#58a6ff"/><stop offset="1" stop-color="#3fb950"/></linearGradient>
+            <linearGradient id="g2" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#d29922"/><stop offset="1" stop-color="#f85149"/></linearGradient>
+          </defs>
+          <!-- 阶段标题 -->
+          <text x="100" y="30" fill="#58a6ff" font-size="14" font-weight="600" text-anchor="middle">标配阶段</text>
+          <text x="310" y="30" fill="#d29922" font-size="14" font-weight="600" text-anchor="middle">技术位移</text>
+          <text x="520" y="30" fill="#f85149" font-size="14" font-weight="600" text-anchor="middle">选配阶段</text>
+          <text x="700" y="30" fill="#3fb950" font-size="14" font-weight="600" text-anchor="middle">刻意训练</text>
+          <!-- 连接箭头 -->
+          <path d="M180 60 L230 60" stroke="#30363d" stroke-width="2" marker-end="url(#arrow)"/>
+          <path d="M390 60 L440 60" stroke="#30363d" stroke-width="2" marker-end="url(#arrow)"/>
+          <path d="M600 60 L630 60" stroke="#30363d" stroke-width="2" marker-end="url(#arrow)"/>
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#30363d"/></marker>
+          <!-- 体力行 -->
+          <rect x="20" y="80" width="160" height="60" rx="8" fill="#161b22" stroke="#30363d"/>
+          <text x="100" y="105" fill="#8b949e" font-size="11" text-anchor="middle">1600年</text>
+          <text x="100" y="122" fill="#e6edf3" font-size="13" font-weight="600" text-anchor="middle">体力=活命标配</text>
+          <rect x="230" y="80" width="160" height="60" rx="8" fill="#161b22" stroke="#d29922" stroke-opacity=".4"/>
+          <text x="310" y="105" fill="#d29922" font-size="11" text-anchor="middle">工业革命</text>
+          <text x="310" y="122" fill="#e6edf3" font-size="13" font-weight="600" text-anchor="middle">人力 25%→5%</text>
+          <rect x="440" y="80" width="160" height="60" rx="8" fill="#161b22" stroke="#f85149" stroke-opacity=".4"/>
+          <text x="520" y="105" fill="#f85149" font-size="11" text-anchor="middle">体力消耗可选</text>
+          <text x="520" y="122" fill="#e6edf3" font-size="13" font-weight="600" text-anchor="middle">不用→退化</text>
+          <rect x="640" y="80" width="120" height="60" rx="8" fill="#161b22" stroke="#3fb950" stroke-opacity=".4"/>
+          <text x="700" y="105" fill="#3fb950" font-size="11" text-anchor="middle">1840s</text>
+          <text x="700" y="122" fill="#e6edf3" font-size="13" font-weight="600" text-anchor="middle">健身房</text>
+          <!-- 脑力行 -->
+          <rect x="20" y="170" width="160" height="60" rx="8" fill="#161b22" stroke="#30363d"/>
+          <text x="100" y="195" fill="#8b949e" font-size="11" text-anchor="middle">2020年前</text>
+          <text x="100" y="212" fill="#e6edf3" font-size="13" font-weight="600" text-anchor="middle">脑力=工作标配</text>
+          <rect x="230" y="170" width="160" height="60" rx="8" fill="#161b22" stroke="#d29922" stroke-opacity=".4"/>
+          <text x="310" y="195" fill="#d29922" font-size="11" text-anchor="middle">AI革命</text>
+          <text x="310" y="212" fill="#e6edf3" font-size="13" font-weight="600" text-anchor="middle">脑力被大规模接管</text>
+          <rect x="440" y="170" width="160" height="60" rx="8" fill="#161b22" stroke="#f85149" stroke-opacity=".4"/>
+          <text x="520" y="195" fill="#f85149" font-size="11" text-anchor="middle">脑力消耗可选</text>
+          <text x="520" y="212" fill="#e6edf3" font-size="13" font-weight="600" text-anchor="middle">不用→退化?</text>
+          <rect x="640" y="170" width="120" height="60" rx="8" fill="#161b22" stroke="#3fb950" stroke-opacity=".4" stroke-dasharray="4 4"/>
+          <text x="700" y="195" fill="#3fb950" font-size="11" text-anchor="middle">202X?</text>
+          <text x="700" y="212" fill="#e6edf3" font-size="13" font-weight="600" text-anchor="middle">健脑房?</text>
+          <!-- 哑铃原理 -->
+          <rect x="20" y="260" width="740" height="50" rx="8" fill="#21262d" stroke="#58a6ff" stroke-opacity=".3"/>
+          <text x="390" y="282" fill="#58a6ff" font-size="13" font-weight="600" text-anchor="middle">哑铃原理 Dumb Bell：剥离掉原来的用处，只留下动作本身 → 刻意训练</text>
+          <text x="390" y="300" fill="#8b949e" font-size="11" text-anchor="middle">跑步机=不去往目的地的跑 | 划船机=不接触江河的划 | 记忆宫殿=不为了用而记</text>
+        </svg>
+      </div>
+
+      <div class="card">
+        <div class="card-title">核心定律</div>
+        <div class="quote">只要一种重要的能力，从标配变成了选配，就一定有人把"刻意重新使用"这件事，做成一门生意。</div>
+        <p style="margin-top:12px">这不是一个关于健身房或健脑房的观点，而是一个可操作的商业规律。下面的工作台帮你用这个规律分析你的AI产品。</p>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title"><span class="badge badge-blue">认知五区</span></div>
+          <table>
+            <tr><th>子能力</th><th>定义</th><th>AI接管方式</th></tr>
+            <tr><td>记忆</td><td>存储与提取信息</td><td>AI帮你记，你不主动存</td></tr>
+            <tr><td>推理</td><td>从已知推导未知</td><td>AI直接给结论</td></tr>
+            <tr><td>专注</td><td>持续集中注意力</td><td>算法+推送更早在做</td></tr>
+            <tr><td>创造</td><td>从白纸生成内容</td><td>AI写第一稿/想方案</td></tr>
+            <tr><td>判断</td><td>不确定中做决策</td><td>AI替你推荐、排序</td></tr>
+          </table>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="badge badge-yellow">位移四阶段</span></div>
+          <table>
+            <tr><th>阶段</th><th>特征</th></tr>
+            <tr><td><span class="stage-pill stage-1">辅助期</span></td><td>AI提供参考，用户做决策</td></tr>
+            <tr><td><span class="stage-pill stage-2">替代期</span></td><td>AI默认执行，用户偶尔干预</td></tr>
+            <tr><td><span class="stage-pill stage-3">依赖期</span></td><td>用户丧失独立完成能力</td></tr>
+            <tr><td><span class="stage-pill stage-4">焦虑期</span></td><td>用户意识到依赖并不安</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <div style="margin-top:20px;text-align:right">
+        <button class="btn btn-primary" onclick="goTo('m1')">开始分析 →</button>
+      </div>
+    </div>
+
+    <!-- M1: 场景录入 -->
+    <div class="module" id="m1">
+      <h2>01 · 场景录入</h2>
+      <p class="subtitle">列出你的产品/功能的高频使用场景，以及AI介入前后用户行为的变化</p>
+
+      <div class="card">
+        <div class="input-group">
+          <label>分析对象（产品名/功能名）</label>
+          <input type="text" id="productName" placeholder="例：车载AI助手的导航功能 / Planner多步任务处理">
+        </div>
+      </div>
+
+      <h3>使用场景列表</h3>
+      <p style="font-size:13px;color:var(--t2);margin-bottom:16px">每个场景需要填写：场景名称 + AI介入前用户怎么做 + AI介入后用户怎么做。至少录入3个场景。</p>
+
+      <div id="scenarioList"></div>
+
+      <button class="btn" onclick="addScenario()" style="margin-top:12px">+ 添加场景</button>
+
+      <div style="margin-top:24px;display:flex;justify-content:space-between">
+        <button class="btn" onclick="goTo('m0')">← 回到原理</button>
+        <button class="btn btn-primary" onclick="saveScenarios()">保存并继续 →</button>
+      </div>
+    </div>
+
+    <!-- M2: 五区评估 -->
+    <div class="module" id="m2">
+      <h2>02 · 认知五区位移评估</h2>
+      <p class="subtitle">对你录入的每个场景，评估AI在五种认知子能力上的替代程度</p>
+
+      <div id="assessmentArea"></div>
+
+      <div style="margin-top:24px;display:flex;justify-content:space-between">
+        <button class="btn" onclick="goTo('m1')">← 返回场景</button>
+        <button class="btn btn-primary" onclick="saveAssessment()">保存并继续 →</button>
+      </div>
+    </div>
+
+    <!-- M3: 阶段判定 -->
+    <div class="module" id="m3">
+      <h2>03 · 位移阶段判定</h2>
+      <p class="subtitle">基于评估结果，判断每种认知能力在你的产品中处于哪个位移阶段</p>
+
+      <div id="stageArea"></div>
+
+      <div style="margin-top:24px;display:flex;justify-content:space-between">
+        <button class="btn" onclick="goTo('m2')">← 返回评估</button>
+        <button class="btn btn-primary" onclick="saveStages()">保存并继续 →</button>
+      </div>
+    </div>
+
+    <!-- M4: 哑铃检验 -->
+    <div class="module" id="m4">
+      <h2>04 · 哑铃原理检验器</h2>
+      <p class="subtitle">检验你的工具描述/API定义是否做到了"剥离实现、只留接口"的良好解耦</p>
+
+      <div class="card">
+        <div class="input-group">
+          <label>粘贴你的工具描述 / API定义 / 模块说明</label>
+          <textarea id="toolDesc" rows="6" placeholder="例：vehicle_basic_control - 控制车辆基本功能，包括开关车窗、调节空调温度、调节座椅等。参数：action(string), target(string), value(number)"></textarea>
+        </div>
+        <button class="btn btn-primary" onclick="runDumbbellCheck()">运行哑铃检验</button>
+      </div>
+
+      <div id="dumbbellResult" style="display:none">
+        <h3>检验结果</h3>
+        <div id="dumbbellChecks"></div>
+      </div>
+
+      <div class="card" style="margin-top:24px">
+        <div class="card-title">哑铃原理检查清单</div>
+        <div id="dumbbellChecklist">
+          <div class="check-item"><input type="checkbox" onchange="updateCheck(this)"><span class="text">描述只说"能做什么"，不说"怎么做"（无实现路径泄露）</span></div>
+          <div class="check-item"><input type="checkbox" onchange="updateCheck(this)"><span class="text">边界清晰：明确了能做什么 AND 不能做什么</span></div>
+          <div class="check-item"><input type="checkbox" onchange="updateCheck(this)"><span class="text">可脱离上下游独立理解（不需要知道调用方是谁）</span></div>
+          <div class="check-item"><input type="checkbox" onchange="updateCheck(this)"><span class="text">参数名自解释，不依赖外部枚举或文档</span></div>
+          <div class="check-item"><input type="checkbox" onchange="updateCheck(this)"><span class="text">示例展示推理过程（可迁移），非特定答案（只能匹配）</span></div>
+          <div class="check-item"><input type="checkbox" onchange="updateCheck(this)"><span class="text">错误处理在接口层描述，不暴露内部状态</span></div>
+        </div>
+      </div>
+
+      <div style="margin-top:24px;display:flex;justify-content:space-between">
+        <button class="btn" onclick="goTo('m3')">← 返回阶段</button>
+        <button class="btn btn-primary" onclick="goTo('m5')">查看报告 →</button>
+      </div>
+    </div>
+
+    <!-- M5: 分析报告 -->
+    <div class="module" id="m5">
+      <h2>05 · 认知位移分析报告</h2>
+      <p class="subtitle">综合所有评估，生成可操作的产品设计建议</p>
+
+      <div id="reportContent">
+        <div class="empty-state">请先完成前面的评估步骤</div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+const DIMS=['记忆','推理','专注','创造','判断'];
+const STAGE_NAMES=['辅助期','替代期','依赖期','焦虑期'];
+const STAGE_CLASSES=['stage-1','stage-2','stage-3','stage-4'];
+const STAGE_COLORS=['#3fb950','#d29922','#f85149','#bc8cff'];
+
+let state={
+  productName:'',
+  scenarios:[],
+  scores:{},
+  stages:{},
+  completed:new Set()
+};
+
+function goTo(id){
+  document.querySelectorAll('.module').forEach(m=>m.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.querySelector(`[data-mod="${id}"]`).classList.add('active');
+  if(id==='m2') buildAssessment();
+  if(id==='m3') buildStages();
+  if(id==='m5') buildReport();
+  document.querySelector('main').scrollTop=0;
+}
+
+function updateProgress(){
+  const total=5;
+  const done=state.completed.size;
+  document.getElementById('progressFill').style.width=`${(done/total)*100}%`;
+  document.getElementById('progressText').textContent=`${done}/${total}`;
+  document.querySelectorAll('.nav-item').forEach(n=>{
+    const mod=n.dataset.mod;
+    if(state.completed.has(mod))n.classList.add('done');
+    else n.classList.remove('done');
+  });
+}
+
+function addScenario(data){
+  const list=document.getElementById('scenarioList');
+  const idx=list.children.length;
+  const d=data||{name:'',before:'',after:''};
+  const div=document.createElement('div');
+  div.className='scenario-item';
+  div.innerHTML=`
+    <div class="head"><span>场景 ${idx+1}</span><button class="remove-btn" onclick="this.closest('.scenario-item').remove()" title="删除">×</button></div>
+    <div class="input-group"><label>场景名称</label><input type="text" class="sc-name" value="${esc(d.name)}" placeholder="例：用户说'去昨天那个饭店'"></div>
+    <div class="input-group"><label>AI介入前，用户怎么做？</label><textarea class="sc-before" rows="2" placeholder="例：回忆饭店名字→打开地图App→搜索→选路线→开始导航">${esc(d.before)}</textarea></div>
+    <div class="input-group"><label>AI介入后，用户怎么做？</label><textarea class="sc-after" rows="2" placeholder="例：说一句话→Planner查记忆→拿地址→自动导航">${esc(d.after)}</textarea></div>`;
+  list.appendChild(div);
+}
+function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
+
+function saveScenarios(){
+  state.productName=document.getElementById('productName').value.trim();
+  const items=document.querySelectorAll('.scenario-item');
+  state.scenarios=[];
+  items.forEach(it=>{
+    const name=it.querySelector('.sc-name').value.trim();
+    const before=it.querySelector('.sc-before').value.trim();
+    const after=it.querySelector('.sc-after').value.trim();
+    if(name)state.scenarios.push({name,before,after});
+  });
+  if(state.scenarios.length<1){alert('请至少录入一个场景');return;}
+  state.completed.add('m1');
+  updateProgress();
+  goTo('m2');
+}
+
+function buildAssessment(){
+  const area=document.getElementById('assessmentArea');
+  if(!state.scenarios.length){area.innerHTML='<div class="empty-state">请先录入场景</div>';return;}
+  let html='';
+  state.scenarios.forEach((sc,si)=>{
+    html+=`<div class="card"><div class="card-title">${esc(sc.name)}</div>`;
+    html+=`<p style="font-size:12px;color:var(--t2);margin-bottom:12px">AI替代程度：1=几乎不替代 → 5=完全替代</p>`;
+    DIMS.forEach((dim,di)=>{
+      const key=`${si}_${di}`;
+      const val=state.scores[key]||1;
+      html+=`<div class="slider-group">
+        <span style="min-width:40px;font-size:13px;color:var(--t2)">${dim}</span>
+        <input type="range" min="1" max="5" value="${val}" oninput="onScore('${key}',this.value)" data-key="${key}">
+        <span class="slider-label" id="sl_${key}">${val}</span>
+      </div>`;
+    });
+    html+=`</div>`;
+  });
+  area.innerHTML=html;
+}
+
+function onScore(key,val){
+  state.scores[key]=parseInt(val);
+  document.getElementById('sl_'+key).textContent=val;
+}
+
+function saveAssessment(){
+  state.completed.add('m2');
+  updateProgress();
+  goTo('m3');
+}
+
+function buildStages(){
+  const area=document.getElementById('stageArea');
+  if(!state.scenarios.length){area.innerHTML='<div class="empty-state">请先完成评估</div>';return;}
+
+  const avgScores=DIMS.map((_,di)=>{
+    let sum=0,cnt=0;
+    state.scenarios.forEach((_,si)=>{
+      const v=state.scores[`${si}_${di}`]||1;
+      sum+=v;cnt++;
+    });
+    return cnt?sum/cnt:1;
+  });
+
+  let html=`<div class="card"><div class="card-title">各认知维度平均位移度</div>
+    <div class="radar-container"><svg width="300" height="280" viewBox="0 0 300 280" id="radarSvg"></svg></div></div>`;
+
+  html+=`<div class="card"><div class="card-title">为每个维度判定当前阶段</div>
+    <p style="font-size:12px;color:var(--t2);margin-bottom:16px">基于上方评估的平均分，选择该认知维度在你的产品中所处的阶段</p>
+    <table><tr><th>维度</th><th>平均位移度</th><th>建议阶段</th><th>你的判定</th></tr>`;
+  DIMS.forEach((dim,di)=>{
+    const avg=avgScores[di];
+    const suggested=avg<=2?0:avg<=3?1:avg<=4?2:3;
+    const current=state.stages[di]!==undefined?state.stages[di]:suggested;
+    state.stages[di]=current;
+    html+=`<tr>
+      <td>${dim}</td>
+      <td><span style="font-weight:600;color:var(--ac)">${avg.toFixed(1)}</span></td>
+      <td><span class="stage-pill ${STAGE_CLASSES[suggested]}">${STAGE_NAMES[suggested]}</span></td>
+      <td><select onchange="state.stages[${di}]=parseInt(this.value)" style="background:var(--bg3);border:1px solid var(--bg4);color:var(--t1);padding:4px 8px;border-radius:4px;font-size:12px">
+        ${STAGE_NAMES.map((s,i)=>`<option value="${i}" ${i===current?'selected':''}>${s}</option>`).join('')}
+      </select></td></tr>`;
+  });
+  html+=`</table></div>`;
+  area.innerHTML=html;
+
+  drawRadar(avgScores);
+}
+
+function drawRadar(scores){
+  const svg=document.getElementById('radarSvg');
+  if(!svg)return;
+  const cx=150,cy=130,maxR=100;
+  const n=5;
+  const angleStep=Math.PI*2/n;
+  const startAngle=-Math.PI/2;
+
+  let html='';
+  [0.2,0.4,0.6,0.8,1].forEach(r=>{
+    let pts=[];
+    for(let i=0;i<n;i++){
+      const a=startAngle+i*angleStep;
+      pts.push(`${cx+Math.cos(a)*maxR*r},${cy+Math.sin(a)*maxR*r}`);
+    }
+    html+=`<polygon points="${pts.join(' ')}" fill="none" stroke="#30363d" stroke-width="1"/>`;
+  });
+
+  for(let i=0;i<n;i++){
+    const a=startAngle+i*angleStep;
+    html+=`<line x1="${cx}" y1="${cy}" x2="${cx+Math.cos(a)*maxR}" y2="${cy+Math.sin(a)*maxR}" stroke="#30363d" stroke-width="1"/>`;
+    const lx=cx+Math.cos(a)*(maxR+18);
+    const ly=cy+Math.sin(a)*(maxR+18);
+    html+=`<text x="${lx}" y="${ly}" fill="#8b949e" font-size="12" text-anchor="middle" dominant-baseline="middle">${DIMS[i]}</text>`;
+  }
+
+  let dataPts=[];
+  scores.forEach((s,i)=>{
+    const a=startAngle+i*angleStep;
+    const r=(s/5)*maxR;
+    dataPts.push(`${cx+Math.cos(a)*r},${cy+Math.sin(a)*r}`);
+  });
+  html+=`<polygon points="${dataPts.join(' ')}" fill="rgba(88,166,255,.15)" stroke="#58a6ff" stroke-width="2"/>`;
+  scores.forEach((s,i)=>{
+    const a=startAngle+i*angleStep;
+    const r=(s/5)*maxR;
+    html+=`<circle cx="${cx+Math.cos(a)*r}" cy="${cy+Math.sin(a)*r}" r="4" fill="#58a6ff"/>`;
+  });
+
+  html+=`<text x="150" y="265" fill="#6e7681" font-size="11" text-anchor="middle">位移度雷达图（1=几乎不替代 5=完全替代）</text>`;
+  svg.innerHTML=html;
+}
+
+function saveStages(){
+  state.completed.add('m3');
+  updateProgress();
+  goTo('m4');
+}
+
+function runDumbbellCheck(){
+  const desc=document.getElementById('toolDesc').value.trim();
+  if(!desc){alert('请先粘贴工具描述');return;}
+  const checks=[];
+  const implWords=['先打开','然后点击','调用','请求','发送到','通过API','步骤是','流程为','先查询再'];
+  const hasImpl=implWords.some(w=>desc.includes(w));
+  checks.push({pass:!hasImpl,title:'实现路径泄露检查',desc:hasImpl?'发现疑似实现路径描述（'+implWords.filter(w=>desc.includes(w)).join('、')+'），应只描述能力边界':'未发现实现路径泄露'});
+
+  const hasBoundary=desc.includes('不')||desc.includes('除外')||desc.includes('不支持')||desc.includes('不包括')||desc.includes('仅');
+  checks.push({pass:hasBoundary,title:'能力边界声明',desc:hasBoundary?'发现边界描述词':'缺少"不能做什么"的边界声明，建议补充'});
+
+  const hasParam=/[（(].*[)）]|参数|param|arg|input/i.test(desc);
+  checks.push({pass:hasParam,title:'接口参数可见性',desc:hasParam?'发现参数定义':'未发现明确的参数/输入定义'});
+
+  const len=desc.length;
+  checks.push({pass:len>=20&&len<=500,title:'描述长度适中',desc:`当前${len}字。${len<20?'过短，可能遗漏关键信息':len>500?'过长，可能混入了实现细节':'长度适中'}`});
+
+  const result=document.getElementById('dumbbellResult');
+  result.style.display='block';
+  const container=document.getElementById('dumbbellChecks');
+  container.innerHTML=checks.map(c=>`
+    <div class="card" style="border-left:3px solid ${c.pass?'var(--gn)':'var(--yl)'}">
+      <div class="card-title">${c.pass?'✓':'⚠'} ${c.title} <span class="badge ${c.pass?'badge-green':'badge-yellow'}">${c.pass?'通过':'建议改进'}</span></div>
+      <p>${c.desc}</p>
+    </div>`).join('');
+
+  state.completed.add('m4');
+  updateProgress();
+}
+
+function updateCheck(el){
+  const text=el.nextElementSibling;
+  text.classList.toggle('checked',el.checked);
+}
+
+function buildReport(){
+  const rc=document.getElementById('reportContent');
+  if(!state.scenarios.length){rc.innerHTML='<div class="empty-state">请先完成场景录入和评估</div>';return;}
+
+  const avgScores=DIMS.map((_,di)=>{
+    let sum=0,cnt=0;
+    state.scenarios.forEach((_,si)=>{const v=state.scores[`${si}_${di}`]||1;sum+=v;cnt++;});
+    return cnt?sum/cnt:1;
+  });
+  const overallAvg=avgScores.reduce((a,b)=>a+b,0)/avgScores.length;
+
+  let riskLevel='低';let riskBadge='badge-green';
+  if(overallAvg>3.5){riskLevel='高';riskBadge='badge-red';}
+  else if(overallAvg>2.5){riskLevel='中';riskBadge='badge-yellow';}
+
+  const highDims=DIMS.filter((_,i)=>avgScores[i]>=3.5);
+  const medDims=DIMS.filter((_,i)=>avgScores[i]>=2.5&&avgScores[i]<3.5);
+
+  let html=`
+    <div class="card">
+      <div class="result-header">
+        <div><div class="score-big">${overallAvg.toFixed(1)}</div><div class="score-desc">综合认知位移度（满分5）</div></div>
+        <div style="text-align:right"><span class="badge ${riskBadge}" style="font-size:14px;padding:6px 16px">认知依赖风险：${riskLevel}</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📊 分析对象：${esc(state.productName)||'未命名产品'}</div>
+      <p>覆盖 ${state.scenarios.length} 个使用场景，评估 5 个认知维度</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">各维度位移详情</div>
+      <table>
+        <tr><th>维度</th><th>平均位移度</th><th>判定阶段</th><th>风险等级</th><th>产品建议</th></tr>
+        ${DIMS.map((dim,i)=>{
+          const avg=avgScores[i];
+          const stage=state.stages[i]!==undefined?state.stages[i]:(avg<=2?0:avg<=3?1:avg<=4?2:3);
+          const risk=avg>=3.5?'高':avg>=2.5?'中':'低';
+          const rBadge=avg>=3.5?'badge-red':avg>=2.5?'badge-yellow':'badge-green';
+          const advice=getAdvice(dim,avg,stage);
+          return `<tr>
+            <td><strong>${dim}</strong></td>
+            <td>${avg.toFixed(1)}</td>
+            <td><span class="stage-pill ${STAGE_CLASSES[stage]}">${STAGE_NAMES[stage]}</span></td>
+            <td><span class="badge ${rBadge}">${risk}</span></td>
+            <td style="font-size:12px;color:var(--t2)">${advice}</td>
+          </tr>`;
+        }).join('')}
+      </table>
+    </div>`;
+
+  if(highDims.length>0){
+    html+=`<div class="card" style="border-left:3px solid var(--rd)">
+      <div class="card-title">⚠ 高位移维度需关注</div>
+      <p>以下认知维度的替代程度较高（≥3.5），建议评估是否需要保留用户认知参与：</p>
+      <ul>${highDims.map(d=>`<li><strong>${d}</strong>——考虑在某些场景下保留用户的${d}参与，而非完全自动化</li>`).join('')}</ul>
+    </div>`;
+  }
+
+  html+=`<div class="card">
+    <div class="card-title">🎯 行动建议</div>
+    <div id="actionItems">
+      ${getActionItems(avgScores,state.stages)}
+    </div>
+  </div>`;
+
+  const promptText=generatePrompt();
+  html+=`<div class="card">
+    <div class="card-title" style="justify-content:space-between">📋 可复制的分析 Prompt<button class="copy-btn" onclick="copyText(this,'reportPrompt')">复制</button></div>
+    <pre id="reportPrompt">${esc(promptText)}</pre>
+  </div>`;
+
+  html+=`<div style="margin-top:16px;text-align:center">
+    <button class="btn" onclick="exportReport()">导出完整报告（文本）</button>
+  </div>`;
+
+  rc.innerHTML=html;
+  state.completed.add('m5');
+  updateProgress();
+}
+
+function getAdvice(dim,avg,stage){
+  const map={
+    '记忆':{high:'考虑保留关键信息的展示而非静默处理，让用户有机会"看见"信息',med:'当前替代适中，注意不要进一步静默化',low:'当前保留了用户记忆参与，继续保持'},
+    '推理':{high:'展示AI的推理过程（思维链），让用户理解"为什么这样做"',med:'在关键决策点增加推理过程的可见性',low:'用户仍保持推理参与，良好状态'},
+    '专注':{high:'减少主动打断频率，在非紧急场景下等待用户询问',med:'审视推送策略，区分紧急/非紧急提醒',low:'当前打断频率合理'},
+    '创造':{high:'在某些场景提供素材/选项而非直接给方案，保留用户创造空间',med:'平衡"直接给方案"和"给选择"的比例',low:'用户仍有创造参与空间'},
+    '判断':{high:'增加选择题式交互（展示2-3个选项），减少AI单方面决策',med:'在重要决策上展示选项，小决策可自动化',low:'用户判断权保留良好'}
+  };
+  const level=avg>=3.5?'high':avg>=2.5?'med':'low';
+  return (map[dim]&&map[dim][level])||'继续观察';
+}
+
+function getActionItems(scores,stages){
+  let items=[];
+  DIMS.forEach((dim,i)=>{
+    const avg=scores[i];
+    const stage=stages[i]!==undefined?stages[i]:(avg<=2?0:avg<=3?1:avg<=4?2:3);
+    if(avg>=3.5){
+      items.push(`<div class="check-item"><input type="checkbox" onchange="updateCheck(this)"><span class="text"><strong>[${dim}·高位移]</strong> 在下一个迭代中，选择1个高频场景，把"AI直接执行"改为"AI推荐+用户确认"模式，观察用户反馈</span></div>`);
+    }
+    if(stage>=2){
+      items.push(`<div class="check-item"><input type="checkbox" onchange="updateCheck(this)"><span class="text"><strong>[${dim}·${STAGE_NAMES[stage]}]</strong> 设计一个"无AI回退"测试：让测试用户在该维度上不使用AI完成任务，记录完成度和耗时变化</span></div>`);
+    }
+  });
+  if(items.length===0){
+    items.push(`<div class="check-item"><input type="checkbox" onchange="updateCheck(this)"><span class="text">当前各维度位移度较低，产品处于"辅助"阶段，继续监控位移趋势</span></div>`);
+  }
+  items.push(`<div class="check-item"><input type="checkbox" onchange="updateCheck(this)"><span class="text"><strong>[通用]</strong> 每季度用本工具重新评估一次，追踪位移度变化趋势</span></div>`);
+  return items.join('');
+}
+
+function generatePrompt(){
+  let text=`我正在对"${state.productName||'[产品名]'}"进行认知位移审计。\n\n`;
+  text+=`分析了${state.scenarios.length}个高频场景：\n`;
+  state.scenarios.forEach((sc,i)=>{
+    text+=`\n场景${i+1}：${sc.name}\n- AI前：${sc.before}\n- AI后：${sc.after}\n`;
+  });
+  text+=`\n五区位移评估结果：\n`;
+  DIMS.forEach((dim,di)=>{
+    let sum=0,cnt=0;
+    state.scenarios.forEach((_,si)=>{const v=state.scores[`${si}_${di}`]||1;sum+=v;cnt++;});
+    const avg=cnt?sum/cnt:1;
+    const stage=state.stages[di]!==undefined?state.stages[di]:(avg<=2?0:avg<=3?1:avg<=4?2:3);
+    text+=`- ${dim}：位移度 ${avg.toFixed(1)}/5，阶段：${STAGE_NAMES[stage]}\n`;
+  });
+  text+=`\n请基于以上数据，给出：\n1. 哪些场景的认知替代是"好的"（减少无意义负担）？\n2. 哪些替代可能导致"不好的退化"？\n3. 对高位移维度，如何在产品设计中保留用户认知参与？`;
+  return text;
+}
+
+function copyText(btn,id){
+  const text=document.getElementById(id).textContent;
+  navigator.clipboard.writeText(text).then(()=>{
+    btn.textContent='已复制';btn.classList.add('copied');
+    setTimeout(()=>{btn.textContent='复制';btn.classList.remove('copied');},2000);
+  });
+}
+
+function exportReport(){
+  let text=`认知位移分析报告\n${'='.repeat(40)}\n\n`;
+  text+=`分析对象：${state.productName||'未命名'}\n`;
+  text+=`分析日期：${new Date().toLocaleDateString('zh-CN')}\n`;
+  text+=`场景数量：${state.scenarios.length}\n\n`;
+  text+=`--- 场景列表 ---\n`;
+  state.scenarios.forEach((sc,i)=>{
+    text+=`\n[${i+1}] ${sc.name}\n  AI前：${sc.before}\n  AI后：${sc.after}\n`;
+  });
+  text+=`\n--- 五区评估 ---\n`;
+  DIMS.forEach((dim,di)=>{
+    let sum=0,cnt=0;
+    state.scenarios.forEach((_,si)=>{const v=state.scores[`${si}_${di}`]||1;sum+=v;cnt++;});
+    const avg=cnt?sum/cnt:1;
+    const stage=state.stages[di]!==undefined?state.stages[di]:(avg<=2?0:avg<=3?1:avg<=4?2:3);
+    text+=`${dim}：${avg.toFixed(1)}/5 | ${STAGE_NAMES[stage]}\n`;
+  });
+  const blob=new Blob([text],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='认知位移分析报告.txt';
+  a.click();
+}
+
+document.querySelectorAll('.nav-item').forEach(n=>{
+  n.addEventListener('click',()=>goTo(n.dataset.mod));
+});
+
+addScenario();addScenario();addScenario();
+updateProgress();
+</script>
+</body>
+</html>

@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>6·11 会议对触发器架构的影响 · 详细版（先讲背景，再讲影响）</title>
+<style>
+  :root{
+    --bg:#fbfaf7; --ink:#231f1d; --muted:#6c655f; --line:#e7e2db; --card:#ffffff;
+    --blue:#2563eb; --green:#0f9f6e; --amber:#b45309; --red:#dc2626; --purple:#7c3aed; --orange:#e2630f;
+    --cloud:#1d4ed8; --edge:#067a55; --seres:#9333ea;
+    --amber-bg:#fdf3e3; --red-bg:#fdecec; --blue-bg:#eef3ff; --green-bg:#eafaf3; --purple-bg:#f5f0fe;
+    --cloud-bg:#e8f0ff; --edge-bg:#e6f7f0; --seres-bg:#f5ecfe;
+    --mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans SC","Microsoft YaHei",sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16.5px;line-height:1.82;-webkit-font-smoothing:antialiased}
+  .layout{max-width:1140px;margin:0 auto;padding:0 28px;display:grid;grid-template-columns:236px minmax(0,1fr);gap:44px}
+  nav.toc{position:sticky;top:0;align-self:start;height:100vh;overflow:auto;padding:26px 0 40px;border-right:1px solid var(--line)}
+  nav.toc .brand{font-weight:800;font-size:15px;margin-bottom:2px}
+  nav.toc .brand small{display:block;font-weight:500;color:var(--muted);font-size:11.5px;margin-top:3px}
+  nav.toc ol{list-style:none;margin:14px 0 0;padding:0}
+  nav.toc a{display:block;color:var(--muted);text-decoration:none;font-size:12.7px;padding:5px 10px;border-radius:7px;border-left:2px solid transparent}
+  nav.toc a:hover{color:var(--ink);background:#f1ece4}
+  nav.toc a.bg{border-left-color:var(--green);font-weight:700;color:var(--ink)}
+  nav.toc a.q{border-left-color:var(--amber);font-weight:700;color:var(--ink)}
+  main{padding:32px 0 100px;min-width:0;max-width:80ch}
+  .kicker{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.05em;color:var(--amber);background:var(--amber-bg);padding:3px 9px;border-radius:999px;margin-bottom:14px}
+  h1{font-size:27px;line-height:1.22;letter-spacing:-.02em;margin:0 0 8px;font-weight:800}
+  .lead{font-size:15px;color:var(--muted);margin:0 0 4px;max-width:68ch}
+  .sect{display:flex;align-items:center;gap:12px;margin:50px 0 8px;padding:13px 18px;border-radius:12px;color:#fff;scroll-margin-top:12px}
+  .sect.bg{background:#15803d} .sect.q{background:#0f172a}
+  .sect .n{font-size:13px;font-weight:800;background:rgba(255,255,255,.2);padding:3px 11px;border-radius:999px}
+  .sect h2{margin:0;color:#fff;font-size:21px}
+  h2{font-size:21px;margin:30px 0 6px;font-weight:800;scroll-margin-top:12px}
+  h3{font-size:17px;margin:24px 0 6px;font-weight:750}
+  p{margin:12px 0}
+  b{font-weight:750}.muted{color:var(--muted)}.red{color:var(--red);font-weight:700}
+  /* 概念卡 */
+  .concept{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:14px 17px;margin:13px 0}
+  .concept .h{font-weight:800;font-size:16.5px;margin-bottom:4px}
+  /* 例子 */
+  .eg{background:#f6f4ef;border-left:3px solid var(--amber);border-radius:8px;padding:9px 14px;margin:10px 0;font-size:15px}
+  .eg b{color:var(--amber)}
+  /* 引用 */
+  .quote{background:#f6f1ea;border:1px dashed #d6c9b4;border-radius:10px;padding:10px 15px;margin:11px 0;font-size:15px}
+  .quote .who{font-weight:800;color:var(--amber);font-size:13px;margin-right:6px}
+  /* 大白话 */
+  .plain{background:var(--green-bg);border:1px solid #bdeed9;border-radius:10px;padding:11px 16px;margin:13px 0}
+  .plain .t{font-weight:800;color:var(--edge);font-size:14px;margin-bottom:3px}
+  .core{background:var(--amber-bg);border:1px solid #f1d9a8;border-radius:12px;padding:15px 18px;margin:16px 0}
+  .core .t{font-weight:800;color:var(--amber);margin-bottom:5px}
+  .tag{display:inline-block;font-size:11.5px;font-weight:800;padding:2px 8px;border-radius:5px;vertical-align:1px;color:#fff}
+  .tag.cloud{background:var(--cloud)} .tag.edge{background:var(--edge)} .tag.seres{background:var(--seres)}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:14px 0}
+  th,td{border:1px solid var(--line);padding:9px 12px;text-align:left;vertical-align:top;line-height:1.6}
+  th{background:#f1ece4;font-weight:750}
+  td.c{background:var(--cloud-bg)} td.e{background:var(--edge-bg)} td.s{background:var(--seres-bg)}
+  .pt{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--blue);border-radius:11px;padding:13px 17px;margin:12px 0}
+  .pt .h{font-weight:800;font-size:16.5px;margin-bottom:4px}
+  .pt .n{font-family:var(--mono);font-size:12px;font-weight:800;color:#fff;background:var(--ink);padding:1px 8px;border-radius:5px;margin-right:7px}
+  .pt.a{border-left-color:var(--blue)}.pt.b{border-left-color:var(--green)}.pt.c{border-left-color:var(--orange)}
+  .pt.d{border-left-color:var(--purple)}.pt.r{border-left-color:var(--red)}.pt.e{border-left-color:var(--amber)}
+  .step{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:13px 17px;margin:11px 0}
+  .step .h{font-weight:800;font-size:16px;margin-bottom:3px}
+  .step .h .num{font-family:var(--mono);color:var(--amber);margin-right:7px}
+  ol.steps{list-style:none;padding:0;margin:0}
+  .conc{margin-top:50px;padding:22px 25px;border-radius:14px;background:#26201b;color:#f4ede3}
+  .conc b{color:#ffd9a0}
+  code{font-family:var(--mono);font-size:13px;background:#f2ede5;color:#5b4a36;padding:1.5px 6px;border-radius:5px}
+  @media print{nav.toc{display:none}.layout{grid-template-columns:1fr}.sect,.core,.plain,.eg{-webkit-print-color-adjust:exact;print-color-adjust:exact}.pt,.step,.quote,.concept{break-inside:avoid}}
+  @media(max-width:900px){.layout{grid-template-columns:1fr;gap:0}nav.toc{display:none}}
+</style>
+</head>
+<body>
+<div class="layout">
+  <nav class="toc">
+    <div class="brand">6·11 影响分析 · 详细版<small>先讲背景 · 再讲影响</small></div>
+    <ol>
+      <li><a class="bg" href="#b0">背景0 · 这场会在解决啥</a></li>
+      <li><a class="bg" href="#b1">背景1 · 啥是条件任务</a></li>
+      <li><a class="bg" href="#b2">背景2 · 条件任务分4类</a></li>
+      <li><a class="bg" href="#b3">★背景3 · 三个"触发器"分清楚</a></li>
+      <li><a class="bg" href="#b4">背景4 · 这场会吵的核心</a></li>
+      <li><a class="q" href="#q1">问题1 · 有什么影响</a></li>
+      <li><a class="q" href="#q2">问题2 · 如何影响</a></li>
+      <li><a class="q" href="#q3">问题3 · 为什么</a></li>
+      <li><a class="q" href="#q4">问题4 · 坏处</a></li>
+      <li><a class="q" href="#q5">问题5 · 怎么做</a></li>
+      <li><a href="#conc">定调</a></li>
+    </ol>
+  </nav>
+  <main>
+    <div class="kicker">2026-06-11「端侧主动推荐任务·语音交互方案」会议 · 影响分析</div>
+    <h1>6·11 会议对你触发器架构的影响（详细版）</h1>
+    <p class="lead">先花一半篇幅把背景和概念讲透——尤其是<b>场上三个长得像"触发器"的东西</b>，这是你看不懂的根源；分清楚了，后面五个问题就顺了。所有结论配会上真实例子。</p>
+
+    <div class="core">
+      <div class="t">◆ 你先记住这一句，下面慢慢展开</div>
+      这场会<b>没碰你云端那半张图</b>，但把你图里"<b>端侧触发器（节点 24）</b>"这一个模块，从"理所当然要做"，变成了"<b class="red">你得先证明它凭什么存在，否则就砍掉</b>"。因为会上发现：赛力斯自己也有一套触发器、已经在干端侧的活，你这个再做就重复了。
+    </div>
+
+    <!-- ============ 背景 ============ -->
+    <div class="sect bg" id="b0"><span class="n">背景 0</span><h2>这场会到底在解决什么问题？</h2></div>
+    <p>先搞清楚这是个什么会，不然你不知道大家在急什么。</p>
+    <p>主持人是<b>赵益红</b>。她手里攒了一批需求——来自嘉锋那张"168 feature list"里被标成"<b>主动服务</b>"的所有功能。她自己盘了一遍，发现这些"主动服务"<b>很多要靠"条件任务"来实现</b>。但盘完她卡住了：<b>这些条件任务到底该派给谁去做？她不知道。</b></p>
+    <div class="plain"><div class="t">大白话</div>益红是个"<b>需求分派员</b>"。她手里一堆活，要往下分，但她不知道哪些活该给字节、哪些该给赛力斯、哪些要走云、哪些走端。<b>这场会就是为了把"这些活分给谁"搞清楚——是分派会，不是方案设计会。</b></div>
+
+    <!-- 背景1 -->
+    <div class="sect bg" id="b1"><span class="n">背景 1</span><h2>什么是"条件任务"？</h2></div>
+    <p>条件任务 ≠ 用户说一句立刻做的普通指令。它是"<b>满足某个条件，才执行某个动作</b>"的任务。</p>
+    <div class="eg"><b>例：</b>"超过 25 度就开空调"、"靠近充电桩就打开充电盖板"、"下车了提醒我拿遗留物品"。——它都有一个"等条件成立"的过程，而不是马上做。</div>
+
+    <!-- 背景2 -->
+    <div class="sect bg" id="b2"><span class="n">背景 2</span><h2>条件任务分 4 类（这是全场讨论的骨架）</h2></div>
+    <p>益红开场（00:01）把条件任务分了 4 类。<b>这 4 类决定了"谁做、走云还是走端"</b>，你一定要记住这张表：</p>
+    <table>
+      <tr><th style="width:130px">类别</th><th>谁发起 / 什么样</th><th>会上举的真实例子</th><th style="width:150px">谁来实现</th></tr>
+      <tr><td><b>① 用户/Director 语音发起</b></td><td>用户当场说出来的条件任务</td><td>"十分钟后关座椅加热"</td><td class="c"><span class="tag cloud">云</span> 动态 Advisor 创建（已有链路）</td></tr>
+      <tr><td><b>② 系统预设·需云端推理</b></td><td>产品提前设好，但触发后要 Director 想一下、还要说话</td><td>下车没结束导航，再上车判断"接续导航还是发起新导航"；用户反复戳屏幕→推荐用车介绍</td><td class="c"><span class="tag cloud">云</span> 云端触发器配事件 → 直接给 Director</td></tr>
+      <tr><td><b>③ 系统预设·端侧自闭环</b></td><td>产品提前设好，<b>不涉及语音</b>，端上自己做完</td><td>识别到遗留物→TTS播报；识别到天气→开保护模式；不敢开车门提醒</td><td class="s"><span class="tag seres">赛力斯</span> CDC 自己写服务（用 AI Box 能力）</td></tr>
+      <tr><td><b>④ 不透出任务中心的</b></td><td>暂时不管</td><td>—</td><td>—</td></tr>
+    </table>
+    <div class="plain"><div class="t">大白话</div>这 4 类的分水岭其实就两条：<b>① 是用户说的 还是 系统预设的；② 涉不涉及"说话"（语音交互）。</b>① 用户说的→动态 Advisor。②③ 系统预设的里：<b>要说话/要推理的→上云（②）；不说话端上做完的→赛力斯自己干（③）。</b>这条"涉不涉及说话"的分界，是这场会最硬的一刀（佳杰 00:15）。</div>
+
+    <!-- 背景3 ★ -->
+    <div class="sect bg" id="b3"><span class="n">★ 背景 3</span><h2>场上有"三个长得像触发器"的东西——先分清楚！</h2></div>
+    <p class="red" style="font-size:17px;font-weight:700">这一段是你看不懂的根源。会上"触发器"这个词指了三个不同的东西，混在一起讲，谁都会懵。先用这张表分清：</p>
+    <table>
+      <tr><th style="width:165px">叫法</th><th>谁的 / 在哪</th><th>干什么</th><th>这次会的态度</th></tr>
+      <tr><td class="c"><span class="tag cloud">云</span> <b>云端触发器</b></td><td>字节 · 你管 · 图里 ⑮</td><td>条件话注册成场景、扫信号、判命中、配事件给 Director</td><td><b>没被质疑，被确认</b>（益红 00:24："现在是云端的触发器，可以配事件"）</td></tr>
+      <tr><td class="e"><span class="tag edge">端</span> <b>字节端侧触发器</b></td><td>字节 · 你管 · <b>图里 24（主角）</b></td><td>你规划的端上那套（定时器/弱网/VLM调度）</td><td class="red">被质疑：要不要做？做啥？（被标虚线）</td></tr>
+      <tr><td class="s"><span class="tag seres">塞</span> <b>赛力斯 CDC 触发器</b></td><td>赛力斯 · 不是你 · "广义触发器"</td><td>赛力斯自己写的端上条件判断：停车寻车、迎宾、充电盖板、状态感知</td><td>赛力斯自己做，<b>对字节透明、和你没关系</b>（Walter/兰若多次确认）</td></tr>
+    </table>
+    <div class="plain"><div class="t">大白话（用一个比喻）</div>把车想成一栋楼。<b>云端触发器</b>是楼外的"总调度中心"（在云上）；<b>赛力斯 CDC 触发器</b>是这栋楼自带的"物业系统"（赛力斯装好的，你看不见内部，它自己会判断"P档停车了就去看有没有充电桩"）；<b>你的字节端侧触发器（24）</b>是你想往这栋楼里再装一套"自己的本地管家"。<b class="red">问题来了：物业（赛力斯）已经把楼里的活干了，你再装一个本地管家，它还有啥用？这就是这场会的全部争论。</b></div>
+    <h3>顺带翻译三个黑话</h3>
+    <div class="concept"><div class="h">CDC</div>赛力斯的车机域控平台——可以理解成"赛力斯自己的车机大脑/软件底座"。上面跑着 10-20 个和 AI Box 打交道的小服务。</div>
+    <div class="concept"><div class="h">AI Box</div>字节提供的一个"算力盒子"，专门跑 VLM（视觉识别）。Walter 00:58："BOX 只是做一个算力，一个算力中心而已。"</div>
+    <div class="concept"><div class="h">字节和赛力斯在端上的关系</div>Walter 00:30："你（字节）看不到 BOX、看不到 VLM，你就看到赛力斯 CDC。" 也就是说——<b>端上的事，赛力斯 CDC 在最上游，字节只透出原子能力给它用。</b></div>
+
+    <!-- 背景4 -->
+    <div class="sect bg" id="b4"><span class="n">背景 4</span><h2>这场会真正吵起来的，就一个问题</h2></div>
+    <p>背景铺完，会上的争论其实只围绕一句话：<b>"既然赛力斯 CDC 自己有触发器、自己把端上的活干了，那字节的端侧触发器（24）还有没有必要存在？"</b></p>
+    <div class="quote"><span class="who">兰若 00:38</span>我们自己的端侧触发器就做了个路由上云，这个没有意义。它应该自己触发一些独立服务。如果它没有端侧业务闭环，那直接通过某模块上云端触发器不就完了？</div>
+    <div class="quote"><span class="who">董均 00:40</span>端侧触发器要有必要性，必须脱离云端、能独立离线——没网也能实现功能。否则所有场景透传到云端、云端再下发，不就完事了？</div>
+    <div class="quote"><span class="who">益红 00:47 / 兰若 00:48</span>这是个遗留课题，得泽民来盘：端侧触发器到底是否需要？如果需要，做什么？（益红把它标成了虚线）</div>
+    <p>你（王泽民）00:47 回了一句：你之前规划过一套基于 VLM 的，现在打算做"端云结合"的触发器，<b>但要 615 以后</b>。佳杰追问：<b>"有文档或排期吗？现在对端侧触发器要做啥，其实还不清楚。"</b>——这就是你被点到的、欠的那个答案。</p>
+
+    <!-- ============ 五个问题 ============ -->
+    <div class="sect q" id="q1"><span class="n">问题 1</span><h2>对你整张图的架构有什么影响？</h2></div>
+    <p>背景清楚了，影响就好懂了。<b>云端那半（⑨→⑩→⑬→⑮→⑲→⑳）没被动，反而被确认；冲击全在端侧。</b>五点：</p>
+    <div class="pt r"><div class="h"><span class="n">影响①</span>你的端侧触发器（24）被打回"待定/虚线"</div>就是背景4 那场争论的结果。你图里画了个 12 原子的完整 24，<b>但现在缺一个所有人都认可的"为什么要做"。</b></div>
+    <div class="pt b"><div class="h"><span class="n">影响②</span>你图里把"两个触发器"画成了一个</div>背景3 说的：你的 24 里，其实混了"赛力斯 CDC 触发器"和"字节端侧触发器"两件事。<div class="eg"><b>具体例子：</b>你图 24 里写了"哨兵/迎宾/下车/儿童看"这些 VLM 任务——可这些在赛力斯项目里<b>是赛力斯 CDC 自己做的</b>（佳杰 00:40），不是你做的。所以你把别人的活画进了自己的框。</div></div>
+    <div class="pt c"><div class="h"><span class="n">影响③</span>缺一个岔路口："涉不涉及语音"</div>这是这场会最硬的新分界，你图里没有。<div class="eg"><b>具体例子：</b>"识别到遗留物→只播报一句"——不用用户回答，<b>端侧自闭环（赛力斯做）</b>；但"要不要帮你打开充电盖板？"——要用户答"要/不要"，<b>就必须上云走 Director</b>。同样是充电相关，一个走端、一个走云，分界就是"要不要听用户说话"。</div></div>
+    <div class="pt a"><div class="h"><span class="n">影响④</span>"系统预设条件任务"的承接被确认（这条是好消息）</div>益红 00:24 确认：系统预设、需云端推理的条件任务，<b>就用云端触发器配事件，直接给 Director，可以不经过 Advisor</b>。<b>这条和你图里路径③完全一致</b>（条件话→⑬后台→⑮引擎→L21 通知 Director）——说明你云端那半画对了。</div>
+    <div class="pt d"><div class="h"><span class="n">影响⑤</span>新增一个风险（但主要不在你触发器）</div>主动服务时没唤醒、没音区定位，主驾说"要"、副驾说"不要"会冲突。结论：<b>不做硬策略，靠 Director 模型理解舱内环境</b>（晓伟 00:08）。<b>这影响的是语音和 Director（你图 ㉖/⑳），触发器本身基本不受影响</b>，你图 L29 那条线标一句"冲突由 Director 兜"就行。</div>
+
+    <div class="sect q" id="q2"><span class="n">问题 2</span><h2>如何影响？（逐条落到你图上，带例子）</h2></div>
+    <table>
+      <tr><th style="width:120px">图上位置</th><th>现在画的</th><th>会上要求怎么改（+例子）</th></tr>
+      <tr><td>节点 24</td><td>一个完整 12 原子端侧引擎</td><td>标"待论证/虚线"，<b>拆两层</b>：上游 <span class="tag seres">赛力斯</span> CDC 触发器（做 VLM 类端侧触发，透明）+ 你的 <span class="tag edge">字节</span> 端侧触发器（只管定时器/弱网/本地组合）。<b>例：</b>"哨兵/迎宾/下车安全"挪到赛力斯那层；"十分钟后关加热/弱网履约"留你这层。</td></tr>
+      <tr><td>24 的价值</td><td>12 原子平铺</td><td>把存在理由<b>收敛到 3 件云端和赛力斯都给不了的事</b>：①端侧定时器 ②弱网离线履约 ③本地信号组合快触发。其余删/让给赛力斯。</td></tr>
+      <tr><td>⑨/③ 之后</td><td>直接进条件任务</td><td>加一个 <b>"涉不涉及语音?"决策菱形</b>：不涉→端侧/CDC 自闭环（不上云）；涉→必走 Director。</td></tr>
+      <tr><td>系统预设条件任务</td><td>没单独标</td><td>明确标：<b>系统预设条件任务 → ⑬/⑮ 云端触发器配事件 → 直给 Director（可不经 ⑯⑰ Advisor）</b>。</td></tr>
+      <tr><td>任务中心 ㉓</td><td>输出节点</td><td>补"<b>被查询</b>"通路：㉓ 是显示层+数据库（enable/disable），别人来<b>反查</b>它（"这任务用户关了没？"），它不主动推（佳杰 00:49）。</td></tr>
+      <tr><td>L29 talk 下发</td><td>一条线</td><td>标注"多音区/全双工冲突由 Director 策略兜底"。</td></tr>
+    </table>
+
+    <div class="sect q" id="q3"><span class="n">问题 3</span><h2>为什么会影响？（一步步推）</h2></div>
+    <p>根因一句话：<b>你的端侧触发器，和赛力斯 CDC，在"端上做条件判断"这件事上撞车了，而赛力斯已经在做、还做得更多。</b>推导四步：</p>
+    <ol class="steps">
+      <li class="step"><div class="h"><span class="num">第1步</span>端上的活，赛力斯先占了</div>赛力斯 CDC 有 10-20 个服务自己做条件判断（兰若 00:29），<b>对接方是赛力斯不是你</b>。<div class="eg"><b>例（丁彬 00:37）：</b>"看充电要不要开充电口盖——用户 P 档停车后，触发器调我们去看后面有没有充电桩。" 这个判断现在是赛力斯/CDC 做的，不是你。</div></li>
+      <li class="step"><div class="h"><span class="num">第2步</span>那你的 24 还剩啥？</div>只剩"把端信号报上云"。Walter 00:34："云端触发器本质上端上是没有东西的，端上就是报状态，云端基于信号组合形成更高维事件。"</li>
+      <li class="step"><div class="h"><span class="num">第3步</span>只做"报状态" = 没意义</div>这正是兰若/董均说的"路由上云，没意义"。<b>一个模块如果只是个二传手，就不配单独立模块。</b></li>
+      <li class="step"><div class="h"><span class="num">第4步</span>所以它存在的前提变了</div>24 必须证明自己有"<b>赛力斯给不了、云端也给不了</b>"的独立场景——<b>离线/弱网下的本地履约</b>。这就是它被打回"遗留课题"的原因。</li>
+    </ol>
+
+    <div class="sect q" id="q4"><span class="n">问题 4</span><h2>这么做的坏处是什么？</h2></div>
+    <p>"这么做"有两个方向，坏处完全不同，分开看：</p>
+    <div class="pt a"><div class="h">方向 A · 顺着会议，把端侧触发器砍成"只报状态"（放弃完整 24）</div>
+      <ol style="margin:6px 0 0;padding-left:20px">
+        <li>你规划的"端云结合触发器"直接黄了（你自己 00:47 说的那套）。</li>
+        <li><b>需求7（端侧定时器）、需求9（端云分工）、需求10/11（导航POI/地理围栏）没了载体</b>——这些都要端侧本地履约，没 24 就做不了，<b>弱网/隧道/地库场景全废</b>。<div class="eg"><b>例：</b>"十分钟后关加热"，车一进隧道断网，云上倒计时就失联了——没有端侧 24，这功能直接不可靠。</div></li>
+        <li>和"长期方案"自相矛盾：端侧触发器立项理由就是"从硬编码升级成端侧规则驱动"，砍了等于退回短期方案。</li>
+        <li>职业上（你想往具身智能走）：端侧"感知→条件→执行"本地闭环是具身的反应式底座，砍掉你手里只剩云端编排，含金量掉一截。</li>
+      </ol></div>
+    <div class="pt b"><div class="h">方向 B · 不管会议，硬保留完整 24，和赛力斯 CDC 并存</div>
+      <ol style="margin:6px 0 0;padding-left:20px">
+        <li><b>功能重叠、撞车</b>：两套触发器在端上并存，职责不清、可能互相打架。董均 00:09 已担心"主机厂测试会发现效果不稳定、有 bug"。</li>
+        <li>会影响赛力斯既有做法、要重新对方案（佳杰 00:40），跨团队扯皮成本高。</li>
+        <li>没有自研需求支撑就硬上，评审一定问"你这个和赛力斯那个啥关系、为什么要做"，答不上就是白做。</li>
+      </ol></div>
+    <div class="pt r"><div class="h">两个方向的共同坏处（最现实的）</div>你只要<b>一天不回答"端侧触发器要不要、做什么"，这模块就一直挂在虚线上</b>——而且<b>益红要往你这 loop 的那批"需云端推理的条件任务"也卡着没法往下走</b>（益红 00:44：会把这批需求 loop 给你）。</div>
+
+    <div class="sect q" id="q5"><span class="n">问题 5</span><h2>我应该如何做？（6 步，可直接照做）</h2></div>
+    <p>兰若 00:48 给了方法论，我补全成能落地的 6 步：</p>
+    <ol class="steps">
+      <li class="step"><div class="h"><span class="num">第1步</span>筛表：把"赛力斯做"和"字节做"切干净</div>拿益红那张条件任务表，加两列打勾：① 赛力斯自闭环 / 需字节触发器；② 若需字节，依赖云还是端。<b>筛完你就知道：到底有没有"必须在端侧、且只能字节做"的场景。</b>（兰若：如果筛完没有端侧触发器需求，那它就只有字节自研才有，你出自研需求即可。）</li>
+      <li class="step"><div class="h"><span class="num">第2步</span>给 24 焊死一个"不可替代"的存在理由</div>别泛说"我要做触发器"，用 3 个<b>云端和赛力斯都给不了</b>的硬场景钉住：<br>· <b>端侧定时器（需求7）</b>——"十分钟后关加热"，倒计时必须本地，进隧道也得响。<b>这是动态 Advisor 二期（6/2 内审）明确提的，有上游需求背书，最硬。</b><br>· <b>弱网/离线履约（需求9）</b>——地库/隧道云端够不着，端侧自己判、自己执行。<br>· <b>本地信号组合快触发</b>——几个端信号组合、毫秒级、不绕云。<br>这三条正是董均说的"脱离云端独立离线"，<b>用它们把 24 从"二传手"变成"有本地大脑的执行端"。</b></li>
+      <li class="step"><div class="h"><span class="num">第3步</span>图上把两个触发器拆开，别再混</div>画成：<span class="tag seres">赛力斯</span> CDC 触发器（上游、透明、做 VLM 类端侧触发）→ 透传信号/高维事件 → <span class="tag edge">字节</span> 端侧触发器（只管定时器/弱网/本地组合）→ 上云走 Director。职责一眼清。</li>
+      <li class="step"><div class="h"><span class="num">第4步</span>补"涉不涉及语音"决策点 + 标清系统预设条件任务走云端触发器配事件</div>把这场会两条确认结论画进图。</li>
+      <li class="step"><div class="h"><span class="num">第5步</span>任务中心补"被查询"通路</div>㉓ 改成"显示层 + enable/disable 数据库，被 CDC/云端推理模块反查"。</li>
+      <li class="step"><div class="h"><span class="num">第6步</span>出文档 + 排期（你欠的交付物）</div>你会上说"615 以后"，佳杰追问"有文档或排期吗"。<b>615 后出一份《端侧触发器自研需求 + 端云分工边界》</b>，固化第1~3步：是否需要、做什么、和赛力斯怎么划界。</li>
+    </ol>
+
+    <div class="conc" id="conc">
+      <h2 style="color:#fff;margin:0 0 8px">一句话定调</h2>
+      <p style="margin:0">这场会不是要砍你的端侧触发器，是<b>逼你回答"它凭什么独立存在"</b>。答案就一个词——<b>离线弱网本地闭环</b>。把 24 的价值死死焊在这上面，其余端侧 VLM 触发让给赛力斯，你的图就站得住、评审也过得去。</p>
+    </div>
+    <p class="muted" style="font-size:12.5px;margin-top:18px">依据：2 次会议纪要.md（2026-06-11 逐字稿，引用均标发言人+时间戳）；对照触发器全模块终版大图。</p>
+  </main>
+</div>
+</body>
+</html>

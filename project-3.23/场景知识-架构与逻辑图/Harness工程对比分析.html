@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Harness Engineering 对比分析 · 我们的方案 vs 业界标准</title>
+<style>
+:root{--bg:#f8fafc;--card:#fff;--border:#e2e8f0;--t1:#1e293b;--t2:#475569;--t3:#94a3b8;--blue:#2563eb;--red:#dc2626;--green:#16a34a;--purple:#7c3aed;--orange:#ea580c;--shadow:0 4px 20px rgba(0,0,0,.06)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;color:var(--t1);line-height:1.9;font-size:15px}
+.page{max-width:980px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:1.8rem;font-weight:800;margin-bottom:4px}
+.meta{color:var(--t3);font-size:.85rem;margin-bottom:32px}
+h2{font-size:1.4rem;font-weight:700;margin:48px 0 12px;padding:10px 0 10px 16px;border-left:5px solid var(--blue)}
+h3{font-size:1.1rem;font-weight:700;margin:28px 0 8px}
+h4{font-size:.95rem;font-weight:700;margin:20px 0 6px;color:var(--t2)}
+p{color:var(--t2);margin-bottom:12px}
+ul,ol{padding-left:1.5em;margin:8px 0 16px;color:var(--t2)}
+li{margin-bottom:6px}
+.card{background:var(--card);border-radius:12px;box-shadow:var(--shadow);padding:28px;margin:16px 0;border:1px solid var(--border)}
+.card.red{border-left:5px solid var(--red)}
+.card.green{border-left:5px solid var(--green)}
+.card.blue{border-left:5px solid var(--blue)}
+.card.purple{border-left:5px solid var(--purple)}
+.card.orange{border-left:5px solid var(--orange)}
+pre{background:#1e293b;color:#e2e8f0;padding:16px 20px;border-radius:8px;overflow-x:auto;font-size:.82rem;line-height:1.7;margin:12px 0;white-space:pre-wrap}
+pre .k{color:#93c5fd}pre .s{color:#86efac}pre .c{color:#64748b}pre .w{color:#fca5a5}pre .y{color:#fde68a}
+.hl{padding:14px 18px;border-radius:8px;margin:12px 0;font-size:.92rem}
+.hl-blue{background:#eff6ff;border-left:4px solid var(--blue)}
+.hl-red{background:#fef2f2;border-left:4px solid var(--red)}
+.hl-green{background:#f0fdf4;border-left:4px solid var(--green)}
+.hl-orange{background:#fff7ed;border-left:4px solid var(--orange)}
+.hl-purple{background:#faf5ff;border-left:4px solid var(--purple)}
+table{width:100%;border-collapse:collapse;font-size:.85rem;margin:12px 0}
+th,td{padding:10px 12px;border:1px solid var(--border);text-align:left;vertical-align:top}
+th{background:#f1f5f9;font-weight:600}
+hr{border:none;border-top:2px dashed var(--border);margin:40px 0}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:768px){.two-col{grid-template-columns:1fr}}
+.src{font-size:.8rem;color:var(--t3);margin-top:4px}
+.src a{color:var(--blue);text-decoration:none}
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>Harness Engineering 对比分析</h1>
+<p class="meta">业界标准的 Harness 架构 vs 我们的豆包上车 Planner 方案 · 差距在哪 · 怎么补</p>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>一、Harness Engineering 到底是什么？</h2>
+<!-- ============================================================ -->
+
+<div class="card blue">
+<h3>三代演进：Prompt → Context → Harness</h3>
+<p>2026 年业界公认的三层架构演进：</p>
+
+<table>
+<tr><th>代际</th><th>名称</th><th>控制范围</th><th>关注点</th><th>时间</th></tr>
+<tr><td>第一代</td><td><strong>Prompt Engineering</strong></td><td>单条消息级别</td><td>怎么写指令让模型听话</td><td>2022-2024</td></tr>
+<tr><td>第二代</td><td><strong>Context Engineering</strong></td><td>上下文窗口级别</td><td>往模型的"工作记忆"里塞什么信息</td><td>2025</td></tr>
+<tr><td>第三代</td><td><strong>Harness Engineering</strong></td><td>整个系统级别</td><td>模型周围的一切：工具/记忆/护栏/重试/编排</td><td>2026</td></tr>
+</table>
+
+<p class="src">来源：<a href="https://atlan.com/know/harness-engineering-vs-prompt-engineering/">Atlan: Prompt vs Context vs Harness Engineering</a> · <a href="https://www.aimagicx.com/blog/harness-engineering-replacing-prompt-engineering-2026">AI Magicx: Why Harness Engineering Matters in 2026</a></p>
+
+<h4>Martin Fowler 的定义</h4>
+<pre><span class="k">Agent = Model + Harness</span>
+
+<span class="s">Model</span> = LLM 本身（如 Seed 1.8 / Claude / GPT）
+<span class="s">Harness</span> = 模型周围的一切：
+  - 执行循环（Agentic Loop）
+  - 工具注册与调用（Tools）
+  - 上下文组装（Context Assembly）
+  - 记忆系统（Memory）
+  - 安全护栏（Guardrails）
+  - 输出验证（Output Validation）
+  - 可观测性（Observability）
+
+<span class="y">Phil Schmid 的类比：</span>
+  Model = CPU
+  Context Window = RAM
+  <span class="k">Harness = 操作系统</span>
+  Agent = 应用程序</pre>
+
+<div class="hl hl-blue">
+<strong>一句话理解：</strong>Harness 不是模型本身，而是模型周围的"操作系统"——执行循环、工具管理、记忆、护栏、验证、可观测性。你可以换模型（换 CPU），但 Harness 不变。Meta 2025年底花 ~20 亿美元收购 Manus，买的不是模型，而是 Harness。
+</div>
+<p class="src">来源：<a href="https://www.mindstudio.ai/blog/what-is-agent-harness-architecture-explained">MindStudio: What Is an Agent Harness</a> · <a href="https://blog.dailydoseofds.com/p/the-anatomy-of-an-agent-harness">Daily Dose of DS: Anatomy of an Agent Harness</a></p>
+</div>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>二、业界标准 Harness 的 7 大组件</h2>
+<!-- ============================================================ -->
+
+<div class="card">
+<p>综合 Anthropic、OpenAI、LangChain 和业界实践者的总结，一个生产级 Harness 包含 7 大核心组件：</p>
+
+<table>
+<tr><th>#</th><th>组件</th><th>做什么</th><th>为什么重要</th></tr>
+<tr>
+<td>1</td>
+<td><strong>Agentic Loop</strong><br>（执行循环）</td>
+<td>Thought → Action → Observation 循环。组装 prompt → 调 LLM → 解析输出 → 执行工具 → 结果回传 → 重复直到完成。</td>
+<td>这是 Agent 的"心跳"。没有 Loop，模型只能回答一次就结束了。</td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>Context Assembly</strong><br>（上下文组装）</td>
+<td>在每一步 Loop 前，决定往 prompt 里塞什么：system prompt + 工具定义 + 记忆 + 对话历史 + 当前消息。Anthropic 说目标是"找到最小的高信号 token 集合"。</td>
+<td>模型的上下文窗口是有限的"注意力预算"。塞太多=注意力分散；塞太少=信息不够。</td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>Tools & Execution</strong><br>（工具与执行）</td>
+<td>暴露给模型的能力（搜索/代码执行/API/MCP），接收模型的工具调用请求并执行。</td>
+<td>模型本身不能"做事"，只能"说话"。工具让模型能执行动作。</td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>Memory</strong><br>（记忆系统）</td>
+<td>跨轮次/跨会话的状态持久化。包括：短期记忆（对话历史）、长期记忆（用户偏好）、工作记忆（当前任务状态）。</td>
+<td>裸模型没有记忆——上一个任务做完，下一个任务就忘了。记忆让 Agent "认识"用户。</td>
+</tr>
+<tr>
+<td>5</td>
+<td><strong>Guardrails</strong><br>（安全护栏）</td>
+<td>在三个点做校验：工具执行前（validateToolCall）、工具执行后（validateToolOutput）、最终输出前（validateFinalPlan）。</td>
+<td>"护栏不是后处理，它是执行循环里的承重逻辑。"——没有护栏，Agent 就是一颗不知道什么时候爆的炸弹。</td>
+</tr>
+<tr>
+<td>6</td>
+<td><strong>Output Validation</strong><br>（输出验证）</td>
+<td>把模型输出解析成结构化类型（如 JSON schema），校验后再执行。用最强的模型专门做验证。</td>
+<td>模型输出是不可靠的文本——可能格式错、参数错、幻觉。验证是防线。</td>
+</tr>
+<tr>
+<td>7</td>
+<td><strong>Observability</strong><br>（可观测性）</td>
+<td>每一步输出结构化数据：组装了什么 context、模型做了什么决策、调了什么工具、参数是什么、耗时多少、token 用了多少。</td>
+<td>出了问题不能靠猜——需要 trace 每一步才能定位是哪里出错。</td>
+</tr>
+</table>
+
+<p class="src">来源：<a href="https://blog.dailydoseofds.com/p/the-anatomy-of-an-agent-harness">Daily Dose of DS: Anatomy of an Agent Harness</a> · <a href="https://dev.to/turacthethinker/harness-engineering-the-code-around-the-model-is-the-hard-part-2edj">DEV Community: Harness Engineering</a> · <a href="https://github.com/ai-boost/awesome-harness-engineering">GitHub: awesome-harness-engineering</a></p>
+</div>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>三、我们的方案 vs 业界标准 Harness：逐组件对比</h2>
+<!-- ============================================================ -->
+
+<div class="card">
+<table>
+<tr>
+<th>Harness 组件</th>
+<th>业界标准做法</th>
+<th>我们的豆包 Planner 方案</th>
+<th>差距</th>
+</tr>
+
+<tr>
+<td><strong>1. Agentic Loop</strong><br>执行循环</td>
+<td>完整的 TAO 循环：思考→行动→观察→重复。模型可以多轮调用工具，每轮结果回传后继续推理，直到模型自己决定"完成了"。支持错误重试、超时退出。</td>
+<td>Planner 有基本的 Loop：输出 action_list → 工具执行 → tool_feedback 回传 → Planner 可以继续推理（二次推理）。但是<strong>循环次数有限</strong>，通常 1-2 轮就结束了，不支持复杂的多步编排。</td>
+<td style="background:#fff7ed;"><strong>部分达标。</strong>有 Loop 但不够深。复杂场景（如"先查温度→判断要不要开窗→再查天气→决定开窗幅度"）需要 3-4 轮 Loop，当前只做 1-2 轮。</td>
+</tr>
+
+<tr>
+<td><strong>2. Context Assembly</strong><br>上下文组装</td>
+<td>动态组装 context，包括：静态 SP + 动态检索的知识/示例 + 工具定义 + 记忆 + 对话历史 + 端状态。按优先级裁剪，确保不超过上下文窗口限制。Anthropic 说"找最小的高信号 token 集合"。</td>
+<td>我们有完整的 Context Assembly：<br>
+- Selector SP（LLM 推理）检索动态知识<br>
+- vikingDB（向量检索）检索动态示例<br>
+- env_info / memory / 对话历史动态注入<br>
+- SP 模板变量 {{knowledge}}、{{examples}} 等<br>
+优化后从 32K 压到 ~16K tokens。</td>
+<td style="background:#f0fdf4;"><strong>做得不错！</strong>这是我们最强的部分。双路检索（LLM + 向量）的 Context Assembly 是比较先进的做法。但 Selector 延迟 1.8s 是瓶颈。</td>
+</tr>
+
+<tr>
+<td><strong>3. Tools & Execution</strong><br>工具与执行</td>
+<td>工具注册表 + 工具描述 + 参数 schema + 执行引擎 + 结果解析。支持 MCP（Model Context Protocol）标准接口。工具数量可动态加载。</td>
+<td>23 个下游工具（vehicle_basic_control / music / navi 等），每个有 tool_name / tool_describe / param / notice 四个字段。通过 SOA 车控指令下发到方向靠。</td>
+<td style="background:#fff7ed;"><strong>基本达标。</strong>工具数量和描述都有，但缺少动态工具加载（23 个全量塞在 SP 里占 4K tokens）。业界做法是只加载当前场景需要的工具。</td>
+</tr>
+
+<tr>
+<td><strong>4. Memory</strong><br>记忆系统</td>
+<td>多层记忆：<br>
+- 短期：对话历史（最近 N 轮）<br>
+- 长期：用户画像 / 偏好 / 历史行为（持久化存储）<br>
+- 工作记忆：当前任务状态（Goal List）<br>
+- 跨会话记忆压缩/摘要</td>
+<td>有基础记忆：<br>
+- 对话历史（最近 10 轮）<br>
+- 用户记忆（search_user_memory / operate_user_memory）<br>
+- Goal List（goal_list_update）<br>
+- FaceID 身份识别（未就绪）</td>
+<td style="background:#fef2f2;"><strong>差距明显。</strong><br>
+- 10 轮后信息丢失（无会话摘要压缩机制）<br>
+- FaceID 没修好 → 记忆写不进去<br>
+- 无跨会话记忆持久化<br>
+- 场景编排结果无法持久化保存</td>
+</tr>
+
+<tr>
+<td><strong>5. Guardrails</strong><br>安全护栏</td>
+<td>三阶段校验：<br>
+① 工具执行前（validateToolCall）：检查参数合法性<br>
+② 工具执行后（validateToolOutput）：校验返回值<br>
+③ 最终输出前（validateFinalPlan）：整体安全检查<br>
+"护栏不是后处理，是执行循环里的承重逻辑。"</td>
+<td>当前护栏极度薄弱：<br>
+- 层1：SP 注意事项（不能 100% 保证）<br>
+- 层2：Adviser 前置判断（部分）<br>
+- 层3：车控底层代码兜底（<strong>待定方案！</strong>）<br>
+没有结构化的三阶段校验。</td>
+<td style="background:#fef2f2;"><strong>最大差距！</strong><br>
+业界标准是在代码层面做硬校验（三阶段 validate），我们几乎完全依赖 SP 里的文字约束（LLM 推理层面，概率性的）。<br>
+小明的话："哪怕 99.9% 都规避了，有那万分之一可能车毁人亡。"<br>
+这正是业界说的"harness 的护栏是承重逻辑，不是建议"。</td>
+</tr>
+
+<tr>
+<td><strong>6. Output Validation</strong><br>输出验证</td>
+<td>模型输出 → JSON schema 校验 → 类型检查 → 参数范围检查 → 通过才执行。不通过则让模型重新生成。</td>
+<td>Planner 输出 action_list 后直接执行，<strong>没有结构化验证步骤</strong>。tool_name 写错了（如写成不存在的工具名）也会直接下发，到方向靠才报错。</td>
+<td style="background:#fef2f2;"><strong>缺失。</strong>需要加一层：Planner 输出 → 校验 tool_name 是否在 23 个合法工具里 → 校验 param 格式是否合法 → 通过才执行。这是纯代码逻辑，不需要 LLM，几 ms 就能做。</td>
+</tr>
+
+<tr>
+<td><strong>7. Observability</strong><br>可观测性</td>
+<td>每一步输出结构化 trace：组装了什么 context / 模型决策 / 调了什么工具 / 参数 / 耗时 / token 用量。可查询、聚合、回放。</td>
+<td>有基础 log（通过 logid 可追溯）。但不够结构化——排查 badcase 时需要手动翻 log，没有自动化 trace 和回放工具。</td>
+<td style="background:#fff7ed;"><strong>部分达标。</strong>有 log 但不够结构化。6/3 晚例会上晓伟排查 badcase 时说"具体的 logid 是哪个呀？"——说明 trace 不够便捷。</td>
+</tr>
+</table>
+</div>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>四、差距总结：哪些是最大的短板？</h2>
+<!-- ============================================================ -->
+
+<div class="card red">
+<h3>按严重程度排序</h3>
+
+<table>
+<tr><th>排名</th><th>差距</th><th>影响</th><th>业界怎么做</th><th>我们怎么补</th></tr>
+<tr>
+<td>🥇</td>
+<td><strong>Guardrails 缺失</strong></td>
+<td>安全红线无法 100% 保证。非 P 档调座椅 = 安全事故。</td>
+<td>三阶段 validate，在代码层面硬拦截，不依赖 LLM。</td>
+<td>① SP 加约束（层1，已做）<br>② 车控底层写死拒绝逻辑（层3，待定方案，最关键）<br>③ 在 Planner 输出后加一层代码校验：检查 action_list 里的操作是否在当前条件下被允许</td>
+</tr>
+<tr>
+<td>🥈</td>
+<td><strong>Output Validation 缺失</strong></td>
+<td>Planner 输出的 tool_name/param 可能是错的（如调不存在的工具），直接下发到方向靠才报错。</td>
+<td>JSON schema 校验 + 类型检查 + 参数范围检查 → 不通过让模型重生成。</td>
+<td>在 Planner 和工具层之间加一层代码校验：<br>① tool_name 是否在 23 个合法工具里？<br>② param 格式是否正确？<br>③ 不合法 → 返回给 Planner 让它重新生成</td>
+</tr>
+<tr>
+<td>🥉</td>
+<td><strong>Memory 记忆弱</strong></td>
+<td>10 轮后信息丢失 / FaceID 未就绪 / 无会话摘要。</td>
+<td>多层记忆（短期/长期/工作记忆）+ 跨会话压缩摘要。</td>
+<td>① 晓伟+超然本周定方案解决 10 轮丢失<br>② 等 FaceID 修复<br>③ 长期引入会话摘要压缩</td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>Selector 延迟高</strong></td>
+<td>额外一次 LLM 调用 = 500ms-1.8s，是性能瓶颈。</td>
+<td>向量预筛 + LLM 精选的两级漏斗，或缓存命中跳过。</td>
+<td>① 压缩 Selector prompt 里的索引表<br>② 同场景连续对话跳过 Selector（用缓存）<br>③ 长期引入 embedding 预筛</td>
+</tr>
+<tr>
+<td>5</td>
+<td><strong>Agentic Loop 不够深</strong></td>
+<td>复杂场景需要 3-4 轮工具调用，当前只做 1-2 轮。</td>
+<td>完整 TAO 循环，模型自己决定什么时候结束。</td>
+<td>需要研发侧支持更深的 Loop，但会增加总耗时。权衡性能和能力。</td>
+</tr>
+</table>
+</div>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>五、业界的研究怎么说？</h2>
+<!-- ============================================================ -->
+
+<div class="card purple">
+<h4>Princeton 研究结果</h4>
+<p><strong>harness 配置可以提升 Agent 任务成功率 64%</strong>——对比基础配置（没有护栏/验证/记忆）和完整 harness 配置。说明 harness 的架构设计比模型本身更影响实际效果。</p>
+
+<h4>MIT 研究</h4>
+<p>约 95% 的企业 AI 试点项目未能产生可衡量的回报。核心原因不是模型不够好，而是 harness（系统集成、护栏、记忆、可观测性）没做好。</p>
+
+<h4>VS Code 团队的总结</h4>
+<p>"Model 是引擎，Harness 是车。"——引擎再好，车架子不行也跑不了。他们发现：在 SWE-bench 测试中，仅通过缩小工具空间（harness 优化），本地小模型从 2/10 提升到 10/10。<strong>不是模型变强了，是 harness 变好了。</strong></p>
+
+<h4>对我们的启示</h4>
+<p>我们的 Planner 用的模型（Seed 1.8）足够强。当前的 badcase 大部分不是模型推理错误，而是：</p>
+<ul>
+<li>Skill 知识写错了（Context Assembly 问题）→ 模型拿着错误信息推理</li>
+<li>没有输出验证（Output Validation 缺失）→ 错误输出直接执行</li>
+<li>没有安全护栏（Guardrails 缺失）→ 危险操作没拦住</li>
+<li>记忆不够（Memory 弱）→ 10 轮后忘了之前说的</li>
+</ul>
+<p><strong>这些都是 Harness 层面的问题，不是模型层面的问题。</strong></p>
+</div>
+
+<p class="src">来源：<a href="https://www.aimagicx.com/blog/harness-engineering-replacing-prompt-engineering-2026">AI Magicx: Harness Engineering in 2026</a> · <a href="https://arxiv.org/html/2603.25723v1">arXiv: Natural-Language Agent Harnesses</a> · <a href="https://www.mindstudio.ai/blog/what-is-agent-harness-architecture-explained">MindStudio: Agent Harness Architecture</a></p>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>六、我们应该怎么补？（优先级排序）</h2>
+<!-- ============================================================ -->
+
+<div class="card green">
+<table>
+<tr><th>优先级</th><th>补什么</th><th>怎么补</th><th>谁做</th><th>工作量</th></tr>
+<tr>
+<td>🔴 P0</td>
+<td><strong>Output Validation</strong><br>输出校验层</td>
+<td>在 Planner 输出和工具执行之间加一层代码：校验 tool_name 合法性 + param 格式 + 安全条件。不合法则返回给 Planner 重新生成。纯代码逻辑，不需要 LLM。</td>
+<td>明骏/超然</td>
+<td>中（几天）</td>
+</tr>
+<tr>
+<td>🔴 P0</td>
+<td><strong>Guardrails 硬校验</strong><br>安全护栏</td>
+<td>在车控底层代码写死：非 P 档 + 调座椅指令 → 直接拒绝。不依赖任何 LLM 推理。这是业界标准的"三阶段校验"的简化版。</td>
+<td>车控开发</td>
+<td>中（需协调）</td>
+</tr>
+<tr>
+<td>🟡 P1</td>
+<td><strong>Context Assembly 优化</strong><br>Skill 质量 + Selector 延迟</td>
+<td>① 修复 Skill 质量（我做）② 压缩 Selector 索引表降延迟（我+明骏）③ 同场景缓存跳过 Selector</td>
+<td>泽民+明骏</td>
+<td>大（持续）</td>
+</tr>
+<tr>
+<td>🟡 P1</td>
+<td><strong>Memory 增强</strong></td>
+<td>① 解决 10 轮丢失（晓伟+超然本周定方案）② FaceID 修复 ③ 长期引入会话摘要</td>
+<td>晓伟/超然</td>
+<td>大（分阶段）</td>
+</tr>
+<tr>
+<td>⚪ P2</td>
+<td><strong>Observability 结构化</strong></td>
+<td>每次 Planner 调用输出结构化 trace（什么 Skill 注入了 / 什么示例检索到了 / action_list 是什么 / 工具返回什么），可查询可回放。</td>
+<td>研发</td>
+<td>中</td>
+</tr>
+<tr>
+<td>⚪ P2</td>
+<td><strong>Agentic Loop 加深</strong></td>
+<td>支持 3-4 轮工具调用循环，用于复杂编排场景。但要权衡延迟。</td>
+<td>明骏</td>
+<td>大</td>
+</tr>
+<tr>
+<td>⚪ P2</td>
+<td><strong>工具动态加载</strong></td>
+<td>不把 23 个工具全塞 SP，按场景只加载需要的工具（减少 SP token，提升注意力聚焦度）。</td>
+<td>明骏</td>
+<td>中</td>
+</tr>
+</table>
+</div>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>七、一张图总结</h2>
+<!-- ============================================================ -->
+
+<div class="card">
+<pre><span class="k">业界标准 Harness 的 7 大组件 vs 我们的达标情况：</span>
+
+  组件                    业界标准           我们的方案          评分
+  ─────────────────────────────────────────────────────────────
+  1. Agentic Loop         TAO 多轮循环       有,但只1-2轮        ★★★☆☆
+  2. Context Assembly     动态检索+裁剪      <span class="s">双路检索(LLM+向量)</span>  <span class="s">★★★★☆</span>
+  3. Tools & Execution    动态工具加载       23个全量加载         ★★★☆☆
+  4. Memory               多层记忆+压缩摘要  <span class="w">基础记忆,10轮丢失</span>   <span class="w">★★☆☆☆</span>
+  5. Guardrails           <span class="w">三阶段硬校验</span>      <span class="w">几乎只靠SP文字约束</span>  <span class="w">★☆☆☆☆</span>
+  6. Output Validation    <span class="w">JSON schema校验</span>   <span class="w">没有,直接执行</span>       <span class="w">★☆☆☆☆</span>
+  7. Observability        结构化trace+回放   基础log              ★★☆☆☆
+
+<span class="y">最强项：Context Assembly（双路检索是比较先进的做法）</span>
+<span class="w">最弱项：Guardrails + Output Validation（几乎空白）</span>
+<span class="k">补短板优先级：Guardrails > Output Validation > Memory > Selector延迟</span></pre>
+</div>
+
+<div style="text-align:center;padding:40px 0;color:var(--t3);font-size:.85rem;">
+Harness Engineering 对比分析 v1.0 · 2026-06-05<br><br>
+Sources:<br>
+<a href="https://atlan.com/know/harness-engineering-vs-prompt-engineering/" style="color:var(--blue);">Atlan: Prompt vs Context vs Harness Engineering</a> ·
+<a href="https://www.aimagicx.com/blog/harness-engineering-replacing-prompt-engineering-2026" style="color:var(--blue);">AI Magicx: Harness Engineering 2026</a><br>
+<a href="https://blog.dailydoseofds.com/p/the-anatomy-of-an-agent-harness" style="color:var(--blue);">Daily Dose of DS: Anatomy of Agent Harness</a> ·
+<a href="https://www.mindstudio.ai/blog/what-is-agent-harness-architecture-explained" style="color:var(--blue);">MindStudio: Agent Harness Architecture</a><br>
+<a href="https://dev.to/turacthethinker/harness-engineering-the-code-around-the-model-is-the-hard-part-2edj" style="color:var(--blue);">DEV: Harness Engineering</a> ·
+<a href="https://github.com/ai-boost/awesome-harness-engineering" style="color:var(--blue);">GitHub: awesome-harness-engineering</a> ·
+<a href="https://arxiv.org/html/2603.25723v1" style="color:var(--blue);">arXiv: Natural-Language Agent Harnesses</a>
+</div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI First 重设计 · 别掉进"永恒治理"的坑 — 系统学习手册</title>
+<style>
+:root {
+  --bg: #0b0f1a; --surface: #111827; --surface2: #1a2234; --border: #1e3050;
+  --text: #d1d5db; --text-dim: #8892a4; --text-bright: #f1f5f9;
+  --blue: #3b82f6; --blue-dim: #1e3a5f; --cyan: #22d3ee;
+  --green: #34d399; --green-dim: #064e3b; --yellow: #fbbf24; --yellow-dim: #78350f;
+  --red: #f87171; --red-dim: #7f1d1d; --purple: #a78bfa; --purple-dim: #4c1d95; --orange: #fb923c;
+  --nav-w: 264px; --header-h: 56px;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif; background: var(--bg); color: var(--text); line-height: 1.75; font-size: 15px; }
+.top-bar { position: fixed; top:0; left:0; right:0; height: var(--header-h); z-index: 100; background: rgba(11,15,26,.92); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 24px; gap: 16px; }
+.top-bar .logo { font-weight: 700; font-size: 16px; color: var(--text-bright); white-space: nowrap; }
+.top-bar .logo .accent { color: var(--cyan); }
+.top-bar .progress-track { flex:1; height: 4px; background: var(--surface); border-radius: 2px; overflow: hidden; }
+.top-bar .progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--blue), var(--cyan)); border-radius: 2px; transition: width .4s; }
+.sidebar { position: fixed; top: var(--header-h); left: 0; width: var(--nav-w); height: calc(100vh - var(--header-h)); background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; z-index: 90; padding: 20px 0; }
+.sidebar .nav-section { padding: 8px 20px; font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 2px; margin-top: 8px; }
+.sidebar a { display: flex; align-items: center; gap: 10px; padding: 10px 20px; color: var(--text-dim); text-decoration: none; font-size: 13px; transition: all .2s; border-left: 3px solid transparent; }
+.sidebar a:hover { color: var(--text); background: var(--surface2); }
+.sidebar a.active { color: var(--blue); border-left-color: var(--blue); background: rgba(59,130,246,.08); font-weight: 600; }
+.sidebar .nav-icon { width: 20px; height: 20px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+.main { margin-left: var(--nav-w); margin-top: var(--header-h); padding: 40px 48px 80px; max-width: 920px; }
+.module { margin-bottom: 80px; scroll-margin-top: calc(var(--header-h) + 24px); }
+.module-header { margin-bottom: 32px; }
+.module-tag { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; padding: 4px 12px; border-radius: 4px; margin-bottom: 12px; }
+.module-tag.overview { background: var(--blue-dim); color: var(--cyan); }
+.module-tag.theory { background: var(--purple-dim); color: var(--purple); }
+.module-tag.flip { background: var(--red-dim); color: var(--red); }
+.module-tag.practice { background: var(--green-dim); color: var(--green); }
+.module-tag.tool { background: var(--red-dim); color: var(--orange); }
+.module-title { font-size: 26px; font-weight: 700; color: var(--text-bright); margin-bottom: 8px; }
+.module-objective { font-size: 14px; color: var(--text-dim); padding-left: 16px; border-left: 3px solid var(--blue); }
+.diagram-wrapper { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin: 28px 0; overflow-x: auto; }
+.diagram-wrapper svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+.diagram-caption { text-align: center; font-size: 12px; color: var(--text-dim); margin-top: 12px; letter-spacing: 1px; }
+h2 { font-size: 20px; color: var(--text-bright); margin: 36px 0 16px; }
+h3 { font-size: 16px; color: var(--cyan); margin: 28px 0 12px; font-weight: 600; }
+p { margin: 10px 0; }
+.hl { color: var(--yellow); font-weight: 600; }
+.good { color: var(--green); font-weight: 600; }
+.bad { color: var(--red); font-weight: 600; }
+.insight-box { background: linear-gradient(135deg, rgba(59,130,246,.08), rgba(34,211,238,.05)); border: 1px solid rgba(59,130,246,.25); border-radius: 10px; padding: 20px 24px; margin: 20px 0; }
+.flip-box { background: linear-gradient(135deg, rgba(248,113,113,.08), rgba(251,146,60,.05)); border: 1px solid rgba(248,113,113,.3); border-radius: 10px; padding: 20px 24px; margin: 20px 0; }
+.insight-label { font-size: 11px; font-weight: 700; color: var(--cyan); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; }
+.flip-label { font-size: 11px; font-weight: 700; color: var(--red); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; }
+.insight-box blockquote, .flip-box blockquote { border-left: 3px solid var(--blue); padding-left: 16px; margin: 8px 0; color: var(--text-bright); font-size: 15px; font-style: italic; }
+.flip-box blockquote { border-left-color: var(--red); }
+.card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 20px 0; }
+.card { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+.card.vs-old { border-top: 3px solid var(--red); }
+.card.vs-new { border-top: 3px solid var(--green); }
+.card-label { font-size: 12px; font-weight: 700; letter-spacing: 1px; margin-bottom: 8px; }
+.card.vs-old .card-label { color: var(--red); }
+.card.vs-new .card-label { color: var(--green); }
+.card ul { padding-left: 18px; margin: 0; }
+.card li { margin: 6px 0; font-size: 14px; color: var(--text); }
+table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; }
+th { background: var(--surface2); color: var(--cyan); padding: 10px 14px; text-align: left; font-weight: 600; font-size: 12px; letter-spacing: 1px; }
+td { padding: 10px 14px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: top; }
+tr:hover td { background: rgba(30,48,80,.3); }
+.step-block { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px 28px; margin: 24px 0; position: relative; }
+.step-block::before { content: attr(data-step); position: absolute; top: -12px; left: 24px; background: var(--green); color: #07120c; font-size: 11px; font-weight: 700; padding: 2px 12px; border-radius: 4px; letter-spacing: 1px; }
+.step-block h4 { font-size: 16px; color: var(--text-bright); margin: 4px 0 12px; }
+.moat::before { background: var(--cyan); color:#04222a; }
+.example { background: var(--surface2); border-left: 3px solid var(--purple); border-radius: 0 10px 10px 0; padding: 14px 18px; margin: 14px 0; }
+.example-tag { font-size: 11px; font-weight: 700; color: var(--purple); letter-spacing: 1px; margin-bottom: 6px; }
+.example p { font-size: 14px; margin: 4px 0; }
+.prompt-box { background: rgba(76,29,149,.12); border: 1px solid rgba(167,139,250,.25); border-radius: 10px; padding: 16px 20px; margin: 16px 0; position: relative; }
+.prompt-label { font-size: 11px; font-weight: 700; color: var(--purple); letter-spacing: 1px; margin-bottom: 8px; }
+.prompt-text { font-family: "SF Mono", "Fira Code", monospace; font-size: 13px; color: var(--text); white-space: pre-wrap; line-height: 1.7; }
+.copy-btn { position: absolute; top: 12px; right: 12px; background: var(--purple-dim); color: var(--purple); border: 1px solid rgba(167,139,250,.3); border-radius: 6px; padding: 4px 12px; font-size: 11px; cursor: pointer; font-weight: 600; }
+.copy-btn:hover { background: rgba(167,139,250,.25); }
+.copy-btn.copied { background: var(--green-dim); color: var(--green); border-color: rgba(52,211,153,.3); }
+.checkpoint { background: linear-gradient(135deg, rgba(251,191,36,.06), rgba(251,146,60,.04)); border: 1px solid rgba(251,191,36,.2); border-radius: 10px; padding: 18px 22px; margin: 22px 0; }
+.checkpoint-title { font-size: 13px; font-weight: 700; color: var(--yellow); letter-spacing: 1px; margin-bottom: 10px; }
+.checkpoint ul { padding-left: 20px; margin: 0; }
+.checkpoint li { margin: 6px 0; font-size: 14px; }
+.checkpoint li::marker { color: var(--yellow); }
+.tip { background: rgba(52,211,153,.06); border: 1px solid rgba(52,211,153,.2); border-radius: 10px; padding: 14px 18px; margin: 16px 0; font-size: 14px; }
+.tip strong { color: var(--green); }
+.warn-tip { background: rgba(248,113,113,.06); border-color: rgba(248,113,113,.2); }
+.warn-tip strong { color: var(--red); }
+.diag { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 28px; margin: 24px 0; }
+.dim { padding: 18px 0; border-bottom: 1px solid var(--border); }
+.dim:last-of-type { border-bottom: none; }
+.dim-head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.dim-badge { font-size: 11px; font-weight: 700; padding: 2px 10px; border-radius: 4px; letter-spacing: 1px; background: var(--blue-dim); color: var(--cyan); }
+.dim-title { font-size: 15px; font-weight: 600; color: var(--text-bright); }
+.dim-q { font-size: 13px; color: var(--text-dim); margin: 6px 0 12px; }
+.opts { display: flex; gap: 8px; flex-wrap: wrap; }
+.opt { flex: 1; min-width: 180px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; font-size: 13px; color: var(--text-dim); cursor: pointer; transition: all .15s; }
+.opt:hover { border-color: var(--blue); color: var(--text); }
+.opt.sel { border-color: var(--cyan); color: var(--text-bright); background: rgba(34,211,238,.08); font-weight: 600; }
+.opt .v { font-size: 11px; font-weight: 700; color: var(--text-dim); margin-right: 6px; }
+.opt.sel .v { color: var(--cyan); }
+.diag-btn { width: 100%; padding: 13px; background: var(--blue); color: #fff; border: none; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 22px; letter-spacing: 1px; }
+.diag-btn:hover { background: #2563eb; }
+#diag-result { display: none; margin-top: 22px; padding: 24px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface2); }
+.bar-wrap { margin: 10px 0; }
+.bar-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-dim); margin-bottom: 4px; }
+.bar-track { height: 8px; background: var(--bg); border-radius: 4px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 4px; transition: width .6s; }
+@media (max-width: 900px) { .sidebar { display: none; } .main { margin-left: 0; padding: 24px 18px 60px; } .card-grid { grid-template-columns: 1fr; } .opt { min-width: 100%; } }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <div class="logo">AI First 重设计 <span class="accent">· 别掉进永恒治理的坑</span></div>
+  <div class="progress-track"><div class="progress-fill" id="progress"></div></div>
+</div>
+
+<nav class="sidebar" id="sidebar">
+  <div class="nav-section">学习路径</div>
+  <a href="#m0" data-mod="m0" class="active"><span class="nav-icon" style="background:var(--blue-dim);color:var(--cyan);">0</span>全局地图</a>
+  <a href="#m1" data-mod="m1"><span class="nav-icon" style="background:var(--purple-dim);color:var(--purple);">1</span>表层结论(踏脚石)</a>
+  <a href="#m2" data-mod="m2"><span class="nav-icon" style="background:var(--red-dim);color:var(--red);">2</span>关键反转</a>
+  <a href="#m3" data-mod="m3"><span class="nav-icon" style="background:var(--green-dim);color:var(--green);">3</span>真出路:4个重设计</a>
+  <a href="#m4" data-mod="m4"><span class="nav-icon" style="background:var(--green-dim);color:var(--green);">4</span>缝隙理论→具身</a>
+  <div class="nav-section" style="margin-top:24px;">工具</div>
+  <a href="#tool">🔧 治理 or 重设计 自测</a>
+  <a href="#prompt">📋 AI 自动归因提示词</a>
+</nav>
+
+<div class="main">
+
+<!-- M0 -->
+<section class="module" id="m0">
+  <div class="module-header">
+    <span class="module-tag overview">MODULE 0 · 全局</span>
+    <h1 class="module-title">全局地图：这篇最容易读错的地方</h1>
+    <p class="module-objective">学习目标：先记住——作者亲口否定了"好好做数据治理"这个结论。治理是止血，AI First 重设计才是根治。</p>
+  </div>
+  <div class="flip-box">
+    <div class="flip-label">作者的题眼（第 7 节"透视"）</div>
+    <blockquote>"我觉得关键恰恰不是这个（数据治理）……会错过 AI 带来的最大红利。"</blockquote>
+    <p style="margin:8px 0 0;">大多数人读完会总结"要好好做数据治理"。<span class="bad">这正是坑。</span><span class="hl">真出路：一开头就按 AI First 重设计业务，让数据从源头按规则产生，绕开治理。</span></p>
+  </div>
+  <div class="diagram-wrapper">
+    <svg viewBox="0 0 820 250" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,sans-serif">
+      <defs><marker id="ar" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#8892a4"/></marker></defs>
+      <rect x="20" y="100" width="150" height="50" rx="10" fill="#1a2234" stroke="#4c1d95"/>
+      <text x="95" y="122" fill="#a78bfa" font-size="13" font-weight="700" text-anchor="middle">M1</text>
+      <text x="95" y="140" fill="#d1d5db" font-size="11" text-anchor="middle">表层:模型是接口</text>
+      <rect x="230" y="100" width="150" height="50" rx="10" fill="#1a2234" stroke="#7f1d1d"/>
+      <text x="305" y="122" fill="#f87171" font-size="13" font-weight="700" text-anchor="middle">M2</text>
+      <text x="305" y="140" fill="#d1d5db" font-size="11" text-anchor="middle">反转:治理是无底洞</text>
+      <rect x="440" y="100" width="150" height="50" rx="10" fill="#1a2234" stroke="#064e3b"/>
+      <text x="515" y="122" fill="#34d399" font-size="13" font-weight="700" text-anchor="middle">M3</text>
+      <text x="515" y="140" fill="#d1d5db" font-size="11" text-anchor="middle">真出路:4个重设计</text>
+      <rect x="650" y="100" width="150" height="50" rx="10" fill="#1a2234" stroke="#1e3a5f"/>
+      <text x="725" y="122" fill="#22d3ee" font-size="13" font-weight="700" text-anchor="middle">M4</text>
+      <text x="725" y="140" fill="#d1d5db" font-size="11" text-anchor="middle">缝隙理论→具身</text>
+      <text x="95" y="80" fill="#8892a4" font-size="11" text-anchor="middle">收下踏脚石</text>
+      <text x="305" y="80" fill="#f87171" font-size="11" text-anchor="middle">识破陷阱</text>
+      <text x="515" y="80" fill="#8892a4" font-size="11" text-anchor="middle">换打法</text>
+      <text x="725" y="80" fill="#8892a4" font-size="11" text-anchor="middle">升维</text>
+      <line x1="170" y1="125" x2="226" y2="125" stroke="#8892a4" stroke-width="1.6" marker-end="url(#ar)"/>
+      <line x1="380" y1="125" x2="436" y2="125" stroke="#8892a4" stroke-width="1.6" marker-end="url(#ar)"/>
+      <line x1="590" y1="125" x2="646" y2="125" stroke="#8892a4" stroke-width="1.6" marker-end="url(#ar)"/>
+      <path d="M515,150 q0,55 -210,55 q-210,0 -210,-50" fill="none" stroke="#fb923c" stroke-width="1.4" stroke-dasharray="5,4" marker-end="url(#ar)"/>
+      <text x="305" y="223" fill="#fb923c" font-size="11" text-anchor="middle">重设计让你不再回到 M2 的火场</text>
+    </svg>
+    <div class="diagram-caption">图 0 · 全局路径：收踏脚石 → 识破治理陷阱 → 换成重设计 → 升维到人机协作</div>
+  </div>
+</section>
+
+<!-- M1 -->
+<section class="module" id="m1">
+  <div class="module-header">
+    <span class="module-tag theory">MODULE 1 · 踏脚石</span>
+    <h1 class="module-title">表层结论：模型是最后一层接口（21/95/65）</h1>
+    <p class="module-objective">学习目标：先收下这个事实——别再一遇 badcase 就怪模型；但要知道，到此为止还只是表层。</p>
+  </div>
+  <div class="diagram-wrapper">
+    <svg viewBox="0 0 820 320" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,sans-serif">
+      <line x1="80" y1="270" x2="780" y2="270" stroke="#1e3050" stroke-width="2"/>
+      <rect x="150" y="226" width="120" height="44" rx="6" fill="url(#g21)"/>
+      <text x="210" y="253" fill="#fff" font-size="17" font-weight="800" text-anchor="middle">21%</text>
+      <text x="210" y="290" fill="#f87171" font-size="12" font-weight="700" text-anchor="middle">无 Skills</text>
+      <rect x="380" y="82" width="120" height="188" rx="6" fill="url(#g95)"/>
+      <text x="440" y="109" fill="#fff" font-size="17" font-weight="800" text-anchor="middle">95%</text>
+      <text x="440" y="290" fill="#34d399" font-size="12" font-weight="700" text-anchor="middle">有 Skills</text>
+      <rect x="610" y="142" width="120" height="128" rx="6" fill="url(#g65)"/>
+      <text x="670" y="169" fill="#fff" font-size="17" font-weight="800" text-anchor="middle">65%</text>
+      <text x="670" y="290" fill="#fbbf24" font-size="12" font-weight="700" text-anchor="middle">不维护一个月</text>
+      <text x="320" y="135" fill="#34d399" font-size="12" font-weight="700">+74 治理</text>
+      <text x="566" y="105" fill="#fbbf24" font-size="12" font-weight="700">−30 不维护</text>
+      <rect x="150" y="40" width="580" height="26" rx="6" fill="rgba(59,130,246,.1)" stroke="#1e3a5f"/>
+      <text x="440" y="57" fill="#22d3ee" font-size="12" font-weight="700" text-anchor="middle">⚙ 整条曲线模型 = 常量；变的只有治理状态 → 模型是最后一层接口</text>
+      <defs>
+        <linearGradient id="g21" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f87171"/><stop offset="1" stop-color="#7f1d1d"/></linearGradient>
+        <linearGradient id="g95" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#34d399"/><stop offset="1" stop-color="#064e3b"/></linearGradient>
+        <linearGradient id="g65" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fbbf24"/><stop offset="1" stop-color="#78350f"/></linearGradient>
+      </defs>
+    </svg>
+    <div class="diagram-caption">图 1 · 21/95/65 横跳：模型没变、准确率横跳，证明变量在治理层，模型只是接口</div>
+  </div>
+  <table>
+    <tr><th>文章</th><th>你的 Planner / 场景知识</th></tr>
+    <tr><td>无 Skills → 21%</td><td>「上线前问题汇报表」的【Skill 质量差】：初版粗写、没实车验证、写了车厂没有的能力</td></tr>
+    <tr><td>不维护 → 65%</td><td>信号库不锁版、清单从老表迁移后口径漂移</td></tr>
+    <tr><td>模型是最后一层接口</td><td>Seed 1.8 已够强；决定 Planner 准不准的是你喂的 Skill/数据</td></tr>
+  </table>
+  <div class="tip"><strong>这节只是踏脚石：</strong>它让你别再"怪模型/调 prompt"（那 74 分模型给不了）。但作者接下来会说——盯着"把治理做好"，你就掉坑里了。</div>
+</section>
+
+<!-- M2 -->
+<section class="module" id="m2">
+  <div class="module-header">
+    <span class="module-tag flip">MODULE 2 · 反转</span>
+    <h1 class="module-title">关键反转：治理是无底洞，因为"人是污染源"</h1>
+    <p class="module-objective">学习目标：看懂为什么"持续治理 Skill"不是答案——它是你和一条客观规律的死磕。</p>
+  </div>
+  <div class="diagram-wrapper">
+    <svg viewBox="0 0 820 300" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,sans-serif">
+      <text x="210" y="34" fill="#34d399" font-size="13" font-weight="700" text-anchor="middle">规则在人之上 → 数据干净</text>
+      <rect x="40" y="50" width="340" height="120" rx="12" fill="#1a2234" stroke="#064e3b"/>
+      <text x="210" y="80" fill="#d1d5db" font-size="12" text-anchor="middle">外卖小哥 / 滴滴司机 / 主播</text>
+      <text x="210" y="104" fill="#8892a4" font-size="11" text-anchor="middle">每个举动被充分数据化</text>
+      <text x="210" y="126" fill="#8892a4" font-size="11" text-anchor="middle">规则压在人头上（上古 AI first）</text>
+      <text x="210" y="150" fill="#34d399" font-size="11" text-anchor="middle">→ 数据精度极高</text>
+      <text x="610" y="34" fill="#f87171" font-size="13" font-weight="700" text-anchor="middle">人在规则之上 → 数据腐烂</text>
+      <rect x="440" y="50" width="340" height="120" rx="12" fill="#1a2234" stroke="#7f1d1d"/>
+      <text x="610" y="80" fill="#d1d5db" font-size="12" text-anchor="middle">独立组织体系的人</text>
+      <text x="610" y="104" fill="#8892a4" font-size="11" text-anchor="middle">数据被后置规则去治理</text>
+      <text x="610" y="126" fill="#8892a4" font-size="11" text-anchor="middle">足够的活性 = 足够的数据混乱</text>
+      <text x="610" y="150" fill="#f87171" font-size="11" text-anchor="middle">→ 人就是污染源</text>
+      <rect x="190" y="210" width="440" height="60" rx="10" fill="rgba(248,113,113,.08)" stroke="#7f1d1d"/>
+      <text x="410" y="234" fill="#f87171" font-size="12" font-weight="700" text-anchor="middle">你的触发条件清单 = 右边</text>
+      <text x="410" y="255" fill="#8892a4" font-size="11" text-anchor="middle">来自有自主性的产品/研发/车厂 → 指望他们永远按规范填表 = 指望河流自己不污染</text>
+    </svg>
+    <div class="diagram-caption">图 2 · 规则与人的相对位置决定数据精度：你的清单天生在"人在规则之上"的腐烂侧</div>
+  </div>
+  <table>
+    <tr><th>文章论点</th><th>在你工作里长什么样</th></tr>
+    <tr><td>数据难度 ≠ 技术难度："知道怎么做 ≠ 能长期做到"</td><td>你知道该锁版、该验证、该统一 key——但让你+刘洋+韩天亮+上汽数年都做到，几乎不可能</td></tr>
+    <tr><td>治理像治河污染，难在无限期持续，否则反弹</td><td>这次清干净，下版本信号库一变、上汽 DNA 一调，又乱回去</td></tr>
+    <tr><td>人是污染源，越自主越不愿规整贡献数据</td><td>触发条件来自一堆有自主性的人，治理永远追不上</td></tr>
+  </table>
+  <div class="flip-box">
+    <div class="flip-label">结论</div>
+    <blockquote>如果你把自己定位成"那个永远在治理 Skill/清单的人"，你就是在和"人是污染源"死磕——越治越累，还显不出价值。</blockquote>
+  </div>
+</section>
+
+<!-- M3 -->
+<section class="module" id="m3">
+  <div class="module-header">
+    <span class="module-tag practice">MODULE 3 · 真出路</span>
+    <h1 class="module-title">AI First 重设计你的 Planner / 触发器</h1>
+    <p class="module-objective">学习目标：把 4 个环节从"先产后治"翻成"源头按规则产生"。判据：这个环节能不能 AI 来干、人只兜底？</p>
+  </div>
+  <div class="diagram-wrapper">
+    <svg viewBox="0 0 820 250" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,sans-serif">
+      <defs>
+        <marker id="ar5" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#f87171"/></marker>
+        <marker id="ar6" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#34d399"/></marker>
+      </defs>
+      <text x="210" y="28" fill="#f87171" font-size="13" font-weight="700" text-anchor="middle">❌ 先产后治（无底洞）</text>
+      <rect x="40" y="44" width="100" height="40" rx="8" fill="#1a2234" stroke="#7f1d1d"/>
+      <text x="90" y="68" fill="#d1d5db" font-size="10" text-anchor="middle">人工产出</text>
+      <rect x="180" y="44" width="100" height="40" rx="8" fill="#1a2234" stroke="#7f1d1d"/>
+      <text x="230" y="68" fill="#d1d5db" font-size="10" text-anchor="middle">事后清洗</text>
+      <rect x="320" y="44" width="100" height="40" rx="8" fill="#1a2234" stroke="#7f1d1d"/>
+      <text x="370" y="62" fill="#f87171" font-size="10" text-anchor="middle">改版又乱</text>
+      <text x="370" y="76" fill="#8892a4" font-size="9" text-anchor="middle">永远救火</text>
+      <line x1="140" y1="64" x2="176" y2="64" stroke="#f87171" stroke-width="1.4" marker-end="url(#ar5)"/>
+      <line x1="280" y1="64" x2="316" y2="64" stroke="#f87171" stroke-width="1.4" marker-end="url(#ar5)"/>
+      <text x="210" y="128" fill="#34d399" font-size="13" font-weight="700" text-anchor="middle">✅ 源头按规则产生（重设计）</text>
+      <rect x="40" y="144" width="110" height="40" rx="8" fill="#1a2234" stroke="#064e3b"/>
+      <text x="95" y="162" fill="#d1d5db" font-size="10" text-anchor="middle">先定结构规范</text>
+      <text x="95" y="176" fill="#8892a4" font-size="9" text-anchor="middle">DSL/模板/白名单</text>
+      <rect x="190" y="144" width="110" height="40" rx="8" fill="#1a2234" stroke="#064e3b"/>
+      <text x="245" y="162" fill="#d1d5db" font-size="10" text-anchor="middle">AI 按规则生成</text>
+      <text x="245" y="176" fill="#8892a4" font-size="9" text-anchor="middle">人只审定</text>
+      <rect x="340" y="144" width="110" height="40" rx="8" fill="#1a2234" stroke="#064e3b"/>
+      <text x="395" y="168" fill="#34d399" font-size="10" text-anchor="middle">进库即合规</text>
+      <line x1="150" y1="164" x2="186" y2="164" stroke="#34d399" stroke-width="1.4" marker-end="url(#ar6)"/>
+      <line x1="300" y1="164" x2="336" y2="164" stroke="#34d399" stroke-width="1.4" marker-end="url(#ar6)"/>
+      <rect x="500" y="80" width="290" height="110" rx="12" fill="rgba(34,211,238,.06)" stroke="#1e3a5f"/>
+      <text x="645" y="106" fill="#22d3ee" font-size="12" font-weight="700" text-anchor="middle">重设计 4 · 不能绕的护城河</text>
+      <text x="645" y="130" fill="#d1d5db" font-size="11" text-anchor="middle">一手 context：车况/记忆/视觉</text>
+      <text x="645" y="150" fill="#d1d5db" font-size="11" text-anchor="middle">规则在人之上 = 天然干净</text>
+      <text x="645" y="172" fill="#8892a4" font-size="9" text-anchor="middle">把精力从二手 Skill 挪到这里</text>
+    </svg>
+    <div class="diagram-caption">图 3 · 把脏活从源头砍掉（重设计 1-3）+ 深耕唯一干净的一手数据（重设计 4）</div>
+  </div>
+
+  <div class="step-block" data-step="重设计 1">
+    <h4>触发条件清单：从"老表迁移+永久清洗"到"DSL 先行+源头合规"</h4>
+    <div class="card-grid">
+      <div class="card vs-old"><div class="card-label">旧·先产后治</div><ul><li>拿赛力斯/上汽旧表迁移</li><li>事后补运算符、改 key、对口径</li><li>每次改版重清一遍（台账"行1"5条）</li></ul></div>
+      <div class="card vs-new"><div class="card-label">新·AI First</div><ul><li>先定触发器 DSL 结构规范</li><li>新条目只能按 DSL 结构产生</li><li>人填结构化表单 / AI 从需求生成草案</li></ul></div>
+    </div>
+    <div class="example"><div class="example-tag">触发器 DSL 字段规范 v1（每条必含，缺字段不让进库）</div>
+    <div class="prompt-text">signal_key      唯一英文 key（全局不重复，禁 states/status 混用）
+signal_name_cn  中文显示名
+value_type      bool | number | enum | str（禁把枚举标成 str）
+operator        ==,!=,>,<,>=,<=,changed_to（number 必须配齐后四个）
+value_domain    取值域（number 给范围 [0,100]；enum 给全集）
+unit            number 必填（℃ / % / km）
+source          一手实车 | 二手老表迁移
+verified_date   最后实车验证日期（二手未验证 = null + 标红）
+lib_version     信号库版本（如 v2.5），锁版后不随意变</div></div>
+    <div class="example"><div class="example-tag">真实例子：你台账"温度>26℃ 配不出" → DSL 化后天生可配</div>
+    <div class="prompt-text">signal_key: cabin_temp
+value_type: number
+operator: [==,!=,>,<,>=,<=,changed_to]   ← number 强制配齐，"温度>26℃"天生可配
+value_domain: [16,32]   unit: ℃
+source: 二手老表迁移   verified_date: null  ← 标红待韩天亮确认
+lib_version: v2.5</div></div>
+    <div class="prompt-box"><button class="copy-btn" onclick="copyById(this,'pdsl')">复制提示词</button>
+    <div class="prompt-label">从需求文本生成合规 DSL 草案</div>
+    <div class="prompt-text" id="pdsl">你是触发器 DSL 生成助手。我给你一句需求，请严格按下列字段输出一条触发条件，字段缺一不可，number 类型必须配齐 6 个运算符，拿不准的字段标"待确认"，不要编造取值域：
+字段：signal_key（唯一英文,小写下划线）/ signal_name_cn / value_type(bool|number|enum|str) / operator / value_domain / unit / source / verified_date / lib_version
+【需求】：（例：电量低于 10% 时提醒充电）
+输出一个 DSL 代码块 + 一行"我不确定、需你确认的字段"。</div></div>
+    <div class="tip"><strong>结果：</strong>运算符缺失、key 不统一、类型标错从源头不再发生，你不用逐条救火。</div>
+    <div class="tip warn-tip"><strong>常见错误：</strong>① 为兼容历史保留多个 key（实体歧义温床，宁可一次性统一改）；② 把 DSL 做成又一张人工大表（它的价值是"校验+生成自动化"，不是多一张表）。</div>
+  </div>
+
+  <div class="step-block" data-step="重设计 2">
+    <h4>Skill / 示例生产：从"人工粗写"到"白名单+模板生成"</h4>
+    <div class="example"><div class="example-tag">关键</div><p>定一张<span class="hl">车厂能力白名单</span> + Skill 写作模板。新 Skill 由 AI 按模板生成、自动对照白名单校验，人只审定。白名单直接堵死"写了车厂没有的能力（如观影模式一级指令）"。</p></div>
+    <div class="example"><div class="example-tag">车厂能力白名单（节选示例）</div>
+    <div class="prompt-text">| 能力 | 是否支持 | 调用路径 | 可控参数 |
+| 座舱温度调节 | ✅ | vehicle_basic_control | temp[16-32] |
+| 车窗开合 | ✅ | vehicle_basic_control | window,position[0-100] |
+| 观影模式(一级指令) | ❌ | — | 车厂无此一级指令，禁写成可直接下发 |
+| 宠物模式 | ⚠️走预置应用 | 预置应用,非编排 | Skill 必须写明走预置应用 |</div></div>
+    <div class="example"><div class="example-tag">真实例子：观影模式被白名单拦下</div>
+    <div class="prompt-text">旧：Skill 写"看电影 → 下发观影模式一级指令" → 车厂没有 → 调用失败
+新：AI 生成时 capability_ref 查白名单"观影模式"→ ❌不支持 → 自动打回，
+    提示"需拆成 调暗氛围灯+降座椅+开屏 的编排，或走预置应用"</div></div>
+    <div class="prompt-box"><button class="copy-btn" onclick="copyById(this,'pskill')">复制提示词</button>
+    <div class="prompt-label">按白名单生成/校验 Skill</div>
+    <div class="prompt-text" id="pskill">你是 Skill 写作助手。下面是【车厂能力白名单】和一条 Skill 需求。请按模板生成 Skill，并强制校验：capability_ref 必须能在白名单查到；call_path 必须和白名单一致；若涉及白名单中"❌不支持/⚠️走预置应用"的能力，不要硬写成可直接下发，明确指出并给替代方案。
+模板字段：skill_name / trigger_intent(2-3 真实 query) / capability_ref / call_path / params / negative_examples / verified
+【车厂能力白名单】：（粘贴）
+【Skill 需求】：（例：用户说"我要看电影"）
+输出：Skill 模板代码块 + 一段"白名单校验结论（通过/打回，原因）"。</div></div>
+    <div class="tip"><strong>结果：</strong>把"治理 Skill 质量"前移成"Skill 生产即合规"，不靠上线后 badcase 反推。</div>
+    <div class="tip warn-tip"><strong>常见错误：</strong>白名单不全 = 校验形同虚设。先覆盖高频能力再补全；白名单本身要锁版、标来源。</div>
+  </div>
+
+  <div class="step-block" data-step="重设计 3">
+    <h4>badcase 闭环：从"人工逐条排查"到"AI 主导归因+你裁决"</h4>
+    <p>让 AI 按你 CLAUDE.md 的四层路径（实体歧义→陈旧→检索→模型）自动归因 + 给修改草案，你只做裁决（提示词见底部 📋）。</p>
+    <div class="tip"><strong>结果：</strong>你从"救火队员"变"裁判"，省下的时间投到重设计 1/2 和护城河。</div>
+  </div>
+
+  <div class="step-block moat" data-step="重设计 4 · 护城河">
+    <h4>一手 context 治理：这个不能绕，是你唯一值得深耕的</h4>
+    <p>文章判据"规则在人之上→数据精度极高"。你的车端正是：<span class="good">车况 {{env_info}}、用户记忆 {{memory}}、视觉感知 {{status}}</span> 是被传感器/系统充分数据化、别人拿不到、AI 也替代不了的一手数据。</p>
+    <div class="insight-box"><div class="insight-label">把精力挪到这</div><blockquote>前 3 个重设计把脏活从源头砍掉；这一个把唯一干净的一手数据治理好——这才是抗 AI 折旧、接"认知大脑→具身智能"的能力。</blockquote></div>
+  </div>
+</section>
+
+<!-- M4 -->
+<section class="module" id="m4">
+  <div class="module-header">
+    <span class="module-tag practice">MODULE 4 · 升维</span>
+    <h1 class="module-title">缝隙理论 → 你的具身智能转型</h1>
+    <p class="module-objective">学习目标：把"重设计"升到职业层——你的稀缺价值不在更懂模型，在重新设计人机协作。</p>
+  </div>
+  <div class="insight-box">
+    <div class="insight-label">缝隙理论（文章小结）</div>
+    <blockquote>用好 AI 第一关键不在理解 AI 这门技术，而在身处缝隙中理解人与 AI 应该如何综合。</blockquote>
+  </div>
+  <table>
+    <tr><th>诱惑（无厘头）</th><th>真正的护城河</th></tr>
+    <tr><td class="bad">更懂 Seed 模型 / "模型即产品"</td><td class="good">重新设计"人—Planner—下游 Agent—车"的协作关系</td></tr>
+    <tr><td class="bad">让 Planner 话术更温柔</td><td class="good">让认知大脑在缝隙里组合一手 context + 判断力</td></tr>
+    <tr><td class="bad">和脏的二手数据死磕治理</td><td class="good">去占"规则在人之上"的干净一手 context</td></tr>
+  </table>
+  <div class="checkpoint">
+    <div class="checkpoint-title">✓ MODULE 4 检查点</div>
+    <ul>
+      <li>你下季度的精力，多少花在"治理存量"、多少花在"重设计 + 一手 context"？</li>
+      <li>你能用"我重设计了 X，让 Y 类问题从源头少发生"造一句汇报吗？</li>
+    </ul>
+  </div>
+</section>
+
+<!-- TOOL -->
+<section class="module" id="tool">
+  <div class="module-header">
+    <span class="module-tag tool">工具 · 自测</span>
+    <h1 class="module-title">🔧 你是在"治理"还是在"重设计"？</h1>
+    <p class="module-objective">沿三维度打分，看你当前定位在"永恒治理坑里"还是"AI First 重设计"。</p>
+  </div>
+  <div class="diag">
+    <div class="dim">
+      <div class="dim-head"><span class="dim-badge">① 数据怎么进来</span><span class="dim-title">触发条件/Skill 是事后清洗，还是源头规范？</span></div>
+      <div class="dim-q">越靠"先定 DSL/白名单、进库即合规"越是重设计。</div>
+      <div class="opts" data-dim="0">
+        <div class="opt" data-v="1"><span class="v">1分</span>老表迁移后事后清洗</div>
+        <div class="opt" data-v="3"><span class="v">3分</span>部分有规范</div>
+        <div class="opt" data-v="5"><span class="v">5分</span>DSL/白名单先行，源头合规</div>
+      </div>
+    </div>
+    <div class="dim">
+      <div class="dim-head"><span class="dim-badge">② badcase 怎么处理</span><span class="dim-title">人工逐条救火，还是 AI 主导归因+你裁决？</span></div>
+      <div class="dim-q">越靠"AI 干、人兜底"越是重设计。</div>
+      <div class="opts" data-dim="1">
+        <div class="opt" data-v="1"><span class="v">1分</span>全人工排查救火</div>
+        <div class="opt" data-v="3"><span class="v">3分</span>偶尔用 AI 辅助</div>
+        <div class="opt" data-v="5"><span class="v">5分</span>AI 主导归因，你只裁决</div>
+      </div>
+    </div>
+    <div class="dim">
+      <div class="dim-head"><span class="dim-badge">③ 精力花在哪</span><span class="dim-title">维护二手人工 Skill，还是深耕一手 context？</span></div>
+      <div class="dim-q">越靠"一手 context（车况/记忆/视觉）"越是护城河。</div>
+      <div class="opts" data-dim="2">
+        <div class="opt" data-v="1"><span class="v">1分</span>大半时间在维护二手 Skill</div>
+        <div class="opt" data-v="3"><span class="v">3分</span>一半一半</div>
+        <div class="opt" data-v="5"><span class="v">5分</span>主要深耕一手 context</div>
+      </div>
+    </div>
+    <button class="diag-btn" onclick="runDiag()">诊断我的定位 →</button>
+    <div id="diag-result"></div>
+  </div>
+</section>
+
+<!-- PROMPT -->
+<section class="module" id="prompt">
+  <div class="module-header">
+    <span class="module-tag tool">工具 · 提示词</span>
+    <h1 class="module-title">📋 AI 自动归因提示词（重设计 3）</h1>
+    <p class="module-objective">把 badcase 处理从"人工救火"改成"AI 主导归因+你裁决"——这是把救火工作量从源头砍掉的第一步。</p>
+  </div>
+  <div class="prompt-box">
+    <button class="copy-btn" onclick="copyPrompt(this)">复制提示词</button>
+    <div class="prompt-label">badcase 四层自动归因 + 修改草案</div>
+    <div class="prompt-text" id="ptext">你是我的 Planner badcase 归因助手。按下面四层顺序归因，命中一层就停，不要直接归到"模型不行"，最后给出修改草案，由我裁决。
+
+【粘贴 badcase】
+- 用户输入：
+- 当时车况/记忆/目标（env_info / memory / goal_list）：
+- Planner 实际输出（action_list / talk_content）：
+- 预期行为：
+
+请输出：
+1. 实体歧义：相关工具/能力描述有没有"多种叫法 / key 不唯一 / 模糊"，可能让 Planner 走错工具？指到具体哪句。
+2. 数据陈旧：用到的信号/枚举/参数，有没有过期或从老表迁移、口径不对？
+3. 检索失败：正确处理示例是否其实在库里、但这条 query 没检索到？
+4. 只有前三层都排除，才判为模型推理问题，并说明依据。
+
+最后给：| 归因层 | 证据(具体到哪句Skill/哪个字段) | 修改草案 | 这是"治理止血"还是可"重设计根治" |
+
+像审计一样冷酷，不要替模型开脱。</div>
+  </div>
+  <div class="tip"><strong>进阶：</strong>最后一列"能不能重设计根治"，是帮你把一次次救火，沉淀成重设计 1/2 的输入——这样你修的 badcase 越多，未来要修的越少。</div>
+</section>
+
+</div>
+
+<script>
+const picks = [null, null, null];
+document.querySelectorAll('.opts').forEach(group => {
+  const dim = +group.dataset.dim;
+  group.querySelectorAll('.opt').forEach(opt => {
+    opt.addEventListener('click', () => {
+      group.querySelectorAll('.opt').forEach(o => o.classList.remove('sel'));
+      opt.classList.add('sel');
+      picks[dim] = +opt.dataset.v;
+    });
+  });
+});
+function bar(label, val, color) {
+  return '<div class="bar-wrap"><div class="bar-label"><span>'+label+'</span><span>'+val+'/5</span></div>'
+       + '<div class="bar-track"><div class="bar-fill" style="width:'+(val/5*100)+'%;background:'+color+'"></div></div></div>';
+}
+function runDiag() {
+  if (picks.includes(null)) { alert('请把三个维度都选一个'); return; }
+  const s = picks[0] + picks[1] + picks[2];
+  const box = document.getElementById('diag-result');
+  let head, col, verdict, fix;
+  if (s >= 11) {
+    head = 'AI First 重设计 · 出坑了'; col = 'var(--green)';
+    verdict = '你已经在用"源头规范 + AI 主导 + 一手 context"打法，而不是和脏数据死磕。';
+    fix = '继续把重设计 4（一手 context）做深，这是接具身智能的护城河。';
+  } else if (s >= 7) {
+    head = '半治理半重设计 · 在出坑路上'; col = 'var(--yellow)';
+    verdict = '你一只脚还在救火，一只脚开始重设计。文章提醒：治理那只脚是无底洞，重心要往重设计挪。';
+    fix = '挑下面分数最低那一维，本季度把它从"治理"翻成"重设计"。';
+  } else {
+    head = '永恒治理坑里 · 高危'; col = 'var(--red)';
+    verdict = '你大半精力在事后清洗 + 人工救火 + 维护二手 Skill——这正是作者说"会错过 AI 最大红利"的坑。';
+    fix = '先做重设计 1（触发条件 DSL 先行）和重设计 2（能力白名单），把脏活从源头砍掉。';
+  }
+  const lows = [];
+  const names = ['数据进来方式（改 DSL/白名单先行）', 'badcase 处理（改 AI 主导归因）', '精力分配（挪向一手 context）'];
+  picks.forEach((v,i) => { if (v <= 3) lows.push(names[i]); });
+  const lowHtml = lows.length ? '<p style="margin-top:14px;color:var(--text-dim);font-size:13px;">优先重设计：<span style="color:'+col+'">'+lows.join(' ｜ ')+'</span></p>' : '<p style="margin-top:14px;color:var(--green);font-size:13px;">三维均衡，已是重设计打法。</p>';
+  box.style.display = 'block';
+  box.style.borderColor = col;
+  box.innerHTML =
+    '<div style="font-size:20px;font-weight:700;color:'+col+';margin-bottom:6px;">'+head+'　('+s+'/15)</div>'
+    + bar('① 数据进来方式', picks[0], 'var(--cyan)')
+    + bar('② badcase 处理', picks[1], 'var(--purple)')
+    + bar('③ 精力分配', picks[2], 'var(--green)')
+    + '<p style="margin:14px 0 0;color:var(--text-bright);font-size:14px;line-height:1.7;">'+verdict+'</p>'
+    + '<p style="margin:10px 0 0;color:var(--text);font-size:14px;line-height:1.7;"><strong style="color:'+col+'">下一步：</strong>'+fix+'</p>'
+    + lowHtml;
+  box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function copyPrompt(btn) { copyById(btn, 'ptext'); }
+function copyById(btn, id) {
+  const t = document.getElementById(id).innerText;
+  navigator.clipboard.writeText(t).then(() => {
+    btn.textContent = '已复制 ✓'; btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '复制提示词'; btn.classList.remove('copied'); }, 1800);
+  });
+}
+const sections = document.querySelectorAll('.module');
+const navLinks = document.querySelectorAll('.sidebar a[data-mod]');
+const progressBar = document.getElementById('progress');
+function updateNav() {
+  let current = '';
+  sections.forEach(s => { if (s.getBoundingClientRect().top < 120) current = s.id; });
+  navLinks.forEach(a => a.classList.toggle('active', a.dataset.mod === current));
+  const scrolled = window.scrollY;
+  const total = document.documentElement.scrollHeight - window.innerHeight;
+  progressBar.style.width = Math.min(100, (scrolled / total) * 100) + '%';
+}
+window.addEventListener('scroll', updateNav, { passive: true });
+document.querySelectorAll('.sidebar a').forEach(a => {
+  a.addEventListener('click', e => { e.preventDefault(); const t = document.querySelector(a.getAttribute('href')); if (t) t.scrollIntoView({ behavior: 'smooth' }); });
+});
+updateNav();
+</script>
+</body>
+</html>

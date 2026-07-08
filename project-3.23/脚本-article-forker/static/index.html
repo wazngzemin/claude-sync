@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Article Forker</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #09090b;
+  --surface: #141416;
+  --surface2: #1c1c20;
+  --border: #27272a;
+  --text: #fafafa;
+  --text2: #a1a1aa;
+  --muted: #52525b;
+  --accent: #8b5cf6;
+  --accent-hover: #7c3aed;
+  --green: #22c55e;
+  --yellow: #eab308;
+  --blue: #3b82f6;
+  --radius: 12px;
+}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+}
+.container {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 56px 24px 80px;
+}
+
+/* Header */
+header { margin-bottom: 48px; }
+header h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  margin-bottom: 8px;
+}
+header p { color: var(--text2); font-size: 0.9rem; }
+
+/* Input */
+.input-section { margin-bottom: 32px; }
+textarea {
+  width: 100%;
+  min-height: 220px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  color: var(--text);
+  font-size: 0.92rem;
+  line-height: 1.8;
+  resize: vertical;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+textarea:focus { outline: none; border-color: var(--accent); }
+textarea::placeholder { color: var(--muted); }
+
+.btn-fork {
+  width: 100%;
+  margin-top: 14px;
+  padding: 15px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+}
+.btn-fork:hover { background: var(--accent-hover); }
+.btn-fork:active { transform: scale(0.98); }
+.btn-fork:disabled { background: #333; color: #666; cursor: not-allowed; }
+
+/* Loading */
+.loading { display: none; margin: 32px 0; text-align: center; }
+.loading.active { display: block; }
+.loading-text { color: var(--text2); font-size: 0.88rem; margin-bottom: 12px; }
+.spinner {
+  width: 32px; height: 32px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Results */
+.results { display: none; }
+.results.active { display: block; }
+
+/* Section panels */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+.panel-header {
+  padding: 18px 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s;
+}
+.panel-header:hover { background: var(--surface2); }
+.panel-icon { font-size: 1.3rem; flex-shrink: 0; }
+.panel-title { font-size: 1rem; font-weight: 600; flex: 1; }
+.panel-chevron {
+  color: var(--muted);
+  font-size: 0.8rem;
+  transition: transform 0.2s;
+}
+.panel.open .panel-chevron { transform: rotate(90deg); }
+.panel-body {
+  padding: 0 24px 24px;
+  display: none;
+}
+.panel.open .panel-body { display: block; }
+
+/* Deep read cards */
+.section-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 18px 20px;
+  margin-bottom: 12px;
+}
+.section-card:last-child { margin-bottom: 0; }
+.section-card-header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.section-card-title {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.section-card-function {
+  font-size: 0.75rem;
+  color: var(--accent);
+  background: rgba(139,92,246,0.1);
+  padding: 2px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.section-card-hint {
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-style: italic;
+  margin-bottom: 8px;
+}
+.section-card-claim {
+  font-size: 0.88rem;
+  line-height: 1.7;
+  margin-bottom: 8px;
+}
+.section-card-meta {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.section-card-tag {
+  font-size: 0.78rem;
+  color: var(--text2);
+  background: var(--bg);
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+.section-card-tag strong { color: var(--text); font-weight: 500; }
+
+/* Argument chain */
+.chain {
+  background: var(--surface2);
+  border-radius: 10px;
+  padding: 20px 24px;
+  margin-top: 16px;
+  font-size: 0.9rem;
+  line-height: 2;
+  color: var(--text2);
+}
+.chain strong { color: var(--text); }
+.chain .arrow { color: var(--accent); margin: 0 6px; }
+
+/* Assumptions and boundaries */
+.ab-list {
+  margin-top: 16px;
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.ab-col { flex: 1; min-width: 250px; }
+.ab-col h4 {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.ab-col li {
+  font-size: 0.85rem;
+  color: var(--text2);
+  margin-bottom: 6px;
+  list-style: none;
+  padding-left: 14px;
+  position: relative;
+}
+.ab-col li::before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  color: var(--accent);
+}
+
+/* Code panel (extracted method) */
+.method-sig {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px 20px;
+  font-family: "SF Mono", "Fira Code", Menlo, monospace;
+  font-size: 0.82rem;
+  line-height: 1.8;
+  margin-bottom: 16px;
+  overflow-x: auto;
+}
+.method-sig .kw { color: var(--accent); }
+.method-sig .fn { color: var(--green); }
+.method-sig .param { color: var(--yellow); }
+.method-sig .comment { color: var(--muted); }
+
+.steps-list {
+  counter-reset: step;
+  padding: 0;
+  list-style: none;
+}
+.steps-list li {
+  counter-increment: step;
+  padding: 10px 0 10px 40px;
+  position: relative;
+  font-size: 0.88rem;
+  border-bottom: 1px solid var(--border);
+}
+.steps-list li:last-child { border-bottom: none; }
+.steps-list li::before {
+  content: counter(step);
+  position: absolute;
+  left: 0;
+  top: 10px;
+  width: 24px;
+  height: 24px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Tool proposal */
+.proposal-header {
+  background: linear-gradient(135deg, rgba(139,92,246,0.08), rgba(59,130,246,0.06));
+  border: 1px solid rgba(139,92,246,0.2);
+  border-radius: 10px;
+  padding: 20px 24px;
+  margin-bottom: 16px;
+}
+.proposal-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.proposal-liner { color: var(--text2); font-size: 0.88rem; }
+
+.proposal-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.proposal-cell {
+  background: var(--surface2);
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+.proposal-cell-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.proposal-cell-value { font-size: 0.88rem; }
+
+.features-list { padding: 0; list-style: none; }
+.features-list li {
+  padding: 8px 0;
+  font-size: 0.88rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.features-list li:last-child { border-bottom: none; }
+.features-list .check { color: var(--green); }
+
+/* Generated code panel */
+.code-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.code-filename {
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: var(--text2);
+  background: var(--bg);
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+.btn-download {
+  padding: 8px 16px;
+  background: var(--green);
+  color: #000;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.btn-download:hover { opacity: 0.85; }
+.code-block {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 18px 20px;
+  font-family: "SF Mono", Menlo, monospace;
+  font-size: 0.78rem;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  max-height: 500px;
+  overflow-y: auto;
+  color: var(--text2);
+}
+.usage-box {
+  background: rgba(34,197,94,0.06);
+  border: 1px solid rgba(34,197,94,0.2);
+  border-radius: 8px;
+  padding: 14px 18px;
+  margin-top: 12px;
+  font-size: 0.85rem;
+  color: var(--green);
+}
+
+/* History */
+.history {
+  margin-top: 56px;
+  border-top: 1px solid var(--border);
+  padding-top: 32px;
+}
+.history h2 {
+  font-size: 1rem;
+  color: var(--text2);
+  font-weight: 500;
+  margin-bottom: 16px;
+}
+.history-item {
+  padding: 14px 0;
+  border-bottom: 1px solid #1a1a1e;
+}
+.history-name { font-weight: 500; font-size: 0.9rem; }
+.history-thesis { color: var(--muted); font-size: 0.8rem; margin-top: 4px; }
+.empty { color: var(--muted); font-size: 0.85rem; font-style: italic; }
+
+/* Responsive */
+@media (max-width: 600px) {
+  .proposal-grid { grid-template-columns: 1fr; }
+  .ab-list { flex-direction: column; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Article Forker</h1>
+    <p>粘贴文章 → 深度拆解 → 提取方法论 → 生成可运行的工具。每篇文章都是源代码。</p>
+  </header>
+
+  <div class="input-section">
+    <textarea id="input" placeholder="把文章全文粘贴到这里。&#10;&#10;什么样的文章值得 fork？&#10;— 讲了一套方法论或框架&#10;— 给了具体的步骤或流程&#10;— 提出了一个可以被工具化的思维模型&#10;&#10;纯观点/叙事类文章也可以试，但 fork 出的工具会偏向「思维辅助」而非「流程自动化」。"></textarea>
+    <button class="btn-fork" id="btn-fork" onclick="doFork()">Fork 这篇文章</button>
+  </div>
+
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <div class="loading-text" id="loading-text">正在深度阅读，逐段拆解文章结构...</div>
+  </div>
+
+  <div class="results" id="results">
+    <!-- Panel 1: Deep Read -->
+    <div class="panel open" id="p-read">
+      <div class="panel-header" onclick="togglePanel('p-read')">
+        <span class="panel-icon">📖</span>
+        <span class="panel-title">深度阅读 · 逐段拆解</span>
+        <span class="panel-chevron">▶</span>
+      </div>
+      <div class="panel-body" id="body-read"></div>
+    </div>
+
+    <!-- Panel 2: Extracted Code -->
+    <div class="panel open" id="p-code">
+      <div class="panel-header" onclick="togglePanel('p-code')">
+        <span class="panel-icon">🔧</span>
+        <span class="panel-title">提取的「代码」</span>
+        <span class="panel-chevron">▶</span>
+      </div>
+      <div class="panel-body" id="body-code"></div>
+    </div>
+
+    <!-- Panel 3: Tool Proposal -->
+    <div class="panel open" id="p-tool">
+      <div class="panel-header" onclick="togglePanel('p-tool')">
+        <span class="panel-icon">💡</span>
+        <span class="panel-title">工具提案</span>
+        <span class="panel-chevron">▶</span>
+      </div>
+      <div class="panel-body" id="body-tool"></div>
+    </div>
+
+    <!-- Panel 4: Generated Code -->
+    <div class="panel open" id="p-gen">
+      <div class="panel-header" onclick="togglePanel('p-gen')">
+        <span class="panel-icon">📦</span>
+        <span class="panel-title">生成的工具</span>
+        <span class="panel-chevron">▶</span>
+      </div>
+      <div class="panel-body" id="body-gen"></div>
+    </div>
+  </div>
+
+  <div class="history" id="history-section">
+    <h2>历史 Forks</h2>
+    <div id="history-list"><span class="empty">还没有 fork 过任何文章</span></div>
+  </div>
+</div>
+
+<script>
+function togglePanel(id) {
+  document.getElementById(id).classList.toggle('open');
+}
+
+function esc(s) {
+  if (!s) return '';
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+let lastResult = null;
+
+async function doFork() {
+  const input = document.getElementById('input').value.trim();
+  if (!input) return;
+
+  const btn = document.getElementById('btn-fork');
+  btn.disabled = true;
+  btn.textContent = '正在 Fork...';
+  document.getElementById('loading').classList.add('active');
+  document.getElementById('results').classList.remove('active');
+
+  const phases = [
+    '第 1 步：正在深度阅读，逐段拆解文章结构...',
+    '第 1 步：正在分析隐含假设和论证边界...',
+    '第 1 步：正在整理论证链条...',
+    '第 2 步：深度阅读完成，正在提取可工具化的方法论...',
+    '第 2 步：正在设计工具原型...',
+    '第 2 步：正在生成完整可运行代码...',
+  ];
+  let pi = 0;
+  const timer = setInterval(() => {
+    pi = Math.min(pi + 1, phases.length - 1);
+    document.getElementById('loading-text').textContent = phases[pi];
+  }, 12000);
+
+  try {
+    const res = await fetch('/api/fork', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: input })
+    });
+    const data = await res.json();
+    if (data.error) { alert('出错了: ' + data.error); return; }
+    lastResult = data;
+    renderResults(data);
+    document.getElementById('results').classList.add('active');
+    loadHistory();
+  } catch (e) {
+    alert('请求失败: ' + e.message);
+  } finally {
+    clearInterval(timer);
+    btn.disabled = false;
+    btn.textContent = 'Fork 这篇文章';
+    document.getElementById('loading').classList.remove('active');
+  }
+}
+
+function renderResults(data) {
+  const dr = data.deep_read || {};
+  const ec = data.extracted_code || {};
+  const tp = data.tool_proposal || {};
+  const gc = data.generated_code || {};
+
+  // --- Deep Read ---
+  let html = '';
+  const sections = dr.sections || [];
+  sections.forEach(s => {
+    html += `<div class="section-card">
+      <div class="section-card-header">
+        <span class="section-card-title">${esc(s.title)}</span>
+        <span class="section-card-function">${esc(s.function)}</span>
+      </div>
+      ${s.original_hint ? `<div class="section-card-hint">「${esc(s.original_hint)}」</div>` : ''}
+      <div class="section-card-claim">${esc(s.core_claim)}</div>
+      <div class="section-card-meta">
+        ${s.hidden_assumption ? `<span class="section-card-tag"><strong>假设:</strong> ${esc(s.hidden_assumption)}</span>` : ''}
+        ${s.commentary ? `<span class="section-card-tag"><strong>评注:</strong> ${esc(s.commentary)}</span>` : ''}
+      </div>
+    </div>`;
+  });
+
+  // Argument chain
+  if (dr.argument_chain) {
+    const chain = esc(dr.argument_chain).replace(/→/g, '<span class="arrow">→</span>');
+    html += `<div class="chain"><strong>论证链:</strong><br>${chain}</div>`;
+  }
+
+  // Assumptions & boundaries
+  const assumptions = dr.hidden_assumptions || [];
+  const boundaries = dr.boundaries || [];
+  if (assumptions.length || boundaries.length) {
+    html += '<div class="ab-list">';
+    if (assumptions.length) {
+      html += '<div class="ab-col"><h4>隐含假设</h4><ul>';
+      assumptions.forEach(a => html += `<li>${esc(a)}</li>`);
+      html += '</ul></div>';
+    }
+    if (boundaries.length) {
+      html += '<div class="ab-col"><h4>观点边界</h4><ul>';
+      boundaries.forEach(b => html += `<li>${esc(b)}</li>`);
+      html += '</ul></div>';
+    }
+    html += '</div>';
+  }
+  document.getElementById('body-read').innerHTML = html;
+
+  // --- Extracted Code ---
+  html = `<div class="method-sig">
+<span class="kw">def</span> <span class="fn">${esc(ec.method_name || 'unnamed')}</span>(<span class="param">${esc(ec.input || '...')}</span>) -> <span class="param">${esc(ec.output || '...')}</span>:
+    <span class="comment"># ${esc(ec.problem_solved || '')}</span>
+</div>`;
+  if (ec.steps && ec.steps.length) {
+    html += '<ol class="steps-list">';
+    ec.steps.forEach(s => html += `<li>${esc(s)}</li>`);
+    html += '</ol>';
+  }
+  if (ec.boundaries && ec.boundaries.length) {
+    html += '<div style="margin-top:14px"><h4 style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px">不适用场景</h4><ul style="padding-left:16px">';
+    ec.boundaries.forEach(b => html += `<li style="font-size:0.85rem;color:var(--text2);margin-bottom:4px">${esc(b)}</li>`);
+    html += '</ul></div>';
+  }
+  document.getElementById('body-code').innerHTML = html;
+
+  // --- Tool Proposal ---
+  html = `<div class="proposal-header">
+    <div class="proposal-name">${esc(tp.name || '?')}</div>
+    <div class="proposal-liner">${esc(tp.one_liner || '')}</div>
+  </div>`;
+  html += '<div class="proposal-grid">';
+  html += `<div class="proposal-cell"><div class="proposal-cell-label">形态</div><div class="proposal-cell-value">${esc(tp.format || '?')}</div></div>`;
+  html += `<div class="proposal-cell"><div class="proposal-cell-label">为什么选这个形态</div><div class="proposal-cell-value">${esc(tp.why_this_format || '?')}</div></div>`;
+  html += '</div>';
+  html += `<div class="proposal-cell" style="margin-bottom:14px"><div class="proposal-cell-label">使用场景</div><div class="proposal-cell-value">${esc(tp.use_case || '')}</div></div>`;
+  html += '<ul class="features-list">';
+  (tp.mvp_features || []).forEach(f => html += `<li><span class="check">✓</span> ${esc(f)}</li>`);
+  if (tp.first_iteration) {
+    html += `<li style="color:var(--text2)"><span style="color:var(--yellow)">◐</span> 下一次迭代: ${esc(tp.first_iteration)}</li>`;
+  }
+  html += '</ul>';
+  document.getElementById('body-tool').innerHTML = html;
+
+  // --- Generated Code ---
+  html = `<div class="code-header">
+    <span class="code-filename">${esc(gc.filename || 'tool.html')}</span>
+    <button class="btn-download" onclick="downloadTool()">下载工具文件</button>
+  </div>`;
+  html += `<div class="code-block">${esc(gc.code || '(no code)')}</div>`;
+  if (gc.usage) {
+    html += `<div class="usage-box"><strong>使用方法:</strong> ${esc(gc.usage)}</div>`;
+  }
+  document.getElementById('body-gen').innerHTML = html;
+}
+
+function downloadTool() {
+  if (!lastResult || !lastResult.generated_code) return;
+  const gc = lastResult.generated_code;
+  const blob = new Blob([gc.code], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = gc.filename || 'tool.html';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function loadHistory() {
+  try {
+    const res = await fetch('/api/forks');
+    const forks = await res.json();
+    const el = document.getElementById('history-list');
+    if (!forks.length) { el.innerHTML = '<span class="empty">还没有 fork 过任何文章</span>'; return; }
+    el.innerHTML = forks.map(f => `
+      <div class="history-item">
+        <div class="history-name">${esc(f.name)}</div>
+        <div class="history-thesis">${esc(f.thesis)}</div>
+      </div>
+    `).join('');
+  } catch(e) {}
+}
+
+document.getElementById('input').addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') doFork();
+});
+
+loadHistory();
+</script>
+</body>
+</html>

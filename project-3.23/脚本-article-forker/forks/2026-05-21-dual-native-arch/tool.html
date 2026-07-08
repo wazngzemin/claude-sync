@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>双原生架构 — 系统学习手册</title>
+<style>
+:root {
+  --bg: #0b0f1a; --surface: #111827; --surface2: #1a2234; --border: #1e3050;
+  --text: #d1d5db; --text-dim: #8892a4; --text-bright: #f1f5f9;
+  --blue: #3b82f6; --blue-dim: #1e3a5f; --cyan: #22d3ee;
+  --green: #34d399; --green-dim: #064e3b; --yellow: #fbbf24; --yellow-dim: #78350f;
+  --red: #f87171; --red-dim: #7f1d1d; --purple: #a78bfa; --purple-dim: #4c1d95;
+  --orange: #fb923c; --nav-w: 260px; --header-h: 56px;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; background: var(--bg); color: var(--text); line-height: 1.75; font-size: 15px; }
+
+.top-bar { position:fixed; top:0; left:0; right:0; height:var(--header-h); z-index:100; background:rgba(11,15,26,.92); backdrop-filter:blur(12px); border-bottom:1px solid var(--border); display:flex; align-items:center; padding:0 24px; gap:16px; }
+.top-bar .logo { font-weight:700; font-size:16px; color:var(--text-bright); white-space:nowrap; }
+.top-bar .progress-track { flex:1; height:4px; background:var(--surface); border-radius:2px; overflow:hidden; }
+.top-bar .progress-fill { height:100%; width:0%; background:linear-gradient(90deg,var(--blue),var(--cyan)); border-radius:2px; transition:width .4s; }
+
+.sidebar { position:fixed; top:var(--header-h); left:0; width:var(--nav-w); height:calc(100vh - var(--header-h)); background:var(--surface); border-right:1px solid var(--border); overflow-y:auto; z-index:90; padding:20px 0; }
+.sidebar .nav-section { padding:8px 20px; font-size:11px; color:var(--text-dim); text-transform:uppercase; letter-spacing:2px; margin-top:8px; }
+.sidebar a { display:flex; align-items:center; gap:10px; padding:10px 20px; color:var(--text-dim); text-decoration:none; font-size:13px; transition:all .2s; border-left:3px solid transparent; }
+.sidebar a:hover { color:var(--text); background:var(--surface2); }
+.sidebar a.active { color:var(--blue); border-left-color:var(--blue); background:rgba(59,130,246,.08); font-weight:600; }
+.sidebar .nav-icon { width:20px; height:20px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0; }
+
+.main { margin-left:var(--nav-w); margin-top:var(--header-h); padding:40px 48px 80px; max-width:900px; }
+.module { margin-bottom:80px; scroll-margin-top:calc(var(--header-h) + 24px); }
+.module-header { margin-bottom:32px; }
+.module-tag { display:inline-block; font-size:11px; font-weight:700; letter-spacing:2px; text-transform:uppercase; padding:4px 12px; border-radius:4px; margin-bottom:12px; }
+.module-tag.overview { background:var(--blue-dim); color:var(--cyan); }
+.module-tag.theory { background:var(--purple-dim); color:var(--purple); }
+.module-tag.practice { background:var(--green-dim); color:var(--green); }
+.module-tag.check { background:var(--yellow-dim); color:var(--yellow); }
+.module-title { font-size:26px; font-weight:700; color:var(--text-bright); margin-bottom:8px; }
+.module-objective { font-size:14px; color:var(--text-dim); padding-left:16px; border-left:3px solid var(--blue); }
+
+.diagram-wrapper { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:24px; margin:28px 0; overflow-x:auto; }
+.diagram-wrapper svg { display:block; margin:0 auto; }
+.diagram-caption { text-align:center; font-size:12px; color:var(--text-dim); margin-top:12px; letter-spacing:1px; }
+
+h2 { font-size:20px; color:var(--text-bright); margin:36px 0 16px; }
+h3 { font-size:16px; color:var(--cyan); margin:28px 0 12px; font-weight:600; }
+p { margin:10px 0; }
+.hl { color:var(--yellow); font-weight:600; }
+.good { color:var(--green); }
+.bad { color:var(--red); }
+
+.insight-box { background:linear-gradient(135deg,rgba(59,130,246,.08),rgba(34,211,238,.05)); border:1px solid rgba(59,130,246,.25); border-radius:10px; padding:20px 24px; margin:20px 0; }
+.insight-label { font-size:11px; font-weight:700; color:var(--cyan); letter-spacing:2px; text-transform:uppercase; margin-bottom:8px; }
+.insight-box blockquote { border-left:3px solid var(--blue); padding-left:16px; margin:12px 0; color:var(--text-bright); font-size:15px; font-style:italic; }
+
+table { width:100%; border-collapse:collapse; margin:16px 0; font-size:14px; }
+th { background:var(--surface2); color:var(--cyan); padding:10px 14px; text-align:left; font-weight:600; font-size:12px; letter-spacing:1px; }
+td { padding:10px 14px; border-bottom:1px solid var(--border); color:var(--text); }
+tr:hover td { background:rgba(30,48,80,.3); }
+
+.step-block { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:24px 28px; margin:24px 0; position:relative; }
+.step-block::before { content:attr(data-step); position:absolute; top:-12px; left:24px; background:var(--blue); color:#fff; font-size:11px; font-weight:700; padding:2px 12px; border-radius:4px; letter-spacing:1px; }
+.step-block h4 { font-size:16px; color:var(--text-bright); margin:4px 0 12px; }
+
+.card-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:20px 0; }
+.card { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:20px; }
+.card.vs-old { border-top:3px solid var(--red); }
+.card.vs-new { border-top:3px solid var(--green); }
+.card-label { font-size:12px; font-weight:700; letter-spacing:1px; margin-bottom:8px; }
+.card.vs-old .card-label { color:var(--red); }
+.card.vs-new .card-label { color:var(--green); }
+.card ul { padding-left:18px; margin:0; }
+.card li { margin:6px 0; font-size:14px; color:var(--text); }
+
+.example { background:var(--surface2); border-left:3px solid var(--purple); border-radius:0 10px 10px 0; padding:16px 20px; margin:16px 0; }
+.example-tag { font-size:11px; font-weight:700; color:var(--purple); letter-spacing:1px; margin-bottom:8px; }
+.example p { font-size:14px; margin:6px 0; }
+
+.prompt-box { background:rgba(76,29,149,.12); border:1px solid rgba(167,139,250,.25); border-radius:10px; padding:16px 20px; margin:16px 0; position:relative; }
+.prompt-label { font-size:11px; font-weight:700; color:var(--purple); letter-spacing:1px; margin-bottom:8px; }
+.prompt-text { font-family:"SF Mono","Fira Code",monospace; font-size:13px; color:var(--text); white-space:pre-wrap; line-height:1.7; }
+.copy-btn { position:absolute; top:12px; right:12px; background:var(--purple-dim); color:var(--purple); border:1px solid rgba(167,139,250,.3); border-radius:6px; padding:4px 12px; font-size:11px; cursor:pointer; font-weight:600; }
+.copy-btn:hover { background:rgba(167,139,250,.25); }
+.copy-btn.copied { background:var(--green-dim); color:var(--green); border-color:rgba(52,211,153,.3); }
+
+.checkpoint { background:linear-gradient(135deg,rgba(251,191,36,.06),rgba(251,146,60,.04)); border:1px solid rgba(251,191,36,.2); border-radius:10px; padding:20px 24px; margin:24px 0; }
+.checkpoint-title { font-size:13px; font-weight:700; color:var(--yellow); letter-spacing:1px; margin-bottom:10px; }
+.checkpoint ul { padding-left:20px; margin:0; }
+.checkpoint li { margin:6px 0; font-size:14px; color:var(--text); }
+.checkpoint li::marker { color:var(--yellow); }
+
+.tip { background:rgba(52,211,153,.06); border:1px solid rgba(52,211,153,.2); border-radius:10px; padding:14px 18px; margin:16px 0; font-size:14px; }
+.tip strong { color:var(--green); }
+
+@media (max-width:900px) {
+  .sidebar { display:none; }
+  .main { margin-left:0; padding:24px 20px 60px; }
+  .card-grid { grid-template-columns:1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <div class="logo">双原生架构</div>
+  <div class="progress-track"><div class="progress-fill" id="progress"></div></div>
+</div>
+
+<nav class="sidebar" id="sidebar">
+  <div class="nav-section">学习路径</div>
+  <a href="#m0" data-mod="m0" class="active"><span class="nav-icon" style="background:var(--blue-dim);color:var(--cyan);">0</span>全局地图</a>
+  <a href="#m1" data-mod="m1"><span class="nav-icon" style="background:var(--purple-dim);color:var(--purple);">1</span>两个世界</a>
+  <a href="#m2" data-mod="m2"><span class="nav-icon" style="background:var(--purple-dim);color:var(--purple);">2</span>碰撞与边界层</a>
+  <a href="#m3" data-mod="m3"><span class="nav-icon" style="background:var(--green-dim);color:var(--green);">3</span>架构定义</a>
+  <a href="#m4" data-mod="m4"><span class="nav-icon" style="background:var(--green-dim);color:var(--green);">4</span>设计 SOP</a>
+  <a href="#m5" data-mod="m5"><span class="nav-icon" style="background:var(--yellow-dim);color:var(--yellow);">5</span>分水岭判断</a>
+  <div class="nav-section" style="margin-top:24px;">工具</div>
+  <a href="#tools">AI 提示词模板</a>
+  <a href="#checklist">产品自检表</a>
+</nav>
+
+<div class="main">
+
+<!-- ===== MODULE 0 ===== -->
+<section class="module" id="m0">
+  <div class="module-header">
+    <span class="module-tag overview">MODULE 0 · 全局</span>
+    <h1 class="module-title">全局地图</h1>
+    <p class="module-objective">5 分钟看完这张图，掌握"双原生架构"的完整逻辑链和你能用它做什么。</p>
+  </div>
+
+  <div class="diagram-wrapper">
+    <svg viewBox="0 0 760 440" xmlns="http://www.w3.org/2000/svg" style="max-width:760px;width:100%;">
+      <defs>
+        <marker id="arr" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#3b82f6"/></marker>
+        <marker id="arr-r" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#f87171"/></marker>
+        <marker id="arr-g" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#34d399"/></marker>
+        <marker id="arr-y" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#fbbf24"/></marker>
+      </defs>
+
+      <!-- Logic chain: horizontal flow -->
+      <text x="380" y="25" text-anchor="middle" fill="var(--text-dim)" font-size="11" font-weight="600" letter-spacing="2">论证逻辑链</text>
+
+      <!-- Step 1 -->
+      <rect x="20" y="40" width="130" height="60" rx="10" fill="#111827" stroke="#a78bfa" stroke-opacity=".6"/>
+      <text x="85" y="63" text-anchor="middle" fill="#a78bfa" font-size="10" font-weight="700">前提颠覆</text>
+      <text x="85" y="80" text-anchor="middle" fill="#e2e8f0" font-size="11">未来 ≠ 统一系统</text>
+      <text x="85" y="93" text-anchor="middle" fill="#8892a4" font-size="9">两个世界共存</text>
+
+      <line x1="150" y1="70" x2="168" y2="70" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arr)"/>
+
+      <!-- Step 2 -->
+      <rect x="170" y="40" width="130" height="60" rx="10" fill="#111827" stroke="#3b82f6" stroke-opacity=".6"/>
+      <text x="235" y="63" text-anchor="middle" fill="#3b82f6" font-size="10" font-weight="700">两个世界画像</text>
+      <text x="235" y="80" text-anchor="middle" fill="#e2e8f0" font-size="11">AI:效率 · 人:意义</text>
+      <text x="235" y="93" text-anchor="middle" fill="#8892a4" font-size="9">不同第一原则</text>
+
+      <line x1="300" y1="70" x2="318" y2="70" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arr)"/>
+
+      <!-- Step 3 -->
+      <rect x="320" y="40" width="130" height="60" rx="10" fill="#111827" stroke="#f87171" stroke-opacity=".6"/>
+      <text x="385" y="63" text-anchor="middle" fill="#f87171" font-size="10" font-weight="700">碰撞问题</text>
+      <text x="385" y="80" text-anchor="middle" fill="#e2e8f0" font-size="11">直接对接→双崩溃</text>
+      <text x="385" y="93" text-anchor="middle" fill="#8892a4" font-size="9">需要边界层</text>
+
+      <line x1="450" y1="70" x2="468" y2="70" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arr)"/>
+
+      <!-- Step 4 -->
+      <rect x="470" y="40" width="130" height="60" rx="10" fill="#111827" stroke="#34d399" stroke-opacity=".6"/>
+      <text x="535" y="63" text-anchor="middle" fill="#34d399" font-size="10" font-weight="700">解决方案</text>
+      <text x="535" y="80" text-anchor="middle" fill="#e2e8f0" font-size="11">双原生架构</text>
+      <text x="535" y="93" text-anchor="middle" fill="#8892a4" font-size="9">内AI原生·外人类原生</text>
+
+      <line x1="600" y1="70" x2="618" y2="70" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arr)"/>
+
+      <!-- Step 5 -->
+      <rect x="620" y="40" width="120" height="60" rx="10" fill="#111827" stroke="#fbbf24" stroke-opacity=".6"/>
+      <text x="680" y="63" text-anchor="middle" fill="#fbbf24" font-size="10" font-weight="700">分水岭</text>
+      <text x="680" y="80" text-anchor="middle" fill="#e2e8f0" font-size="11">"加AI" vs "设计边境"</text>
+      <text x="680" y="93" text-anchor="middle" fill="#8892a4" font-size="9">产品战略判断</text>
+
+      <!-- Separator -->
+      <line x1="20" y1="120" x2="740" y2="120" stroke="var(--border)" stroke-width="1" stroke-dasharray="4,4"/>
+      <text x="380" y="140" text-anchor="middle" fill="var(--text-dim)" font-size="11" font-weight="600" letter-spacing="2">核心架构图</text>
+
+      <!-- AI World -->
+      <rect x="30" y="160" width="220" height="240" rx="14" fill="#1e3a5f" fill-opacity=".12" stroke="#3b82f6" stroke-opacity=".3"/>
+      <text x="140" y="185" text-anchor="middle" fill="#3b82f6" font-size="13" font-weight="700">AI 世界</text>
+      <text x="140" y="205" text-anchor="middle" fill="#8892a4" font-size="10">效率优先 · 并行 · 逻辑驱动</text>
+
+      <rect x="55" y="220" width="170" height="28" rx="6" fill="#111827" stroke="#3b82f6" stroke-opacity=".3"/>
+      <text x="140" y="238" text-anchor="middle" fill="#60a5fa" font-size="11">结构化意图通信</text>
+      <rect x="55" y="255" width="170" height="28" rx="6" fill="#111827" stroke="#3b82f6" stroke-opacity=".3"/>
+      <text x="140" y="273" text-anchor="middle" fill="#60a5fa" font-size="11">共享记忆 · 任务图谱</text>
+      <rect x="55" y="290" width="170" height="28" rx="6" fill="#111827" stroke="#3b82f6" stroke-opacity=".3"/>
+      <text x="140" y="308" text-anchor="middle" fill="#60a5fa" font-size="11">状态空间 · 语义同步</text>
+      <rect x="55" y="325" width="170" height="28" rx="6" fill="#111827" stroke="#3b82f6" stroke-opacity=".3"/>
+      <text x="140" y="343" text-anchor="middle" fill="#60a5fa" font-size="11">毫秒级 · 万级Agent并行</text>
+
+      <text x="140" y="380" text-anchor="middle" fill="#3b82f6" font-size="10" font-weight="600">第一原则：速度 × 成本 × 并行度</text>
+
+      <!-- Human World -->
+      <rect x="510" y="160" width="220" height="240" rx="14" fill="#064e3b" fill-opacity=".12" stroke="#34d399" stroke-opacity=".3"/>
+      <text x="620" y="185" text-anchor="middle" fill="#34d399" font-size="13" font-weight="700">人类世界</text>
+      <text x="620" y="205" text-anchor="middle" fill="#8892a4" font-size="10">体验优先 · 情绪 · 意义驱动</text>
+
+      <rect x="535" y="220" width="170" height="28" rx="6" fill="#111827" stroke="#34d399" stroke-opacity=".3"/>
+      <text x="620" y="238" text-anchor="middle" fill="#34d399" font-size="11">自然语言 · 故事</text>
+      <rect x="535" y="255" width="170" height="28" rx="6" fill="#111827" stroke="#34d399" stroke-opacity=".3"/>
+      <text x="620" y="273" text-anchor="middle" fill="#34d399" font-size="11">社会关系 · 信任 · 身份</text>
+      <rect x="535" y="290" width="170" height="28" rx="6" fill="#111827" stroke="#34d399" stroke-opacity=".3"/>
+      <text x="620" y="308" text-anchor="middle" fill="#34d399" font-size="11">仪式 · 文化 · 共鸣</text>
+      <rect x="535" y="325" width="170" height="28" rx="6" fill="#111827" stroke="#34d399" stroke-opacity=".3"/>
+      <text x="620" y="343" text-anchor="middle" fill="#34d399" font-size="11">天/周级 · "我看见你"</text>
+
+      <text x="620" y="380" text-anchor="middle" fill="#34d399" font-size="10" font-weight="600">第一原则：意义 × 归属 × 体验</text>
+
+      <!-- Border Layer -->
+      <rect x="275" y="170" width="210" height="220" rx="14" fill="#78350f" fill-opacity=".08" stroke="#fbbf24" stroke-opacity=".4" stroke-width="2"/>
+      <text x="380" y="195" text-anchor="middle" fill="#fbbf24" font-size="13" font-weight="700">边界层（翻译）</text>
+
+      <rect x="295" y="215" width="170" height="26" rx="5" fill="#111827" stroke="#fbbf24" stroke-opacity=".3"/>
+      <text x="380" y="232" text-anchor="middle" fill="#fbbf24" font-size="10">信息降维</text>
+      <rect x="295" y="248" width="170" height="26" rx="5" fill="#111827" stroke="#fbbf24" stroke-opacity=".3"/>
+      <text x="380" y="265" text-anchor="middle" fill="#fbbf24" font-size="10">节奏适配</text>
+      <rect x="295" y="281" width="170" height="26" rx="5" fill="#111827" stroke="#fbbf24" stroke-opacity=".3"/>
+      <text x="380" y="298" text-anchor="middle" fill="#fbbf24" font-size="10">控制权保留</text>
+      <rect x="295" y="314" width="170" height="26" rx="5" fill="#111827" stroke="#fbbf24" stroke-opacity=".3"/>
+      <text x="380" y="331" text-anchor="middle" fill="#fbbf24" font-size="10">意义包装</text>
+
+      <text x="380" y="370" text-anchor="middle" fill="#fbbf24" font-size="10" font-weight="600">双原生架构的核心</text>
+
+      <!-- Arrows between worlds and border -->
+      <path d="M250,280 L275,280" fill="none" stroke="#3b82f6" stroke-width="2" marker-end="url(#arr)"/>
+      <path d="M485,280 L510,280" fill="none" stroke="#34d399" stroke-width="2" marker-end="url(#arr-g)"/>
+
+      <!-- Bottom label -->
+      <text x="380" y="420" text-anchor="middle" fill="var(--text-dim)" font-size="11">向内：AI 语言 · 自治网络 · 状态空间 ←→ 向外：人类语言 · 社会关系 · 故事与身份</text>
+    </svg>
+    <div class="diagram-caption">双原生架构全局图 — AI世界 ↔ 边界层（翻译）↔ 人类世界</div>
+  </div>
+
+  <div class="insight-box">
+    <div class="insight-label">阅读指引</div>
+    <p><strong>如果你是产品/技术负责人：</strong>Module 0 → Module 3（架构定义）→ Module 4（设计 SOP）→ 自检表</p>
+    <p><strong>如果你想理解底层逻辑：</strong>Module 1 → Module 2 → Module 3 → Module 5</p>
+    <p><strong>如果你只有 3 分钟：</strong>看完这张全局图 + Module 5 的分水岭判断表</p>
+  </div>
+</section>
+
+<!-- ===== MODULE 1 ===== -->
+<section class="module" id="m1">
+  <div class="module-header">
+    <span class="module-tag theory">MODULE 1 · 认知</span>
+    <h1 class="module-title">两个世界：AI 世界 vs 人类世界</h1>
+    <p class="module-objective">理解为什么未来不是"统一系统"，而是两个各有第一原则的独立世界。</p>
+  </div>
+
+  <div class="insight-box">
+    <div class="insight-label">被打破的隐含前提</div>
+    <blockquote>"过去几年，关于AI的讨论，有一个隐含前提：未来是一套统一的系统。人接入AI，AI服务人，然后世界自然完成融合——但这个前提，可能错了。"</blockquote>
+    <p>真正的问题不是"人如何使用AI"，而是：<span class="hl">两个正在高速进化的世界如何接壤</span>。</p>
+  </div>
+
+  <div class="diagram-wrapper">
+    <svg viewBox="0 0 700 280" xmlns="http://www.w3.org/2000/svg" style="max-width:700px;width:100%;">
+      <!-- Two worlds diverging -->
+      <text x="350" y="25" text-anchor="middle" fill="var(--text-dim)" font-size="11" font-weight="600">两个世界的分化方向</text>
+
+      <!-- Starting point -->
+      <circle cx="350" cy="60" r="20" fill="#111827" stroke="var(--text-dim)" stroke-width="2"/>
+      <text x="350" y="64" text-anchor="middle" fill="var(--text-bright)" font-size="10">2024</text>
+
+      <!-- Diverging paths -->
+      <path d="M330,60 Q200,100 120,250" fill="none" stroke="#3b82f6" stroke-width="2.5"/>
+      <path d="M370,60 Q500,100 580,250" fill="none" stroke="#34d399" stroke-width="2.5"/>
+
+      <!-- AI World endpoint -->
+      <circle cx="120" cy="250" r="35" fill="#1e3a5f" fill-opacity=".3" stroke="#3b82f6" stroke-width="2"/>
+      <text x="120" y="245" text-anchor="middle" fill="#3b82f6" font-size="12" font-weight="700">AI 世界</text>
+      <text x="120" y="262" text-anchor="middle" fill="#8892a4" font-size="9">效率优先</text>
+
+      <!-- Human World endpoint -->
+      <circle cx="580" cy="250" r="35" fill="#064e3b" fill-opacity=".3" stroke="#34d399" stroke-width="2"/>
+      <text x="580" y="245" text-anchor="middle" fill="#34d399" font-size="12" font-weight="700">人类世界</text>
+      <text x="580" y="262" text-anchor="middle" fill="#8892a4" font-size="9">意义优先</text>
+
+      <!-- AI characteristics -->
+      <text x="60" y="130" fill="#3b82f6" font-size="10">万级Agent并行</text>
+      <text x="50" y="150" fill="#3b82f6" font-size="10">结构化意图通信</text>
+      <text x="40" y="170" fill="#3b82f6" font-size="10">毫秒级决策</text>
+      <text x="55" y="190" fill="#3b82f6" font-size="10">不需要PPT/UI/会议</text>
+
+      <!-- Human characteristics -->
+      <text x="520" y="130" fill="#34d399" font-size="10">爱情·信任·身份</text>
+      <text x="530" y="150" fill="#34d399" font-size="10">仪式·文化·共鸣</text>
+      <text x="540" y="170" fill="#34d399" font-size="10">"我看见你"</text>
+      <text x="525" y="190" fill="#34d399" font-size="10">靠意义维持，非效率</text>
+
+      <!-- Gap in the middle -->
+      <text x="350" y="180" text-anchor="middle" fill="#f87171" font-size="14" font-weight="700">?</text>
+      <text x="350" y="200" text-anchor="middle" fill="#f87171" font-size="11">怎么连接？</text>
+      <text x="350" y="220" text-anchor="middle" fill="#8892a4" font-size="10">时间尺度不同 · 运行规律不同</text>
+      <text x="350" y="236" text-anchor="middle" fill="#8892a4" font-size="10">组织方式不同 · 价值函数不同</text>
+    </svg>
+    <div class="diagram-caption">两个世界正在加速分化 — 中间的"？"就是双原生架构要解决的问题</div>
+  </div>
+
+  <table>
+    <tr><th style="width:20%">维度</th><th style="width:38%">AI 世界</th><th style="width:38%">人类世界</th></tr>
+    <tr><td><strong>第一原则</strong></td><td>效率优先 — 速度、成本、并行度</td><td>体验优先 — 意义、归属、安全感</td></tr>
+    <tr><td><strong>通信方式</strong></td><td>结构化意图、状态向量、语义同步</td><td>自然语言、故事、情绪、肢体语言</td></tr>
+    <tr><td><strong>时间尺度</strong></td><td>毫秒级并行处理</td><td>天/周/月级序列决策</td></tr>
+    <tr><td><strong>组织方式</strong></td><td>自治网络、任务图谱、动态分配</td><td>层级、关系网、身份认同</td></tr>
+    <tr><td><strong>"低效"的价值</strong></td><td>无 — 一切噪声都应消除</td><td>极高 — 开会的价值是关系建立</td></tr>
+    <tr><td><strong>比喻</strong></td><td>"发个状态向量就够了"</td><td>"我看见你"</td></tr>
+  </table>
+
+  <div class="example">
+    <div class="example-tag">关键洞察 — "人类低带宽协议"</div>
+    <p>PPT、UI界面、表格、汇报、周会 —— 这些不是"工作方式"，而是<span class="hl">人类认知带宽限制下的妥协产物</span>。</p>
+    <p>AI 之间不需要这些。当数万个智能体彼此交流时，它们会形成自己的高效协议：结构化意图、共享记忆、任务图谱、动态知识空间。</p>
+    <p>这意味着：AI 的世界会越来越不像"人类可理解的样子"。</p>
+  </div>
+
+  <div class="checkpoint">
+    <div class="checkpoint-title">MODULE 1 检查点</div>
+    <ul>
+      <li>你能说清楚两个世界各自的"第一原则"吗？</li>
+      <li>你理解为什么开会是"低效但有价值"的吗？（意义 vs 效率）</li>
+      <li>你能接受"未来不是统一系统"这个前提吗？</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ===== MODULE 2 ===== -->
+<section class="module" id="m2">
+  <div class="module-header">
+    <span class="module-tag theory">MODULE 2 · 问题</span>
+    <h1 class="module-title">碰撞：为什么直接对接不行</h1>
+    <p class="module-objective">两个世界各自成立后，核心问题浮现——它们无法直接对接，两个方向都会崩溃。</p>
+  </div>
+
+  <div class="diagram-wrapper">
+    <svg viewBox="0 0 700 220" xmlns="http://www.w3.org/2000/svg" style="max-width:700px;width:100%;">
+      <!-- Direction 1: AI → Human -->
+      <rect x="30" y="20" width="300" height="80" rx="10" fill="#7f1d1d" fill-opacity=".1" stroke="#f87171" stroke-opacity=".3"/>
+      <text x="180" y="45" text-anchor="middle" fill="#f87171" font-size="12" font-weight="700">方向 A：AI 直接暴露给人</text>
+      <text x="180" y="65" text-anchor="middle" fill="#d1d5db" font-size="11">信息密度太高 · 变化速度太快</text>
+      <text x="180" y="82" text-anchor="middle" fill="#f87171" font-size="11" font-weight="600">→ 人崩溃（认知过载）</text>
+
+      <!-- Direction 2: Human → AI -->
+      <rect x="370" y="20" width="300" height="80" rx="10" fill="#7f1d1d" fill-opacity=".1" stroke="#f87171" stroke-opacity=".3"/>
+      <text x="520" y="45" text-anchor="middle" fill="#f87171" font-size="12" font-weight="700">方向 B：人类流程强加给 AI</text>
+      <text x="520" y="65" text-anchor="middle" fill="#d1d5db" font-size="11">流程、审批、层级、会议</text>
+      <text x="520" y="82" text-anchor="middle" fill="#f87171" font-size="11" font-weight="600">→ AI 崩溃（全是噪声）</text>
+
+      <!-- Therefore -->
+      <text x="350" y="125" text-anchor="middle" fill="#fbbf24" font-size="12" font-weight="700">↓ 所以 ↓</text>
+
+      <!-- Solution direction -->
+      <rect x="150" y="140" width="400" height="65" rx="12" fill="#111827" stroke="#fbbf24" stroke-opacity=".5" stroke-width="2"/>
+      <text x="350" y="165" text-anchor="middle" fill="#fbbf24" font-size="14" font-weight="700">需要"边界层"——让两个世界彼此翻译</text>
+      <text x="350" y="185" text-anchor="middle" fill="#8892a4" font-size="11">注意：这个翻译不是提示词（prompt），而是一种新的系统架构</text>
+    </svg>
+    <div class="diagram-caption">双向崩溃测试 — 两个世界的直接对接在两个方向上都失败</div>
+  </div>
+
+  <div class="card-grid">
+    <div class="card vs-old">
+      <div class="card-label">当前常见做法（不够）</div>
+      <ul>
+        <li>Prompt engineering — 人学着跟AI说话</li>
+        <li>Copilot 模式 — AI 做副驾驶</li>
+        <li>ChatBot — 对话框交互</li>
+        <li>Dashboard — 展示AI分析结果</li>
+        <li>→ 本质都是"人适应AI"或"AI适应人"</li>
+      </ul>
+    </div>
+    <div class="card vs-new">
+      <div class="card-label">双原生架构（结构性解法）</div>
+      <ul>
+        <li>AI 侧完全按 AI 的方式运行</li>
+        <li>人侧完全按人的方式体验</li>
+        <li>边界层负责翻译，双方都不妥协</li>
+        <li>人不需要学AI语言</li>
+        <li>→ "两个世界各自原生，边界层连接"</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="checkpoint">
+    <div class="checkpoint-title">MODULE 2 检查点</div>
+    <ul>
+      <li>你能解释为什么"给产品加个 AI chatbot"不够吗？</li>
+      <li>你理解"边界层≠提示词"意味着什么吗？（结构 vs 表面）</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ===== MODULE 3 ===== -->
+<section class="module" id="m3">
+  <div class="module-header">
+    <span class="module-tag practice">MODULE 3 · 定义</span>
+    <h1 class="module-title">双原生架构的定义与结构</h1>
+    <p class="module-objective">精确理解"双原生"的含义：不是 AI+人，而是同时原生于两个世界。</p>
+  </div>
+
+  <div class="insight-box">
+    <div class="insight-label">核心定义</div>
+    <p><span class="hl">双原生架构 = 系统内部运行 AI 原生逻辑 + 系统外部保持人类原生体验</span></p>
+    <p>向内：AI 语言、自治网络、状态空间</p>
+    <p>向外：人类语言、社会关系、故事与身份</p>
+  </div>
+
+  <!-- SVG: 三组对称翻译 -->
+  <div class="diagram-wrapper">
+    <svg viewBox="0 0 720 250" xmlns="http://www.w3.org/2000/svg" style="max-width:720px;width:100%;">
+      <!-- Headers -->
+      <text x="120" y="25" text-anchor="middle" fill="#3b82f6" font-size="12" font-weight="700">AI 原生（向内）</text>
+      <text x="360" y="25" text-anchor="middle" fill="#fbbf24" font-size="12" font-weight="700">边界层翻译</text>
+      <text x="600" y="25" text-anchor="middle" fill="#34d399" font-size="12" font-weight="700">人类原生（向外）</text>
+
+      <!-- Row 1 -->
+      <rect x="20" y="45" width="200" height="50" rx="8" fill="#111827" stroke="#3b82f6" stroke-opacity=".4"/>
+      <text x="120" y="65" text-anchor="middle" fill="#60a5fa" font-size="11" font-weight="600">AI 语言</text>
+      <text x="120" y="82" text-anchor="middle" fill="#8892a4" font-size="10">结构化意图、状态向量</text>
+
+      <rect x="260" y="45" width="200" height="50" rx="8" fill="#111827" stroke="#fbbf24" stroke-opacity=".4"/>
+      <text x="360" y="65" text-anchor="middle" fill="#fbbf24" font-size="11" font-weight="600">意图 → 自然语言</text>
+      <text x="360" y="82" text-anchor="middle" fill="#8892a4" font-size="10">把机器意图翻译成人话</text>
+
+      <rect x="500" y="45" width="200" height="50" rx="8" fill="#111827" stroke="#34d399" stroke-opacity=".4"/>
+      <text x="600" y="65" text-anchor="middle" fill="#34d399" font-size="11" font-weight="600">人类语言</text>
+      <text x="600" y="82" text-anchor="middle" fill="#8892a4" font-size="10">故事、对话、"早上好"</text>
+
+      <line x1="220" y1="70" x2="258" y2="70" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="3,3"/>
+      <line x1="460" y1="70" x2="498" y2="70" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="3,3"/>
+
+      <!-- Row 2 -->
+      <rect x="20" y="110" width="200" height="50" rx="8" fill="#111827" stroke="#3b82f6" stroke-opacity=".4"/>
+      <text x="120" y="130" text-anchor="middle" fill="#60a5fa" font-size="11" font-weight="600">自治网络</text>
+      <text x="120" y="147" text-anchor="middle" fill="#8892a4" font-size="10">Agent群、任务图谱</text>
+
+      <rect x="260" y="110" width="200" height="50" rx="8" fill="#111827" stroke="#fbbf24" stroke-opacity=".4"/>
+      <text x="360" y="130" text-anchor="middle" fill="#fbbf24" font-size="11" font-weight="600">行为 → 关系</text>
+      <text x="360" y="147" text-anchor="middle" fill="#8892a4" font-size="10">把Agent行为映射为人际关系</text>
+
+      <rect x="500" y="110" width="200" height="50" rx="8" fill="#111827" stroke="#34d399" stroke-opacity=".4"/>
+      <text x="600" y="130" text-anchor="middle" fill="#34d399" font-size="11" font-weight="600">社会关系</text>
+      <text x="600" y="147" text-anchor="middle" fill="#8892a4" font-size="10">信任、层级、"我认识你"</text>
+
+      <line x1="220" y1="135" x2="258" y2="135" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="3,3"/>
+      <line x1="460" y1="135" x2="498" y2="135" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="3,3"/>
+
+      <!-- Row 3 -->
+      <rect x="20" y="175" width="200" height="50" rx="8" fill="#111827" stroke="#3b82f6" stroke-opacity=".4"/>
+      <text x="120" y="195" text-anchor="middle" fill="#60a5fa" font-size="11" font-weight="600">状态空间</text>
+      <text x="120" y="212" text-anchor="middle" fill="#8892a4" font-size="10">高维向量、十万次推演</text>
+
+      <rect x="260" y="175" width="200" height="50" rx="8" fill="#111827" stroke="#fbbf24" stroke-opacity=".4"/>
+      <text x="360" y="195" text-anchor="middle" fill="#fbbf24" font-size="11" font-weight="600">状态 → 叙事</text>
+      <text x="360" y="212" text-anchor="middle" fill="#8892a4" font-size="10">把状态变化翻译为故事</text>
+
+      <rect x="500" y="175" width="200" height="50" rx="8" fill="#111827" stroke="#34d399" stroke-opacity=".4"/>
+      <text x="600" y="195" text-anchor="middle" fill="#34d399" font-size="11" font-weight="600">故事与身份</text>
+      <text x="600" y="212" text-anchor="middle" fill="#8892a4" font-size="10">"今天有三个重要决定"</text>
+
+      <line x1="220" y1="200" x2="258" y2="200" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="3,3"/>
+      <line x1="460" y1="200" x2="498" y2="200" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="3,3"/>
+
+      <!-- Bottom example -->
+      <text x="360" y="245" text-anchor="middle" fill="var(--text-dim)" font-size="10">例：内部数百Agent高速协作 → 边界层翻译 → 人只看到"早上好，今天有三个重要决定"</text>
+    </svg>
+    <div class="diagram-caption">三组对称翻译 — AI原生概念 → 边界层 → 人类原生体验</div>
+  </div>
+
+  <div class="checkpoint">
+    <div class="checkpoint-title">MODULE 3 检查点</div>
+    <ul>
+      <li>你能用自己的话解释"双原生"是什么意思吗？（不是AI+人，是...）</li>
+      <li>你能举一个边界层"翻译"的具体例子吗？</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ===== MODULE 4 ===== -->
+<section class="module" id="m4">
+  <div class="module-header">
+    <span class="module-tag practice">MODULE 4 · 操作</span>
+    <h1 class="module-title">设计 SOP：如何用双原生架构思考</h1>
+    <p class="module-objective">把框架变成可执行的设计方法——适用于产品设计、系统架构、组织设计。</p>
+  </div>
+
+  <div class="diagram-wrapper">
+    <svg viewBox="0 0 720 180" xmlns="http://www.w3.org/2000/svg" style="max-width:720px;width:100%;">
+      <defs><marker id="sf" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#34d399"/></marker></defs>
+
+      <rect x="20" y="30" width="150" height="70" rx="10" fill="#111827" stroke="#3b82f6" stroke-width="2"/>
+      <rect x="20" y="30" width="150" height="24" rx="10" fill="#3b82f6"/><rect x="20" y="44" width="150" height="10" fill="#3b82f6"/>
+      <text x="95" y="47" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">STEP 1</text>
+      <text x="95" y="72" text-anchor="middle" fill="#e2e8f0" font-size="11">画两个圈</text>
+      <text x="95" y="88" text-anchor="middle" fill="#8892a4" font-size="9">识别AI自治区 vs 人类体验区</text>
+
+      <line x1="170" y1="65" x2="193" y2="65" stroke="#34d399" stroke-width="2" marker-end="url(#sf)"/>
+
+      <rect x="195" y="30" width="150" height="70" rx="10" fill="#111827" stroke="#fbbf24" stroke-width="2"/>
+      <rect x="195" y="30" width="150" height="24" rx="10" fill="#fbbf24"/><rect x="195" y="44" width="150" height="10" fill="#fbbf24"/>
+      <text x="270" y="47" text-anchor="middle" fill="#111" font-size="10" font-weight="700">STEP 2（核心）</text>
+      <text x="270" y="72" text-anchor="middle" fill="#e2e8f0" font-size="11">设计边界层</text>
+      <text x="270" y="88" text-anchor="middle" fill="#8892a4" font-size="9">4 原则：降维/节奏/控制/包装</text>
+
+      <line x1="345" y1="65" x2="368" y2="65" stroke="#34d399" stroke-width="2" marker-end="url(#sf)"/>
+
+      <rect x="370" y="30" width="150" height="70" rx="10" fill="#111827" stroke="#f87171" stroke-width="2"/>
+      <rect x="370" y="30" width="150" height="24" rx="10" fill="#f87171"/><rect x="370" y="44" width="150" height="10" fill="#f87171"/>
+      <text x="445" y="47" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">STEP 3</text>
+      <text x="445" y="72" text-anchor="middle" fill="#e2e8f0" font-size="11">崩溃测试</text>
+      <text x="445" y="88" text-anchor="middle" fill="#8892a4" font-size="9">两个方向各测一次</text>
+
+      <line x1="520" y1="65" x2="543" y2="65" stroke="#34d399" stroke-width="2" marker-end="url(#sf)"/>
+
+      <rect x="545" y="30" width="150" height="70" rx="10" fill="#111827" stroke="#34d399" stroke-width="2"/>
+      <rect x="545" y="30" width="150" height="24" rx="10" fill="#34d399"/><rect x="545" y="44" width="150" height="10" fill="#34d399"/>
+      <text x="620" y="47" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">STEP 4</text>
+      <text x="620" y="72" text-anchor="middle" fill="#e2e8f0" font-size="11">分水岭判断</text>
+      <text x="620" y="88" text-anchor="middle" fill="#8892a4" font-size="9">"加AI" vs "设计边境"</text>
+
+      <!-- Feedback -->
+      <path d="M445,100 L445,130 Q445,145 430,145 L100,145 Q85,145 85,130 L85,102" fill="none" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="4,4" marker-end="url(#arr-y)"/>
+      <text x="270" y="160" text-anchor="middle" fill="#fbbf24" fill-opacity=".6" font-size="9">崩溃测试失败 → 回到 Step 1 或 Step 2 调整</text>
+    </svg>
+    <div class="diagram-caption">4 步设计流程 — 带反馈循环</div>
+  </div>
+
+  <div class="step-block" data-step="STEP 1 · 画两个圈">
+    <h4>识别你的系统中"AI 自治区"和"人类体验区"</h4>
+    <table>
+      <tr><th style="width:45%">左圈：AI 可以自治的部分</th><th style="width:45%">右圈：必须保持人类体验的部分</th></tr>
+      <tr><td>哪些环节不需要人参与就能完成？</td><td>哪些环节人必须"感觉到"自己在参与？</td></tr>
+      <tr><td>哪些决策可以用数据和规则自动做出？</td><td>哪些决策人必须拥有最终控制权？</td></tr>
+      <tr><td>哪些通信可以是Agent之间直接完成？</td><td>哪些交互人需要"被看见"？</td></tr>
+    </table>
+    <p><strong>判断标准：</strong></p>
+    <p>去掉人的参与，效率提升 10x 以上？→ <span class="good">属于左圈</span></p>
+    <p>去掉人的参与，损失意义感/信任/合规？→ <span class="good">属于右圈</span></p>
+    <p>两者都是？→ <span class="hl">这就是你的"边界层"所在</span></p>
+  </div>
+
+  <div class="step-block" data-step="STEP 2 · 设计边界层（核心）">
+    <h4>4 个设计原则 — 每个人机交互点都用这 4 问检查</h4>
+    <table>
+      <tr><th>原则</th><th>含义</th><th>反例（错误做法）</th></tr>
+      <tr><td><strong>信息降维</strong></td><td>AI高维状态 → 人可理解的低维叙事</td><td><span class="bad">把AI所有推理过程展示给用户</span></td></tr>
+      <tr><td><strong>节奏适配</strong></td><td>AI毫秒级结果 → 按人的节奏呈现</td><td><span class="bad">实时推送每一次Agent决策</span></td></tr>
+      <tr><td><strong>控制权保留</strong></td><td>人在关键节点有否决权，但不参与过程</td><td><span class="bad">每一步都要人确认</span></td></tr>
+      <tr><td><strong>意义包装</strong></td><td>结果以故事/建议/选择题呈现</td><td><span class="bad">给用户一个JSON</span></td></tr>
+    </table>
+  </div>
+
+  <div class="step-block" data-step="STEP 3 · 崩溃测试">
+    <h4>两个方向各测一次</h4>
+    <p><strong>测试 A（AI→人）：</strong>把 AI 内部运行的完整信息展示给一个普通用户。观察：用户是否理解？是否焦虑？信息过载？如果是 → 边界层降维不够。</p>
+    <p><strong>测试 B（人→AI）：</strong>把当前的人类流程（审批、会议纪要、邮件）直接喂给 AI 系统。观察：AI 能否高效处理？还是大部分都是噪声？如果噪声过多 → 需要在人侧做"意图提取"。</p>
+  </div>
+
+  <div class="checkpoint">
+    <div class="checkpoint-title">MODULE 4 检查点</div>
+    <ul>
+      <li>你能对你的产品/项目画出"两个圈"吗？</li>
+      <li>你能对每个人机交互点回答 4 个设计问句吗？</li>
+      <li>你做过崩溃测试了吗？</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ===== MODULE 5 ===== -->
+<section class="module" id="m5">
+  <div class="module-header">
+    <span class="module-tag check">MODULE 5 · 判断</span>
+    <h1 class="module-title">分水岭：你在做哪种产品？</h1>
+    <p class="module-objective">这是最终的战略判断——你是在"给旧世界加AI"，还是在"设计两个世界的边境"？</p>
+  </div>
+
+  <div class="diagram-wrapper">
+    <svg viewBox="0 0 700 200" xmlns="http://www.w3.org/2000/svg" style="max-width:700px;width:100%;">
+      <!-- Two paths from center -->
+      <circle cx="350" cy="40" r="25" fill="#111827" stroke="var(--text-dim)" stroke-width="2"/>
+      <text x="350" y="44" text-anchor="middle" fill="var(--text-bright)" font-size="10" font-weight="600">你的产品</text>
+
+      <!-- Left: 加AI -->
+      <path d="M325,40 Q200,40 130,120" fill="none" stroke="#f87171" stroke-width="2.5"/>
+      <rect x="40" y="110" width="180" height="75" rx="10" fill="#7f1d1d" fill-opacity=".15" stroke="#f87171" stroke-opacity=".4"/>
+      <text x="130" y="135" text-anchor="middle" fill="#f87171" font-size="13" font-weight="700">给旧世界加 AI</text>
+      <text x="130" y="155" text-anchor="middle" fill="#8892a4" font-size="10">copilot · chatbot · AI助手</text>
+      <text x="130" y="172" text-anchor="middle" fill="#8892a4" font-size="10">天花板可见 · 壁垒低</text>
+
+      <!-- Right: 设计边境 -->
+      <path d="M375,40 Q500,40 570,120" fill="none" stroke="#34d399" stroke-width="2.5"/>
+      <rect x="480" y="110" width="200" height="75" rx="10" fill="#064e3b" fill-opacity=".15" stroke="#34d399" stroke-opacity=".4"/>
+      <text x="580" y="135" text-anchor="middle" fill="#34d399" font-size="13" font-weight="700">设计两个世界的边境</text>
+      <text x="580" y="155" text-anchor="middle" fill="#8892a4" font-size="10">双原生架构产品</text>
+      <text x="580" y="172" text-anchor="middle" fill="#8892a4" font-size="10">天花板极高 · 壁垒高</text>
+    </svg>
+    <div class="diagram-caption">产品战略分水岭 — 两条路的机会大小和壁垒完全不同</div>
+  </div>
+
+  <h3>快速判断法</h3>
+  <table>
+    <tr><th>判断问题</th><th>如果答案是 YES</th></tr>
+    <tr><td>去掉 AI 功能，产品还能用吗？</td><td><span class="bad">你在"加AI"</span> — AI 是附加功能不是核心</td></tr>
+    <tr><td>去掉 AI 功能，产品根本不存在？</td><td><span class="good">你可能在"设计边境"</span></td></tr>
+    <tr><td>去掉人类体验层，产品变成纯 API？</td><td><span class="good">你可能在"设计边境"</span> — 说明两层都有</td></tr>
+    <tr><td>用户需要理解 AI 内部逻辑才能使用？</td><td><span class="bad">边界层设计失败</span> — 不是真正的双原生</td></tr>
+  </table>
+
+  <div class="example">
+    <div class="example-tag">具象化 — 一个双原生架构的个人智能体</div>
+    <p><strong>内部（AI原生）：</strong>数百个Agent高速协作、十万次推演、实时状态同步、结构化意图通信</p>
+    <p><strong>边界层翻译后：</strong></p>
+    <p><strong>外部（人看到的）：</strong>"早上好，今天有三个重要决定需要你做。第一个是..."</p>
+    <p>人不需要看到内部十万次推演。<span class="hl">人只需要一个可理解的世界。</span></p>
+  </div>
+
+  <div class="checkpoint">
+    <div class="checkpoint-title">MODULE 5 检查点</div>
+    <ul>
+      <li>你的产品属于哪条路？</li>
+      <li>如果是"加AI"，有没有可能重新设计成"双原生"？</li>
+      <li>你能说清楚你的"边界层"在哪、怎么翻译吗？</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ===== TOOLS ===== -->
+<section class="module" id="tools">
+  <div class="module-header">
+    <span class="module-tag practice">工具箱</span>
+    <h1 class="module-title">AI 提示词模板</h1>
+    <p class="module-objective">用这些模板让 AI 帮你做双原生架构分析。</p>
+  </div>
+
+  <div class="prompt-box">
+    <div class="prompt-label">模板 1 · 分析产品的"两个圈"</div>
+    <button class="copy-btn" onclick="copyPrompt(this)">复制</button>
+    <div class="prompt-text">我正在设计/分析一个产品：[描述你的产品/系统]
+
+请用"双原生架构"框架帮我分析：
+1. 哪些环节属于"AI自治区"（不需要人参与，效率优先）？
+2. 哪些环节属于"人类体验区"（必须保持人的感知和控制）？
+3. 这两个区域的边界在哪？（哪些点是"两者都需要"的？）
+4. 当前这个产品是"给旧世界加AI"还是"设计两个世界的边境"？为什么？
+5. 如果要向"双原生"方向重新设计，最关键要改变什么？</div>
+  </div>
+
+  <div class="prompt-box">
+    <div class="prompt-label">模板 2 · 设计边界层</div>
+    <button class="copy-btn" onclick="copyPrompt(this)">复制</button>
+    <div class="prompt-text">我的产品中有一个人机交互点：[描述具体的交互场景]
+
+AI 内部的状态/结果是：[描述 AI 侧的输出]
+用户需要的体验是：[描述用户期望]
+
+请帮我用"边界层4原则"设计这个翻译：
+1. 信息降维：AI的高维结果中，人真正需要知道什么？
+2. 节奏适配：什么时候/什么频率告诉用户最合适？
+3. 控制权保留：用户需要做决定吗？如果是，给几个选项最好？
+4. 意义包装：用什么"人话"或什么形式呈现？（选择题/故事/建议/数字？）
+
+给我具体的 UI 文案或交互方案。</div>
+  </div>
+
+  <div class="prompt-box">
+    <div class="prompt-label">模板 3 · 崩溃测试</div>
+    <button class="copy-btn" onclick="copyPrompt(this)">复制</button>
+    <div class="prompt-text">我的产品/系统是：[描述]
+
+请帮我做两个方向的"崩溃测试"：
+
+测试A（AI→人）：如果把 AI 内部运行的完整信息和过程直接展示给用户，用户会：
+- 理解吗？
+- 觉得信息过载吗？
+- 焦虑吗？
+- 哪些信息是真正有价值的，哪些是噪声？
+
+测试B（人→AI）：如果把当前的人类流程（审批流、会议记录、邮件往来等）直接喂给 AI 系统：
+- AI 能高效处理吗？
+- 哪些部分对 AI 是噪声？
+- 人类流程中的"真正意图"是什么？能被结构化提取吗？
+
+给出改进建议。</div>
+  </div>
+</section>
+
+<!-- ===== CHECKLIST ===== -->
+<section class="module" id="checklist">
+  <div class="module-header">
+    <span class="module-tag check">自检</span>
+    <h1 class="module-title">产品自检表</h1>
+    <p class="module-objective">对照检查你的产品/系统是否符合双原生架构。</p>
+  </div>
+
+  <table>
+    <tr><th style="width:40%">检查项</th><th style="width:30%">达标标准</th><th style="width:30%">你的状态</th></tr>
+    <tr><td>AI 自治范围明确</td><td>能画出"不需要人参与"的完整流程</td><td></td></tr>
+    <tr><td>人类体验范围明确</td><td>能说清"人必须感觉到参与"的环节</td><td></td></tr>
+    <tr><td>边界层有明确设计</td><td>每个交互点都回答了4个设计问句</td><td></td></tr>
+    <tr><td>信息降维到位</td><td>普通用户不觉得信息过载</td><td></td></tr>
+    <tr><td>节奏适配到位</td><td>不会被 AI 的实时推送打扰</td><td></td></tr>
+    <tr><td>AI 侧不被人类流程拖慢</td><td>Agent 间通信不经过人类可读格式</td><td></td></tr>
+    <tr><td>人不需要理解 AI 内部逻辑</td><td>用户说不出"AI在哪"</td><td></td></tr>
+    <tr><td>去掉 AI 产品不存在</td><td>不是"给旧产品加AI"</td><td></td></tr>
+  </table>
+
+  <p style="text-align:center;color:var(--text-dim);margin-top:60px;font-size:12px;">
+    Fork from: 双原生架构（Dual-Native Architecture）· 2026-05-21 · article-forker skill
+  </p>
+</section>
+
+</div>
+
+<script>
+function copyPrompt(btn) {
+  const t = btn.parentElement.querySelector('.prompt-text').textContent;
+  navigator.clipboard.writeText(t).then(() => {
+    btn.textContent = '已复制'; btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '复制'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+const sections = document.querySelectorAll('.module');
+const navLinks = document.querySelectorAll('.sidebar a[data-mod]');
+const progressBar = document.getElementById('progress');
+function updateNav() {
+  let current = '';
+  sections.forEach(s => { if (s.getBoundingClientRect().top < 120) current = s.id; });
+  navLinks.forEach(a => a.classList.toggle('active', a.dataset.mod === current));
+  const scrolled = window.scrollY, total = document.documentElement.scrollHeight - window.innerHeight;
+  progressBar.style.width = Math.min(100, (scrolled / total) * 100) + '%';
+}
+window.addEventListener('scroll', updateNav, { passive: true });
+document.querySelectorAll('.sidebar a').forEach(a => {
+  a.addEventListener('click', e => { e.preventDefault(); const t = document.querySelector(a.getAttribute('href')); if(t) t.scrollIntoView({behavior:'smooth'}); });
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Harness Engineering 详细对比 · 业界标准 vs 我们的方案 · 完整版</title>
+<style>
+:root{--bg:#f8fafc;--card:#fff;--border:#e2e8f0;--t1:#1e293b;--t2:#475569;--t3:#94a3b8;--blue:#2563eb;--red:#dc2626;--green:#16a34a;--purple:#7c3aed;--orange:#ea580c;--shadow:0 4px 20px rgba(0,0,0,.06)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;color:var(--t1);line-height:1.9;font-size:15px}
+.page{max-width:1060px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:1.8rem;font-weight:800;margin-bottom:4px}
+.meta{color:var(--t3);font-size:.85rem;margin-bottom:32px}
+h2{font-size:1.4rem;font-weight:700;margin:52px 0 12px;padding:10px 0 10px 16px;border-left:5px solid var(--blue)}
+h3{font-size:1.1rem;font-weight:700;margin:28px 0 8px}
+h4{font-size:.95rem;font-weight:700;margin:20px 0 6px;color:var(--t2)}
+p{color:var(--t2);margin-bottom:12px}
+ul,ol{padding-left:1.5em;margin:8px 0 16px;color:var(--t2)}
+li{margin-bottom:6px}
+.card{background:var(--card);border-radius:12px;box-shadow:var(--shadow);padding:28px;margin:16px 0;border:1px solid var(--border)}
+.card.red{border-left:5px solid var(--red)}
+.card.green{border-left:5px solid var(--green)}
+.card.blue{border-left:5px solid var(--blue)}
+.card.purple{border-left:5px solid var(--purple)}
+.card.orange{border-left:5px solid var(--orange)}
+pre{background:#1e293b;color:#e2e8f0;padding:16px 20px;border-radius:8px;overflow-x:auto;font-size:.82rem;line-height:1.7;margin:12px 0;white-space:pre-wrap}
+pre .k{color:#93c5fd}pre .s{color:#86efac}pre .c{color:#64748b}pre .w{color:#fca5a5}pre .y{color:#fde68a}pre .p{color:#c4b5fd}
+.hl{padding:14px 18px;border-radius:8px;margin:12px 0;font-size:.92rem}
+.hl-blue{background:#eff6ff;border-left:4px solid var(--blue)}
+.hl-red{background:#fef2f2;border-left:4px solid var(--red)}
+.hl-green{background:#f0fdf4;border-left:4px solid var(--green)}
+.hl-orange{background:#fff7ed;border-left:4px solid var(--orange)}
+.hl-purple{background:#faf5ff;border-left:4px solid var(--purple)}
+table{width:100%;border-collapse:collapse;font-size:.85rem;margin:12px 0}
+th,td{padding:10px 12px;border:1px solid var(--border);text-align:left;vertical-align:top}
+th{background:#f1f5f9;font-weight:600}
+hr{border:none;border-top:2px dashed var(--border);margin:44px 0}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:768px){.two-col{grid-template-columns:1fr}}
+.src{font-size:.8rem;color:var(--t3);margin-top:4px}
+.src a{color:var(--blue);text-decoration:none}
+.score{display:inline-block;padding:3px 10px;border-radius:12px;font-size:.78rem;font-weight:700}
+.s5{background:#dcfce7;color:#166534}.s4{background:#d1fae5;color:#047857}.s3{background:#fef3c7;color:#92400e}.s2{background:#fed7aa;color:#9a3412}.s1{background:#fecaca;color:#991b1b}
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>Harness Engineering 详细对比（完整版）</h1>
+<p class="meta">业界标准 7 大组件的实现细节 vs 豆包上车 Planner 的实际实现 · 逐组件深入到代码/架构级</p>
+
+<div class="hl hl-blue">
+<strong>阅读指南：</strong>每个组件按以下结构展开：<br>
+① 这个组件解决什么问题 → ② 业界标准怎么实现（具体到框架/代码模式/数据流）→ ③ 我们实际怎么实现的 → ④ 差距在哪里（精确到哪一步缺了什么）→ ⑤ 怎么补 → ⑥ 评分
+</div>
+
+<hr>
+
+<!-- ============================================================ -->
+<!-- 1. AGENTIC LOOP -->
+<!-- ============================================================ -->
+<h2>组件 1：Agentic Loop（执行循环）</h2>
+
+<h3>① 解决什么问题</h3>
+<p>裸 LLM 只能回答一次——你问一句它答一句就结束了。但真实任务需要多步：先查天气 → 根据天气决定要不要开窗 → 再查车内温度 → 最终决定空调设几度。Agentic Loop 让模型可以<strong>循环执行</strong>：思考 → 行动 → 观察结果 → 再思考 → 再行动，直到任务完成。</p>
+
+<h3>② 业界标准怎么实现</h3>
+<div class="card blue">
+<h4>TAO 循环（Thought-Action-Observation）</h4>
+<p>也叫 ReAct Loop，是 2026 年所有主流 Agent 框架（LangChain/LangGraph/OpenAI Agents SDK/Anthropic Claude Code）的标准模式：</p>
+<pre><span class="k">业界标准 Agentic Loop 伪代码：</span>
+
+while not done:
+    <span class="c"># 1. 组装 Context（每轮都重新组装）</span>
+    context = assemble_context(
+        system_prompt,
+        retrieved_knowledge,   <span class="c"># 动态知识</span>
+        retrieved_examples,    <span class="c"># 动态示例</span>
+        tool_definitions,      <span class="c"># 可用工具</span>
+        memory,                <span class="c"># 记忆</span>
+        conversation_history,  <span class="c"># 对话历史</span>
+        current_observation    <span class="c"># 上一轮工具返回的结果</span>
+    )
+
+    <span class="c"># 2. 调 LLM 推理</span>
+    response = llm.generate(context)
+
+    <span class="c"># 3. 解析输出</span>
+    parsed = parse_output(response)  <span class="c"># JSON 解析</span>
+
+    <span class="c"># 4. 输出验证（Guardrails）</span>
+    <span class="y">if not validate_output(parsed):</span>
+        <span class="y">retry_count += 1</span>
+        <span class="y">if retry_count > max_retries:</span>
+            <span class="y">    return error("验证失败，超过重试次数")</span>
+        <span class="y">current_observation = f"你的输出不合法：{validation_error}"</span>
+        <span class="y">continue  # 回到循环开头，让模型重新生成</span>
+
+    <span class="c"># 5. 如果模型决定调工具</span>
+    if parsed.has_tool_calls:
+        for tool_call in parsed.tool_calls:
+            <span class="c"># 5a. 工具执行前校验（Guardrail Layer 1）</span>
+            <span class="w">if not validate_tool_call(tool_call, current_state):</span>
+            <span class="w">    current_observation = f"工具调用被拒绝：{reason}"</span>
+            <span class="w">    continue</span>
+
+            <span class="c"># 5b. 执行工具</span>
+            result = execute_tool(tool_call)
+
+            <span class="c"># 5c. 工具执行后校验（Guardrail Layer 2）</span>
+            <span class="w">validated_result = validate_tool_output(result)</span>
+
+            <span class="c"># 5d. 结果回传作为下一轮的 observation</span>
+            current_observation = validated_result
+
+    <span class="c"># 6. 如果模型决定结束</span>
+    if parsed.is_final_answer:
+        <span class="c"># 最终输出校验（Guardrail Layer 3）</span>
+        <span class="w">if validate_final_output(parsed.answer):</span>
+            done = True
+            return parsed.answer
+
+<span class="s">关键特征：</span>
+  - 循环次数不固定，模型自己决定什么时候结束
+  - 每轮都可以调多个工具
+  - 工具返回结果自动成为下一轮的输入
+  - 三层 Guardrail 嵌在循环内部
+  - 输出验证失败会触发重试（retry loop）
+  - 有超时/预算控制（token budget / max iterations）</pre>
+
+<p class="src">来源：<a href="https://blogs.oracle.com/developers/what-is-the-ai-agent-loop-the-core-architecture-behind-autonomous-ai-systems">Oracle: What Is the AI Agent Loop</a> · <a href="https://openai.github.io/openai-agents-python/guardrails/">OpenAI Agents SDK: Guardrails</a></p>
+
+<h4>LangGraph 的实现：有向图 + 状态机</h4>
+<p>LangGraph 把 Agentic Loop 建模为一个<strong>有向图</strong>：每个节点是一个计算步骤（LLM 推理 / 工具执行 / 条件判断），边是状态转移。状态是一个共享对象，在图中流动，存储消息、变量、中间结果、决策历史。支持 checkpointing（断点续传）、线程级记忆、跨会话持久化。</p>
+<p class="src">来源：<a href="https://www.spaceo.ai/blog/agentic-ai-frameworks/">SpaceO: Agentic AI Frameworks 2026</a></p>
+</div>
+
+<h3>③ 我们实际怎么实现的</h3>
+<div class="card orange">
+<pre><span class="k">豆包 Planner 的实际执行循环：</span>
+
+<span class="c"># 1. Selector SP 检索动态知识（独立 LLM 调用，500ms-1.8s）</span>
+knowledge_ids = selector_sp.classify(query, env, history, goals)
+
+<span class="c"># 2. vikingDB 向量检索动态示例（~30ms）</span>
+examples = vikingdb.search(query_embedding, top_k=5)
+
+<span class="c"># 3. 组装 SP</span>
+sp = assemble_sp(
+    static_sp,              <span class="c"># 固定部分 ~16K tokens</span>
+    knowledge[knowledge_ids], <span class="c"># Skill 全文</span>
+    examples,               <span class="c"># few-shot 示例</span>
+    env_info,               <span class="c"># 端状态</span>
+    memory,                 <span class="c"># 用户记忆</span>
+    conversation_history    <span class="c"># 最近 10 轮</span>
+)
+
+<span class="c"># 4. Planner LLM 推理（~800ms）</span>
+response = planner_llm.generate(sp + user_prompt)
+
+<span class="c"># 5. 解析输出</span>
+parsed = parse_json(response)  <span class="c"># talk_or_not / talk_content / action_list</span>
+
+<span class="c"># 6. 执行工具</span>
+for action in parsed.action_list:
+    result = execute_tool(action.tool_name, action.param)
+    <span class="c"># tool_feedback 回传</span>
+
+<span class="c"># 7. 如果有 tool_feedback 需要二次推理</span>
+<span class="y">if needs_second_pass(result):</span>
+<span class="y">    # 把 tool_feedback 加入对话历史</span>
+<span class="y">    # 重新调 Planner 推理一次</span>
+<span class="y">    response2 = planner_llm.generate(sp + tool_feedback)</span>
+<span class="y">    # 通常到这里就结束了，最多 2 轮</span>
+
+<span class="w">缺失的部分（对比业界标准）：</span>
+<span class="w">  ✗ 没有 validate_output（输出直接执行，不校验）</span>
+<span class="w">  ✗ 没有 validate_tool_call（工具调用前不校验）</span>
+<span class="w">  ✗ 没有 validate_tool_output（工具返回后不校验）</span>
+<span class="w">  ✗ 没有 retry loop（输出不合法时不重试）</span>
+<span class="w">  ✗ 循环深度有限（通常 1-2 轮，不能做 3-4 步编排）</span>
+<span class="w">  ✗ 没有 token budget 控制</span>
+<span class="w">  ✗ 没有超时退出机制</span></pre>
+</div>
+
+<h3>④ 差距精确定位</h3>
+<table>
+<tr><th>业界 Loop 里有的步骤</th><th>我们有没有</th><th>影响</th></tr>
+<tr><td>Context 每轮重新组装</td><td>✅ 有（Selector + vikingDB + env + memory 每轮都跑）</td><td>—</td></tr>
+<tr><td>LLM 推理</td><td>✅ 有</td><td>—</td></tr>
+<tr><td>JSON 解析</td><td>✅ 有</td><td>—</td></tr>
+<tr><td><strong>输出结构校验</strong>（JSON schema + tool_name 合法性 + param 格式）</td><td style="background:#fecaca;">❌ 没有</td><td>tool_name 写错也直接下发→方向靠报错→badcase</td></tr>
+<tr><td><strong>验证失败 → 重试</strong>（retry loop，让模型重新生成）</td><td style="background:#fecaca;">❌ 没有</td><td>一次输出错了就没机会纠正</td></tr>
+<tr><td><strong>工具执行前校验</strong>（非P档+调座椅→拒绝）</td><td style="background:#fecaca;">❌ 没有</td><td>安全隐患！小明说"可能车毁人亡"</td></tr>
+<tr><td><strong>工具执行后校验</strong>（检查返回值是否合理）</td><td style="background:#fecaca;">❌ 没有</td><td>工具返回异常也原样回传给 Planner</td></tr>
+<tr><td>多轮深度循环（3-4轮 → 模型自己决定结束）</td><td style="background:#fef3c7;">⚠️ 部分（最多2轮）</td><td>复杂编排做不了（先查温度→判断开窗→查天气→定幅度）</td></tr>
+<tr><td>Token budget / 超时退出</td><td style="background:#fecaca;">❌ 没有</td><td>极端情况可能死循环或超时无响应</td></tr>
+</table>
+
+<h3>⑤ 怎么补</h3>
+<div class="card green">
+<pre><span class="k">最小化改动方案（在现有架构上加 3 层校验）：</span>
+
+<span class="c"># 在 Planner 输出之后、工具执行之前，加一个校验函数：</span>
+
+<span class="s">def validate_planner_output(parsed, env_info):</span>
+    <span class="c"># 校验1：tool_name 是否在 23 个合法工具里</span>
+    valid_tools = ["vehicle_basic_control", "search_poi_qa", ...]
+    for action in parsed.action_list:
+        if action.tool_name not in valid_tools:
+            return False, f"工具名 {action.tool_name} 不存在"
+
+    <span class="c"># 校验2：安全红线（Guardrail 硬校验）</span>
+    if env_info.gear != "P":
+        for action in parsed.action_list:
+            if "座椅" in action.param or "靠背" in action.param:
+                return False, "非P档禁止调座椅（安全红线）"
+
+    <span class="c"># 校验3：param 格式基本合法性</span>
+    <span class="c"># ...</span>
+
+    return True, "通过"
+
+<span class="c"># 校验不通过时，让 Planner 重新生成（retry）：</span>
+<span class="s">for retry in range(max_retries=2):</span>
+    response = planner_llm.generate(context)
+    parsed = parse_json(response)
+    ok, reason = validate_planner_output(parsed, env_info)
+    if ok:
+        break
+    else:
+        <span class="c"># 把校验失败原因加入 context，让模型修正</span>
+        context += f"你的上一次输出不合法：{reason}，请重新生成"
+
+<span class="y">这是纯代码逻辑，不需要 LLM，几 ms 就能执行。</span>
+<span class="y">加了这一层，就补上了业界标准 Loop 里最关键的 3 个缺失步骤。</span></pre>
+<p><strong>工作量：</strong>中等（几天）。<strong>找谁做：</strong>明骏 / 超然。<strong>优先级：</strong>P0。</p>
+</div>
+
+<h3>⑥ 评分</h3>
+<p><span class="score s3">★★★☆☆ 3/5</span> 有基础 Loop 但缺少校验层和重试机制。Context Assembly 做得好但 Loop 内部的防护缺失。</p>
+
+<hr>
+
+<!-- ============================================================ -->
+<!-- 2. CONTEXT ASSEMBLY -->
+<!-- ============================================================ -->
+<h2>组件 2：Context Assembly（上下文组装）</h2>
+
+<h3>① 解决什么问题</h3>
+<p>模型的上下文窗口是有限的（Seed 1.8 约 128K tokens 但实际 SP ~35K）。不能把所有信息都塞进去——需要一个系统在每一步决定"这一轮该给模型看什么"。Anthropic 的原话："找到最小的高信号 token 集合，最大化期望输出的准确率。"</p>
+
+<h3>② 业界标准怎么实现</h3>
+<div class="card blue">
+<h4>Anthropic 的 Context Engineering 指南</h4>
+<p>把上下文窗口当作<strong>有限的注意力预算</strong>来管理。每多塞一条信息，就占用一部分预算，可能稀释其他信息的注意力权重。目标不是塞得多，而是塞得精。</p>
+
+<h4>MindStudio 的"新鲜上下文"模式</h4>
+<pre><span class="k">每一轮循环的 Context Assembly 流程：</span>
+
+1. 任务到达 → Orchestrator 接收
+2. <span class="s">Context Builder 查询 Memory</span>
+   → 从记忆库提取与当前任务相关的条目
+   → 不是全量加载，是按相关性筛选
+3. <span class="s">组装新鲜 Context</span>
+   → task + memory + tools + env
+   → 每轮组装一次，不复用上一轮的
+4. Orchestrator 分解任务 → 分发给 Specialist Agents
+5. 每个 Specialist 用<span class="y">自己的新鲜 Context</span> 执行
+6. 结果聚合 → 输出
+7. <span class="s">反馈写入 Memory</span>
+   → 有价值的结果存入长期记忆
+   → 供后续任务的 Context Assembly 使用
+
+<span class="y">关键设计原则：</span>
+  - 每轮 Context 都是"新鲜组装"的，不是累积的
+  - Memory 是分层的：短期（本轮）/ 长期（跨轮）/ 工作（当前任务）
+  - 工具定义按需加载（不全量塞）
+  - 有裁剪机制：Context 超限时自动压缩</pre>
+
+<p class="src">来源：<a href="https://www.mindstudio.ai/blog/agentic-os-architecture-four-patterns-claude-code">MindStudio: Agentic OS Architecture</a> · <a href="https://atlan.com/know/context-layer-harness-engineering/">Atlan: Context Layer Harness Engineering</a></p>
+
+<h4>Atlan 的"治理 Context 层"</h4>
+<p>最先进的做法是<strong>在 Context 组装之前做权限和治理检查</strong>——即使 prompt 没有排除 PII 列，元数据层也不会把 PII 暴露给模型。"PII 执行是结构性的，不依赖 prompt"——安全约束在 Context Assembly 层面硬编码，而不是在 prompt 里写"请不要使用 PII"。</p>
+</div>
+
+<h3>③ 我们实际怎么实现的</h3>
+<div class="card orange">
+<pre><span class="k">豆包 Planner 的 Context Assembly 架构：</span>
+
+<span class="p">━━━ 静态部分（固定在 SP 里，不变）━━━</span>
+  ① 角色定义        ~500 tokens
+  ② 工具定义 x23     ~4000 tokens  <span class="w">← 全量加载，不按需筛选</span>
+  ③ 输出格式+注意事项 ~800 tokens
+  ④ 静态示例 10条     ~4000 tokens  <span class="c">← 优化后从64条减到10条</span>
+  ⑤ 车辆知识+人设     ~2300 tokens
+
+<span class="p">━━━ 动态部分（每轮检索+组装）━━━</span>
+  ⑦ 动态知识 {{knowledge}}
+     检索方式：Selector SP（LLM 推理），500ms-1.8s
+     内容：1-3 条 Skill 全文，~2000 字/条
+
+  ⑧ 动态示例 {{examples}}
+     检索方式：vikingDB（向量检索），~30ms
+     内容：5+5 条 few-shot，~800 字/条
+     <span class="w">问题：多轮时 query 改写没做好</span>
+
+  ⑨ env_info {{env_info}}
+     端状态：P档/温度/SOC/车窗/座椅/速度 等
+
+  ⑩ memory {{memory}}
+     用户记忆：偏好温度/FaceID/历史
+     <span class="w">问题：FaceID 未就绪→记忆写不进去</span>
+
+  ⑪ 对话历史
+     最近 10 轮 user/assistant 交替
+     <span class="w">问题：10 轮后信息丢失，无会话摘要压缩</span>
+
+<span class="s">我们做得好的地方：</span>
+  ✓ 双路检索（LLM + 向量）是比较先进的
+  ✓ 示例拆分静态+动态，SP 从 32K 压到 ~16K
+  ✓ 首 token 延迟从 2309ms → 998ms（降 57%）
+  ✓ 准确率从 79.38% → 88.38%（升 9%）</pre>
+</div>
+
+<h3>④ 差距精确定位</h3>
+<table>
+<tr><th>业界标准做法</th><th>我们有没有</th><th>影响</th></tr>
+<tr><td>动态知识检索（按场景注入相关知识）</td><td>✅ 有（Selector SP）</td><td>—</td></tr>
+<tr><td>动态示例检索（向量检索 few-shot）</td><td>✅ 有（vikingDB）</td><td>—</td></tr>
+<tr><td>端状态 / 记忆注入</td><td>✅ 有</td><td>—</td></tr>
+<tr><td>示例拆分静态+动态</td><td>✅ 有（10静态+5+5动态）</td><td>—</td></tr>
+<tr><td><strong>工具定义按需加载</strong>（只加载当前场景需要的工具）</td><td style="background:#fef3c7;">❌ 全量加载 23 个</td><td>4K tokens 的工具定义稀释注意力</td></tr>
+<tr><td><strong>Context 超限自动裁剪/压缩</strong></td><td style="background:#fecaca;">❌ 没有</td><td>长对话时可能超限或注意力严重分散</td></tr>
+<tr><td><strong>对话历史摘要压缩</strong>（老对话压缩成摘要）</td><td style="background:#fecaca;">❌ 没有</td><td>10 轮后信息丢失</td></tr>
+<tr><td><strong>多轮 query 改写</strong>（"好的那就这家"→ 改写为完整表达再检索）</td><td style="background:#fecaca;">❌ 没有</td><td>多轮对话时示例检索不准</td></tr>
+<tr><td><strong>Context 层安全治理</strong>（PII 在组装层拦截）</td><td style="background:#fecaca;">❌ 没有</td><td>安全约束只在 prompt 层</td></tr>
+<tr><td>Selector 延迟 ≤500ms</td><td style="background:#fef3c7;">⚠️ 当前 1.8s</td><td>性能瓶颈</td></tr>
+</table>
+
+<h3>⑤ 怎么补</h3>
+<div class="card green">
+<ol>
+<li><strong>工具动态加载</strong>：Selector 输出场景 ID 后，只加载该场景需要的工具定义（如降温只需要 vehicle_basic_control，不需要 image_generate）。省 ~2K tokens。→ <strong>明骏做</strong></li>
+<li><strong>对话摘要压缩</strong>：超过 10 轮的对话，用小模型把前 8 轮压缩成 ~200 字摘要，只保留近 2 轮原文。→ <strong>晓伟 + 超然本周定方案</strong></li>
+<li><strong>多轮 query 改写</strong>：SP 优化专项里已经提了但没做。方案：在 vikingDB 检索前，用规则或小模型把短 query（"好的那就这家"）改写为完整表达（"去鮨一日本料理用餐"）。→ <strong>研发排期</strong></li>
+<li><strong>Selector 延迟优化</strong>：压缩索引表（每条从 ~100 字→~30 字锚词），减少 Selector 的输入 token。同场景连续对话跳过 Selector 用缓存。→ <strong>我压缩索引表 + 明骏做缓存逻辑</strong></li>
+</ol>
+</div>
+
+<h3>⑥ 评分</h3>
+<p><span class="score s4">★★★★☆ 4/5</span> 这是我们最强的组件。双路检索+示例拆分是先进的。但工具全量加载、无摘要压缩、query 改写未做、Selector 延迟高是扣分项。</p>
+
+<hr>
+
+<!-- ============================================================ -->
+<!-- 3. TOOLS -->
+<!-- ============================================================ -->
+<h2>组件 3：Tools & Execution（工具与执行）</h2>
+
+<h3>② 业界标准</h3>
+<div class="card blue">
+<p>业界标准：工具用 JSON Schema 定义参数（name / description / parameters），框架自动序列化/反序列化。支持 MCP（Model Context Protocol）标准接口让工具跨 Agent 复用。工具数量可动态加载——只暴露当前任务需要的工具。Oracle 总结："跨所有厂商，工具集成遵循相同的结构。"</p>
+<p class="src">来源：<a href="https://blogs.oracle.com/developers/what-is-the-ai-agent-loop-the-core-architecture-behind-autonomous-ai-systems">Oracle: AI Agent Loop</a></p>
+</div>
+
+<h3>③ 我们的实现</h3>
+<div class="card orange">
+<p>23 个工具全量定义在 SP 里，占 ~4K tokens。每个工具有 tool_name / tool_describe / param / notice 四个字段。通过 SOA 车控指令下发到方向靠。工具列表固定，不按场景动态加载。</p>
+</div>
+
+<h3>④ 差距</h3>
+<table>
+<tr><th>业界</th><th>我们</th><th>差距</th></tr>
+<tr><td>工具按需加载</td><td>23 个全量加载</td><td style="background:#fef3c7;">中。多了不需要的工具 → 分散注意力 + 浪费 token</td></tr>
+<tr><td>标准 JSON Schema 参数</td><td>自定义 param 格式</td><td style="background:#fef3c7;">中。param 格式不统一，模型容易写错</td></tr>
+<tr><td>MCP 标准接口</td><td>自定义 SOA 接口</td><td>低。车载场景不需要跨 Agent 复用</td></tr>
+</table>
+
+<h3>⑥ 评分</h3>
+<p><span class="score s3">★★★☆☆ 3/5</span> 工具本身够用但加载方式粗放。</p>
+
+<hr>
+
+<!-- ============================================================ -->
+<!-- 4. MEMORY -->
+<!-- ============================================================ -->
+<h2>组件 4：Memory（记忆系统）</h2>
+
+<h3>② 业界标准</h3>
+<div class="card blue">
+<h4>多层记忆架构（2026 共识）</h4>
+<pre><span class="k">业界标准的 4 层记忆（来自 Red Hat + IBM + Mem0 2026）：</span>
+
+<span class="s">Layer 1: 工作记忆 (Working Memory)</span>
+  = 上下文窗口里的内容
+  = 当前对话 + 当前任务状态
+  <span class="c">类比：人的"此刻在想的事情"</span>
+  实现：Context Window 里的对话历史
+
+<span class="s">Layer 2: 短期记忆 (Short-term / Episodic Memory)</span>
+  = 单次会话内的信息
+  = 包括对话摘要、中间结果、工具返回的数据
+  <span class="c">类比：人"今天经历的事情"</span>
+  实现：会话级缓存 + 对话摘要压缩
+
+<span class="s">Layer 3: 长期记忆 (Long-term / Semantic Memory)</span>
+  = 跨会话持久化的知识
+  = 用户偏好、历史行为、身份信息
+  <span class="c">类比：人"长期积累的知识和经验"</span>
+  实现：向量数据库 + 用户画像存储
+
+<span class="s">Layer 4: 程序记忆 (Procedural Memory)</span>
+  = "怎么做事情"的经验
+  = 从历史任务中学到的技能/模式
+  <span class="c">类比：人"骑自行车不需要重新学"</span>
+  实现：技能库 / 经验模板</pre>
+
+<h4>Mem0 的多维度记忆标记</h4>
+<p>2026年4月 Mem0 发布的新算法：每条记忆写入时标记身份维度（user_id, agent_id, run_id, app_id），检索时按维度组合自动合并和排序。实现了"同一个用户在不同 Agent 之间共享记忆"。</p>
+<p class="src">来源：<a href="https://next.redhat.com/2026/06/01/from-context-to-dreams-architecting-memory-for-ai-agents/">Red Hat: Architecting Memory for AI Agents</a> · <a href="https://mem0.ai/blog/state-of-ai-agent-memory-2026">Mem0: State of AI Agent Memory 2026</a> · <a href="https://www.ibm.com/think/topics/ai-agent-memory">IBM: What Is AI Agent Memory</a></p>
+</div>
+
+<h3>③ 我们的实现</h3>
+<div class="card orange">
+<pre><span class="k">豆包 Planner 的记忆系统：</span>
+
+<span class="s">Layer 1: 工作记忆</span> → ✅ 有
+  对话历史（最近 10 轮 user/assistant 交替）
+  <span class="w">问题：10 轮后信息丢失，无摘要压缩</span>
+  <span class="w">6/3 晚例会超然确认："这就是我们的一个缺陷，一个空洞"</span>
+
+<span class="s">Layer 2: 短期记忆</span> → ⚠️ 部分有
+  Goal List（goal_list_update 管理目标队列）
+  工具返回结果（tool_feedback 回传）
+  <span class="w">问题：没有对话摘要压缩机制</span>
+
+<span class="s">Layer 3: 长期记忆</span> → ⚠️ 功能有但不可用
+  search_user_memory / operate_user_memory 工具
+  FaceID 身份识别
+  <span class="w">问题：FaceID 未就绪 → 记忆写不进去</span>
+  <span class="w">问题：Planner 说"记住了"但实际没保存</span>
+  <span class="w">6/3 小明走查："他说信誓旦旦的说给我记了，但我也没办法确认"</span>
+
+<span class="s">Layer 4: 程序记忆</span> → ❌ 没有
+  没有从历史任务中学习的机制
+  场景编排结果不持久化（每次重新编排，可能结果不同）</pre>
+</div>
+
+<h3>④ 差距精确定位</h3>
+<table>
+<tr><th>记忆层</th><th>业界标准</th><th>我们</th><th>差距严重度</th></tr>
+<tr><td>工作记忆</td><td>对话历史 + 超限时自动压缩</td><td>对话历史 10 轮，超了就丢</td><td style="background:#fecaca;"><strong>严重</strong>——10 轮后用户说的事情全忘了</td></tr>
+<tr><td>短期记忆</td><td>会话级缓存 + 对话摘要</td><td>有 Goal List，无摘要</td><td style="background:#fef3c7;">中</td></tr>
+<tr><td>长期记忆</td><td>向量数据库持久化 + 多维度标记</td><td>工具层面有但 FaceID 不可用导致写不进去</td><td style="background:#fecaca;"><strong>严重</strong>——用户偏好、身份识别全废</td></tr>
+<tr><td>程序记忆</td><td>技能库 / 从历史学习</td><td>没有</td><td style="background:#fef3c7;">中（可以后期补）</td></tr>
+</table>
+
+<h3>⑥ 评分</h3>
+<p><span class="score s2">★★☆☆☆ 2/5</span> 架构有但关键功能不可用（FaceID + 10 轮丢失）。</p>
+
+<hr>
+
+<!-- ============================================================ -->
+<!-- 5. GUARDRAILS -->
+<!-- ============================================================ -->
+<h2>组件 5：Guardrails（安全护栏）<span class="score s1" style="margin-left:12px;">★☆☆☆☆ 1/5</span></h2>
+
+<h3>② 业界标准</h3>
+<div class="card blue">
+<h4>三阶段校验 + Tripwire 机制</h4>
+<pre><span class="k">业界标准的三阶段 Guardrail（来自 OpenAI Agents SDK + Vectara）：</span>
+
+<span class="s">阶段 1：工具执行前（Input Tool Guardrail）</span>
+  触发时机：模型输出了一个 tool_call，即将执行之前
+  校验内容：
+    - 参数合法性（必填参数是否齐全？值是否在合法范围内？）
+    - 安全条件（当前状态下是否允许这个操作？）
+    - 权限检查（当前用户是否有权限做这个操作？）
+  校验结果：
+    <span class="s">allow</span>  → 放行，正常执行
+    <span class="w">reject</span> → 拒绝，返回一条消息给模型说明原因
+    <span class="w">tripwire</span> → 紧急停止，整个 Agent 执行中止
+
+  <span class="y">举例：</span>
+  模型要调 "vehicle_basic_control" 参数 "座椅放倒"
+  → 校验函数检查 env_info.gear
+  → gear == "D"（行驶中）
+  → <span class="w">reject: "非P档禁止调座椅（安全红线）"</span>
+  → 这条消息回传给模型，模型知道被拒绝了
+
+<span class="s">阶段 2：工具执行后（Output Tool Guardrail）</span>
+  触发时机：工具执行完毕，返回结果之后
+  校验内容：
+    - 返回值是否合理？（如温度查询返回了 -999°C → 异常）
+    - 返回值是否包含敏感信息？（如 PII → 脱敏）
+  校验结果：
+    <span class="s">pass</span> → 原样回传给模型
+    <span class="w">modify</span> → 修改后再回传（脱敏/修正）
+    <span class="w">block</span> → 不回传，给模型一条错误消息
+
+<span class="s">阶段 3：最终输出前（Final Output Guardrail）</span>
+  触发时机：模型生成了最终回答，即将返回给用户之前
+  校验内容：
+    - 是否包含有害/不当内容？
+    - 是否泄露了系统内部信息？
+    - 格式是否正确？
+  校验结果：
+    <span class="s">pass</span> → 返回给用户
+    <span class="w">rewrite</span> → 修改后返回
+    <span class="w">block</span> → 不返回，给用户一条安全消息</pre>
+
+<h4>Vectara 的自动重试机制</h4>
+<p>如果工具调用被 Guardrail 拒绝，系统自动触发重试：发出 GuardrailCheckEvent（包含具体的失败原因），模型收到后修正调用，最多重试 max_retries 次。"大幅减少了工具幻觉和格式错误，不需要开发者写复杂的验证代码。"</p>
+
+<h4>ToolHalla 的纵深防御架构（5 层）</h4>
+<pre><span class="k">纵深防御（Defense-in-Depth）：</span>
+  Layer 1: 输入筛查（prompt injection / PII / 毒性检测）
+  Layer 2: 对话控制（话题限制）
+  Layer 3: LLM 生成控制（结构化输出 / JSON mode）
+  Layer 4: 输出验证（Pydantic schema + Guardrails AI）
+  Layer 5: 业务规则后校验
+
+<span class="y">"Pydantic schema 验证（Layer 4）是最低标准——免费、快速、</span>
+<span class="y"> 捕获最常见的失败模式。"</span></pre>
+
+<p class="src">来源：<a href="https://openai.github.io/openai-agents-python/guardrails/">OpenAI Agents SDK: Guardrails</a> · <a href="https://www.vectara.com/blog/introducing-a-new-guardian-agent-the-tool-validator">Vectara: Tool Validator</a> · <a href="https://toolhalla.ai/blog/ai-agent-guardrails-io-validation-2026">ToolHalla: AI Agent Guardrails 2026</a></p>
+</div>
+
+<h3>③ 我们的实现</h3>
+<div class="card red">
+<pre><span class="k">豆包 Planner 的安全护栏：</span>
+
+<span class="w">阶段 1（工具执行前）：❌ 没有代码级校验</span>
+  只有 SP 注意事项里的文字约束："非P档禁止调座椅"
+  这是 LLM 推理层面的概率性约束，不是代码硬拦截
+  → 99.9% 会遵守，0.1% 可能不遵守
+  → 小明原话："哪怕 99.9% 都规避了，有那万分之一，可能就是车毁人亡"
+
+<span class="w">阶段 2（工具执行后）：❌ 没有</span>
+  工具返回什么就原样回传给 Planner
+  不检查返回值是否合理
+
+<span class="w">阶段 3（最终输出前）：❌ 没有</span>
+  Planner 的 talk_content 直接 TTS 播报
+  不检查是否包含不当内容
+
+<span class="s">唯一的"护栏"：</span>
+  层1: SP 注意事项（文字约束，概率性）→ 已做
+  层2: Adviser 前置判断（部分场景）→ 部分做了
+  层3: 车控底层代码兜底 → <span class="w">待定方案！周五沟通！</span></pre>
+</div>
+
+<h3>④ 差距</h3>
+<div class="hl hl-red">
+<strong>这是我们和业界标准差距最大的组件。</strong>业界的 Guardrail 是代码级硬校验（三阶段 validate + tripwire + 自动重试），我们几乎完全依赖 SP 里的文字约束（LLM 推理层面，概率性的）。在车载安全场景下，这个差距是致命的。
+</div>
+
+<h3>⑤ 怎么补</h3>
+<p>见组件 1 的"怎么补"部分——在 Planner 输出后加一层 validate_planner_output 函数，做 tool_name 合法性 + 安全红线 + param 格式校验。这是最小化改动，几天就能做。</p>
+
+<hr>
+
+<!-- ============================================================ -->
+<!-- 6. OUTPUT VALIDATION -->
+<!-- ============================================================ -->
+<h2>组件 6：Output Validation（输出验证）<span class="score s1" style="margin-left:12px;">★☆☆☆☆ 1/5</span></h2>
+
+<h3>② 业界标准</h3>
+<div class="card blue">
+<h4>Pydantic Schema + Guardrails AI + 自动重试</h4>
+<pre><span class="k">业界标准做法（Pydantic AI + Guardrails AI）：</span>
+
+<span class="c"># 1. 定义输出 schema</span>
+class PlannerOutput(BaseModel):
+    speak: bool
+    content: str
+    actions: List[Action]
+
+class Action(BaseModel):
+    id: str
+    tool: str         <span class="c"># 必须是合法工具名</span>
+    param: str        <span class="c"># 必须是合法参数格式</span>
+
+<span class="c"># 2. 框架自动做：</span>
+<span class="c">#    a. LLM 输出 → JSON 解析</span>
+<span class="c">#    b. JSON → Pydantic 校验（类型/必填/范围）</span>
+<span class="c">#    c. 校验不通过 → 自动把错误信息回传给 LLM</span>
+<span class="c">#    d. LLM 重新生成 → 再校验 → 最多重试 3 次</span>
+
+<span class="y">结果：</span>
+  不可解析率从 ~5% 降到 0.3%
+  类型错误率降到 0%</pre>
+<p class="src">来源：<a href="https://futureagi.com/blog/what-is-llm-input-output-validation-2026/">FutureAGI: LLM I/O Validation 2026</a> · <a href="https://github.com/guardrails-ai/valid_json">Guardrails AI: valid_json</a></p>
+</div>
+
+<h3>③ 我们的实现</h3>
+<div class="card red">
+<p><strong>没有。</strong>Planner 输出的 JSON 直接解析后执行。如果 tool_name 写错（如写成 "air_conditioner" 而不是 "vehicle_basic_control"），直接下发给方向靠，方向靠不认识这个名字，报错。如果 JSON 格式不合法，解析失败，整个流程中断。没有重试机制。</p>
+</div>
+
+<h3>⑤ 怎么补</h3>
+<p>加 JSON schema 校验（校验 tool_name 在合法列表里 + param 格式基本合法）+ 校验不通过时 retry 最多 2 次。纯代码逻辑，几 ms。</p>
+
+<hr>
+
+<!-- ============================================================ -->
+<!-- 7. OBSERVABILITY -->
+<!-- ============================================================ -->
+<h2>组件 7：Observability（可观测性）<span class="score s2" style="margin-left:12px;">★★☆☆☆ 2/5</span></h2>
+
+<h3>② 业界标准</h3>
+<div class="card blue">
+<p>每一步输出结构化 span：组装了什么 context / 模型做了什么决策 / 调了什么工具 / 参数是什么 / 延迟多少 / token 用量。可查询、聚合、回放。不是 grep 的 log，是结构化的 trace。</p>
+<p class="src">来源：<a href="https://dev.to/turacthethinker/harness-engineering-the-code-around-the-model-is-the-hard-part-2edj">DEV: Harness Engineering</a></p>
+</div>
+
+<h3>③ 我们的实现</h3>
+<p>有基础 log（通过 logid 追溯）。但排查 badcase 时需要手动翻 log。6/3 晚例会晓伟说"具体的 logid 是哪个呀？"——说明 trace 不够便捷。没有自动化评测闭环。</p>
+
+<hr>
+
+<!-- ============================================================ -->
+<!-- SUMMARY -->
+<!-- ============================================================ -->
+<h2>总评：7 大组件达标情况</h2>
+
+<div class="card">
+<table>
+<tr><th>组件</th><th>业界标准关键词</th><th>我们的状态</th><th>评分</th><th>最该补什么</th></tr>
+<tr><td>1. Agentic Loop</td><td>TAO循环 + 三层校验 + 重试</td><td>有Loop但无校验无重试</td><td><span class="score s3">★★★</span></td><td>加 validate + retry</td></tr>
+<tr><td>2. Context Assembly</td><td>动态检索 + 按需加载 + 摘要压缩</td><td>双路检索(最强项)但工具全量/无摘要</td><td><span class="score s4">★★★★</span></td><td>工具动态加载+摘要压缩</td></tr>
+<tr><td>3. Tools</td><td>JSON Schema + MCP + 按需加载</td><td>23个工具全量加载</td><td><span class="score s3">★★★</span></td><td>按场景动态加载</td></tr>
+<tr><td>4. Memory</td><td>4层记忆 + 摘要 + 持久化</td><td>FaceID不可用+10轮丢失</td><td><span class="score s2">★★</span></td><td>FaceID修复+摘要压缩</td></tr>
+<tr><td>5. Guardrails</td><td>三阶段硬校验 + tripwire</td><td>几乎只靠SP文字约束</td><td><span class="score s1">★</span></td><td><strong>P0!</strong> 加代码级校验</td></tr>
+<tr><td>6. Output Validation</td><td>Pydantic + schema + retry</td><td>没有，直接执行</td><td><span class="score s1">★</span></td><td><strong>P0!</strong> 加JSON校验+retry</td></tr>
+<tr><td>7. Observability</td><td>结构化trace + 可回放</td><td>基础log，手动翻</td><td><span class="score s2">★★</span></td><td>结构化trace</td></tr>
+</table>
+
+<div class="hl hl-red">
+<strong>结论：最强项是 Context Assembly（4星），最弱项是 Guardrails + Output Validation（各1星）。</strong><br><br>
+Princeton 研究："Harness 配置可以提升 Agent 任务成功率 64%。"我们的 badcase 大部分不是模型推理错误，而是 Harness 缺失——tool_name 写错没校验、安全操作没拦截、输出格式不对没重试。<strong>补上 Guardrails 和 Output Validation 两个组件，预计能消除现有 badcase 的 30-40%。</strong>
+</div>
+</div>
+
+<div style="text-align:center;padding:40px 0;color:var(--t3);font-size:.82rem;">
+Harness Engineering 详细对比（完整版）v1.0 · 2026-06-05<br><br>
+Sources:<br>
+<a href="https://atlan.com/know/harness-engineering-vs-prompt-engineering/" style="color:var(--blue)">Atlan: Prompt vs Context vs Harness</a> ·
+<a href="https://www.aimagicx.com/blog/harness-engineering-replacing-prompt-engineering-2026" style="color:var(--blue)">AI Magicx: Harness 2026</a> ·
+<a href="https://blog.dailydoseofds.com/p/the-anatomy-of-an-agent-harness" style="color:var(--blue)">Daily Dose of DS: Anatomy of Agent Harness</a><br>
+<a href="https://www.mindstudio.ai/blog/what-is-agent-harness-architecture-explained" style="color:var(--blue)">MindStudio: Agent Harness</a> ·
+<a href="https://openai.github.io/openai-agents-python/guardrails/" style="color:var(--blue)">OpenAI Agents SDK: Guardrails</a> ·
+<a href="https://www.vectara.com/blog/introducing-a-new-guardian-agent-the-tool-validator" style="color:var(--blue)">Vectara: Tool Validator</a><br>
+<a href="https://toolhalla.ai/blog/ai-agent-guardrails-io-validation-2026" style="color:var(--blue)">ToolHalla: Guardrails 2026</a> ·
+<a href="https://next.redhat.com/2026/06/01/from-context-to-dreams-architecting-memory-for-ai-agents/" style="color:var(--blue)">Red Hat: Memory for AI Agents</a> ·
+<a href="https://mem0.ai/blog/state-of-ai-agent-memory-2026" style="color:var(--blue)">Mem0: State of Agent Memory</a><br>
+<a href="https://blogs.oracle.com/developers/what-is-the-ai-agent-loop-the-core-architecture-behind-autonomous-ai-systems" style="color:var(--blue)">Oracle: AI Agent Loop</a> ·
+<a href="https://github.com/ai-boost/awesome-harness-engineering" style="color:var(--blue)">GitHub: awesome-harness-engineering</a> ·
+<a href="https://arxiv.org/html/2603.25723v1" style="color:var(--blue)">arXiv: Natural-Language Agent Harnesses</a>
+</div>
+
+</div>
+</body>
+</html>

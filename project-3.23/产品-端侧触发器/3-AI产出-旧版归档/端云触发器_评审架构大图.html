@@ -1,0 +1,796 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>舱驾融合 Agent 端云协同触发器评审架构大图</title>
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --paper: #ffffff;
+      --ink: #172033;
+      --muted: #667085;
+      --line: #c8d1df;
+      --red: #e5484d;
+      --red-soft: #fff1f1;
+      --blue: #2563eb;
+      --blue-soft: #eff6ff;
+      --green: #059669;
+      --green-soft: #ecfdf5;
+      --amber: #d97706;
+      --amber-soft: #fffbeb;
+      --purple: #7c3aed;
+      --purple-soft: #f5f3ff;
+      --slate: #475467;
+      --slate-soft: #f2f4f7;
+      --pink: #db2777;
+      --pink-soft: #fdf2f8;
+      --cyan: #0891b2;
+      --cyan-soft: #ecfeff;
+      --shadow: 0 6px 18px rgba(19, 32, 56, 0.08);
+      --radius: 8px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+      letter-spacing: 0;
+    }
+
+    .page {
+      width: 1920px;
+      margin: 0 auto;
+      padding: 28px 32px 36px;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 24px;
+      margin-bottom: 16px;
+    }
+
+    .title h1 {
+      margin: 0 0 8px;
+      font-size: 30px;
+      line-height: 1.2;
+      font-weight: 760;
+    }
+
+    .title p {
+      margin: 0;
+      max-width: 1080px;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+      max-width: 600px;
+    }
+
+    .badge {
+      padding: 7px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--paper);
+      color: #344054;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .canvas {
+      position: relative;
+      height: 1220px;
+      background:
+        linear-gradient(to right, rgba(148, 163, 184, 0.12) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(148, 163, 184, 0.12) 1px, transparent 1px),
+        var(--paper);
+      background-size: 24px 24px;
+      border: 1px solid #d9e1ee;
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .boundary {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 558px;
+      border-top: 2px dashed #8da0bb;
+      z-index: 1;
+    }
+
+    .boundary .cloud,
+    .boundary .edge {
+      position: absolute;
+      left: 16px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      background: #ffffff;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .boundary .cloud { top: -31px; color: var(--blue); }
+    .boundary .edge { top: 7px; color: var(--green); }
+
+    .lane {
+      position: absolute;
+      border: 1px dashed rgba(71, 84, 103, 0.32);
+      border-radius: 10px;
+      background: rgba(248, 250, 252, 0.64);
+      z-index: 0;
+    }
+
+    .lane-title {
+      position: absolute;
+      left: 12px;
+      top: 8px;
+      font-size: 13px;
+      font-weight: 740;
+      color: #344054;
+    }
+
+    .node {
+      position: absolute;
+      z-index: 3;
+      border: 1.5px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--paper);
+      padding: 10px 12px;
+      box-shadow: 0 3px 10px rgba(16, 24, 40, 0.06);
+    }
+
+    .node h3 {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin: 0 0 7px;
+      font-size: 14px;
+      line-height: 1.25;
+      font-weight: 760;
+    }
+
+    .node .no {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 800;
+      color: #fff;
+      background: #64748b;
+    }
+
+    .node p {
+      margin: 0;
+      color: #475467;
+      font-size: 12px;
+      line-height: 1.42;
+    }
+
+    .node ul {
+      margin: 7px 0 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 4px;
+      color: #475467;
+      font-size: 11px;
+      line-height: 1.35;
+    }
+
+    .node li::before {
+      content: "";
+      display: inline-block;
+      width: 5px;
+      height: 5px;
+      margin-right: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      vertical-align: 1px;
+      opacity: .72;
+    }
+
+    .small { font-size: 10.5px; }
+
+    .blue { border-color: #93b4ff; background: var(--blue-soft); }
+    .blue .no { background: var(--blue); }
+    .green { border-color: #86d6ba; background: var(--green-soft); }
+    .green .no { background: var(--green); }
+    .amber { border-color: #f2c76f; background: var(--amber-soft); }
+    .amber .no { background: var(--amber); }
+    .purple { border-color: #c4b5fd; background: var(--purple-soft); }
+    .purple .no { background: var(--purple); }
+    .red { border-color: #f3aaa8; background: var(--red-soft); }
+    .red .no { background: var(--red); }
+    .cyan { border-color: #8bd6e4; background: var(--cyan-soft); }
+    .cyan .no { background: var(--cyan); }
+    .pink { border-color: #f5a3c7; background: var(--pink-soft); }
+    .pink .no { background: var(--pink); }
+    .slate { border-color: #cbd5e1; background: var(--slate-soft); }
+    .slate .no { background: var(--slate); }
+
+    .decision {
+      transform: rotate(45deg);
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .decision > div {
+      transform: rotate(-45deg);
+      width: 150px;
+      font-size: 12px;
+      line-height: 1.35;
+      font-weight: 760;
+    }
+
+    .super {
+      position: absolute;
+      z-index: 2;
+      border: 2px solid;
+      border-radius: 12px;
+      background: rgba(255,255,255,.68);
+      padding: 14px;
+    }
+
+    .super h2 {
+      margin: 0;
+      font-size: 17px;
+      line-height: 1.25;
+      font-weight: 780;
+    }
+
+    .super .sub {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .super.cloud-trigger { border-color: #f59e0b; background: rgba(255, 251, 235, .72); }
+    .super.edge-trigger { border-color: #10b981; background: rgba(236, 253, 245, .78); }
+    .super.vlm-trigger { border-color: #06b6d4; background: rgba(236, 254, 255, .78); }
+    .super.advisor { border-color: #8b5cf6; background: rgba(245, 243, 255, .78); }
+
+    .mini-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .mini {
+      min-height: 52px;
+      border: 1px solid rgba(71, 84, 103, .24);
+      border-radius: 7px;
+      background: rgba(255,255,255,.76);
+      padding: 8px;
+      font-size: 11px;
+      line-height: 1.35;
+      color: #344054;
+    }
+
+    .mini b {
+      display: block;
+      margin-bottom: 3px;
+      color: #111827;
+      font-size: 11.5px;
+    }
+
+    svg.arrows {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    .arrow-red { stroke: var(--red); }
+    .arrow-blue { stroke: var(--blue); }
+    .arrow-green { stroke: var(--green); }
+    .arrow-amber { stroke: var(--amber); }
+    .arrow-purple { stroke: var(--purple); }
+    .arrow-slate { stroke: #667085; }
+    .arrow-cyan { stroke: var(--cyan); }
+
+    .label {
+      position: absolute;
+      z-index: 4;
+      padding: 2px 5px;
+      border-radius: 4px;
+      background: #fff;
+      border: 1px solid #e4e7ec;
+      color: #344054;
+      font-size: 10px;
+      line-height: 1.25;
+      white-space: nowrap;
+    }
+
+    .legend {
+      position: absolute;
+      left: 24px;
+      bottom: 18px;
+      z-index: 5;
+      display: grid;
+      grid-template-columns: repeat(6, auto);
+      gap: 8px 12px;
+      padding: 10px 12px;
+      border: 1px solid #d0d5dd;
+      border-radius: 8px;
+      background: rgba(255,255,255,.94);
+      font-size: 11px;
+      color: #344054;
+      box-shadow: 0 4px 12px rgba(16, 24, 40, 0.08);
+    }
+
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .callout {
+      position: absolute;
+      z-index: 5;
+      padding: 10px 12px;
+      border-left: 4px solid var(--red);
+      border-radius: 6px;
+      background: #fff7ed;
+      box-shadow: 0 4px 14px rgba(16, 24, 40, .08);
+      color: #7c2d12;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .table-section {
+      margin-top: 18px;
+      display: grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap: 16px;
+    }
+
+    .panel {
+      background: var(--paper);
+      border: 1px solid #d9e1ee;
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+
+    .panel h2 {
+      margin: 0 0 12px;
+      font-size: 20px;
+      line-height: 1.3;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      font-size: 12px;
+    }
+
+    th, td {
+      border: 1px solid #d0d5dd;
+      padding: 9px 10px;
+      vertical-align: top;
+      line-height: 1.45;
+    }
+
+    th {
+      background: #f2f4f7;
+      color: #344054;
+      font-weight: 760;
+      text-align: left;
+    }
+
+    td b { color: #111827; }
+
+    .checklist {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .check {
+      border: 1px solid #d0d5dd;
+      border-radius: 8px;
+      background: #fcfcfd;
+      padding: 9px 10px;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .check b {
+      display: block;
+      margin-bottom: 3px;
+      color: #111827;
+    }
+
+    @media print {
+      body { background: #fff; }
+      .page { width: 1920px; padding: 16px; }
+      .canvas, .panel { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="header">
+      <div class="title">
+        <h1>舱驾融合 Agent 端云协同触发器评审架构大图</h1>
+        <p>面向豆包上车的条件任务、定时任务、动态 Advisor、静态主动服务与 VLM 视觉订阅。核心原则：触发器负责“什么时候该唤醒系统”，复杂决策统一回 Director 二次推理；Advisor 只输出建议，不直接控车。</p>
+      </div>
+      <div class="badge-row">
+        <span class="badge">老板视角：为什么必须做</span>
+        <span class="badge">研发视角：端云边界</span>
+        <span class="badge">量产视角：弱网/失败/可观测</span>
+        <span class="badge">评审重点：触发器模块展开</span>
+      </div>
+    </header>
+
+    <section class="canvas">
+      <div class="lane" style="left:20px;top:24px;width:430px;height:510px;"><div class="lane-title">入口与意图分流</div></div>
+      <div class="lane" style="left:470px;top:24px;width:460px;height:510px;"><div class="lane-title">云端任务编排与注册</div></div>
+      <div class="lane" style="left:950px;top:24px;width:430px;height:510px;"><div class="lane-title">云端触发器核心</div></div>
+      <div class="lane" style="left:1400px;top:24px;width:430px;height:510px;"><div class="lane-title">Advisor / Director / 执行</div></div>
+      <div class="lane" style="left:20px;top:590px;width:560px;height:420px;"><div class="lane-title">端侧与 OEM/CDC 能力</div></div>
+      <div class="lane" style="left:610px;top:590px;width:620px;height:420px;"><div class="lane-title">端侧触发器与 VLM 调度</div></div>
+      <div class="lane" style="left:1260px;top:590px;width:570px;height:420px;"><div class="lane-title">信号库 / Context / 状态闭环</div></div>
+
+      <div class="boundary">
+        <span class="cloud">云端</span>
+        <span class="edge">端侧</span>
+      </div>
+
+      <!-- A 输入分流 -->
+      <div class="node slate" style="left:52px;top:86px;width:150px;height:86px;">
+        <h3><span class="no">1</span>用户输入</h3>
+        <p>query、speaker、position、timestamp。</p>
+      </div>
+      <div class="node slate" style="left:248px;top:86px;width:150px;height:86px;">
+        <h3><span class="no">2</span>ASR/文本</h3>
+        <p>语音转文本，保留说话人和座位。</p>
+      </div>
+      <div class="node decision amber" style="left:180px;top:220px;width:150px;height:150px;">
+        <div>3 拒识/仲裁<br>简单/复杂/条件/持续</div>
+      </div>
+      <div class="node green" style="left:52px;top:408px;width:160px;height:88px;">
+        <h3><span class="no">4</span>简单快链路</h3>
+        <p>明确车控、白名单、高频低时延，不进入触发器。</p>
+      </div>
+      <div class="node blue" style="left:260px;top:408px;width:160px;height:88px;">
+        <h3><span class="no">5</span>Director</h3>
+        <p>复杂对话、多步任务、二次推理入口。</p>
+      </div>
+
+      <!-- B 注册 -->
+      <div class="node purple" style="left:500px;top:76px;width:172px;height:104px;">
+        <h3><span class="no">6</span>任务识别</h3>
+        <ul>
+          <li>条件任务</li>
+          <li>定时任务</li>
+          <li>长时/GUI/VLM</li>
+        </ul>
+      </div>
+      <div class="node cyan" style="left:724px;top:76px;width:172px;height:104px;">
+        <h3><span class="no">7</span>能力查询</h3>
+        <ul>
+          <li>信号/事件</li>
+          <li>操作符/DSL</li>
+          <li>VLM/POI</li>
+        </ul>
+      </div>
+      <div class="node amber" style="left:500px;top:214px;width:172px;height:122px;">
+        <h3><span class="no">8</span>可行性校验</h3>
+        <ul>
+          <li>条件能否感知</li>
+          <li>动作能否执行</li>
+          <li>条件动作是否冲突</li>
+          <li>任务是否超上限</li>
+        </ul>
+      </div>
+      <div class="node amber" style="left:724px;top:214px;width:172px;height:122px;">
+        <h3><span class="no">9</span>DSL/事件库</h3>
+        <ul>
+          <li>优先选已有事件</li>
+          <li>生成动态脚本</li>
+          <li>失败返回原因</li>
+        </ul>
+      </div>
+      <div class="node purple" style="left:500px;top:374px;width:396px;height:106px;">
+        <h3><span class="no">10</span>任务/场景注册服务</h3>
+        <p>注册、更新、取消、查询；创建任务中心卡片；输出条件字段、执行字段、失败原因。</p>
+      </div>
+
+      <!-- D 云端触发器 super -->
+      <div class="super cloud-trigger" style="left:974px;top:72px;width:380px;height:420px;">
+        <h2>11 云端触发器 / 规则执行引擎</h2>
+        <div class="sub">承接动态任务和系统预设场景。只做确定性规则执行，不做开放式语义决策。</div>
+        <div class="mini-grid">
+          <div class="mini"><b>11.1 场景库</b>静态规则、动态任务、系统预设、版本灰度。</div>
+          <div class="mini"><b>11.2 规则扫描</b>信号更新触发、周期扫描、任务状态过滤。</div>
+          <div class="mini"><b>11.3 条件判定</b>AND/OR、group、range、变更为、持续时长。</div>
+          <div class="mini"><b>11.4 去抖冷却</b>debounce、cooldown、max_execution、expire。</div>
+          <div class="mini"><b>11.5 优先级仲裁</b>P0-P4、重复抑制、互斥组、冲突检测。</div>
+          <div class="mini"><b>11.6 端云分类</b>云端处理、下发端侧、VLM调度、本地兜底。</div>
+          <div class="mini"><b>11.7 标准事件</b>task_id、原始任务、快照、是否二次推理。</div>
+          <div class="mini"><b>11.8 Callback Router</b>Director、动态Advisor、Context、任务中心、端侧。</div>
+        </div>
+      </div>
+
+      <!-- G Advisor/Director -->
+      <div class="super advisor" style="left:1428px;top:72px;width:370px;height:192px;">
+        <h2>12 Advisor 层</h2>
+        <div class="sub">消费 Context/事件，生成 advice，不直接面向用户，不直接控车。</div>
+        <div class="mini-grid">
+          <div class="mini"><b>12.1 静态 Advisor</b>舒适、出行、情感、内容；系统预设主动服务。</div>
+          <div class="mini"><b>12.2 动态 Advisor</b>一目标一实例；条件、定时、VLM、GUI 闭环。</div>
+        </div>
+      </div>
+      <div class="node purple" style="left:1430px;top:296px;width:170px;height:90px;">
+        <h3><span class="no">13</span>Goal List</h3>
+        <p>Director 建删目标，Advisor 更新进展。</p>
+      </div>
+      <div class="node blue" style="left:1630px;top:296px;width:170px;height:90px;">
+        <h3><span class="no">14</span>Director 汇入</h3>
+        <p>query、advice、trigger_event、tool_feedback、Context。</p>
+      </div>
+      <div class="node blue" style="left:1430px;top:422px;width:170px;height:86px;">
+        <h3><span class="no">15</span>二次推理</h3>
+        <p>talk_or_not、talk_content、action_list。</p>
+      </div>
+      <div class="node slate" style="left:1630px;top:422px;width:170px;height:86px;">
+        <h3><span class="no">16</span>工具/执行</h3>
+        <p>车控、导航、搜索、音乐、HMI、TTS、AI PUSH。</p>
+      </div>
+
+      <!-- Edge OEM -->
+      <div class="node slate" style="left:50px;top:654px;width:190px;height:116px;">
+        <h3><span class="no">17</span>OEM/CDC/AI Box</h3>
+        <ul>
+          <li>原始车端信号</li>
+          <li>高阶 CDC 事件</li>
+          <li>图片 URL</li>
+          <li>车控执行能力</li>
+        </ul>
+      </div>
+      <div class="node green" style="left:296px;top:654px;width:190px;height:116px;">
+        <h3><span class="no">18</span>端侧信号库</h3>
+        <p>标准化快照：key/value/source/timestamp。触发器只读信号库，不读裸源。</p>
+      </div>
+      <div class="node green" style="left:50px;top:826px;width:190px;height:108px;">
+        <h3><span class="no">19</span>端侧可闭环事件</h3>
+        <ul>
+          <li>本地定时到点</li>
+          <li>弱网 AI PUSH</li>
+          <li>部分本地状态组合</li>
+        </ul>
+      </div>
+      <div class="node red" style="left:296px;top:826px;width:190px;height:108px;">
+        <h3><span class="no">20</span>边界待确认</h3>
+        <p>赛力斯 CDC 自己闭环、CDC 上报字节、字节端侧触发器承接，需要逐场景打表。</p>
+      </div>
+
+      <!-- E/F 端侧触发器 -->
+      <div class="super edge-trigger" style="left:640px;top:648px;width:260px;height:320px;">
+        <h2>21 端侧触发器 Core</h2>
+        <div class="sub">证明端侧触发器价值的核心：离线、弱网、倒计时和本地状态组合。</div>
+        <div class="mini-grid" style="grid-template-columns:1fr;">
+          <div class="mini"><b>21.1 端侧规则接收</b>云端下发、本地生效、灰度、回滚。</div>
+          <div class="mini"><b>21.2 本地定时器</b>一次性、循环、倒计时、分钟级合并。</div>
+          <div class="mini"><b>21.3 本地持久化</b>上下电/重启恢复，任务不丢。</div>
+          <div class="mini"><b>21.4 弱网兜底</b>本地 AI PUSH，网络恢复后同步。</div>
+        </div>
+      </div>
+
+      <div class="super vlm-trigger" style="left:936px;top:648px;width:260px;height:320px;">
+        <h2>22 VLM/Watcher 调度器</h2>
+        <div class="sub">视觉不是普通信号，必须有调度、互斥、终态和阈值穿越。</div>
+        <div class="mini-grid" style="grid-template-columns:1fr;">
+          <div class="mini"><b>22.1 视觉订阅</b>VLM query、event/state、SP/attention。</div>
+          <div class="mini"><b>22.2 任务调度</b>P0-P4、VLM_CABIN、VLM_FRONT。</div>
+          <div class="mini"><b>22.3 VQA 调用</b>取图、请求模型、JSON result/description。</div>
+          <div class="mini"><b>22.4 终态回写</b>success/empty/failed/timeout/interrupted。</div>
+        </div>
+      </div>
+
+      <!-- Context/status -->
+      <div class="node cyan" style="left:1290px;top:660px;width:210px;height:112px;">
+        <h3><span class="no">23</span>云端信号库</h3>
+        <p>端云同步、云信号、导航、POI、任务状态、VLM 回写结果。</p>
+      </div>
+      <div class="node cyan" style="left:1550px;top:660px;width:210px;height:112px;">
+        <h3><span class="no">24</span>Context/Event Log</h3>
+        <p>情景、端状态、记忆、触发事件、VLM 结果、执行反馈。</p>
+      </div>
+      <div class="node pink" style="left:1290px;top:834px;width:210px;height:116px;">
+        <h3><span class="no">25</span>任务状态机</h3>
+        <ul>
+          <li>创建中/成功/失败</li>
+          <li>生效/触发/执行中</li>
+          <li>完成/取消/过期</li>
+        </ul>
+      </div>
+      <div class="node red" style="left:1550px;top:834px;width:210px;height:116px;">
+        <h3><span class="no">26</span>异常降级</h3>
+        <ul>
+          <li>注册失败/超上限</li>
+          <li>VLM timeout 不写伪结果</li>
+          <li>callback 失败重试</li>
+        </ul>
+      </div>
+
+      <div class="callout" style="left:978px;top:506px;width:372px;">
+        触发器红线：只负责条件命中和事件唤醒，不替代 Director 做复杂决策；默认 need_second_reasoning=true。
+      </div>
+
+      <!-- arrow svg -->
+      <svg class="arrows" width="1856" height="1220" viewBox="0 0 1856 1220" fill="none">
+        <defs>
+          <marker id="arrowRed" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L9,3 L0,6 Z" fill="#e5484d"/></marker>
+          <marker id="arrowBlue" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L9,3 L0,6 Z" fill="#2563eb"/></marker>
+          <marker id="arrowGreen" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L9,3 L0,6 Z" fill="#059669"/></marker>
+          <marker id="arrowAmber" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L9,3 L0,6 Z" fill="#d97706"/></marker>
+          <marker id="arrowPurple" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L9,3 L0,6 Z" fill="#7c3aed"/></marker>
+          <marker id="arrowSlate" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L9,3 L0,6 Z" fill="#667085"/></marker>
+          <marker id="arrowCyan" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L9,3 L0,6 Z" fill="#0891b2"/></marker>
+        </defs>
+
+        <!-- input flow -->
+        <path class="arrow-slate" d="M202 129 H248" stroke-width="2" marker-end="url(#arrowSlate)"/>
+        <path class="arrow-amber" d="M323 172 C323 196 290 202 273 224" stroke-width="2" marker-end="url(#arrowAmber)"/>
+        <path class="arrow-green" d="M214 326 C144 352 132 376 132 408" stroke-width="2" marker-end="url(#arrowGreen)"/>
+        <path class="arrow-blue" d="M300 326 C346 356 340 382 340 408" stroke-width="2" marker-end="url(#arrowBlue)"/>
+        <path class="arrow-purple" d="M330 294 H500" stroke-width="2" marker-end="url(#arrowPurple)"/>
+        <path class="arrow-blue" d="M420 452 C450 452 454 130 500 130" stroke-width="1.8" marker-end="url(#arrowBlue)"/>
+
+        <!-- registration -->
+        <path class="arrow-cyan" d="M672 128 H724" stroke-width="2" marker-end="url(#arrowCyan)"/>
+        <path class="arrow-amber" d="M810 180 V214" stroke-width="2" marker-end="url(#arrowAmber)"/>
+        <path class="arrow-amber" d="M672 275 H724" stroke-width="2" marker-end="url(#arrowAmber)"/>
+        <path class="arrow-purple" d="M810 336 V374" stroke-width="2" marker-end="url(#arrowPurple)"/>
+        <path class="arrow-red" d="M586 336 V374" stroke-width="1.8" stroke-dasharray="6 4" marker-end="url(#arrowRed)"/>
+        <path class="arrow-amber" d="M896 427 H974" stroke-width="2" marker-end="url(#arrowAmber)"/>
+
+        <!-- cloud trigger to advisor/director -->
+        <path class="arrow-purple" d="M1354 190 H1428" stroke-width="2" marker-end="url(#arrowPurple)"/>
+        <path class="arrow-blue" d="M1354 300 C1390 300 1390 342 1430 342" stroke-width="2" marker-end="url(#arrowBlue)"/>
+        <path class="arrow-blue" d="M1600 342 H1630" stroke-width="2" marker-end="url(#arrowBlue)"/>
+        <path class="arrow-blue" d="M1715 386 C1715 406 1515 400 1515 422" stroke-width="2" marker-end="url(#arrowBlue)"/>
+        <path class="arrow-slate" d="M1600 465 H1630" stroke-width="2" marker-end="url(#arrowSlate)"/>
+        <path class="arrow-slate" d="M1715 422 C1715 394 1715 396 1715 386" stroke-width="1.7" stroke-dasharray="6 4" marker-end="url(#arrowSlate)"/>
+
+        <!-- signals -->
+        <path class="arrow-green" d="M240 712 H296" stroke-width="2" marker-end="url(#arrowGreen)"/>
+        <path class="arrow-cyan" d="M486 712 C690 712 760 560 1290 690" stroke-width="2" marker-end="url(#arrowCyan)"/>
+        <path class="arrow-cyan" d="M1500 716 H1550" stroke-width="2" marker-end="url(#arrowCyan)"/>
+        <path class="arrow-cyan" d="M1550 744 C1390 760 1230 512 1354 427" stroke-width="1.8" stroke-dasharray="6 4" marker-end="url(#arrowCyan)"/>
+
+        <!-- cloud to edge -->
+        <path class="arrow-green" d="M1164 492 C1120 588 780 570 770 648" stroke-width="2" marker-end="url(#arrowGreen)"/>
+        <path class="arrow-cyan" d="M1242 492 C1230 598 1068 585 1066 648" stroke-width="2" marker-end="url(#arrowCyan)"/>
+        <path class="arrow-green" d="M486 712 C560 712 586 742 640 744" stroke-width="2" marker-end="url(#arrowGreen)"/>
+        <path class="arrow-cyan" d="M486 712 C620 694 790 690 936 706" stroke-width="2" marker-end="url(#arrowCyan)"/>
+        <path class="arrow-green" d="M770 968 C770 1032 1480 1032 1550 925" stroke-width="1.8" stroke-dasharray="7 5" marker-end="url(#arrowGreen)"/>
+        <path class="arrow-cyan" d="M1066 968 C1066 1010 1410 1012 1550 744" stroke-width="1.8" stroke-dasharray="7 5" marker-end="url(#arrowCyan)"/>
+        <path class="arrow-cyan" d="M1196 808 C1238 818 1260 842 1290 882" stroke-width="2" marker-end="url(#arrowCyan)"/>
+
+        <!-- context back to director/advisor -->
+        <path class="arrow-purple" d="M1660 660 C1660 554 1600 530 1600 386" stroke-width="1.8" stroke-dasharray="6 4" marker-end="url(#arrowPurple)"/>
+        <path class="arrow-purple" d="M1660 660 C1560 584 1535 330 1530 264" stroke-width="1.8" stroke-dasharray="6 4" marker-end="url(#arrowPurple)"/>
+        <path class="arrow-pink" d="M1500 892 H1550" stroke="#db2777" stroke-width="2" marker-end="url(#arrowRed)"/>
+
+        <!-- task status -->
+        <path class="arrow-pink" d="M698 480 C820 540 1200 820 1290 892" stroke="#db2777" stroke-width="1.8" marker-end="url(#arrowRed)"/>
+        <path class="arrow-pink" d="M1630 508 C1640 620 1410 760 1400 834" stroke="#db2777" stroke-width="1.8" marker-end="url(#arrowRed)"/>
+      </svg>
+
+      <!-- labels -->
+      <div class="label" style="left:210px;top:116px;">L1 输入</div>
+      <div class="label" style="left:334px;top:210px;">L2 意图分流</div>
+      <div class="label" style="left:366px;top:282px;">L3 条件/定时/持续</div>
+      <div class="label" style="left:684px;top:112px;">L4 查能力</div>
+      <div class="label" style="left:676px;top:260px;">L5 生成规则</div>
+      <div class="label" style="left:912px;top:414px;">L6 注册场景</div>
+      <div class="label" style="left:1364px;top:176px;">L7 事件消费</div>
+      <div class="label" style="left:1360px;top:288px;">L8 触发事件</div>
+      <div class="label" style="left:1610px;top:330px;">L9 汇入</div>
+      <div class="label" style="left:1608px;top:454px;">L10 action</div>
+      <div class="label" style="left:488px;top:696px;">L11 端云同步</div>
+      <div class="label" style="left:768px;top:582px;">L12 下发端侧规则</div>
+      <div class="label" style="left:1082px;top:584px;">L13 视觉调度</div>
+      <div class="label" style="left:1384px;top:1014px;">L14 回写/恢复同步</div>
+      <div class="label" style="left:1574px;top:618px;">L15 Context 注入</div>
+
+      <div class="legend">
+        <span><i class="dot" style="background:#2563eb"></i>Director/推理</span>
+        <span><i class="dot" style="background:#d97706"></i>规则/触发器</span>
+        <span><i class="dot" style="background:#059669"></i>端侧/本地履约</span>
+        <span><i class="dot" style="background:#0891b2"></i>信号/VLM/Context</span>
+        <span><i class="dot" style="background:#7c3aed"></i>Advisor/目标</span>
+        <span><i class="dot" style="background:#e5484d"></i>异常/边界</span>
+      </div>
+    </section>
+
+    <section class="table-section">
+      <div class="panel">
+        <h2>触发器模块到底要做什么</h2>
+        <table>
+          <thead>
+            <tr>
+              <th style="width:18%">模块</th>
+              <th style="width:34%">必须做</th>
+              <th style="width:24%">明确不做</th>
+              <th style="width:24%">评审输出</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><b>云端触发器</b></td>
+              <td>接收注册；扫描云端信号库；执行条件判定；去抖冷却；优先级和冲突仲裁；生成标准触发事件；callback 路由。</td>
+              <td>不做开放式语义推理；不直接控车；不和某个 Advisor 实例强耦合。</td>
+              <td>标准事件、触发记录、任务状态、失败原因。</td>
+            </tr>
+            <tr>
+              <td><b>端侧触发器 Core</b></td>
+              <td>端侧定时器；弱网/断网 AI PUSH；本地任务持久化；本地状态组合；网络恢复后同步。</td>
+              <td>不替代 Director；不做复杂语义仲裁；不绕过安全策略做车控。</td>
+              <td>本地触发、倒计时、离线履约、恢复同步。</td>
+            </tr>
+            <tr>
+              <td><b>VLM 调度器</b></td>
+              <td>视觉订阅；SP/attention；图片获取；VQA 调用；阈值穿越；P0-P4；互斥组；终态回写。</td>
+              <td>不承接用户意图理解；不把 timeout 写成无异常；不无限并发视觉任务。</td>
+              <td>VLM JSON、视觉事件、success/empty/failed/timeout。</td>
+            </tr>
+            <tr>
+              <td><b>Callback Router</b></td>
+              <td>按任务归属投递到 Director、动态 Advisor、Context、任务中心、端侧。</td>
+              <td>不做业务推理。</td>
+              <td>可靠投递、失败重试、投递日志。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="panel">
+        <h2>研发评审必须确认</h2>
+        <div class="checklist">
+          <div class="check"><b>DSL 能力</b>是否支持 =、&gt;、&lt;、range、变更为、持续时长、group logic。</div>
+          <div class="check"><b>信号范围</b>韩天亮信号库 v2.5 哪些可量产，哪些只是规划字段。</div>
+          <div class="check"><b>端侧定时器</b>是否支持持久化、上下电恢复、任务中心倒计时。</div>
+          <div class="check"><b>VLM 并发</b>是否固定 1 个，还是按 VLM_CABIN/VLM_FRONT 分组。</div>
+          <div class="check"><b>图片服务</b>车内、车外、屏幕 image url 是否具备稳定接口。</div>
+          <div class="check"><b>callback</b>是否有 ACK、重试、幂等和失败日志。</div>
+          <div class="check"><b>端侧闭环白名单</b>提醒类可本地闭环，车控类是否必须回 Director。</div>
+          <div class="check"><b>CDC 边界</b>哪些赛力斯自己闭环，哪些事件给字节触发器。</div>
+        </div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

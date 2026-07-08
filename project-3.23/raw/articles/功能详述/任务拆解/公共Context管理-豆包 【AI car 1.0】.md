@@ -1,0 +1,374 @@
+# 公共Context管理-豆包 【AI car 1.0】
+
+<!-- doc_id: Lkr0dJ1cKo4CxDxkbeMcratyn7x -->
+<!-- total_length: 7306 -->
+
+<image token="IJILbCpnlo7AwYxmko1cJEC1nHe" width="1280" height="997" align="center"/>
+
+#### Context管理
+
+**Context = 传给模型那些上下文信息，每个 Agent 需要用到的 Context是不同的。**
+
+但因为有很多公用的部分，所以可以统一做一套公共的 Context服务来管理维护公用的Context。核心功能有两个
+
+- 按一定结构维护存储公共的 context 信息，供各类Agent 使用
+- 做context 信息的预处理工作，比如压缩总结、打标分类等（for 方便进行检索）、提前过滤（减少噪音，减少token 损耗）
+
+#### 公用的Context信息包含：
+<lark-table rows="14" cols="5" column-widths="144,281,349,217,206">
+
+  <lark-tr>
+    <lark-td>
+      **类型**
+    </lark-td>
+    <lark-td>
+      **说明**
+    </lark-td>
+    <lark-td>
+      **数据示例/形式**
+    </lark-td>
+    <lark-td>
+      **来源**
+    </lark-td>
+    <lark-td>
+      **优先级**
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      情景描述
+    </lark-td>
+    <lark-td>
+      按时间线记录（Always on） 完成的舱内/舱外情景描述
+    </lark-td>
+    <lark-td>
+      2025.09.13-09:42:33 
+      明骏上车了，竟然剪了寸头！还染了灰色！
+      ......
+    </lark-td>
+    <lark-td>
+      感知模块
+    </lark-td>
+    <lark-td>
+      P0
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      历史对话
+    </lark-td>
+    <lark-td>
+      按照时间线记录用户以及AI说的话
+    </lark-td>
+    <lark-td>
+      2025.09.13-09:42:33 
+      明骏：“打开空调”
+      2025.09.13-09:42:37
+      豆包：“好的，打开了”
+    </lark-td>
+    <lark-td>
+      ASR模块、TTS模块
+    </lark-td>
+    <lark-td>
+      P0
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      事件日志
+    </lark-td>
+    <lark-td>
+      按时间线记录的全量事件，包含人物/车辆/助手的完成的各类事件
+    </lark-td>
+    <lark-td>
+      <image token="I0qDb9EYyorh5VxCNM2cDy9tnjf" width="1280" height="803" align="center"/>
+    </lark-td>
+    <lark-td>
+      事件日志模块
+      - Always on 感知模块
+      - 执行模块完成的调用
+      - 表达模块说的话
+      - ASR 模块收到的用户语音
+    </lark-td>
+    <lark-td>
+      P0
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      端状态
+    </lark-td>
+    <lark-td>
+      仅记录最新的端状态信息
+    </lark-td>
+    <lark-td>
+      2025.09.13-09:42:33 
+      空调温度：xxx，空调风量：xxx，空调模式：xxx
+      ......
+    </lark-td>
+    <lark-td>
+      端状态模块
+    </lark-td>
+    <lark-td>
+      P0
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      屏幕界面
+    </lark-td>
+    <lark-td>
+      按时间线记录一段时间内的（5min）屏幕截图
+    </lark-td>
+    <lark-td>
+      <text color="gray">image1，timestamp1</text>
+      <text color="gray">image2，timestamp2</text>
+      <text color="gray">image3，timestamp3</text>
+      <text color="gray">....</text>
+      <text color="gray">imageN，timestampN</text>
+    </lark-td>
+    <lark-td>
+      <text color="gray">端侧屏幕数据采集模块</text>
+    </lark-td>
+    <lark-td>
+      <text color="gray">P0</text>
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      用户记忆
+    </lark-td>
+    <lark-td>
+      按照人物 id 方式，从长期记忆中加载当前车内已有成员的长期记忆
+      - 长期情景记忆（一起经历了些什么事情）
+      - 长期人物偏好
+      - 反思性经验
+    </lark-td>
+    <lark-td>
+      "user":"xxx"
+         - **对话事件总结**：总结历史对话内容。
+          - **基本信息**：记录姓名、性别、年龄、生日、职业等 。
+          - **音乐偏好**：记录与用户关联的音乐、音乐创作者喜好信息。
+          - **影视偏好**：记录与用户关联的电视剧&电影、影视创作者喜好信息。
+          - **书籍偏好**：记录与用户关联的书籍喜好信息。
+          - **新闻偏好**：记录与用户关联的新闻喜好信息。
+          - **食物偏好**：记录与用户关联的食物喜好信息。
+          - **车控习惯**：记录与用户关联的车辆控制习惯信息。
+          - **充电补能偏好**：记录与用户关联的充电补能喜好信息。（如用户习惯使用快充，对费用不敏感 ）
+          - **智能助手风格偏好**：记录与用户关联的智能助手风格的喜好信息。（如喜欢幽默风趣或简洁直接风格 。）
+          - **旅游偏好**：记录与用户关联的旅游喜好信息。（如长假期自驾去人少、预算自由之地，周末周边游、预算有限 ）。
+    </lark-td>
+    <lark-td>
+      长期记忆
+    </lark-td>
+    <lark-td>
+      P0
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      任务状态
+    </lark-td>
+    <lark-td>
+      记录当前在任务队列存在的所有任务，以及这些任务的状态。
+    </lark-td>
+    <lark-td>
+      <任务队列>
+      [
+      {
+      "task_id":"2",
+      "rank":"1",
+      "task_content":"给明骏开启座椅按摩波浪模式最大档，给雨晴开启座椅按摩点按腰部2档",
+      "task_condition":"",
+      "task_nlg":""
+      },
+      {
+      "task_id":"3",
+      "rank":"2",
+      "task_content":"设置导航路线为从当前位置（明骏和雨晴的小区地下停车库）先前往雨晴公司（兴业达北门），再前往明骏公司（漕溪北路400号）",
+      "task_condition":"车辆挂入D档",
+      "task_nlg":""
+      },
+      {
+      "task_id":"4",
+      "rank":"3",
+      "task_content":"询问明骏和雨晴是否要听小宇宙《玄而未决》昨晚更新的最新一期（主题为九紫离火运）",
+      "task_condition":"车辆开始行驶后",
+      "task_nlg":"对了，要不要听小宇宙你们常听的《玄而未决》？昨晚刚更了最新一期讲九紫离火运，应该合你们口味～"
+      },
+      {
+      "task_id":"1",
+      "rank":"4",
+      "task_content":"调研GPT5的最新进展做成PPT",
+      "task_condition":"",
+      "task_nlg":""
+      }
+      ]
+      </任务队列>
+    </lark-td>
+    <lark-td>
+      任务管理模块
+    </lark-td>
+    <lark-td>
+      P0
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      基础联网信息
+    </lark-td>
+    <lark-td>
+      记录天气、时间节日节气等最通用的联网信息
+    </lark-td>
+    <lark-td>
+      "精准时间":"时间值"
+      "公历日期":"公历日期值",
+      "星期":"星期值",
+      "公历日期":"农历日期值",
+      "节日":"节日名",
+      "节气":"节气",
+      "节日":"节日名",
+    </lark-td>
+    <lark-td>
+    </lark-td>
+    <lark-td>
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      豆包探索
+    </lark-td>
+    <lark-td>
+      记录豆包自我探索的内容，按时间线记录探索的所有内容，并标记不同的探索主题
+    </lark-td>
+    <lark-td>
+      "explore_task":"任务名1"
+      "tiimestamp":"时间"
+      "explore_result":"输出的探索结果"
+      ....
+      "explore_task":"任务名N"
+      "tiimestamp":"时间"
+      "explore_result":"输出的探索结果"
+    </lark-td>
+    <lark-td>
+      探索模块
+    </lark-td>
+    <lark-td>
+      P1
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      通用任务经验
+    </lark-td>
+    <lark-td>
+      记录人工总结的一些通用的任务经验
+      - GUI 操作美团点外卖时最好先确定地点，
+      - 如发微信消息时，先向用户确认内容和发送的人
+    </lark-td>
+    <lark-td>
+      "任务类型":"点外卖"，
+      "任务技巧":"技巧内容"
+    </lark-td>
+    <lark-td>
+      知识库模块
+    </lark-td>
+    <lark-td>
+      P1（方便快速提升某类任务的效果）
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      工具知识
+    </lark-td>
+    <lark-td>
+      记录各类可调用的工具范围和说明、使用示例等
+    </lark-td>
+    <lark-td>
+      详见<mention-doc token="MvBwdh4Z4o24tMxREIuctt3enZc" type="docx">豆包复杂任务工具库参考</mention-doc>
+    </lark-td>
+    <lark-td>
+      工具库
+    </lark-td>
+    <lark-td>
+      P2（已在<mention-doc token="NIhss30mshd0VdtHFAscIwlLnPb" type="sheet">【AI汽车】工具库-V1.0</mention-doc>中）
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      特定专有知识
+    </lark-td>
+    <lark-td>
+      比如车品牌相关的知识
+    </lark-td>
+    <lark-td>
+      Q&A 或文档
+    </lark-td>
+    <lark-td>
+      知识库模块
+    </lark-td>
+    <lark-td>
+      P2
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      豆包性格&自我认知
+    </lark-td>
+    <lark-td>
+      豆包的性格，豆包的自我了解、世界观、价值观
+    </lark-td>
+    <lark-td>
+      "性格"："性格描述"，
+      "自我认知"："自我认知描述"，
+      "世界观"："世界观描述"，
+      "价值观"："价值观描述"，
+    </lark-td>
+    <lark-td>
+      豆包自我认知模块
+    </lark-td>
+    <lark-td>
+      P2
+    </lark-td>
+  </lark-tr>
+</lark-table>
+
+**概念澄清**
+
+1. **长期记忆、短期记忆和 公共Context 的关系是什么？**
+
+<image token="SSpGbBgyLo3Nv0xMZsScQvnLnNg" width="2388" height="1698" align="center"/>
+
+- 短期记忆记录的更多是短期发生的事实
+  - 事实记录了“ AI、人做了什么说了什么，车及车内各设备的状态及变化、车外的环境变化”
+  - 公共Context 包含的内容会更为丰富，除了有短期记忆相关的内容外，还包含一些知识、设定、从长期记忆中获取的信息，并且会根据不同 Agent 的需要对一些信息做一些预加工。
+- Context模块会按照要求去从长期记忆抽取信息
+  - Context模块，不会一次性加载全部的长期记忆，而是根据场景变化提前从长期记忆里取一部分，减少噪音
+    - 如根据场景来过滤
+      - 如驻车场景相关的偏好在行车时段完全不用加载
+      - 现在是去外地自驾游，那在常驻地的各类记忆就不用加载，避免干扰
+  - 短期一些任务用过的长期记忆，不用重新再检索出来使用，会被 context 模块保持住
+
+#### Context 的压缩总结
+
+需要压缩总结的信息包含
+
+- 情景描述的总结压缩
+
+<image token="UPG9bDxBao0yaoxNeNmc6NaOnvZ" width="1014" height="1250" align="center"/>
+
+#### Context 的检索分发&过滤
+
+- 分发情景事件描述
+  - 用以触发Advisor或主 Agent
+- 按照场景过滤
+  - 当前是驻车的场景，就没必要加载行车场景下的记忆偏好等信息
+  - 当前是去自驾游旅行的场景，日常通勤的很多记忆就都不用加载，反之亦然
+- 按照人物过滤
+  - 过滤非两个人共同的长期记忆内容，避免泄露隐私，同时能减少噪音
+- 按照任务检索过滤信息
+  - 任务是点外卖，检索相对应的任务知识、用户偏好等
+
+端状态筛选：
+
+记忆筛选：

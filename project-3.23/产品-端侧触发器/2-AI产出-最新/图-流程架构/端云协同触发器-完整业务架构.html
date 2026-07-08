@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>触发器系统 · 完整内部架构</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+* { box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  margin: 0; padding: 32px 48px;
+  background: #f5f7fa;
+  color: #1f2329;
+  line-height: 1.65;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+header {
+  border-bottom: 4px solid #1a73e8;
+  padding-bottom: 16px;
+  margin-bottom: 32px;
+}
+h1 { font-size: 32px; margin: 0 0 8px 0; }
+.subtitle { color: #6b7785; font-size: 14px; }
+.meta-tags { margin-top: 12px; }
+.meta-tag {
+  display: inline-block;
+  padding: 4px 10px;
+  background: #e8f0fe;
+  color: #1a73e8;
+  border-radius: 4px;
+  font-size: 12px;
+  margin-right: 8px;
+}
+h2 {
+  font-size: 22px; margin-top: 48px; padding: 14px 20px;
+  background: linear-gradient(90deg, #1a73e8 0%, #4285f4 100%);
+  color: white;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+h2 .chapter-num {
+  background: rgba(255,255,255,0.25);
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 14px;
+}
+h3 {
+  font-size: 18px; margin-top: 28px;
+  color: #1a73e8;
+  border-left: 4px solid #1a73e8;
+  padding-left: 12px;
+}
+h4 { font-size: 16px; margin-top: 20px; }
+.mermaid {
+  background: white;
+  padding: 32px 24px;
+  border: 1px solid #e3e5e7;
+  border-radius: 8px;
+  margin: 20px 0;
+  text-align: center;
+  overflow-x: auto;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+.module-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 14px;
+  margin: 20px 0;
+}
+.module-card {
+  background: white;
+  padding: 18px 20px;
+  border-radius: 6px;
+  border-left: 4px solid #1a73e8;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+.module-card.cloud-trg { border-left-color: #4285f4; background: linear-gradient(135deg, #fff 0%, #f0f6ff 100%); }
+.module-card.edge-trg { border-left-color: #34a853; background: linear-gradient(135deg, #fff 0%, #f0faf4 100%); }
+.module-card.input { border-left-color: #fbbc04; background: linear-gradient(135deg, #fff 0%, #fffaf0 100%); }
+.module-card.output { border-left-color: #ea4335; background: linear-gradient(135deg, #fff 0%, #fff5f4 100%); }
+.module-card h4 { margin: 0 0 8px 0; font-size: 15px; }
+.module-card .tag {
+  display: inline-block; padding: 2px 8px;
+  font-size: 11px; border-radius: 3px;
+  margin-right: 6px; margin-bottom: 6px;
+}
+.tag-cloud { background: #e8f0fe; color: #1a73e8; }
+.tag-edge { background: #e6f4ea; color: #34a853; }
+.tag-input { background: #fef7e0; color: #b06000; }
+.tag-output { background: #fce8e6; color: #d93025; }
+.tag-stage { background: #f1f3f4; color: #5f6368; }
+.module-card .desc { font-size: 13px; color: #555; margin: 8px 0; }
+.module-card .io { font-size: 12px; color: #888; padding: 8px 10px; background: #f5f7fa; border-radius: 4px; margin: 6px 0; }
+.scenario {
+  background: white;
+  padding: 24px 28px;
+  border-radius: 8px;
+  margin: 24px 0;
+  border: 1px solid #e3e5e7;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.scenario-header {
+  display: flex; align-items: center;
+  gap: 12px; margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.scenario-badge {
+  padding: 4px 12px;
+  background: #1a73e8;
+  color: white;
+  border-radius: 12px;
+  font-size: 13px; font-weight: bold;
+}
+.scenario-title { font-size: 18px; font-weight: 600; }
+.scenario-meta { color: #6b7785; font-size: 12px; }
+.example-quote {
+  background: #fef7e0;
+  padding: 14px 18px;
+  border-left: 4px solid #f9ab00;
+  border-radius: 4px;
+  font-style: italic;
+  margin: 16px 0;
+  font-size: 15px;
+}
+.example-quote::before { content: "💬 "; }
+table {
+  width: 100%; border-collapse: collapse;
+  margin: 16px 0; background: white;
+  border-radius: 6px; overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  font-size: 14px;
+}
+th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid #e3e5e7; vertical-align: top; }
+th { background: #f5f7fa; font-weight: 600; }
+tr:hover { background: #fafbfc; }
+.warning {
+  background: #fce8e6; padding: 14px 18px;
+  border-left: 4px solid #d93025;
+  border-radius: 4px; margin: 14px 0;
+  font-size: 14px;
+}
+.warning::before { content: "⚠️ "; font-weight: bold; }
+.info {
+  background: #e8f0fe; padding: 14px 18px;
+  border-left: 4px solid #1a73e8;
+  border-radius: 4px; margin: 14px 0;
+  font-size: 14px;
+}
+.info::before { content: "💡 "; font-weight: bold; }
+.success {
+  background: #e6f4ea; padding: 14px 18px;
+  border-left: 4px solid #34a853;
+  border-radius: 4px; margin: 14px 0;
+  font-size: 14px;
+}
+.success::before { content: "✅ "; font-weight: bold; }
+.toc {
+  background: white; padding: 20px 24px;
+  border-radius: 8px; margin: 24px 0;
+  border: 1px solid #e3e5e7;
+}
+.toc h3 { margin-top: 0; }
+.toc ol { padding-left: 24px; columns: 2; column-gap: 32px; }
+.toc li { margin-bottom: 6px; break-inside: avoid; }
+.toc a { color: #1a73e8; text-decoration: none; font-size: 14px; }
+.toc a:hover { text-decoration: underline; }
+.key-callout {
+  background: linear-gradient(135deg, #fff7e6 0%, #fef5db 100%);
+  padding: 16px 20px;
+  border-left: 5px solid #f9ab00;
+  border-radius: 6px;
+  margin: 16px 0;
+}
+.key-callout strong { color: #d56e0c; }
+.tech-spec {
+  font-family: 'SF Mono', Consolas, monospace;
+  background: #1f2329;
+  color: #c8d3e1;
+  padding: 14px 18px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  overflow-x: auto;
+  margin: 12px 0;
+}
+.tech-spec .comment { color: #6b7785; }
+.tech-spec .key { color: #4caf50; }
+.tech-spec .str { color: #ffa726; }
+.tech-spec .num { color: #64b5f6; }
+hr.divider { border: none; height: 1px; background: #e3e5e7; margin: 40px 0; }
+.footer-note {
+  background: #f5f7fa;
+  padding: 20px;
+  border-radius: 8px;
+  margin-top: 40px;
+  font-size: 13px;
+  color: #6b7785;
+  border: 1px dashed #d0d4d9;
+}
+.io-box {
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr;
+  gap: 16px;
+  margin: 20px 0;
+}
+.io-col {
+  background: white;
+  padding: 18px;
+  border-radius: 6px;
+  border: 1px solid #e3e5e7;
+}
+.io-col h4 { margin-top: 0; }
+.io-col.in { border-top: 3px solid #fbbc04; }
+.io-col.core { border-top: 3px solid #1a73e8; }
+.io-col.out { border-top: 3px solid #ea4335; }
+.legend {
+  display: flex; gap: 20px; flex-wrap: wrap;
+  margin: 16px 0; padding: 14px 20px;
+  background: white; border-radius: 6px;
+  border: 1px solid #e3e5e7;
+  font-size: 13px;
+}
+.legend-item { display: flex; align-items: center; gap: 8px; }
+.legend-dot {
+  width: 14px; height: 14px;
+  border-radius: 3px;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⚡ 触发器系统 · 完整内部架构</h1>
+  <div class="subtitle">聚焦触发器本身 · 不画外部模块（只画接口）· 基于 5/28 会议 + 真实链路图整理</div>
+  <div class="meta-tags">
+    <span class="meta-tag">触发器 owner：吴仁杰</span>
+    <span class="meta-tag">阶段：S7-S10</span>
+    <span class="meta-tag">上汽 DNA 6/10 SOP</span>
+    <span class="meta-tag">云+端双层</span>
+    <span class="meta-tag">v2.0</span>
+  </div>
+</header>
+
+<div class="toc">
+  <h3>📑 目录</h3>
+  <ol>
+    <li><a href="#ch1">一、触发器一句话定位 + 边界</a></li>
+    <li><a href="#ch2">二、触发器骨架图（内部全连线）</a></li>
+    <li><a href="#ch3">三、云端触发器内部子模块</a></li>
+    <li><a href="#ch4">四、端侧触发器内部子模块</a></li>
+    <li><a href="#ch5">五、5 类输入源详图</a></li>
+    <li><a href="#ch6">六、3 类输出路径详图</a></li>
+    <li><a href="#ch7">七、注册流程（触发器视角）</a></li>
+    <li><a href="#ch8">八、触发流程（触发器视角）</a></li>
+    <li><a href="#ch9">九、反馈流程（触发器视角）</a></li>
+    <li><a href="#ch10">十、触发器的 8 个核心能力</a></li>
+    <li><a href="#ch11">十一、触发器规则的数据结构</a></li>
+    <li><a href="#ch12">十二、触发器状态机/生命周期</a></li>
+    <li><a href="#ch13">十三、DNA → 赛力斯 演进路线</a></li>
+    <li><a href="#ch14">十四、风险地图 + 决策点</a></li>
+  </ol>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="ch1"><span class="chapter-num">01</span>触发器一句话定位 + 边界</h2>
+
+<div class="info">
+<strong>触发器是什么</strong>：触发器是 Driver Agent 系统里"<strong>事件订阅 + 条件匹配 + 动作回调</strong>"的中间件。它<strong>不在主链路上</strong>（用户说话→Planner→执行不经过触发器），但<strong>所有"持续/条件/定时任务"必须靠它</strong>。
+</div>
+
+<div class="io-box">
+  <div class="io-col in">
+    <h4>🟡 触发器吃进来的</h4>
+    <ul>
+      <li>① 后台配置的静态预设事件</li>
+      <li>② Advisor 注册的订阅条件</li>
+      <li>③ Planner 注册的条件任务（经条件解析模型）</li>
+      <li>④ 端信号（车身/外设/视觉）</li>
+      <li>⑤ 定时器（端侧倒计时）</li>
+    </ul>
+  </div>
+  <div class="io-col core">
+    <h4>🔵 触发器内部做的事</h4>
+    <ul>
+      <li>① 接收注册 + 持久化</li>
+      <li>② 云→端同步条件 + 策略</li>
+      <li>③ 信号变化时做两级条件判断</li>
+      <li>④ 命中后做优先级仲裁 + 互斥检查</li>
+      <li>⑤ 路由到 notify or direct</li>
+      <li>⑥ 处理冷却、超时、抢占恢复</li>
+      <li>⑦ 回传执行状态</li>
+    </ul>
+  </div>
+  <div class="io-col out">
+    <h4>🔴 触发器吐出去的</h4>
+    <ul>
+      <li>① 给 Planner 触发推理（S8）</li>
+      <li>② 给 Advisor 条件命中通知</li>
+      <li>③ 给端侧工程执行（车控/TTS/媒体）</li>
+    </ul>
+  </div>
+</div>
+
+<h3>触发器明确不做的事（边界）</h3>
+
+<table>
+  <thead>
+    <tr><th>触发器不负责</th><th>归谁</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>用户意图理解 / 口语解析</td><td>Planner / Director</td></tr>
+    <tr><td>条件任务的语义解析（"任意位置" → 4 个具体位置）</td><td>条件解析模型（吴仁杰）</td></tr>
+    <tr><td>Advisor 的话术决策</td><td>Advisor 内部</td></tr>
+    <tr><td>VLM 内部推理</td><td>端侧 VLM 模块</td></tr>
+    <tr><td>信号原始采集（读 CAN/蓝牙）</td><td>端信号库</td></tr>
+    <tr><td>记忆 / Context 存储</td><td>Context 模块</td></tr>
+    <tr><td>端云仲裁（离线/在线结果择优）</td><td>端云仲裁模块（左晨）</td></tr>
+    <tr><td>用户身份识别</td><td>身份识别模块</td></tr>
+  </tbody>
+</table>
+
+<h3>🎯 上汽 DNA 6/10 SOP 范围圈定（必读）</h3>
+
+<div class="warning">
+<strong>上汽 DNA SOP 主流程</strong>：用户说话 → ASR → Planner → Agent/Tool 执行 → TTS 反馈。<br/>
+触发器在主流程中<strong>只承担「Advisor 事件订阅」</strong>——命中后 notify 给 Advisor 即可。<br/>
+<strong>"直接执行 / 策略路由 / 协议改造 / VLM / 动态语义"全部是优化项，主流程不需要，统统推到赛力斯阶段。</strong>
+</div>
+
+<h4>📋 7 个候选需求点的分级判断</h4>
+
+<table>
+  <thead>
+    <tr><th>#</th><th>需求点</th><th>上汽 SOP 必要性</th><th>影响主流程</th><th>决策</th></tr>
+  </thead>
+  <tbody>
+    <tr style="background:#fce8e6">
+      <td><strong>1</strong></td>
+      <td>端侧触发器直接接执行能力</td>
+      <td>🔴 低</td>
+      <td>不影响</td>
+      <td><strong>砍 → 推赛力斯</strong>。主流程靠云端推理+执行，弱网下豆包整体不可用，单独优化触发器没意义</td>
+    </tr>
+    <tr style="background:#fce8e6">
+      <td><strong>2</strong></td>
+      <td>端侧策略模块（事件路由 notify/direct）</td>
+      <td>🔴 低</td>
+      <td>不影响</td>
+      <td><strong>砍 → 推赛力斯</strong>。不做 1，策略路由只有 notify 一种，不需要单独模块</td>
+    </tr>
+    <tr style="background:#fce8e6">
+      <td><strong>3</strong></td>
+      <td>端侧接受云端下发的执行策略</td>
+      <td>🔴 低</td>
+      <td>不影响</td>
+      <td><strong>砍 → 推赛力斯</strong>。跟 1、2 配套，云端下发的目的是支持端上直接执行</td>
+    </tr>
+    <tr style="background:#fef7e0">
+      <td><strong>4</strong></td>
+      <td>定时器做在端上（+时间信息透出）</td>
+      <td>🟡 看需求</td>
+      <td>部分</td>
+      <td><strong>看上汽 DNA 用户场景</strong>。如果用户有"10 分钟后..."这类需求 → 必做；如果没有 → 推迟。<strong>需要找廖婉婷确认</strong></td>
+    </tr>
+    <tr style="background:#fce8e6">
+      <td><strong>5</strong></td>
+      <td>云端/端侧事件分工（语义/联网在云，端信号/定时器在端）</td>
+      <td>🔴 架构</td>
+      <td>间接</td>
+      <td><strong>不是独立任务</strong>。DNA 阶段事件都从端信号生成；云上生成的事件（语义/联网）是赛力斯阶段能力</td>
+    </tr>
+    <tr style="background:#fce8e6">
+      <td><strong>6</strong></td>
+      <td>"任一位置"协议表达</td>
+      <td>🔴 低</td>
+      <td>不影响</td>
+      <td><strong>砍协议改造 → 用条件解析模型展开为 4 条具体位置规则</strong>。短期方案就够用</td>
+    </tr>
+    <tr style="background:#e6f4ea">
+      <td><strong>7</strong></td>
+      <td>上汽协议没对清楚</td>
+      <td>🟢 高（前置）</td>
+      <td>前置阻塞</td>
+      <td><strong>必须立刻做</strong>。找韩天亮拿最新协议表，对不清楚则所有需求都建在沙堆上</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="success">
+<strong>上汽 6/10 SOP 触发器真实最小范围（结论）</strong>：
+<ol>
+  <li>✅ <strong>Advisor 注册接入</strong>（益红主动服务 6 个点）</li>
+  <li>✅ <strong>Planner 条件任务注册接入</strong>（经条件解析模型）</li>
+  <li>✅ <strong>端信号事件触发</strong>（车身信号为主）</li>
+  <li>✅ <strong>命中后 notify → Advisor / Planner</strong>（<strong>不做 direct 路径</strong>）</li>
+  <li>✅ <strong>上汽协议对清楚</strong>（韩天亮的协议表）</li>
+  <li>❓ <strong>定时器</strong>（看上汽是否有定时任务需求 → 找廖婉婷）</li>
+</ol>
+其他能力（弱网直接执行、策略路由、云端策略下发、协议改造、VLM 调度、机器人事件、动态语义、模型类事件触发）<strong>全部推到赛力斯阶段</strong>。
+</div>
+
+<div class="key-callout">
+<strong>这个结论意味着 6/10 SOP 你只需要做对外承诺的 4 件事</strong>：<br/>
+① 触发器能接 Advisor 订阅 → ② 触发器能接 Planner 条件任务 → ③ 端信号能触发规则 → ④ 命中后能 notify 给云端业务方。<br/>
+<strong>这 4 件事的复杂度，对应到原来你担心的"整个系统"，只是其中一小块。范围一旦圈住，6/10 节点就不再恐怖。</strong>
+</div>
+
+<h3>📐 上汽 SOP 最小骨架图（精简版 · 跟下方完整骨架图对照看）</h3>
+
+<div class="info">
+下面这张图把<strong>上汽 6/10 SOP 真正要做的</strong>和<strong>砍掉/推到赛力斯的</strong>分开画。绿色 = 必做；红色 = 砍/推迟。
+</div>
+
+<div class="mermaid">
+graph TB
+    subgraph IN ["🟢 上汽 SOP 必做的输入（4 类）"]
+        AdvIn["💬 Advisor 订阅<br/>━━━━━━━━━<br/>益红主动服务 6 个点<br/>(静态+动态 Advisor)"]:::keep
+        PlanIn["🧠 Planner 条件任务<br/>━━━━━━━━━<br/>用户口语化条件<br/>需经条件解析模型"]:::keep
+        SigIn["📡 端信号<br/>━━━━━━━━━<br/>车身信号为主<br/>韩天亮维护的协议表"]:::keep
+        TimerIn["⏰ 定时器<br/>━━━━━━━━━<br/>看上汽是否有需求<br/>(❓ 找廖婉婷确认)"]:::maybe
+    end
+
+    Parser["🔍 条件解析模型<br/>(吴仁杰 owner)<br/>━━━━━━━━━<br/>口语 → 结构化<br/>'任一位置' → 4 条规则"]:::keep
+
+    subgraph TRG ["🟢 触发器核心（SOP 最小范围）"]
+        TrgCore["⚡ 触发器（吴仁杰）<br/>━━━━━━━━━━━━━<br/>1. 注册接入<br/>2. 持久化<br/>3. 端信号匹配（两级判断）<br/>4. 命中后 notify 输出<br/>━━━━━━━━━━━━━<br/>(不做 direct 执行 / 不做策略路由)"]:::keep
+    end
+
+    subgraph OUT ["🟢 上汽 SOP 必做的输出（1 类）"]
+        NotifyAdv["📤 notify Advisor<br/>━━━━━━━━━<br/>触发 Advisor 建议"]:::keep
+        NotifyPlan["📤 notify Planner<br/>━━━━━━━━━<br/>触发 Planner 推理"]:::keep
+    end
+
+    subgraph KILLED ["🔴 砍掉 / 推到赛力斯阶段（7 类）"]
+        K1["❌ 端侧直接接执行"]:::kill
+        K2["❌ 端侧策略路由模块"]:::kill
+        K3["❌ 云端策略下发"]:::kill
+        K4["❌ VLM 调度"]:::kill
+        K5["❌ 任一位置协议改造"]:::kill
+        K6["❌ 云端模型类事件触发<br/>(VLM 语义/动态语义)"]:::kill
+        K7["❌ 机器人事件接入<br/>(吕壮)"]:::kill
+    end
+
+    AdvIn ==>|订阅注册| TrgCore
+    PlanIn ==>|条件任务| Parser
+    Parser ==>|结构化| TrgCore
+    SigIn ==>|信号变化| TrgCore
+    TimerIn -.可选.-> TrgCore
+
+    TrgCore ==>|命中事件| NotifyAdv
+    TrgCore ==>|命中事件| NotifyPlan
+
+    classDef keep fill:#e6f4ea,stroke:#34a853,stroke-width:2px,color:#0d652d
+    classDef maybe fill:#fef7e0,stroke:#fbbc04,stroke-width:2px,color:#b06000
+    classDef kill fill:#fce8e6,stroke:#d93025,stroke-width:2px,color:#a50e0e
+</div>
+
+<div class="success">
+<strong>看完这张图你应该有的判断</strong>：上汽 6/10 SOP 触发器对外只承诺<strong>「接收 4 类注册 + 端信号触发 + 命中 notify」</strong>。<br/>
+对廖婉婷的研发要求 = <strong>注册接口 + 持久化 + 信号匹配 + notify 上报</strong>，4 个最基础的能力。<br/>
+对吴仁杰的协作要求 = <strong>条件解析模型能用</strong>（解析口语化条件 + "任一位置"展开）。<br/>
+对韩天亮的前置要求 = <strong>协议表对清楚</strong>。
+</div>
+
+<!-- ============================================================ -->
+<h2 id="ch2"><span class="chapter-num">02</span>触发器骨架图（内部全连线）</h2>
+
+<div class="info">
+<strong>核心理解</strong>：触发器是<strong>一个模块的两端</strong>（云+端），不是两个独立模块。云端做"配置/解析/同步/下发"，端侧做"判断/工程执行"。两者靠"同步"通道连接。
+</div>
+
+<div class="legend">
+  <div class="legend-item"><span class="legend-dot" style="background:#4285f4"></span>云端触发器内部模块</div>
+  <div class="legend-item"><span class="legend-dot" style="background:#34a853"></span>端侧触发器内部模块</div>
+  <div class="legend-item"><span class="legend-dot" style="background:#fbbc04"></span>输入源（外部）</div>
+  <div class="legend-item"><span class="legend-dot" style="background:#ea4335"></span>输出去向（外部）</div>
+</div>
+
+<div class="mermaid">
+graph TB
+    %% ============= 输入源 =============
+    subgraph INPUTS ["🟡 5 类输入源（外部）"]
+        IN1["①静态预设事件<br/>━━━━━━━━━<br/>来源：后台配置器<br/>(平台配置/猪八戒)<br/>韩天亮维护"]:::input
+        IN2["②Advisor 订阅<br/>━━━━━━━━━<br/>动态/静态 Advisor<br/>主动服务建议"]:::input
+        IN3["③Planner 条件任务<br/>━━━━━━━━━<br/>经条件解析模型<br/>(吴仁杰 owner)"]:::input
+        IN4["④端信号<br/>━━━━━━━━━<br/>车身/外设/视觉<br/>来自端信号库"]:::input
+        IN5["⑤定时器<br/>━━━━━━━━━<br/>端侧倒计时<br/>10分钟后..."]:::input
+    end
+
+    %% ============= 云端触发器 =============
+    subgraph CLOUD_TRG ["☁️ 云端触发器（吴仁杰 owner）"]
+        C1["🔧 平台配置<br/>━━━━━━━━━<br/>预设事件库<br/>支持的条件枚举<br/>支持的动作枚举"]:::cloud
+        C2["📥 注册中心<br/>━━━━━━━━━<br/>接收所有注册<br/>校验格式<br/>持久化"]:::cloud
+        C3["🧠 条件任务解析<br/>━━━━━━━━━<br/>条件解析模型协作<br/>口语→结构化条件<br/>'任意位置'→4 个位置"]:::cloud
+        C4["⚖️ 任务管理<br/>━━━━━━━━━<br/>条件任务上限 6 个<br/>冲突仲裁<br/>生命周期管理"]:::cloud
+        C5["🤖 模型类事件触发<br/>━━━━━━━━━<br/>VLM 语义匹配<br/>动态语义事件<br/>(赛力斯阶段)"]:::cloud
+        C6["📤 同步下发<br/>━━━━━━━━━<br/>条件 JSON 下发到端<br/>策略字段下发<br/>支持热更新"]:::cloud
+        C7["📨 中转 notify<br/>━━━━━━━━━<br/>接收端侧上报<br/>转发给 Advisor/Planner"]:::cloud
+    end
+
+    %% ============= 同步通道 =============
+    SYNC{{"🔄 同步通道<br/>━━━━━━━<br/>条件 + 策略<br/>JSON 协议"}}:::sync
+
+    %% ============= 端侧触发器 =============
+    subgraph EDGE_TRG ["🚗 端侧触发器（吴仁杰 owner）"]
+        E1["📥 平台配置同步<br/>━━━━━━━━━<br/>接收云端下发<br/>本地持久化<br/>断网仍可执行"]:::edge
+        E2["🔍 触发条件管理<br/>━━━━━━━━━<br/>规则库<br/>两级判断<br/>(运行时段+触发条件)"]:::edge
+        E3["📦 触发任务管理<br/>━━━━━━━━━<br/>任务队列<br/>状态跟踪<br/>定时任务集成"]:::edge
+        E4["⚖️ 触发判断<br/>━━━━━━━━━<br/>信号快照对齐 500ms<br/>P0-P4 优先级仲裁<br/>互斥组检查<br/>冷却去重"]:::edge
+        E5["🎛️ 策略模块<br/>━━━━━━━━━<br/>action 路由<br/>notify or direct<br/>云端可热改"]:::edge
+        E6["🔧 工程执行<br/>━━━━━━━━━<br/>下发车控指令<br/>调 TTS<br/>调 VLM 任务"]:::edge
+        E7["📤 结果回传<br/>━━━━━━━━━<br/>执行状态上报<br/>弱网批量补"]:::edge
+    end
+
+    %% ============= 输出去向 =============
+    subgraph OUTPUTS ["🔴 3 类输出去向（外部）"]
+        OUT1["①触发 Planner 推理<br/>━━━━━━━━━<br/>S8 路径<br/>条件命中后<br/>启动 Planner 推理"]:::output
+        OUT2["②通知 Advisor<br/>━━━━━━━━━<br/>建议触发<br/>Advisor 自行决策"]:::output
+        OUT3["③端侧工程执行<br/>━━━━━━━━━<br/>车控/TTS/媒体<br/>HMI 反馈<br/>(弱网也能跑)"]:::output
+    end
+
+    %% ============= 输入连线 =============
+    IN1 ==>|事件配置| C1
+    IN2 ==>|订阅请求| C2
+    IN3 ==>|条件任务| C3
+    IN4 ==>|信号变化| E2
+    IN5 ==>|定时到达| E3
+
+    %% ============= 云端内部连线 =============
+    C1 -.事件 schema.-> C2
+    C2 ==>|结构化条件| C3
+    C3 ==>|存入| C4
+    C4 ==>|下发| C6
+    C5 ==>|生成事件| C2
+    C2 -.冲突检查.-> C4
+
+    %% ============= 云端到端侧 =============
+    C6 ==>|JSON 下发| SYNC
+    SYNC ==>|本地存储| E1
+    E1 ==>|加载规则| E2
+    E1 ==>|加载任务| E3
+
+    %% ============= 端侧内部连线 =============
+    E2 -->|条件命中| E4
+    E3 -->|任务到达| E4
+    E4 ==>|路由请求| E5
+    E5 ==>|direct| E6
+    E5 ==>|notify| E7
+    E6 -.执行状态.-> E7
+    E7 ==>|上报| SYNC
+
+    %% ============= 端到云 =============
+    SYNC ==>|notify| C7
+
+    %% ============= 输出连线 =============
+    C7 ==>|S8 触发| OUT1
+    C7 ==>|建议触发| OUT2
+    E6 ==>|工程指令| OUT3
+
+    classDef input fill:#fff4e6,stroke:#fbbc04,stroke-width:2px,color:#b06000
+    classDef cloud fill:#e8f0fe,stroke:#4285f4,stroke-width:2px,color:#1a73e8
+    classDef edge fill:#e6f4ea,stroke:#34a853,stroke-width:2px,color:#0d652d
+    classDef output fill:#fce8e6,stroke:#ea4335,stroke-width:2px,color:#a50e0e
+    classDef sync fill:#fef7e0,stroke:#f9ab00,stroke-width:3px,color:#d56e0c
+</div>
+
+<div class="key-callout">
+<strong>读图要点</strong>：<br/>
+🔵 <strong>云端触发器有 7 个子模块</strong>：平台配置 / 注册中心 / 条件任务解析 / 任务管理 / 模型类事件触发 / 同步下发 / 中转 notify<br/>
+🟢 <strong>端侧触发器有 7 个子模块</strong>：平台配置同步 / 触发条件管理 / 触发任务管理 / 触发判断 / 策略模块 / 工程执行 / 结果回传<br/>
+🟡 <strong>同步通道</strong>是双向的：云→端下发条件/策略；端→云上报 notify/执行状态<br/>
+🔴 <strong>输入 5 类、输出 3 类</strong>：所有外部交互都在图边缘，触发器内部纯粹是规则匹配 + 路由
+</div>
+
+<!-- ============================================================ -->
+<h2 id="ch3"><span class="chapter-num">03</span>云端触发器内部子模块详解</h2>
+
+<div class="module-grid">
+  <div class="module-card cloud-trg">
+    <h4>🔧 C1 · 平台配置</h4>
+    <span class="tag tag-cloud">云端</span><span class="tag tag-stage">S7 已实现</span>
+    <div class="desc">维护事件库的元数据：哪些事件可被订阅、每个事件的条件 schema、支持的 action 类型。</div>
+    <div class="io"><strong>输入</strong>：运营/PM 在配置后台填表（韩天亮维护）<br/><strong>输出</strong>：可订阅事件列表给 C2</div>
+  </div>
+
+  <div class="module-card cloud-trg">
+    <h4>📥 C2 · 注册中心</h4>
+    <span class="tag tag-cloud">云端</span><span class="tag tag-stage">S7 已实现</span>
+    <div class="desc">接收所有订阅请求（来自后台配置、Advisor、Planner）。校验格式 → 校验条件枚举值合法 → 校验是否冲突 → 持久化。</div>
+    <div class="io"><strong>输入</strong>：注册请求 JSON<br/><strong>输出</strong>：注册成功/失败回执 + 内部存储</div>
+  </div>
+
+  <div class="module-card cloud-trg">
+    <h4>🧠 C3 · 条件任务解析</h4>
+    <span class="tag tag-cloud">云端</span><span class="tag tag-stage">S8 在做</span>
+    <div class="desc">和"条件解析模型"协作（吴仁杰 own 这个模型），把 Planner 给的口语化条件任务解析成结构化规则。<strong>"任意位置车门打开"→ 4 条位置具体规则</strong>就在这里展开。</div>
+    <div class="io"><strong>输入</strong>：Planner 的条件任务<br/><strong>输出</strong>：结构化条件 JSON</div>
+  </div>
+
+  <div class="module-card cloud-trg">
+    <h4>⚖️ C4 · 任务管理</h4>
+    <span class="tag tag-cloud">云端</span><span class="tag tag-stage">S8 在做</span>
+    <div class="desc">条件任务上限管控（Wiki 说明硬上限 6 个）；多任务冲突仲裁（10分钟后开窗 vs 5分钟后关窗）；任务生命周期管理（创建/激活/触发/完成/过期/撤回）。</div>
+    <div class="io"><strong>输入</strong>：注册的条件任务<br/><strong>输出</strong>：超限返回 error 给 Planner</div>
+  </div>
+
+  <div class="module-card cloud-trg">
+    <h4>🤖 C5 · 模型类事件触发</h4>
+    <span class="tag tag-cloud">云端</span><span class="tag tag-stage">S9-S10 演进</span>
+    <div class="desc">端上没模型能力，所以这类事件必须在云端生成：<br/>• <strong>VLM 语义匹配</strong>（"宝宝在哭"匹配到"宝宝哭闹"规则）<br/>• <strong>动态语义事件</strong>（用户对话中识别"心情不爽"）<br/>• <strong>外部数据事件</strong>（股价、天气、节日）</div>
+    <div class="io"><strong>输入</strong>：VLM 描述/对话语义/外部 API<br/><strong>输出</strong>：触发事件 → C2</div>
+  </div>
+
+  <div class="module-card cloud-trg">
+    <h4>📤 C6 · 同步下发</h4>
+    <span class="tag tag-cloud">云端</span><span class="tag tag-stage">S7 已实现</span>
+    <div class="desc">把云端注册好的规则下发到端侧。下发内容：触发条件 + action 策略 + 优先级 + 冷却参数。<strong>支持热更新</strong>（云端改了 → 推到端 → 端侧热加载）。</div>
+    <div class="io"><strong>输入</strong>：C4 的最终规则<br/><strong>输出</strong>：JSON → 同步通道 → 端侧 E1</div>
+  </div>
+
+  <div class="module-card cloud-trg">
+    <h4>📨 C7 · 中转 notify</h4>
+    <span class="tag tag-cloud">云端</span><span class="tag tag-stage">S8 在做</span>
+    <div class="desc">接收端侧触发后上报的 notify。根据规则注册方分发：给 Planner（启动推理）/ 给 Advisor（启动建议）。<strong>这是触发器对外输出 S8 路径的出口</strong>。</div>
+    <div class="io"><strong>输入</strong>：端侧 notify<br/><strong>输出</strong>：分发给 Planner / Advisor</div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="ch4"><span class="chapter-num">04</span>端侧触发器内部子模块详解</h2>
+
+<div class="module-grid">
+  <div class="module-card edge-trg">
+    <h4>📥 E1 · 平台配置同步</h4>
+    <span class="tag tag-edge">端侧</span><span class="tag tag-stage">S7 已实现</span>
+    <div class="desc">接收云端下发的规则，本地持久化（断网仍可执行）。启动时全量拉取，运行中增量订阅。车机重启后从本地恢复。</div>
+    <div class="io"><strong>输入</strong>：同步通道<br/><strong>输出</strong>：规则给 E2、任务给 E3</div>
+  </div>
+
+  <div class="module-card edge-trg">
+    <h4>🔍 E2 · 触发条件管理</h4>
+    <span class="tag tag-edge">端侧</span><span class="tag tag-stage">S7 已实现</span>
+    <div class="desc">规则库管理 + 两级条件判断：<br/>• 第一级：运行时段（行车中/停车时/上车前/离车后）<br/>• 第二级：触发条件（具体信号匹配）<br/>第一级不满足时，不订阅第二级信号——省算力。</div>
+    <div class="io"><strong>输入</strong>：信号库变化通知<br/><strong>输出</strong>：命中事件给 E4</div>
+  </div>
+
+  <div class="module-card edge-trg">
+    <h4>📦 E3 · 触发任务管理</h4>
+    <span class="tag tag-edge">端侧</span><span class="tag tag-stage">S7 已实现</span>
+    <div class="desc">任务队列 + 状态跟踪。<strong>定时任务集成在这里</strong>（10 分钟倒计时）。每个任务的状态：pending → running → success / timeout / interrupted。</div>
+    <div class="io"><strong>输入</strong>：注册任务 + 定时器到达<br/><strong>输出</strong>：任务执行请求给 E4</div>
+  </div>
+
+  <div class="module-card edge-trg">
+    <h4>⚖️ E4 · 触发判断（核心引擎）</h4>
+    <span class="tag tag-edge">端侧</span><span class="tag tag-stage">S7 已实现</span>
+    <div class="desc">核心判断逻辑：<br/>• <strong>信号快照对齐 500ms</strong>（多信号到达有先后，等齐再判断）<br/>• <strong>P0-P4 优先级仲裁</strong>（同时命中多个时谁先跑）<br/>• <strong>互斥组检查</strong>（同摄像头同时只能跑一个）<br/>• <strong>冷却去重</strong>（防止 60s 内重复触发）<br/>• <strong>抢占恢复</strong>（高优打断低优后恢复）</div>
+    <div class="io"><strong>输入</strong>：E2/E3 命中事件<br/><strong>输出</strong>：路由请求给 E5</div>
+  </div>
+
+  <div class="module-card edge-trg">
+    <h4>🎛️ E5 · 策略模块（佳杰强调的新增点）</h4>
+    <span class="tag tag-edge">端侧</span><span class="tag tag-stage">S8 在做</span>
+    <div class="desc">触发后 action 路由：<br/>• <code>notify_planner</code> → 上报启动 Planner 推理<br/>• <code>notify_advisor</code> → 上报启动 Advisor 建议<br/>• <code>direct_carcontrol</code> → 直接调车控（弱网也跑）<br/>• <code>direct_tts</code> → 直接播报<br/>• <code>direct_media</code> → 直接控制媒体<br/><strong>策略云端可热改</strong>。</div>
+    <div class="io"><strong>输入</strong>：触发请求<br/><strong>输出</strong>：direct → E6；notify → E7</div>
+  </div>
+
+  <div class="module-card edge-trg">
+    <h4>🔧 E6 · 工程执行</h4>
+    <span class="tag tag-edge">端侧</span><span class="tag tag-stage">S7 已实现</span>
+    <div class="desc">具体执行端：下发车控指令 / 调 TTS / 调 VLM 任务。VLM 调度有 2 条回路（识别结果回写信号库；任务状态反馈给 E4）。</div>
+    <div class="io"><strong>输入</strong>：direct 指令<br/><strong>输出</strong>：调端侧业务 + 状态给 E7</div>
+  </div>
+
+  <div class="module-card edge-trg">
+    <h4>📤 E7 · 结果回传</h4>
+    <span class="tag tag-edge">端侧</span><span class="tag tag-stage">S8 在做</span>
+    <div class="desc">把触发后的执行结果上报云端。包括：notify 内容、执行状态、任务完成情况。<strong>弱网时暂存在本地待上报队列</strong>，恢复后批量补。</div>
+    <div class="io"><strong>输入</strong>：E5/E6 输出<br/><strong>输出</strong>：上报 → 同步通道 → C7</div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="ch5"><span class="chapter-num">05</span>5 类输入源详图</h2>
+
+<div class="mermaid">
+graph LR
+    %% 输入源
+    Config["①静态预设事件<br/>━━━━━━━━━━━━━<br/>来源：后台配置器<br/>韩天亮维护<br/>━━━━━━━━━━━━━<br/>例：副驾上车开玩笑<br/>车速&gt;80 提醒"]:::input
+    Adv["②Advisor 订阅<br/>━━━━━━━━━━━━━<br/>来源：动态/静态 Advisor<br/>━━━━━━━━━━━━━<br/>例：看到副驾疲劳<br/>则推送关怀话术"]:::input
+    Plan["③Planner 条件任务<br/>━━━━━━━━━━━━━<br/>来源：用户口语<br/>(经条件解析模型)<br/>━━━━━━━━━━━━━<br/>例：10分钟后开窗<br/>到家关空调"]:::input
+    Sig["④端信号<br/>━━━━━━━━━━━━━<br/>来源：端信号库<br/>━━━━━━━━━━━━━<br/>例：座椅占用变化<br/>车速变化<br/>车门开关"]:::input
+    Timer["⑤定时器<br/>━━━━━━━━━━━━━<br/>来源：端侧定时器<br/>━━━━━━━━━━━━━<br/>例：倒计时到达<br/>周期任务执行"]:::input
+
+    %% 触发器
+    Trg["⚡ 触发器（统一接收）"]:::trg
+
+    Config ==>|事件配置 JSON<br/>注册中心 C2| Trg
+    Adv ==>|订阅请求 JSON<br/>注册中心 C2| Trg
+    Plan ==>|条件任务<br/>条件任务解析 C3| Trg
+    Sig ==>|信号变化通知<br/>触发条件管理 E2| Trg
+    Timer ==>|定时到达<br/>触发任务管理 E3| Trg
+
+    classDef input fill:#fff4e6,stroke:#fbbc04,stroke-width:2px,color:#b06000
+    classDef trg fill:#e8f0fe,stroke:#1a73e8,stroke-width:3px,color:#1a73e8
+</div>
+
+<h3>5 类输入的数据格式</h3>
+
+<table>
+  <thead>
+    <tr><th>#</th><th>输入源</th><th>注册时机</th><th>数据示例</th><th>归属子模块</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>①</td><td>静态预设事件</td><td>启动加载 + 运营变更热更新</td><td><code>{event_id, condition, action, priority}</code></td><td>C1 → C2</td></tr>
+    <tr><td>②</td><td>Advisor 订阅</td><td>Advisor 启动 / 用户托付目标时</td><td><code>{advisor_id, subscribe_events[], callback}</code></td><td>C2</td></tr>
+    <tr><td>③</td><td>Planner 条件任务</td><td>用户口语解析后实时注册</td><td><code>{user_query, parsed_condition, action}</code></td><td>C3 → C4</td></tr>
+    <tr><td>④</td><td>端信号</td><td>持续监听</td><td><code>{key, value, source, timestamp}</code></td><td>E2</td></tr>
+    <tr><td>⑤</td><td>定时器</td><td>条件任务注册时附带</td><td><code>{task_id, fire_at_ts, recurring}</code></td><td>E3</td></tr>
+  </tbody>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="ch6"><span class="chapter-num">06</span>3 类输出路径详图</h2>
+
+<div class="mermaid">
+graph LR
+    %% 触发器
+    Trg["⚡ 触发器（命中后）"]:::trg
+
+    %% 路由器
+    Router{{"🎛️ 策略模块 E5<br/>━━━━━━━━━<br/>路由决策"}}:::router
+
+    %% 输出 3 类
+    OutPlan["①触发 Planner 推理<br/>━━━━━━━━━━━━━<br/>action=notify_planner<br/>━━━━━━━━━━━━━<br/>用途：复杂场景<br/>需要模型决策"]:::output
+    OutAdv["②通知 Advisor<br/>━━━━━━━━━━━━━<br/>action=notify_advisor<br/>━━━━━━━━━━━━━<br/>用途：建议类<br/>话术/关怀/提醒"]:::output
+    OutExec["③端侧工程执行<br/>━━━━━━━━━━━━━<br/>action=direct_*<br/>━━━━━━━━━━━━━<br/>用途：简单车控<br/>实时性要求高<br/>弱网也需可用"]:::output
+
+    Trg ==> Router
+    Router ==>|notify_planner| OutPlan
+    Router ==>|notify_advisor| OutAdv
+    Router ==>|direct_carcontrol<br/>direct_tts<br/>direct_media| OutExec
+
+    classDef trg fill:#e8f0fe,stroke:#1a73e8,stroke-width:3px,color:#1a73e8
+    classDef router fill:#fef7e0,stroke:#f9ab00,stroke-width:3px,color:#d56e0c
+    classDef output fill:#fce8e6,stroke:#ea4335,stroke-width:2px,color:#a50e0e
+</div>
+
+<h3>3 类输出的具体差异</h3>
+
+<table>
+  <thead>
+    <tr><th>路径</th><th>触发后行为</th><th>耗时</th><th>弱网可用</th><th>典型场景</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>①notify_planner</td><td>上报云 → Planner 启动推理 → 走主链路输出</td><td>~2-5s</td><td>❌</td><td>用户心情不爽时聊几句</td></tr>
+    <tr><td>②notify_advisor</td><td>上报云 → Advisor 决定话术 → TTS</td><td>~1-3s</td><td>❌</td><td>副驾上车开玩笑、车速&gt;80 提醒</td></tr>
+    <tr><td>③direct_carcontrol</td><td>端侧直接调车控 API</td><td>&lt; 200ms</td><td>✅</td><td>10 分钟后开窗、上车自动开空调</td></tr>
+    <tr><td>③direct_tts</td><td>端侧直接调离线 TTS</td><td>&lt; 500ms</td><td>✅</td><td>下车安全提醒、即时报警</td></tr>
+    <tr><td>③direct_media</td><td>端侧直接调媒体控制</td><td>&lt; 200ms</td><td>✅</td><td>定时关音乐、自动暂停</td></tr>
+  </tbody>
+</table>
+
+<div class="key-callout">
+<strong>关键设计</strong>：每条规则在注册时必须明确 <code>action_type</code>。<strong>这个字段必须在 6/10 协议中预留</strong>，哪怕初版只用 notify_advisor 一种，未来要加 direct 也不用改协议。
+</div>
+
+<!-- ============================================================ -->
+<h2 id="ch7"><span class="chapter-num">07</span>注册流程（触发器视角）</h2>
+
+<div class="scenario">
+  <div class="scenario-header">
+    <span class="scenario-badge">注册流程</span>
+    <span class="scenario-title">从外部注册请求到端侧可触发</span>
+  </div>
+
+  <div class="example-quote">例：用户说"10 分钟后帮我打开车窗"，触发器是怎么把这条规则装上的？</div>
+
+<div class="mermaid">
+sequenceDiagram
+    autonumber
+    participant Src as 注册来源<br/>(Planner)
+    participant C2 as C2 注册中心
+    participant C3 as C3 条件解析
+    participant C4 as C4 任务管理
+    participant C6 as C6 同步下发
+    participant SYNC as 🔄 同步通道
+    participant E1 as E1 平台配置同步
+    participant E3 as E3 任务管理
+
+    Note over Src: 用户说话 → Planner 识别为定时任务
+    Src->>C2: 注册请求 JSON
+    Note right of Src: {user_query:"10分钟后开窗",<br/>action_type:"direct_carcontrol"}
+
+    C2->>C2: 校验格式 + 校验枚举值
+    C2->>C3: 转交条件解析
+    C3->>C3: 解析口语 → 结构化<br/>(timer=600s, action=open_window)
+    C3->>C4: 提交任务
+
+    rect rgba(255, 200, 200, 0.3)
+    Note over C4: 关键检查
+    C4->>C4: 检查上限（&lt;6 个？）
+    C4->>C4: 检查冲突（无矛盾？）
+    end
+
+    C4-->>Src: 注册成功回执（task_id）
+    C4->>C6: 准备下发
+    C6->>SYNC: JSON 下发
+    SYNC->>E1: 接收
+    E1->>E1: 本地持久化（断网仍可执行）
+    E1->>E3: 加载任务
+    E3->>E3: 注册倒计时 600s
+
+    Note over E3: ⏰ 等待 10 分钟...
+</div>
+
+  <h4>🔑 注册流程的关键检查点</h4>
+  <ul>
+    <li><strong>C2 校验</strong>：JSON 格式合法？信号枚举值存在？action_type 支持？</li>
+    <li><strong>C3 解析</strong>："任意位置车门"→ 4 条规则；"10 分钟后"→ 端侧定时器 + 触发时间戳</li>
+    <li><strong>C4 上限检查</strong>：当前条件任务 &lt; 6？超了直接 reject 给 Planner 兜底</li>
+    <li><strong>C4 冲突仲裁</strong>：发现"10分钟后开窗" + "10分钟后关窗"矛盾时，按最新覆盖（佳杰建议）</li>
+    <li><strong>E1 持久化</strong>：写入本地，车机重启后从本地恢复，弱网仍可执行</li>
+  </ul>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="ch8"><span class="chapter-num">08</span>触发流程（触发器视角）</h2>
+
+<div class="scenario">
+  <div class="scenario-header">
+    <span class="scenario-badge">触发流程</span>
+    <span class="scenario-title">从信号变化到 action 执行</span>
+  </div>
+
+  <div class="example-quote">承接上一节：10 分钟到了，触发器是怎么触发并执行的？</div>
+
+<div class="mermaid">
+sequenceDiagram
+    autonumber
+    participant Timer as 端侧定时器
+    participant E3 as E3 任务管理
+    participant E4 as E4 触发判断
+    participant E5 as E5 策略模块
+    participant E6 as E6 工程执行
+    participant E7 as E7 结果回传
+    participant SYNC as 🔄 同步通道
+    participant C7 as C7 中转 notify
+
+    Timer->>E3: 倒计时到达
+    E3->>E4: 任务到期，请求触发
+
+    rect rgba(200, 230, 255, 0.3)
+    Note over E4: E4 核心判断
+    E4->>E4: 信号快照对齐<br/>等齐 500ms 内信号
+    E4->>E4: 优先级仲裁<br/>P0-P4
+    E4->>E4: 互斥组检查
+    E4->>E4: 冷却检查（未冷却）
+    end
+
+    E4->>E5: 路由请求<br/>{event, action_type}
+    E5->>E5: 查策略：direct_carcontrol
+
+    rect rgba(200, 255, 200, 0.3)
+    E5->>E6: 执行车控指令
+    Note over E6: 端侧自治，无需走云
+    E6->>E6: 调用车控 API: open_window
+    E6-->>E5: 执行成功
+    end
+
+    E5->>E7: 上报执行状态
+    E7->>SYNC: 弱网/正常都进队列
+    SYNC->>C7: 上报到云
+    C7->>C7: 转给 Planner（任务已完成）
+    Note over C7: T-Master 释放 1 个名额
+</div>
+
+  <h4>🔑 触发流程的 5 个关键判断点（E4 内部）</h4>
+  <ol>
+    <li><strong>信号快照对齐 500ms</strong>：CAN 信号到达有先后（档位变化先到、车门解锁后到），等 500ms 内信号都齐了再判断，防漏触发</li>
+    <li><strong>两级条件判断</strong>：先看运行时段（停车时/行车中），再看触发条件。第一级不满足直接退出，省算力</li>
+    <li><strong>P0-P4 优先级仲裁</strong>：同时命中多个事件时，P0 抢占 P1-P4；同优先级 FIFO</li>
+    <li><strong>互斥组检查</strong>：同摄像头组同时只能跑一个 VLM 任务</li>
+    <li><strong>冷却去重</strong>：60s 内同一规则不重复触发；P0 安全任务不冷却</li>
+  </ol>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="ch9"><span class="chapter-num">09</span>反馈流程（触发器视角）</h2>
+
+<div class="scenario">
+  <div class="scenario-header">
+    <span class="scenario-badge">反馈流程</span>
+    <span class="scenario-title">执行结果如何回到云端 + 任务后续</span>
+  </div>
+
+<div class="mermaid">
+sequenceDiagram
+    autonumber
+    participant E6 as E6 工程执行
+    participant VLM as 端侧 VLM
+    participant SigLib as 端信号库
+    participant E4 as E4 触发判断
+    participant E7 as E7 结果回传
+    participant C7 as C7 中转 notify
+    participant Adv as Advisor
+    participant Plan as Planner
+
+    alt VLM 调用类
+        E6->>VLM: 调度 VLM 任务
+        Note over VLM: VLM 两条回路
+        VLM->>SigLib: 写入识别结果<br/>(标签/描述/状态)
+        VLM-->>E4: 任务状态反馈<br/>(成功/超时/被打断)
+    else 车控/TTS 类
+        E6->>E6: 直接执行
+    end
+
+    E6->>E7: 提交执行结果
+    E7->>E7: 弱网检测
+
+    alt 网络正常
+        E7->>C7: 上报 notify
+    else 弱网
+        E7->>E7: 入待上报队列
+        Note over E7: 等待网络恢复...
+        E7->>C7: 批量补报
+    end
+
+    C7->>C7: 根据规则注册方分发
+
+    alt action=notify_planner
+        C7->>Plan: 触发推理
+        Plan->>Plan: 走主链路输出
+    else action=notify_advisor
+        C7->>Adv: 触发建议
+        Adv->>Adv: 决定话术
+    else action=direct_*
+        Note over C7: 仅状态上报，无后续推理
+    end
+
+    C7->>C7: 释放任务名额<br/>(单次任务移除)<br/>(周期任务进冷却)
+</div>
+
+  <h4>🔑 任务后续 3 种路径</h4>
+  <table>
+    <thead>
+      <tr><th>任务类型</th><th>触发后行为</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>单次任务</td><td>执行完成 → 标记结束 → 释放队列名额</td></tr>
+      <tr><td>周期任务</td><td>执行完成 → 进入冷却 → 冷却结束后回到激活</td></tr>
+      <tr><td>被抢占任务</td><td>等待高优完成 → 检查恢复条件（触发条件仍满足？）→ 满足则恢复，否则终止</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="ch10"><span class="chapter-num">10</span>触发器的 8 个核心能力</h2>
+
+<table>
+  <thead>
+    <tr><th>#</th><th>能力</th><th>归属子模块</th><th>说明</th><th>DNA 现状</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td><strong>两级条件判断</strong></td><td>E2</td><td>运行时段 + 触发条件分两级，第一级不满足直接退出，省算力</td><td>✅ 已实现</td></tr>
+    <tr><td>2</td><td><strong>信号快照对齐</strong></td><td>E4</td><td>多信号到达有先后，等 500ms 内对齐再判断，防漏触发</td><td>✅ 已实现</td></tr>
+    <tr><td>3</td><td><strong>P0-P4 优先级仲裁</strong></td><td>E4</td><td>多事件同时命中时按优先级排序</td><td>✅ 已实现</td></tr>
+    <tr><td>4</td><td><strong>互斥组检查</strong></td><td>E4</td><td>同摄像头组同时只跑一个</td><td>🔶 部分</td></tr>
+    <tr><td>5</td><td><strong>冷却去重</strong></td><td>E4</td><td>60s 内不重复触发，P0 不冷却</td><td>🔶 部分</td></tr>
+    <tr><td>6</td><td><strong>抢占恢复</strong></td><td>E4</td><td>P0 抢占后，被打断的 P3 任务恢复</td><td>❌ 待开发</td></tr>
+    <tr><td>7</td><td><strong>action 路由</strong></td><td>E5</td><td>notify or direct 五选一</td><td>❌ 6/10 必做</td></tr>
+    <tr><td>8</td><td><strong>多任务冲突仲裁</strong></td><td>C4</td><td>开窗 vs 关窗矛盾时仲裁</td><td>❌ 待确认</td></tr>
+  </tbody>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="ch11"><span class="chapter-num">11</span>触发器规则的数据结构（参考格式）</h2>
+
+<div class="info">
+以下是触发器规则的<strong>产品视角字段</strong>，最终 schema 由研发（吴仁杰）定义。
+</div>
+
+<h3>11.1 一条完整规则的 JSON 示例</h3>
+
+<div class="tech-spec">
+{
+  <span class="key">"rule_id"</span>: <span class="str">"r_20260528_0001"</span>,
+  <span class="key">"source"</span>: <span class="str">"planner"</span>,                  <span class="comment">// 注册来源：planner/advisor/config</span>
+  <span class="key">"task_id"</span>: <span class="str">"t_user_request_001"</span>,
+
+  <span class="key">"run_phase"</span>: {                          <span class="comment">// 第一级：运行时段</span>
+    <span class="key">"power"</span>: <span class="str">"on"</span>,
+    <span class="key">"gear"</span>: <span class="str">"D"</span>,
+    <span class="key">"door"</span>: <span class="str">"locked"</span>
+  },
+
+  <span class="key">"trigger_condition"</span>: {                  <span class="comment">// 第二级：触发条件</span>
+    <span class="key">"type"</span>: <span class="str">"timer"</span>,                  <span class="comment">// timer/signal/composite</span>
+    <span class="key">"fire_at_ts"</span>: <span class="num">1716885000000</span>
+  },
+
+  <span class="key">"action"</span>: {                              <span class="comment">// 触发后的动作</span>
+    <span class="key">"type"</span>: <span class="str">"direct_carcontrol"</span>,
+    <span class="key">"payload"</span>: {
+      <span class="key">"api"</span>: <span class="str">"open_window"</span>,
+      <span class="key">"params"</span>: { <span class="key">"position"</span>: <span class="str">"all"</span> }
+    }
+  },
+
+  <span class="key">"priority"</span>: <span class="str">"P0"</span>,                    <span class="comment">// P0-P4</span>
+  <span class="key">"mutex_group"</span>: <span class="str">"car_control"</span>,           <span class="comment">// 互斥组</span>
+  <span class="key">"cooldown_ms"</span>: <span class="num">60000</span>,                  <span class="comment">// 冷却时间</span>
+  <span class="key">"timeout_ms"</span>: <span class="num">5000</span>,                    <span class="comment">// 超时</span>
+  <span class="key">"task_type"</span>: <span class="str">"single"</span>,                 <span class="comment">// single/recurring/long</span>
+  <span class="key">"expire_at"</span>: <span class="str">"trip_end"</span>                <span class="comment">// 过期策略</span>
+}
+</div>
+
+<h3>11.2 字段说明</h3>
+
+<table>
+  <thead>
+    <tr><th>字段</th><th>必填</th><th>说明</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>rule_id</td><td>✅</td><td>规则唯一标识，触发器内部生成</td></tr>
+    <tr><td>source</td><td>✅</td><td>注册来源：planner / advisor / config</td></tr>
+    <tr><td>run_phase</td><td>✅</td><td>第一级条件（运行时段）</td></tr>
+    <tr><td>trigger_condition</td><td>✅</td><td>第二级条件（触发事件）</td></tr>
+    <tr><td>action.type</td><td>✅</td><td>5 选 1：notify_planner / notify_advisor / direct_carcontrol / direct_tts / direct_media</td></tr>
+    <tr><td>priority</td><td>✅</td><td>P0-P4</td></tr>
+    <tr><td>mutex_group</td><td>否</td><td>互斥组名，同组同时只跑一个</td></tr>
+    <tr><td>cooldown_ms</td><td>否</td><td>冷却时间，P0 不冷却</td></tr>
+    <tr><td>timeout_ms</td><td>否</td><td>执行超时</td></tr>
+    <tr><td>task_type</td><td>✅</td><td>single（单次）/ recurring（周期）/ long（长时）</td></tr>
+    <tr><td>expire_at</td><td>否</td><td>过期策略：trip_end / 时间戳</td></tr>
+  </tbody>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="ch12"><span class="chapter-num">12</span>触发器状态机 / 任务生命周期</h2>
+
+<div class="mermaid">
+stateDiagram-v2
+    [*] --> 注册中: 注册请求到达
+    注册中 --> 已激活: 校验通过 + 持久化
+    注册中 --> 注册失败: 格式错/超上限/冲突
+    注册失败 --> [*]
+
+    已激活 --> 待触发: 加载到端侧
+    待触发 --> 待触发: 信号变化但未命中
+    待触发 --> 触发中: 条件命中 + 仲裁通过
+
+    触发中 --> 执行中: 路由到 action
+    执行中 --> 完成: 执行成功
+    执行中 --> 超时: timeout
+    执行中 --> 被打断: 高优抢占
+
+    被打断 --> 待触发: 恢复条件满足
+    被打断 --> 终止: 恢复条件不满足
+
+    完成 --> 待触发: 周期任务 + 冷却结束
+    完成 --> [*]: 单次任务
+
+    待触发 --> 已过期: expire_at 到达
+    待触发 --> 已撤回: 注册方主动撤回
+
+    已过期 --> [*]
+    已撤回 --> [*]
+    超时 --> [*]
+    终止 --> [*]
+</div>
+
+<div class="warning">
+<strong>关键风险</strong>：状态机里的"被打断 → 待触发"恢复路径在 DNA 阶段<strong>还没实现</strong>。Always-on 任务被 P0 抢占后能不能恢复，依赖研发后续支持。
+</div>
+
+<!-- ============================================================ -->
+<h2 id="ch13"><span class="chapter-num">13</span>DNA → 赛力斯 演进路线（只看触发器）</h2>
+
+<table>
+  <thead>
+    <tr><th>能力</th><th>S7（已实现）</th><th>S8（6/10 SOP）</th><th>S9-S10（赛力斯）</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>静态预设事件注册</td><td>✅</td><td>✅</td><td>✅</td></tr>
+    <tr><td>Advisor 订阅</td><td>✅ 部分</td><td>✅ 完整</td><td>✅ 完整</td></tr>
+    <tr><td>Planner 条件任务注册</td><td>❌</td><td>✅ 接入</td><td>✅ 扩展</td></tr>
+    <tr><td>条件解析模型</td><td>❌</td><td>✅ 接入</td><td>✅ 扩展</td></tr>
+    <tr><td>端信号触发</td><td>✅</td><td>✅</td><td>✅</td></tr>
+    <tr><td>定时器（端侧）</td><td>🔶</td><td>✅ 必做</td><td>✅</td></tr>
+    <tr><td>策略模块 / action 路由</td><td>❌</td><td>✅ 协议预留</td><td>✅ 完整</td></tr>
+    <tr><td>VLM 调度</td><td>❌</td><td>❌ 不接</td><td>✅ 接入</td></tr>
+    <tr><td>VLM 语义匹配（模型类事件）</td><td>❌</td><td>❌</td><td>✅ 必做</td></tr>
+    <tr><td>动态语义事件</td><td>❌</td><td>❌</td><td>✅</td></tr>
+    <tr><td>抢占恢复</td><td>❌</td><td>❓ 待研发</td><td>✅ 完整</td></tr>
+    <tr><td>多任务冲突仲裁</td><td>❌</td><td>❓ 待确认</td><td>✅ 完整</td></tr>
+    <tr><td>任意位置嵌套表达</td><td>❌</td><td>❌ 协议改造延后</td><td>✅ 必做</td></tr>
+    <tr><td>机器人事件接入</td><td>❌</td><td>❌</td><td>✅ 必做</td></tr>
+    <tr><td>云端可热改策略</td><td>❌</td><td>✅ 协议预留</td><td>✅ 完整</td></tr>
+  </tbody>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="ch14"><span class="chapter-num">14</span>风险地图 + 决策点</h2>
+
+<h3>14.1 触发器自身的风险</h3>
+
+<table>
+  <thead>
+    <tr><th>等级</th><th>风险</th><th>影响</th><th>处置</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>🔴 致命</td><td>静态触发器接不上事件 → 没有兜底</td><td>用户体感断崖</td><td>6/10 前明确"上线后真没有"清单</td></tr>
+    <tr><td>🔴 致命</td><td>条件任务上限 6 个不够分</td><td>多业务线抢名额</td><td>跟 Advisor / Planner 团队对齐切分</td></tr>
+    <tr><td>🟡 严重</td><td>策略字段（action_type）未纳入 6/10 协议</td><td>未来扩展要改协议</td><td>必须在 6/10 协议预留</td></tr>
+    <tr><td>🟡 严重</td><td>嵌套位置（任意位置车门）协议不支持</td><td>无法表达常见语义</td><td>用条件解析模型展开为多条规则</td></tr>
+    <tr><td>🟡 严重</td><td>抢占恢复未实现</td><td>Always-on 被打断后丢失</td><td>研发评估</td></tr>
+    <tr><td>🟢 中等</td><td>VLM 语义匹配赛力斯方案未定</td><td>赛力斯接入有阻塞</td><td>协议预留语义匹配字段</td></tr>
+    <tr><td>🟢 中等</td><td>冲突仲裁规则未明确</td><td>多任务体感差</td><td>跟 C4 任务管理对齐</td></tr>
+    <tr><td>🟢 中等</td><td>DNA 副驾下车信号缺失</td><td>"副驾下车"事件死</td><td>找韩天亮确认补</td></tr>
+  </tbody>
+</table>
+
+<h3>14.2 6/10 SOP 前必须拍板的 6 个决策点</h3>
+
+<table>
+  <thead>
+    <tr><th>#</th><th>决策</th><th>找谁</th><th>Deadline</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>条件解析模型 SOP 时存在性 + 能力范围</td><td>吴仁杰</td><td>6/3</td></tr>
+    <tr><td>2</td><td>6 个任务上限是单用户还是全局 + 切分方案</td><td>佳杰 + 益红 + 吴仁杰</td><td>6/3</td></tr>
+    <tr><td>3</td><td>策略字段（action_type）是否纳入 6/10 协议</td><td>吴仁杰 + 廖婉婷</td><td>6/5</td></tr>
+    <tr><td>4</td><td>"任意位置"用条件解析模型展开 or 协议改造</td><td>吴仁杰 + 廖婉婷</td><td>6/5</td></tr>
+    <tr><td>5</td><td>DNA 副驾下车信号能否补</td><td>韩天亮 + 端侧研发</td><td>6/5</td></tr>
+    <tr><td>6</td><td>多任务冲突仲裁是否纳入 SOP</td><td>吴仁杰</td><td>6/5</td></tr>
+  </tbody>
+</table>
+
+<hr class="divider">
+
+<div class="footer-note">
+<strong>📌 文档说明</strong><br/>
+本文档只聚焦触发器本身，不展开外部模块（Director / Planner / Advisor / Context / 记忆 / HMI 等）。<br/>
+触发器 owner：<strong>吴仁杰</strong>；条件解析模型 owner：<strong>吴仁杰</strong>。<br/>
+<br/>
+<strong>主要依据</strong>：<br/>
+• 真实链路图（图 1 简化版 + 图 2 完整端云架构图）<br/>
+• 5/28 你 + 佳杰 + 益红 + 廖婉婷的会议记录<br/>
+• 端侧触发器 v2.2 PRD（5/7 陈西钺评审版）<br/>
+• 飞书 Wiki：条件任务三要素 / 任务大师 / 动态 Advisor vs 主动服务<br/>
+<br/>
+<strong>结构说明</strong>：<br/>
+• 第二章「触发器骨架图」是最核心的一张图，所有 14 个子模块全连线<br/>
+• 第三章/第四章详解云端 7 个 + 端侧 7 个子模块<br/>
+• 第五章/第六章详解输入/输出<br/>
+• 第七~第九章是 3 个内部流程（注册/触发/反馈）<br/>
+• 第十~十二章是能力 + 数据结构 + 状态机<br/>
+• 第十三~十四章是演进 + 风险<br/>
+</div>
+
+<script>
+mermaid.initialize({
+  startOnLoad: true,
+  theme: 'default',
+  themeVariables: {
+    primaryColor: '#e8f0fe',
+    primaryBorderColor: '#4285f4',
+    primaryTextColor: '#1a73e8',
+    lineColor: '#5f6368',
+    fontSize: '14px',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif'
+  },
+  sequence: {
+    actorMargin: 50,
+    boxMargin: 10,
+    width: 150
+  },
+  flowchart: {
+    curve: 'basis',
+    padding: 20
+  }
+});
+</script>
+
+</body>
+</html>

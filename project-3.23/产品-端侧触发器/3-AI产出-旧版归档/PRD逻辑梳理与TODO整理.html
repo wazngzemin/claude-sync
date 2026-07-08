@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<title>端侧触发器 PRD - 逻辑梳理与TODO整理</title>
+<style>
+:root{--bg:#f7f9fc;--card:#fff;--text:#2c3e50;--accent:#3498db;--red:#d93025;--green:#27ae60;--orange:#f39c12;--border:#eaeaea}
+body{margin:0;background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;color:var(--text);line-height:1.8}
+.c{max-width:820px;margin:40px auto;padding:40px 50px;background:var(--card);border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.05)}
+h1{font-size:1.8rem;text-align:center;border-bottom:2px solid var(--border);padding-bottom:16px;margin-top:0}
+h2{font-size:1.4rem;color:#1a202c;margin-top:2em;border-left:4px solid var(--accent);padding-left:12px}
+h3{font-size:1.15rem;color:#333;margin-top:1.5em}
+p{margin:.8em 0;text-align:justify}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:.92rem}
+th,td{border:1px solid var(--border);padding:10px 12px;text-align:left}
+th{background:#f8f9fa;font-weight:600}
+.tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.8rem;font-weight:600;margin-right:4px}
+.tag-red{background:#fce8e6;color:var(--red)}
+.tag-green{background:#e6f4ea;color:var(--green)}
+.tag-orange{background:#fef7e0;color:var(--orange)}
+.tag-blue{background:#e8f0fe;color:#1a73e8}
+.issue{background:#fff8e1;border-left:4px solid var(--orange);padding:12px 16px;margin:12px 0;border-radius:0 8px 8px 0}
+.ok{background:#e8f5e9;border-left:4px solid var(--green);padding:12px 16px;margin:12px 0;border-radius:0 8px 8px 0}
+.todo-card{background:#fff;border:1px solid var(--border);border-radius:8px;padding:16px;margin:12px 0;box-shadow:0 1px 4px rgba(0,0,0,.04)}
+.todo-card h4{margin:0 0 8px;font-size:1rem}
+.todo-meta{font-size:.85rem;color:#888;margin-bottom:8px}
+.todo-why{font-size:.92rem;margin:6px 0}
+.todo-when{font-size:.92rem;color:#555;margin:6px 0}
+.section-num{color:var(--accent);font-weight:700}
+blockquote{border-left:3px solid #ddd;margin:12px 0;padding:8px 16px;color:#555;background:#fafafa;border-radius:0 6px 6px 0}
+</style>
+</head><body><div class="c">
+
+<h1>端侧触发器 PRD — 逻辑梳理与 TODO 整理</h1>
+<p style="text-align:center;color:#888">基于 2026-05-14 版本 PRD + 2026-05-09 会议纪要</p>
+
+<!-- ==================== PART 1 ==================== -->
+<h2>一、整体逻辑链路梳理</h2>
+
+<h3>1.1 PRD 的核心叙事线</h3>
+<p>这份 PRD 讲的是一个完整的<b>"信号 → 判断 → 执行 → 回写"</b>闭环：</p>
+
+<table>
+<tr><th style="width:80px">阶段</th><th>做什么</th><th>谁负责</th></tr>
+<tr><td><span class="tag tag-blue">采集</span></td><td>6大类信号（车辆端状态/手机外设IoT/视觉状态/APP应用状态/用户Query/任务状态）从各自来源写入端侧信号库</td><td>各信号源 → 信号库</td></tr>
+<tr><td><span class="tag tag-blue">判断</span></td><td>触发器从信号库读取/订阅信号，做二级匹配：先判运行时段（信号组合），再判触发条件</td><td>端侧触发器</td></tr>
+<tr><td><span class="tag tag-blue">调度</span></td><td>条件命中 → 标记优先级（P0-P4）→ 生成运行指令 → 下发给 VLM 相关业务模块</td><td>触发器标记 + VLM业务侧执行</td></tr>
+<tr><td><span class="tag tag-blue">执行</span></td><td>VLM 业务模块内部管理并发(≈3)、打断恢复、Always-on重启</td><td>VLM 相关业务模块</td></tr>
+<tr><td><span class="tag tag-blue">回写</span></td><td>VLM 执行结果写回信号库（供二次触发）+ 上报云端 context（供 Planner/Adviser 消费）</td><td>VLM → 信号库 → context</td></tr>
+<tr><td><span class="tag tag-blue">闭环</span></td><td>Planner/Adviser 消费 context → 可动态注册新任务到云端触发器 → 下发端侧触发器</td><td>云侧 → 端侧</td></tr>
+</table>
+
+<div class="ok">
+<b>逻辑自洽</b>：这条主链路是通的。信号统一入库 → 触发器只读信号库（不散读各源）→ 触发器只标记优先级+下发（不管VLM内部）→ 触发器只收最终结果（不参与打断/恢复）。职责边界清晰。
+</div>
+
+<h3>1.2 评审时需要重点讲清的三条线</h3>
+
+<p><b>线一：为什么要分"信号库"和"触发器"两个模块？</b></p>
+<blockquote>
+信号库解决的是"数据归一"——各种来源、格式不同的信号统一标准化存储，谁都不用自己去对接车辆/APP/VLM/云端。触发器解决的是"规则判断"——只认信号库，不关心信号从哪来。两者分开后，新增信号来源只需改信号库的写入适配，不动触发器；新增触发规则只需改触发器配置，不动信号库。
+</blockquote>
+
+<p><b>线二：触发器和 VLM 业务模块的职责边界在哪？</b></p>
+<blockquote>
+触发器 = <b>标记 + 下发 + 收结果</b>。不排队、不仲裁、不管并发、不参与打断恢复。<br>
+VLM 业务模块 = <b>实际执行 + 并发管理 + 打断恢复</b>。含 Agent 逻辑（如增强哨兵 Agent），内部自己管 prompt/抽帧/调用 VLM。<br>
+这条边界是 5月9日 会议和张兰若确认的核心结论。
+</blockquote>
+
+<p><b>线三：为什么条件匹配要分两级？</b></p>
+<blockquote>
+15个任务、未来更多。如果每次信号变化都扫全部规则，性能差且逻辑乱。第一级"运行时段"做粗筛（行车中时不看离车后的规则），第二级在时段内做精准事件匹配。既降低扫描开销，也让规则结构更清晰。
+</blockquote>
+
+<!-- ==================== PART 2 ==================== -->
+<h2>二、逻辑断点与不通顺之处</h2>
+
+<div class="issue">
+<b>问题 1：需求目标的信号分类还是旧版4类</b><br>
+第一节写的是"OEM/用户信号、导航/场景信号"，但架构图和表格已改成6类。评审时第一页就对不上。<br>
+<span class="tag tag-red">建议</span> 改为"车辆端状态、手机/外设/IoT、视觉状态、APP应用状态、用户Query、任务状态"。
+</div>
+
+<div class="issue">
+<b>问题 2：VLM 模块命名不统一</b><br>
+全文中交替出现"VLM 模型""VLM""端侧VLM""感知模块"。会议已确认应叫"端侧 VLM 相关业务模块"，因为对接的是 Agent（含 prompt/抽帧逻辑），不是裸模型。<br>
+<span class="tag tag-red">建议</span> 全文统一为"VLM 相关业务模块"或"端侧 VLM 相关业务模块"。
+</div>
+
+<div class="issue">
+<b>问题 3：第二节"端侧由三个模块组成：信号库、触发器、VLM 模型"</b><br>
+"VLM 模型"应改为"VLM 相关业务模块"。且缺少对云侧模块（context/Planner/Adviser/云端触发器）的概述，评审时研发会问云侧怎么串。<br>
+<span class="tag tag-orange">建议</span> 补一句"云侧包含 context 模块、Planner、Adviser 和云端触发器，端侧结果通过信号库上报 context，Planner/Adviser 消费后可动态注册新任务"。
+</div>
+
+<div class="issue">
+<b>问题 4：3.2 功能列表的分类与6类不对齐</b><br>
+功能列表用的分类是"车辆状态""用户识别""OEM信号""用户输入""场景信号""模型结果""任务状态"——和架构图的6类对不上。比如"用户识别(FaceID)"按会议应归入"视觉状态"，"场景信号(进入地下停车场)"应归入"APP应用状态"。<br>
+<span class="tag tag-red">建议</span> 按6大类重新归类这张表。
+</div>
+
+<div class="issue">
+<b>问题 5：4.3 优先级表的"抢占规则"措辞暗示触发器在做调度</b><br>
+写的是"立即抢占任意低优""仅FIFO+排队"——但会议明确触发器只标记优先级，不排队不仲裁。这里的"抢占"应标注清楚是"触发器标记的产品预期行为，由VLM业务侧实际执行"。<br>
+<span class="tag tag-orange">建议</span> 在表头或脚注加说明。
+</div>
+
+<div class="issue">
+<b>问题 6："上车前"与"停车时"的信号区分问题</b><br>
+4.11 定义：上车前=上电+P+解锁+车速0，停车时=上电+P(由D/R/N切入)+解锁+车速0。信号值完全一样，区别仅在"档位来源方向"。但信号库存的是当前状态（P档），不存"是从D切过来的还是刚上电就是P"。<br>
+<span class="tag tag-red">评审时必问</span> 研发会问：信号库怎么区分这两个时段？需要引入"档位变化事件"信号还是用状态机？
+</div>
+
+<div class="issue">
+<b>问题 7：触发器的"抢占恢复"与VLM业务侧"打断恢复"的关系</b><br>
+4.8 说"触发器侧的抢占恢复指的是下发层面管理优先级标记和恢复意图"，4.8后半段又说"打断和重连由VLM业务侧负责"。这两者是什么关系？触发器的"恢复意图"具体是什么行为？是重新下发一次指令？还是只标记状态？<br>
+<span class="tag tag-orange">建议</span> 评审前理清楚这个边界，否则研发会反复追问。
+</div>
+
+<div class="issue">
+<b>问题 8：4-2 任务没有名称</b><br>
+任务清单里 4-2 只有运行时段和任务内容（地下停车场楼层/区域识别），没有任务名称。应补上，如"停车寻车-楼层区域识别"。
+</div>
+
+<!-- ==================== PART 3 ==================== -->
+<h2>三、完整 TODO 清单</h2>
+<p>以下整理了 PRD 中所有需要确认的待办项，分为三类：<span class="tag tag-green">已有会议答案</span>（需落文档）、<span class="tag tag-orange">需研发出方案</span>（评审时明确交给谁）、<span class="tag tag-red">产品侧待定</span>（你需要先想清楚）。</p>
+
+<!-- TODO 1 -->
+<div class="todo-card">
+<h4><span class="tag tag-green">已确认</span> T1. Always-on 被打断后恢复策略</h4>
+<div class="todo-meta">来源：PRD 文末 TODO | 会议 2026-05-09 张兰若已回答</div>
+<div class="todo-why"><b>答案</b>：VLM 业务侧根据当前并发任务数判断。并发数超过约3个时 Always-on 被暂停，并发数降下来后 VLM 自行重启 Always-on。触发器不参与恢复过程。</div>
+<div class="todo-when"><b>行动</b>：<span class="tag tag-green">落文档</span> 把答案写入 4.4 节，标记"已会议确认"。</div>
+</div>
+
+<!-- TODO 2 -->
+<div class="todo-card">
+<h4><span class="tag tag-green">已确认</span> T2. 单次任务被打断后是否重试？</h4>
+<div class="todo-meta">来源：PRD 文末 TODO | 会议 2026-05-09 张兰若已回答</div>
+<div class="todo-why"><b>答案</b>：被打断的任务触发器不会收到"被打断"通知。VLM 业务侧自行管理重连。高优任务完成后 VLM 会自己恢复被打断的任务，触发器只是收结果时间变长。</div>
+<div class="todo-when"><b>行动</b>：<span class="tag tag-green">落文档</span> 已在 4.8 写了，文末 TODO 标记为"已确认"即可。</div>
+</div>
+
+<!-- TODO 3 -->
+<div class="todo-card">
+<h4><span class="tag tag-red">产品待定</span> T3. 停车寻车-楼层区域的任务编号、优先级和冲突处理</h4>
+<div class="todo-meta">来源：PRD 文末 TODO | 曾问西钺但不清楚细节</div>
+<div class="todo-why"><b>为什么问</b>：停车寻车在行车中有两个子任务（4-1 二维码识别、4-2 楼层区域识别），它们同时运行时是否互斥？是同一个 VLM 调用还是两次？优先级是否一样？如果和智驾任务（4-3 参照物临停）冲突了怎么办？</div>
+<div class="todo-when"><b>什么时候问</b>：<span class="tag tag-red">需求评审前</span>自己先定方案。评审时如果研发提出不同方案再调整。会议中张兰若说过"停车和智驾的任务应该在并行处理"，所以大概率不冲突，但需要明确写出来。</div>
+</div>
+
+<!-- TODO 4 -->
+<div class="todo-card">
+<h4><span class="tag tag-orange">需研发出方案</span> T4. 信号去抖策略</h4>
+<div class="todo-meta">来源：4.2 功能列表"信号去抖"</div>
+<div class="todo-why"><b>为什么问</b>：短时间内同一信号频繁变化（如档位在P和D之间反复切换）会导致规则重复触发、任务重复下发。去抖窗口多长？按信号维度还是规则维度去抖？</div>
+<div class="todo-when"><b>什么时候问</b>：<span class="tag tag-orange">需求评审时</span>提出产品诉求（"不能重复触发"），让研发出具体去抖方案（时间窗口、算法）。你不需要定技术细节，但需要给出"什么场景下不能重复"的业务规则。</div>
+</div>
+
+<!-- TODO 5 -->
+<div class="todo-card">
+<h4><span class="tag tag-orange">需研发出方案</span> T5. 冷却策略和队列上限</h4>
+<div class="todo-meta">来源：4.9 冷却与队列策略</div>
+<div class="todo-why"><b>为什么问</b>：P0每次都触发、周期任务按自然间隔——但P1/P2的冷却时长呢？队列最多放几个任务？超出了丢弃最低优先级还是最早入队的？</div>
+<div class="todo-when"><b>什么时候问</b>：<span class="tag tag-orange">需求评审时</span>。你给出产品原则（"P0不冷却、队列满了丢低优"），让研发给具体参数。</div>
+</div>
+
+<!-- TODO 6 -->
+<div class="todo-card">
+<h4><span class="tag tag-orange">需研发出方案</span> T6. 超时降级策略</h4>
+<div class="todo-meta">来源：4.2 功能列表"超时处理"</div>
+<div class="todo-why"><b>为什么问</b>：VLM 执行超时了怎么办？PRD说"释放队列，不写伪结果"——但具体的超时时间谁来定？每个任务不一样吗？超时后要不要重试一次？</div>
+<div class="todo-when"><b>什么时候问</b>：<span class="tag tag-orange">需求评审时</span>。你给的产品红线是"超时不能写伪结果"（这很重要，已在PRD中写了），具体超时参数和降级策略让研发出。</div>
+</div>
+
+<!-- TODO 7 -->
+<div class="todo-card">
+<h4><span class="tag tag-orange">需研发出方案</span> T7. 运行时段边界判断（"上车前"vs"停车时"怎么区分？）</h4>
+<div class="todo-meta">来源：4.11 运行时段信号状态定义</div>
+<div class="todo-why"><b>为什么问</b>：信号库存的是当前状态快照（电源=上电、档位=P、车门=解锁），"上车前"和"停车时"的信号值完全一样。区分依赖"档位是从D/R/N切过来的"还是"刚上电就是P"，但信号库目前只存瞬时值，不存变化方向。研发需要决定：是引入"档位变化事件"信号？还是用状态机记录状态流转？</div>
+<div class="todo-when"><b>什么时候问</b>：<span class="tag tag-red">评审时必问</span>，这是最可能被研发挑战的技术点。建议你提前想清楚产品期望（比如"停车时"的判断依赖"D→P切换事件"，这个事件本身就是一个信号要写入信号库），评审时抛出方案让研发评估。</div>
+</div>
+
+<!-- TODO 8 -->
+<div class="todo-card">
+<h4><span class="tag tag-orange">需研发出方案</span> T8. 运行指令协议格式</h4>
+<div class="todo-meta">来源：4.10 运行指令</div>
+<div class="todo-why"><b>为什么问</b>：PRD只定了4个核心字段（task_id/task_goal/priority/timeout），但实际可能还需要 runtime_context、result_policy、trigger_source、mutex_group 等。字段怎么序列化？用 protobuf 还是 JSON？</div>
+<div class="todo-when"><b>什么时候问</b>：<span class="tag tag-orange">研发评审时</span>由研发设计，你确认业务字段是否完整。</div>
+</div>
+
+<!-- TODO 9 -->
+<div class="todo-card">
+<h4><span class="tag tag-orange">需研发出方案</span> T9. 信号库标准化字段规范</h4>
+<div class="todo-meta">来源：第四节"产品要求：所有信号必须标准化后写入信号库"</div>
+<div class="todo-why"><b>为什么问</b>：PRD要求 key/value/source/timestamp 四个维度，但实际可能还需要 TTL（有效期）、可信度、信号版本号等。6大类信号的 key 命名规范是什么？value 的数据类型怎么统一？</div>
+<div class="todo-when"><b>什么时候问</b>：<span class="tag tag-orange">研发评审时</span>。你给出"必须有的4个维度"，其余由研发设计接口协议。</div>
+</div>
+
+<!-- TODO 10 -->
+<div class="todo-card">
+<h4><span class="tag tag-red">产品待定</span> T10. 云端规则配置平台对接</h4>
+<div class="todo-meta">来源：会议 2026-05-09 讨论</div>
+<div class="todo-why"><b>为什么问</b>：云端规则平台是触发器规则的来源，但 PRD 里没有详细描述：规则字段长什么样？怎么下发到端侧？版本怎么管理？Planner/Adviser 动态注册的链路是什么？</div>
+<div class="todo-when"><b>什么时候问</b>：<span class="tag tag-red">评审前</span>需要先找<b>赵易红/佳杰</b>了解云端规则平台现状，再补充到 PRD。会议上你和张兰若都提到了这个依赖。</div>
+</div>
+
+<!-- TODO 11 -->
+<div class="todo-card">
+<h4><span class="tag tag-orange">需研发确认</span> T11. VLM 并发能力评估</h4>
+<div class="todo-meta">来源：4.9 并发任务数量限制</div>
+<div class="todo-why"><b>为什么问</b>：会议说"大概3个"，但具体数值需要模型推理服务研发评估。这个数字直接影响触发器的队列策略、Always-on 是否会被打断的频率、4-5/4-6 合并方案是否必要。</div>
+<div class="todo-when"><b>什么时候问</b>：<span class="tag tag-orange">需求评审时</span>让模型推理服务研发给出，或评审前提前约他们确认。</div>
+</div>
+
+<!-- TODO 12 -->
+<div class="todo-card">
+<h4><span class="tag tag-red">产品待定</span> T12. 4-5/4-6 合并任务方案的降级策略</h4>
+<div class="todo-meta">来源：4.7 互斥组说明</div>
+<div class="todo-why"><b>为什么问</b>：PRD设计了合并方案（task_goal="全舱安全观察+儿童状态观察"），但如果 VLM 返回的合并结果只有一组（比如只有安全结果没有儿童结果），怎么处理？触发器怎么拆分结果？这个合并方案 VLM 业务侧能不能支持？</div>
+<div class="todo-when"><b>什么时候问</b>：<span class="tag tag-orange">评审时</span>和 VLM 业务侧研发确认合并方案的可行性。如果不可行，备选方案是什么？</div>
+</div>
+
+<!-- TODO 13 -->
+<div class="todo-card">
+<h4><span class="tag tag-red">产品待定</span> T13. 动态 Adviser 任务（4-N）的生命周期管理</h4>
+<div class="todo-meta">来源：任务清单 4-N</div>
+<div class="todo-why"><b>为什么问</b>：Adviser 动态注册的任务什么时候过期？PRD写了"行程结束自动过期"——但"行程结束"怎么判断？是 D→P 切换？还是下电？如果用户一直不熄火呢？触发器需不需要主动清理过期的动态任务？</div>
+<div class="todo-when"><b>什么时候问</b>：<span class="tag tag-red">评审前</span>先定好产品规则（"动态任务在运行时段切换时自动过期"或"由注册方指定TTL"），评审时让研发评估。</div>
+</div>
+
+<!-- TODO 14 -->
+<div class="todo-card">
+<h4><span class="tag tag-orange">需研发确认</span> T14. 端侧信号库由哪个模块承接？</h4>
+<div class="todo-meta">来源：会议讨论 + 架构图评审问题</div>
+<div class="todo-why"><b>为什么问</b>：信号库在 AIOS 系统架构里是一个新模块还是复用现有存储？它的读写和订阅接口谁来提供？和现有的端侧数据存储是什么关系？</div>
+<div class="todo-when"><b>什么时候问</b>：<span class="tag tag-orange">需求评审时</span>——这是研发架构层面的问题，需要端侧平台研发给出承接方案。</div>
+</div>
+
+<!-- TODO 15 -->
+<div class="todo-card">
+<h4><span class="tag tag-orange">需研发确认</span> T15. Context 上报由谁统一做？</h4>
+<div class="todo-meta">来源：架构图评审问题</div>
+<div class="todo-why"><b>为什么问</b>：PRD设计的是"结果写信号库→信号库按策略上报context"，但也可能是"各业务模块分别上报"。如果由信号库统一做，信号库需要额外的上报能力；如果分别做，上报策略可能不一致。</div>
+<div class="todo-when"><b>什么时候问</b>：<span class="tag tag-orange">需求评审时</span>和研发确认，这个影响信号库的接口设计。</div>
+</div>
+
+<!-- ==================== PART 4 ==================== -->
+<h2>四、评审前行动清单</h2>
+
+<table>
+<tr><th style="width:40px">#</th><th>行动</th><th style="width:80px">紧急度</th><th style="width:100px">负责人</th></tr>
+<tr><td>1</td><td>把需求目标（一、）的信号分类改成6类</td><td><span class="tag tag-red">高</span></td><td>王泽民</td></tr>
+<tr><td>2</td><td>全文统一 VLM 模块命名为"VLM 相关业务模块"</td><td><span class="tag tag-red">高</span></td><td>王泽民</td></tr>
+<tr><td>3</td><td>3.2 功能列表按6大类重新归类</td><td><span class="tag tag-red">高</span></td><td>王泽民</td></tr>
+<tr><td>4</td><td>补上 4-2 任务名称（停车寻车-楼层区域识别）</td><td><span class="tag tag-orange">中</span></td><td>王泽民</td></tr>
+<tr><td>5</td><td>4.3 优先级表加脚注"实际调度由VLM业务侧执行"</td><td><span class="tag tag-orange">中</span></td><td>王泽民</td></tr>
+<tr><td>6</td><td>想清楚"上车前 vs 停车时"的信号区分方案</td><td><span class="tag tag-red">高</span></td><td>王泽民</td></tr>
+<tr><td>7</td><td>找赵易红/佳杰了解云端规则平台现状</td><td><span class="tag tag-red">高</span></td><td>王泽民</td></tr>
+<tr><td>8</td><td>定好动态任务（4-N）过期规则</td><td><span class="tag tag-orange">中</span></td><td>王泽民</td></tr>
+<tr><td>9</td><td>文末 TODO 前两条标记"已确认"，补充确认内容</td><td><span class="tag tag-orange">中</span></td><td>王泽民</td></tr>
+<tr><td>10</td><td>评审前约模型推理服务研发确认并发数</td><td><span class="tag tag-orange">中</span></td><td>王泽民</td></tr>
+</table>
+
+</div></body></html>

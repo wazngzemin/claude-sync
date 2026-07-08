@@ -1,0 +1,1297 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>端云触发器 · 从零开始全部讲清楚 v6</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0b0f17;color:#e6edf3;font-family:"PingFang SC","Heiti SC",-apple-system,sans-serif;line-height:1.95;padding:28px 24px 80px;max-width:1440px;margin:0 auto;font-size:14.5px}
+h1{font-size:26px;margin-bottom:4px;color:#f87171}
+h2{font-size:20px;margin:52px 0 16px;padding:12px 18px;background:#161d2e;border-left:5px solid #f59e0b;border-radius:0 8px 8px 0;color:#ffce6e}
+h3{font-size:15.5px;margin:28px 0 12px;color:#7dd3fc;border-bottom:1px solid #1e3050;padding-bottom:6px}
+h4{font-size:14px;margin:20px 0 8px;color:#c4b5fd}
+.sub{color:#8b9bb0;font-size:13px;margin-bottom:28px}
+table{width:100%;border-collapse:collapse;margin:14px 0 22px;font-size:13.5px}
+th{background:#1a2236;color:#ffce6e;padding:10px 12px;text-align:left;border:1px solid #2a3650;font-weight:700}
+td{padding:10px 12px;border:1px solid #222c3c;vertical-align:top;line-height:1.8}
+tr:nth-child(even) td{background:#0d1420}
+tr:nth-child(odd) td{background:#101828}
+.en{color:#93c5fd;font-weight:700}.enzh{color:#6ee7b7;font-size:12px;font-weight:400}
+.tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;margin:0 2px}
+.t-cloud{background:#1e3a5f;color:#93c5fd}.t-edge{background:#064e3b;color:#6ee7b7}.t-cdc{background:#78350f;color:#fde68a}
+.box{background:#101725;border:1px solid #222c3c;border-radius:10px;padding:18px 20px;margin:14px 0;line-height:1.9}
+.red{color:#f87171}.org{color:#f59e0b}.grn{color:#5eecc0}.blu{color:#7dd3fc}.pur{color:#c4b5fd}.pnk{color:#f472b6}
+.teach{background:#0c1e30;border:1px solid #1e4a7a;border-radius:8px;padding:16px 20px;margin:14px 0;font-size:14px;line-height:2;color:#c8ddf0}
+.teach b{color:#7dd3fc}
+.todo{background:#1a2a0a;border:2px solid #22c55e;border-radius:10px;padding:18px 22px;margin:18px 0}
+.todo-title{font-size:16px;font-weight:700;color:#5eecc0;margin-bottom:12px;border-bottom:1px solid #22c55e40;padding-bottom:8px}
+.iron{background:#1a0a0a;border:2px solid #dc2626;border-radius:10px;padding:16px 20px;margin:12px 0}
+.warn{background:#2a1a0a;border:2px solid #f59e0b;border-radius:10px;padding:16px 20px;margin:12px 0}
+.card{background:#161d2e;border:1px solid #2a3650;border-radius:10px;padding:18px 20px;margin:14px 0}
+.step{background:#0a1020;border-left:3px solid #a855f7;padding:12px 16px;margin:10px 0;border-radius:0 6px 6px 0;line-height:1.9}
+.person{background:#064e3b;color:#6ee7b7}
+pre{background:#0a0e16;border:1px solid #2a3650;border-radius:8px;padding:14px 16px;font-size:12px;overflow-x:auto;line-height:1.6;color:#e2c98a;margin:10px 0;white-space:pre-wrap}
+hr{border:none;border-top:1px solid #222c3c;margin:28px 0}
+.toc{background:#101725;border:1px solid #2a3650;border-radius:10px;padding:18px 22px;margin:18px 0}
+.toc a{color:#7dd3fc;text-decoration:none;display:block;padding:4px 0;font-size:13.5px}
+.toc a:hover{color:#f59e0b}
+.mock{background:#0a1c14;border:2px solid #10b981;border-radius:10px;padding:20px 22px;margin:16px 0}
+</style></head><body>
+
+<h1>端云触发器 · 从零开始全部讲清楚</h1>
+<p class="sub">
+这份文档的目标：<b class="red">让你从"什么都不知道"到"完全搞清楚整个触发器系统，并且知道自己接下来该干什么"</b>。<br/>
+每一章的结构：先教会你这块是什么 → 再告诉你该做什么、给谁、为什么、他们拿到后干什么。<br/>
+所有英文术语都会标注中文解释。 ｜ v6 · 2026-07-01 ｜ 触发器PM：王泽民
+</p>
+
+<div class="toc">
+<b style="color:#ffce6e;font-size:15px;display:block;margin-bottom:8px">目 录</b>
+<a href="#c1">一、触发器到底是什么？为什么需要它？</a>
+<a href="#c2">二、整个系统跑在3个地方（云端/端侧/CDC底软）</a>
+<a href="#c3">三、信号：触发器的"眼睛和耳朵"</a>
+<a href="#c4">四、云端触发器引擎⑮：18个子模块完整讲解</a>
+<a href="#c5">五、端侧触发器引擎㉔：6.22之后大幅收窄</a>
+<a href="#c6">六、配置平台⑬：触发器的管理后台</a>
+<a href="#c7">七、四条铁律：绝不能违反的规矩</a>
+<a href="#c8">八、VLM（视觉模型）：最复杂的一块</a>
+<a href="#c9">九、Advisor（顾问）系统：触发器的"客户"</a>
+<a href="#c10">十、四条数据链路：数据从哪来到哪去</a>
+<a href="#c11">十一、SP（系统提示词）生命周期：8步完整走通</a>
+<a href="#c12">十二、6个真实Case（案例）：从用户说话到系统执行</a>
+<a href="#c13">十三、你的完整行动清单</a>
+<a href="#c14">十四、风险清单</a>
+<a href="#c15">十五、人员地图：谁负责什么，你什么时候找谁</a>
+</div>
+
+<!-- ================================================================ -->
+<h2 id="c1">一、触发器到底是什么？为什么需要它？</h2>
+<!-- ================================================================ -->
+
+<div class="teach">
+你在做的产品叫"豆包上车"（<span class="en">Driver Agent 2.0</span> <span class="enzh">驾驶代理2.0版本</span>），是装在上汽荣威D6X车上的AI助手。<br/><br/>
+
+这个AI助手有一个"大脑"叫 <span class="en">Director</span> <span class="enzh">导演/决策者</span>——用户说话的时候，Director负责理解用户的意思、做决策、调工具执行。<br/><br/>
+
+<b>但问题是：用户不说话的时候呢？</b><br/><br/>
+
+比如副驾驶睡着了，AI能不能自动把音量调小？比如车速超了130，能不能自动提醒？比如用户说了"10分钟后关座椅加热"，10分钟到了谁来执行？<br/><br/>
+
+这些事情，Director做不了——因为Director只有用户说话的时候才工作。<br/><br/>
+
+<b>所以需要一个"7×24小时值班的哨兵"</b>，一直盯着车上的所有传感器，一旦发现"某个条件满足了"，就主动通知该通知的人去做事。<br/><br/>
+
+<b class="red">这个哨兵，就是触发器（<span class="en">Trigger</span> <span class="enzh">触发器</span>）。</b><br/><br/>
+
+触发器干3件事：<br/>
+<b>①盯信号</b>：车速多少？温度多少？有人睡着了吗？——持续监控<br/>
+<b>②判条件</b>：温度超过28度了吗？副驾安全带系上了吗？——条件匹配<br/>
+<b>③通知人</b>：满足了→告诉Advisor（<span class="en">Advisor</span> <span class="enzh">顾问</span>）或Director去做事
+</div>
+
+<div class="box">
+<b class="org">触发器在整个系统里的位置</b><br/><br/>
+用户说话时走的是一个"三层漏斗"：<br/>
+第1层：<span class="en">RAG</span> <span class="enzh">检索增强生成，规则匹配</span>——处理"打开车窗"这种明确指令<br/>
+第2层：情景RAG + 仲裁——注入记忆/车况，判断简单还是复杂<br/>
+第3层：<span class="en">Planner/Director</span> <span class="enzh">规划器/导演</span>——云端大模型深度推理<br/><br/>
+<b>触发器不在这个漏斗里</b>。它是漏斗之外的一个独立系统，有自己的输入（信号）和输出（事件通知）。<br/>
+唯一和漏斗交叉的地方：用户说了条件话（"10分钟后关座椅加热"）→ 漏斗处理 → Director把条件<b>注册到触发器</b> → 触发器到时间了再通知Director去执行。
+</div>
+
+<!-- ================================================================ -->
+<h2 id="c2">二、整个系统跑在3个地方</h2>
+<!-- ================================================================ -->
+
+<div class="teach">
+一个功能到底在哪里执行？这个问题你必须搞清楚。因为不同的物理位置有不同的限制——比如舱内图片不能上云（隐私合规），定时器必须在端侧（断网也要能跑）。
+</div>
+
+<table>
+<tr><th style="width:140px">物理位置</th><th style="width:120px">是谁的设备</th><th>运行什么</th><th>关键限制</th></tr>
+<tr>
+<td><span class="tag t-cloud">☁️ 云端</span><br/>字节跳动服务器</td>
+<td>字节跳动</td>
+<td>
+<b>约80%的逻辑在这里</b>（仁杰估计）：<br/>
+· ⑮ 云端触发器引擎（你负责的核心！18个子模块）<br/>
+· ⑬ 配置平台（<span class="en">Config Platform</span> <span class="enzh">配置平台</span>，火山后台）<br/>
+· ⑫ 云端信号库（<span class="en">Signal Library</span> <span class="enzh">信号库</span>）<br/>
+· ⑯⑰ 静态/动态 Advisor（顾问）<br/>
+· ⑲⑳ Director（大脑）<br/>
+· ㉑ <span class="en">Context</span> <span class="enzh">上下文/全局状态池</span><br/>
+· ㉒ 工具库（23个下游工具）
+</td>
+<td>
+· 需要网络连接<br/>
+· 可以做复杂推理<br/>
+· 延迟稍高（数据要从车上传到云再传回来）
+</td>
+</tr>
+<tr>
+<td><span class="tag t-edge">📦 端侧 AIBox</span><br/>字节的车机盒子</td>
+<td>字节跳动<br/>（装在车上）</td>
+<td>
+<b>约20%的逻辑</b>：<br/>
+· ㉔ 端侧触发器引擎（9个子模块）<br/>
+· ④ 端侧信号库<br/>
+· ㉕ <span class="en">VLM</span> <span class="enzh">视觉语言模型，AI的"眼睛"</span><br/>
+· ② <span class="en">ASR</span> <span class="enzh">语音转文字</span><br/>
+· ㉖ <span class="en">TTS</span> <span class="enzh">文字转语音，即播报</span>
+</td>
+<td>
+<b class="red">舱内图片不能上云！</b>（赛力斯合规要求）<br/>
+算力有限（要跑VLM模型）<br/>
+断网时需要能独立工作
+</td>
+</tr>
+<tr>
+<td><span class="tag t-cdc">🚗 CDC 底软</span></td>
+<td>赛力斯<br/>（车辆底层软件）</td>
+<td>
+<b class="org">不走触发器！</b>这些是赛力斯底软自己做的固定功能：<br/>
+· 起步安全（P0，所有车标配）<br/>
+· 上下车安全（P0，固定规则）<br/>
+· 睡眠提醒（系统设置按钮）<br/>
+· 无感迎宾（系统feature，特征）<br/>
+· 充电大师 / 哨兵模式
+</td>
+<td>
+<b>怎么判断一个功能该不该走触发器？</b><br/>
+仁杰的3问法：<br/>
+①这个功能会变吗？<br/>
+②需要用户自己创建吗？<br/>
+③需要AI参与吗？<br/>
+全"否"→CDC自己做。任一"是"→走触发器。
+</td>
+</tr>
+</table>
+
+<div class="iron">
+<b class="red">6.22会议最大的变化：端侧scope（范围）大幅收窄</b><br/><br/>
+<b>之前的方案</b>：端侧触发器㉔什么都做——信号扫描、条件判定、防抖、仲裁、穿越检测。<br/>
+<b>6.22之后</b>：这些复杂逻辑<b>全部移回云端⑮</b>。端侧只保留最简单的3件事：接收规则包、本地定时器、VLM结果转发。<br/><br/>
+<b>为什么收窄</b>（仁杰原话）："像起步安全这种，放在触发器里面专门配，反而还要让触发器去接所有底层信号，还要考虑稳定性和延时，不如直接底软就做了。"
+</div>
+
+<div class="todo">
+<div class="todo-title">📌 这一章留给你的待办</div>
+<b>无。</b>这一章是背景知识，你需要记住"三方架构"这个概念。后面每次设计一个功能，你都要先想清楚：这个功能在哪里跑？为什么在那里跑？<br/><br/>
+<b>一个思考框架</b>：<br/>
+· 需要复杂推理/大模型 → 云端<br/>
+· 断网也要能跑 → 端侧<br/>
+· 涉及舱内图片 → <b>必须端侧</b>（合规）<br/>
+· 固定的、不变的、不需要AI → CDC底软
+</div>
+
+<!-- ================================================================ -->
+<h2 id="c3">三、信号：触发器的"眼睛和耳朵"</h2>
+<!-- ================================================================ -->
+
+<div class="teach">
+触发器要盯着车上的情况，那它怎么知道车上发生了什么？——靠<b>信号</b>（<span class="en">Signal</span> <span class="enzh">信号</span>）。<br/><br/>
+
+信号就是"车上发生的事"的数据化表达。比如"车门开了"是一个信号，"温度28度"是一个信号，"VLM看到有人睡觉"也是一个信号。<br/><br/>
+
+车上能产生信号的地方一共有<b>6类</b>。但是！触发器<b>不直接去读这些原始信号</b>——它只读"信号库"（<span class="en">Signal Library</span> <span class="enzh">信号库，类似数据仓库</span>）里已经标准化好的数据。这是铁律第3条（后面会讲）。
+</div>
+
+<h3>3.1 六类信号源</h3>
+
+<table>
+<tr><th style="width:35px">#</th><th style="width:130px">信号类型</th><th>包含什么（人话）</th><th style="width:220px">举例</th></tr>
+<tr><td>1</td><td><b>端状态</b><br/>（来自车辆<span class="en">CAN</span> <span class="enzh">控制器局域网，车内各零件通信的总线</span>总线）</td><td>车上所有硬件传感器的数据：四门两盖开关、车速、档位（P/D/R/N）、座椅有没有人坐、安全带系没系、上下电状态、充电状态、胎压、油量/电量、空调状态、车窗位置、车灯、内外温度。<br/><br/>接口文档里列了<b>24类车态字段</b>，每类下面有好几个子字段。</td><td>"车门-主驾-打开"<br/>"车速-65km/h"<br/>"档位-P"<br/>"安全带-副驾-未系"<br/>"外温-32度"</td></tr>
+<tr><td>2</td><td><b>视觉VLM</b><br/>（<span class="en">VLM</span> = <span class="en">Vision Language Model</span> <span class="enzh">视觉语言模型</span>）</td><td>装在车上的AI"眼睛"。每5秒拍一次舱内、每3秒拍一次舱外，用AI分析画面里有什么。<br/><br/>输出：人物位置/性别/年龄/动作/物品/动物/不安全因素<br/><br/><b>这是最复杂的信号源</b>，第八章会专门详细讲。</td><td>"主驾区域有一名男性，闭眼休息"<br/>"后排有一只灰色小型犬"</td></tr>
+<tr><td>3</td><td><b>埋点</b><br/>（<span class="en">App Event</span> <span class="enzh">应用事件</span>）</td><td>用户在车机App上的操作行为：打开了什么应用、点了什么按钮、切了几首歌、导航开始/结束</td><td>"用户连续切歌5次"<br/>"导航已结束"</td></tr>
+<tr><td>4</td><td><b>电子围栏</b><br/>（<span class="en">Geofence</span> <span class="enzh">地理围栏</span>）</td><td>车辆进出某个地理区域。比如设了一个"外婆家500米范围"的围栏，车进入这个范围就触发。<br/><br/><b>6.25会议决定</b>：优先走端侧围栏（不需要上传坐标到云端，合规更安全）</td><td>"进入围栏-外婆家"<br/>"离开围栏-公司"</td></tr>
+<tr><td>5</td><td><b>音频</b><br/>（<span class="en">Audio</span> <span class="enzh">音频</span>）</td><td>音量变化、切歌次数、循环播放次数、TTS播报状态</td><td>"音量-从5调到8"<br/>"切歌-第3次"</td></tr>
+<tr><td>6</td><td><b>时间</b><br/>（<span class="en">Timer</span> <span class="enzh">定时器</span>）</td><td>倒计时、<span class="en">Cron</span> <span class="enzh">周期性定时表达式</span>、日期（节日/节气/生日）<br/><br/>定时器必须在端侧跑（24-5本地定时器），因为<b class="red">断网也要能倒计时</b>。<br/>最小精度1分钟，最多同时跑30个。</td><td>"10分钟倒计时到期"<br/>"今天是中秋节"</td></tr>
+</table>
+
+<h3>3.2 信号库：统一格式</h3>
+
+<div class="teach">
+不管信号从哪来（车门传感器？VLM？定时器？），写入信号库之前都要<b>转成统一格式</b>。就像不管你从支付宝还是微信转账，到银行系统里都是同一种"转账记录"格式。<br/><br/>
+信号库有两个：④端侧信号库（在AIBox上）和 ⑫云端信号库（在字节服务器上）。端侧的数据会通过L9连线同步到云端，所以⑫是"全集"——包含所有信号。
+</div>
+
+<table>
+<tr><th style="width:110px">字段</th><th>是什么（人话）</th><th style="width:250px">举例</th></tr>
+<tr><td><b><span class="en">id</span></b><br/><span class="enzh">唯一编号</span></td><td>每条信号有一个全局唯一的编号。前缀区分来源：<br/>
+<span class="en">SIG-C</span>（车辆CAN）/ <span class="en">SIG-V</span>（VLM视觉）/ <span class="en">SIG-T</span>（定时器）/ <span class="en">SIG-G</span>（围栏）/ <span class="en">SIG-A</span>（音频）/ <span class="en">SIG-E</span>（事件）</td><td><code>SIG-C-017</code>（第17号车辆信号）<br/><code>SIG-V-003</code>（第3号VLM信号）</td></tr>
+<tr><td><b><span class="en">key</span></b><br/><span class="enzh">字段名</span></td><td>机器可读的名字，用来做条件匹配。<br/>命名规则一般是"设备_位置_属性"</td><td><code>belt_fr</code>（安全带_前右=副驾）<br/><code>door_fl</code>（车门_前左=主驾）</td></tr>
+<tr><td><b><span class="en">value</span></b><br/><span class="enzh">值</span></td><td>这个信号的值。有3种类型：<br/><br/>
+<span class="en">enum</span> <span class="enzh">枚举，固定的几个选项</span>：像下拉菜单，只能是预定义的几个值。比如性别只能是"男/女/未知"<br/><br/>
+<span class="en">number</span> <span class="enzh">数值</span>：具体的数字。比如温度28、车速65<br/><br/>
+<span class="en">str</span> = <span class="en">string</span> <span class="enzh">字符串/自由文本</span>：VLM自由写的描述文字。比如"闭眼休息，身体仅随呼吸轻微起伏"<br/><br/>
+<b>6/20仁杰确认的单位规则</b>：上汽统一用 米/秒/hh:mm。距离必须带单位字符串，比如"200m"，不能是裸数字200——因为200不知道是米还是公里。</td><td><code>buckled</code>（已系·enum枚举）<br/><code>65</code>（数值）<br/><code>"闭眼休息"</code>（str自由文本）</td></tr>
+<tr><td><b><span class="en">source</span></b><br/><span class="enzh">来源</span></td><td>这个信号从哪来的。7种来源：<br/>
+<span class="en">CDC</span>（车辆底软）/ <span class="en">VLM</span>（视觉模型）/ <span class="en">App</span>（应用埋点）/ <span class="en">GPS</span>（定位）/ <span class="en">Audio</span>（音频）/ <span class="en">Timer</span>（定时器）/ <span class="en">Seres_CDC</span>（赛力斯底软事件）</td><td><code>CDC</code></td></tr>
+<tr><td><b><span class="en">timestamp</span></b><br/><span class="enzh">时间戳</span></td><td>信号<b>产生</b>的时间（不是写入信号库的时间）。<br/>格式：<span class="en">ISO 8601</span> <span class="enzh">国际标准时间格式</span></td><td><code>2026-07-01T15:30:45</code></td></tr>
+<tr><td><b><span class="en">ttl</span></b><br/>= <span class="en">Time To Live</span><br/><span class="enzh">存活时间（秒）</span></td><td>这条信号"保质期"多久。过期了就失效，触发器不再用它做判断。<br/><br/>
+<b>为什么需要TTL</b>：VLM可能因为算力不够，延迟了10秒才出结果。如果TTL设成5秒，这个过期的结果就会被自动忽略。<br/><br/>
+不同信号的TTL不同：车速=1秒 / 车门=5秒 / VLM=3~5秒 / 安全带=10秒</td><td><code>5</code>（5秒后过期）</td></tr>
+</table>
+
+<div class="todo">
+<div class="todo-title">📌 这一章留给你的待办</div>
+
+<b>待办：确认信号格式的最终规范</b><br/><br/>
+
+<table>
+<tr><th>做什么</th><th>为什么</th><th>怎么做</th><th>给谁</th><th>他拿到后做什么</th></tr>
+<tr><td>确认上汽D6X的信号单位是否已全部统一成"米/秒/hh:mm + 带单位字符串"</td><td>如果有的信号带单位（"200m"）有的不带（"200"），触发器做条件判断的时候就会出错——你不知道200是米还是公里，判断逻辑就废了</td><td>飞书问仁杰：<br/>"仁杰，6/20确认的信号单位规范（米/秒/hh:mm + 带单位字符串），端上所有信号都已经统一了吗？有没有哪些信号还没改过来的？我需要确认触发器拿到的数据格式一致。"</td><td><span class="tag person">仁杰</span></td><td>仁杰确认后，你就可以放心地在触发器条件判定里写具体的比较逻辑（比如 value > "200m"），不用担心格式不一致</td></tr>
+</table>
+</div>
+
+<!-- ================================================================ -->
+<h2 id="c4">四、云端触发器引擎⑮：18个子模块</h2>
+<!-- ================================================================ -->
+
+<div class="teach">
+⑮是整个触发器系统的<b>心脏</b>。你作为触发器PM，这就是你负责的核心。<br/><br/>
+它有18个子模块（<span class="en">sub-module</span> <span class="enzh">子模块</span>），按功能分成6组。我一组一组讲，每组讲完告诉你和你有什么关系。<br/><br/>
+<b>你可以把⑮想象成一条流水线</b>：<br/>
+规则进来（注册组）→ 检查信号（判定组）→ 防止误触（防抖/冷却）→ 排优先级（仲裁组）→ 打包发出去（输出组）→ 处理视觉需求（6.30新增组）
+</div>
+
+<h3>🔵 第1组：注册组（15-1 ~ 15-3）—— 接收规则，开始盯信号</h3>
+
+<table>
+<tr><th style="width:70px">编号</th><th style="width:170px">名称</th><th>做什么（人话）</th></tr>
+<tr>
+<td><b>15-1</b></td>
+<td>注册校验<br/><span class="en">iCanDo</span> <span class="enzh">"我能做"，校验是否能处理</span></td>
+<td>
+一条新的触发规则要注册进来。15-1先做"入学审查"：<br/><br/>
+① 这条规则用到的信号（<span class="en">signal_key</span> <span class="enzh">信号字段名</span>）在信号库里<b>存在</b>吗？——比如你写了一个条件"当signal_key=abc时触发"，但信号库里根本没有abc这个信号，那就直接拒绝<br/><br/>
+② 要执行的动作（<span class="en">action</span> <span class="enzh">动作</span>）<b>允许</b>吗？——比如你要求"触发后自动开车门"，但开车门不在允许列表里（太危险），拒绝<br/><br/>
+③ 格式<b>合法</b>吗？——<span class="en">DSL</span> <span class="enzh">领域特定语言，描述规则的结构化格式</span> 结构对不对？<br/><br/>
+通过→进15-2。不通过→返回错误原因。
+</td>
+</tr>
+<tr>
+<td><b>15-2</b></td>
+<td>场景入库<br/>（版本 + 灰度<span class="en">grayscale</span> <span class="enzh">灰度，指只对部分用户/车辆生效</span>）</td>
+<td>
+校验通过后存入数据库。每个规则叫一个"场景"（<span class="en">scene</span> <span class="enzh">场景</span>），有唯一编号 <span class="en">scene_id</span>。<br/>
+支持：版本管理（可以回滚到旧版本）/ 灰度发布（只对部分车辆生效，慢慢放量）<br/>
+状态：1=启用 / 2=禁用 / 3=删除
+</td>
+</tr>
+<tr>
+<td><b>15-3</b></td>
+<td>信号扫描<br/>（每5秒一次心跳）</td>
+<td>
+<b>每5秒</b>读一次⑫云端信号库的快照（<span class="en">snapshot</span> <span class="enzh">快照，某一时刻的数据截面</span>）。看看哪些信号的值变了。<br/><br/>
+变了→通知15-4去做条件判断。没变→等下一个5秒。<br/><br/>
+用的是<span class="en">incremental subscription</span> <span class="enzh">增量订阅，只看变化的部分</span>，不是每次全量扫描。
+</td>
+</tr>
+</table>
+
+<h3>🟡 第2组：判定组（15-4 ~ 15-7）—— 条件满足了吗？别误触发</h3>
+
+<table>
+<tr><th style="width:70px">编号</th><th style="width:170px">名称</th><th>做什么（人话）</th></tr>
+<tr>
+<td><b>15-4</b></td>
+<td><b>条件判定</b><br/>（核心运算）</td>
+<td>
+<b>核心模块！</b>拿到变化的信号，去匹配所有已注册的场景规则。<br/><br/>
+
+<b>支持的运算符</b>（<span class="en">operator</span> <span class="enzh">运算符</span>）：<br/>
+<code>=</code> 等于 / <code>></code> 大于 / <code><</code> 小于 / <code>>=</code> 大于等于 / <code><=</code> 小于等于<br/>
+<code>range</code> <span class="enzh">区间，比如"温度在25到30之间"</span><br/>
+<code>change_to</code> <span class="enzh">变更为，比如"档位从D变成P"——只在变化的那一刻触发</span><br/><br/>
+
+多条件组合：<span class="en">AND</span> <span class="enzh">并且，所有条件都要满足</span> / <span class="en">OR</span> <span class="enzh">或者，满足任一条件就行</span><br/><br/>
+
+<b>举例</b>：场景"副驾上车后唱小星星"的条件 = {副驾占座==有人 <span class="en">AND</span> 安全带==系上}<br/>
+信号变化：副驾安全带从"未系"→"系上"<br/>
+15-4检查：副驾占座==有人？✅ 安全带==系上？✅ → 条件满足！
+</td>
+</tr>
+<tr>
+<td><b>15-5</b></td>
+<td>VLM任务编译<br/>（7个字段）</td>
+<td>
+如果触发条件需要VLM去看（比如"看看后排有没有小狗"），这个模块负责把需求"翻译"成VLM能理解的标准指令。<br/><br/>
+
+翻译出来的指令有<b>7个字段</b>：<br/>
+① <span class="en">task_id</span> <span class="enzh">任务编号</span>（如ADV-C-007）<br/>
+② <span class="en">task_goal/query</span> <span class="enzh">任务目标/观察什么</span>（如"观察后排有无犬类"）<br/>
+③ <span class="en">priority</span> <span class="enzh">优先级</span>（P0~P4，P0最高）<br/>
+④ <span class="en">timeout</span> <span class="enzh">超时时间</span>（比如30秒没出结果就算超时）<br/>
+⑤ <span class="en">mutex_group</span> <span class="enzh">互斥组</span>（同一组的任务不能同时执行，比如<span class="en">VLM_CABIN</span>互斥组=舱内摄像头同时只能做一个VLM任务）<br/>
+⑥ <span class="en">trigger_source</span> <span class="enzh">谁发起的</span>（如advisor_comfort=舒适顾问发起）<br/>
+⑦ <span class="en">expire_at</span> <span class="enzh">自动过期时间</span>
+</td>
+</tr>
+<tr>
+<td><b>15-6</b></td>
+<td>抖动过滤<br/>（<span class="en">Jitter Filter</span> <span class="enzh">抖动过滤</span>）</td>
+<td>
+防止信号在阈值附近来回跳，导致反复触发。<br/><br/>
+
+<b>什么是抖动</b>：比如你设了"车速>130就提醒"，车速在129和131之间来回波动。如果不防抖，就会"提醒-取消-提醒-取消"来回跳。<br/><br/>
+
+<b>怎么防</b>：设一个"死区"（±区间）。比如设125~135的死区——只有车速从125以下涨到135以上，才算<b>真正</b>超速。在死区里来回跳的不算。<br/><br/>
+
+<b>VLM也需要防抖！</b>VLM可能前一帧说"有小狗"，下一帧说"没有"。张兰若原话："但凡出现一次错误，触发器就会有问题。"所以VLM信号要"连续N帧一致"才算有效。
+</td>
+</tr>
+<tr>
+<td><b>15-7</b></td>
+<td>冷却频控<br/>（<span class="en">Cooldown</span> <span class="enzh">冷却</span>）</td>
+<td>
+控制一个场景的触发频率，防止反复骚扰用户。<br/><br/>
+4个维度的控制：<br/>
+· <span class="en">total_count</span> <span class="enzh">总次数上限</span>：比如总共最多100次<br/>
+· <span class="en">daily_count</span> <span class="enzh">每天上限</span>：每天最多100次<br/>
+· <span class="en">power_count</span> <span class="enzh">每个上电周期上限</span>：每次启动车最多10次<br/>
+· <span class="en">execute_interval</span> <span class="enzh">两次触发的最小间隔</span>：至少隔60秒<br/><br/>
+<b>举例</b>："有人打哈欠"如果每5秒VLM都检测到，不做频控就5秒通知一次——用户会疯。设了"间隔10分钟"就变成最多10分钟提醒一次。
+</td>
+</tr>
+</table>
+
+<h3>🟠 第3组：仲裁组（15-8 ~ 15-9）—— 多个场景同时触发，听谁的？</h3>
+
+<table>
+<tr><th style="width:70px">编号</th><th style="width:170px">名称</th><th>做什么（人话）</th></tr>
+<tr>
+<td><b>15-8</b></td>
+<td>优先级仲裁<br/><span class="en">Priority Arbitration</span></td>
+<td>
+多个场景同时触发时，按优先级排队。高的先执行。<br/><br/>
+<b>5级优先级</b>：<br/>
+<b class="red">P0 安全</b>（最高）：疲劳驾驶/碰撞预警——这些抢占一切<br/>
+<b class="org">P1 用户主动</b>：用户自己设的条件（"超25度开空调"）<br/>
+<b class="blu">P2 顾问推荐</b>：Advisor的主动服务建议<br/>
+<b>P3 系统预设</b>：系统默认的舒适调节（环境光/温度自动调节）<br/>
+<b style="color:#6b7280">P4 内容推荐</b>（最低）：娱乐/信息建议<br/><br/>
+<b>互斥组</b>（<span class="en">mutex group</span> <span class="enzh">互斥组，同组的不能同时执行</span>）：高优抢占低优。被抢占的暂停，等高优做完再恢复。
+</td>
+</tr>
+<tr>
+<td><b>15-9</b></td>
+<td>端云分类<br/>（总开关）</td>
+<td>
+决定这个场景<b>在哪里执行</b>。4个出口：<br/><br/>
+① <b>留在云端</b>：需要大模型推理的<br/>
+② <b>部署到端侧㉔</b>：定时器、断网也要跑的<br/>
+③ <b>VLM订阅</b>：需要VLM去拍照看的<br/>
+④ <b>回Director⑲</b>：需要大脑做最终决策的<br/><br/>
+<b class="org">注意</b>：这个分类在配置平台⑬上还没有对应字段——这是待改造的4个点之一（后面会讲）。
+</td>
+</tr>
+</table>
+
+<h3>🔴 第4组：事件感知组（15-10 ~ 15-11）—— 6.22新增的核心</h3>
+
+<table>
+<tr><th style="width:70px">编号</th><th style="width:170px">名称</th><th>做什么（人话）</th></tr>
+<tr>
+<td><b class="red">15-10</b></td>
+<td><b>阈值穿越检测</b><br/>（<span class="en">Threshold Crossing</span> <span class="enzh">阈值穿越</span>）</td>
+<td>
+<b class="red">6.22新增的最重要的模块！</b><br/><br/>
+
+<b>什么叫"穿越"</b>：一直盯着一个信号值。当这个值从"不满足条件"变成"满足条件"的<b>那一瞬间</b> = 穿越 = 触发事件。<br/><br/>
+
+<b>举例</b>：条件是"有人睡着了"<br/>
+· 上一帧：没人睡 → 当前帧：有人睡 → <b>穿越！</b>触发事件"有人睡着了"<br/>
+· 上一帧：有人睡 → 当前帧：有人睡 → <b>不是穿越</b>。已经在睡了，不重复触发<br/><br/>
+
+<b>英文缩写</b>：<span class="en">F→T</span> = <span class="en">False→True</span> <span class="enzh">从不满足到满足</span><br/><br/>
+
+<b>为什么需要穿越</b>：如果不做穿越，只做"条件满足就触发"，那"有人在睡觉"这个条件每5秒VLM输出一次都满足，就会每5秒触发一次——用户会被反复打扰。穿越确保<b>只在状态变化的那一刻触发一次</b>。<br/><br/>
+
+<b>施佳杰的定义</b>："事件是唯一时刻的触发；condition（条件）是Context（上下文）中的持续状态。"
+</td>
+</tr>
+<tr>
+<td><b class="red">15-11</b></td>
+<td><b>事件组装 +<br/>推送给Advisor</b></td>
+<td>
+穿越检测出来的"原始事件"需要组装成标准格式，然后<span class="en">push</span> <span class="enzh">推送，主动发过去</span>给订阅了这个事件的Advisor（顾问）。<br/><br/>
+
+<b>推送（push）的4个方向</b>：<br/>
+→ L17连线：⑯ 静态Advisor（4个永久顾问）<br/>
+→ L18连线：⑰ 动态Advisor（临时任务顾问）<br/>
+→ L21连线：⑲ Director（大脑）<br/>
+→ 直接执行（白名单动作，比如简单车控）
+</td>
+</tr>
+</table>
+
+<h3>🟢 第5组：输出组（15-12 ~ 15-14）</h3>
+
+<table>
+<tr><th style="width:70px">编号</th><th style="width:170px">名称</th><th>做什么（人话）</th></tr>
+<tr><td><b>15-12</b></td><td>标准事件打包</td><td>按标准格式封装事件包。包含：task_id（任务编号）/ signal_snapshot（触发时的信号快照）/ triggered_at（触发时间）</td></tr>
+<tr><td><b>15-13</b></td><td>回调路由<br/>（<span class="en">Callback Router</span> <span class="enzh">回调路由，把事件转发到正确的目标</span>）</td><td>根据场景注册时指定的 action（动作），把事件路由到正确的目标。4种action：<br/>comfort_advisor（舒适顾问）/ emotion_advisor（情感顾问）/ recommend（主动推荐）/ custom_callback（自定义回调）</td></tr>
+<tr><td><b>15-14</b></td><td>场景下发<br/>（L14→㉔端侧）</td><td>把需要在端侧执行的场景（规则包 + VLM的SP指令）通过L14连线下发给㉔端侧触发器。支持全量下发/增量更新/灰度发布。</td></tr>
+</table>
+
+<h3>🟣 第6组：6.30新增的VLM信号处理链路（15-16 ~ 15-18）</h3>
+
+<div class="teach">
+这3个子模块是<b>6.30会议</b>定下来的。它们解决的问题是：Advisor（顾问）说"帮我看看毯子掉没掉"——触发器怎么把这个需求传达给VLM（视觉模型）？<br/><br/>
+<b>这是你作为PM要重点写方案的部分。</b>
+</div>
+
+<table>
+<tr><th style="width:70px">编号</th><th style="width:170px">名称</th><th>做什么（人话）</th></tr>
+<tr>
+<td><b class="red">15-16</b></td>
+<td><b>枚举/描述<br/>信号分流</b></td>
+<td>
+收到Advisor（顾问）的需求后，第一步：判断这个需求<b>能不能直接用现有的标签处理</b>。<br/><br/>
+
+<b>如果是 <span class="en">enum</span>（枚举/固定标签）类的</b> → 太好了，直接用 <code>==</code> 号匹配。<br/>
+目前VLM只有<b>3个</b>枚举字段：性别（男/女/未知）/ 位置（6个值）/ 年龄（婴儿/儿童/青中年/老年）<br/><br/>
+
+<b>如果是 <span class="en">str</span>（描述/自由文本）类的</b> → 没法直接判断，走下面的动态SP链路（15-17→15-18）。<br/>
+睡觉/打电话/有小狗/有小猫/打哈欠/儿童座椅……<b>全部是str</b>！<br/><br/>
+
+<b>丁彬原话</b>："如果枚举类的，你可以直接用等号处理。如果不是枚举类的，都要去拼SP。"
+</td>
+</tr>
+<tr>
+<td><b class="red">15-17</b></td>
+<td><b>提槽工具调用<br/>判断方向</b></td>
+<td>
+描述类的需求进来后，需要判断：这个需求要看<b>车里</b>还是<b>车外</b>？<br/><br/>
+
+· 看车里（<span class="en">cabin</span> <span class="enzh">座舱</span>）→ 走端侧VLM（因为舱内图片不能上云）<br/>
+· 看车外（<span class="en">front</span> <span class="enzh">前方/车外</span>）→ 走云端 <span class="en">VQA</span>（<span class="en">Visual Question Answering</span> <span class="enzh">视觉问答，部署在云端的视觉模型</span>）<br/><br/>
+
+这个判断方向的工具叫"提槽工具"（<span class="en">Slot-Filling Tool</span> <span class="enzh">提槽工具，用来从需求里提取关键信息</span>），是从VQA里拆出来的一个独立小模型。<br/><br/>
+
+陈西钺原话："人人尽可用，触发器直接调，不用绕VQA。"——意思是触发器可以直接调这个工具，不需要通过VQA中转。
+</td>
+</tr>
+<tr>
+<td><b class="red">15-18</b></td>
+<td><b>SP拼接引擎</b><br/>（<span class="en">SP Splicing Engine</span>）</td>
+<td>
+<b class="red">6.30最重要的新增模块，你要写产品方案的核心！</b><br/><br/>
+
+<b>SP</b> = <span class="en">System Prompt</span> <span class="enzh">系统提示词，给AI模型的"工作指令"</span><br/><br/>
+
+VLM有一个<b>一直在执行的基础指令</b>叫 <span class="en">AlwaysOn SP</span> <span class="enzh">"永远开着"的系统提示词</span>，让它每5秒看一次舱内。<br/><br/>
+
+当Advisor（顾问）说"帮我看看毯子掉没掉"时，15-18做的事：<br/><br/>
+
+① 把人话需求（"毯子掉没掉"）翻译成VLM能理解的SP指令<br/>
+  → "额外观察：后排宝宝毯子是盖好还是掉了？回答写在'动态查询结果'字段里。"<br/><br/>
+
+② 把这条新SP<b>追加</b>到AlwaysOn SP后面（不是替换！是追加）<br/><br/>
+
+③ 分配 <span class="en">KV</span> <span class="enzh">Key-Value，键值对</span> 槽位——给VLM一个"指定格子"，让它把答案写在这个格子里。<span class="en">Key</span>=格子的名字，<span class="en">Value</span>=答案。VLM真实输出里的"动态查询结果"字段就是这个格子。<br/><br/>
+
+④ 如果同时有多个动态任务（最多3个，6.30确认），合并成一个SP下发<br/><br/>
+
+⑤ 通过15-14 → L14连线 → ㉔端侧触发器 → 转给VLM执行<br/><br/>
+
+⑥ 任务结束后：Advisor通知⑮ → 删掉那段SP → 还原成只有AlwaysOn SP → 重新下发
+</td>
+</tr>
+</table>
+
+<div class="todo">
+<div class="todo-title">📌 第四章留给你的待办（3条）</div>
+
+<table>
+<tr><th style="width:35px">#</th><th style="width:160px">做什么</th><th>为什么要做</th><th>怎么做</th><th>给谁</th><th>给什么</th><th>他拿到后做什么</th></tr>
+<tr>
+<td>1</td>
+<td><b>写SP拼接引擎（15-18）的产品方案</b></td>
+<td>15-18是6.30会议定的新模块，目前只有"会议上达成的共识"，还没有详细的产品方案。刘杨（开发）要按你的方案来写代码。没有方案他没法动手。</td>
+<td>
+<div class="step">
+<b>Step 1</b>：先问丁彬3个问题（飞书消息）：<br/>
+"丁彬，我在写SP拼接引擎方案，3个问题：<br/>
+①SP追加到AlwaysOn后面有格式要求吗？（比如需要特定分隔符？）<br/>
+②多任务同时拼入时，'动态查询结果'这一个字段怎么区分哪个答案对应哪个任务？是用task_id前缀区分，还是有多个返回槽位？<br/>
+③任务结束清SP后，'动态查询结果'字段是自动清空还是我主动写空？"
+</div>
+<div class="step">
+<b>Step 2</b>：拿到丁彬回答后，写产品方案文档，包含：<br/>
+· SP格式规范（怎么拼接、怎么拼多个）<br/>
+· KV槽位机制（怎么分配、怎么读、怎么清理）<br/>
+· 生命周期状态机（创建→下发→执行中→结果回传→清理）<br/>
+· 多任务合并规则（最多3个并发、优先级冲突怎么办）<br/>
+· 端云下发协议（通过L14下发的数据格式）
+</div>
+<div class="step">
+<b>Step 3</b>：方案写好后发给丁彬+刘杨评审
+</div>
+</td>
+<td><span class="tag person">丁彬</span>回答问题<br/><span class="tag person">刘杨</span>看方案写代码</td>
+<td>一份飞书文档：《SP拼接引擎产品方案》</td>
+<td><b>丁彬</b>：评审方案是否和VLM能力对齐<br/><b>刘杨</b>：按照这个方案做工程实现（写代码）</td>
+</tr>
+<tr>
+<td>2</td>
+<td><b>跟西钺拿提槽工具（15-17）的接口信息</b></td>
+<td>15-17需要调用提槽工具来判断"看车里还是车外"。但你现在不知道这个工具怎么调——输入什么格式？输出什么格式？延迟多少？什么时候能用？不搞清楚这些，你的SP拼接方案就写不了（因为不知道中间这一步怎么走）。</td>
+<td>
+<div class="step">
+飞书问西钺：<br/>
+"西钺，上次你说提槽工具已经从VQA里拆出来了，触发器可以直接调。我需要确认几个信息：<br/>
+①输入格式是什么？直接传自然语言文本（比如'毯子掉没掉'）还是结构化JSON？<br/>
+②输出是什么？是direction=cabin/front这种枚举，还是别的格式？<br/>
+③怎么调？HTTP接口还是gRPC？域名/端口是什么？<br/>
+④现在PPE环境能调了吗？还是要等什么时间才上线？"
+</div>
+</td>
+<td><span class="tag person">西钺（七月）</span></td>
+<td>接口文档或飞书回复</td>
+<td><b>西钺</b>：给你接口信息。你拿到后写进SP拼接方案的15-17部分。</td>
+</tr>
+<tr>
+<td>3</td>
+<td><b>跟兰若要VLM的抖动数据</b></td>
+<td>15-6防抖参数怎么设，取决于VLM实际的抖动频率。如果VLM每10帧里有1帧是错的（10%错误率），防抖设"连续3帧一致"就够了。如果每3帧有1帧是错的（33%），就需要"连续5帧一致"。不拿数据就只能瞎设参数。</td>
+<td>
+<div class="step">
+飞书问兰若：<br/>
+"兰若，我在设计触发器的防抖策略（15-6）。VLM连续推理时，同一个场景下，输出结果不一致（glitch抖动）的概率大概是多少？比如一个人一直在睡觉，VLM每5秒推理一次，会不会某一帧突然说他没睡？这种情况大概多久出一次？有没有测试数据？"
+</div>
+</td>
+<td><span class="tag person">张兰若</span></td>
+<td>抖动概率/频率数据</td>
+<td><b>兰若</b>：查VLM测试日志，给你一个概率数字。你拿到后设防抖参数（连续N帧一致才算有效的N）。</td>
+</tr>
+</table>
+</div>
+
+<!-- ================================================================ -->
+<h2 id="c5">五、端侧触发器引擎㉔：6.22之后大幅收窄</h2>
+<!-- ================================================================ -->
+
+<div class="teach">
+㉔是在端侧AIBox上运行的触发器。6.22之前它什么都做（扫描/判定/仲裁/穿越）。6.22之后<b>复杂逻辑全移回了云端⑮</b>，端侧只保留最简单的3类功能。<br/><br/>
+下面列出收窄后保留的<b>9个子模块</b>。
+</div>
+
+<table>
+<tr><th style="width:70px">编号</th><th style="width:170px">名称</th><th>做什么（人话）</th><th style="width:160px">关键约束</th></tr>
+<tr><td><b>24-1</b></td><td>规则接收 + 灰度/回滚</td><td>接收⑮通过L14下发的规则包。支持全量下发/增量更新/灰度/版本回滚。</td><td>必须和⑮版本一致</td></tr>
+<tr><td><b>24-2</b></td><td>本地持久化<br/>（<span class="en">SQLite</span> <span class="enzh">一种轻量级本地数据库</span>）</td><td>把任务存在本地数据库里。<b>掉电不丢</b>——车重新启动后，任务还在，不需要重新从云端拉。</td><td>存储空间有限，需要定期清理</td></tr>
+<tr><td><b class="org">24-5</b></td><td><b>本地定时器</b><br/>（<span class="en">Local Timer</span>·不可替代）</td><td>
+<b>端侧最核心的不可替代模块！</b><br/><br/>
+支持：倒计时 / <span class="en">Cron</span> <span class="enzh">周期性定时表达式，比如"每天早上8点"</span> / 日期（节日/节气/生日）<br/><br/>
+<b class="red">断网照跑！</b>这是它必须在端侧的根本原因——用户说"10分钟后关座椅加热"，如果进了隧道断网了，定时器必须照样倒计时。<br/><br/>
+最小精度=1分钟（不能做秒级定时）/ 最多30个并发
+</td><td><b class="red">断网也能工作</b><br/>最小1分钟<br/>最多30并发</td></tr>
+<tr><td><b>24-8'</b></td><td>动态视觉SP下发 + 回收</td><td>接收⑮下发的VLM SP任务→转发给AIBox的VLM模型→VLM执行推理→回收结果。<br/><b>只做转发</b>，不做条件判断。</td><td>只转发，不判断</td></tr>
+<tr><td><b>24-9</b></td><td>VLM五态归一<br/>（<span class="en">5 States</span>）</td><td>VLM推理可能返回5种结果状态，㉔把它们标准化：<br/>
+<span class="en">success</span> <span class="enzh">成功，正常返回</span> / <span class="en">empty</span> <span class="enzh">空，什么都没检测到</span> / <span class="en">failed</span> <span class="enzh">失败，处理出错</span> / <span class="en">timeout</span> <span class="enzh">超时</span> / <span class="en">interrupted</span> <span class="enzh">被打断，被更高优先级任务抢占了</span></td><td>标准化后写入④信号库</td></tr>
+<tr><td><b>24-11</b></td><td>结果回写④ + 上报</td><td>VLM/定时器的结果→写入④→同步到⑫→注入㉑Context。<br/><b class="red">铁律②：不直推Advisor！</b>只写信号库。<br/><b>只报客观状态</b>：报"毯子在地上"（客观），不报"毯子掉了"（判断）。</td><td><b class="red">不直推Advisor</b><br/>断网先缓存</td></tr>
+<tr><td><b>24-12'</b></td><td>下发任务执行<br/>（白名单<span class="en">whitelist</span>）</td><td>端侧可以直接执行的简单动作（不需要上云请示Director）。<br/><b>白名单</b>：TTS播报 / 音量调节 / 温度调节 / 车窗开关 / 氛围灯 / <span class="en">AI PUSH</span> <span class="enzh">AI消息推送</span><br/>安全相关的（开车门、安全带）<b>不能</b>直执，必须上云让Director决策。</td><td>仅白名单动作</td></tr>
+<tr><td><b>24-13</b></td><td>任务中心端云同步</td><td>和㉓任务中心做端云同步。区分"任务级"字段（用户可见，比如任务名/状态/开关）和"感知级"字段（内部用，比如signal_key/条件逻辑）。</td><td>字段分两级</td></tr>
+<tr><td><b>24-14</b></td><td>通用视觉通道<br/>（<span class="en">Generic Visual Channel</span>）</td><td>承接⑮的15-15通用视觉事件通道。接收通用视觉SP→转给VLM。<br/>3类SP：舱内静态/舱内动态/舱外。新SP<b>追加不覆盖</b>。</td><td>追加，不覆盖</td></tr>
+</table>
+
+<div class="todo">
+<div class="todo-title">📌 第五章留给你的待办</div>
+<b>无需单独行动。</b>端侧收窄后，㉔的方案已经比较清晰（接收+定时器+转发）。你需要做的事已经包含在第四章的SP拼接方案里（因为SP需要通过㉔转发给VLM）。等SP拼接方案定了，㉔的端侧实现方案自然就确定了。
+</div>
+
+<!-- ================================================================ -->
+<h2 id="c6">六、配置平台⑬：触发器的管理后台</h2>
+<!-- ================================================================ -->
+
+<div class="teach">
+配置平台就是触发器的"管理后台"。对应的真实产品是"火山后台"上的"新建场景"页面。产品/运营/开发在这里创建和管理触发场景——就像你在CMS后台发文章一样。<br/><br/>
+它有<b>8个原子模块</b>，对应页面上的8个功能区域。
+</div>
+
+<table>
+<tr><th style="width:50px">#</th><th style="width:150px">原子模块</th><th>具体是什么</th><th style="width:200px">⚠️ 待改造点</th></tr>
+<tr><td>13-1</td><td>基础信息</td><td>场景名称 + 优先级（<span class="en">priority</span>，1~10档，1最高）</td><td>—</td></tr>
+<tr><td>13-2</td><td>发布范围<br/>（<span class="en">effective_scope</span> <span class="enzh">生效范围</span>）</td><td>控制这个场景对哪些车辆生效：<br/>
+· <span class="en">channel</span> <span class="enzh">渠道</span>（如SAIC DNA=上汽渠道）<br/>
+· <span class="en">VIN</span> <span class="enzh">车辆识别码，每辆车的唯一身份证号</span>定向<br/>
+· 车型 / 软件版本</td><td>—</td></tr>
+<tr><td>13-3</td><td><b>动态条件</b><br/>（VLM视觉信号）</td><td><b class="red">目前是空的！</b>需要扩展成支持VLM的7字段配置：<br/>
+<span class="en">camera_group</span> <span class="enzh">摄像头组（舱内/舱外）</span> / <span class="en">seat</span> <span class="enzh">座位</span> / <span class="en">task_goal</span> <span class="enzh">观察目标</span> / <span class="en">interval</span> <span class="enzh">推理间隔</span> / <span class="en">priority</span> <span class="enzh">优先级</span> / <span class="en">timeout</span> <span class="enzh">超时</span> / <span class="en">mutex_group</span> <span class="enzh">互斥组</span></td><td><b class="red">待改造①：VLM 7字段扩展</b><br/>现在后台页面上动态条件这一栏是空的，没法配VLM的视觉条件。需要开发加7个字段。</td></tr>
+<tr><td>13-4</td><td>静态条件<br/>（车态信号）</td><td>从24类车态字段里选条件。每行一个条件：选信号→选子字段→选运算符→输入值。支持多组<span class="en">AND</span>/<span class="en">OR</span>。<br/><br/>
+举例：空调开关==开 <span class="en">AND</span> 温度>28度</td><td>—</td></tr>
+<tr><td>13-5</td><td>条件DSL编译</td><td>把UI上填的条件编译成<span class="en">DSL</span>（<span class="en">Domain Specific Language</span> <span class="enzh">领域特定语言，用来描述触发规则的结构化格式</span>）。<br/><br/>
+<span class="en">DSL</span>结构（Go语言定义的）：<br/>
+<span class="en">Condition</span>（条件）→ <span class="en">Option</span>（选项/值）→ <span class="en">Action</span>（动作）→ <span class="en">Param</span>（参数）→ <span class="en">ExecuteInfo</span>（执行信息）</td><td><b class="org">待改造②：运算符扩展</b><br/>目前只有=/>/<等。需要加<span class="en">change_to</span>（变更为）/ <span class="en">range</span>（区间）/ <span class="en">duration</span>（持续时长）</td></tr>
+<tr><td>13-6</td><td>执行动作<br/>（<span class="en">Action</span>）</td><td>触发后做什么。当前支持4种：<br/>
+· <span class="en">comfort_advisor</span>（通知舒适顾问）<br/>
+· <span class="en">emotion_advisor</span>（通知情感顾问）<br/>
+· <span class="en">recommend</span>（主动推荐，含reason理由+advice建议模板）<br/>
+· <span class="en">custom_callback</span>（<span class="enzh">自定义回调URL</span>）</td><td><b class="org">待改造③：加端侧直执白名单</b><br/>目前只能通知Advisor，不能直接执行简单动作（TTS/卡片/简单车控）。需要加一种action类型。</td></tr>
+<tr><td>13-7</td><td>执行策略<br/>（<span class="en">execute_policy</span> <span class="enzh">执行策略</span>）</td><td>频控参数：<br/>
+<span class="en">total_count</span>（总次数上限）/ <span class="en">daily_count</span>（每天上限）/ <span class="en">power_count</span>（每个上电周期上限）/ <span class="en">execute_interval</span>（最小触发间隔秒数）</td><td>—</td></tr>
+<tr><td>13-8</td><td>注册/校验/部署</td><td>点"创建场景"按钮→15-1校验→生成DSL→注册到⑮引擎→分配<span class="en">scene_id</span></td><td><b class="org">待改造④：加端云分类字段</b><br/>15-9负责决定场景在哪里执行（云端/端侧/VLM），但配置平台上没有对应字段让人选。需要加一个字段。</td></tr>
+</table>
+
+<h3>6.2 六个API接口</h3>
+
+<div class="teach">
+<span class="en">API</span> = <span class="en">Application Programming Interface</span> <span class="enzh">应用程序接口，程序和程序之间通信的标准方式</span><br/>
+配置平台提供了6个API，让外部程序可以创建/查询/修改触发场景。
+</div>
+
+<table>
+<tr><th style="width:50px">方法</th><th style="width:280px">接口路径</th><th>作用（人话）</th></tr>
+<tr><td><span class="en">GET</span><br/><span class="enzh">获取</span></td><td>/aidv/v1/trigger/<b>signals</b></td><td>获取这个渠道支持哪些信号。返回所有可用的信号列表（signal_key和子字段）</td></tr>
+<tr><td><span class="en">GET</span></td><td>/aidv/v1/trigger/<b>actions</b></td><td>获取支持哪些动作。返回4种action类型</td></tr>
+<tr><td><span class="en">POST</span><br/><span class="enzh">创建</span></td><td>/aidv/v1/trigger/<b>scene</b></td><td>注册一个新场景。传入条件+动作+策略→返回scene_id</td></tr>
+<tr><td><span class="en">POST</span></td><td>/aidv/v1/trigger/scene/<b>update</b></td><td>更新已有场景的配置</td></tr>
+<tr><td><span class="en">GET</span></td><td>/aidv/v1/trigger/<b>scene</b></td><td>查询场景列表。可以看所有已注册的场景</td></tr>
+<tr><td><span class="en">POST</span></td><td>/aidv/v1/trigger/scene/<b>update_status</b></td><td>改场景状态：1=启用 / 2=禁用 / 3=删除</td></tr>
+</table>
+
+<div class="box">
+<b>鉴权</b>（<span class="en">Authentication</span> <span class="enzh">身份验证，证明"你有权限调这个接口"</span>）：<br/>
+<span class="en">HMAC-SHA256</span> <span class="enzh">一种加密签名算法</span>签名，放在<span class="en">Header</span>（请求头）里：<code>X-Signature: AK:sign</code><br/><br/>
+
+<b>Base URL</b>（<span class="enzh">基础地址</span>）：<code>https://api-vehicle-cloud.volcengine.com</code><br/><br/>
+
+<b>PPE测试环境</b>（<span class="en">Pre-Production Environment</span> <span class="enzh">预生产测试环境，用来测试的，不影响真实用户</span>）：<br/>
+Header加 <code>X-Use-PPE: "1"</code> + <code>X-Tt-Env: "ppe_vehicle_ai_car_dev"</code>
+</div>
+
+<div class="todo">
+<div class="todo-title">📌 第六章留给你的待办（1条）</div>
+
+<table>
+<tr><th style="width:35px">#</th><th style="width:160px">做什么</th><th>为什么要做</th><th>怎么做</th><th>给谁</th><th>给什么</th><th>他拿到后做什么</th></tr>
+<tr>
+<td>1</td>
+<td><b>整理配置平台4个待改造点的需求</b></td>
+<td>配置平台是触发器对外的"管理入口"。4个地方需要改（VLM字段/运算符/端直执/端云分类），不改的话：①运营没法在后台配VLM视觉条件 ②不支持"变更为"这种关键运算符 ③不能做端侧直执 ④不能指定场景在云还是端运行</td>
+<td>
+<div class="step">
+写一份飞书文档，把4个改造点列清楚：<br/>
+①13-3 VLM 7字段：列出每个字段名 + 类型 + 示例值 + UI交互形式（下拉/输入框/开关）<br/>
+②13-5 运算符：加change_to / range / duration，每个写清楚含义和使用场景<br/>
+③13-6 端侧直执白名单：列出允许直执的动作列表<br/>
+④13-8 端云分类字段：下拉选项=云端/端侧/VLM，默认值=云端<br/><br/>
+发给刘杨评估开发工时。
+</div>
+</td>
+<td><span class="tag person">刘杨</span></td>
+<td>飞书文档：《配置平台4点改造需求》</td>
+<td><b>刘杨</b>：评估每个改造点的开发工时，排入Sprint。他会按你写的字段定义去改后台页面。</td>
+</tr>
+</table>
+</div>
+
+<!-- ================================================================ -->
+<h2 id="c7">七、四条铁律</h2>
+<!-- ================================================================ -->
+
+<div class="teach">
+这4条是6.22评审会定下来的<b>绝对不能违反的架构约束</b>。后续所有设计都必须遵守。你在写任何方案、做任何决策的时候，都要先对照这4条检查一下——有没有违反？
+</div>
+
+<div class="iron">
+<b class="red" style="font-size:15px">铁律一：所有动态注册必须经过⑮云端触发器中转</b><br/><br/>
+<b>什么意思</b>：不管是Director注册条件任务，还是Advisor注册感知需求，路径只能是：发起方 → ⑮ → ㉔。<br/><br/>
+<b class="red">不允许</b>：Director直接给㉔注册（绕过⑮）/ Advisor直接给VLM下SP（绕过⑮）<br/><br/>
+<b>为什么</b>：⑮是唯一的"规则管理者"。如果允许绕过，⑮不知道有哪些规则在跑，就没法做优先级仲裁、频控、冲突检测。就像公司所有招聘必须通过HR，如果各部门直接找人入职，HR就管不了了。
+</div>
+
+<div class="iron">
+<b class="red" style="font-size:15px">铁律二：端侧结果不直推Advisor，必须走信号库</b><br/><br/>
+<b>什么意思</b>：端侧（VLM/定时器等）的结果路径只能是：㉔ → ④端侧信号库 → ⑫云端信号库 → ㉑Context（上下文）<br/><br/>
+<b class="red">不允许</b>：㉔直接推给Advisor / ㉔直接推给Director<br/><br/>
+<b>为什么</b>：<br/>
+①信号库是唯一的"事实源头"（<span class="en">Single Source of Truth</span> <span class="enzh">单一事实来源</span>）。绕过就会出现矛盾——信号库说"没有小狗"，但Advisor说"有小狗"<br/>
+②断网时端侧结果先缓存在本地队列，等联网后同步——如果直推就没法做断网缓存
+</div>
+
+<div class="iron">
+<b class="red" style="font-size:15px">铁律三：触发器只读信号库，不直接监听原始信号源</b><br/><br/>
+<b>什么意思</b>：⑮读的是⑫云端信号库里标准化后的数据，不是直接去读CAN总线或直接调VLM。<br/><br/>
+<b class="red">不允许</b>：⑮直接读CAN总线 / ⑮直接调VLM<br/><br/>
+<b>为什么</b>：解耦（<span class="en">Decoupling</span> <span class="enzh">解耦，让两个模块互不依赖</span>）。信号源的格式千差万别——CAN是二进制、VLM是JSON、App是埋点。信号库做标准化转换，触发器只需要读标准格式，不需要关心"这个数据原来长什么样"。
+</div>
+
+<div class="iron">
+<b class="red" style="font-size:15px">铁律四（最核心）：condition→Context / event→⑮主动push</b><br/><br/>
+<b>什么意思</b>：<br/>
+· <span class="en">condition</span>（条件/状态）= "车里现在有小朋友" → 写入Context → Advisor推理时自动带上<br/>
+· <span class="en">event</span>（事件）= "小朋友刚上车" → ⑮组装后主动push给Advisor<br/><br/>
+<b class="red">不允许</b>：Advisor自己去轮询（<span class="en">polling</span> <span class="enzh">轮询，反复问"有变化吗？有变化吗？"</span>）Context来发现事件<br/><br/>
+<b>为什么</b>：轮询太慢太浪费。事件是"某个时刻发生的事"，需要触发器在发生的那一瞬间主动push——<b>这就是触发器存在的核心价值</b>。施佳杰原话："事件应该是更有价值的信息，不等同于状态。"
+</div>
+
+<div class="todo">
+<div class="todo-title">📌 第七章留给你的待办</div>
+<b>无需单独行动</b>，但你要把这4条铁律<b>背下来</b>。以后写任何方案、评审任何设计，第一件事就是对照这4条检查。如果有人的设计违反了任何一条，你要能立刻指出来。
+</div>
+
+<!-- ================================================================ -->
+<h2 id="c8">八、VLM（视觉模型）：最复杂的一块</h2>
+<!-- ================================================================ -->
+
+<div class="teach">
+VLM（<span class="en">Vision Language Model</span> <span class="enzh">视觉语言模型</span>）是装在车上AIBox里的"AI眼睛"。每5秒拍一次舱内照片、每3秒拍一次舱外照片，用AI分析画面里有什么人、什么东西、什么动作。<br/><br/>
+
+<b>为什么说VLM是"最复杂的一块"</b>：<br/>
+因为VLM的输出大部分是<b>自由文本</b>（<span class="en">str</span>），不是结构化标签（<span class="en">enum</span> <span class="enzh">枚举</span>）。触发器需要做条件判断（"有人睡着了吗？== yes"），但VLM给你的不是"yes"，是一句话"闭眼休息，身体仅随呼吸轻微起伏"。<br/><br/>
+
+<b class="red">这是你当前最核心的工作：搞清楚VLM到底输出了什么，哪些能直接用，哪些不能用，不能用的怎么办。</b>
+</div>
+
+<h3>8.1 VLM到底输出了什么？（真实数据，不是猜的）</h3>
+
+<div class="teach">
+我直接告诉你VLM<b>真实的</b>输出格式（来自《端状态模型格式梳理》Excel表 + VLM真实JSON样例）。<br/>
+一共有<b>10个字段</b>。其中<b>只有3个是枚举（enum）</b>，其余7个全是自由文本（str）。
+</div>
+
+<table>
+<tr><th>#</th><th style="width:140px">字段名</th><th style="width:85px">类型</th><th>真实输出长什么样</th><th style="width:230px">触发器能怎么用</th></tr>
+<tr>
+<td>1</td><td><b>位置</b></td>
+<td><span class="en">enum</span> <span class="enzh">枚举</span><br/>✅ 可直接判断</td>
+<td>固定6个值：<br/>主驾区域 / 副驾区域 / 中控扶手区域 / 主驾后方区域 / 副驾后方区域 / 后方正中区域</td>
+<td><b class="grn">直接用 == 号判断</b><br/>例如：位置 == "副驾后方区域" → 后排右有人</td>
+</tr>
+<tr>
+<td>2</td><td><b>性别</b></td>
+<td><span class="en">enum</span><br/>✅ 可直接判断</td>
+<td>3个值：男 / 女 / 未知</td>
+<td><b class="grn">直接用 == 号判断</b></td>
+</tr>
+<tr>
+<td>3</td><td><b>年龄</b></td>
+<td><span class="en">enum</span><br/>✅ 可直接判断</td>
+<td>4个值：婴儿 / 儿童 / 青中年 / 老年<br/>有时附带具体年龄：儿童（3-4岁）</td>
+<td><b class="grn">直接用 == 号判断</b><br/>年龄 == "儿童" || "婴儿" → 有小朋友</td>
+</tr>
+
+<tr><td colspan="5" style="background:#2a1a0a;color:#fde68a;font-weight:700;text-align:center">⚠️ 以下7个字段全部是str（自由文本），没法直接用 == 号判断</td></tr>
+
+<tr>
+<td>4</td><td><b>动态<br/>（动作和神态）</b></td>
+<td><span class="en">str</span> <span class="enzh">自由文本</span><br/>❌ 不能直接判断</td>
+<td>VLM自由描述的句子：<br/>
+"闭眼休息，身体仅随呼吸轻微起伏"<br/>
+"左手单手握方向盘，右手握持手机"<br/>
+"频繁扭头回看后排"<br/><br/>
+<b>端状态表备注栏写了"睡觉、打电话"</b>——但目前是str输出，不是标签</td>
+<td><b class="red">需要处理！</b>睡觉有至少5种表述。不能用关键词匹配（"安静休息"不含"睡"字也是睡觉）。<br/><br/>
+解决方案：SFT（<span class="en">Supervised Fine-Tuning</span> <span class="enzh">监督微调训练，用标注数据教AI学新技能</span>）新增标签</td>
+</tr>
+<tr>
+<td>5</td><td><b>造型描述</b></td>
+<td><span class="en">str</span><br/>❌</td>
+<td>"穿白色衬衫+深色薄外套" / "佩戴眼罩"</td>
+<td>用于动态SP查询（"穿白衬衫那个人"）</td>
+</tr>
+<tr>
+<td>6</td><td><b>物品和动物描述</b></td>
+<td><span class="en">str</span><br/>❌</td>
+<td>"灰色小型犬和毛毯"<br/>"有一只猫咪安静卧着"<br/>"安装有空置的儿童安全座椅"</td>
+<td><b class="red">需要处理！</b>小狗/小猫/儿童座椅全藏在自由文本里，没有标签</td>
+</tr>
+<tr>
+<td>7</td><td><b>不安全因素枚举值</b></td>
+<td><span class="en">str?</span><br/>（字段名叫"枚举值"但实际是str）</td>
+<td>"儿童座椅安装位置隐患"</td>
+<td>安全相关，需确认真实类型</td>
+</tr>
+<tr>
+<td>8</td><td><b>不安全因素描述</b></td>
+<td><span class="en">str</span></td>
+<td>"儿童未被安全座椅约束，站立在后排座位上存在磕碰、甩飞风险"</td>
+<td>需语义解析</td>
+</tr>
+<tr>
+<td>9</td><td><b>整体描述</b></td>
+<td><span class="en">str</span></td>
+<td>"舱内仅主驾位有一名28-35岁男性驾驶员"</td>
+<td>辅助验证</td>
+</tr>
+<tr>
+<td>10</td><td><b>动态查询结果</b></td>
+<td><span class="en">str</span><br/>（按需触发）</td>
+<td>"主驾后排宝宝的毯子已滑落"</td>
+<td><b class="red">关键字段！</b>这就是KV槽位——15-18拼了SP之后，VLM把答案写在这个字段里。只有拼了SP才有值，否则是空的。</td>
+</tr>
+</table>
+
+<h3>8.2 四条处理路径：哪种事件走哪条路</h3>
+
+<div class="teach">
+根据VLM输出的类型，触发器处理视觉信号有<b>4条路径</b>：
+</div>
+
+<table>
+<tr><th style="width:80px">路径</th><th style="width:150px">什么信号走这条路</th><th>怎么处理</th><th>具体有哪些事件</th></tr>
+<tr>
+<td><b class="grn">路径A</b><br/><span class="en">enum</span>直接匹配</td>
+<td>VLM输出的3个枚举字段</td>
+<td>直接用 == 号判断，最简单</td>
+<td>有小朋友（年龄==儿童）/ 有老人（年龄==老年）/ 充电桩（有/无）/ 驶出地库（室内→室外）/ 外界环境</td>
+</tr>
+<tr>
+<td><b class="org">路径B</b><br/><span class="en">str</span>需解析<br/><b class="red">（重点！）</b></td>
+<td>VLM输出的str字段，但<b>可以训练成标签的</b></td>
+<td>需要SFT训练新增标签，或挂后处理模型解析。<br/><b>约12条事件走这条路</b>——这就是你要给丁彬的标签需求清单。</td>
+<td><b>睡觉 / 打电话 / 低头玩手机 / 打哈欠 / 哭闹 / 有小狗 / 有小猫 / 有儿童座椅 / 抽烟 / 擤鼻涕 / 手伸出窗外 / 频繁调坐姿</b></td>
+</tr>
+<tr>
+<td><b class="pur">路径C</b><br/>动态SP链路</td>
+<td>开放性需求，<b>没法预设标签的</b></td>
+<td>走15-18 SP拼接引擎→让VLM临时去看</td>
+<td>比OK手势 / 遗留物品 / 毯子掉没掉 / 特定着装的人</td>
+</tr>
+<tr>
+<td><b class="blu">路径D</b><br/>非VLM信号</td>
+<td>根本不需要VLM</td>
+<td>走车辆CAN信号 / DMS（<span class="en">Driver Monitoring System</span> <span class="enzh">驾驶员监测系统</span>）/ 云端VQA</td>
+<td>分心/疲劳（DMS做）/ 沙漠/海滨（VQA做）/ 电量低/充电/导航到达（CAN信号）</td>
+</tr>
+</table>
+
+<h3>8.3 路径B的12条事件逐条分析（你给丁彬的标签需求核心内容）</h3>
+
+<table>
+<tr><th style="width:25px">#</th><th style="width:110px">事件</th><th style="width:130px">目前VLM怎么输出的</th><th style="width:180px">问题在哪</th><th style="width:200px">建议SFT新增什么标签</th><th style="width:130px">穿越条件怎么设</th></tr>
+<tr><td>1</td><td><b>睡觉</b></td><td>str动态字段：<br/>"闭眼休息" / "头向一侧倾斜" / "安静休息" / "似乎睡着" / "轻微鼾声"——至少5种表述</td><td>关键词匹配不靠谱——"安静休息"不含"睡"字也是睡觉</td><td>睡眠状态（<span class="en">sleep_status</span>）<br/><span class="en">enum</span>: sleeping / awake / drowsy <span class="enzh">睡着/清醒/犯困</span></td><td>awake → sleeping<br/>连续3帧（15秒）确认</td></tr>
+<tr><td>2</td><td><b>打电话</b></td><td>"右手握持手机" / "拨打电话" / "通话中"</td><td>同上，表述不固定</td><td>通话状态（<span class="en">call_status</span>）<br/><span class="en">enum</span>: calling / not_calling</td><td>not_calling → calling<br/>连续2帧确认</td></tr>
+<tr><td>3</td><td><b>低头玩手机</b></td><td>"低头看手机" / "偶尔查看手机"——程度不同</td><td>需区分"偶尔看"和"持续低头"</td><td>手机使用（<span class="en">phone_usage</span>）<br/><span class="en">enum</span>: not_using / glancing / focused <span class="enzh">未使用/偶尔看/沉浸</span></td><td>not → focused 连续3帧</td></tr>
+<tr><td>4</td><td><b>有小狗</b></td><td>物品动物描述str：<br/>"灰色小型犬" / "金毛" / "一只小狗"</td><td>"犬"/"狗"/"金毛"都是小狗，没有统一标签</td><td>动物类型（<span class="en">animal_type</span>）<br/><span class="en">enum</span>: dog / cat / other / none</td><td>none → dog</td></tr>
+<tr><td>5</td><td><b>有小猫</b></td><td>"猫咪安静卧着" / "宠物背包里的猫"</td><td>同上</td><td>同上 cat</td><td>none → cat</td></tr>
+<tr><td>6</td><td><b>有儿童座椅</b></td><td>"安装有空置的儿童安全座椅" / "儿童座椅上坐着小朋友"</td><td>信息散落在不同字段（物品描述+乘客动态）</td><td>儿童座椅（<span class="en">child_seat</span>）<br/><span class="en">enum</span>: installed / empty / not_present <span class="enzh">已安装有人坐/已安装空的/没装</span></td><td>not_present → installed</td></tr>
+<tr><td>7</td><td><b>打哈欠</b></td><td>不确定VLM能否识别</td><td>需确认</td><td>如能识别→SFT</td><td>str含"哈欠" F→T</td></tr>
+<tr><td>8</td><td><b>哭闹</b></td><td>不确定——纯视觉不够准（哭闹=视觉+听觉）</td><td>可能需要VLM+音频双验证</td><td>如能识别→SFT</td><td>—</td></tr>
+<tr><td>9</td><td><b>抽烟</b></td><td>不确定VLM能否识别</td><td>需确认</td><td>如能识别→SFT</td><td>—</td></tr>
+<tr><td>10</td><td><b>擤鼻涕/打喷嚏</b></td><td>瞬时动作，需高帧率捕获</td><td>5秒拍一次可能抓不到</td><td>如能识别→SFT</td><td>—</td></tr>
+<tr><td>11</td><td><b>手伸出窗外</b></td><td>可能出现在"动态"或"不安全因素"str里</td><td>安全相关，优先级P0</td><td>建议SFT</td><td>—</td></tr>
+<tr><td>12</td><td><b>频繁调坐姿</b></td><td>可能出现在"动态"str里</td><td>触发舒适Advisor（调座椅）</td><td>建议SFT</td><td>—</td></tr>
+</table>
+
+<h3>8.4 三种标签转化方案（6.30晚会议结论）</h3>
+
+<table>
+<tr><th style="width:130px">方案</th><th>原理（人话）</th><th>优点</th><th>缺点</th><th style="width:100px">负责人</th></tr>
+<tr>
+<td><b>方案1：SFT训练</b><br/>（<span class="en">Supervised Fine-Tuning</span> <span class="enzh">监督微调</span>）</td>
+<td>用标注好的数据教VLM学新技能——让它除了输出str文字之外，还能输出新标签（比如 sleeping=true）</td>
+<td>准确率最高 / 触发器可以直接用==号判断</td>
+<td>训练周期长（几周~几月）/ 可能影响VLM在其他任务上的表现</td>
+<td><span class="tag person">丁彬</span> → 导给方舟训练</td>
+</tr>
+<tr>
+<td><b>方案2：外挂后处理模型</b></td>
+<td>VLM照常输出str，在云端额外挂一个小模型（<span class="en">light model</span> <span class="enzh">轻量模型</span>），专门把str翻译成标签</td>
+<td>不改VLM模型本身 / 灵活 / 快</td>
+<td>多一步处理 / 精度取决于小模型质量</td>
+<td>嘉锋提出，归属待定</td>
+</tr>
+<tr>
+<td><b>方案3：str关键词匹配</b></td>
+<td>触发器自己从str里找关键词（含"睡"→sleeping）</td>
+<td>最简单</td>
+<td><b class="red">不靠谱！</b>"安静休息"不含"睡"字但也是睡觉</td>
+<td>你自己做（临时方案）</td>
+</tr>
+</table>
+
+<div class="todo">
+<div class="todo-title">📌 第八章留给你的待办（最重要！2条）</div>
+
+<table>
+<tr><th style="width:35px">#</th><th style="width:180px">做什么</th><th>为什么要做</th><th>怎么做（一步一步）</th><th>给谁</th><th>给什么</th><th>他拿到后做什么</th></tr>
+<tr>
+<td><b class="red">1</b></td>
+<td><b>整理VLM标签需求清单</b><br/>（P0最高优先！）</td>
+<td>路径B的12条事件目前全是str自由文本，触发器没法直接判断。你需要告诉丁彬"我需要哪些新标签"，他才能安排SFT训练或其他方案。<b>这个清单不给，12条视觉事件就全卡着做不了。</b></td>
+<td>
+<div class="step">
+<b>Step 1</b>：打开飞书，新建在线表格<br/>
+<b>Step 2</b>：表头设这几列：<br/>
+事件名 / 当前VLM输出字段 / 当前类型（str/enum）/ 当前真实输出示例 / 建议新增标签名（英文+中文） / 建议值域 / 穿越条件怎么设 / 优先级（高/中/低）/ 备注<br/>
+<b>Step 3</b>：把上面8.3表格的12行数据填进去<br/>
+<b>Step 4</b>：在表格最后加一段总结："VLM目前只有3个enum（位置/性别/年龄），路径B的12条事件全是str。关键词匹配不靠谱（同一个'睡觉'有5种表述）。建议优先SFT前4个（睡觉/打电话/有小狗/有小猫），其余看排期。"<br/>
+<b>Step 5</b>：飞书@丁彬+西钺，附消息："丁彬/七月，这是触发器侧需要的VLM标签需求。VLM目前只有3个enum能直接用，其余12条全在str里，你们看哪些值得SFT？另外端状态表'动态'字段备注写了'睡觉、打电话'——这是已经在计划SFT了还是只是标注？"
+</div>
+</td>
+<td><span class="tag person">丁彬</span> + <span class="tag person">西钺</span></td>
+<td>飞书在线表格：《触发器VLM标签需求清单》</td>
+<td><b>丁彬</b>看完表格后会做3件事：<br/>
+①确认哪些值得SFT（他会综合考虑训练成本和收益）<br/>
+②给出SFT排期（预计几周后出新标签）<br/>
+③不适合SFT的，讨论用方案2还是方案3过渡<br/><br/>
+你拿到他的反馈后，就知道了每条事件的时间线——哪些S8能做、哪些要等S9。</td>
+</tr>
+<tr>
+<td><b class="red">2</b></td>
+<td><b>确认端状态表备注的含义</b></td>
+<td>端状态表的"动态"字段备注栏写了"睡觉、打电话"。你不确定这是什么意思——是"已经计划SFT会新增标签"？还是"只是标注这个str里可能出现这些内容"？如果是前者，说明丁彬团队已经在做了，你不需要重复提需求。如果是后者，你需要推他。</td>
+<td>
+<div class="step">
+飞书问丁彬：<br/>
+"丁彬，有个问题确认一下。端状态表里'动态（动作和神态）'字段的备注栏写了'睡觉、打电话'。这是什么意思？<br/>
+A：已经计划了SFT，以后会新增sleep_status/call_status这种标签？<br/>
+B：只是标注'这个str字段里可能出现睡觉、打电话的描述'？<br/>
+如果是A，大概什么时候能出？触发器侧想尽快接入。"
+</div>
+</td>
+<td><span class="tag person">丁彬</span></td>
+<td>一条飞书消息</td>
+<td><b>丁彬</b>回答A或B。<br/>
+如果是A→你知道排期，可以规划触发器侧的接入时间<br/>
+如果是B→说明还没人推SFT，你的标签需求清单就是推动力</td>
+</tr>
+</table>
+</div>
+
+<!-- ================================================================ -->
+<h2 id="c9">九、Advisor（顾问）系统：触发器的"客户"</h2>
+<!-- ================================================================ -->
+
+<div class="teach">
+<span class="en">Advisor</span> <span class="enzh">顾问</span> = 触发器的"客户"。触发器检测到事件后，推送（<span class="en">push</span>）给Advisor，Advisor决定怎么回应用户。<br/><br/>
+Advisor分两种：<b>静态的</b>（永远在岗，4个）和 <b>动态的</b>（临时的，用完就销毁）。
+</div>
+
+<h3>9.1 静态Advisor × 4（永久在岗）</h3>
+
+<table>
+<tr><th style="width:110px">Advisor</th><th>管什么（人话）</th><th>触发器推给它什么事件举例</th></tr>
+<tr><td><b>舒适Advisor</b></td><td>温度 / 灯光 / 座椅 / 音量 / 车窗 / 空调 / 氛围灯</td><td>有人睡着了→调灯光音量 / 有人擤鼻涕→调空调 / 有人抽烟→开窗缝</td></tr>
+<tr><td><b>出行Advisor</b></td><td>导航 / 充电 / 路况 / 停车</td><td>接近目的地→准备停车 / 电量低→提醒充电 / 拥堵→建议绕行</td></tr>
+<tr><td><b>情感Advisor</b></td><td>打招呼 / 道别 / 安慰 / 互动</td><td>上车→打招呼 / 对豆包比心→互动 / 车辆故障→安抚情绪</td></tr>
+<tr><td><b>内容Advisor</b></td><td>音乐 / 播客 / 短视频 / 搜索</td><td>堵车→推趣味内容 / 连续切歌→换内容风格</td></tr>
+</table>
+
+<div class="teach">
+<b>静态Advisor的关键特性</b>：<br/>
+· <b>纯被动</b>——自己不主动扫描，等⑮触发器push事件过来才响应<br/>
+· 读Context取当前车况状态（6.30确认：是<b>固定拼接</b>方式，不是Advisor主动查询。推理的时候自动带上Context里的信息）<br/>
+· 不做条件判断——条件判断全归触发器
+</div>
+
+<h3>9.2 动态Advisor × N（临时任务）</h3>
+
+<div class="teach">
+用户说了一个具体需求（"宝宝毯子掉了告诉我"）→ Director创建一个动态Advisor → 任务完成后自动销毁。<br/><br/>
+<b>4类任务和数量上限</b>：
+</div>
+
+<table>
+<tr><th style="width:150px">任务类型</th><th style="width:80px">最多几个</th><th>举例</th></tr>
+<tr><td>长时任务</td><td>最多2个</td><td>"盯着宝宝毯子" / "监控后排儿童安全"</td></tr>
+<tr><td>持续GUI任务<br/>（<span class="en">GUI</span> <span class="enzh">图形界面</span>）</td><td>最多1个</td><td>需要在屏幕上持续显示界面的任务</td></tr>
+<tr><td>条件订阅任务</td><td>最多6个</td><td>"超25度开空调" / "下雨了关窗"</td></tr>
+<tr><td>定时任务</td><td>最多6个</td><td>"10分钟后关座椅加热" / "每天8点播天气"</td></tr>
+</table>
+
+<div class="teach">
+<b>6.30确认的动态Advisor行为规范</b>（和触发器直接相关）：<br/><br/>
+① 创建前<b>先查Context</b>——Context里已经有相关信息了就不重复下发<br/>
+② 给⑮的是"<b>人话需求</b>"（"毯子掉没掉"），<b>不是SP</b>——SP拼接是触发器的活<br/>
+③ SP的拼接/管理/删除<b>全归触发器⑮</b><br/>
+④ 任务结束→通知⑮清理SP→还原AlwaysOn<br/>
+⑤ <b>不做条件判断</b>——条件判断全归触发器
+</div>
+
+<h3>9.3 事件类型定义（施佳杰 6.30定义）</h3>
+
+<table>
+<tr><th style="width:140px">事件类型</th><th>含义（人话）</th><th>举例</th></tr>
+<tr><td><b>非持续性</b><br/>（<span class="en">one-shot</span> <span class="enzh">一次性</span>）</td><td>发一次，消费一次。不需要监测"结束"。就像门铃响了一下。</td><td>比OK手势 / 打哈欠 / 打喷嚏</td></tr>
+<tr><td><b>持续性</b><br/>（<span class="en">start + end</span> <span class="enzh">有开始和结束</span>）</td><td>有"开始"和"结束"两个时间点。就像电话——接通（开始）和挂断（结束）。</td><td>开始睡觉→结束睡觉 / 开始打电话→结束打电话</td></tr>
+<tr><td><b>持续返回状态</b></td><td>每帧都汇报当前值，不分开始/结束。就像温度计——一直在显示当前温度。</td><td>"{位置}存在小狗"——每5秒都报一次"有"或"无"</td></tr>
+<tr><td><b>出现/移除（变更）</b></td><td>状态从"无"变成"有"（出现）或从"有"变成"无"（移除）。就是穿越。</td><td>出现小朋友=无→有 / 移除小朋友=有→无</td></tr>
+</table>
+
+<div class="todo">
+<div class="todo-title">📌 第九章留给你的待办（1条）</div>
+
+<table>
+<tr><th style="width:35px">#</th><th style="width:180px">做什么</th><th>为什么</th><th>怎么做</th><th>给谁</th><th>给什么</th><th>他拿到后做什么</th></tr>
+<tr>
+<td>1</td>
+<td><b>和西钺+施佳杰定义 Advisor↔触发器 的接口</b></td>
+<td>Advisor和触发器之间要来回传数据（Advisor发需求→触发器处理→触发器push事件回Advisor→Advisor通知触发器清理SP），但这些接口的<b>具体格式还没定</b>——传什么字段？什么格式？错误怎么处理？不定的话两边没法开发。</td>
+<td>
+<div class="step">
+<b>Step 1</b>：飞书约西钺+施佳杰30分钟小会<br/>
+消息："西钺/施佳杰，我需要跟你们定4个接口的格式：<br/>
+A) Advisor给触发器发人话需求（L34）怎么传？JSON字段有哪些？<br/>
+B) 触发器push事件给Advisor（L17/L18）格式是什么？<br/>
+C) 任务结束Advisor怎么通知触发器删SP？<br/>
+D) 枚举类信号的订阅/查询走什么协议？<br/>
+会上一起定，定完我出文档你们确认。约周三（7/8）可以吗？"
+</div>
+<div class="step">
+<b>Step 2</b>：会上一起定每个接口的字段、格式、示例。你记录。
+</div>
+<div class="step">
+<b>Step 3</b>：会后你出一份飞书文档《Advisor↔触发器接口协议》，发给他们确认，然后发给刘杨做工程实现。
+</div>
+</td>
+<td><span class="tag person">西钺</span> + <span class="tag person">施佳杰</span></td>
+<td>飞书文档：《Advisor↔触发器接口协议》（4个接口的完整定义）</td>
+<td><b>西钺</b>：按照协议实现Advisor侧的接口<br/>
+<b>施佳杰</b>：确认事件类型和任务中心的字段<br/>
+<b>刘杨</b>：按照协议实现触发器侧的接口</td>
+</tr>
+</table>
+</div>
+
+<!-- ================================================================ -->
+<h2 id="c10">十、四条数据链路</h2>
+<!-- ================================================================ -->
+
+<div class="teach">
+整个系统的数据从进来到出去，有4条主要路径。每条标一个颜色。你可以把每条路径想象成一条"高速公路"——从起点到终点，中间经过哪些"收费站"（模块）。
+</div>
+
+<div class="card" style="border-left:4px solid #3b82f6">
+<b class="blu" style="font-size:15px">🔵 蓝色链路：车控快速通道</b><br/>
+<b>场景</b>：用户说"打开车窗"——简单明确的车控指令<br/>
+<b>走法</b>：① 用户说话 → ② ASR转文字 → ⑨ 仲裁判"蓝路" → ⑤ 离线FC白名单匹配 → ⑥ 命中 → ⑦ 直接执行 → ⑧ 反馈卡片<br/>
+<b>特点</b>：全程不上云，毫秒级响应。<b>不经过触发器。</b>
+</div>
+
+<div class="card" style="border-left:4px solid #10b981">
+<b class="grn" style="font-size:15px">🟢 绿色链路：对话/查询通道</b><br/>
+<b>场景</b>：用户说"我好无聊" / "帮我搜好吃的"——需要AI推理<br/>
+<b>走法</b>：① → ② → ⑨ 仲裁判"绿路" → ⑲ Director汇入 → ⑳ 推理 → 调工具/TTS播报/车控执行<br/>
+<b>特点</b>：工具反馈会循环回⑲（最多4轮），直到Director判断可以回复。<b>不经过触发器。</b>
+</div>
+
+<div class="card" style="border-left:4px solid #f59e0b">
+<b class="org" style="font-size:15px">🟠 橙色链路：条件/定时任务</b><br/>
+<b>场景</b>：用户说"超25度开空调" / "10分钟后关座椅加热"——设条件<br/>
+<b>注册阶段</b>：⑨仲裁→⑩意图解析→⑬配置平台注册→⑮引擎入库<br/>
+或：⑳Director推理后→L33注册到⑮<br/>
+<b>触发阶段</b>：⑮扫描信号→条件判定→防抖→频控→仲裁→分类→push Advisor/Director 或 下发端侧㉔执行<br/>
+<b>特点</b>：<b>经过触发器</b>——这是触发器参与的第一种链路。
+</div>
+
+<div class="card" style="border-left:4px solid #a855f7">
+<b class="pur" style="font-size:15px">🟣 紫色链路：主动服务（用户没说话！）</b><br/>
+<b>场景</b>：用户没说话，但车上信号变了（有人睡着了/温度升高了/检测到充电桩了）<br/>
+<b>走法</b>：③ 信号源产生数据 → ④ 端信号库 → L9同步云端 → ⑫ 云信号库 → ⑮ 扫描→穿越检测（F→T!）→ 组装事件push → ⑯/⑰ Advisor → ⑲ Director推理 → 回复用户<br/>
+<b>特点</b>：<b class="pur">这就是触发器存在的核心价值</b>——没有用户发起，完全由信号驱动。让系统从"被动应答"变成"主动服务"。
+</div>
+
+<!-- ================================================================ -->
+<h2 id="c11">十一、SP生命周期：8步完整走通</h2>
+<!-- ================================================================ -->
+
+<div class="teach">
+这是6.30会议定下的<b>动态视觉链路的完整流程</b>。以"毯子掉了告诉我"为例，从用户说话到系统回复，中间的每一步。<br/><br/>
+这个流程涉及 ⑰动态Advisor → ⑮触发器 → VLM → ④信号库 → ⑮穿越检测 → 回Advisor → Director回复用户。是最复杂的一条链路。
+</div>
+
+<table>
+<tr><th style="width:60px">步骤</th><th style="width:100px">谁干的</th><th>做什么</th><th>为什么这样做</th></tr>
+<tr><td><b class="pur">Step 1</b></td><td>⑰动态Advisor</td><td>Director创建了一个动态Advisor："监控宝宝毯子"。Advisor<b>先查㉑Context</b>：已经有毯子信息了吗？<br/>有→直接判断 / 没有→执行Step 2</td><td>避免重复工作——Context里有就不需要再找VLM</td></tr>
+<tr><td><b class="pur">Step 2</b></td><td>⑰→⑮</td><td>Advisor给⑮发<b>"毯子掉没掉"</b>（人话需求，不是SP）</td><td>铁律①：必须经⑮中转。Advisor不直接找VLM。</td></tr>
+<tr><td><b class="org">Step 3</b></td><td>⑮ 15-16</td><td>枚举/描述分流："毯子"不在3个enum里→描述类</td><td>enum能直接==判断就不走重的SP链路</td></tr>
+<tr><td><b class="org">Step 4</b></td><td>⑮ 15-17</td><td>调提槽工具：毯子→舱内→走端侧VLM</td><td>舱内图片不能上云（合规），只能端侧VLM看</td></tr>
+<tr><td><b class="red">Step 5</b></td><td>⑮ 15-18</td><td>SP拼接："毯子掉没掉"→翻译成VLM SP："额外观察：后排宝宝毯子是盖好还是掉了？"→追加到AlwaysOn SP后→分配KV槽位→通过L14下发给㉔→转给VLM</td><td>VLM只认SP指令，不认人话。必须翻译。</td></tr>
+<tr><td><b class="grn">Step 6</b></td><td>㉕ VLM</td><td>VLM按新SP推理→看到毯子在地上→输出：<code>动态查询结果: "后排宝宝的毯子已滑落"</code>→写入④→同步⑫</td><td>铁律②：结果只写信号库，不直推Advisor</td></tr>
+<tr><td><b class="red">Step 7</b></td><td>⑮ 15-10</td><td>穿越检测：上一帧"动态查询结果"是空的→当前帧有值了→<b>F→T穿越！</b>→push回⑰</td><td>穿越确保只触发一次，不会反复提醒</td></tr>
+<tr><td><b class="pur">Step 8</b></td><td>⑰→⑲→用户<br/>⑰→⑮清理</td><td>Advisor判断满足条件→通知Director→Director说"宝宝毯子掉了哦~"→同时通知⑮清SP→AlwaysOn还原→Advisor自动销毁</td><td>清理很重要——不清就一直占VLM的SP槽位（最多3个）</td></tr>
+</table>
+
+<!-- ================================================================ -->
+<h2 id="c12">十二、6个真实Case</h2>
+<!-- ================================================================ -->
+
+<div class="card">
+<div class="card-title"><b class="org">Case 1：定时器 —— "10分钟后关座椅加热"</b></div>
+<b>走法</b>：用户说话→⑨仲裁判"橙路"→⑩解析{条件:10min后, 动作:关座椅加热}→⑬注册→⑮入库→15-9分类=端侧（定时器必须端侧跑）→L14下发→㉔接收→24-5启动倒计时→10分钟后到期→24-12'白名单直执关座椅加热→24-11结果回写④→同步⑫→⑮确认→Director回复"已关闭座椅加热"<br/><br/>
+<b class="red">关键</b>：定时器在端侧。进隧道断网了，10分钟到了照样执行。这就是24-5不可替代的原因。
+</div>
+
+<div class="card">
+<div class="card-title"><b class="org">Case 2：双条件AND —— "倒档+检测到充电桩→开充电口盖"</b></div>
+<b>走法</b>：产品预设场景{条件:档位==R AND 充电桩==有}→用户挂R档→⑮检测到档位==R→先查便宜条件（读信号库）→满足→再启动VLM去看充电桩（贵操作）→VLM看到充电桩→回写信号库→⑮判定两个条件都满足→触发→Director开充电口盖<br/><br/>
+<b class="red">关键</b>：先查便宜的再查贵的。不满足便宜条件就不浪费VLM算力。
+</div>
+
+<div class="card">
+<div class="card-title"><b class="pur">Case 3：AlwaysOn + 静态Advisor —— "有人打电话→调小音量"</b></div>
+<b>走法</b>：VLM每5秒输出一次→动态str含"握持手机"→写入④→同步⑫→⑮穿越检测（上一帧不含"手机"→当前帧含→F→T!）→15-6防抖（连续3帧15秒确认）→15-11 push给⑯舒适Advisor→Advisor建议调小音量→Director执行<br/><br/>
+<b class="red">关键</b>："看手机"目前不是enum标签，是str。穿越靠关键词匹配，SFT后才能用==号判断。
+</div>
+
+<div class="card">
+<div class="card-title"><b class="org">Case 4：导航POI —— "快到外婆家时提醒我买水果"</b></div>
+<b>走法</b>：用户说话→Director解析→出卡片让用户选"外婆家"具体哪个→拿到坐标→L33注册到⑮→⑮注册围栏（500m半径）→车进入围栏→信号变化approaching→⑮穿越→Director说"记得买水果哦~"<br/><br/>
+<b class="red">关键</b>：6.25决定优先端侧围栏（合规+实时性）。用围栏状态（in/out），不用距离计算。
+</div>
+
+<div class="card">
+<div class="card-title"><b class="pur">Case 5：动态SP —— "宝宝毯子掉了告诉我"</b></div>
+参见第十一章《SP生命周期8步》——完整走了一遍SP拼接→VLM推理→穿越→push→清理→销毁的全流程。
+</div>
+
+<div class="card">
+<div class="card-title"><b class="grn">Case 6：即时VQA —— "前面有没有加油站"</b></div>
+<b>走法</b>：Director直接调VQA工具→VQA内部路由：加油站=LBS（地图数据）→查地图→返回"前方500米有中石化"→Director回复用户<br/><br/>
+<b class="red">关键</b>：这个case<b>不经过触发器</b>！即时查询走Director绿色链路，不是条件触发。触发器只处理"条件触发"（持续监听+穿越），不处理"即时查询"。
+</div>
+
+<!-- ================================================================ -->
+<h2 id="c13">十三、你的完整行动清单</h2>
+<!-- ================================================================ -->
+
+<div class="teach">
+前面每一章都有零散的待办。这里汇总成一张完整的表，按时间排序，让你知道<b>每天该做什么</b>。
+</div>
+
+<table>
+<tr><th style="width:70px">时间</th><th style="width:35px">P</th><th style="width:170px">做什么</th><th>为什么（不做会怎样）</th><th>怎么做（第一步）</th><th style="width:70px">给谁</th><th>他拿到后做什么</th></tr>
+
+<tr><td colspan="7" style="background:#1a2a0a;color:#5eecc0;font-weight:700">今天（7/1 周二）—— 5分钟飞书消息</td></tr>
+<tr>
+<td>7/1</td><td><b class="red">P0</b></td>
+<td>问丁彬：端状态表备注"睡觉、打电话"是什么意思</td>
+<td>如果丁彬已经在做SFT，你就不需要重复推。如果没在做，你的标签清单就是推动力。</td>
+<td>飞书发消息（第八章的话术直接复制）</td>
+<td><span class="tag person">丁彬</span></td>
+<td>回答A或B</td>
+</tr>
+<tr>
+<td>7/1</td><td><b class="red">P0</b></td>
+<td>问兰若：VLM能识别打哈欠/抽烟吗？年龄"儿童"分割线是几岁到几岁？</td>
+<td>标签清单里有4条事件你不确定VLM能不能识别（打哈欠/哭闹/抽烟/擤鼻涕）。不确认就不知道该不该放进SFT需求。</td>
+<td>飞书问兰若："兰若，VLM目前能识别'打哈欠'和'抽烟'这两个动作吗？str输出里会出现相关描述吗？另外年龄enum的'儿童'分割线是几岁到几岁？"</td>
+<td><span class="tag person">兰若</span></td>
+<td>回答能/不能 + 年龄分割</td>
+</tr>
+
+<tr><td colspan="7" style="background:#1a2a0a;color:#5eecc0;font-weight:700">7/2（周三）—— 30分钟整理表格</td></tr>
+<tr>
+<td>7/2</td><td><b class="red">P0</b></td>
+<td><b>整理VLM标签需求清单</b>（飞书表格）</td>
+<td><b>这个不做，路径B的12条视觉事件全卡着。</b>丁彬没有需求清单就不会安排SFT。</td>
+<td>新建飞书表格→填8.3表格的12行→@丁彬+西钺（话术见第八章）</td>
+<td><span class="tag person">丁彬</span> <span class="tag person">西钺</span></td>
+<td>丁彬：评估哪些做SFT+排期<br/>西钺：确认提槽工具配合</td>
+</tr>
+
+<tr><td colspan="7" style="background:#1a2a0a;color:#5eecc0;font-weight:700">7/8（下周三）—— 30分钟小会</td></tr>
+<tr>
+<td>7/8</td><td><b class="org">P1</b></td>
+<td><b>约西钺+施佳杰定4个接口</b></td>
+<td>Advisor↔触发器的接口格式不定，两边没法开发。</td>
+<td>飞书约会（话术见第九章）→会上定格式→会后出文档</td>
+<td><span class="tag person">西钺</span> <span class="tag person">施佳杰</span></td>
+<td>确认接口格式→刘杨按格式开发</td>
+</tr>
+<tr>
+<td>7/8</td><td><b class="org">P1</b></td>
+<td><b>问西钺拿提槽工具接口信息</b></td>
+<td>15-17需要调提槽工具。不知道怎么调就没法写SP拼接方案。</td>
+<td>可以在上面的小会上一起问（话术见第四章）</td>
+<td><span class="tag person">西钺</span></td>
+<td>给你接口文档或口头确认</td>
+</tr>
+
+<tr><td colspan="7" style="background:#1a2a0a;color:#5eecc0;font-weight:700">7/10（下周五）—— 半天写方案</td></tr>
+<tr>
+<td>7/10</td><td><b class="org">P1</b></td>
+<td><b>写SP拼接引擎方案</b></td>
+<td>15-18是6.30定的新模块，刘杨要按你的方案写代码。没方案他没法动手。</td>
+<td>先问丁彬3个问题（话术见第四章）→拿到回答→写飞书文档→发丁彬+刘杨评审</td>
+<td><span class="tag person">丁彬</span>评审 <span class="tag person">刘杨</span>开发</td>
+<td>丁彬确认方案和VLM对齐→刘杨写代码</td>
+</tr>
+
+<tr><td colspan="7" style="background:#1a2a0a;color:#5eecc0;font-weight:700">7/15（Sprint截止）—— 收尾</td></tr>
+<tr>
+<td>7/15</td><td><b class="blu">P2</b></td>
+<td>问兰若要VLM抖动数据</td>
+<td>15-6防抖参数（连续N帧一致）需要根据真实数据设。瞎设→不是太松（误触发）就是太紧（漏检测）。</td>
+<td>飞书问兰若（话术见第四章）</td>
+<td><span class="tag person">兰若</span></td>
+<td>给你抖动概率→你设防抖参数</td>
+</tr>
+<tr>
+<td>7/15</td><td><b class="blu">P2</b></td>
+<td>整理配置平台4点改造需求</td>
+<td>4个待改造点不改→运营没法在后台配VLM条件/不支持关键运算符/不能端直执/不能指定端云。</td>
+<td>写飞书文档（内容见第六章）→发刘杨评估工时</td>
+<td><span class="tag person">刘杨</span></td>
+<td>评估工时→排入Sprint</td>
+</tr>
+</table>
+
+<h3>需要产出的4份文档汇总</h3>
+
+<table>
+<tr><th style="width:35px">#</th><th style="width:200px">文档名</th><th>核心内容</th><th>给谁</th><th style="width:65px">Deadline</th></tr>
+<tr><td><b class="red">A</b></td><td>触发器VLM标签需求清单</td><td>路径B的12条事件：当前类型→建议SFT什么标签→值域→穿越条件</td><td>丁彬+西钺</td><td>7/2</td></tr>
+<tr><td><b class="org">B</b></td><td>SP拼接引擎产品方案</td><td>SP格式/KV槽位/生命周期/多任务合并/下发协议</td><td>丁彬评审+刘杨开发</td><td>7/10</td></tr>
+<tr><td><b class="org">C</b></td><td>Advisor↔触发器接口协议</td><td>4个接口：人话需求(L34)/push事件(L17/L18)/清理通知/枚举订阅</td><td>西钺+施佳杰确认+刘杨开发</td><td>7/8</td></tr>
+<tr><td><b class="blu">D</b></td><td>配置平台4点改造需求</td><td>VLM 7字段/运算符/端直执白名单/端云分类</td><td>刘杨评估工时</td><td>7/15</td></tr>
+</table>
+
+<!-- ================================================================ -->
+<h2 id="c14">十四、风险清单</h2>
+<!-- ================================================================ -->
+
+<table>
+<tr><th style="width:35px">#</th><th style="width:100px">风险</th><th>会出什么问题（人话）</th><th style="width:80px">影响多大</th><th style="width:160px">你能做什么</th></tr>
+<tr><td class="red">R1</td><td>VLM抖动</td><td>VLM前一帧说"有小狗"后一帧说"没有"——误触发。兰若原话："但凡出现一次错误，触发器就会有问题。"</td><td><b class="red">高</b></td><td>问兰若要抖动数据→设合理的防抖帧数</td></tr>
+<tr><td class="red">R2</td><td>str解析不靠谱</td><td>路径B的12条事件如果不做SFT，只能str关键词匹配。"安静休息"不含"睡"字→漏检。</td><td><b class="red">高</b></td><td>尽快推标签清单给丁彬→推SFT排期</td></tr>
+<tr><td class="org">R3</td><td>动态查询结果并发</td><td>端状态表只有1个"动态查询结果"字段。3个SP任务同时跑→3个答案怎么区分？会混在一起吗？</td><td><b class="org">中</b></td><td>问丁彬KV槽位机制→写进SP拼接方案</td></tr>
+<tr><td class="org">R4</td><td>SP长度上限</td><td>多个SP同时追加→总SP变长。VLM有长度限制吗？超了→推理质量下降或直接失败</td><td><b class="org">中</b></td><td>问丁彬/兰若SP长度限制</td></tr>
+<tr><td class="org">R5</td><td>提槽工具上线时间</td><td>西钺说"随时可以拿出来"但没定具体时间。提槽不上线→路径C全卡（动态SP链路走不通）</td><td><b class="org">中</b></td><td>7/8会上确认排期</td></tr>
+<tr><td class="blu">R6</td><td>后处理模型归属</td><td>嘉锋提了方案2（外挂后处理模型做str→标签），但归谁管、放哪里没定</td><td><b>低</b></td><td>等丁彬回复标签清单时一起讨论</td></tr>
+<tr><td class="blu">R7</td><td>围栏SDK能力</td><td>高德SDK的Auto版围栏部分下架（750版本）。端侧围栏能力不确定</td><td><b>低</b></td><td>等丽萍/俊龙调研结果</td></tr>
+</table>
+
+<!-- ================================================================ -->
+<h2 id="c15">十五、人员地图</h2>
+<!-- ================================================================ -->
+
+<div class="teach">
+你什么时候找谁，为什么找他，怎么找他。
+</div>
+
+<table>
+<tr><th style="width:90px">人</th><th style="width:130px">角色</th><th>他管什么</th><th>你什么时候找他</th><th>怎么找（话术）</th></tr>
+<tr><td><span class="tag person">丁彬</span></td><td>AIBox/VLM负责人</td><td>VLM模型/AlwaysOn/优先级/SFT训练</td><td>① 你要新增标签（标签清单→他评估SFT）<br/>② SP格式确认<br/>③ 端状态表备注"睡觉/打电话"含义</td><td>"丁彬，触发器侧需要你帮忙看个事…"</td></tr>
+<tr><td><span class="tag person">西钺（七月）</span></td><td>端侧VLM实现</td><td>AIBox舱内模型/提槽工具/VQA路由/Context拼接</td><td>① 提槽工具接口<br/>② VQA路由规则<br/>③ Context固定拼接机制</td><td>"七月/西钺，有个接口问题…"</td></tr>
+<tr><td><span class="tag person">张兰若</span></td><td>VLM SP/Prompt</td><td>VLM SP质量/格式/输出稳定性</td><td>① VLM抖动数据<br/>② SP拼接格式细节<br/>③ 年龄enum分割线</td><td>"兰若，VLM稳定性有个数据想问你…"</td></tr>
+<tr><td><span class="tag person">施佳杰</span></td><td>动态Advisor负责人</td><td>动态Advisor/事件类型/任务中心</td><td>① 事件类型定义（one-shot/持续/变更）<br/>② Advisor↔触发器接口<br/>③ 任务中心端云同步</td><td>"施佳杰，Advisor和触发器接口想跟你对一下…"</td></tr>
+<tr><td><span class="tag person">仁杰</span></td><td>端状态/Context/信号库</td><td>④信号库/㉑Context/信号格式/端云同步</td><td>① 信号格式/单位确认<br/>② Context固定拼接机制<br/>③ 端云同步协议</td><td>"仁杰，信号格式有个事确认一下…"</td></tr>
+<tr><td><span class="tag person">刘杨</span></td><td>触发器工程开发</td><td>⑮/㉔工程实现</td><td>你写方案→他写代码。对接排期和技术细节。</td><td>"刘杨，这个方案你看下工时…"</td></tr>
+<tr><td><span class="tag person">赵益红</span></td><td>静态Advisor</td><td>4个静态Advisor（舒适/出行/情感/内容）</td><td>Advisor订阅的事件清单/action参数格式</td><td>"益红，静态Advisor那边的需求…"</td></tr>
+<tr><td><span class="tag person">嘉锋</span></td><td>上级决策</td><td>架构方向/跨团队协调</td><td>方向性问题/优先级冲突/跨团队协调</td><td>"嘉锋，有个方向想跟你对齐…"</td></tr>
+<tr><td><span class="tag person">丽萍/俊龙</span></td><td>地图/导航</td><td>导航SDK/围栏能力</td><td>POI围栏技术方案</td><td>"丽萍，围栏能力想确认一下…"</td></tr>
+</table>
+
+<hr/>
+
+<div class="box" style="border-left:4px solid #f59e0b">
+<b class="org" style="font-size:16px">总结：你现在的全景</b><br/><br/>
+<b>你负责的核心</b> = ⑮云端触发器引擎（18个子模块）+ ㉔端侧触发器引擎（9个子模块）+ ⑬配置平台<br/><br/>
+<b>最紧急的事</b> = 给丁彬VLM标签需求清单（路径B的12条事件全卡着）<br/><br/>
+<b>最重要的方案</b> = SP拼接引擎（15-18）的产品方案（刘杨等着你的方案写代码）<br/><br/>
+<b>最需要对齐的接口</b> = Advisor↔触发器的4个接口（两边没法开发）<br/><br/>
+<b>4份文档要产出</b>：标签清单(7/2) → 接口协议(7/8) → SP拼接方案(7/10) → 配置平台改造(7/15)
+</div>
+
+<div class="box" style="border-left:4px solid #f472b6">
+<b style="color:#f472b6">v6 · 文档信息</b><br/>
+定位：从零开始讲清楚整个端云触发器系统 + 每一块留给你的具体行动<br/>
+覆盖：⑮18子模块 / ㉔9子模块 / ⑬8原子 / 6类信号 / 4铁律 / 4链路 / VLM真实输出 / 4路径 / 12条路径B事件 / Advisor系统 / SP生命周期8步 / 6个Case / 7条行动 / 7条风险 / 人员地图<br/>
+所有英文术语均标注中文解释
+</div>
+
+</body></html>

@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>VLM 全链路 · 需求评审</title>
+<style>
+:root{--bg:#f7f9fc;--card:#fff;--text:#2c3e50;--border:#eaeaea;--accent:#3498db;--max:960px}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;color:var(--text);line-height:1.75;font-size:15px}
+.container{max-width:var(--max);margin:36px auto;padding:34px 42px;background:var(--card);border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.05)}
+@media(max-width:768px){.container{margin:0;border-radius:0;padding:16px}}
+h1{font-size:1.85rem;text-align:center;border-bottom:2px solid var(--border);padding-bottom:14px;margin-top:0}
+h2{font-size:1.36rem;margin-top:2.3em;padding:10px 14px;border-radius:8px;border-left:4px solid var(--accent);background:#f0f7ff;color:#1a202c}
+h3{font-size:1.12rem;margin-top:1.5em;color:#1e40af}
+h4.case-hd{padding:6px 10px;background:#f1f5f9;border-radius:6px;border-left:3px solid #475569;font-size:1rem}
+p{margin-bottom:.9em;text-align:justify}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:.88rem}
+th,td{border:1px solid var(--border);padding:9px 11px;text-align:left;vertical-align:top}
+th{background:#f8f9fa;font-weight:600;color:#1a202c}
+tr:nth-child(even){background:#fafbfc}
+ol,ul{margin:8px 0 8px 20px;line-height:1.8}
+code{background:#f1f5f9;padding:1px 5px;border-radius:3px;font-size:.85rem;font-family:"SF Mono",Menlo,Consolas,monospace}
+.q{color:#6b7280;font-style:italic;font-size:.92em;border-left:3px solid #cbd5e1;padding-left:10px;margin:6px 0}
+.note{padding:10px 14px;border-radius:6px;margin:12px 0;font-size:.92rem}
+.note-red{background:#fee2e2;border-left:3px solid #dc2626}
+.note-green{background:#dcfce7;border-left:3px solid #16a34a}
+.note-blue{background:#dbeafe;border-left:3px solid #2563eb}
+.note-purple{background:#f3e8ff;border-left:3px solid #7c3aed}
+.note-yellow{background:#fef3c7;border-left:3px solid #d97706}
+.note-cyan{background:#ecfeff;border-left:3px solid #0e7490}
+.tag{display:inline-block;padding:1px 7px;border-radius:4px;font-size:11px;font-weight:700}
+.t-ok{background:#dcfce7;color:#15803d}.t-q{background:#fef3c7;color:#a16207}.t-x{background:#fee2e2;color:#dc2626}
+.tag-p0{color:#dc2626;font-weight:700}.tag-p1{color:#a16207;font-weight:700}
+.flow{display:flex;flex-wrap:wrap;align-items:stretch;gap:6px;margin:14px 0;padding:14px;background:#fafbfc;border:1px solid #eaeaea;border-radius:8px}
+.fnode{flex:1 1 108px;min-width:100px;max-width:220px;padding:8px 10px;border-radius:8px;font-size:.79rem;line-height:1.35;text-align:center;border:1.5px solid;display:flex;flex-direction:column;justify-content:center;gap:2px}
+.fnode b{font-size:.84rem}.fnode small{color:#555;font-size:.72rem}
+.cloud{background:#ede9fe;border-color:#7c3aed}.edge{background:#ffedd5;border-color:#ea580c}
+.vlm{background:#fef3c7;border-color:#d97706}.exec{background:#dcfce7;border-color:#16a34a}
+.ctx{background:#dbeafe;border-color:#2563eb}.adv{background:#f3e8ff;border-color:#9333ea}
+.dir{background:#ecfeff;border-color:#0891b2}.danger{background:#fee2e2;border-color:#dc2626}
+.farr{display:flex;align-items:center;justify-content:center;color:#94a3b8;font-weight:700;font-size:.95rem;flex:0 0 auto}
+.toc{background:#f8f9fa;padding:14px 18px;border-radius:8px;margin:18px 0}
+.toc a{color:#2563eb;text-decoration:none}.toc a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>VLM 全链路 · 需求评审</h1>
+<p style="text-align:center;color:#888;font-size:13px">王泽民 · 2026-06-22 · 依据 6.22 评审逐字稿 + 触发器架构</p>
+
+<div class="note note-cyan">
+<b>这份是干嘛的：</b>把系统里<b>所有和 VLM 有关的链路</b>抽出来，按 6.22 评审结论捋成一条线，供 VLM 需求评审用。<b>读法：</b>先看 §2 全链路总图，再逐节看每段谁做什么、什么定了、什么没定。<b>评审重点在 §6（端模能力）和 §9（待拍板 + 依赖）</b>——那是卡住整条链路的地方。
+</div>
+
+<div class="toc">
+<b>目录</b>
+<ol>
+<li><a href="#s1">VLM 在系统里是什么——两条路径 + 三个角色</a></li>
+<li><a href="#s2">VLM 全链路（动态视觉感知事件）· 端到端总图</a></li>
+<li><a href="#s3">两条视觉路径详解：云端 VQA vs 端侧 VLM</a></li>
+<li><a href="#s4">事件 ≠ 状态：触发器组装"事件"push，不轮询 Context</a></li>
+<li><a href="#s5">端模能力——整条链路的前提（最大不确定性）</a></li>
+<li><a href="#s6">通用视觉事件 / 端侧泛化感知通道（兜底长尾）</a></li>
+<li><a href="#s7">调度 + 舱内/舱外分工（三个任务）</a></li>
+<li><a href="#s8">视觉事件类型清单 + 上汽 vs 赛力斯</a></li>
+<li><a href="#s9">待拍板卡点 + 各方依赖 + 缺口（评审要拍的）</a></li>
+</ol>
+</div>
+
+<!-- ============ §1 ============ -->
+<h2 id="s1">一、VLM 在系统里是什么——两条路径 + 三个角色</h2>
+
+<p>VLM（视觉语言模型）= "让摄像头看一个东西，告诉系统看到了什么"。它<b>不是信号</b>，是一次<b>主动的视觉推理请求</b>（占摄像头、跑模型、有超时、有结果状态）。系统里 VLM 有<b>两条底层路径</b>：</p>
+
+<table>
+<tr><th style="width:16%">路径</th><th style="width:30%">是什么</th><th style="width:20%">车型</th><th>谁发起</th></tr>
+<tr><td><b>云端 VQA</b></td><td>一次性问答——一张图 + 一个 prompt → 一个答案（true/false + 描述）</td><td>上汽 ✅ + 赛力斯 ✅</td><td>Director 工具（看一眼）/ 动态 Advisor 定时器（定时看）</td></tr>
+<tr><td><b>端侧 VLM（㉕ 感知器）</b></td><td>持续感知——Always-on 每 3-5 秒一帧，端侧推理出标签/状态</td><td>仅赛力斯（需 AIBox）</td><td>触发器 24-8 调度（一定经触发器）</td></tr>
+</table>
+
+<p>VLM 和三个角色的关系：</p>
+<table>
+<tr><th style="width:18%">角色</th><th>和 VLM 的关系</th></tr>
+<tr><td><b>触发器</b></td><td>㉕ 感知器是<b>触发器的"感知半"</b>。触发器不碰 VLM 推理本身（推理在端模/AIBox），只做 <b>SP 下发 + 事件组装 + 调度</b>。</td></tr>
+<tr><td><b>Advisor（⑯静态/⑰动态）</b></td><td>Advisor 够不着 VLM（云端 LLM 没有手）。<b>动态 Advisor 通过感知订阅</b>让触发器去调 VLM；<b>静态 Advisor</b> 被动消费触发器组装好的事件。</td></tr>
+<tr><td><b>Planner/Director（⑲⑳）</b></td><td>Director 想"看一眼"可直接调云端 VQA（旁路，不经触发器）；持续视觉则创建动态 Advisor 走触发器。</td></tr>
+</table>
+
+<div class="note note-red"><b>6.22 一句话定调：</b>端模目前<b>只做"眼睛"——观测，不融入业务逻辑</b>（丁彬 40:10："它现在就是作为眼睛去观测，还没融入逻辑，你告诉它看啥可以，但给它下个复杂任务它做不了"）。所以"看到什么 → 怎么用"被拆成两段：<b>端模负责"看到/状态"，上层（触发器组装事件 + Advisor/Director 推理）负责"怎么用"。</b></div>
+
+<!-- ============ §2 ============ -->
+<h2 id="s2">二、VLM 全链路（动态视觉感知事件）· 端到端总图</h2>
+
+<p>这是 6.22 评审捋出的<b>核心链路</b>——以"照看二排宝宝/盯副驾睡没睡"这类持续视觉为例：</p>
+
+<div class="flow">
+<div class="fnode dir"><b>① ⑳ Director</b><small>用户"照看宝宝"→建动态Advisor</small></div><div class="farr">▶</div>
+<div class="fnode adv"><b>② ⑰ 动态Advisor</b><small>拆解query→改写注意力SP</small></div><div class="farr">▶</div>
+<div class="fnode cloud"><b>③ ⑮ 云端触发器</b><small>注册校验→编译→下发SP</small></div><div class="farr">▶</div>
+<div class="fnode edge"><b>④ 端模 ㉕</b><small>按SP观测特定目标</small></div><div class="farr">▶</div>
+<div class="fnode edge"><b>⑤ ④ 信号库</b><small>写"状态"(list,带时间)</small></div><div class="farr">▶</div>
+<div class="fnode cloud"><b>⑥ ⑮ 组装"事件"</b><small>监听变化·阈值穿越</small></div><div class="farr">▶</div>
+<div class="fnode adv"><b>⑦ ⑰/⑯ Advisor</b><small>事件push(15→17)·消费</small></div><div class="farr">▶</div>
+<div class="fnode dir"><b>⑧ ⑳ Director</b><small>推理→执行(TTS/车控)</small></div>
+</div>
+
+<table>
+<tr><th style="width:4%">#</th><th style="width:16%">环节</th><th style="width:8%">谁/在哪</th><th style="width:40%">做什么</th><th>定了没</th></tr>
+<tr><td>1</td><td>Director 建监工</td><td>⑳ 云端</td><td>用户"照看二排宝宝" → Director 识别为持续任务 → 创建动态 Advisor</td><td><span class="tag t-ok">定</span></td></tr>
+<tr><td>2</td><td>动态 Advisor 改写 SP</td><td>⑰ 云端</td><td>拆解 query"宝宝哭/踢被子就告诉我" → 改写成一条<b>注意力 SP</b>（"当宝宝哭/踢被子时告诉我"）</td><td><span class="tag t-ok">定</span></td></tr>
+<tr><td>3</td><td>触发器注册 + 下发 SP</td><td>⑮ 云端→端</td><td>15-1 校验 → 编译 → <b>把动态 SP 下发给端模</b>（铁律①：动态注册必经 ⑮ 中转）</td><td><span class="tag t-x">⚠ SP 走哪条没定</span></td></tr>
+<tr><td>4</td><td>端模按 SP 观测</td><td>㉕ 端侧(AIBox)</td><td>端模按 SP 观测特定目标（宝宝状态）。<b>能不能做"看到X就告诉我"的条件式判断，是最大不确定性（见 §5）</b></td><td><span class="tag t-x">⚠ 端模能力没试过</span></td></tr>
+<tr><td>5</td><td>结果写信号库</td><td>④ 端侧</td><td>端模输出"<b>状态</b>"写入 ④（如"宝宝在哭"/"小狗在副驾"）。always-on 输出是<b>纯客观状态</b>、不带是/否判断；Context 里存成 list（5s前/3s前/当前）</td><td><span class="tag t-q">部分定</span></td></tr>
+<tr><td>6</td><td>触发器组装"事件"</td><td>⑮ 云端</td><td>触发器<b>监听信号变化</b>（阈值穿越/首次出现）→ 把"状态变化"组装成<b>"事件"</b>（如"宝宝刚开始哭"=高度简化语义）</td><td><span class="tag t-x">⚠ 组装放云/端没定</span></td></tr>
+<tr><td>7</td><td>事件 push 给 Advisor</td><td>⑮→⑰/⑯ 云端</td><td><b>触发器把事件 push 给订阅的 Advisor（15→17），不是 Advisor 轮询 Context</b>（佳杰当场纠正，见 §4）</td><td><span class="tag t-ok">定</span></td></tr>
+<tr><td>8</td><td>Advisor 推理 + 执行</td><td>⑰→⑳ 云端</td><td>Advisor 结合 Context（condition）出 advice → Director 拍板 → 执行（降音量/降温/TTS）</td><td><span class="tag t-ok">定</span></td></tr>
+</table>
+
+<div class="note note-yellow"><b>这张图的三段分工（评审记这个）：</b><br/>· <b>端模（兰若舱内/丁彬舱外）</b>：只管"看到 + 输出状态"（眼睛）。<br/>· <b>触发器（泽民）</b>：SP 下发 + 监听状态变化组装"事件" + push Advisor + 调度。<br/>· <b>Advisor/Director（佳杰/晓伟）</b>：消费事件 → 推理 → 执行。</div>
+
+<!-- ============ §3 ============ -->
+<h2 id="s3">三、两条视觉路径详解：云端 VQA vs 端侧 VLM</h2>
+
+<h4 class="case-hd">路径 A · 云端 VQA（一次性问答）—— 上汽/赛力斯均可用</h4>
+<div class="flow">
+<div class="fnode adv"><b>⑰ 动态Advisor / ⑳ Director</b><small>自带定时器/当场问</small></div><div class="farr">▶</div>
+<div class="fnode edge"><b>端侧摄像头</b><small>抓一帧上传</small></div><div class="farr">▶</div>
+<div class="fnode cloud"><b>☁ 云端 VQA</b><small>图+prompt→result/desc</small></div><div class="farr">▶</div>
+<div class="fnode adv"><b>回⑰ / ⑳</b><small>推理→建议/TTS</small></div>
+</div>
+<p><b>特点：</b>一次性问答、依赖网络、本期仅 1 个观察任务（1 个 prompt），多 Advisor 同订阅靠感知工具做 prompt 拼接。<span class="q">Advisor PRD 原话："vlm 只接 vqa，不接端模，云对云对接，一个文本/prompt 过去，返回 result 和 description"。</span></p>
+<div class="note note-blue"><b>上汽当期就靠这条</b>（佳杰 37:59："上汽这边直接用动态提示词接的云端 VQA"）。但有抢占问题（佳杰 39:07："端侧取图时会和其他业务抢占，比如和 VQA 抢，导致 VQA 用不了"）。</div>
+
+<h4 class="case-hd">路径 B · 端侧 VLM（持续感知，经触发器）—— 仅赛力斯</h4>
+<div class="flow">
+<div class="fnode cloud"><b>⑬配置/⑰订阅</b><small>VLM需求</small></div><div class="farr">▶</div>
+<div class="fnode cloud"><b>⑮ 15-5 编译</b><small>→VLM task 7字段</small></div><div class="farr">▶</div>
+<div class="fnode cloud"><b>15-12 下发</b><small>规则包→㉔</small></div><div class="farr">▶</div>
+<div class="fnode edge"><b>㉔ 24-8 调度</b><small>→AIBox运行指令</small></div><div class="farr">▶</div>
+<div class="fnode vlm"><b>㉕ 持续执行</b><small>周期出结果</small></div><div class="farr">▶</div>
+<div class="fnode edge"><b>24-9/10/11</b><small>五态/穿越/回写④</small></div>
+</div>
+<p><b>VLM task 7 字段：</b><code>camera_group / seat / query / interval / timeout / priority / mutex_group</code>。<b>特点：</b>持续感知、断网也能跑、仅赛力斯有端侧算力。</p>
+
+<div class="note note-cyan"><b>同一需求两条路：</b>"盯副驾睡没睡"——上汽走路径 A（云端 VQA 定时轮询），赛力斯走路径 B（端侧 VLM Always-on）。<b>产品做的事一样，技术链路不一样。</b></div>
+
+<!-- ============ §4 ============ -->
+<h2 id="s4">四、事件 ≠ 状态：触发器组装"事件"push，不轮询 Context（6.22 核心纠正）</h2>
+
+<p>这是评审里佳杰当场纠正泽民的<b>核心链路问题</b>，必须讲清：</p>
+
+<table>
+<tr><th style="width:16%">概念</th><th style="width:30%">是什么</th><th style="width:24%">谁产出/存哪</th><th>谁消费</th></tr>
+<tr><td><b>状态 / condition</b></td><td>客观、持续的当前事实（"车里有小孩"、"当前温度26°"、"小狗在副驾"）。always-on 输出纯状态、不带是/否</td><td>端模写 ④信号库 → ㉑Context（list，带时间）</td><td>推理时作为<b>条件</b>用</td></tr>
+<tr><td><b>事件 event</b></td><td>状态的<b>变化</b>，高度简化的语义（"宝宝刚开始哭"、"用户睡醒了"、"用户在倒车"）</td><td><b>⑮云端触发器</b>监听状态变化、阈值穿越/首次出现，<b>组装</b>出来</td><td>Advisor <b>订阅</b>，由触发器 <b>push</b> 给它（15→17）</td></tr>
+</table>
+
+<div class="flow">
+<div class="fnode danger"><b>✗ 原来的错画法</b><small>㉑Context → ⑰Advisor 当事件消费（轮询）</small></div>
+<div class="farr">≠</div>
+<div class="fnode exec"><b>✓ 正确</b><small>④状态 → ⑮组装事件 → push ⑰Advisor(15→17)</small></div>
+</div>
+
+<div class="q">佳杰 26:35："我需要一个用户睡醒了的事件，我不会去轮询你的 context，我是注册了这个事件之后，就等待你的云端触发器给我发这个事件。"<br/>佳杰 29:34："context 解决的是 condition。倒车是事件，车里有小朋友是 condition，做什么是 advisor 给的。我不可能 24 小时轮询，这就产生了触发器的需求。"</div>
+
+<div class="note note-purple"><b>为什么事件放触发器、不放 Advisor：</b>① 事件比状态更有价值（佳杰："如果触发器直接给状态，那我直接接信号库了"）；② 从推理 ROI 角度，不能让 Advisor 一直推理不相关的事（西钺 30:27）。所以触发器中间做了"从状态里挑出有意义的变化、组装成事件"这层活。</div>
+
+<!-- ============ §5 ============ -->
+<h2 id="s5">五、端模能力——整条链路的前提（最大不确定性）⚠</h2>
+
+<div class="note note-red"><b>评审最该盯的一条：</b>端模能不能做"<b>看到 X 就告诉我</b>"的条件式动态注意力？<b>这个没试过，能不能成直接决定整条链路简单还是复杂。</b></div>
+
+<table>
+<tr><th style="width:26%">情况</th><th style="width:38%">链路会变成什么样</th><th>谁说的</th></tr>
+<tr><td><b>能</b>（端模 prompt 限制有限集，指令遵循好）</td><td>动态 Advisor 改 SP → 触发器下发给端模 → 端模"看到就上报" → 触发器收事件 → 给 Advisor。<b>链路简单</b></td><td>仁杰 41:12、丁彬 40:58</td></tr>
+<tr><td><b>不能</b>（端模只能固定周期输出观测内容）</td><td>端模每帧输出状态 → <b>云端要再加一个模块</b>从每次输出里判断"哪一次发现了 X" → 再触发动态 Advisor。<b>链路变重</b></td><td>仁杰 34:59 / 35:38</td></tr>
+</table>
+
+<div class="q">丁彬 40:58："通过 prompt 我理解是能限制住的，得试一下，目前还没试过。如果指令遵循比较好的话问题不大……如果你看的这几种事情比较固定（只看毯子、毛巾）基本能保证；但如果还要看手绢、小方巾，发散起来就是个问号。"</div>
+
+<h3>5.1 端模能力的两个约束</h3>
+<ul>
+<li><b>有限集（SP 必须在可识别集合内）：</b>丁彬 42:38："SP 有个要求是有限集，没见过的就靠基模能力了。"西钺那边端模现在能看的：睡觉、打电话、某些动作（丁彬 43:21）。</li>
+<li><b>只输出状态、不做判断：</b>丁彬 45:49/46:24："还是输出状态，结果判断交给业务逻辑。输出'小狗在主驾/副驾/二排'，上层语义再去推理。"西钺 46:41："纯客观描述此时此刻的状态，不描述是/否——不说'坛子是否掉地上'，只说'坛子当前在地上'。"</li>
+</ul>
+
+<div class="note note-yellow"><b>TODO（泽民推）：</b>给丁彬（舱外）/兰若（舱内）一组<b>有限集 query</b>，让端模用 prompt 限制观测目标<b>试一版</b>，确认条件式注意力能力。<b>7 月中前要定。</b></div>
+
+<!-- ============ §6 ============ -->
+<h2 id="s6">六、通用视觉事件 / 端侧泛化感知通道（兜底长尾）</h2>
+
+<p>预置的视觉事件是枚举的、有限的；但用户的动态 query 是发散的。所以评审定了要<b>留一条"通用视觉事件"通道</b>兜底（西钺 + 佳杰提出）。</p>
+
+<div class="flow">
+<div class="fnode adv"><b>⑰ 动态Advisor</b><small>泛化query"看XX"</small></div><div class="farr">▶</div>
+<div class="fnode cloud"><b>⑮ 通用视觉事件通道</b><small>透传system prompt</small></div><div class="farr">▶</div>
+<div class="fnode edge"><b>AIBox</b><small>对prompt做增量更新</small></div><div class="farr">▶</div>
+<div class="fnode vlm"><b>端模㉕</b><small>按新prompt观测</small></div>
+</div>
+
+<table>
+<tr><th style="width:22%">要点</th><th>内容</th></tr>
+<tr><td><b>定位</b></td><td>backup 方案。先看现有视觉事件够不够，不够才走通用通道（佳杰 01:02:35）</td></tr>
+<tr><td><b>怎么传</b></td><td>把动态 Advisor 的泛化 query 透传给 AIBox 的 system prompt（佳杰 01:04:33）</td></tr>
+<tr><td><b>分几类</b></td><td><b>舱内静态 / 舱内动态 / 舱外</b> 三类（丁彬 01:03:12 / 西钺 01:03:45）。舱外只用前摄（丁彬 01:03:51）</td></tr>
+<tr><td><b>prompt 增量</b></td><td><b>必须是"增量更新"，不能覆盖</b>——否则原 prompt 没了、原感知内容也丢了（丁彬 01:03:12）。还要区分增到哪个任务的 prompt 里</td></tr>
+<tr><td><b>体验兜底</b></td><td>豆包可以先说一句"这个任务我现在可能做得不太好，你确定要让我试试吗"（佳杰 01:04:33）</td></tr>
+</table>
+
+<!-- ============ §7 ============ -->
+<h2 id="s7">七、调度 + 舱内/舱外分工（三个任务）</h2>
+
+<h3>7.1 调度归属：在 AIBox，不在触发器（6.22 确认）</h3>
+<p>always-on / VLM 任务调度<b>在佳杰的 AIBox 模块</b>，对所有请求做优先级排序，不在触发器（西钺 57:25 提，佳杰 57:47 确认）。</p>
+<div class="q">佳杰 57:47："AIBOX 上有一个模块专门去对所有请求做优先级排序。always-on 优先级多高、VQA 优先级如何、其他视觉需求优先级如何，优先级低的会排队等。"</div>
+<table>
+<tr><th style="width:24%">两层排队（解耦）</th><th>谁做 / 做什么</th></tr>
+<tr><td><b>请求侧排队</b></td><td>触发器 ㉔ 24-7：两个触发器任务同时要摄像头时，按 P0-P4 决定先发哪个请求给 AIBox</td></tr>
+<tr><td><b>执行侧排队</b></td><td>AIBox 任务调度（斯华）：收到所有来源请求后，做最终资源分配和执行排序。可能因为在跑更高优的舱外 AV 而让你的请求继续等</td></tr>
+</table>
+
+<h3>7.2 舱内 / 舱外分工 + 三个任务</h3>
+<table>
+<tr><th style="width:18%">任务</th><th style="width:16%">负责人</th><th style="width:22%">摄像头/特征</th><th>典型场景</th></tr>
+<tr><td><b>舱内 · 动态</b></td><td>兰若</td><td>舱内摄像头·变化快（动作）</td><td>DMS 疲劳/分心、宝宝哭、副驾睡、手势</td></tr>
+<tr><td><b>舱内 · 静态</b></td><td>兰若</td><td>舱内摄像头·长时间不变</td><td>性别、是否有儿童/宠物、遗留物</td></tr>
+<tr><td><b>舱外</b></td><td>丁彬</td><td><b>只用前摄</b>（丁彬 01:03:51）</td><td>进隧道、路况、事故、限速、天气</td></tr>
+</table>
+<div class="note note-blue"><b>评审提槽：</b>下发任务时要带上"舱内静态/舱内动态/舱外"的标识 + 视角，本质是给三个任务分别更新 prompt（丁彬 01:04:03："对我们来说是三个任务，更新了三个任务的 prompt，更到哪个里面哪个就去看"）。西钺：这个一个提槽模型就能解决，关键是下发链路要聊清楚。</div>
+
+<!-- ============ §8 ============ -->
+<h2 id="s8">八、视觉事件类型清单 + 上汽 vs 赛力斯</h2>
+
+<h3>8.1 视觉事件类型（益红 + 佳杰正在梳理）</h3>
+<p>这些是要预置的"视觉类状态变更事件"，益红和佳杰在整理一张表（佳杰 22:29 / 23:26）：</p>
+<table>
+<tr><th style="width:22%">事件</th><th>类型</th></tr>
+<tr><td>用户睡着 / 睡醒</td><td>状态变更（持续视觉，检测变化过程）</td></tr>
+<tr><td>驶出地库</td><td>状态变更</td></tr>
+<tr><td>开始打电话 / 结束打电话</td><td>状态变更</td></tr>
+<tr><td>某位置出现某物品 / 某物品从某位置被移除</td><td>状态变更</td></tr>
+</table>
+<div class="note note-yellow"><b>注意（西钺 23:00）：</b>always-on 本身已经会输出的（舱外路况、舱外天气、舱内动作）要<b>排除掉</b>，剩下的才是动态预置的任务。佳杰 23:26："我是对接触发器的，我要的是事件。触发器怎么和 AIBox 对接，可以再细聊。"</div>
+
+<h3>8.2 上汽 vs 赛力斯</h3>
+<table>
+<tr><th style="width:16%">维度</th><th>上汽 D6X</th><th>赛力斯</th></tr>
+<tr><td>端侧 VLM ㉕</td><td><span class="tag t-x">❌ 无 AIBox</span></td><td><span class="tag t-ok">✅ 有</span></td></tr>
+<tr><td>视觉怎么走</td><td>只能云端 VQA（动态提示词接，一次性）</td><td>端侧 VLM 持续感知 + 云端 VQA</td></tr>
+<tr><td>持续盯</td><td>做不到（VQA 只能问当下）</td><td>能（Always-on）</td></tr>
+<tr><td>已知问题</td><td>端侧取图和其他业务/VQA 抢占</td><td>端模能力（条件式注意力）待验证</td></tr>
+</table>
+
+<!-- ============ §9 ============ -->
+<h2 id="s9">九、待拍板卡点 + 各方依赖 + 缺口（评审要拍的）</h2>
+
+<h3>9.1 三个待拍板卡点（7 月中前定）</h3>
+<table>
+<tr><th style="width:6%">#</th><th style="width:28%">卡点</th><th style="width:34%">选项</th><th>谁定</th></tr>
+<tr><td>1</td><td><b>SP 下发走哪条</b></td><td>A 触发器下发 / B 注册触发器场景再给端模 / C 动态版本直接给端模（仁杰 34:59）</td><td>泽民 + 仁杰 + 佳杰</td></tr>
+<tr><td>2</td><td><b>端模条件式注意力能力</b></td><td>能 → 链路简单；不能 → 云端加判断模块。<b>没试过</b>，要试一版</td><td>丁彬(舱外)/兰若(舱内) 试</td></tr>
+<tr><td>3</td><td><b>事件组装放云端还是端侧</b></td><td>触发器监听状态变化、组装事件这层，放云端 ⑮ 还是端侧 ㉔（西钺担心端模复杂状态搞不定）</td><td>泽民 + 佳杰</td></tr>
+</table>
+
+<h3>9.2 泽民对各方的依赖 / 各方对泽民的依赖</h3>
+<table>
+<tr><th style="width:18%">谁</th><th style="width:40%">给泽民什么 / 要泽民什么</th><th>状态</th></tr>
+<tr><td><b>益红 + 佳杰</b></td><td>给泽民：<b>视觉事件依赖表</b>（几个 query case，睡着/驶出地库/打手机/物品出现移除…）</td><td><span class="tag t-q">周内给（佳杰 49:25）</span></td></tr>
+<tr><td><b>丁彬(舱外)/兰若(舱内)</b></td><td>给泽民：端模能识别哪些（有限集）、推荐参数；泽民给：VLM 7 字段配置、要观测的 query</td><td><span class="tag t-q">待端模能力验证</span></td></tr>
+<tr><td><b>佳杰（AIBox 调度）</b></td><td>调度归属确认（在 AIBox）；24-8 → AIBox 的运行指令格式待对</td><td><span class="tag t-ok">归属定，接口待对</span></td></tr>
+<tr><td><b>佳杰（任务中心）</b></td><td>要泽民：端云任务同步 + 任务/场景字段 + enable/disable 接口</td><td><span class="tag t-q">P1</span></td></tr>
+<tr><td><b>方舟 SOP</b></td><td>端上 prompt 改动渠道；SOP 基本满了，新信号可能要排期（丁彬 49:32）</td><td><span class="tag t-x">有排期风险</span></td></tr>
+</table>
+
+<h3>9.3 单独约会（佳杰 47:57 提的 TODO）</h3>
+<div class="note note-cyan">针对视觉感知类事件，泽民约 <b>佳杰 + 益红 + 丁彬/兰若</b> 单独开会：基于 query case，把<b>工程链路</b>放大聊——怎么和 AIBox 打通、数据怎么拿、SP 怎么下发。这是把这份评审落地的下一步。</div>
+
+<hr style="margin:36px 0;border:none;border-top:2px solid var(--border)"/>
+<p style="text-align:center;color:#999;font-size:13px">
+VLM 全链路 · 需求评审 · 王泽民 · 2026-06-22 · 依据 6.22 评审逐字稿
+</p>
+
+</div>
+</body>
+</html>

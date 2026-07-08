@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent 同事化工具箱 · 撞墙优先的 AI 采用法</title>
+<style>
+  :root{
+    --bg:#0b0e14; --panel:#121722; --panel2:#1a2130; --line:#243049;
+    --txt:#e6edf6; --dim:#8a98ad; --accent:#5cc8ff; --accent2:#7af0c0;
+    --warn:#ffb454; --bad:#ff6b7a; --good:#7af0c0;
+    --shadow:0 8px 30px rgba(0,0,0,.45);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--txt);font-family:-apple-system,"PingFang SC","Microsoft YaHei",Segoe UI,sans-serif;line-height:1.6;display:flex;min-height:100vh}
+  ::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:#2a3550;border-radius:6px}
+  /* progress bar */
+  #progress{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,var(--accent),var(--accent2));width:0;z-index:99;transition:width .15s}
+  /* nav */
+  nav{width:248px;background:var(--panel);border-right:1px solid var(--line);padding:20px 0;position:sticky;top:0;height:100vh;overflow-y:auto;flex-shrink:0}
+  nav h1{font-size:15px;padding:0 20px 4px;color:var(--accent)}
+  nav .sub{font-size:11px;color:var(--dim);padding:0 20px 16px;border-bottom:1px solid var(--line);margin-bottom:10px}
+  nav a{display:block;padding:9px 20px;font-size:13.5px;color:var(--dim);text-decoration:none;border-left:3px solid transparent;cursor:pointer}
+  nav a:hover{color:var(--txt);background:var(--panel2)}
+  nav a.active{color:var(--accent);border-left-color:var(--accent);background:var(--panel2)}
+  nav .tag{font-size:10px;color:#54627a;display:block;padding:14px 20px 4px;letter-spacing:1px}
+  main{flex:1;padding:42px 52px 90px;max-width:1000px}
+  section{display:none;animation:fade .35s}
+  section.show{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  h2{font-size:26px;margin-bottom:6px;background:linear-gradient(90deg,#fff,var(--accent));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .lede{color:var(--dim);font-size:14px;margin-bottom:24px;border-left:3px solid var(--accent);padding-left:12px}
+  h3{font-size:17px;margin:26px 0 12px;color:var(--accent2)}
+  p{margin-bottom:12px;color:#cdd7e5;font-size:14.5px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px;margin:16px 0;box-shadow:var(--shadow)}
+  .quote{font-style:italic;color:var(--accent);border-left:3px solid var(--accent);padding:6px 0 6px 14px;margin:14px 0;font-size:15px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:880px){.grid2{grid-template-columns:1fr}nav{width:60px}nav h1,nav .sub,nav a span,nav .tag{display:none}main{padding:30px 20px}}
+  .pill{display:inline-block;font-size:11px;padding:2px 9px;border-radius:20px;background:var(--panel2);border:1px solid var(--line);color:var(--dim);margin:2px 4px 2px 0}
+  .pill.good{color:var(--good);border-color:#2c5a48}.pill.bad{color:var(--bad);border-color:#5a2c34}.pill.warn{color:var(--warn);border-color:#5a4a2c}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px}
+  th,td{border:1px solid var(--line);padding:9px 11px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:var(--accent2)}
+  /* interactive */
+  .q{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:10px 0}
+  .q .qt{font-size:14px;margin-bottom:10px}
+  .opts{display:flex;gap:8px;flex-wrap:wrap}
+  .opt{flex:1;min-width:120px;text-align:center;padding:8px;border:1px solid var(--line);border-radius:8px;cursor:pointer;font-size:12.5px;color:var(--dim);transition:.15s}
+  .opt:hover{border-color:var(--accent)}
+  .opt.sel{background:var(--accent);color:#04121c;border-color:var(--accent);font-weight:600}
+  .scorebox{text-align:center;padding:24px;border-radius:14px;background:var(--panel2);border:1px solid var(--line);margin-top:16px}
+  .scoreNum{font-size:54px;font-weight:700;line-height:1}
+  .btn{background:var(--accent);color:#04121c;border:none;border-radius:8px;padding:9px 18px;font-size:13.5px;font-weight:600;cursor:pointer;margin:4px 6px 4px 0}
+  .btn.ghost{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+  .btn:hover{filter:brightness(1.1)}
+  input[type=text],input[type=number],textarea,select{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:9px 11px;font-size:13.5px;font-family:inherit;margin:4px 0}
+  textarea{min-height:64px;resize:vertical}
+  label.fld{font-size:12px;color:var(--dim);display:block;margin-top:10px}
+  .chk{display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px;cursor:pointer}
+  .chk input{margin-top:5px;width:16px;height:16px;flex-shrink:0;accent-color:var(--accent)}
+  .chk.done span{color:var(--dim);text-decoration:line-through}
+  .bar{height:8px;background:var(--panel2);border-radius:6px;overflow:hidden;margin:8px 0}
+  .bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));width:0;transition:.4s}
+  .codebox{position:relative;background:#070a10;border:1px solid var(--line);border-radius:10px;padding:14px 14px 14px;font-family:"SF Mono",Consolas,monospace;font-size:12.5px;color:#b8e6ff;white-space:pre-wrap;margin:10px 0}
+  .copy{position:absolute;top:8px;right:8px;font-size:11px;padding:4px 10px;background:var(--panel2);border:1px solid var(--line);color:var(--accent);border-radius:6px;cursor:pointer}
+  .copy:hover{background:var(--accent);color:#04121c}
+  .result{margin-top:14px;padding:14px;border-radius:10px;font-size:14px;display:none}
+  .result.show{display:block}
+  .verdict{font-weight:700;font-size:16px;margin-bottom:6px}
+  .flowwrap{overflow-x:auto;background:#070a10;border:1px solid var(--line);border-radius:12px;padding:10px;margin:14px 0}
+  .legend{font-size:11px;color:var(--dim)}
+  .small{font-size:12px;color:var(--dim)}
+  .diag-step{display:none}.diag-step.show{display:block;animation:fade .3s}
+  .out{font-size:13px;color:var(--accent2)}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+<nav>
+  <h1>Agent 同事化工具箱</h1>
+  <div class="sub">撞墙优先的 AI 采用法 · Brex / Pedro Franceschi</div>
+  <span class="tag">认知</span>
+  <a data-s="intro" class="active"><span>0 · 核心命题</span></a>
+  <a data-s="map"><span>1 · 全局地图</span></a>
+  <span class="tag">体检 · 可运行</span>
+  <a data-s="scorer"><span>2 · 工人 or 同事自评</span></a>
+  <a data-s="claw"><span>3 · Free the Claw 体检</span></a>
+  <span class="tag">日常 · 可运行</span>
+  <a data-s="wall"><span>4 · 撞墙日记</span></a>
+  <a data-s="token"><span>5 · Token ROI 记账</span></a>
+  <a data-s="world"><span>6 · 世界模型织入</span></a>
+  <a data-s="diag"><span>7 · Badcase 分诊</span></a>
+  <span class="tag">资产</span>
+  <a data-s="prompts"><span>8 · Prompt 模板</span></a>
+</nav>
+
+<main>
+<!-- 0 -->
+<section id="intro" class="show">
+  <h2>把 Agent 从"富士康工人"改造成"同事"</h2>
+  <div class="lede">大多数人把 LLM 当成昂贵又脆弱的零件——写规则、裁上下文、加围栏、省 token。结果你以为模型不行，其实是你的 harness 不让它行。</div>
+  <div class="card">
+    <div class="quote">"很多人把 agent 放进一座富士康工厂里管理，可它真正想待的是 Esalen。"</div>
+    <p>Pedro Franceschi（Brex 联合创始人 / CEO）的解法不是换更大的模型，而是一套<b>先重写自己、再重写组织</b>的方法：把 token 打到墙、亲手撞出模型真实边界，再围绕这条边界重排分工、重写成本口径、重织上下文。</p>
+    <div class="grid2">
+      <div>
+        <h3 style="margin-top:6px">这个工具箱给你 6 个可运行模块</h3>
+        <p class="small">每个模块都能直接产出可用的表 / 分数 / 诊断结论 / 可复制 Prompt，并映射到你的 Planner / SP / Agent 工作。</p>
+        <span class="pill good">自评打分</span><span class="pill good">约束审查</span><span class="pill good">撞墙日记</span><span class="pill good">Token 账本</span><span class="pill good">世界模型清单</span><span class="pill good">分诊决策树</span>
+      </div>
+      <div>
+        <h3 style="margin-top:6px">一条必须先记住的边界</h3>
+        <p class="small">Free the Claw ≠ 删掉所有约束。Pedro 反对的是<b>压制推理的过度 harness</b>，不是<b>保障安全的必要围栏</b>。对你的<b>车控类 Planner</b>，安全围栏是责任底线，绝不在放开范围内。</p>
+      </div>
+    </div>
+  </div>
+  <p class="small">本地双击即可运行 · 所有进度保存在浏览器本地 · 无任何外部依赖</p>
+</section>
+
+<!-- 1 map -->
+<section id="map">
+  <h2>全局地图：论证链 → 6 个动作</h2>
+  <div class="lede">文章的逻辑是一条递进链：重置时间感 → 诊断反模式 → 给反向动作 → 上移变革主体 → 落成日常训练 → 重排分工 → 重写成本 → 重织上下文 → 收束人的位置。</div>
+  <div class="flowwrap">
+  <svg viewBox="0 0 980 470" width="980" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,PingFang SC,sans-serif">
+    <defs>
+      <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#5cc8ff"/></marker>
+      <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1a2130"/><stop offset="1" stop-color="#121722"/></linearGradient>
+    </defs>
+    <!-- nodes -->
+    <g font-size="12" fill="#e6edf6">
+      <rect x="20" y="20" width="180" height="56" rx="10" fill="url(#g1)" stroke="#5cc8ff"/><text x="110" y="44" text-anchor="middle" fill="#5cc8ff" font-weight="700">AI = 刚发明 6 个月的电</text><text x="110" y="62" text-anchor="middle" font-size="10.5" fill="#8a98ad">地基置换，非功能升级</text>
+      <rect x="250" y="20" width="180" height="56" rx="10" fill="url(#g1)" stroke="#ff6b7a"/><text x="340" y="44" text-anchor="middle" fill="#ff6b7a" font-weight="700">富士康工厂反模式</text><text x="340" y="62" text-anchor="middle" font-size="10.5" fill="#8a98ad">写规则/裁上下文/加围栏</text>
+      <rect x="480" y="20" width="180" height="56" rx="10" fill="url(#g1)" stroke="#7af0c0"/><text x="570" y="44" text-anchor="middle" fill="#7af0c0" font-weight="700">Free the Claw</text><text x="570" y="62" text-anchor="middle" font-size="10.5" fill="#8a98ad">模型+工具+循环 = 全部</text>
+      <rect x="710" y="20" width="180" height="56" rx="10" fill="url(#g1)" stroke="#ffb454"/><text x="800" y="44" text-anchor="middle" fill="#ffb454" font-weight="700">CEO = 首席 AI 官</text><text x="800" y="62" text-anchor="middle" font-size="10.5" fill="#8a98ad">重建公司自我认同</text>
+
+      <rect x="710" y="150" width="180" height="56" rx="10" fill="url(#g1)" stroke="#5cc8ff"/><text x="800" y="174" text-anchor="middle" fill="#5cc8ff" font-weight="700">撞墙训练</text><text x="800" y="192" text-anchor="middle" font-size="10.5" fill="#8a98ad">为什么不能用 AI 解决</text>
+      <rect x="480" y="150" width="180" height="56" rx="10" fill="url(#g1)" stroke="#7af0c0"/><text x="570" y="174" text-anchor="middle" fill="#7af0c0" font-weight="700">一人公司 · 重排分工</text><text x="570" y="192" text-anchor="middle" font-size="10.5" fill="#8a98ad">人开始"为 LLM 工作"</text>
+      <rect x="250" y="150" width="180" height="56" rx="10" fill="url(#g1)" stroke="#ffb454"/><text x="340" y="174" text-anchor="middle" fill="#ffb454" font-weight="700">每一美元 token 算账</text><text x="340" y="192" text-anchor="middle" font-size="10.5" fill="#8a98ad">Magpie · 标准经营科目</text>
+      <rect x="20" y="150" width="180" height="56" rx="10" fill="url(#g1)" stroke="#5cc8ff"/><text x="110" y="174" text-anchor="middle" fill="#5cc8ff" font-weight="700">世界模型</text><text x="110" y="192" text-anchor="middle" font-size="10.5" fill="#8a98ad">离散触点织成连续上下文</text>
+
+      <rect x="250" y="280" width="430" height="56" rx="10" fill="#0e1f1a" stroke="#7af0c0"/><text x="465" y="304" text-anchor="middle" fill="#7af0c0" font-weight="700">人的位置 = 持续供给"模型看不见的现场信号"</text><text x="465" y="322" text-anchor="middle" font-size="10.5" fill="#8a98ad">只要 RAM 有限 + 模型带构建者世界观偏差</text>
+    </g>
+    <!-- arrows -->
+    <g stroke="#5cc8ff" stroke-width="1.6" fill="none">
+      <path d="M200,48 L248,48" marker-end="url(#ar)"/>
+      <path d="M430,48 L478,48" marker-end="url(#ar)"/>
+      <path d="M660,48 L708,48" marker-end="url(#ar)"/>
+      <path d="M800,76 L800,148" marker-end="url(#ar)"/>
+      <path d="M710,178 L662,178" marker-end="url(#ar)"/>
+      <path d="M480,178 L432,178" marker-end="url(#ar)"/>
+      <path d="M250,178 L202,178" marker-end="url(#ar)"/>
+      <path d="M110,206 L110,250 Q110,280 250,300" marker-end="url(#ar)"/>
+      <path d="M340,206 L420,278" marker-end="url(#ar)"/>
+    </g>
+    <text x="465" y="400" text-anchor="middle" font-size="11" fill="#54627a">每个节点对应一个工具模块 · 下方导航逐个打开</text>
+  </svg>
+  </div>
+  <table>
+    <tr><th>动作模块</th><th>文章原话锚点</th><th>映射到你的 Planner</th></tr>
+    <tr><td>Free the Claw 体检</td><td>富士康 vs Esalen</td><td>区分 SP 里"必要围栏" vs "过度 harness"</td></tr>
+    <tr><td>撞墙日记</td><td>为什么不能用 AI 解决</td><td>badcase 排查从"被动撞"前移成"主动撞"</td></tr>
+    <tr><td>Token ROI 记账</td><td>Magpie 追每一美元 token</td><td>SP 成本块 × 换回决策质量账本</td></tr>
+    <tr><td>世界模型织入</td><td>customer world model</td><td>status/goal_list/env_info/memory 织成驾驶舱世界模型</td></tr>
+    <tr><td>Badcase 分诊</td><td>模型带构建者世界观偏差</td><td>四级分诊 + 新增"世界观偏差"类</td></tr>
+  </table>
+</section>
+
+<!-- 2 scorer -->
+<section id="scorer">
+  <h2>模块 2 · 你把 Planner 当工人还是当同事？</h2>
+  <div class="lede">7 道题，每题选最接近你现状的一项。算出"同事化指数"，并给出针对性建议。</div>
+  <div id="quiz"></div>
+  <button class="btn" onclick="calcScore()">计算同事化指数</button>
+  <button class="btn ghost" onclick="resetQuiz()">重置</button>
+  <div id="scoreOut"></div>
+</section>
+
+<!-- 3 claw -->
+<section id="claw">
+  <h2>模块 3 · Free the Claw 约束体检</h2>
+  <div class="lede">输入一条 SP 里的约束/规则，回答两个判定，工具告诉你该<b>保留 / 放松 / 删除</b>，并生成 A/B 验证方案。安全底线一律保留。</div>
+  <div class="card">
+    <label class="fld">约束/规则原文（来自你的 SP）</label>
+    <textarea id="clawText" placeholder="例：历史对话远区只保留 user query，删除所有 tool_feedback 和 action_list"></textarea>
+    <div class="grid2">
+      <div>
+        <label class="fld">① 这条约束的目的更像？</label>
+        <select id="clawPurpose"><option value="focus">帮模型聚焦（减少干扰、明确格式）</option><option value="suppress">压制推理（穷举 if / 锁死链路 / 一刀切裁剪）</option></select>
+      </div>
+      <div>
+        <label class="fld">② 它是否属于安全/合规底线？</label>
+        <select id="clawSafety"><option value="no">不是（普通能力/体验约束）</option><option value="yes">是（车控安全 / 隐私 / 兜底）</option></select>
+      </div>
+    </div>
+    <button class="btn" onclick="judgeClaw()">给出去留判定</button>
+    <div id="clawOut" class="result"></div>
+  </div>
+</section>
+
+<!-- 4 wall -->
+<section id="wall">
+  <h2>模块 4 · 撞墙日记</h2>
+  <div class="lede">每次想"写死一条规则"前，先跑这个。把需求当真实任务灌进 Planner，记录崩在哪一步——只有"真的推理不动"才加最小约束。</div>
+  <div class="card">
+    <label class="fld">需求（你觉得模型做不到、准备写死规则的那个）</label>
+    <textarea id="wallNeed" placeholder="例：用户说'去昨天那个游泳馆'，Planner 要自己串起查记忆→拿地址→导航"></textarea>
+    <label class="fld">实际跑下来，它崩在哪一步？</label>
+    <select id="wallType">
+      <option value="link">链路问题（走错模块 / 没进 Planner）</option>
+      <option value="tool">工具描述问题（SP 工具定义不清，选错或不会用工具）</option>
+      <option value="ctx">上下文问题（缺记忆 / 车况 / 情景，信息没给够）</option>
+      <option value="model">模型能力问题（信息全，但推理就是错）</option>
+    </select>
+    <button class="btn" onclick="logWall()">生成处方 + 记一条日记</button>
+    <div id="wallRx" class="result"></div>
+  </div>
+  <h3>撞墙日记本（本地保存）</h3>
+  <div id="wallLog" class="small">还没有记录。</div>
+  <button class="btn ghost" onclick="clearWall()" style="margin-top:8px">清空日记</button>
+</section>
+
+<!-- 5 token -->
+<section id="token">
+  <h2>模块 5 · Token ROI 记账（Magpie-lite）</h2>
+  <div class="lede">把 SP 拆成成本块，给每块标 token 量和"是否改变决策"。工具算出"高 token 低贡献"的优化候选，别只盯着省 token。</div>
+  <div class="card">
+    <table id="tkTable">
+      <tr><th>SP 成本块</th><th>预估 tokens</th><th>是否改变决策</th><th>判定</th></tr>
+    </table>
+    <div class="grid2" style="margin-top:10px">
+      <input type="text" id="tkName" placeholder="成本块名，如：69 个参考示例">
+      <input type="number" id="tkTok" placeholder="tokens，如 15000">
+    </div>
+    <select id="tkValue"><option value="3">高：明显改变决策</option><option value="2">中：偶尔影响</option><option value="1">低：基本陪跑</option></select>
+    <button class="btn" onclick="addTk()">加入账本</button>
+    <button class="btn ghost" onclick="clearTk()">清空</button>
+    <div id="tkOut" class="result"></div>
+  </div>
+  <p class="small">提示：重点审"示例区"——你的 SP 里 69 个参考示例约占一半。哪些真在改变决策，哪些只是在烧缓存？</p>
+</section>
+
+<!-- 6 world -->
+<section id="world">
+  <h2>模块 6 · 世界模型织入清单</h2>
+  <div class="lede">驾驶舱里的离散触点，是织成了一个连续世界模型，还是各管各的？勾选已织入项，看你的"提前看见"能力覆盖到几成。</div>
+  <div class="card" id="worldList"></div>
+  <div class="bar"><i id="worldBar"></i></div>
+  <div id="worldOut" class="small">勾选上面已经织进同一上下文的触点。</div>
+  <div class="card" style="margin-top:14px">
+    <h3 style="margin-top:0">"提前看见"用例草稿</h3>
+    <p class="small">把两个以上触点组合，写一条 Planner 未被直接询问就能给出的有用预判：</p>
+    <textarea id="worldCase" placeholder="例：连续车况(车内温度升高) + 记忆(用户怕热) → Planner 主动问'要不要把空调调到 24 度？'"></textarea>
+    <button class="btn" onclick="saveWorldCase()">保存用例</button>
+    <div id="worldCaseOut" class="out" style="margin-top:8px"></div>
+  </div>
+</section>
+
+<!-- 7 diag -->
+<section id="diag">
+  <h2>模块 7 · Badcase 分诊决策树</h2>
+  <div class="lede">Planner 答错了？沿决策树走一遍，分清是链路 / 工具描述 / 上下文 / 模型能力 / <b>世界观偏差</b>——后者是本文新增的一类。</div>
+  <div class="card">
+    <div id="d0" class="diag-step show">
+      <p><b>Q1：</b>这个 query 有没有正确进到 Planner？（前两层漏斗有没有截胡 / 走错模块）</p>
+      <button class="btn" onclick="dgo('d1')">进来了，是 Planner 的事</button>
+      <button class="btn ghost" onclick="dres('link')">没进来 / 走错模块</button>
+    </div>
+    <div id="d1" class="diag-step">
+      <p><b>Q2：</b>Planner 是不是选错工具、或不会用工具？</p>
+      <button class="btn ghost" onclick="dres('tool')">是，工具选择/使用出错</button>
+      <button class="btn" onclick="dgo('d2')">工具没问题</button>
+    </div>
+    <div id="d2" class="diag-step">
+      <p><b>Q3：</b>当时给它的信息够吗？记忆 / 车况 / 视觉 / 情景缺没缺？</p>
+      <button class="btn ghost" onclick="dres('ctx')">缺信息（上下文问题）</button>
+      <button class="btn" onclick="dgo('d3')">信息是全的</button>
+    </div>
+    <div id="d3" class="diag-step">
+      <p><b>Q4：</b>信息全、还是错。它错得像"通用助手的默认反应"，而不是"驾驶场景该有的反应"吗？</p>
+      <button class="btn ghost" onclick="dres('bias')">是，像通用世界观，没被驾驶场景校准</button>
+      <button class="btn ghost" onclick="dres('model')">不，是纯粹推理错</button>
+    </div>
+    <div id="diagOut" class="result"></div>
+    <button class="btn ghost" onclick="dreset()" style="margin-top:12px">重新分诊</button>
+  </div>
+</section>
+
+<!-- 8 prompts -->
+<section id="prompts">
+  <h2>模块 8 · Prompt 模板（可复制）</h2>
+  <div class="lede">三个可直接喂给 Claude / 豆包的模板，分别对应约束审查、撞墙预测、token ROI 拷问。</div>
+
+  <h3>模板 1 · Free the Claw 约束审查</h3>
+  <div class="codebox"><button class="copy" onclick="cp(this)">复制</button>你是 SP 约束审查官。下面是一段 Planner System Prompt 的约束/规则/上下文裁剪策略。
+对每一条，输出：
+1. 目的判定：【帮模型聚焦】还是【压制推理】
+2. 安全判定：是否属于【安全/合规底线】（车控、隐私、兜底）
+3. 建议：保留 / 放松 / 删除（安全底线一律保留）
+4. 验证方案：用哪个真实任务 A/B 测试这条约束的去留
+约束清单：
+{{粘贴 SP 约束}}</div>
+
+  <h3>模板 2 · 撞墙日记（写死规则前先跑）</h3>
+  <div class="codebox"><button class="copy" onclick="cp(this)">复制</button>需求：{{描述一个你觉得模型做不到的需求}}
+任务：不要先写规则。假设我把它当真实 query 灌进 Planner 完整跑一遍。
+请预测它最可能在哪一步崩，并按四级分诊归类：
+- 链路问题（走错模块）
+- 工具描述问题（SP 工具定义不清）
+- 上下文问题（缺记忆/车况/情景）
+- 模型能力问题（信息全但推理错）
+只有归类为"模型能力问题"时才建议加最小约束；其余三类给出非规则的修复方向。</div>
+
+  <h3>模板 3 · Token ROI 拷问</h3>
+  <div class="codebox"><button class="copy" onclick="cp(this)">复制</button>下面是 SP 的一个成本块（约 {{N}} tokens）：
+{{粘贴成本块}}
+请回答：
+1. 删掉它，哪类 badcase 会变差？给具体场景。
+2. 它是在"改变决策"还是"陪跑"？
+3. 它属于"应固化进缓存前缀的固定段"还是"导致缓存断裂的动态部分"？
+4. 去留建议 + 一句话理由。</div>
+
+  <div class="card">
+    <h3 style="margin-top:0">一句话收束</h3>
+    <p class="quote">"只要上下文和内存还有边界，工作就不会凭空消失；你要做的，是把模型没有的信号灌进去。"</p>
+    <p class="small">你作为 Planner 的"首席 AI 官"，不可替代的价值就是持续把豆包 Seed 看不见的驾驶现场信号工程化地灌进去，并用驾驶场景的世界观给它纠偏。</p>
+  </div>
+</section>
+</main>
+
+<script>
+/* ---------- nav + progress ---------- */
+const links=[...document.querySelectorAll('nav a')], secs=[...document.querySelectorAll('section')];
+links.forEach(a=>a.onclick=()=>{
+  const id=a.dataset.s;
+  links.forEach(x=>x.classList.toggle('active',x===a));
+  secs.forEach(s=>s.classList.toggle('show',s.id===id));
+  window.scrollTo(0,0); updateProg();
+});
+function updateProg(){
+  const i=links.findIndex(a=>a.classList.contains('active'));
+  document.getElementById('progress').style.width=((i+1)/links.length*100)+'%';
+}
+updateProg();
+
+/* ---------- 2 scorer ---------- */
+const QZ=[
+ {q:"SP 里有没有'为省 token 而裁掉、但模型其实需要'的上下文？",o:[["几乎全删了，越省越好",0],["删了一部分，没验证过",1],["按信号/噪声判断，关键信号保留",3]]},
+ {q:"遇到 Planner 不稳定，你的第一反应？",o:[["加规则/加示例/加围栏",0],["看情况，有时加有时查",1],["先撞墙定位崩点，只在真崩点加最小约束",3]]},
+ {q:"加约束前，你撞过墙吗？",o:[["凭'我觉得模型做不到'就写死",0],["偶尔跑一下",1],["先把真实任务灌进去跑，再决定",3]]},
+ {q:"安全围栏和过度 harness 你分得清吗？",o:[["混在一起，都叫'规则'",0],["大致分，但没成体系",1],["分层：安全底线保留，过度 harness 放开",3]]},
+ {q:"你管 token 的方式是？",o:[["只看总量，越省越好",0],["省 token + 看命中率",1],["建去向×ROI账本，看换回的决策质量",3]]},
+ {q:"驾驶现场的离散触点（车况/记忆/视觉/目标）？",o:[["各管各的，单轮拼",0],["部分织入",1],["织成持续维护的世界模型，能提前看见",3]]},
+ {q:"作为 Planner 的负责人，你的工作方式？",o:[["在需求文档层指挥",0],["偶尔看 trace",1],["亲手跑 trace / 调 SP / 撞 badcase",3]]},
+];
+const qz=document.getElementById('quiz'); let answers={};
+QZ.forEach((item,i)=>{
+  const d=document.createElement('div');d.className='q';
+  d.innerHTML=`<div class="qt">${i+1}. ${item.q}</div><div class="opts">${item.o.map((o,j)=>`<div class="opt" data-i="${i}" data-v="${o[1]}" data-j="${j}">${o[0]}</div>`).join('')}</div>`;
+  qz.appendChild(d);
+});
+qz.querySelectorAll('.opt').forEach(o=>o.onclick=()=>{
+  const i=o.dataset.i;
+  qz.querySelectorAll(`.opt[data-i="${i}"]`).forEach(x=>x.classList.remove('sel'));
+  o.classList.add('sel'); answers[i]=+o.dataset.v;
+});
+function calcScore(){
+  if(Object.keys(answers).length<QZ.length){alert('还有题没选哦');return;}
+  const raw=Object.values(answers).reduce((a,b)=>a+b,0), pct=Math.round(raw/(QZ.length*3)*100);
+  let color=pct>=75?'var(--good)':pct>=45?'var(--warn)':'var(--bad)';
+  let label=pct>=75?'同事化做得不错':pct>=45?'半工人半同事':'还在把模型当工人';
+  let tip=pct>=75?'继续保持：用撞墙找边界、用世界模型提前看见。下一步把 token ROI 账本做细。':
+          pct>=45?'你已经有意识，但还在"加规则"和"撞墙"之间摇摆。挑一条最长的死板规则，跑模块 3 体检。':
+          '典型的"富士康工厂"用法。先做模块 4 撞墙日记，把"我觉得做不到"换成"先跑再说"。';
+  document.getElementById('scoreOut').innerHTML=
+    `<div class="scorebox"><div class="scoreNum" style="color:${color}">${pct}</div><div style="color:${color};font-weight:600;margin:6px 0">${label}</div><p class="small" style="max-width:520px;margin:0 auto">${tip}</p></div>`;
+}
+function resetQuiz(){answers={};qz.querySelectorAll('.opt').forEach(o=>o.classList.remove('sel'));document.getElementById('scoreOut').innerHTML='';}
+
+/* ---------- 3 claw ---------- */
+function judgeClaw(){
+  const t=document.getElementById('clawText').value.trim();
+  const p=document.getElementById('clawPurpose').value, s=document.getElementById('clawSafety').value;
+  const box=document.getElementById('clawOut');
+  if(!t){alert('先填一条约束');return;}
+  let verdict,color,plan,bg;
+  if(s==='yes'){verdict='保留 —— 这是安全底线';color='var(--good)';bg='#0e1f1a';
+    plan='安全/合规围栏不在 Free the Claw 范围内。即使它看起来"限制了模型"，也属于责任底线，保留。可做的是收紧它的触发条件，但不放开。';}
+  else if(p==='suppress'){verdict='候选删除 / 放松 —— 疑似过度 harness';color='var(--bad)';bg='#1f1014';
+    plan='A/B 验证方案：取一组真实任务 →（A）保留这条约束跑一遍 →（B）删掉它再跑一遍 → 对比输出质量。变好则删/放松；变乱则保留并记录"为什么它必要"。';}
+  else{verdict='保留 —— 帮模型聚焦的有效约束';color='var(--warn)';bg='#1f1a10';
+    plan='这类约束多在减少干扰、明确输出格式，通常该留。但仍建议半年后随模型升级复检一次——今天需要的聚焦，未来模型可能自己就能做到。';}
+  box.style.background=bg;box.className='result show';
+  box.innerHTML=`<div class="verdict" style="color:${color}">${verdict}</div><p class="small" style="margin:0">${plan}</p>`;
+}
+
+/* ---------- 4 wall ---------- */
+const RX={
+ link:["链路问题 → 不要在 Planner 里加规则","修前两层漏斗：句法/情景 RAG 的分流逻辑，或确认该 query 是否本应进 Planner。这类问题写进 SP 反而污染。"],
+ tool:["工具描述问题 → 改 SP 工具定义，不是加业务规则","重写该工具的描述/参数/使用 tips，或补一个参考示例。让模型'看懂工具'，而不是用 if 替它选工具。"],
+ ctx:["上下文问题 → 补信号，不是加规则","把缺的记忆/车况/视觉/情景通过动态变量灌进去。这正是你不可替代的'供给稀缺上下文'的价值。"],
+ model:["模型能力问题 → 才考虑加最小约束","信息全还推理错，这才是真墙。加一条最小约束/兜底，并标注日期，下个模型版本重撞——墙会移动。"]
+};
+let wallLog=JSON.parse(localStorage.getItem('wallLog')||'[]');
+function renderWall(){
+  const el=document.getElementById('wallLog');
+  if(!wallLog.length){el.innerHTML='还没有记录。';return;}
+  el.innerHTML=wallLog.map((w,i)=>`<div class="card" style="padding:12px;margin:8px 0"><b>#${i+1}</b> <span class="pill ${w.type==='model'?'warn':'good'}">${RX[w.type][0].split(' → ')[0]}</span><br><span class="small">需求：${w.need||'(空)'}</span><br><span class="out small">处方：${RX[w.type][1]}</span></div>`).join('');
+}
+function logWall(){
+  const need=document.getElementById('wallNeed').value.trim(), type=document.getElementById('wallType').value;
+  const r=document.getElementById('wallRx');
+  r.className='result show';r.style.background=type==='model'?'#1f1a10':'#0e1f1a';
+  r.innerHTML=`<div class="verdict" style="color:${type==='model'?'var(--warn)':'var(--good)'}">${RX[type][0]}</div><p class="small" style="margin:0">${RX[type][1]}</p>`;
+  wallLog.unshift({need,type});localStorage.setItem('wallLog',JSON.stringify(wallLog));renderWall();
+}
+function clearWall(){wallLog=[];localStorage.removeItem('wallLog');renderWall();}
+renderWall();
+
+/* ---------- 5 token ---------- */
+let tk=JSON.parse(localStorage.getItem('tk')||'[]');
+function renderTk(){
+  const tb=document.getElementById('tkTable');
+  tb.innerHTML='<tr><th>SP 成本块</th><th>tokens</th><th>改变决策</th><th>判定</th></tr>'+
+   tk.map(r=>{
+     const vl=r.v==3?'高':r.v==2?'中':'低';
+     const judge=(r.tok>=5000&&r.v==1)?'<span class="pill bad">高token低贡献·优化候选</span>':(r.v==3?'<span class="pill good">固化进缓存前缀</span>':'<span class="pill warn">观察</span>');
+     return `<tr><td>${r.name}</td><td>${r.tok}</td><td>${vl}</td><td>${judge}</td></tr>`;
+   }).join('');
+  const total=tk.reduce((a,b)=>a+(+b.tok),0);
+  const waste=tk.filter(r=>r.tok>=5000&&r.v==1).reduce((a,b)=>a+(+b.tok),0);
+  const o=document.getElementById('tkOut');
+  if(tk.length){o.className='result show';o.style.background='#0e1620';
+    o.innerHTML=`<div class="verdict" style="color:var(--accent)">总计 ${total} tokens · 可优化候选 ${waste} tokens（${total?Math.round(waste/total*100):0}%）</div><p class="small" style="margin:0">"高 token 低贡献"的块是第一刀。高贡献块固化进缓存前缀以提升命中率。别只看总量——看每块换回了多少决策质量。</p>`;}
+  else o.className='result';
+}
+function addTk(){
+  const name=document.getElementById('tkName').value.trim(),tok=+document.getElementById('tkTok').value,v=+document.getElementById('tkValue').value;
+  if(!name||!tok){alert('填成本块名和 token 量');return;}
+  tk.push({name,tok,v});localStorage.setItem('tk',JSON.stringify(tk));
+  document.getElementById('tkName').value='';document.getElementById('tkTok').value='';renderTk();
+}
+function clearTk(){tk=[];localStorage.removeItem('tk');renderTk();}
+renderTk();
+
+/* ---------- 6 world ---------- */
+const TOUCH=[
+ "{{status}} 视觉感知（车内外画面）","{{env_info}} 车辆状态（温度/速度/油电）",
+ "{{memory}} 用户记忆（偏好/历史）","{{goal_list}} 目标队列",
+ "用户当前语音 query","tool_feedback 执行反馈",
+ "advisor 建议","历史对话（近 N 轮）"];
+const wl=document.getElementById('worldList');
+let world=JSON.parse(localStorage.getItem('world')||'[]');
+TOUCH.forEach((t,i)=>{
+  const d=document.createElement('label');d.className='chk'+(world.includes(i)?' done':'');
+  d.innerHTML=`<input type="checkbox" data-i="${i}" ${world.includes(i)?'checked':''}><span>${t}</span>`;
+  wl.appendChild(d);
+});
+wl.querySelectorAll('input').forEach(c=>c.onchange=()=>{
+  const i=+c.dataset.i;
+  if(c.checked){if(!world.includes(i))world.push(i);}else world=world.filter(x=>x!==i);
+  c.closest('.chk').classList.toggle('done',c.checked);
+  localStorage.setItem('world',JSON.stringify(world));renderWorld();
+});
+function renderWorld(){
+  const pct=Math.round(world.length/TOUCH.length*100);
+  document.getElementById('worldBar').style.width=pct+'%';
+  const o=document.getElementById('worldOut');
+  let msg=pct===100?'全部触点已织入。下一步：让它"持续维护"——随 Goal List 更新，而不是单轮重拼。':
+          pct>=50?'过半触点已织入。检查剩下的孤立触点：织进来能否让 Planner 提前看见？还是只会稀释信号？':
+          '大部分触点还是孤立的。Planner 现在更像"回答当前 query"，离"提前看见下一步"还远。优先织入高信号项（记忆+车况）。';
+  o.innerHTML=`<b style="color:var(--accent)">世界模型覆盖 ${pct}%</b> · ${msg}`;
+}
+renderWorld();
+let wcase=localStorage.getItem('worldCase')||'';
+document.getElementById('worldCase').value=wcase;
+if(wcase)document.getElementById('worldCaseOut').textContent='已保存用例：'+wcase;
+function saveWorldCase(){
+  const v=document.getElementById('worldCase').value.trim();
+  localStorage.setItem('worldCase',v);
+  document.getElementById('worldCaseOut').textContent=v?'已保存用例：'+v:'用例已清空';
+}
+
+/* ---------- 7 diag ---------- */
+function dgo(id){document.querySelectorAll('.diag-step').forEach(s=>s.classList.remove('show'));document.getElementById(id).classList.add('show');document.getElementById('diagOut').className='result';}
+const DRES={
+ link:["链路问题","走错模块/没进 Planner。修前两层漏斗的分流，别写进 SP。","var(--accent)"],
+ tool:["工具描述问题","重写 SP 里该工具的定义/参数/使用 tips 或补示例。让模型看懂工具。","var(--accent2)"],
+ ctx:["上下文问题","缺记忆/车况/视觉/情景。通过动态变量把现场信号灌进去——这是你的核心价值。","var(--warn)"],
+ bias:["★ 世界观偏差（本文新增类）","信息全但答得像'通用助手'而非'驾驶场景'。豆包 Seed 带构建者默认偏好。解法：在 SP 里注入驾驶场景的世界观/风格/优先级校准，而不是当成纯能力问题。","var(--good)"],
+ model:["模型能力问题","信息全、纯推理错。加最小约束/兜底，标注日期，下版本重撞。","var(--bad)"]
+};
+function dres(k){
+  const o=document.getElementById('diagOut');const r=DRES[k];
+  o.className='result show';o.style.background='#0e1620';
+  o.innerHTML=`<div class="verdict" style="color:${r[2]}">分诊结论：${r[0]}</div><p class="small" style="margin:0">${r[1]}</p>`;
+}
+function dreset(){document.querySelectorAll('.diag-step').forEach(s=>s.classList.remove('show'));document.getElementById('d0').classList.add('show');document.getElementById('diagOut').className='result';}
+
+/* ---------- 8 copy ---------- */
+function cp(b){
+  const t=b.parentElement.innerText.replace(/^复制\n?/,'');
+  navigator.clipboard.writeText(t).then(()=>{b.textContent='已复制';setTimeout(()=>b.textContent='复制',1400);});
+}
+</script>
+</body>
+</html>

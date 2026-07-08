@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小区图书馆管理系统</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-light: #818cf8;
+            --primary-dark: #4f46e5;
+            --accent: #a78bfa;
+            --bg-main: #f0f4ff;
+            --bg-card: #ffffff;
+            --text: #1e1b4b;
+            --text-secondary: #64748b;
+            --border: #e0e7ff;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --shadow: 0 4px 20px rgba(99, 102, 241, 0.12);
+            --shadow-sm: 0 2px 8px rgba(99, 102, 241, 0.08);
+            --radius: 12px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #e0e7ff 0%, #f0f4ff 50%, #ede9fe 100%);
+            min-height: 100vh;
+            color: var(--text);
+            padding: 20px;
+        }
+        .app { display: flex; gap: 20px; max-width: 1400px; margin: 0 auto; }
+        .sidebar {
+            width: 220px;
+            background: linear-gradient(180deg, #312e81 0%, #4338ca 100%);
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+        .logo { padding: 24px 20px; border-bottom: 1px solid rgba(255,255,255,0.12); }
+        .logo h1 { font-size: 18px; font-weight: 600; color: #fff; display: flex; align-items: center; gap: 10px; }
+        .nav { padding: 12px; flex: 1; }
+        .nav-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 12px 14px; border-radius: 10px;
+            font-size: 14px; color: rgba(255,255,255,0.7);
+            cursor: pointer; transition: all 0.2s;
+            border: none; background: none; width: 100%; text-align: left;
+        }
+        .nav-item:hover { background: rgba(255,255,255,0.1); color: #fff; }
+        .nav-item.active {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+            color: #fff; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+        }
+        .nav-icon { font-size: 18px; }
+        .main { flex: 1; overflow-y: auto; }
+        .page { display: none; }
+        .page.active { display: block; animation: fadeIn 0.25s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        .page-header { margin-bottom: 20px; }
+        .page-title {
+            font-size: 24px; font-weight: 700;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px; }
+        .stat-card {
+            background: var(--bg-card); border-radius: 14px; padding: 20px;
+            display: flex; align-items: center; gap: 14px;
+            box-shadow: var(--shadow-sm); border: 1px solid var(--border);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+        .stat-icon {
+            width: 48px; height: 48px; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center; font-size: 22px;
+        }
+        .stat-icon.purple { background: linear-gradient(135deg, #6366f1 0%, #818cf8 100%); }
+        .stat-icon.green { background: linear-gradient(135deg, #10b981 0%, #34d399 100%); }
+        .stat-icon.orange { background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%); }
+        .stat-icon.red { background: linear-gradient(135deg, #ef4444 0%, #f87171 100%); }
+        .stat-info h3 { font-size: 26px; font-weight: 700; color: var(--text); }
+        .stat-info p { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+        .card {
+            background: var(--bg-card); border-radius: 14px; overflow: hidden;
+            box-shadow: var(--shadow-sm); border: 1px solid var(--border); margin-bottom: 20px;
+        }
+        .card-header {
+            padding: 16px 20px; border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: space-between; gap: 16px;
+            background: linear-gradient(135deg, #f8faff 0%, #f0f4ff 100%);
+        }
+        .card-title { font-size: 15px; font-weight: 600; color: var(--text); }
+        .card-actions { display: flex; align-items: center; gap: 12px; }
+        .search-input {
+            padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px;
+            font-size: 14px; width: 220px; transition: all 0.2s; background: #fafbff;
+        }
+        .search-input:focus { outline: none; border-color: var(--primary); background: #fff; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+        .btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 10px 16px; border-radius: 10px;
+            font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; border: none;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            color: #fff; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+        }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(99, 102, 241, 0.4); }
+        .btn-secondary { background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%); color: var(--text); border: 1px solid var(--border); }
+        .btn-secondary:hover { background: #e2e8f0; }
+        .btn-danger { background: linear-gradient(135deg, var(--danger) 0%, #f87171 100%); color: #fff; }
+        .btn-warning { background: linear-gradient(135deg, var(--warning) 0%, #fbbf24 100%); color: #fff; }
+        .btn-sm { padding: 7px 12px; font-size: 12px; }
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th {
+            padding: 14px 16px; text-align: left; font-weight: 600; color: var(--text-secondary);
+            background: linear-gradient(135deg, #f8faff 0%, #f0f4ff 100%); border-bottom: 1px solid var(--border);
+            white-space: nowrap; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        td { padding: 16px; border-bottom: 1px solid var(--border); color: var(--text); }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: #f8faff; }
+        .tag { display: inline-flex; align-items: center; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+        .tag-success { background: #d1fae5; color: #065f46; }
+        .tag-warning { background: #fef3c7; color: #92400e; }
+        .tag-danger { background: #fee2e2; color: #991b1b; }
+        .tag-primary { background: #e0e7ff; color: #4338ca; }
+        .modal-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(30, 27, 75, 0.5); backdrop-filter: blur(4px);
+            z-index: 100; align-items: center; justify-content: center; padding: 20px;
+        }
+        .modal-overlay.active { display: flex; animation: fadeIn 0.2s; }
+        .modal { background: var(--bg-card); border-radius: 16px; width: 100%; max-width: 440px; box-shadow: 0 25px 50px -12px rgba(49, 46, 129, 0.25); overflow: hidden; }
+        .modal-header {
+            padding: 18px 22px; border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: space-between;
+            background: linear-gradient(135deg, #f8faff 0%, #f0f4ff 100%);
+        }
+        .modal-title { font-size: 17px; font-weight: 600; color: var(--text); }
+        .modal-close { font-size: 22px; color: var(--text-secondary); cursor: pointer; background: none; border: none; padding: 4px; line-height: 1; }
+        .modal-close:hover { color: var(--text); }
+        .modal-body { padding: 22px; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .form-group { margin-bottom: 16px; }
+        .form-group.full { grid-column: 1 / -1; }
+        .form-label { display: block; font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 7px; }
+        .form-input { width: 100%; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; font-size: 14px; transition: all 0.2s; background: #fafbff; }
+        .form-input:focus { outline: none; border-color: var(--primary); background: #fff; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+        .form-select { width: 100%; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; font-size: 14px; background: #fafbff; cursor: pointer; }
+        .form-select:focus { outline: none; border-color: var(--primary); }
+        .modal-footer { padding: 16px 22px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; background: #fafbff; }
+        .section { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .form-section { display: flex; flex-direction: column; gap: 16px; }
+        .section-title { font-size: 15px; font-weight: 600; color: var(--text); padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+        .info-box { padding: 14px; border-radius: 10px; font-size: 14px; margin-bottom: 12px; }
+        .info-box.warning { background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; }
+        .info-box.success { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+        @media (max-width: 900px) {
+            .app { flex-direction: column; padding: 12px; }
+            .sidebar { width: 100%; border-radius: 12px; }
+            .nav { display: flex; overflow-x: auto; padding: 10px; gap: 6px; }
+            .nav-item { flex-shrink: 0; padding: 10px 14px; }
+            .stats-grid, .section, .form-row { grid-template-columns: 1fr; }
+            .card-header { flex-direction: column; align-items: stretch; }
+            .card-actions { flex-wrap: wrap; }
+            .search-input { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <aside class="sidebar">
+            <div class="logo"><h1>📚 图书馆管理</h1></div>
+            <nav class="nav">
+                <button class="nav-item active" data-target="books"><span class="nav-icon">📖</span>图书管理</button>
+                <button class="nav-item" data-target="members"><span class="nav-icon">👤</span>借书人管理</button>
+                <button class="nav-item" data-target="borrow"><span class="nav-icon">📝</span>借阅管理</button>
+                <button class="nav-item" data-target="records"><span class="nav-icon">📋</span>借阅记录</button>
+            </nav>
+        </aside>
+        <main class="main">
+            <div id="books" class="page active">
+                <div class="page-header"><h1 class="page-title">图书管理</h1></div>
+                <div class="stats-grid">
+                    <div class="stat-card"><div class="stat-icon purple">📚</div><div class="stat-info"><h3 id="totalBooks">0</h3><p>总藏书</p></div></div>
+                    <div class="stat-card"><div class="stat-icon green">✓</div><div class="stat-info"><h3 id="availableBooks">0</h3><p>可借</p></div></div>
+                    <div class="stat-card"><div class="stat-icon orange">↗</div><div class="stat-info"><h3 id="borrowedBooks">0</h3><p>已借出</p></div></div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">图书列表</span>
+                        <div class="card-actions">
+                            <input type="text" class="search-input" placeholder="搜索书名/作者..." id="bookSearch" oninput="filterBooks()">
+                            <button class="btn btn-primary" onclick="openBookModal()">+ 添加图书</button>
+                        </div>
+                    </div>
+                    <div class="table-wrap">
+                        <table><thead><tr><th>书名</th><th>作者</th><th>楼层</th><th>类型</th><th>价格</th><th>状态</th><th>操作</th></tr></thead><tbody id="bookTable"></tbody></table>
+                    </div>
+                </div>
+            </div>
+            <div id="members" class="page">
+                <div class="page-header"><h1 class="page-title">借书人管理</h1></div>
+                <div class="stats-grid">
+                    <div class="stat-card"><div class="stat-icon purple">👥</div><div class="stat-info"><h3 id="totalMembers">0</h3><p>总人数</p></div></div>
+                    <div class="stat-card"><div class="stat-icon green">✓</div><div class="stat-info"><h3 id="activeMembers">0</h3><p>可借书</p></div></div>
+                    <div class="stat-card"><div class="stat-icon red">!</div><div class="stat-info"><h3 id="frozenMembers">0</h3><p>押金不足</p></div></div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">借书人列表</span>
+                        <div class="card-actions">
+                            <input type="text" class="search-input" placeholder="搜索姓名/手机号..." id="memberSearch" oninput="filterMembers()">
+                            <button class="btn btn-primary" onclick="openMemberModal()">+ 添加借书人</button>
+                        </div>
+                    </div>
+                    <div class="table-wrap">
+                        <table><thead><tr><th>姓名</th><th>身份证号</th><th>手机号</th><th>押金</th><th>状态</th><th>操作</th></tr></thead><tbody id="memberTable"></tbody></table>
+                    </div>
+                </div>
+            </div>
+            <div id="borrow" class="page">
+                <div class="page-header"><h1 class="page-title">借阅管理</h1></div>
+                <div class="section">
+                    <div class="card form-section">
+                        <div class="section-title">借书</div>
+                        <div class="form-row">
+                            <div class="form-group"><label class="form-label">选择图书</label><select class="form-select" id="borrowBookSelect"></select></div>
+                            <div class="form-group"><label class="form-label">选择借书人</label><select class="form-select" id="borrowMemberSelect"></select></div>
+                        </div>
+                        <div class="form-group"><label class="form-label">应还日期</label><input type="date" class="form-input" id="borrowDueDate"></div>
+                        <div class="form-group"><button class="btn btn-primary" onclick="handleBorrow()">确认借书</button></div>
+                        <div id="borrowMessage"></div>
+                    </div>
+                    <div class="card form-section">
+                        <div class="section-title">还书</div>
+                        <div class="form-group"><label class="form-label">选择借阅记录</label><select class="form-select" id="returnRecordSelect" onchange="showReturnInfo(this.value)"></select></div>
+                        <div id="returnInfo"></div>
+                        <button class="btn btn-warning" onclick="handleReturn()">确认还书</button>
+                    </div>
+                </div>
+            </div>
+            <div id="records" class="page">
+                <div class="page-header"><h1 class="page-title">借阅记录</h1></div>
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">全部记录</span>
+                        <div class="card-actions"><input type="text" class="search-input" placeholder="搜索书名/借书人..." id="recordSearch" oninput="filterRecords()"></div>
+                    </div>
+                    <div class="table-wrap">
+                        <table><thead><tr><th>书名</th><th>借书人</th><th>借书日期</th><th>应还日期</th><th>归还日期</th><th>状态</th><th>逾期费</th></tr></thead><tbody id="recordTable"></tbody></table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    <div id="bookModal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header"><span class="modal-title" id="bookModalTitle">添加图书</span><button class="modal-close" onclick="closeBookModal()">×</button></div>
+            <div class="modal-body">
+                <form id="bookForm" onsubmit="saveBook(event)">
+                    <input type="hidden" id="bookId">
+                    <div class="form-row">
+                        <div class="form-group"><label class="form-label">书名 *</label><input type="text" class="form-input" id="bookName" required></div>
+                        <div class="form-group"><label class="form-label">作者 *</label><input type="text" class="form-input" id="bookAuthor" required></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><label class="form-label">楼层</label><select class="form-select" id="bookFloor"><option value="1楼">1楼</option><option value="2楼">2楼</option><option value="3楼">3楼</option></select></div>
+                        <div class="form-group"><label class="form-label">类型</label><select class="form-select" id="bookType"><option value="文学">文学</option><option value="科技">科技</option><option value="历史">历史</option><option value="儿童">儿童</option><option value="其他">其他</option></select></div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">价格（元）</label>
+                        <input type="number" class="form-input" id="bookPrice" min="0" step="0.01" placeholder="请输入价格">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer"><button class="btn btn-secondary" onclick="closeBookModal()">取消</button><button class="btn btn-primary" onclick="document.getElementById('bookForm').requestSubmit()">保存</button></div>
+        </div>
+    </div>
+    <div id="memberModal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header"><span class="modal-title" id="memberModalTitle">添加借书人</span><button class="modal-close" onclick="closeMemberModal()">×</button></div>
+            <div class="modal-body">
+                <form id="memberForm" onsubmit="saveMember(event)">
+                    <input type="hidden" id="memberId">
+                    <div class="form-group"><label class="form-label">姓名 *</label><input type="text" class="form-input" id="memberName" required></div>
+                    <div class="form-row">
+                        <div class="form-group"><label class="form-label">身份证号 *</label><input type="text" class="form-input" id="memberIdCard" required pattern="[0-9]{17}[0-9Xx]"></div>
+                        <div class="form-group"><label class="form-label">手机号 *</label><input type="tel" class="form-input" id="memberPhone" required pattern="1[3-9][0-9]{9}"></div>
+                    </div>
+                    <div class="form-group"><label class="form-label">押金（元）</label><input type="number" class="form-input" id="memberDeposit" value="100" min="0"></div>
+                </form>
+            </div>
+            <div class="modal-footer"><button class="btn btn-secondary" onclick="closeMemberModal()">取消</button><button class="btn btn-primary" onclick="document.getElementById('memberForm').requestSubmit()">保存</button></div>
+        </div>
+    </div>
+    <script>
+        const STORAGE_KEYS = { books: 'library_books', members: 'library_members', records: 'library_records' };
+        const dataManager = {
+            getBooks() { return JSON.parse(localStorage.getItem(STORAGE_KEYS.books) || '[]'); },
+            saveBooks(books) { localStorage.setItem(STORAGE_KEYS.books, JSON.stringify(books)); },
+            getMembers() { return JSON.parse(localStorage.getItem(STORAGE_KEYS.members) || '[]'); },
+            saveMembers(members) { localStorage.setItem(STORAGE_KEYS.members, JSON.stringify(members)); },
+            getRecords() { return JSON.parse(localStorage.getItem(STORAGE_KEYS.records) || '[]'); },
+            saveRecords(records) { localStorage.setItem(STORAGE_KEYS.records, JSON.stringify(records)); },
+            generateId() { return crypto.randomUUID(); }
+        };
+        const bookModule = {
+            getAll() { return dataManager.getBooks(); },
+            getById(id) { return this.getAll().find(b => b.id === id); },
+            add(book) {
+                const books = this.getAll();
+                book.id = dataManager.generateId();
+                book.status = 'available';
+                book.createdAt = new Date().toISOString();
+                books.push(book);
+                dataManager.saveBooks(books);
+                return book;
+            },
+            update(id, updates) {
+                const books = this.getAll();
+                const index = books.findIndex(b => b.id === id);
+                if (index !== -1) { books[index] = { ...books[index], ...updates }; dataManager.saveBooks(books); return books[index]; }
+                return null;
+            },
+            delete(id) { const books = this.getAll(); dataManager.saveBooks(books.filter(b => b.id !== id)); },
+            updateStatus(id, status) { return this.update(id, { status }); }
+        };
+        const memberModule = {
+            getAll() { return dataManager.getMembers(); },
+            getById(id) { return this.getAll().find(m => m.id === id); },
+            add(member) {
+                const members = this.getAll();
+                member.id = dataManager.generateId();
+                member.createdAt = new Date().toISOString();
+                members.push(member);
+                dataManager.saveMembers(members);
+                return member;
+            },
+            update(id, updates) {
+                const members = this.getAll();
+                const index = members.findIndex(m => m.id === id);
+                if (index !== -1) { members[index] = { ...members[index], ...updates }; dataManager.saveMembers(members); return members[index]; }
+                return null;
+            },
+            delete(id) { const members = this.getAll(); dataManager.saveMembers(members.filter(m => m.id !== id)); },
+            canBorrow(member) { return member.deposit >= 0; }
+        };
+        const borrowModule = {
+            getAllRecords() { return dataManager.getRecords(); },
+            getActiveRecords() { return this.getAllRecords().filter(r => r.status === 'borrowed'); },
+            borrow(bookId, memberId, dueDate) {
+                const book = bookModule.getById(bookId);
+                const member = memberModule.getById(memberId);
+                if (!book || !member) return { success: false, message: '图书或借书人不存在' };
+                if (book.status !== 'available') return { success: false, message: '该图书已借出' };
+                if (!memberModule.canBorrow(member)) return { success: false, message: '押金不足，无法借书' };
+                const record = {
+                    id: dataManager.generateId(), bookId: book.id, bookName: book.name,
+                    memberId: member.id, memberName: member.name,
+                    borrowDate: new Date().toISOString().split('T')[0], dueDate: dueDate,
+                    returnDate: null, overdueDays: 0, penalty: 0, status: 'borrowed'
+                };
+                const records = this.getAllRecords();
+                records.push(record);
+                dataManager.saveRecords(records);
+                bookModule.updateStatus(bookId, 'borrowed');
+                return { success: true, message: '借书成功', record };
+            },
+            return(recordId) {
+                const records = this.getAllRecords();
+                const record = records.find(r => r.id === recordId);
+                if (!record || record.status !== 'borrowed') return { success: false, message: '借阅记录不存在或已归还' };
+                const returnDate = new Date();
+                const dueDate = new Date(record.dueDate);
+                const overdueDays = Math.max(0, Math.ceil((returnDate - dueDate) / (1000 * 60 * 60 * 24)));
+                const penalty = overdueDays * 10;
+                record.returnDate = returnDate.toISOString().split('T')[0];
+                record.overdueDays = overdueDays;
+                record.penalty = penalty;
+                record.status = 'returned';
+                dataManager.saveRecords(records);
+                const member = memberModule.getById(record.memberId);
+                if (member) memberModule.update(member.id, { deposit: member.deposit - penalty });
+                bookModule.updateStatus(record.bookId, 'available');
+                return { success: true, message: '还书成功', penalty, overdueDays, remainingDeposit: member ? member.deposit - penalty : 0 };
+            }
+        };
+        const dateUtils = {
+            getToday() { return new Date().toISOString().split('T')[0]; },
+            addDays(date, days) { const d = new Date(date); d.setDate(d.getDate() + days); return d.toISOString().split('T')[0]; },
+            isOverdue(dueDate) { return new Date(dueDate) < new Date(this.getToday()); },
+            getDaysDiff(date1, date2) { return Math.ceil((new Date(date2) - new Date(date1)) / (1000 * 60 * 60 * 24)); }
+        };
+        document.querySelectorAll('.nav-item').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.page').forEach(s => s.classList.remove('active'));
+                this.classList.add('active');
+                document.getElementById(this.dataset.target).classList.add('active');
+                if (this.dataset.target === 'books') renderBooks();
+                if (this.dataset.target === 'members') renderMembers();
+                if (this.dataset.target === 'borrow') initBorrowPage();
+                if (this.dataset.target === 'records') renderRecords();
+            });
+        });
+        function openBookModal(book = null) {
+            document.getElementById('bookModal').classList.add('active');
+            document.getElementById('bookModalTitle').textContent = book ? '编辑图书' : '添加图书';
+            if (book) {
+                document.getElementById('bookId').value = book.id;
+                document.getElementById('bookName').value = book.name;
+                document.getElementById('bookAuthor').value = book.author;
+                document.getElementById('bookFloor').value = book.floor;
+                document.getElementById('bookType').value = book.type;
+                document.getElementById('bookPrice').value = book.price || '';
+            } else {
+                document.getElementById('bookForm').reset();
+                document.getElementById('bookId').value = '';
+            }
+        }
+        function closeBookModal() { document.getElementById('bookModal').classList.remove('active'); }
+        function saveBook(e) {
+            e.preventDefault();
+            const id = document.getElementById('bookId').value;
+            const book = {
+                name: document.getElementById('bookName').value,
+                author: document.getElementById('bookAuthor').value,
+                floor: document.getElementById('bookFloor').value,
+                type: document.getElementById('bookType').value,
+                price: parseFloat(document.getElementById('bookPrice').value) || 0
+            };
+            if (id) { bookModule.update(id, book); } else { bookModule.add(book); }
+            closeBookModal();
+            renderBooks();
+        }
+        function deleteBook(id) { if (confirm('确定要删除这本书吗？')) { bookModule.delete(id); renderBooks(); } }
+        let allBooks = [];
+        function renderBooks() { allBooks = bookModule.getAll(); filterBooks(); updateBookStats(); }
+        function filterBooks() {
+            const keyword = document.getElementById('bookSearch').value.toLowerCase();
+            const filtered = allBooks.filter(b => b.name.toLowerCase().includes(keyword) || b.author.toLowerCase().includes(keyword));
+            const tbody = document.getElementById('bookTable');
+            tbody.innerHTML = filtered.map(book => `
+                <tr>
+                    <td>${escapeHtml(book.name)}</td>
+                    <td>${escapeHtml(book.author)}</td>
+                    <td>${book.floor}</td>
+                    <td>${book.type}</td>
+                    <td>${book.price ? book.price + ' 元' : '-'}</td>
+                    <td><span class="tag ${book.status === 'available' ? 'tag-success' : 'tag-warning'}">${book.status === 'available' ? '可借' : '已借出'}</span></td>
+                    <td><button class="btn btn-secondary btn-sm" onclick='openBookModal(${JSON.stringify(book)})'>编辑</button><button class="btn btn-danger btn-sm" onclick="deleteBook('${book.id}')">删除</button></td>
+                </tr>
+            `).join('');
+        }
+        function updateBookStats() {
+            const books = bookModule.getAll();
+            document.getElementById('totalBooks').textContent = books.length;
+            document.getElementById('availableBooks').textContent = books.filter(b => b.status === 'available').length;
+            document.getElementById('borrowedBooks').textContent = books.filter(b => b.status === 'borrowed').length;
+        }
+        function openMemberModal(member = null) {
+            document.getElementById('memberModal').classList.add('active');
+            document.getElementById('memberModalTitle').textContent = member ? '编辑借书人' : '添加借书人';
+            if (member) {
+                document.getElementById('memberId').value = member.id;
+                document.getElementById('memberName').value = member.name;
+                document.getElementById('memberIdCard').value = member.idCard;
+                document.getElementById('memberPhone').value = member.phone;
+                document.getElementById('memberDeposit').value = member.deposit;
+            } else {
+                document.getElementById('memberForm').reset();
+                document.getElementById('memberId').value = '';
+                document.getElementById('memberDeposit').value = 100;
+            }
+        }
+        function closeMemberModal() { document.getElementById('memberModal').classList.remove('active'); }
+        function saveMember(e) {
+            e.preventDefault();
+            const id = document.getElementById('memberId').value;
+            const member = {
+                name: document.getElementById('memberName').value,
+                idCard: document.getElementById('memberIdCard').value,
+                phone: document.getElementById('memberPhone').value,
+                deposit: parseInt(document.getElementById('memberDeposit').value) || 0
+            };
+            if (id) { memberModule.update(id, member); } else { memberModule.add(member); }
+            closeMemberModal();
+            renderMembers();
+        }
+        function deleteMember(id) { if (confirm('确定要删除这个借书人吗？')) { memberModule.delete(id); renderMembers(); } }
+        let allMembers = [];
+        function renderMembers() { allMembers = memberModule.getAll(); filterMembers(); updateMemberStats(); }
+        function filterMembers() {
+            const keyword = document.getElementById('memberSearch').value.toLowerCase();
+            const filtered = allMembers.filter(m => m.name.toLowerCase().includes(keyword) || m.phone.includes(keyword));
+            const tbody = document.getElementById('memberTable');
+            tbody.innerHTML = filtered.map(member => `
+                <tr>
+                    <td>${escapeHtml(member.name)}</td>
+                    <td>${member.idCard}</td>
+                    <td>${member.phone}</td>
+                    <td>${member.deposit}</td>
+                    <td><span class="tag ${member.deposit >= 0 ? 'tag-success' : 'tag-danger'}">${member.deposit >= 0 ? '正常' : '押金不足'}</span></td>
+                    <td><button class="btn btn-secondary btn-sm" onclick='openMemberModal(${JSON.stringify(member)})'>编辑</button><button class="btn btn-danger btn-sm" onclick="deleteMember('${member.id}')">删除</button></td>
+                </tr>
+            `).join('');
+        }
+        function updateMemberStats() {
+            const members = memberModule.getAll();
+            document.getElementById('totalMembers').textContent = members.length;
+            document.getElementById('activeMembers').textContent = members.filter(m => m.deposit >= 0).length;
+            document.getElementById('frozenMembers').textContent = members.filter(m => m.deposit < 0).length;
+        }
+        function initBorrowPage() {
+            const books = bookModule.getAll().filter(b => b.status === 'available');
+            document.getElementById('borrowBookSelect').innerHTML = '<option value="">请选择图书</option>' + books.map(b => `<option value="${b.id}">${b.name} - ${b.author}</option>`).join('');
+            const members = memberModule.getAll().filter(m => m.deposit >= 0);
+            document.getElementById('borrowMemberSelect').innerHTML = '<option value="">请选择借书人</option>' + members.map(m => `<option value="${m.id}">${m.name} (押金: ${m.deposit}元)</option>`).join('');
+            document.getElementById('borrowDueDate').value = dateUtils.addDays(dateUtils.getToday(), 30);
+            document.getElementById('borrowDueDate').min = dateUtils.getToday();
+            const records = borrowModule.getActiveRecords();
+            document.getElementById('returnRecordSelect').innerHTML = '<option value="">请选择借阅记录</option>' + records.map(r => `<option value="${r.id}">${r.bookName} - ${r.memberName} (应还: ${r.dueDate})</option>`).join('');
+            document.getElementById('returnRecordSelect').onchange = function() { showReturnInfo(this.value); };
+        }
+        function handleBorrow() {
+            const bookId = document.getElementById('borrowBookSelect').value;
+            const memberId = document.getElementById('borrowMemberSelect').value;
+            const dueDate = document.getElementById('borrowDueDate').value;
+            if (!bookId || !memberId || !dueDate) { document.getElementById('borrowMessage').innerHTML = '<div class="info-box warning">请填写完整信息</div>'; return; }
+            const result = borrowModule.borrow(bookId, memberId, dueDate);
+            if (result.success) { document.getElementById('borrowMessage').innerHTML = '<div class="info-box success">' + result.message + '</div>'; initBorrowPage(); }
+            else { document.getElementById('borrowMessage').innerHTML = '<div class="info-box warning">' + result.message + '</div>'; }
+        }
+        function showReturnInfo(recordId) {
+            const records = borrowModule.getActiveRecords();
+            const record = records.find(r => r.id === recordId);
+            const container = document.getElementById('returnInfo');
+            if (!record) { container.innerHTML = ''; return; }
+            const isOverdue = dateUtils.isOverdue(record.dueDate);
+            const daysUntilDue = dateUtils.getDaysDiff(dateUtils.getToday(), record.dueDate);
+            let statusHtml = '';
+            if (isOverdue) { const overdueDays = Math.abs(daysUntilDue); const penalty = overdueDays * 10; statusHtml = `<div class="info-box warning">已逾期 ${overdueDays} 天，逾期费用: ${penalty} 元</div>`; }
+            else if (daysUntilDue <= 7) { statusHtml = `<span class="tag tag-warning">还剩 ${daysUntilDue} 天</span>`; }
+            else { statusHtml = `<span class="tag tag-primary">还有 ${daysUntilDue} 天</span>`; }
+            container.innerHTML = `<div>图书: ${record.bookName}</div><div>借书人: ${record.memberName}</div><div>借书日期: ${record.borrowDate}</div><div>应还日期: ${record.dueDate}</div>${statusHtml}`;
+        }
+        function handleReturn() {
+            const recordId = document.getElementById('returnRecordSelect').value;
+            if (!recordId) { alert('请选择借阅记录'); return; }
+            const result = borrowModule.return(recordId);
+            if (result.success) { alert(`还书成功！\n逾期天数: ${result.overdueDays}天\n逾期费用: ${result.penalty}元\n剩余押金: ${result.remainingDeposit}元`); initBorrowPage(); document.getElementById('returnInfo').innerHTML = ''; }
+            else { alert(result.message); }
+        }
+        let allRecords = [];
+        function renderRecords() { allRecords = borrowModule.getAllRecords().reverse(); filterRecords(); }
+        function filterRecords() {
+            const keyword = document.getElementById('recordSearch').value.toLowerCase();
+            const filtered = allRecords.filter(r => r.bookName.toLowerCase().includes(keyword) || r.memberName.toLowerCase().includes(keyword));
+            const tbody = document.getElementById('recordTable');
+            tbody.innerHTML = filtered.map(record => {
+                const isOverdue = record.status === 'borrowed' && dateUtils.isOverdue(record.dueDate);
+                let statusHtml = '';
+                if (record.status === 'returned') { statusHtml = '<span class="tag tag-success">已归还</span>'; }
+                else if (isOverdue) { const overdueDays = dateUtils.getDaysDiff(record.dueDate, dateUtils.getToday()); statusHtml = `<span class="tag tag-danger">逾期 ${overdueDays} 天</span>`; }
+                else { const daysUntilDue = dateUtils.getDaysDiff(dateUtils.getToday(), record.dueDate); if (daysUntilDue <= 7) statusHtml = `<span class="tag tag-warning">还剩 ${daysUntilDue} 天</span>`; else statusHtml = '<span class="tag tag-primary">借阅中</span>'; }
+                return `<tr><td>${escapeHtml(record.bookName)}</td><td>${escapeHtml(record.memberName)}</td><td>${record.borrowDate}</td><td>${record.dueDate}</td><td>${record.returnDate || '-'}</td><td>${statusHtml}</td><td>${record.penalty || 0} 元</td></tr>`;
+            }).join('');
+        }
+        function escapeHtml(text) { const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
+        renderBooks();
+    </script>
+</body>
+</html><!DOCTYPE html>

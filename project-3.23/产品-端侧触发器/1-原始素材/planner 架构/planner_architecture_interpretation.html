@@ -1,0 +1,804 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>豆包上车 Planner 架构图解陪读</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --ink: #172033;
+      --muted: #667085;
+      --line: #d7deea;
+      --panel: #ffffff;
+      --blue: #2f64d6;
+      --cyan: #0f8aa6;
+      --green: #15803d;
+      --amber: #b7791f;
+      --rose: #be3455;
+      --violet: #6d45b5;
+      --slate: #435066;
+      --soft-blue: #eef4ff;
+      --soft-green: #ecfdf3;
+      --soft-amber: #fff7e6;
+      --soft-rose: #fff1f3;
+      --soft-violet: #f4f0ff;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      line-height: 1.65;
+    }
+
+    .page {
+      max-width: 1380px;
+      margin: 0 auto;
+      padding: 28px;
+    }
+
+    .hero {
+      min-height: 340px;
+      display: grid;
+      grid-template-columns: minmax(360px, 0.9fr) minmax(520px, 1.1fr);
+      gap: 28px;
+      align-items: stretch;
+      margin-bottom: 24px;
+    }
+
+    .hero-copy,
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 16px 48px rgba(23, 32, 51, 0.08);
+    }
+
+    .hero-copy {
+      padding: 32px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .eyebrow {
+      color: var(--blue);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0;
+      margin-bottom: 12px;
+    }
+
+    h1, h2, h3 {
+      margin: 0;
+      letter-spacing: 0;
+      line-height: 1.25;
+    }
+
+    h1 {
+      font-size: 34px;
+      max-width: 720px;
+    }
+
+    h2 {
+      font-size: 24px;
+      margin-bottom: 14px;
+    }
+
+    h3 {
+      font-size: 17px;
+      margin-bottom: 8px;
+    }
+
+    p { margin: 0 0 10px; }
+
+    .lead {
+      font-size: 17px;
+      color: var(--slate);
+      margin-top: 18px;
+    }
+
+    .quote {
+      border-left: 4px solid var(--blue);
+      background: var(--soft-blue);
+      padding: 12px 14px;
+      border-radius: 0 8px 8px 0;
+      color: #274060;
+      margin-top: 20px;
+    }
+
+    .hero-metrics {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 24px;
+    }
+
+    .metric {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: #fafcff;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 22px;
+      color: var(--blue);
+      line-height: 1.1;
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .panel {
+      padding: 22px;
+      margin-bottom: 24px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(360px, 0.8fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+      background: #fff;
+      min-height: 120px;
+    }
+
+    .card.blue { background: var(--soft-blue); border-color: #c8d8ff; }
+    .card.green { background: var(--soft-green); border-color: #bfe7cd; }
+    .card.amber { background: var(--soft-amber); border-color: #f2d395; }
+    .card.rose { background: var(--soft-rose); border-color: #f4c2cc; }
+    .card.violet { background: var(--soft-violet); border-color: #dacbff; }
+
+    .card-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--blue);
+      flex: 0 0 auto;
+    }
+
+    .dot.green { background: var(--green); }
+    .dot.amber { background: var(--amber); }
+    .dot.rose { background: var(--rose); }
+    .dot.violet { background: var(--violet); }
+    .dot.cyan { background: var(--cyan); }
+
+    ul {
+      margin: 8px 0 0;
+      padding-left: 18px;
+    }
+
+    li { margin: 4px 0; }
+
+    .source {
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--muted);
+      border-top: 1px dashed var(--line);
+      padding-top: 8px;
+    }
+
+    .svg-wrap {
+      width: 100%;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfdff;
+    }
+
+    svg {
+      display: block;
+      width: 100%;
+      min-width: 760px;
+      height: auto;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 16px;
+      margin-top: 12px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      height: 26px;
+      padding: 0 10px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: #fff;
+      font-size: 12px;
+      color: var(--slate);
+      white-space: nowrap;
+    }
+
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      overflow: hidden;
+      border-radius: 8px;
+    }
+
+    .table th,
+    .table td {
+      border: 1px solid var(--line);
+      padding: 10px 12px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .table th {
+      background: #eef2f8;
+      color: #243047;
+    }
+
+    .callout {
+      border-radius: 8px;
+      border: 1px solid #c8d8ff;
+      background: var(--soft-blue);
+      padding: 14px;
+      color: #263f66;
+      margin-top: 12px;
+    }
+
+    .section-kicker {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      color: var(--blue);
+      font-size: 13px;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    .stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .footer {
+      color: var(--muted);
+      font-size: 12px;
+      text-align: center;
+      padding: 24px 0 12px;
+    }
+
+    @media (max-width: 980px) {
+      .page { padding: 16px; }
+      .hero,
+      .grid-2,
+      .grid-3 {
+        grid-template-columns: 1fr;
+      }
+      h1 { font-size: 28px; }
+      .hero-metrics { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <div class="hero-copy">
+        <div>
+          <div class="eyebrow">字节豆包上车 · 智能座舱 Agent Planner 架构陪读</div>
+          <h1>把 12 份 Planner 文档读成一张可浏览的架构地图</h1>
+          <p class="lead">这份页面只基于当前文件夹内资料，把零散的主链路、Director、Context、动态知识、Goal List、Advisor、任务交互策略串成一套产品可理解的业务闭环。</p>
+          <div class="quote">主线判断：Planner 不是传统 NLU 意图分类器，而是车内“实时任务编排 + 对话仲裁 + 工具/Agent 调度 + 目标跟进”的中枢。</div>
+        </div>
+        <div class="hero-metrics">
+          <div class="metric"><strong>12</strong><span>份本地资料</span></div>
+          <div class="metric"><strong>6</strong><span>核心架构层</span></div>
+          <div class="metric"><strong>1</strong><span>条主业务链路</span></div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin:0;">
+        <div class="section-kicker"><span class="dot"></span>总览图</div>
+        <h2>从输入到闭环的完整链路</h2>
+        <div class="svg-wrap">
+          <svg viewBox="0 0 1080 500" role="img" aria-label="豆包上车 Planner 主链路图">
+            <defs>
+              <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+                <path d="M0,0 L10,4 L0,8 Z" fill="#667085"></path>
+              </marker>
+              <style>
+                .box{fill:#fff;stroke:#cfd8e7;stroke-width:1.5}
+                .t{font-size:16px;font-weight:800;fill:#172033}
+                .s{font-size:12px;fill:#667085}
+                .tiny{font-size:11px;fill:#667085}
+                .blue{fill:#eef4ff;stroke:#2f64d6}
+                .green{fill:#ecfdf3;stroke:#15803d}
+                .amber{fill:#fff7e6;stroke:#b7791f}
+                .rose{fill:#fff1f3;stroke:#be3455}
+                .violet{fill:#f4f0ff;stroke:#6d45b5}
+                .cyan{fill:#ecfeff;stroke:#0f8aa6}
+                .arrow{stroke:#667085;stroke-width:2;fill:none;marker-end:url(#arrow)}
+                .dash{stroke-dasharray:6 5}
+              </style>
+            </defs>
+
+            <rect x="18" y="24" width="1044" height="452" rx="12" fill="#f8fbff" stroke="#d7deea"></rect>
+
+            <rect class="box blue" x="42" y="70" width="160" height="84" rx="8"></rect>
+            <text class="t" x="122" y="102" text-anchor="middle">输入触发</text>
+            <text class="s" x="122" y="126" text-anchor="middle">User / Advisor</text>
+            <text class="s" x="122" y="144" text-anchor="middle">Tool / Trigger</text>
+
+            <rect class="box cyan" x="246" y="70" width="160" height="84" rx="8"></rect>
+            <text class="t" x="326" y="102" text-anchor="middle">Attention</text>
+            <text class="s" x="326" y="126" text-anchor="middle">拒识 / 打断</text>
+            <text class="s" x="326" y="144" text-anchor="middle">回应 / 倾听</text>
+
+            <rect class="box green" x="450" y="48" width="180" height="128" rx="8"></rect>
+            <text class="t" x="540" y="80" text-anchor="middle">公共 Context</text>
+            <text class="s" x="540" y="106" text-anchor="middle">情景 / 端状态 / 记忆</text>
+            <text class="s" x="540" y="126" text-anchor="middle">历史对话 / 任务状态</text>
+            <text class="s" x="540" y="146" text-anchor="middle">屏幕 / 事件日志</text>
+
+            <rect class="box violet" x="674" y="48" width="180" height="128" rx="8"></rect>
+            <text class="t" x="764" y="80" text-anchor="middle">动态知识供给</text>
+            <text class="s" x="764" y="106" text-anchor="middle">Knowledge ID</text>
+            <text class="s" x="764" y="126" text-anchor="middle">静态/动态示例</text>
+            <text class="s" x="764" y="146" text-anchor="middle">SP 压缩与检索</text>
+
+            <rect class="box amber" x="450" y="240" width="180" height="112" rx="8"></rect>
+            <text class="t" x="540" y="274" text-anchor="middle">Director / Planner</text>
+            <text class="s" x="540" y="300" text-anchor="middle">talk_content</text>
+            <text class="s" x="540" y="320" text-anchor="middle">action_list</text>
+            <text class="s" x="540" y="340" text-anchor="middle">目标增删 / 工具调度</text>
+
+            <rect class="box blue" x="674" y="246" width="180" height="100" rx="8"></rect>
+            <text class="t" x="764" y="282" text-anchor="middle">执行层</text>
+            <text class="s" x="764" y="308" text-anchor="middle">Tool / Agent / GUI</text>
+            <text class="s" x="764" y="328" text-anchor="middle">车控 / 导航 / 媒体</text>
+
+            <rect class="box rose" x="890" y="246" width="140" height="100" rx="8"></rect>
+            <text class="t" x="960" y="282" text-anchor="middle">反馈层</text>
+            <text class="s" x="960" y="308" text-anchor="middle">TTS / HMI</text>
+            <text class="s" x="960" y="328" text-anchor="middle">Tool feedback</text>
+
+            <rect class="box green" x="256" y="246" width="150" height="100" rx="8"></rect>
+            <text class="t" x="331" y="282" text-anchor="middle">Goal List</text>
+            <text class="s" x="331" y="308" text-anchor="middle">目标 / 细节</text>
+            <text class="s" x="331" y="328" text-anchor="middle">进展 / 状态</text>
+
+            <rect class="box violet" x="62" y="246" width="140" height="100" rx="8"></rect>
+            <text class="t" x="132" y="282" text-anchor="middle">Advisor</text>
+            <text class="s" x="132" y="308" text-anchor="middle">静态 / 动态</text>
+            <text class="s" x="132" y="328" text-anchor="middle">目标跟进</text>
+
+            <path class="arrow" d="M202 112 H246"></path>
+            <path class="arrow" d="M406 112 H450"></path>
+            <path class="arrow" d="M630 112 H674"></path>
+            <path class="arrow" d="M764 176 C764 210 625 210 575 240"></path>
+            <path class="arrow" d="M540 176 V240"></path>
+            <path class="arrow" d="M630 296 H674"></path>
+            <path class="arrow" d="M854 296 H890"></path>
+            <path class="arrow dash" d="M960 346 C960 420 540 430 540 352"></path>
+            <path class="arrow dash" d="M450 296 H406"></path>
+            <path class="arrow dash" d="M256 296 H202"></path>
+            <path class="arrow dash" d="M132 246 C132 190 440 206 492 240"></path>
+
+            <text class="tiny" x="230" y="96">进入思考</text>
+            <text class="tiny" x="642" y="96">按场景加载</text>
+            <text class="tiny" x="862" y="280">执行结果</text>
+            <text class="tiny" x="712" y="430">反馈写回 Context / Goal List，再触发后续推理</text>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-kicker"><span class="dot green"></span>一、架构分层</div>
+      <h2>六层结构：从车内现实世界到 Planner 执行闭环</h2>
+      <div class="grid-2">
+        <div class="svg-wrap">
+          <svg viewBox="0 0 960 610" role="img" aria-label="Planner 架构分层图">
+            <defs>
+              <marker id="arrow2" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+                <path d="M0,0 L10,4 L0,8 Z" fill="#667085"></path>
+              </marker>
+              <style>
+                .layer{stroke-width:1.5}
+                .lt{font-size:18px;font-weight:800;fill:#172033}
+                .ls{font-size:13px;fill:#526070}
+                .a{stroke:#667085;stroke-width:2;fill:none;marker-end:url(#arrow2)}
+              </style>
+            </defs>
+            <rect x="24" y="24" width="912" height="562" rx="12" fill="#fbfdff" stroke="#d7deea"></rect>
+            <rect class="layer" x="80" y="60" width="800" height="70" rx="8" fill="#eef4ff" stroke="#2f64d6"></rect>
+            <text class="lt" x="480" y="92" text-anchor="middle">1. 输入与触发层</text>
+            <text class="ls" x="480" y="116" text-anchor="middle">用户语音 / Advisor 建议 / Tool feedback / 定时与条件 Trigger</text>
+
+            <rect class="layer" x="80" y="160" width="800" height="70" rx="8" fill="#ecfeff" stroke="#0f8aa6"></rect>
+            <text class="lt" x="480" y="192" text-anchor="middle">2. Attention 与交互判断层</text>
+            <text class="ls" x="480" y="216" text-anchor="middle">是否人机对话、是否拒识、是否打断、是否进入回应或倾听</text>
+
+            <rect class="layer" x="80" y="260" width="800" height="70" rx="8" fill="#ecfdf3" stroke="#15803d"></rect>
+            <text class="lt" x="480" y="292" text-anchor="middle">3. Context 与状态层</text>
+            <text class="ls" x="480" y="316" text-anchor="middle">情景、端状态、用户记忆、历史对话、事件日志、屏幕、任务状态</text>
+
+            <rect class="layer" x="80" y="360" width="800" height="70" rx="8" fill="#f4f0ff" stroke="#6d45b5"></rect>
+            <text class="lt" x="480" y="392" text-anchor="middle">4. 动态知识与 SP 供给层</text>
+            <text class="ls" x="480" y="416" text-anchor="middle">按 query + context + goal_list 检索知识 ID、加载示例、降低噪音</text>
+
+            <rect class="layer" x="80" y="460" width="800" height="70" rx="8" fill="#fff7e6" stroke="#b7791f"></rect>
+            <text class="lt" x="480" y="492" text-anchor="middle">5. Director / Planner 推理层</text>
+            <text class="ls" x="480" y="516" text-anchor="middle">需求解析、任务规划、对话仲裁、action_list、目标增删、二次推理</text>
+
+            <rect class="layer" x="80" y="548" width="800" height="24" rx="8" fill="#fff1f3" stroke="#be3455"></rect>
+            <text class="ls" x="480" y="565" text-anchor="middle">6. Tool / Agent 执行 + TTS/HMI 反馈 + Context/Goal 回写</text>
+
+            <path class="a" d="M480 130 V160"></path>
+            <path class="a" d="M480 230 V260"></path>
+            <path class="a" d="M480 330 V360"></path>
+            <path class="a" d="M480 430 V460"></path>
+            <path class="a" d="M480 530 V548"></path>
+          </svg>
+        </div>
+        <div class="stack">
+          <div class="card blue">
+            <div class="card-title"><span class="dot"></span>产品解释</div>
+            <p>这套系统不是“语音识别后调接口”，而是先判断车内现实、用户语境和任务状态，再决定该说、该做、该问、该等。</p>
+          </div>
+          <div class="card green">
+            <div class="card-title"><span class="dot green"></span>关键变化</div>
+            <p>从只看 query 的意图分类，升级成基于 Context、Knowledge、Goal 的多源推理。这样才能处理“我好热”“周杰伦”“好暗”这类依赖场景的表达。</p>
+          </div>
+          <div class="card amber">
+            <div class="card-title"><span class="dot amber"></span>文档依据</div>
+            <p>来自《豆包incar1.0-长期架构梳理》《对话推理引擎(Director) PRD》《公共Context管理》《动态知识检索&使用》《基于COT的新快慢思考架构实验》。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-kicker"><span class="dot amber"></span>二、Director / Planner 是什么</div>
+      <h2>它的核心输出不是“意图标签”，而是可执行计划</h2>
+      <div class="grid-3">
+        <div class="card blue">
+          <div class="card-title"><span class="dot"></span>输入</div>
+          <ul>
+            <li>User query：用户直接说的话</li>
+            <li>Advisor input：主动服务建议</li>
+            <li>Tool feedback：工具返回结果</li>
+            <li>Trigger：定时/条件/感知触发</li>
+          </ul>
+        </div>
+        <div class="card amber">
+          <div class="card-title"><span class="dot amber"></span>推理</div>
+          <ul>
+            <li>是否需要和用户交互</li>
+            <li>是否需要调用工具</li>
+            <li>是否需要创建或更新目标</li>
+            <li>工具返回后是否继续二次推理</li>
+          </ul>
+        </div>
+        <div class="card green">
+          <div class="card-title"><span class="dot green"></span>输出</div>
+          <ul>
+            <li>talk_or_not：是否说话</li>
+            <li>talk_content：说什么</li>
+            <li>action_list：执行序列</li>
+            <li>goal_list_update：目标状态变化</li>
+          </ul>
+        </div>
+      </div>
+      <div class="callout">产品经理要抓住这一点：Planner 的产物是“下一步怎么推进用户目标”，不是一个静态分类结果。</div>
+    </section>
+
+    <section class="panel">
+      <div class="section-kicker"><span class="dot violet"></span>三、Goal List 与 Advisor</div>
+      <h2>长任务不是一直压在 Planner 身上，而是交给目标体系持续跟进</h2>
+      <div class="grid-2">
+        <div class="svg-wrap">
+          <svg viewBox="0 0 980 560" role="img" aria-label="Goal List 和 Advisor 生命周期图">
+            <defs>
+              <marker id="arrow3" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+                <path d="M0,0 L10,4 L0,8 Z" fill="#667085"></path>
+              </marker>
+              <style>
+                .b{fill:#fff;stroke:#cfd8e7;stroke-width:1.5}
+                .bt{font-size:16px;font-weight:800;fill:#172033}
+                .bs{font-size:12px;fill:#667085}
+                .ar{stroke:#667085;stroke-width:2;fill:none;marker-end:url(#arrow3)}
+                .d{stroke-dasharray:6 5}
+              </style>
+            </defs>
+            <rect x="24" y="24" width="932" height="512" rx="12" fill="#fbfdff" stroke="#d7deea"></rect>
+            <rect x="70" y="70" width="190" height="82" rx="8" fill="#eef4ff" stroke="#2f64d6"></rect>
+            <text class="bt" x="165" y="103" text-anchor="middle">用户提出长任务</text>
+            <text class="bs" x="165" y="128" text-anchor="middle">沿途介绍风景 / 点咖啡</text>
+
+            <rect x="330" y="70" width="190" height="82" rx="8" fill="#fff7e6" stroke="#b7791f"></rect>
+            <text class="bt" x="425" y="103" text-anchor="middle">Planner 仲裁</text>
+            <text class="bs" x="425" y="128" text-anchor="middle">判断是否创建目标</text>
+
+            <rect x="590" y="70" width="220" height="82" rx="8" fill="#ecfdf3" stroke="#15803d"></rect>
+            <text class="bt" x="700" y="103" text-anchor="middle">Goal List</text>
+            <text class="bs" x="700" y="128" text-anchor="middle">目标 / 细节 / 进展</text>
+
+            <rect x="130" y="245" width="220" height="96" rx="8" fill="#f4f0ff" stroke="#6d45b5"></rect>
+            <text class="bt" x="240" y="278" text-anchor="middle">动态 Advisor</text>
+            <text class="bs" x="240" y="304" text-anchor="middle">与目标绑定</text>
+            <text class="bs" x="240" y="324" text-anchor="middle">达成/取消后结束</text>
+
+            <rect x="430" y="245" width="220" height="96" rx="8" fill="#ecfeff" stroke="#0f8aa6"></rect>
+            <text class="bt" x="540" y="278" text-anchor="middle">感知订阅模块</text>
+            <text class="bs" x="540" y="304" text-anchor="middle">动态感知 / 条件 / 定时</text>
+            <text class="bs" x="540" y="324" text-anchor="middle">组装信号并触发</text>
+
+            <rect x="720" y="245" width="170" height="96" rx="8" fill="#fff1f3" stroke="#be3455"></rect>
+            <text class="bt" x="805" y="278" text-anchor="middle">推进建议</text>
+            <text class="bs" x="805" y="304" text-anchor="middle">给 Planner</text>
+            <text class="bs" x="805" y="324" text-anchor="middle">推动目标闭环</text>
+
+            <rect x="330" y="420" width="320" height="70" rx="8" fill="#eef4ff" stroke="#2f64d6"></rect>
+            <text class="bt" x="490" y="450" text-anchor="middle">Planner 再次决定是否说/做</text>
+            <text class="bs" x="490" y="474" text-anchor="middle">避免 Advisor 直接打断用户体验</text>
+
+            <path class="ar" d="M260 111 H330"></path>
+            <path class="ar" d="M520 111 H590"></path>
+            <path class="ar" d="M700 152 C700 210 280 190 250 245"></path>
+            <path class="ar" d="M350 293 H430"></path>
+            <path class="ar" d="M650 293 H720"></path>
+            <path class="ar" d="M805 341 C805 405 650 410 610 420"></path>
+            <path class="ar d" d="M430 420 C300 385 225 360 240 341"></path>
+            <path class="ar d" d="M490 490 C660 530 755 490 710 153"></path>
+          </svg>
+        </div>
+        <div class="stack">
+          <div class="card violet">
+            <div class="card-title"><span class="dot violet"></span>为什么要拆出 Advisor</div>
+            <p>文档明确说系统对 Planner 依赖过重。Planner 既要快，又要保证拆解质量、状态管理、打断恢复和目标闭环，压力过大。</p>
+          </div>
+          <div class="card green">
+            <div class="card-title"><span class="dot green"></span>新的职责分工</div>
+            <p>Planner 重实时串联：处理用户、Advisor、工具、Agent。Advisor 重目标跟进：关注目标是否达成，合适时给 Planner 建议。</p>
+          </div>
+          <div class="card amber">
+            <div class="card-title"><span class="dot amber"></span>产品例子</div>
+            <p>“接下来行程持续介绍沿途风景”会创建动态目标和动态 Advisor。Advisor 订阅路线/位置/时间，合适时再建议 Planner 播报。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-kicker"><span class="dot rose"></span>四、任务与交互管理</div>
+      <h2>车内是单线程语音管道，所以必须管理打断、排队和合并</h2>
+      <div class="svg-wrap">
+        <svg viewBox="0 0 1120 420" role="img" aria-label="任务打断与排队策略图">
+          <defs>
+            <marker id="arrow4" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+              <path d="M0,0 L10,4 L0,8 Z" fill="#667085"></path>
+            </marker>
+            <style>
+              .tx{font-size:15px;font-weight:800;fill:#172033}
+              .sx{font-size:12px;fill:#667085}
+              .ln{stroke:#667085;stroke-width:2;fill:none;marker-end:url(#arrow4)}
+            </style>
+          </defs>
+          <rect x="24" y="24" width="1072" height="372" rx="12" fill="#fbfdff" stroke="#d7deea"></rect>
+          <text class="tx" x="74" y="64">输入优先级与处理结果</text>
+
+          <rect x="70" y="96" width="210" height="90" rx="8" fill="#eef4ff" stroke="#2f64d6"></rect>
+          <text class="tx" x="175" y="130" text-anchor="middle">用户主动 Query</text>
+          <text class="sx" x="175" y="154" text-anchor="middle">P0 优先级最高</text>
+          <text class="sx" x="175" y="174" text-anchor="middle">可打断推理/播报</text>
+
+          <rect x="70" y="242" width="210" height="90" rx="8" fill="#f4f0ff" stroke="#6d45b5"></rect>
+          <text class="tx" x="175" y="276" text-anchor="middle">Advisor / 条件任务</text>
+          <text class="sx" x="175" y="300" text-anchor="middle">通常排队或合并</text>
+          <text class="sx" x="175" y="320" text-anchor="middle">避免抢用户通路</text>
+
+          <rect x="380" y="76" width="220" height="90" rx="8" fill="#fff7e6" stroke="#b7791f"></rect>
+          <text class="tx" x="490" y="110" text-anchor="middle">Planner 未出首 token</text>
+          <text class="sx" x="490" y="134" text-anchor="middle">打断当前推理</text>
+          <text class="sx" x="490" y="154" text-anchor="middle">合并新旧 query 重推理</text>
+
+          <rect x="380" y="206" width="220" height="90" rx="8" fill="#fff1f3" stroke="#be3455"></rect>
+          <text class="tx" x="490" y="240" text-anchor="middle">Planner 已开始输出</text>
+          <text class="sx" x="490" y="264" text-anchor="middle">用户 query 可打断播报</text>
+          <text class="sx" x="490" y="284" text-anchor="middle">Advisor 多为等待</text>
+
+          <rect x="710" y="76" width="250" height="90" rx="8" fill="#ecfdf3" stroke="#15803d"></rect>
+          <text class="tx" x="835" y="110" text-anchor="middle">重新推理</text>
+          <text class="sx" x="835" y="134" text-anchor="middle">生成新的 talk_content</text>
+          <text class="sx" x="835" y="154" text-anchor="middle">和 action_list</text>
+
+          <rect x="710" y="206" width="250" height="90" rx="8" fill="#ecfeff" stroke="#0f8aa6"></rect>
+          <text class="tx" x="835" y="240" text-anchor="middle">排队 / 合并 / 静默</text>
+          <text class="sx" x="835" y="264" text-anchor="middle">按 HMI 与语音策略落地</text>
+          <text class="sx" x="835" y="284" text-anchor="middle">小卡 / 大卡 / 通知卡</text>
+
+          <path class="ln" d="M280 141 H380"></path>
+          <path class="ln" d="M280 287 C340 287 340 251 380 251"></path>
+          <path class="ln" d="M600 121 H710"></path>
+          <path class="ln" d="M600 251 H710"></path>
+          <path class="ln" d="M835 166 V206"></path>
+        </svg>
+      </div>
+      <div class="grid-3" style="margin-top:14px;">
+        <div class="card blue"><div class="card-title"><span class="dot"></span>用户体验原则</div><p>用户主动说话优先，车内助手不能为了主动服务随意打断人。</p></div>
+        <div class="card amber"><div class="card-title"><span class="dot amber"></span>工程策略</div><p>首 token 未出时更适合合并重推理；已经播报时更像“打断当前输出，处理新输入”。</p></div>
+        <div class="card rose"><div class="card-title"><span class="dot rose"></span>HMI 约束</div><p>小卡、大卡、通知卡按任务类型使用，不是所有任务都要语音播报。</p></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-kicker"><span class="dot cyan"></span>五、动态知识与示例</div>
+      <h2>不要把所有知识塞进 SP，而是按场景加载</h2>
+      <div class="grid-2">
+        <div class="svg-wrap">
+          <svg viewBox="0 0 940 500" role="img" aria-label="动态知识检索与使用图">
+            <defs>
+              <marker id="arrow5" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+                <path d="M0,0 L10,4 L0,8 Z" fill="#667085"></path>
+              </marker>
+              <style>
+                .tt{font-size:16px;font-weight:800;fill:#172033}
+                .ss{font-size:12px;fill:#667085}
+                .aa{stroke:#667085;stroke-width:2;fill:none;marker-end:url(#arrow5)}
+              </style>
+            </defs>
+            <rect x="24" y="24" width="892" height="452" rx="12" fill="#fbfdff" stroke="#d7deea"></rect>
+            <rect x="70" y="70" width="190" height="300" rx="8" fill="#eef4ff" stroke="#2f64d6"></rect>
+            <text class="tt" x="165" y="104" text-anchor="middle">检索输入</text>
+            <text class="ss" x="165" y="140" text-anchor="middle">user_query</text>
+            <text class="ss" x="165" y="170" text-anchor="middle">conversation_history</text>
+            <text class="ss" x="165" y="200" text-anchor="middle">goal_list</text>
+            <text class="ss" x="165" y="230" text-anchor="middle">env_info</text>
+            <text class="ss" x="165" y="260" text-anchor="middle">loaded_knowledge_ids</text>
+
+            <rect x="365" y="110" width="210" height="140" rx="8" fill="#f4f0ff" stroke="#6d45b5"></rect>
+            <text class="tt" x="470" y="150" text-anchor="middle">知识筛选专家</text>
+            <text class="ss" x="470" y="180" text-anchor="middle">判断下游思考者</text>
+            <text class="ss" x="470" y="204" text-anchor="middle">需要哪些场景知识</text>
+            <text class="ss" x="470" y="228" text-anchor="middle">新增 / 删除知识 ID</text>
+
+            <rect x="680" y="70" width="190" height="120" rx="8" fill="#ecfdf3" stroke="#15803d"></rect>
+            <text class="tt" x="775" y="106" text-anchor="middle">输出</text>
+            <text class="ss" x="775" y="134" text-anchor="middle">add_knowledge_ids</text>
+            <text class="ss" x="775" y="158" text-anchor="middle">remove_knowledge_ids</text>
+
+            <rect x="680" y="250" width="190" height="120" rx="8" fill="#fff7e6" stroke="#b7791f"></rect>
+            <text class="tt" x="775" y="286" text-anchor="middle">注入 Planner</text>
+            <text class="ss" x="775" y="314" text-anchor="middle">场景 knowhow</text>
+            <text class="ss" x="775" y="338" text-anchor="middle">静态/动态示例</text>
+
+            <path class="aa" d="M260 220 C310 220 315 180 365 180"></path>
+            <path class="aa" d="M575 170 H680"></path>
+            <path class="aa" d="M775 190 V250"></path>
+            <path class="aa" d="M680 310 C610 310 585 250 540 235"></path>
+          </svg>
+        </div>
+        <div class="stack">
+          <div class="card cyan">
+            <div class="card-title"><span class="dot cyan"></span>动态知识</div>
+            <p>根据 query、近期对话、goal list、车辆状态和已加载知识，决定本轮该新增或删除哪些知识 ID。</p>
+          </div>
+          <div class="card violet">
+            <div class="card-title"><span class="dot violet"></span>动态示例</div>
+            <p>静态示例教通用能力，动态示例解决低频、明确、难抽象的单点 bug。它们是 Planner 的“按需经验包”。</p>
+          </div>
+          <div class="card amber">
+            <div class="card-title"><span class="dot amber"></span>性能意义</div>
+            <p>SP 优化文档提到参考示例 token 很大，拆分静态/动态加载可以降低噪音和时延。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-kicker"><span class="dot"></span>六、产品经理读文档时的判断表</div>
+      <h2>每看一个功能，都用这张表定位它在链路里的位置</h2>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>你看到的内容</th>
+            <th>先问什么</th>
+            <th>对应架构位置</th>
+            <th>产品判断</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>用户说一句模糊话，比如“好热”</td>
+            <td>需要哪些状态才能判断？</td>
+            <td>Context + Planner</td>
+            <td>不能只做意图分类，要看端状态、位置、偏好和当前任务。</td>
+          </tr>
+          <tr>
+            <td>主动服务建议</td>
+            <td>现在适不适合打扰用户？</td>
+            <td>Advisor + 任务管理</td>
+            <td>Advisor 负责建议，Planner 负责最终交互仲裁。</td>
+          </tr>
+          <tr>
+            <td>长任务或持续任务</td>
+            <td>是不是需要后续跟进？</td>
+            <td>Goal List + 动态 Advisor</td>
+            <td>不能当作一次性 react，要创建目标并持续更新进展。</td>
+          </tr>
+          <tr>
+            <td>低频工具调用 badcase</td>
+            <td>能否抽象成通用规则？</td>
+            <td>动态示例 / 静态示例</td>
+            <td>能抽象放静态，不能抽象且明确的用动态示例。</td>
+          </tr>
+          <tr>
+            <td>工具返回结果</td>
+            <td>是否已经满足用户目标？</td>
+            <td>Tool feedback + 二次推理</td>
+            <td>工具结果不是终点，Planner 还要决定继续问、继续查、执行还是总结。</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="panel">
+      <div class="section-kicker"><span class="dot rose"></span>未确认点</div>
+      <h2>这些地方我不会脑补</h2>
+      <div class="grid-3">
+        <div class="card rose">
+          <div class="card-title"><span class="dot rose"></span>Planner vs Director</div>
+          <p>当前资料中二者高度重叠，都指向对话推理与任务编排中枢；但没有明确给出严格包含关系。</p>
+        </div>
+        <div class="card rose">
+          <div class="card-title"><span class="dot rose"></span>PDF 架构图细节</div>
+          <p>部分 PDF 抽文本只能拿到少量图中文字，箭头级关系如果要逐条确认，需要对原图逐页截图解析。</p>
+        </div>
+        <div class="card rose">
+          <div class="card-title"><span class="dot rose"></span>落地状态</div>
+          <p>文档混有长期架构、实验方案和 PRD 内容，哪些已上线、哪些是目标方案，需要结合版本/项目状态继续确认。</p>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      基于当前文件夹资料生成：AI Car主链路架构、豆包incar1.0长期架构、Director PRD、座舱Planner探索、公共Context、动态知识、任务交互管理、SP优化、快慢思考实验等。
+    </footer>
+  </main>
+</body>
+</html>

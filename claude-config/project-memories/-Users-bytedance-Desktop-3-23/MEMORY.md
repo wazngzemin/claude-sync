@@ -1,0 +1,33 @@
+# Memory Index
+
+- [User profile](user_profile.md) — ByteDance AI PM on Doubao in-car cockpit (Driver Agent 2.0 Planner), wants systematic/detailed outputs
+- [Fork workflow preferences](feedback_fork_workflow.md) — timestamp every fork, update INDEX.md, systematic not fragmented
+- [Feishu wiki node tokens](reference_feishu_wiki.md) — space_id, node tokens, doc IDs for the ai-car wiki
+- [Feishu whiteboard pipeline](reference_feishu_whiteboard_pipeline.md) — HTML/SVG→飞书文档+可编辑画板全管线；原生形状硬约束(菱形→琥珀矩形/曲线→直角线/无opacity)；lark-cli三坑
+- [PRD=人话业务逻辑一篇整合](feedback_prd_renhua_comprehensive.md) — 泽民要"重写PRD"=一篇完整人话PRD(非字段规格/非精简/非另起讲解稿)；含回传混合A/B+成本三层+红黄线归属做法；先读会议纪要提真实刁难
+- [Apply user role when making style decisions](feedback_apply_user_role.md) — don't ask "what style do you want", infer from AI PM role
+- [Trigger system project](project_trigger_system.md) — user now owns 触发器 product; full link chain, owners, 上汽610 P0 = high-freq condition list
+- [Career: transition to embodied AI](project_career_embodied_ai.md) — user (王泽民) wants to move into 具身智能; Planner+触发器 = cognitive-brain entry point; evaluate work through that lens
+- [Content creator system](user_content_creator_system.md) — runs X account (~1200 followers in <1.5mo), wants low-friction content production system; growth map 信息→知识→认知→心→心性; forks must feed the 内化+输出 loop
+- [Fork = workflow remodel format](feedback_fork_internalization_format.md) —每篇文章=给某个真实日常流程插一个关键新动作（现状→插一步→改后，白话），NOT abstract analysis
+- [Video translate panel](project_video_panel.md) — 视频翻译可视化面板；repo wazngzemin/video-translate-panel；panel.py 单文件，翻译调度 claude -p；本地 :8765
+- [Director SP ground truth](project_director_sp_groundtruth.md) — 真实SP=26工具/情绪状态机/emoji/D6X五座；纠正CLAUDE.md的23工具；前置筛选注入点；陪读产物 planner 架构/planner_round1~4
+- [Trigger architecture conclusion](project_trigger_architecture.md) — 触发器=动态Advisor感知订阅执行底座；云/端触发器分工 + 3条修正铁律(注册经云端中转/端侧全走Context/不双判)；VLM阈值穿越；评审图与完整说明文档路径
+- [Planner bug taxonomy + solutions](project_planner_bug_taxonomy.md) — 六大类A-F分诊框架+33逐例case+分层解法L0-L6+P级定义；真问题少(2-3/40)、35%非自身；端状态改造=治本；2026-06-12排查会全套产物
+- [Trigger diagram feedback](feedback_trigger_diagram.md) — 细化触发器图时:别换他的30节点骨架/别复刻；触发器模块拆原子级；线标"为什么"；按流程分色；细化要逐字核对原文
+- [Don't delete user content](feedback_dont_delete_user_content.md) — 改文档"优化话术"≠删/重构；大改前先cp备份；要去重/合并先问他拍板；讲稿现状=单一合并版+每段嵌大图局部图
+- [Config platform real UI](reference_config_platform.md) — 火山后台"新建场景"页真实结构(节点13)=基础信息/发布范围/动态+静态条件/执行动作/执行策略；24类车态字段；4处待改造
+- [Signal format ownership](project_signal_format_ownership.md) — 端上报格式/单位归产品(仁杰)约束、非端上(汪帅/金龙)拍；触发器侧主动给建议格式反喂；仁杰6/20确认上汽固定米/秒/hh:mm + 带单位字符串"200m"剥单位坑
+- [Nav trigger PRD](project_nav_trigger_prd.md) — 导航接近/到达/离开PRD；one_shot状态机；A/B决策(逼刘杨工期)；围栏非"做不了"别甩益图；音频信号归触发器；4个产物HTML路径
+- [Dynamic examples V2](project_dynamic_examples_v2.md) — 动态示例被批死记硬背；V2=97条五要素状态分支推理链；xlsx四sheet含字段依赖清单(端上改造输入)
+- [VLM architecture](reference_vlm_architecture.md) — 感知器=调度器非VLM，VQA才是VLM；上汽云端VQA/赛力斯端侧VLM；丁斌owner+配置平台7字段待改造
+- [6.22 trigger review](project_trigger_622_review.md) — 端侧scope大幅收窄(固定闭环回赛力斯CDC)+状态vs事件链路纠错(Advisor订阅事件不轮询Context)+动态视觉感知3卡点(7月中)；已并入PRD §11.5/v2.1
+- [HTML must version-increment](feedback_html_numbering.md) — 每次生成HTML必须先ls查已有版本→在最新版基础上+1递增，绝不从零写/覆盖；用户多次强调
+- [Auto open HTML after generation](feedback_auto_open_html.md) — 生成HTML后立即open打开浏览器，不等用户要求
+- [Discuss before producing diagrams](feedback_discuss_before_diagram.md) — 优化架构图必须先讨论再动手，不能直接改完给用户看
+- [Table-first for structured info](feedback_table_first.md) — 多字段/多属性对照默认用表格，单元格内写详细，不要先写大段文字
+- [Q&A first-principles format](feedback_qa_first_principles_format.md) — 讲解稿新标准：追问式Q&A+第一性原理+对抗式审查+真实case运算符映射；v8起生效
+- [6.30 three meetings](reference_630_meetings.md) — 三场会议纪要路径与核心定版：动态链路14:00/静态评审15:48/标签转化20:45
+- [7.2 visual review](project_72_review.md) — SLS-0804紫色线评审不通过；刘杨反对拼SP/汪帅质疑定位/韩杰点名格式评审/818vs0804排期错位；最多3个SP；泽民7行动，7.4周六11点续评
+- [7.4 second VLM review](project_74_review.md) — 黄红线挂泽民名下成阻塞(优先级没跟嘉锋对过)；绕Context被仁杰超然庆磊推翻中→原路返回；事件判断1万辆车成本战→三层设计；排期口径四版本；西钺"任务名称作主key"
+- [Review coaching framework](feedback_review_coaching_framework.md) — 复盘评审用"梁宁六公理"格式A(三货币结算/落层L1-L4/台词引公理/三个数字收尾)；泽民三弱点=技术耳/展示台/裸体撤退；汪帅稳定打定位

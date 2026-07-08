@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>当前架构分析 · 好处坏处 · 优化方向 · 可借鉴的架构模式</title>
+<style>
+:root{--bg:#f8fafc;--card:#fff;--border:#e2e8f0;--t1:#1e293b;--t2:#475569;--t3:#94a3b8;--blue:#2563eb;--red:#dc2626;--green:#16a34a;--purple:#7c3aed;--orange:#ea580c;--shadow:0 4px 20px rgba(0,0,0,.06)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;color:var(--t1);line-height:1.9;font-size:15px}
+.page{max-width:980px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:1.8rem;font-weight:800;margin-bottom:4px}
+.meta{color:var(--t3);font-size:.85rem;margin-bottom:32px}
+h2{font-size:1.4rem;font-weight:700;margin:48px 0 12px;padding:10px 0 10px 16px;border-left:5px solid var(--blue)}
+h3{font-size:1.1rem;font-weight:700;margin:28px 0 8px}
+h4{font-size:.95rem;font-weight:700;margin:20px 0 6px;color:var(--t2)}
+p{color:var(--t2);margin-bottom:12px}
+ul,ol{padding-left:1.5em;margin:8px 0 16px;color:var(--t2)}
+li{margin-bottom:6px}
+.card{background:var(--card);border-radius:12px;box-shadow:var(--shadow);padding:28px;margin:16px 0;border:1px solid var(--border)}
+.card.red{border-left:5px solid var(--red)}
+.card.green{border-left:5px solid var(--green)}
+.card.blue{border-left:5px solid var(--blue)}
+.card.purple{border-left:5px solid var(--purple)}
+.card.orange{border-left:5px solid var(--orange)}
+pre{background:#1e293b;color:#e2e8f0;padding:16px 20px;border-radius:8px;overflow-x:auto;font-size:.82rem;line-height:1.7;margin:12px 0;white-space:pre-wrap}
+pre .k{color:#93c5fd}pre .s{color:#86efac}pre .c{color:#64748b}pre .w{color:#fca5a5}pre .y{color:#fde68a}
+.hl{padding:14px 18px;border-radius:8px;margin:12px 0;font-size:.92rem}
+.hl-blue{background:#eff6ff;border-left:4px solid var(--blue)}
+.hl-red{background:#fef2f2;border-left:4px solid var(--red)}
+.hl-green{background:#f0fdf4;border-left:4px solid var(--green)}
+.hl-orange{background:#fff7ed;border-left:4px solid var(--orange)}
+.hl-purple{background:#faf5ff;border-left:4px solid var(--purple)}
+table{width:100%;border-collapse:collapse;font-size:.88rem;margin:12px 0}
+th,td{padding:10px 14px;border:1px solid var(--border);text-align:left;vertical-align:top}
+th{background:#f1f5f9;font-weight:600}
+hr{border:none;border-top:2px dashed var(--border);margin:40px 0}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:768px){.two-col{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>当前架构分析 · 好处坏处 · 优化方向 · 可借鉴模式</h1>
+<p class="meta">基于 SP优化专项文档 + 动态知识注入PRD + 实际工程实现分析 · 2026-06-05</p>
+
+<hr>
+
+<h2>一、当前架构是什么？（Harness 工程的实际结构）</h2>
+
+<div class="card blue">
+<h3>Planner SP 的实际组成（优化前 vs 优化后）</h3>
+
+<p>从 SP 优化专项文档提取的真实数据：</p>
+
+<table>
+<tr><th>组成部分</th><th>优化前</th><th>优化后（当前目标）</th></tr>
+<tr><td>车辆知识</td><td>914 tokens</td><td>保持不变</td></tr>
+<tr><td>工具描述（23个）</td><td>2,769 tokens</td><td>保持不变</td></tr>
+<tr><td><strong>参考示例（64条!）</strong></td><td><strong>26,164 tokens（占80%!）</strong></td><td>拆分：静态10条 + 动态检索</td></tr>
+<tr><td>其他（角色/格式/注意事项/人设）</td><td>~2,959 tokens</td><td>字段压缩（如 talk_or_not→speak）</td></tr>
+<tr><td><strong>总计</strong></td><td><strong>32,806 tokens</strong></td><td><strong>目标 ~16,000 tokens</strong></td></tr>
+</table>
+
+<div class="hl hl-red">
+<strong>核心发现：</strong>64条参考示例占了 SP 的 80%！这就是为什么 SP 这么大（32K tokens）。优化的核心就是<strong>拆示例</strong>——把64条静态示例拆成"少量静态 + 动态检索"。
+</div>
+
+<h4>优化后的示例加载架构（3层）</h4>
+<pre><span class="k">SP 里的示例 = 3 层加载：</span>
+
+<span class="s">第1层：静态示例（10条，始终在SP里）</span>
+  高频 + 通用的示例，不管什么场景都需要
+  如：导航、车控、音乐播放等基础对话模式
+  ~4000 tokens
+
+<span class="y">第2层：动态示例 - 基于 query 检索（5条，每轮替换）</span>
+  用户当前 query 的 embedding 向量 → vikingDB 检索 → Top-5 最相似的示例
+  如：用户说"我好热" → 检索到降温场景的示例
+  <span class="w">问题：多轮对话时需要 query 改写</span>
+  <span class="w">（用户第3轮说"好的那就这家"，原始query检索不到有用示例，</span>
+  <span class="w"> 需要改写为"去鮨一日本料理用餐"再检索）</span>
+
+<span class="y">第3层：动态示例 - 基于 tool_feedback 检索（5条，工具返回后加载）</span>
+  上一轮工具返回了什么 → 检索该工具对应的多轮示例
+  如：search_poi_qa 返回了 POI 列表 → 加载"POI选择对话"的示例
+  让 Planner 知道拿到 POI 结果后应该怎么回复
+
+<span class="k">总计：10（静态）+ 5（query检索）+ 5（tool检索）= 20 条</span>
+<span class="s">从64条减到20条 → SP从26K tokens减到~8K tokens → SP总量减半!</span></pre>
+</div>
+
+<div class="card purple">
+<h3>对比：动态知识 vs 动态示例的检索架构</h3>
+
+<table>
+<tr><th></th><th>动态知识（Skill）</th><th>动态示例（Few-shot）</th></tr>
+<tr><td><strong>检索技术</strong></td><td>LLM 推理（Selector SP）</td><td>纯向量检索（vikingDB）</td></tr>
+<tr><td><strong>检索什么</strong></td><td>场景 Skill 全文（执行项/前置条件）</td><td>query-answer 的对话样本</td></tr>
+<tr><td><strong>检索依据</strong></td><td>语义推理：query + env + 历史 + 目标 + 已加载ID</td><td>文本相似度：query embedding + tool_feedback</td></tr>
+<tr><td><strong>检索数量</strong></td><td>1-3 条 Skill（按场景命中）</td><td>5+5=10 条示例（query检索5 + tool检索5）</td></tr>
+<tr><td><strong>耗时</strong></td><td>500ms - 1.8s</td><td>几十 ms</td></tr>
+<tr><td><strong>向量库</strong></td><td>不用（LLM推理检索）</td><td>vikingDB</td></tr>
+<tr><td><strong>注入SP位置</strong></td><td>{{knowledge}}</td><td>替换/补充原来64条静态示例</td></tr>
+<tr><td><strong>负责人</strong></td><td>徐燃（已做好）</td><td>4月做过一次，需更新</td></tr>
+</table>
+</div>
+
+<hr>
+
+<h2>二、当前架构的好处和坏处</h2>
+
+<div class="two-col">
+<div class="card green">
+<h3>✅ 好处</h3>
+
+<h4>1. 动态知识：LLM 检索能理解语义</h4>
+<p>"我车里有只猫" → LLM 能推理出 = 宠物场景。这是纯向量检索做不到的——"猫"和"宠物模式"的文本向量相似度很低，但 LLM 能理解它们的语义关系。</p>
+
+<h4>2. 动态示例：向量检索快且准</h4>
+<p>几十 ms 就能找到最相似的示例，对性能零影响。而且基于 embedding 的相似度对于"找相似 query"这种任务天然适合——"我好热好闷"和"好热啊赶紧降温"的向量相似度很高。</p>
+
+<h4>3. 示例拆分大幅压缩 SP</h4>
+<p>从 64 条全量加载（26K tokens）→ 20 条按需加载（~8K tokens）= SP 减半。直接带来：</p>
+<ul>
+<li>首 token 延迟从 2309ms → 998ms（下降 57%！）</li>
+<li>Director 总耗时从 12231ms → 6179ms（下降 50%！）</li>
+</ul>
+
+<h4>4. 两层检索互相独立，各管各的</h4>
+<p>知识检索管"做什么"，示例检索管"怎么输出"——职责分明，一个出问题不影响另一个。</p>
+
+<h4>5. 动态示例支持基于 tool_feedback 检索</h4>
+<p>这是一个巧妙的设计——上一轮工具返回了 POI 列表，系统自动检索"拿到 POI 后怎么回复"的示例注入 SP。这让 Planner 在多轮对话中每一轮都能拿到最相关的示例参考。</p>
+</div>
+
+<div class="card red">
+<h3>❌ 坏处 / 当前瓶颈</h3>
+
+<h4>1. Selector SP 是最大的性能瓶颈</h4>
+<p>额外一次 LLM 调用 = 500ms-1.8s。当前目标是压到 500ms 以内，但 13 个场景就已经 1.8s 了。PRD 目标 64 个场景，如果不改架构只会更慢。</p>
+
+<h4>2. 示例的 query 改写问题没解决</h4>
+<p>SP 优化文档明确写了：多轮对话时原始 query 检索不到有用示例。如用户第 3 轮说"好的那就这家"——这句话本身的 embedding 和任何场景示例都不相似。需要先做 query 改写（结合上下文把"那就这家"改写为"去鮨一日本料理"），再拿改写后的 query 去检索。这个改写本身又需要一次 LLM 调用或规则处理。</p>
+
+<h4>3. 知识检索和示例检索可能不一致</h4>
+<p>知识检索（LLM 推理）判断是"降温场景"，但示例检索（向量检索）可能因为 query 的表达方式不同，检索到的是"通风场景"的示例。两者不一致 → Planner 拿着降温知识但看着通风示例 → 输出混乱。</p>
+
+<h4>4. 示例库需要持续维护</h4>
+<p>Skill 改了，对应的示例也要跟着改。但示例是存在 vikingDB 里的向量，更新比较麻烦——需要重新 embedding、重新入库。不像 Skill 改个文本就行。</p>
+
+<h4>5. 示例压缩不够</h4>
+<p>SP 优化文档指出："目前示例都是裸示例，没有经过抽象。"比如 tool_feedback 里的 POI 数据包含大量无用信息（地址、电话、经纬度），这些不需要保留在示例里，应该压缩成关键信息。</p>
+
+<h4>6. 缺乏评测闭环</h4>
+<p>知识检索的准确率只有 60-70%，但没有自动化评测体系持续监控。每次改了 Selector SP 或 Skill，需要手动跑测试验证。</p>
+</div>
+</div>
+
+<hr>
+
+<h2>三、和传统 Harness 工程的区别</h2>
+
+<div class="card">
+<p>"Harness 工程"在这个语境下指的是<strong>不做动态检索，把所有信息全量塞进 SP</strong>的做法——也就是优化前的状态（64 条示例全加载、知识全量注入）。</p>
+
+<table>
+<tr><th>维度</th><th>传统 Harness（全量加载）</th><th>当前方案（动态检索）</th></tr>
+<tr><td>SP 大小</td><td>~32K tokens（固定不变）</td><td>~16K tokens（动态部分按需加载）</td></tr>
+<tr><td>示例加载</td><td>64 条全在 SP 里</td><td>10 条静态 + 10 条动态检索</td></tr>
+<tr><td>知识加载</td><td>要么全塞（太大）要么不塞（没知识）</td><td>Selector 选出最相关的 1-3 条注入</td></tr>
+<tr><td>首 token 延迟</td><td>2309ms</td><td>998ms（↓57%）</td></tr>
+<tr><td>总耗时</td><td>12231ms</td><td>6179ms（↓50%）</td></tr>
+<tr><td>准确率</td><td>79.38%（所有示例都在，模型选择困难）</td><td>88.38%（只注入相关的，模型更聚焦）</td></tr>
+<tr><td>扩展性</td><td>不可扩展——示例越多 SP 越大，迟早超限</td><td>可扩展——示例库无限大，每次只取 Top-K</td></tr>
+<tr><td>额外延迟</td><td>0（没有检索步骤）</td><td>Selector ~1.8s + embedding ~30ms</td></tr>
+<tr><td>适合场景数</td><td>≤20 个（再多 SP 装不下）</td><td>理论无上限（64+也行）</td></tr>
+</table>
+
+<div class="hl hl-blue">
+<strong>本质区别：</strong>传统 Harness = "把整个图书馆搬到桌上"——信息全但桌子太小、找东西慢。当前方案 = "只把这次要用的书拿过来"——桌子清爽、找东西快，但需要一个"图书管理员"（Selector + 向量检索）帮你找书，这个管理员本身也有成本。
+</div>
+</div>
+
+<hr>
+
+<h2>四、优化方向</h2>
+
+<h3>4.1 已在做的优化（SP优化专项里的）</h3>
+<div class="card green">
+<h4>优化1：输出格式压缩</h4>
+<p>把 JSON 字段名缩短：<code>talk_or_not → speak</code>（少2个token），<code>talk_content → content</code>（少1个token）。看似小但每次输出都省，首token延迟降了 ~90ms。</p>
+
+<h4>优化2：示例拆分静态+动态</h4>
+<p>64条 → 10静态+5动态(query)+5动态(tool) = 从26K tokens降到~8K tokens。</p>
+
+<h4>优化3：示例压缩</h4>
+<p>把示例里的裸数据（如 POI 的完整JSON）压缩成关键信息：</p>
+<pre><span class="w">压缩前（裸示例）:</span>
+tool_feedback: "poiId:B0IA61DPAA 名称:上海虹桥国际机场T2航站楼
+地址:上海市闵行区申昆路1500号 标签:航站楼,机场,交通枢纽
+电话:021-96990 位置:121.335000,31.195000 距离:0km
+商圈:虹桥商务区 评分: 营业状态..."   <span class="w">← 400+ tokens/条</span>
+
+<span class="s">压缩后（抽象示例）:</span>
+tool_feedback: "路线1: 预估25分钟, 4.5km, 10红绿灯
+路线2: 预估27分钟, 5.0km, 6红绿灯"   <span class="s">← 50 tokens/条</span></pre>
+
+<h4>优化4：基于人工反馈的纠错示例</h4>
+<p>把实际 badcase 转化为纠错示例。如：查天气时用户没说地点 → 示例展示从 context 推断位置的做法。</p>
+</div>
+
+<h3>4.2 还没做但应该做的优化</h3>
+<div class="card orange">
+
+<h4>优化5：Selector SP 延迟压缩</h4>
+<p>当前 1.8s 太慢。文档里的建议路径："先用压缩锚词表把当前 13 场景的延迟压到 500ms 以内"。锚词表 = 每条知识的摘要从 ~100 字压缩到 ~30 字关键词，减少 Selector 需要处理的 token 数量。</p>
+
+<h4>优化6：解决多轮 query 改写问题</h4>
+<p>用户第 N 轮的 query 可能是"好的那就这家"——这种短 query 的 embedding 检索不到有用示例。需要一个 query 改写模块，结合对话历史把短 query 扩展成完整表达。</p>
+
+<h4>优化7：知识-示例一致性保证</h4>
+<p>Selector 判断是"降温场景"（注入降温 Skill），但向量检索的示例可能是"通风场景"。需要在两套检索结果之间做一致性校验——或者让示例检索也参考 Selector 的输出 ID 做过滤。</p>
+
+<h4>优化8：自动化评测闭环</h4>
+<p>构建一个自动化管线：改了 Skill/SP/示例 → 自动跑评测集 → 量化命中率和准确率 → 低于阈值告警。避免"改了但不知道效果变好还是变差"。</p>
+</div>
+
+<hr>
+
+<h2>五、可借鉴的其他架构模式</h2>
+
+<h3>5.1 RAG（Retrieval-Augmented Generation）</h3>
+<div class="card purple">
+<h4>它是什么</h4>
+<p>RAG 是当前业界最主流的"外部知识增强 LLM"的架构。流程：用户 query → embedding → 向量库检索最相关的文档片段 → 拼到 prompt 里 → LLM 生成回答。</p>
+
+<h4>和我们的方案对比</h4>
+<table>
+<tr><th></th><th>标准 RAG</th><th>我们当前的方案</th></tr>
+<tr><td>检索方式</td><td>纯向量检索</td><td>混合：知识用LLM检索 + 示例用向量检索</td></tr>
+<tr><td>检索对象</td><td>文档片段（同质的）</td><td>两种不同的东西：Skill知识 + few-shot示例</td></tr>
+<tr><td>检索粒度</td><td>文档 chunk（~500字/条）</td><td>完整 Skill（~2000字/条）+ 完整示例（~800字/条）</td></tr>
+<tr><td>注入位置</td><td>通常在 user message 里</td><td>在 system prompt 的不同模板变量里</td></tr>
+</table>
+
+<h4>可以借鉴什么</h4>
+<ul>
+<li><strong>Reranker 重排：</strong>向量检索 Top-20 → 再用一个小模型做精排取 Top-5。可以提升示例检索的准确率。</li>
+<li><strong>Chunk 优化：</strong>RAG 领域有大量关于"怎么切文档效果最好"的研究，可以参考优化 Skill 的长度和结构。</li>
+<li><strong>HyDE（假设文档嵌入）：</strong>先让 LLM 生成一个"假设的理想回答"，用这个假设回答去做检索，而不是用原始 query。可以解决我们的"短 query 检索不准"问题。</li>
+</ul>
+</div>
+
+<h3>5.2 Self-RAG（自反思 RAG）</h3>
+<div class="card purple">
+<h4>它是什么</h4>
+<p>标准 RAG 的升级版——LLM 生成回答后，自己检查"我检索到的内容和我生成的回答是否一致？如果不一致，重新检索"。引入了一个反思（reflection）步骤。</p>
+
+<h4>可以借鉴什么</h4>
+<p>当前问题：Planner 用了检索到的 Skill 编排，但可能漏掉了某些执行项。Self-RAG 的思路是——Planner 生成 action_list 后，检查"我的 action_list 是否覆盖了 Skill 里所有的执行项？"如果没有，补充。<strong>但这会增加一轮推理 = 增加延迟</strong>，在车载场景下不一定可行。</p>
+</div>
+
+<h3>5.3 Agentic RAG（多 Agent 协作检索）</h3>
+<div class="card purple">
+<h4>它是什么</h4>
+<p>不是一个 Agent 做所有检索，而是多个专业 Agent 各管一块：一个 Agent 管知识检索，一个 Agent 管示例检索，一个 Agent 管环境感知...然后一个 Orchestrator 汇总所有结果给主 Agent。</p>
+
+<h4>和我们的方案对比</h4>
+<p>我们<strong>已经在做这个模式了</strong>——Selector 是一个专业的"知识检索 Agent"，vikingDB 是"示例检索引擎"，env_info/memory 是"环境/记忆模块"，它们各自独立工作，结果汇合到 Planner SP。</p>
+
+<h4>可以进一步借鉴什么</h4>
+<p>加一个<strong>Router Agent</strong>在最前面——不是所有 query 都需要走场景知识检索。简单问题（"现在几点"）直接走 Planner，不触发 Selector。这样可以避免 Selector 的 500ms-1.8s 延迟浪费在不需要知识的 query 上。<strong>其实拒识仲裁⑨就是在做这件事</strong>——它先判断 query 是否需要走场景，不需要就不触发 Selector。</p>
+</div>
+
+<h3>5.4 Tool-Augmented LLM（工具增强）</h3>
+<div class="card purple">
+<h4>它是什么</h4>
+<p>不在 prompt 里塞知识，而是让 LLM 在需要时自己调用"知识查询工具"——就像 ChatGPT 的 function calling，LLM 自己决定什么时候需要查知识、查什么。</p>
+
+<h4>和我们的方案对比</h4>
+<table>
+<tr><th></th><th>Tool-Augmented</th><th>我们的方案</th></tr>
+<tr><td>知识获取时机</td><td>LLM 推理过程中自己决定要不要查</td><td>在 LLM 推理之前就预先注入</td></tr>
+<tr><td>优点</td><td>不需要 Selector → 省掉检索延迟</td><td>LLM 一开始就有知识 → 推理更准</td></tr>
+<tr><td>缺点</td><td>LLM 可能忘了查 → 没有知识就瞎编</td><td>需要额外的检索步骤 → 有延迟</td></tr>
+</table>
+
+<h4>可以借鉴什么</h4>
+<p>对于紧急场景（如安全红线判断），不需要等 Selector 检索完。可以把安全规则做成一个"安全检查工具"——Planner 在生成 action_list 之前先调用这个工具检查"当前条件下是否允许这个操作"。这比在 SP 注意事项里写"非P档禁止调座椅"更可靠。</p>
+</div>
+
+<h3>5.5 Cache-Augmented Generation（缓存增强）</h3>
+<div class="card purple">
+<h4>它是什么</h4>
+<p>既然每次调 Selector 都要 500ms-1.8s，能不能把 Selector 的结果缓存下来？用户连续说了 3 句关于"热"的话，第 1 次 Selector 判断了"降温场景"，第 2、3 次直接用缓存结果，不再调 Selector。</p>
+
+<h4>可以借鉴什么</h4>
+<p>其实 Selector 的"增量更新"设计（add + remove）就是这个思路的雏形——loaded_knowledge_ids 记录了上一轮已加载的知识，Selector 只做差异判断，不是每次全量重新检索。但当前实现似乎还是每轮都完整执行 Selector，可以优化为"如果用户还在同一个场景里，跳过 Selector"。</p>
+</div>
+
+<hr>
+
+<h2>六、总结：我应该做什么？</h2>
+
+<div class="card blue">
+<h3>基于以上分析，你（泽民）在写 Skill 和推进优化时应该注意：</h3>
+
+<h4>1. Skill（动态知识）写作</h4>
+<ul>
+<li>每条 1500-2500 字，不要太长（稀释注意力）也不要太短（模型会幻觉）</li>
+<li>执行项用 SOA 工具名而不是自然语言</li>
+<li>关键信息重复写（开头+结尾）</li>
+<li>同时写好"Selector 索引摘要"——30字触发词+场景描述，帮助 Selector 准确分类</li>
+</ul>
+
+<h4>2. 动态示例需要更新</h4>
+<ul>
+<li>4月做过一次，Skill 改了示例也要同步改</li>
+<li>需要和明骏配合：你提供"改了哪些 Skill"→ 明骏更新 vikingDB 里对应的示例和向量</li>
+<li>注意示例压缩——不要裸数据，抽象关键信息</li>
+</ul>
+
+<h4>3. 推进 Selector SP 延迟优化</h4>
+<ul>
+<li>压缩知识索引表（每条从 ~100字 → ~30字锚词）</li>
+<li>构建评测集量化回归</li>
+<li>长期：讨论是否引入向量预筛（先 embedding 选 Top-5 候选，再 LLM 精选）</li>
+</ul>
+
+<h4>4. 关注知识-示例一致性</h4>
+<ul>
+<li>和明骏讨论：示例检索能否参考 Selector 的输出 ID 做过滤？</li>
+<li>避免"Skill 说降温，示例教通风"的不一致情况</li>
+</ul>
+</div>
+
+<div style="text-align:center;padding:40px 0;color:var(--t3);font-size:.85rem;">
+当前架构分析与优化方向 v1.0<br>
+基于 SP优化专项 + 动态知识注入PRD + 实际工程实现 · 2026-06-05
+</div>
+
+</div>
+</body>
+</html>

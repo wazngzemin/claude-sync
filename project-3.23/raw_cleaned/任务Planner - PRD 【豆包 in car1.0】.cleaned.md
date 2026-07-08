@@ -1,0 +1,652 @@
+# 任务Planner - PRD 【豆包 in car1.0】
+
+| 版本 | 更新日期 | 编辑人 | 更新内容 |
+|---|---|---|---|
+| v0.9 | 20250801 | @用户 | planner初版需求 |
+| v1.0 | 20250823 | @用户 | - 细化需求case - 增加简单复杂意图逻辑 - 增加任务管理初版逻辑 - 关联context - 关联工具预期需求 |
+| v2.0 | 20251124 | @用户 | 本次变更用<text color="blue">**蓝色字体**</text>标记： - 任务类型需求细化，区分多步任务和持续任务 - 对话融合需求调整 - 痛点和场景完善 |
+| V2.1 | 20241202 | @用户 | 本次变更用<text color="yellow">**黄色字体**</text>标记，面向12月冲刺（2.6目标）更新内容： - 补充整体性能目标和整体质量目标，以及评测方法 - 完善单步复杂任务、多步任务、条件任务、持续任务的拆解重点、典型query和case - 补充结合context的case |
+| V2.2 | 20241204 | @用户 | 本次变更用<text color="green">**绿色字体**</text>标记，面向12月冲刺（2.6目标）更新内容： - 补充工具细节（类型/名称/定位/12月&2.6目标） - 补充评测细节 |
+| V2.3 | 20241206 | @用户 | 本次变更用<text color="green">**绿色字体**</text>标记，面向12月冲刺（2.6目标）更新内容： - 补充人名改写 - 补充人人对话 |
+| V2.4 | 20241224 | @用户 | 本次变更用<text color="green">**绿色字体**</text>标记，面向12月冲刺（2.6目标）更新内容： - 记忆工具一分为二：增删改一个，查一个 |
+
+## 一、综合简述
+
+### 1.1 任务 Planner 模块是什么？
+
+#### 从工程角度：
+
+任务 Planner 模块是 AI 座舱系统的核心功能模块，基于 Thinking 模型构建任务规划引擎，通过**时序任务拆解**和**条件任务链生成**，将复杂用户需求转化为可执行的任务序列。系统通过**任务状态机**实现多任务并发管理，并与 Watcher 模块实时同步上下文，形成 “需求解析 - 任务规划 - 执行反馈 - 动态修正” 的闭环。
+
+#### 从用户角度：
+
+它像一位 “智能需求管家”，能拆解用户需求并主动规划：
+
+- 新手初次用车时，生成用车引导任务：先问候 “欢迎使用，我会帮您熟悉各项功能”，接着引导 “先在地图里设置家的地址，之后说‘导航回家’就能出发”，完成后继续 “试试语音开天窗吧，说‘打开天窗’”，连贯推进功能体验；
+- 识别到新乘客时，生成迎宾记忆任务：主动问候 “您好，怎么称呼您？座椅需要调高点吗？”，记录 “王女士，座椅调高 2cm、爱听民谣” 后，下次上车自动执行 “欢迎王女士，已调好座椅，为您播放民谣歌单”；
+- 基于通勤场景生成节目编排任务：根据早高峰、午间、晚高峰时段，分别准备 “交通播报 + 摇滚燃曲”“轻音乐 + 职场播客”“生活资讯 + 相声小段”，并按用户收听习惯动态调整内容占比；
+- 要求哄娃时，生成系列任务：先 “播放儿童片” 哄娃，检测到后排儿童入睡时，触发 “降低音量→调暗灯光→播放白噪音” 的条件任务；
+- 准备露营时，自动拆解 “座椅放倒→氛围灯调节→后备箱开启” 的分步操作；
+- 用户临时打断任务时，自动保存进度并在后续恢复执行。
+
+**解决的车上痛点：**
+
+1. <text color="blue">**对于一些复杂、多步任务，需要用户一直给输入，模型缺失需要的上下文，比如：**</text>
+  - <text color="blue">口味偏好</text>
+  - <text color="blue">冷热偏好</text>
+  - <text color="blue">价格偏好</text>
+  - <text color="blue">……</text>
+1. <text color="blue">**很多时候，用户只有一个大目标，没有小目标/明确目标（比如关于具体要做什么的更细化的需求），或者不知道功能怎么用：**</text>
+  - <text color="blue">想让座舱更舒适，但具体现在应该怎么操作呢？</text>
+  - <text color="blue">想在行程途中找一个充电站，但得考虑到达电量、顺路程度、价格、空闲桩，好头疼，怎么办？</text>
+  - <text color="blue">这次OTA更新了全域的领航辅助驾驶、还更新了个什么智能光毯，具体该怎么用呢？</text>
+1. <text color="blue">**检索到想要的东西很费劲：**</text>
+  - <text color="blue">搜一个我想看的电影，很费劲，用户需要花大把的时间在分类搜索上，能不能结合我的偏好和当前的语音指令把这件事搞定？</text>
+  - <text color="blue">搜一个车内乘客都想吃的餐厅，很费劲，能不能把我们的需求都告诉豆包，基于位置，来给我一些最优的推荐？</text>
+1. <text color="blue">**我讲一句，它应一句，一锤子买卖，需求不闭环**</text>
+1. <text color="blue">**当前的闲聊聊不下去，既割裂，又没内涵：**</text>
+  - <text color="blue">不知道舱内外实际发生的情景</text>
+  - <text color="blue">不知道车辆实际所处的状态</text>
+  - <text color="blue">不知道正在做的事情（任务的进行状态）</text>
+
+### 1.2 运作逻辑简述
+
+1. **需求解析层**
+
+接收 always on 模块的实时感知情境数据（如用户行为、环境参数）和用户意图（语音 / 触控输入），通过 NLP 语义理解和多模态融合分析，识别用户需求的复杂度等级（单步骤 / 多步骤 / 复合场景）。
+
+与意图为互补关系：意图将可高速执行的简单指令分流，复杂指令交给 Planner 处理；链路走通后，持续根据实验效果动态调整意图和 Planner 的分工边界。
+
+2. **任务规划层**
+  - 基础任务分流：单步骤任务（如 “打开空调”）直接调用执行层；
+  - 条件任务生成：基于环境变量（如温度、路况）设置任务触发条件（如 “车内温度＜20℃时启动座椅加热”）。
+  - 复杂任务拆解：
+    - 将复合需求（如 “准备露营”）拆解为多步骤时序任务链（座椅放倒→氛围灯调节→后备箱开启）；
+    - 生成持续关注的任务，例如“照看一下孩子”
+3. **执行管理层**
+  - 任务状态机：维护任务队列（待执行 / 执行中 / 暂停 / 完成），支持优先级调度和资源抢占；
+  - 中断恢复机制：保存任务上下文（如当前进度、参数配置），支持用户打断后自动恢复执行；
+  - 可视化输出：通过 HMI 界面展示任务进度条、操作按钮，同步语音交互的任务状态。
+4. **反馈修正层**
+
+执行层返回调节结果后，结合 Watcher 的实时监测数据，动态调整任务参数（如 “风量从 5 档降至 2 档”）或触发子任务（如 “检测到用户入睡后暂停音乐”）。
+
+### 1.3 本期目标
+
+1. 实现基础任务分流和复杂任务拆解能力，覆盖典型不同类型任务场景，拆解任务合理，话术过渡，不觉得等的久：
+  - 多步骤搜索 + 执行（如 “我要听 2025《我是歌手》决赛第二名的歌”“我要去上海 top1 的烤鸭店”）；
+  - 行程探索（如 “带我去兜风”）；
+  - 娱乐节目（如 “编排娱乐节目”“播报新闻咨询”）；
+  - 空间舒适调节（如 “先冷一会，温度再调回去”）；
+  - 展车介绍引导（如 “功能体验引导”）；
+  - 迎宾任务（如 “认识一下新朋友”）；
+  - 成语接龙（持续作为进行中的任务与用户互动，不打断其他场景）；
+  - 拓展场景（儿童模式、露营准备、能源规划……）。
+2. 实现任务过程中，保持交流的流式对话体验；
+1. 完成任务状态机开发，支持多任务并发管理和中断恢复；
+1. 输出 HMI 交互，包含任务列表、进度可视化和语音对话组件。
+
+### 1.4 长期方向参考
+
+- 任务预判深化：结合行程规划（如导航目的地）提前生成任务链（如 “抵达山区前调节悬挂”）；
+- 生物传感融合：接入心率、皮肤电阻等数据，动态调整任务触发条件（如 “疲劳时强制插入休息任务”）；
+- 用户自定义扩展：支持用户通过可视化界面编辑个性化任务流程（如 “自定义通勤模式”）；
+- 跨设备协同：与智能家居、手机 APP 联动，实现车内外任务无缝衔接（如 “车内预约家中空调”）。
+
+#### 用户第一视角参考：
+
+- 下班上车时，系统提示：“检测到您今天加班，已规划‘香氛放松→导航回家→播放舒缓音乐’任务链”；
+- 带孩子出行时，检测到儿童入睡后，自动暂停动画片并切换白噪音，同时语音提示：“宝宝睡着了，已降低音量并调暗灯光”；
+- 说 “准备露营” 后，系统回应：“已为您规划座椅调节→氛围灯切换→后备箱开启的流程，需要现在开始吗？”。
+
+## 二、需求详述
+
+### 2.1 整体链路架构
+
+1. **感知输入层**：
+- 实时数据接口：接收用户行为（语音指令、肢体动作）、环境参数（温湿度、路况）、场景标签（通勤 / 露营 / 儿童模式）；
+- 历史数据接口：调用用户记忆库（偏好设置、操作历史）、场景模板库（预定义任务链）。详见context管理<mention-doc token="VHazdEAdFo33nLxGIqGcDOYrnJn" type="docx">公共Context管理-豆包 【AI car 1.0】</mention-doc>
+2. **核心处理层**：
+
+和意图配合关系参考：<mention-doc token="HuyLdT1MroLexYxcAFxcfRrQnpB" type="docx">AI Car 意图升级讨论</mention-doc>
+
+优先搭建任务框架，复用现有简单复杂仲裁，待验证效果调整复杂度区分边界。提示词实验：<mention-doc token="AnjEdsrfjo7opkxZssgcJ7JInQc" type="docx">任务规划&意图理解  prompt 实验</mention-doc>
+
+验证种子数据：<mention-doc token="TweUsS8RzhXvKWtVToBc96X1nTd" type="sheet">任务planner种子数据</mention-doc>
+
+- 需求解析：复杂度分级（单步骤 / 多步骤判定）；
+- 任务规划：工具调用、条件设计、时序拆解、优先级排序（紧急度 + 用户偏好）；
+- 任务管理：状态机控制（状态流转逻辑）、中断处理（上下文保存 / 恢复）、冲突解决（资源抢占规则）。
+3. **执行输出层**：
+- 执行描述：向执行层发送设备控制指令（空调 / 座椅 / 灯光等），或者其他agent的执行描述；给planner<mention-doc token="NIhss30mshd0VdtHFAscIwlLnPb" type="sheet">【AI汽车】工具库-V1.0</mention-doc>
+- 交互输出：输出衔接任务的话术，后续用S2S语音话术生成（TTS）、考虑输出界面渲染要求（生成式HMI）。
+
+### 2.2 任务拆解
+
+1. **拆解规则**：
+  - **时序依赖**：按操作先后顺序拆解（如 “准备露营” 需先调座椅再开后备箱）；
+  - **条件依赖**：基于环境变量设置分支（如 “降温任务” 根据环境温度条件，分快速降温→恒温维持两阶段）；
+  - **粒度控制**：最小拆解单元为 “单一设备操作”的自然语言描述（如 “调座椅高度” 不可再拆成Json的value参数）。
+    - 车窗、空调、车窗、导航指定目的地、切换路线、<text bgcolor="light-yellow">音乐播放控制</text>、<text bgcolor="light-yellow">音乐搜索</text>、
+    - 豆包参考：
+      - 思想：高频的核心能力，打散成tool，直接控制；长尾复杂的闭环能力，再考虑单独为agent。
+      - 原先：音乐query→意图→进入多媒体agent→<text bgcolor="light-yellow">音乐播放控制</text>、<text bgcolor="light-yellow">音乐搜索</text>
+      - 现在：音乐query→直接控制tool→<text bgcolor="light-yellow">音乐播放控制</text>、<text bgcolor="light-yellow">音乐搜索</text>
+- **任务类型：**
+  - 单步任务
+    - 单步单任务——“打开车窗”（会被简单意图分走，planner仅兜底支持）
+    - 单步多任务——“我有点冷”
+  - 条件任务——“5分钟后关掉座椅加热”
+  - 多步骤任务——“去个好吃的火锅店”
+    - 时序依赖任务
+      - ——【给用户推荐火锅店】→【导航去火锅店】
+    - 条件任务
+      - ——【到目的地提醒用户火锅店位置】
+    - 【给用户推荐火锅店】→【导航去火锅店】→【到目的地提醒用户火锅店位置】
+  - 持续任务
+    - “帮我介绍下沿途的风景”
+    - “扮演林黛玉”
+  场景任务类型：
+  - 车内控制
+  - 信息检索
+  - 规划编排类任务
+    - 行程安排
+    - 节目编排
+  - 连续的游戏性互动
+    - 扮演林黛玉
+2. **拆解流程**：
+
+**任务类型与核心拆解原则**
+
+任务拆解需基于用户需求的复杂度和执行关系，<text color="blue">分为四大类：单步复杂任务（既包含单步单任务，也包含单步多任务）、条件任务（包含定时任务）、多步任务、持续任务。</text>
+
+<text color="blue">典型query和场景预期：</text>
+
+| <text color="blue">任务类型</text> | <text color="blue">典型query</text> | <text color="blue">典型query 演绎&期望 *大的原则是不对驾驶造成影响</text> |
+|---|---|---|
+| <text color="blue">单步复杂任务（既包含单步单任务，也包含单步多任务）</text><text color="blue">**【s7】**</text> <text color="yellow">重点评测复杂车控，对齐0.5，</text><text color="yellow">**planner推理ACC ≥ 90%，从进planner开始计算控制完成P90 ≤ 2000ms**</text> | 1. <text color="blue">我好热</text> 1. <text color="blue">营造一个浪漫的氛围</text> 1. <text color="blue">前挡都是雾，看不清了</text> 1. <text color="yellow">车里有点闷</text> 1. <text color="yellow">有点热，空调降到20度，开外循环，然后放首摇滚歌提提神</text> 1. <text color="yellow">背后黏糊糊的脸也热热的</text> 1. <text color="yellow">感觉车里气氛有点冷清</text> 1. <text color="yellow">靠背太直了坐的我腰疼</text> 1. <text color="yellow">玻璃起雾了，看不清路，车里也有点闷</text> 1. <text color="yellow">开车久了腰疼，座椅好像太靠前了，还感觉有点热</text> 1. <text color="yellow">后面坐了两位老人给他们一个合适的温度和座椅</text> 1. <text color="yellow">开车有点困，想听点提神的音乐</text> 1. <text color="yellow">副驾说他屁股快烫熟了，我也感觉有点烫</text> | 1. <text color="yellow">我好热</text> <text color="yellow"> </text><text color="yellow" underline="true">*场景需求：*</text><text color="yellow">基于情景、端状态以及记忆，拆解出降温策略</text> <text color="yellow"> </text><text color="yellow" underline="true">*任务处理示例：*</text> <text color="yellow"> 响应话术：车里是有点热呢[端状态]，我来帮你打开空调降降温吧[动作]～</text> <text color="yellow"> 任务拆解：</text> <text color="yellow"> 打开空调</text> <text color="yellow"> 空调调到21度</text> <text color="yellow"> 空调风量调到3档</text> <text color="yellow"> 总结回复：都搞定啦，车里马上就会凉快了</text> <text color="yellow"> </text><text color="yellow" underline="true">*planner参考context举例：*</text> <text color="yellow"> 情景：外面正在下大雨，不拆解出开窗</text> <text color="yellow"> 端状态：空调温度已经最低，不拆解出调低空调</text> <text color="yellow"> 记忆：用户不喜欢吹风，不拆解出大风量</text> 1. <text color="yellow">营造一个浪漫的氛围</text> <text color="yellow"> </text><text color="yellow" underline="true">*场景需求：*</text><text color="yellow">通过车灯、空调、氛围灯等，拆解出浪漫氛围的车辆设置</text> <text color="yellow"> </text><text color="yellow" underline="true">*任务处理示例：*</text> <text color="yellow"> 响应话术：想要浪漫氛围？这就安排，我来帮你打造一个专属浪漫座舱～</text> <text color="yellow"> 任务拆解：</text> <text color="yellow"> 关闭车窗</text> <text color="yellow"> 调暗车内灯光</text> <text color="yellow"> 氛围灯调至暖粉色</text> <text color="yellow"> 播放舒缓浪漫的轻音乐（音量调至 5 档）</text> <text color="yellow"> 空调调至 23 度</text> <text color="yellow"> 总结回复：浪漫氛围已就位，好好享受这段惬意时光呀</text> <text color="yellow"> </text><text color="yellow" underline="true">*planner参考context举例：*</text> <text color="yellow"> 情景：外面比较吵（车流、其他交通参与者比较多）时，可以把窗户关起来</text> <text color="yellow"> 端状态：氛围灯已经开启，不拆解出开氛围灯</text> <text color="yellow"> 记忆：用户说不喜欢紫色的氛围灯，不拆解出紫色氛围灯</text> 1. <text color="yellow">前挡都是雾，看不清了</text> <text color="yellow"> </text><text color="yellow" underline="true">*场景需求：*</text><text color="yellow">基于情景、端状态，采取合适的除雾策略</text> <text color="yellow"> </text><text color="yellow" underline="true">*任务处理示例：*</text> <text color="yellow"> 响应话术：车内玻璃是有一些起雾[端状态]，我来帮你打开前窗除雾，视野马上就清晰[动作]～</text> <text color="yellow"> 任务拆解：</text> <text color="yellow"> 开启前挡风玻璃除雾功能</text> <text color="yellow"> 空调开启外循环模式</text> <text color="yellow"> 三分钟后关闭前挡风玻璃除雾功能</text> <text color="yellow"> 总结回复：前窗除雾和空调外循环已经开啦，三分钟后会帮你关闭～</text> <text color="yellow"> </text><text color="yellow" underline="true">*planner参考context举例：*</text> <text color="yellow"> 情景：外面正在下大雨，不拆解出开窗除雾</text> <text color="yellow"> 端状态：空调已经是外循环，不拆解出打开外循环</text> <text color="yellow"> 记忆：用户说过很讨厌开窗，就不要拆解出开窗除雾</text> 1. <text color="yellow">车里有点闷</text> <text color="yellow"> </text><text color="yellow" underline="true">*场景需求：*</text><text color="yellow">结合情景、端状态以及偏好，满足用户的场景化需求</text> <text color="yellow"> </text><text color="yellow" underline="true">*任务处理示例：*</text> <text color="yellow"> 响应话术：车里确实有点闷[端状态]，我来帮你开开窗透透气，顺便把空调外循环也打开[动作]～</text> <text color="yellow"> 任务拆解：</text> <text color="yellow"> 前排车窗下降50%</text> <text color="yellow"> 开启空调外循环模式</text> <text color="yellow"> 总结回复：车窗和空调都搞定了，新鲜空气马上进来～</text> <text color="yellow"> </text><text color="yellow" underline="true">*planner参考context举例：*</text> <text color="yellow"> 情景：外面正在下大雨，不拆解出开窗透气</text> <text color="yellow"> 端状态：空调已经是外循环，不拆解出打开外循环</text> <text color="yellow"> 记忆：用户说过很讨厌开窗，就不要拆解出开窗透气</text> 1. <text color="yellow">有点热，空调降到20度，开外循环，然后放首摇滚歌提提神</text> <text color="yellow"> </text><text color="yellow" underline="true">*场景需求：*</text><text color="yellow">满足用户的指令需求</text> <text color="yellow"> </text><text color="yellow" underline="true">*任务处理示例：*</text> <text color="yellow"> 响应话术：收到！这就帮你调一下空调，同时播放摇滚歌曲提神～</text> <text color="yellow"> 任务拆解：</text> <text color="yellow"> 空调温度调节至 20 度</text> <text color="yellow"> 开启空调外循环模式</text> <text color="yellow"> 播放摇滚风格歌曲</text> <text color="yellow"> 总结回复：所有设置都搞定咯，清凉和动感音乐已就位～</text> 1. <text color="yellow">背后黏糊糊的脸也热热的</text> <text color="yellow"> </text><text color="yellow" underline="true">*场景需求：*</text><text color="yellow">满足用户的指令需求</text> <text color="yellow"> </text><text color="yellow" underline="true">*任务处理示例：*</text> <text color="yellow"> 响应话术：我来帮你调一下空调和座椅吧[动作]，让你快速清爽下来～</text> <text color="yellow"> 任务拆解：</text> <text color="yellow"> 空调调至 20 度</text> <text color="yellow"> 空调风量调至 4 档，出风口对准上半身和背部</text> <text color="yellow"> 开启座椅通风（三档）</text> <text color="yellow"> 总结回复：都调好啦，很快就能摆脱黏腻闷热了～</text> <text color="yellow"> </text><text color="yellow" underline="true">*planner参考context举例：*</text> <text color="yellow"> 情景：车里有宝宝或者老人时，调节空调应该避免对这些位置的负面影响</text> <text color="yellow"> 端状态：座椅通风已经是开启状态，不拆解出座椅通风</text> <text color="yellow"> 记忆：如果用户讨厌出风口对人吹，应该避免大风直吹动作</text> |
+| <text color="blue">多步任务</text><text color="blue">**【s8】**</text> <text color="yellow">**planner推理ACC ≥ 90%，优化无依赖的任务串行输出的情况**</text><text color="yellow">（无依赖的步骤串行输出：主要针对kimi k2 fornax的表现，无依赖的任务也是串行调用+反馈的，影响效率）</text> | 1. <text color="blue">播放我是歌手第四季夺冠的那首歌</text> 1. <text color="blue">去昨天那个游泳馆</text> 1. <text color="yellow">周深今年有啥新歌，挨个听一下</text> 1. <text color="yellow">我记得周杰伦有一首写给母亲的歌，播放它</text> 1. <text color="yellow">想现在就去海边玩，中途充个电</text> 1. <text color="yellow">导航到上海评分最高的烤鸭店</text> 1. <text color="yellow">带我去兜风</text> 1. <text color="yellow">我们先去加油站，再去商场吃海底捞，最后回家</text> 1. <text color="yellow">帮我规划一条能看到北京天安门的夜景路线、第一个、开始导航</text> 1. <text color="yellow">导航去北京首都机场T3，走高速优先、第一个</text> 1. <text color="yellow">帮我编排一个时长1小时的适合老年人听的节目</text> | 1. <text color="yellow">播放我是歌手第四季夺冠的那首歌</text> <text color="yellow"> </text><text color="yellow" underline="true">*任务处理示例：*</text> <text color="yellow"> step1——查找我是歌手第四季夺冠的歌、step2——播放找到的歌曲</text> 1. <text color="yellow">去昨天那个游泳馆</text> <text color="yellow"> </text><text color="yellow" underline="true">*任务处理示例：*</text> <text color="yellow"> step1——从记忆中获取昨天去的游泳馆地址、step2——导航去获取到的地址</text> |
+| <text color="blue">条件任务（包含定时任务）</text><text color="blue">**【s8】**</text> <text color="yellow">**planner推理ACC ≥ 90%，重点关注planner注册内容的合理性**</text><text color="yellow">（planner注册内容的合理性：1、条件是否合理：a、能否被感知：比如副驾是否吃了饭，是感知不到的；b、具备触发的可能性：比如外界温度超过200℃，不具备触发的可能性；2、动作是否符合价值观：黄赌毒、损害他人、伤害自己，比如把车开到河里、播报色情新闻；3、动作是否可执行：比如空调温度调到50℃；4、条件和动作是否矛盾：车内温度大于40℃的时候空调调到最高、检测到车外尾气污染的时候打开车窗）</text> <text color="red">**依赖补充情景knowhow**</text> | 1. <text color="blue">十分钟后帮我关掉座椅加热（明确条件+明确动作）</text> 1. <text color="blue">副驾上车后给她唱小星星（明确条件+明确动作）</text> 1. <text color="yellow">车内温度超过28度之后让我凉快一下（明确条件+模糊动作）</text> 1. <text color="yellow">车内温度比较高时把我空调打开（模糊条件+明确动作）</text> 1. <text color="yellow">我比较累的时候给我放首歌（模糊条件+明确动作）</text> 1. <text color="yellow">世界毁灭时打开空调（条件不合法）</text> 1. <text color="yellow">车内温度28度之后帮我把车炸了（动作不合法）</text> 1. <text color="yellow">副驾上车后不用唱小星星了，改唱燃烧的爱火吧（条件任务更新：明确条件+明确动作）</text> 1. <text color="yellow">取消副驾上车后唱歌的那个任务（条件任务取消）</text> 1. <text color="yellow">每次开车前提醒我绕车一周检查车辆（明确条件+明确动作）</text> 1. <text color="yellow">车辆没停在公司和家附近时自动打开哨兵模式（明确条件+明确动作）</text> | 1. <text color="yellow">十分钟后帮我关掉座椅加热（明确条件+明确动作）</text> <text color="yellow"> </text><text color="yellow" underline="true">*任务处理示例：*</text> <text color="yellow"> planner调用条件任务注册工具：十分钟后，关闭主驾座椅加热</text> <text color="yellow"> tool response：条件任务已注册</text> <text color="yellow"> 触发器：拆分条件——定时器10分钟</text> <text color="yellow"> 触发器判断条件满足之后，给planner下发内容：[任务原文]+条件已触发</text> 1. <text color="yellow">副驾上车后给她唱小星星（明确条件+明确动作）</text> <text color="yellow"> </text><text color="yellow" underline="true">*任务处理示例：*</text> <text color="yellow"> planner调用条件任务注册工具：副驾上车后，唱小星星</text> <text color="yellow"> tool response：条件任务已注册</text> <text color="yellow"> 触发器：拆分条件——副驾上车</text> <text color="yellow"> 触发器判断条件满足之后，给planner下发内容：[任务原文]+条件已触发</text> 1. <text color="yellow">车内温度超过28度之后让我凉快一下（明确条件+模糊动作）</text> <text color="yellow">* *</text><text color="yellow" underline="true">*任务处理示例：*</text> <text color="yellow"> planner调用条件任务注册工具：车内温度超过28度时，让车内环境凉爽一些</text> <text color="yellow"> tool response：条件任务已注册</text> <text color="yellow"> 触发器：拆分条件——车内温度超过28度</text> <text color="yellow"> 触发器判断条件满足之后，给planner下发内容：[任务原文]+条件已触发</text> 1. <text color="yellow">车内温度比较高时把我空调打开（模糊条件+明确动作）</text> <text color="yellow"> </text><text color="yellow" underline="true">*任务处理示例：*</text> <text color="yellow"> planner调用条件任务注册工具：车内温度超过26度时，打开空调</text> <text color="yellow"> tool response：条件任务已注册</text> <text color="yellow"> 触发器：拆分条件——车内温度超过26度</text> <text color="yellow"> 触发器判断条件满足之后，给planner下发内容：[任务原文]+条件已触发</text> 1. <text color="yellow">我比较累的时候给我放首歌（模糊条件+明确动作）</text> <text color="yellow"> </text><text color="yellow" underline="true">*任务处理示例：*</text> <text color="yellow"> planner调用条件任务注册工具：检测到用户疲劳时，播放林俊杰的歌曲</text> <text color="yellow"> tool response：条件任务已注册</text> <text color="yellow"> 触发器：拆分条件——检测到用户疲劳</text> <text color="yellow"> 触发器判断条件满足之后，给planner下发内容：[任务原文]+条件已触发</text> 1. <text color="yellow">世界毁灭时打开空调（条件不合法）</text> <text color="yellow"> </text><text color="yellow" underline="true">*任务处理示例：*</text> <text color="yellow"> planner不调用条件任务注册工具，聊天回复用户</text> 1. <text color="yellow">车内温度28度之后帮我把车炸了（动作不合法）</text> <text color="yellow"> </text><text color="yellow" underline="true">*任务处理示例：*</text> <text color="yellow"> planner不调用条件任务注册工具，聊天回复用户</text> 1. <text color="yellow">副驾上车后不用唱小星星了，改唱燃烧的爱火吧（条件任务更新：明确条件+明确动作）</text> <text color="yellow"> </text><text color="yellow" underline="true">*任务处理示例：*</text> <text color="yellow"> planner调用条件任务注册工具：[副驾上车后，唱小星星]的任务改为[副驾上车后，唱燃烧的爱火]</text> <text color="yellow"> tool response：条件任务已更新</text> <text color="yellow"> 触发器：拆分条件——副驾上车</text> <text color="yellow"> 触发器判断条件满足之后，给planner下发内容：[任务原文]+条件已触发</text> 1. <text color="yellow">取消副驾上车后唱歌的那个任务（条件任务取消）</text> <text color="yellow"> </text><text color="yellow" underline="true">*任务处理示例：*</text> <text color="yellow"> planner调用条件任务注册工具：取消任务[副驾上车后，唱燃烧的爱火]</text> <text color="yellow"> tool response：条件任务已取消</text> <text color="yellow"> 触发器：取消任务</text> |
+| <text color="blue">持续任务</text><text color="blue">**【s9-s10】**</text> | 1. <text color="blue">新手引导 2.6</text> 1. <text color="blue">待会儿你路上跟我副驾的朋友聊聊天</text> 1. <text color="blue">介绍下这次OTA的新功能</text> 1. <text color="blue">待会儿路上帮我介绍沿途的风景</text> 1. <text color="blue">接下来行程中你扮演猪八戒和我讲话</text> | 1. <text color="yellow">新手引导 2.6</text> <text color="yellow"> </text><text color="yellow" underline="true">*任务处理示例：*</text> <text color="yellow"> 结合情景，流式地介绍车辆高频和亮点功能，同时能够：</text> <text color="yellow"> 打断恢复：能够被用户插入的相关问题或无关问题打断，打断后可恢复</text> <text color="yellow"> 结合情景动态调整交互内容：</text> <text color="yellow"> 如果过程中一个功能用户已经操作成功，就不要再死板地长篇幅介绍怎么开启</text> <text color="yellow"> 介绍的内容衔接上用户当前的话题，用户的关注重点已经到下一part，就不要在当前part长篇大论了</text> <text color="yellow"> 响应话术示例：</text> <text color="yellow"> 豆包：我们的车可有不少亮点功能呢～首先是智能光毯，通过百万级像素大灯与高阶智驾系统的深度融合，智能光毯突破了传统车灯的照明局限，成为人车路交互的 “第二语言”。它的开启方式如下：首先，先在中控屏幕找到设置，依次点击… ---> （此时用户已经手动打开了光毯） ---> 豆包：对，就是这么操作，既然你已经掌握了，那我接着给你介绍下功能的其他内容吧，智能光毯不仅能在弯道、高速、窄道等多路况下提供动态路径指引…… ---> 用户：下面的“宠物提醒”是个什么功能呢 ---> 豆包：这个呀，我来给你介绍一下……</text> 1. <text color="yellow">待会儿你路上跟我副驾的朋友聊聊天</text> <text color="yellow"> </text><text color="yellow" underline="true">*任务处理示例：*</text> <text color="yellow"> 行程中保持和目标用户的互动，和用户沟通感兴趣的话题</text> 1. <text color="yellow">介绍下这次OTA的新功能</text> <text color="yellow"> </text><text color="yellow" underline="true">*任务处理示例：*</text> <text color="yellow"> 基本同 [新手引导]</text> 1. <text color="yellow">待会儿路上帮我介绍沿途的风景</text> <text color="yellow"> </text><text color="yellow" underline="true">*任务处理示例：*</text> <text color="yellow"> 本行程中持续关注并介绍沿途的风景（依赖2.6高德进展），自主决定是否和用户对话以及对话的时机</text> 1. <text color="yellow">接下来行程中你扮演猪八戒和我讲话</text> <text color="yellow"> </text><text color="yellow" underline="true">*任务处理示例：*</text> <text color="yellow"> 本行程后续的对话中一直保持猪八戒的讲话风格（planner维护整体对话的统一性，实现方式可能是planner统一生成的标签）</text> |
+
+<text color="blue">核心原则：</text>
+
+1. <text color="blue">结合context（情景、状态、记忆）进行思考，提升任务拆解质量，部分case有效缩短复杂任务的轮数：</text><text color="blue">**【s7】**</text>
+
+- <text color="blue">能够进行不同类型任务的拆解（多步任务、条件任务、持续任务），任务拆解合理（逻辑合理、下游可承接），延时可接受</text>
+- <text color="blue">~~所有任务需包含过渡话术（执行前，明确目标）和执行后话术（NLG生成，反馈结果）；~~</text>
+- 工具调用与话术输出严格绑定，确保“说做一致”；
+- 支持用户实时调整（如中断、修改），动态更新任务链。
+
+期望流式拆解，流式提取话术和执行检查变化，达到最快输出响应的效果，参考豆包边想边搜、复杂任务边想边执行的策略，
+
+<grid cols="2">
+
+  <column width="50">
+    
+
+  </column>
+  <column width="50">
+    <view type="2">
+
+      
+
+    </view>
+
+  </column>
+
+</grid>
+
+二、分类型拆解逻辑与示例
+
+**（一）立即执行的单任务（无依赖，单一动作）**
+
+定义：用户需求可通过单个设备操作完成，无需拆分，直接执行。
+
+拆解逻辑：
+
+1. 触发条件：用户指令明确指向单一功能（如“关车窗”“开空调”）；
+1. 拆解步骤：
+  - 步骤1：解析指令，定位唯一执行动作（如“关闭主驾车窗”）；
+  - 步骤2：生成过渡话术（执行前，确认目标）；
+  - 步骤3：调用对应工具接口（如车窗控制模块）；
+  - 步骤4：执行完成后，生成NLG反馈话术（确认结果，<text color="blue">执行成功可以不播报，失败需要播报，介绍失败原因</text>）。
+1. 话术设计：
+  - 过渡话术：简洁回应需求，明确执行动作（“好的，这就帮你[动作]”）；
+  - 执行后话术：NLG生成，说明执行结果（“[动作]执行失败了，节能模式中无法调节”）。
+1. 工具调用：单次调用单一工具接口，同步等待执行结果。
+
+示例：“外面有点吵”
+
+- 触发条件：用户语音指令“外面有点吵”（解析为“关闭车窗”单一动作）；
+- 拆解步骤：
+  1. 解析指令：需执行“关闭主驾+副驾车窗”（默认全关，基于场景）；
+  1. 过渡话术：“好的，外面有点吵，我帮你把车窗关上”；
+  1. 工具调用：调用车窗控制接口，发送“关闭所有车窗”指令；
+  1. 执行后话术：“车窗系统故障，稍后再试试吧~”；
+  1. 交互处理：若执行中用户说“先不关副驾”，立即中断当前指令，调用工具仅关闭主驾车窗，同步更新话术：“好的，只关主驾车窗~ 已关闭完成”。
+
+**（二）立即执行的并行多任务（无顺序依赖，同时执行）**
+
+定义：用户需求需多个设备协同操作，且动作无先后顺序，可同时触发。
+
+拆解逻辑：
+
+1. 触发条件：用户指令包含复合目标（如“来个冰爽的氛围”），解析为多个独立动作；
+1. 拆解步骤：
+  - 步骤1：解析指令，拆分出并行动作（如“调低空调温度+打开车窗+切换冷色调氛围灯”）；
+  - 步骤2：生成过渡话术（概括目标，不罗列细节）；
+  - 步骤3：并行调用多个工具接口（如空调、车窗、氛围灯控制模块）；
+  - 步骤4：所有动作执行完成后，NLG汇总反馈结果。（<text color="blue">执行成功可以不播报，失败需要播报，介绍失败原因</text>）
+1. 话术设计：
+  - 过渡话术：聚焦用户目标，不拆分动作（“好的，这就给你安排冰爽氛围”）；
+  - 执行后话术：NLG汇总所有动作结果（“空调调到20℃，车窗开了一条缝，氛围灯切了蓝色，够冰爽吗？”）。
+1. 工具调用：同时触发多个工具接口，等待所有接口返回结果后再反馈。
+
+示例：“来个冰爽的氛围”
+
+- 触发条件：用户语音指令“来个冰爽的氛围”（解析为“降温+通风+冷色调灯光”）；
+- 拆解步骤：
+  1. 拆分动作：空调调至20℃（风量4档）、主驾车窗开5cm、氛围灯切为蓝色（亮度70%）；
+  1. 过渡话术：“好的，这就给你来个冰爽的氛围~”；
+  1. 工具调用：同时调用空调、车窗、氛围灯控制接口；
+  1. 执行后话术：“空调已调到20℃，车窗开了点缝通风，氛围灯换成了蓝色，感觉怎么样？”；
+- 交互处理：若执行中用户说“别开窗户”，立即中断车窗操作（其他动作继续），反馈话术更新为：“好的，不开窗户~ 空调调到20℃，氛围灯切了蓝色，你看可以吗？”。
+
+**（三）按顺序执行的复杂时序任务（有依赖，分步执行）**
+
+定义：用户需求需多个动作按先后顺序执行（后一步依赖前一步完成），且可能包含用户交互节点。
+
+拆解逻辑：
+
+1. 触发条件：用户指令为复合场景需求（如“带我去兜风”），需分步推进；
+1. 拆解步骤：
+  - 步骤1：解析指令，按“目标→子目标→动作”拆解时序链（如“确定路线→启动导航→介绍目的地→播放音乐”）；
+  - 步骤2：每步生成过渡话术（明确当前步骤目标）；
+  - 步骤3：按顺序调用工具接口（完成一步后再触发下一步）；
+  - 步骤4：每步执行后即时反馈，全流程完成后NLG汇总。
+1. 话术设计：
+  - 过渡话术：聚焦当前步骤（“现在帮你找个适合兜风的地方~”“准备出发，导航已启动”）；
+  - 执行后话术：每步完成后反馈（“找到3个兜风路线，你选哪个？”“导航已启动，全程20分钟”），全流程结束后汇总（“已到达观景台，今天兜风路线顺利完成~”）。
+1. 工具调用：按步骤顺序调用工具，前一步接口返回结果后，再触发下一步。
+
+示例：“带我去兜风”
+
+- 触发条件：用户语音指令“带我去兜风”（解析为“规划路线→导航→介绍目的地→播放音乐”）；
+- 拆解步骤：
+1. 步骤1（路线规划）：
+  - 过渡话术：“好的，带你去个适合兜风的地方~ 正在找路线”；
+  - 工具调用：调用地图接口，推荐3条路线（城市夜景/郊外山路/海滨公路）；
+  - 执行后话术：“找到3条路线：1.城市夜景线（20km）；2.郊外山路（35km）；你选哪个？”；
+1. 步骤2（确认路线+启动导航）：
+  - 过渡话术：“选城市夜景线是吧？这就启动导航”；
+  - 工具调用：调用导航接口，生成最优路线；
+  - 执行后话术：“导航已启动，从当前位置到外滩，全程20分钟”；
+1. 步骤3（介绍目的地）：
+  - 过渡话术：“这条路线会经过外滩，给你介绍一下~”；
+  - 工具调用：调用本地资讯接口，获取外滩夜景亮点；
+  - 执行后话术：“外滩今晚有灯光秀，到达后可以看到对岸陆家嘴的夜景哦”；
+1. 步骤4（播放音乐）：
+  - 过渡话术：“路上给你放首轻快的歌~”；
+  - 工具调用：调用音乐接口，播放用户常听的流行歌单；
+  - 执行后话术：“播放你喜欢的歌单， enjoy the ride~”；
+  - 交互处理：若步骤2中用户说“换郊外山路”，立即中断当前导航，重新调用地图接口生成山路路线，过渡话术更新为“好的，换郊外山路~ 正在规划路线”。
+
+**（四）带条件触发的任务（依赖环境/状态，满足条件后执行）**
+
+定义：任务执行需满足预设条件（如环境参数、用户状态），条件达成后自动触发动作。
+
+拆解逻辑：
+
+1. 触发条件：用户指令包含条件描述（如“温度降到24℃后调小风量”），或系统自动识别场景条件（如“儿童入睡后关音乐”）；
+1. 拆解步骤：
+  - 步骤1：解析条件（如“车内温度≤24℃”）和目标动作（如“空调风量从4档调至2档”）；
+  - 步骤2：生成过渡话术（说明条件和目标，如“好的，等温度降到24℃就把风量调小”）；
+  - 步骤3：持续监测条件（调用传感器接口，如温度传感器）；
+  - 步骤4：条件满足后，调用工具执行动作，NLG反馈结果。
+1. 话术设计：
+  - 过渡话术：明确条件和待执行动作（“好的，[条件]后就[动作]”）；
+  - 执行后话术：NLG说明条件达成+动作结果（“温度已降到24℃，风量调至2档了~”）。
+1. 工具调用：先调用监测接口（如传感器），条件满足后再调用执行工具（如空调控制）。
+
+示例：“温度降到24℃后调小风量”
+
+- 触发条件：用户语音指令“温度降到24℃后调小风量”（解析为“条件：车内温度≤24℃；动作：空调风量从4档→2档”）；
+- 拆解步骤：
+  1. 过渡话术：“好的，现在空调风量4档快速降温，等温度降到24℃就帮你调到2档”；
+  1. 工具调用1：调用温度传感器接口，每30秒监测车内温度；
+  1. 条件满足（温度=24℃）：调用空调控制接口，将风量从4档调至2档；
+  1. 执行后话术：“车内温度已降到24℃，风量调至2档，不会太吵了~”；
+- 交互处理：若监测中用户说“不用等了，现在调小”，立即中断条件监测，调用空调接口调小风量，反馈话术：“好的，现在就把风量调到2档~”。
+
+#### 工具库（框架草稿）
+
+<mention-doc token="NIhss30mshd0VdtHFAscIwlLnPb" type="sheet">【AI汽车】工具库-V1.0</mention-doc>
+
+| <text color="green">**prompt已有的agent/tool**</text> | <text color="green">**agent/tool name**</text> | <text color="green">**工具定位**</text> | <text color="green">**12月封闭/2.6 目标**</text> | <text color="green">**优先级**</text> |
+|---|---|---|---|---|
+| <text color="green">车辆基础控制</text> | <text color="green">vehicle_basic_control</text> | <text color="green">完成车控、导航、多媒体相关的车辆控制时使用</text> <text color="green">特殊说明：</text> | <text color="green">打通</text> | <text color="green">p0，12月底</text> |
+| <text color="green">本地生活查询</text> | <text color="green">search_local_life</text> | <text color="green">搜索附近的餐饮美食、娱乐休闲、购物商场、旅游景点、酒店住宿、停车场、充电站、加油站、医院药店、银行ATM等各类本地生活服务场所时使用</text> | <text color="green">打通已有一方agent</text> | <text color="green">p0，12月底</text> |
+| <text color="green">音乐搜推</text> | <text color="green" underline="true">search_music_info</text> | <text color="green">进行音乐内容的搜索、推荐时使用</text> | <text color="green">打通已有一方agent</text> | <text color="green">p0，12月底</text> |
+| <text color="green">记忆增删改</text> | <text color="green">operate_user_memory</text> | <text color="green">进行用户记忆的增删改时使用</text> <quote-container> <text color="green">增：</text> <text color="green">1、帮我记一下我公司的地址是上海市闵行区漕河泾中心D栋</text> <text color="green">2、帮我记一下我妈妈的新手机号是13888888888</text> <text color="green">删：</text> <text color="green">1、删掉我喜欢吃海底捞的记忆</text> <text color="green">2、删掉我前女友相关的记忆</text> <text color="green">改：</text> <text color="green">1、把我公司的地址改为上海市杨浦区新江湾广场T2</text> <text color="green">2、把我妈妈的手机号改成13999999999</text> </quote-container> <text color="green">特殊说明：planner在进行记忆的增删改查时，需要改写对应人名，eg：记一下副驾喜欢颜色是紫色，要把副驾改成具体的人；记一下我喜欢的颜色是粉色，要把我改成具体的人</text><text color="green">**（记忆模块对改写做兜底**</text><text color="green">**@用户**</text><text color="green">**）**</text> | <text color="green">12月打通记忆的增删改查</text> | <text color="green">p0，12月底，有外部依赖</text> |
+| <text color="green">记忆查询</text> | <text color="green">search_user_memory</text> | <text color="green">进行用户记忆的查询时使用</text> <quote-container> <text color="green">查：</text> <text color="green">1、我上次和你说的很好吃的那家店叫啥来着</text> <text color="green">2、我老婆上次说让我给她买啥来着</text> </quote-container> <text color="green">特殊说明：planner在进行记忆的增删改查时，需要改写对应人名，eg：记一下副驾喜欢颜色是紫色，要把副驾改成具体的人；记一下我喜欢的颜色是粉色，要把我改成具体的人</text><text color="green">**（记忆模块对改写做兜底**</text><text color="green">**@用户**</text><text color="green">**）**</text> |  |  |
+| <text color="green">条件任务增删改查</text> | <text color="green">operate_conditional_task</text> | <text color="green">进行条件任务的增删改查时使用</text> <quote-container> <text color="green">增：</text> <text color="green">1、十分钟后帮我关掉座椅加热</text> <text color="green">2、我老婆上车后给她唱小星星</text> <text color="green">删：</text> <text color="green">1、把那个关空调的任务删了吧（如果有同类任务需要和用户澄清）</text> <text color="green">2、删除我老婆上车后唱小星星的任务</text> <text color="green">改：</text> <text color="green">1、把十分钟后关座椅加热的那个任务改成调小一档</text> <text color="green">2、我老婆上车后不用唱小星星了改唱小酒窝</text> <text color="green">查：</text> <text color="green">1、现在开门之后会执行什么动作啊</text> <text color="green">2、我刚跟你说我老婆上车后干啥来着</text> </quote-container> | <text color="green">12月打通条件任务的增删改查</text> | <text color="green">p0，12月底，有外部依赖</text> |
+| <text color="green">联网问答工具</text> | <text color="green">web_qa</text> | <text color="green">需要进行联网问答时使用，调用该工具后，工具将基于联网信息直接回复用户（联网+回复二合一，省去planner总结的步骤）</text> <text color="green">特殊说明：短视频/音乐相关的话题不应该走到联网工具，由各自的agent去做处理；此外，一些时间敏感、波动敏感以及信息总结的内容，应该走到联网工具，比如：</text> 1. <text color="green">user query：12月3号的金价是多少</text> 1. <text color="green">user query：今天人民币和美元的汇率是多少</text> 1. <text color="green">user query：A股今天的情况咋样 / 蔚来今天的股票涨了吗</text> 1. <text color="green">user query：最新一次人口普查，江苏一共多少人啊</text> 1. <text color="green">user query：中国历史上一共有多少个皇帝</text> | <text color="green">12月打通，本质上就是s2s，使用s2s的联网能力</text> | <text color="green">p0，12月底</text> |
+| <text color="green">联网检索工具</text> | <text color="green">web_search</text> | <text color="green">需要进行联网搜索信息时使用，调用该工具后，返回联网总结的信息，供planner下一步使用</text> <text color="green">特殊说明：短视频/音乐相关的话题不应该走到联网工具，由各自的agent去做处理；此外，一些时间敏感、波动敏感以及信息总结的内容，应该走到联网工具，比如：</text> 1. <text color="green">查询12月3号的金价</text> 1. <text color="green">查询今天人民币和美元的汇率</text> 1. <text color="green">查询A股今天的情况 / 查询蔚来今天的股票</text> 1. <text color="green">查询最新一次人口普查江苏的人口</text> <text color="green">例：</text> <text color="green">user：导航去福州特艺城，顺便给我查查今天的金价吧</text> <text color="green">car：好的，我来帮你导航，顺便查一下今日金价</text> <text color="green">car：导航开始啦，预计18分钟到目的地。最近金价一直飙升，今天都到xxx元/克了！</text> | <text color="green">12月打通，接豆包提供/一方使用的联网工具</text> | <text color="green">p0，12月底</text> |
+| <text color="green">声音演绎工具</text> | <text color="green">voice_acting</text> | <text color="green">需要进行声音演绎时使用，比如：</text> 1. <text color="green">你可以学老母鸡叫吗</text> 1. <text color="green">你模仿郭德纲的声音给我来一段rap</text> 1. <text color="green">你用悄悄话给我讲个笑话吧</text> 1. <text color="green">给我唱首歌吧</text> 1. <text color="green">用北京话给我讲个故事</text> | <text color="green">12月planner回复普通闲聊，调用新tts合成工具合成；需要声音演绎时调用声音演绎工具（s2s）</text> | <text color="green">p0，12月底</text> |
+| <text color="green">Face id注册工具</text> | <text color="green">face_id_register</text> | <text color="green">需要进行face id注册时使用，比如：</text> 1. <text color="green">user query: 认识一下我副驾的朋友小明</text> 1. <text color="green">user query: 认识一下小李</text> 1. <text color="green">user query: 后排是我的新朋友小苹果，你认识一下他</text> 1. 对于planner来讲，face id注册是一个工具； 1. 工具有三个槽位： 1. 位置：必要槽位，需要planner来做（解析）、（推理）或者（与用户澄清），最终给工具一个准确的位置信息 1. 姓名：可选槽位，当前的策略是如果提不到，需要planner来和用户澄清 1. 身份关系，可选槽位，提不到就提不到 1. planner给工具的示例： 1. 认识一下坐在副驾的明骏，他是登陆人的朋友 1. 认识一下坐在副驾的明骏 1. 认识一下坐在后排的小金金，她是登陆人的女儿 1. 处理示例： 1. user query：认识一下明骏 ---> planner对第一个槽位做澄清：好的，请告诉我他坐在哪里（或根据工具返回结果触发澄清） ---> 用户答复后planner给工具：认识一下坐在副驾的明骏 1. user query：认识一下副驾 ---> planner对第二个槽位做澄清：怎么称呼副驾呢（或根据工具返回结果触发澄清） ---> 用户答复后planner给工具：认识一下坐在副驾的明骏 1. user query：认识一下坐在副驾的明骏 ---> planner给工具：认识一下坐在副驾的明骏 1. user query：认识一下坐在副驾的明骏，他是我的朋友 ---> planner给工具：认识一下坐在副驾的明骏，他是登陆人的朋友 |  | <text color="green">p0，12月底</text> |
+| <text color="green">vqa</text> |  |  |  | <text color="green">p0，12月底</text> |
+| <text color="green">状态查询</text> | <text color="green">search_vehicle_status_info</text> | <text color="green">需要查询端状态时使用</text> | <text color="green">打通context查询端状态</text> | <text color="green">p0，12月底</text> |
+| <text color="green">~~日程提醒~~</text> |  |  | <text color="green">~~待定（正常排期1月份）~~</text> | <text color="green">~~p0，12月底，算法框架内包含工具~~</text> |
+| <text color="green">录音纪要</text> |  |  | <text color="green">待定（正常排期1月份）</text> | <text color="green">p1，2.6</text> |
+| <text color="green">短视频搜推</text> | <text color="green">search_short_video</text> | <text color="green">进行短视频内容的搜索、推荐时使用</text> | <text color="green">打通已有一方agent</text> | <text color="green">p1，2.6</text> |
+| <text color="green">车书查询</text> | <text color="green">vehicle_manual_qa</text> | <text color="green">需要查询车书时使用</text> | <text color="green">打通已有车书agent（tesla y）</text> | <text color="green">p2</text> |
+| <text color="green">gui</text> |  |  |  |  |
+| <text color="green">行程规划</text> |  |  |  |  |
+
+- <text color="green">天气、新闻等，自然走到联网。</text>
+
+### <text color="blue">2.3 对话【s7完成对话融合，后续持续优化】</text>
+
+1. <text color="blue">解决当前闲聊的痛点：</text>
+  1. <text color="blue">聊天内容和车辆的情景、状态、任务割裂，没内涵</text>
+  1. <text color="blue">不能结合情景做动作（真正的闲聊很少，大部分对话还是和车状态/任务相关，比如我准备接朋友去吃个饭，很容易进入闲聊）</text>
+1. <text color="blue">做好快速</text><text color="blue">**响应**</text><text color="blue">，任务过渡和任务总结</text>
+  1. <text color="blue">快速响应：planner需要快速</text><text color="blue">**响应**</text><text color="blue">用户（响应话术），性能参考【1. 整体性能目标】</text>
+  1. <text color="blue">任务过渡：任务的打断恢复需要有合理、自然的话术来进行过渡，主观感受不生硬；多步任务的衔接时能够进行合理、自然地过渡；</text>
+  1. <text color="blue">任务总结：执行成功时可以简单总结或者不总结（相关内容在铺垫话术里已经提过了），执行失败时，告知具体失败原因</text>
+1. <text color="blue">planner直接回复普通闲聊，悄悄话、方言、唱歌、语气扮演等调用s2s满足</text>
+
+### 2.4 任务生成和管理【s7方案，s8-s10上线+打磨】
+
+<text color="blue">**待细化，目标是：**</text>
+
+1. <text color="blue">有一套鲁棒性高的、融合端云的任务打断恢复策略</text>
+1. <text color="blue">解决好 多任务的对话冲突管理</text>
+1. <text color="blue">交互内容关注用户当前的话题焦点和情景，有衔接性，以长时任务</text><text color="blue">**功能介绍**</text><text color="blue">为例：</text>
+  1. <text color="blue">用户已经触发过的，对于它的开启方式可以不介绍或者简单介绍</text>
+  1. <text color="blue">介绍的内容衔接上用户当前的话题，用户的关注重点已经到下一part，就不要在当前part长篇大论了</text>
+
+1. **任务生成**：
+  - **自动生成**：基于场景触发（如上车场景自动加载记忆任务）；
+  - **手动生成**：基于用户指令（如语音 “规划露营任务”）；
+  - **参数配置**：每个任务包含 ID、描述、执行动作、触发条件、依赖任务、优先级等属性。
+2. **任务管理**：
+  - **状态流转**：
+  ```plaintext
+  待执行 → 执行中 → 完成/失败
+         ↗ 暂停 ↘
+  （用户打断） （超时/错误）
+  ```
+
+  - **优先级规则**：
+    - 紧急任务（如 “暴雨关天窗”）＞用户主动发起任务＞系统自动任务；
+    - 相同优先级按创建时间排序，支持用户手动调整。
+  - **中断处理**：
+    - 保存点：任务执行中每完成 1 个子步骤记录 1 次上下文；
+    - 恢复机制：用户返回后自动读取最近保存点，提示 “继续 XX xx”。
+3. **与 Watcher 模块协同**：
+  - 任务启动时向 Watcher 发送 “任务上下文”（如 “当前执行降温任务，需持续监测温度”）；
+  - Watcher 实时反馈监测数据（如 “温度降至 24℃”），触发任务参数调整。
+
+### 2.5 任务的语音交互
+
+1. **交互时机**：
+  - 任务生成后：播报规划结果（如 “正在为你先做xxxx”）；
+  - 执行中：同步进度（如 “降温任务已完成 60%”）；
+  - 中断时：提示恢复选项（如 “已暂停按摩，需要继续吗？”）；
+  - 异常时：请求确认（如 “检测到冲突，优先执行空调还是座椅调节？”）。
+2. **话术规范**：
+  - 简洁性：单句≤30 字，避免专业术语；
+  - 个性化：老用户用记忆关联话术（如 “按您习惯规划了...”），新用户用引导话术（如 “首次使用，为您推荐...”）；
+  - 可交互：包含明确选项（如 “需要加快进度吗？[是 / 否]”）。
+3. **交互流程**：
+```plaintext
+用户指令 → 系统生成任务 → 语音播报任务链 → 用户确认/调整 → 执行任务 → 语音反馈进度
+```
+
+### 2.6 任务的界面展示【s6-s7工程版】
+
+<text color="blue">s6-s7开发demo界面，s8-s9对界面进行优化。</text>
+
+<text color="blue">demo界面的需求详见：</text><mention-doc token="TlKOwTjDEiH6AjknkyLcHlZInce" type="wiki">Planner S06 需求汇总</mention-doc>
+
+<text color="blue">优化方案：待补充</text><text color="blue">@用户</text><text color="blue">@用户</text>
+
+1. **展示组件**：
+  - **任务列表区**：显示所有任务（执行中 / 待执行），按优先级排序，用颜色区分状态（绿色 = 执行中，灰色 = 暂停，蓝色 = 待执行）；
+  - **进度详情区**：展开任务链，显示子任务进度条、依赖关系；
+  - **操作按钮区**：包含 “暂停 / 继续”“终止”“调整优先级” 等快捷操作；
+  - **状态提示区**：用图标 + 文字显示实时状态（如 “等待温度达标”“检测到用户打断”）。
+2. **交互逻辑**：
+  - 点击任务项展开 / 收起详情；
+  - 长按任务项弹出优先级调整菜单；
+  - 执行中任务支持左右滑动终止；
+  - 条件任务显示 “待触发” 标签，点击可查看触发条件。
+
+## 三、核心场景示例
+
+## （一）多步骤搜索+执行任务
+
+**场景1：“播放2025《我是歌手》决赛第二名的作品”触发条件：用户语音指令包含节目名称、年份、名次，车辆通电且网络连接正常。任务链设计：**
+
+- 信息检索任务：调用音乐数据库接口，查询“2025《我是歌手》决赛排名及对应作品”（触发条件：指令解析完成）；
+- 结果校验任务：提取第二名歌手姓名及决赛表演曲目（触发条件：检索结果返回且匹配度≥90%）；
+- 播放执行任务：自动播放该曲目（默认音量50%，基于车内噪音自动适配）；
+- 条件任务：播放时长≥30秒且未检测到用户操作（如切歌、调音量），自动推荐该歌手其他热门作品（依赖任务3执行中）。
+
+交互设计：
+
+- 语音：“正在查询2025《我是歌手》决赛信息...找到第二名是XXX，为您播放他的决赛歌曲《XXX》”；
+- HMI：显示检索进度→ 歌手及作品信息卡片→ 播放界面同步歌词，底部设“收藏”“列表循环”按钮。
+
+**场景2：“导航到上海评分最高的烤鸭店”触发条件：用户语音指令包含城市、品类、排名关键词，导航功能已激活且定位正常。任务链设计：**
+
+1. 商户检索任务：调用本地生活服务接口，查询“上海烤鸭店综合评分top1”（含名称、地址、营业时间）（触发条件：指令解析完成）；
+1. 路线规划任务：基于当前位置生成最优导航路线（默认躲避拥堵+高速优先）（触发条件：商户信息确认无误）；
+1. 行程执行任务：启动导航并同步显示预计到达时间（默认每5分钟更新一次路况）；
+1. 条件任务：距离目的地≤3km且检测到停车场空位＜5个，自动推送附近3个备选停车场信息（依赖任务3执行中）。
+
+交互设计：
+
+- 语音：“找到上海评分最高的烤鸭店‘XXX’，位于XX区，已为您规划40分钟路线，现在出发吗？”；
+- HMI：显示商户详情（评分、实拍图）→ 路线预览图→ 实时路况更新，底部设“出发”“收藏地址”按钮。
+
+## （二）行程与娱乐综合任务
+
+**场景1：“带我去兜风”触发条件：用户语音指令含“兜风”“逛逛”等模糊出行意图，车辆静止且导航未激活。任务链设计：**
+
+- 偏好探测任务：基于用户历史出行记录（如近3次常去地点）推荐3类路线（城市夜景/郊外山路/海滨公路）（触发条件：指令解析完成）；
+- 路线确认任务：展示路线详情（距离、耗时、核心景点）（触发条件：推荐列表生成）；
+- 行程执行任务：按用户选择启动导航，同步播放轻快音乐（基于历史听歌偏好）；
+- 条件任务：连续行驶≥1小时且检测到用户眨眼频率＞30次/分钟（判定轻度疲劳），提示“前方2km有观景台，是否停靠休息10分钟？”（依赖任务3执行中）。
+
+交互设计：
+
+- 语音：“为您推荐3条兜风路线，城市夜景线全程20km，需要试试吗？”；
+- HMI：路线选项卡（含风景缩略图）→ 导航界面→ 疲劳监测提示弹窗。
+
+**场景2：“编排1小时车内节目”触发条件：用户语音指令含“娱乐节目”“编排”及时长，车辆处于行驶或静止状态。任务链设计：**
+
+- 内容拆分任务：按“10分钟热点新闻+20分钟音乐+20分钟趣味问答+10分钟轻音乐”拆分时段（基于用户历史娱乐偏好）（触发条件：指令解析完成）；
+- 内容填充任务：
+  - 调用新闻接口获取近24小时热点（默认科技+本地资讯）；
+  - 匹配用户常听音乐风格（如流行/摇滚）生成播放列表；
+  - 调用题库生成3道互动问答（如常识/音乐类）；
+- 流程执行任务：按顺序播放内容，每段结束前3秒自动过渡（无用户干预）；
+- 条件任务：检测到用户语音活跃度＞50%（如频繁应答问答），自动延长互动问答时长至30分钟（依赖任务2执行中）。
+
+交互设计：
+
+- 语音：“1小时节目已编排：先听热点新闻，再放您喜欢的流行歌...现在开始吗？”；
+- HMI：显示节目时间表→ 实时进度条→ 问答环节同步显示题目选项。
+
+## （三）智能环境调节任务
+
+**场景1：“先冷一会，再调回去”触发条件：用户语音指令含时序调节需求，空调系统已开启且传感器正常。任务链设计：**
+
+- 快速降温任务：空调风量调至4档，温度设为18℃（触发条件：指令解析完成）；
+- 动态监测任务：每30秒采集车内温度（目标降至22℃）（触发条件：降温任务启动）；
+- 恒温恢复任务：温度达标后，风量调至2档，温度回升至24℃（默认舒适温度）；
+- 条件任务：恢复后检测到用户体表温度＞36.5℃（红外传感器数据），自动将温度再调低1℃（依赖任务3执行中）。
+
+交互设计：
+
+- 语音：“已启动快速降温，3分钟后自动调回舒适温度...当前温度22℃，已恢复至24℃”；
+- HMI：温度变化曲线→ 实时风量/温度数值→ 自动调节日志记录。
+
+**场景2：动态温湿度自适应调节触发条件：传感器持续监测到“用户体表温度＞36.5℃+车内温度＞25℃”≥5分钟，无用户手动干预。任务链设计：**
+
+- 主动降温任务：空调风量5档，温度20℃（触发条件：监测条件满足）；
+- 平衡调节任务：5分钟后若体表温度≤36.2℃，风量降至2档，温度升至22℃（触发条件：首次调节完成）；
+- 稳定维持任务：每10分钟微调一次温度（±0.5℃），保持体感舒适；
+- 条件任务：检测到车外湿度＞70%且车内湿度＞60%，自动开启除湿模式（依赖任务3执行中）。
+
+交互设计：
+
+- 语音：“检测到您可能感到炎热，已启动降温，现在温度22℃合适吗？”；
+- HMI：温湿度实时曲线→ 调节历史记录→ 除湿模式激活提示。
+
+## （四）功能体验引导任务
+
+**场景1：新手功能引导（新用户首次用车）触发条件：检测到无历史操作记录的用户首次落座，车辆静止且未激活导航。任务链设计：**
+
+- 基础操作引导：按“座椅调节→空调控制→语音指令”顺序分步演示（触发条件：用户确认开始）；
+  - 子任务1：提示“座椅高度可通过语音‘升高/降低’调节，试试吧”；
+  - 子任务2：自动开启空调24℃，提示“按中控‘+/-’键可调温度”；
+- 场景联动引导：演示“说‘太冷了’会自动升温”等语音交互（触发条件：基础操作完成）；
+- 记忆保存任务：记录用户操作偏好（如座椅高度3档、温度23℃）（触发条件：引导流程完成）；
+- 条件任务：检测到用户连续2次操作同一功能（如反复调音量），自动弹出该功能快捷操作指南（依赖任务1/2执行中）。
+
+交互设计：
+
+- 语音：“首次用车，带您体验3个核心功能，先试试调节座椅吧？”；
+- HMI：步骤进度条→ 操作指引动画→ 偏好设置确认弹窗。
+
+**场景2：展车功能介绍（潜在客户体验）触发条件：车辆处于“展车模式”（后台手动开启），检测到用户拉开车门。任务链设计：**
+
+- 核心功能概览：介绍“智能驾驶辅助→星空天幕→座椅按摩”3大亮点（触发条件：用户入座）；
+- 互动体验任务：
+- 子任务1：演示自动跟车功能（模拟低速跟车场景）；
+- 子任务2：切换3种天幕灯光模式（默认星空/日出/极光）；
+  - 细节讲解任务：每个功能体验后展示技术参数（如“座椅按摩含3种力度，适配不同需求”）；
+  - 条件任务：检测到用户触摸中控屏≥3次，自动弹出功能详情页（依赖任务2执行中）。
+
+交互设计：
+
+- 语音：“这款车的智能驾驶辅助能自动跟车，现在为您演示一下？”；
+- HMI：功能亮点卡片→ 技术参数弹窗→ 操作步骤指引。
+
+## （五）社交与互动任务
+
+**场景1：迎宾与认识任务（新用户首次互动）触发条件：检测到新用户（无历史记录）且首次触发语音交互（如“你好”）。任务链设计：**
+
+- 自我介绍任务：“我是车载助手豆包，我可以记住你的座椅和温度偏好哦，要试试吗？”（触发条件：语音交互激活）；
+- 偏好收集任务：基于用户应答推荐功能（如“听你说喜欢音乐，试试说‘播放周杰伦的歌’”）（触发条件：自我介绍完成）；
+- 记忆同步任务：将用户偏好（如音乐类型、温度习惯）存入临时记忆库（触发条件：互动≥3轮）；
+- 条件任务：检测到用户连续2次询问同一功能（如“怎么开天窗”），自动发送图文操作指南至用户手机（依赖任务2执行中）。
+
+交互设计：
+
+- 语音：“很高兴认识你！需要我帮你做什么吗？”；
+- HMI：助手卡通形象→ 功能快捷入口→ 手机指南推送提示。
+
+**场景2：成语接龙（持续互动）触发条件：用户语音指令“玩成语接龙”，或检测到“车辆静止+用户无操作≥5分钟”（判定闲暇状态）。任务链设计：**
+
+- 规则启动任务：系统先出词（如“春暖花开”），等待用户接词（触发条件：互动激活）；
+- 轮次互动任务：
+  - 验证用户接词合规性（是否为成语+尾字谐音匹配）；
+  - 合规则系统继续接词，违规则提示正确示例（如“‘开’开头的成语有‘开卷有益’”）；
+- 后台挂起任务：用户触发其他操作（如导航、调空调）时自动暂停，保存当前接龙进度；
+- 条件任务：连续3轮用户接对且反应时间＜5秒，自动提升难度（成语字数≥4字且非高频词）（依赖任务2执行中）。
+
+交互设计：
+
+- 语音：“我先来：春暖花开→该你啦～”“接对了！我接：开卷有益→继续～”；
+- HMI：当前成语显示→ 倒计时进度条→ 暂停时显示“说‘继续接龙’恢复”。
+
+## （六）儿童关怀任务
+
+**触发条件：后排检测到儿童座椅（传感器）且车速＞30km/h。任务链设计：**
+
+- 安全基础任务：自动锁止后排儿童安全锁（触发条件：车速达标）；
+- 环境适配任务：后排风量调至1档（避免直吹）+ 温度维持25℃（触发条件：安全任务完成）；
+- 娱乐适配任务：播放儿童歌曲（默认音量60%，基于儿童年龄推荐）；
+- 动态响应任务：检测到儿童入睡（摄像头+声音分贝＜30dB），自动暂停音乐+调暗后排灯光至20%（依赖任务3执行中）。
+
+交互设计：
+
+- 语音：“已开启儿童模式，后排温度25℃，需要换一首儿歌吗？”；
+- HMI：儿童状态图标（清醒/入睡）→ 音量/灯光调节滑块。
+
+## （七）露营场景任务
+
+**触发条件：用户语音指令“准备露营”且车辆静止（手刹拉起）。任务链设计：**
+
+- 座椅调节任务：主驾/副驾座椅放倒至160°（躺卧模式）（触发条件：指令解析完成）；
+- 氛围营造任务：开启车顶星空氛围灯（默认蓝色）+ 关闭主驾仪表盘灯光（触发条件：座椅调节完成）；
+- 装备支持任务：自动弹开后备箱（延迟3秒防夹），同步显示“露营装备清单”（基于历史携带记录）（触发条件：氛围灯开启）；
+- 条件任务：户外温度传感器检测到＜15℃，自动启动座椅加热（1档）（依赖任务3执行中）。
+
+交互设计：
+
+- 语音：“已为露营做好准备，座椅已放倒，需要开启座椅加热吗？”；
+- HMI：任务进度条→ 后备箱开启提示→ 温度监测弹窗。
+
+## 四、需求验收
+
+### <text color="blue">case</text>
+
+https://bytedance.larkoffice.com/sync/Tm3Cd5pnQsGhTEbFDCwcnA7MnQh
+
+### <text color="yellow">整体性能目标</text>
+
+<text color="yellow">planner首字响应P50 ≤ 500ms，planner首字响应P90 ≤ 800ms。</text>
+
+### <text color="yellow">整体质量目标以及评测方法</text>
+
+<text color="yellow">整体质量目标：planner推理ACC ≥ 90%，planner端状态回复ACC ≥ 93%。</text>
+
+<text color="green">**从任务拆解完整性角度：**</text>
+
+<text color="yellow">对于planner的任务拆解，当存在缺失操作、冗余操作或错误操作任一时，定义为fail。</text>
+
+<text color="green">**从融合意图分类准确率的角度：**</text>
+
+<text color="green">planner代替了原来的意图分类，需要准备不同意图的测试集，系统评估针对明确意图的case，planner的区分准确率。</text>
+
+<text color="green">eg. 准备一批音乐搜推的case，评测planner的工具调用准确率。</text>
+
+<text color="green">评测意图包括：1、POI（美食、景点、娱乐、住宿、场所）；2、短视频；3、音乐；4、状态查询；5、车书；6、联网；7、车控；8、演绎闲聊。</text>
+
+<text color="green">原始全量意图参考：</text><mention-doc token="AlyPstdidhl01Rt4sXBcmPJgnOI" type="sheet">【主线标准】原始意图和最终意图映射关系</mention-doc>
+
+<text color="green">**闲聊评测：**</text>
+
+<text color="green">需要对planner处理闲聊的能力进行系统地评测，摸排planner相比s2s是否有差距以及哪块表现不好，用于指导下一步优化。</text>
+
+<text color="green">1205用s2s的测试集（</text><mention-doc token="Q5I1s3xdKhiKartEy8Wc1lZante" type="sheet">【AI汽车】【对话需求】测试用例&测试结果</mention-doc><text color="green">）把planner的prompt跑一轮，1205出结果后进行人工标注。</text>
+
+### 4.1 线上验收（模拟测试）
+
+- **测试用例**：
+1. 输入 “我要带孩子去公园”，验证是否生成 “儿童锁→儿童座椅调节→儿童音乐” 任务链；
+2. 执行任务时触发 “暴雨天” 环境变量，验证是否插入 “关闭天窗” 紧急任务；
+3. 手动暂停 “座椅按摩” 任务，验证恢复后是否继续执行剩余流程。
+- **验收标准**：
+  - 任务规划准确率≥90%（符合预期任务链）；
+  - 紧急任务响应时间≤2 秒；
+  - 中断恢复后任务参数无丢失。
+
+### 4.2 线下验收（实车测试）
+
+- **测试场景**：
+1. 上车场景：老用户自动加载 “通勤模式” 任务链，10 秒内完成所有调节；
+2. 动态调节：车内温度从 30℃降至 24℃时，验证风量是否从 5 档自动降至 2 档；
+3. 任务管理：同时执行 “导航” 和 “音乐播放” 任务，验证资源分配是否合理。
+- **验收标准**：
+  - 多任务并发执行无卡顿；
+  - 语音交互与 HMI 界面同步率≥95%；
+  - 用户主观满意度≥85%（通过问卷调研）。
+
+##

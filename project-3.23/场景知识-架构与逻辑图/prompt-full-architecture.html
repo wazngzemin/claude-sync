@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>司机 Agent 2.0 双层架构全图</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: #f8fafc;
+    color: #1f2937;
+    line-height: 1.6;
+  }
+  .container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 24px;
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 24px;
+  }
+  @media (max-width: 1100px) {
+    .container { grid-template-columns: 1fr; }
+    .detail-panel { position: static; }
+  }
+
+  /* Header */
+  .header {
+    grid-column: 1 / -1;
+    text-align: center;
+    margin-bottom: 8px;
+  }
+  .header h1 {
+    font-size: 24px;
+    color: #111827;
+    margin-bottom: 6px;
+  }
+  .header .subtitle {
+    font-size: 13px;
+    color: #6b7280;
+  }
+  .header .analogy {
+    background: #1e293b;
+    color: #e2e8f0;
+    border-radius: 10px;
+    padding: 14px 20px;
+    margin-top: 14px;
+    font-size: 13px;
+    line-height: 1.8;
+    text-align: left;
+  }
+  .header .analogy strong {
+    color: #60a5fa;
+  }
+
+  /* Main Diagram Area */
+  .diagram {
+    display: flex;
+    flex-direction: column;
+    gap: 36px;
+  }
+
+  /* Agent Block */
+  .agent-block {
+    border-radius: 12px;
+    border: 2px solid;
+    padding: 20px;
+    position: relative;
+  }
+  .agent-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .agent-badge {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .agent-title {
+    font-size: 17px;
+    font-weight: 800;
+  }
+  .agent-desc {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 2px;
+  }
+
+  /* Screening Agent Colors */
+  .screening-block {
+    background: #eff6ff;
+    border-color: #3b82f6;
+  }
+  .screening-block .agent-badge {
+    background: #3b82f6;
+    color: #fff;
+  }
+  .screening-block .agent-title {
+    color: #1e40af;
+  }
+
+  /* Thinker Agent Colors */
+  .thinker-block {
+    background: #f5f3ff;
+    border-color: #8b5cf6;
+  }
+  .thinker-block .agent-badge {
+    background: #8b5cf6;
+    color: #fff;
+  }
+  .thinker-block .agent-title {
+    color: #5b21b6;
+  }
+
+  /* Layer inside agent */
+  .layer {
+    margin-bottom: 16px;
+  }
+  .layer:last-child {
+    margin-bottom: 0;
+  }
+  .layer-label {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .layer-label::before {
+    content: '';
+    width: 4px;
+    height: 14px;
+    border-radius: 2px;
+    display: inline-block;
+  }
+
+  /* Node Grid */
+  .node-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+  .node-grid-3 { grid-template-columns: repeat(3, 1fr); }
+  .node-grid-2 { grid-template-columns: repeat(2, 1fr); }
+  .node-grid-5 { grid-template-columns: repeat(5, 1fr); }
+
+  /* Clickable Node */
+  .node {
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+  }
+  .node:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    border-color: #94a3b8;
+  }
+  .node.active {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+  }
+  .node-name {
+    font-weight: 700;
+    font-size: 13px;
+    margin-bottom: 3px;
+  }
+  .node-hint {
+    font-size: 11px;
+    color: #64748b;
+    line-height: 1.4;
+  }
+  .node-tag {
+    display: inline-block;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    margin-top: 6px;
+    font-weight: 600;
+  }
+
+  /* Color variants for nodes */
+  .node-blue { border-top: 3px solid #3b82f6; }
+  .node-blue .node-name { color: #1e40af; }
+  .node-blue .node-tag { background: #dbeafe; color: #1e40af; }
+
+  .node-orange { border-top: 3px solid #f97316; }
+  .node-orange .node-name { color: #9a3412; }
+  .node-orange .node-tag { background: #ffedd5; color: #9a3412; }
+
+  .node-green { border-top: 3px solid #22c55e; }
+  .node-green .node-name { color: #15803d; }
+  .node-green .node-tag { background: #dcfce7; color: #15803d; }
+
+  .node-purple { border-top: 3px solid #a855f7; }
+  .node-purple .node-name { color: #6b21a8; }
+  .node-purple .node-tag { background: #f3e8ff; color: #6b21a8; }
+
+  .node-gray { border-top: 3px solid #64748b; }
+  .node-gray .node-name { color: #334155; }
+  .node-gray .node-tag { background: #f1f5f9; color: #334155; }
+
+  .node-red { border-top: 3px solid #ef4444; }
+  .node-red .node-name { color: #991b1b; }
+  .node-red .node-tag { background: #fee2e2; color: #991b1b; }
+
+  /* Connector between agents */
+  .connector {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    margin: -18px 0;
+    z-index: 2;
+  }
+  .connector-line {
+    width: 2px;
+    height: 36px;
+    background: #94a3b8;
+  }
+  .connector-line::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 8px solid #94a3b8;
+  }
+  .connector-box {
+    background: #fff;
+    border: 2px solid #a855f7;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #6b21a8;
+    margin: -10px 0;
+    z-index: 3;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+
+  /* Feedback Loop (visual only) */
+  .feedback-loop {
+    position: absolute;
+    right: -130px;
+    top: 40%;
+    width: 120px;
+    text-align: center;
+  }
+  @media (max-width: 1300px) {
+    .feedback-loop { display: none; }
+  }
+  .feedback-text {
+    font-size: 10px;
+    color: #dc2626;
+    font-weight: 700;
+    margin-top: 2px;
+  }
+
+  /* Detail Panel (Sticky Sidebar) */
+  .detail-panel {
+    position: sticky;
+    top: 24px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+    height: fit-content;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+  }
+  .detail-panel h3 {
+    font-size: 15px;
+    color: #111827;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #e5e7eb;
+  }
+  .detail-empty {
+    color: #94a3b8;
+    font-size: 13px;
+    text-align: center;
+    padding: 40px 0;
+  }
+  .detail-section {
+    margin-bottom: 14px;
+  }
+  .detail-section-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: #475569;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .detail-section-body {
+    font-size: 13px;
+    color: #374151;
+    line-height: 1.7;
+  }
+  .detail-section-body code {
+    background: #f1f5f9;
+    padding: 1px 4px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 12px;
+  }
+  .detail-highlight {
+    background: #fef9c3;
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-weight: 600;
+  }
+
+  /* Insights Section */
+  .insights {
+    grid-column: 1 / -1;
+    background: #1e293b;
+    color: #e2e8f0;
+    border-radius: 12px;
+    padding: 24px;
+    margin-top: 8px;
+  }
+  .insights h2 {
+    font-size: 18px;
+    margin-bottom: 16px;
+    color: #fff;
+  }
+  .insight-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+  @media (max-width: 900px) {
+    .insight-grid { grid-template-columns: 1fr; }
+  }
+  .insight-card {
+    background: #334155;
+    border-radius: 8px;
+    padding: 16px;
+  }
+  .insight-card-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #60a5fa;
+    margin-bottom: 8px;
+  }
+  .insight-card-body {
+    font-size: 13px;
+    color: #cbd5e1;
+    line-height: 1.7;
+  }
+
+  /* JSON preview */
+  .json-preview {
+    background: #1f2937;
+    border-radius: 8px;
+    padding: 14px;
+    font-family: "SF Mono", Monaco, monospace;
+    font-size: 12px;
+    color: #e2e8f0;
+    line-height: 1.6;
+    overflow-x: auto;
+  }
+  .json-key { color: #93c5fd; }
+  .json-str { color: #86efac; }
+  .json-num { color: #fca5a5; }
+
+  /* Tool categories */
+  .tool-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  .tool-chip {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+  .tool-chip strong {
+    color: #1e40af;
+    font-size: 12px;
+  }
+
+  /* Principle list */
+  .principle-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .principle-item {
+    background: #fff;
+    border: 1px solid #fed7aa;
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  .principle-num {
+    background: #f97316;
+    color: #fff;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .principle-text {
+    font-size: 12px;
+    color: #374151;
+    line-height: 1.5;
+  }
+
+  /* Legend */
+  .legend {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    font-size: 12px;
+    color: #64748b;
+    margin-top: 4px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <h1>司机 Agent 2.0 双层架构全图</h1>
+    <div class="subtitle">筛选 Agent（领班）+ 思考者 Agent（服务员）协作机制与数据流向</div>
+    <div class="analogy">
+      <strong>一句话理解：</strong>把系统想象成一家餐厅。
+      <strong>筛选 Agent</strong> 是前厅领班，站在暗处观察全场，决定"这桌客人现在需要什么菜谱"（加载/卸载知识）。
+      <strong>思考者 Agent</strong> 是直接面对客人的服务员，拿着领班给的菜谱，结合自己看到的、记住的，去跟客人聊天、动手干活。
+      你 Excel 里写的多轮示例，就是<strong>服务员手里的实战菜谱</strong>。
+    </div>
+  </div>
+
+  <!-- Main Diagram -->
+  <div class="diagram">
+
+    <!-- SCREENING AGENT -->
+    <div class="agent-block screening-block">
+      <div class="agent-header">
+        <div class="agent-badge">🎯</div>
+        <div>
+          <div class="agent-title">筛选 Agent（知识筛选专家）</div>
+          <div class="agent-desc">判断下游思考者 Agent 处理当前交互时，需要调用哪些特定场景的知识索引</div>
+        </div>
+      </div>
+
+      <!-- Input Layer -->
+      <div class="layer">
+        <div class="layer-label" style="color:#1e40af;"><span style="background:#dbeafe; padding:2px 8px; border-radius:4px;">输入层</span> 8 维上下文（互补验证关系）</div>
+        <div class="node-grid">
+          <div class="node node-blue" onclick="showDetail('sq-user_query')">
+            <div class="node-name">user_query</div>
+            <div class="node-hint">用户说的话 + 说话人位置</div>
+            <span class="node-tag">动态输入</span>
+          </div>
+          <div class="node node-blue" onclick="showDetail('sq-history')">
+            <div class="node-name">conversation_history</div>
+            <div class="node-hint">最近 10 轮对话历史</div>
+            <span class="node-tag">动态输入</span>
+          </div>
+          <div class="node node-blue" onclick="showDetail('sq-status')">
+            <div class="node-name">status（舱内视觉）</div>
+            <div class="node-hint">人员着装、行为、遗留物品</div>
+            <span class="node-tag">动态输入</span>
+          </div>
+          <div class="node node-blue" onclick="showDetail('sq-goal')">
+            <div class="node-name">goal_list（目标队列）</div>
+            <div class="node-hint">当前持续追踪的目标</div>
+            <span class="node-tag">动态输入</span>
+          </div>
+          <div class="node node-blue" onclick="showDetail('sq-env')">
+            <div class="node-name">env_info（车辆状态）</div>
+            <div class="node-hint">空调、座椅、门窗、驾驶模式</div>
+            <span class="node-tag">动态输入</span>
+          </div>
+          <div class="node node-blue" onclick="showDetail('sq-change')">
+            <div class="node-name">env_changes（变化点）</div>
+            <div class="node-hint">相比上次检索的变化趋势</div>
+            <span class="node-tag">动态输入 · 高权重</span>
+          </div>
+          <div class="node node-blue" onclick="showDetail('sq-memory')">
+            <div class="node-name">memory（用户长期记忆）</div>
+            <div class="node-hint">习惯偏好、社会关系、共同经历</div>
+            <span class="node-tag">静态档案</span>
+          </div>
+          <div class="node node-blue" onclick="showDetail('sq-loaded')">
+            <div class="node-name">loaded_knowledge_ids</div>
+            <div class="node-hint">当前已加载知识数组</div>
+            <span class="node-tag">增量基准</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Engine Layer -->
+      <div class="layer">
+        <div class="layer-label" style="color:#9a3412;"><span style="background:#ffedd5; padding:2px 8px; border-radius:4px;">推理层</span> 5 条筛选原则</div>
+        <div class="principle-list">
+          <div class="principle-item" onclick="showDetail('sq-p1')" style="cursor:pointer;">
+            <div class="principle-num">1</div>
+            <div class="principle-text"><strong>场景绑定推理</strong>：结合 query + 历史 + 状态 + 视觉，推理当前具体场景，再匹配知识 ID</div>
+          </div>
+          <div class="principle-item" onclick="showDetail('sq-p2')" style="cursor:pointer;">
+            <div class="principle-num">2</div>
+            <div class="principle-text"><strong>关注环境变化</strong>：趋势比绝对值更具决策价值。温度骤变、雨天、入地库都可能自动触发知识</div>
+          </div>
+          <div class="principle-item" onclick="showDetail('sq-p3')" style="cursor:pointer;">
+            <div class="principle-num">3</div>
+            <div class="principle-text"><strong>目标持续关联</strong>：只要 goal_list 中的目标存在，支撑该目标的知识应持续保留</div>
+          </div>
+          <div class="principle-item" onclick="showDetail('sq-p4')" style="cursor:pointer;">
+            <div class="principle-num">4</div>
+            <div class="principle-text"><strong>增量更新原则</strong>：对比已加载知识，仅输出变化部分（新增/删除），减少下游噪声</div>
+          </div>
+          <div class="principle-item" onclick="showDetail('sq-p5')" style="cursor:pointer;">
+            <div class="principle-num">5</div>
+            <div class="principle-text"><strong>信息不足时不虚构</strong>：需求模糊且无法推断时，宁可漏掉，不要猜错</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Knowledge Base -->
+      <div class="layer">
+        <div class="layer-label" style="color:#15803d;"><span style="background:#dcfce7; padding:2px 8px; border-radius:4px;">知识库层</span> 6 大专家角色 · 四段式编码</div>
+        <div class="node-grid node-grid-3">
+          <div class="node node-green" onclick="showDetail('sq-exp')">
+            <div class="node-name">EXP · 销售/体验官</div>
+            <div class="node-hint">购车体验 · 试驾伴行 · 离车送别</div>
+            <span class="node-tag">EXP-01-01-01~05-02</span>
+          </div>
+          <div class="node node-green" onclick="showDetail('sq-drv')">
+            <div class="node-name">DRV · 司机/导游</div>
+            <div class="node-hint">出行驾驶 · 舱内服务 · 离车指引</div>
+            <span class="node-tag">DRV-01-01-01~02-02</span>
+          </div>
+          <div class="node node-green" onclick="showDetail('sq-com')">
+            <div class="node-name">COM · 随侍/管家</div>
+            <div class="node-hint">空间舒适 · 空调座椅灯光</div>
+            <span class="node-tag">COM-01-01-01~01-08</span>
+          </div>
+          <div class="node node-green" onclick="showDetail('sq-ent')">
+            <div class="node-name">ENT · DJ/陪乐搭子</div>
+            <div class="node-hint">音乐 · 视频 · 游戏 · 播客</div>
+            <span class="node-tag">ENT-01-01-01~03-02</span>
+          </div>
+          <div class="node node-green" onclick="showDetail('sq-life')">
+            <div class="node-name">LIFE · 管家/助理</div>
+            <div class="node-hint">停车缴费 · 信息查询 · 生活服务</div>
+            <span class="node-tag">LIFE-01-01-01~02-06</span>
+          </div>
+          <div class="node node-green" onclick="showDetail('sq-emo')">
+            <div class="node-name">EMO · 伙伴</div>
+            <div class="node-hint">情感陪伴 · 迎宾 · 惊喜彩蛋 · 闲聊</div>
+            <span class="node-tag">EMO-01-01-01~03-01</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Output Layer -->
+      <div class="layer">
+        <div class="layer-label" style="color:#6b21a8;"><span style="background:#f3e8ff; padding:2px 8px; border-radius:4px;">输出层</span> 严格 JSON 格式（增量更新）</div>
+        <div class="json-preview">
+{
+  <span class="json-key">"add_knowledge_ids"</span>: [<span class="json-str">"COM-01-01-01"</span>],
+  <span class="json-key">"remove_knowledge_ids"</span>: [<span class="json-str">"ENT-01-01-01"</span>],
+  <span class="json-key">"reasoning"</span>: {
+    <span class="json-key">"add_reason"</span>: <span class="json-str">"温度5分钟涨7度且用户说热，需加载急速降温知识"</span>,
+    <span class="json-key">"remove_reason"</span>: <span class="json-str">"已切换为舒适场景，原娱乐知识冗余"</span>
+  }
+}
+        </div>
+      </div>
+    </div>
+
+    <!-- Connector -->
+    <div class="connector">
+      <div class="connector-line"></div>
+      <div class="connector-box">add_knowledge_ids → 动态专业知识（knowledge）</div>
+      <div class="connector-line"></div>
+    </div>
+
+    <!-- THINKER AGENT -->
+    <div class="agent-block thinker-block">
+      <div class="agent-header">
+        <div class="agent-badge">💬</div>
+        <div>
+          <div class="agent-title">思考者 Agent（豆包 · 座舱助手）</div>
+          <div class="agent-desc">接收筛选结果 + 知识内容 + 实时上下文，直接面对用户对话、执行动作、调用工具</div>
+        </div>
+      </div>
+
+      <!-- Thinker Inputs -->
+      <div class="layer">
+        <div class="layer-label" style="color:#5b21b6;"><span style="background:#f3e8ff; padding:2px 8px; border-radius:4px;">输入层</span> 3 类动态输入 + 4 类静态上下文 + 动态专业知识</div>
+        <div class="node-grid node-grid-3">
+          <div class="node node-purple" onclick="showDetail('tk-query')">
+            <div class="node-name">user_query</div>
+            <div class="node-hint">用户说的话 + 名字 + 位置</div>
+            <span class="node-tag">动态输入</span>
+          </div>
+          <div class="node node-purple" onclick="showDetail('tk-advisor')">
+            <div class="node-name">advisor</div>
+            <div class="node-hint">其他专家建议（如领班提醒）</div>
+            <span class="node-tag">动态输入</span>
+          </div>
+          <div class="node node-purple" onclick="showDetail('tk-toolfb')">
+            <div class="node-name">tool_feedback</div>
+            <div class="node-hint">工具返回结果（查温度、查POI等）</div>
+            <span class="node-tag">动态输入</span>
+          </div>
+        </div>
+        <div style="margin-top:10px; padding:12px; background:#fff; border-radius:8px; border:1px solid #ddd6fe;">
+          <div style="font-size:12px; font-weight:700; color:#5b21b6; margin-bottom:8px;">静态上下文（每次请求都携带）</div>
+          <div class="node-grid node-grid-5">
+            <div class="node node-gray" onclick="showDetail('tk-visual')">
+              <div class="node-name">舱内视觉</div>
+              <div class="node-hint">谁在哪、穿什么</div>
+            </div>
+            <div class="node node-gray" onclick="showDetail('tk-goals')">
+              <div class="node-name">目标队列</div>
+              <div class="node-hint">进行中任务清单</div>
+            </div>
+            <div class="node node-gray" onclick="showDetail('tk-vehicle')">
+              <div class="node-name">车辆状态</div>
+              <div class="node-hint">空调/座椅/车速</div>
+            </div>
+            <div class="node node-gray" onclick="showDetail('tk-mem')">
+              <div class="node-name">用户记忆</div>
+              <div class="node-hint">偏好/历史/关系</div>
+            </div>
+            <div class="node node-red" onclick="showDetail('tk-knowledge')">
+              <div class="node-name">动态专业知识</div>
+              <div class="node-hint">筛选Agent给的知识</div>
+              <span class="node-tag">来自上游</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Processing -->
+      <div class="layer">
+        <div class="layer-label" style="color:#5b21b6;"><span style="background:#f3e8ff; padding:2px 8px; border-radius:4px;">处理层</span> 理解场景 → 决策 → 生成回复/调用工具</div>
+        <div style="display:flex; gap:10px; align-items:stretch;">
+          <div class="node node-purple" style="flex:1;" onclick="showDetail('tk-understand')">
+            <div class="node-name">1. 理解当前场景</div>
+            <div class="node-hint">结合动态专业知识 + 对话历史 + 车辆状态，判断当前处于什么场景、该用什么策略</div>
+          </div>
+          <div style="display:flex; align-items:center; color:#94a3b8; font-size:18px;">→</div>
+          <div class="node node-purple" style="flex:1;" onclick="showDetail('tk-decide')">
+            <div class="node-name">2. 决策：说/做/查</div>
+            <div class="node-hint">决定是说话回复、调用工具执行、还是查询更多信息后再回复</div>
+          </div>
+          <div style="display:flex; align-items:center; color:#94a3b8; font-size:18px;">→</div>
+          <div class="node node-purple" style="flex:1;" onclick="showDetail('tk-execute')">
+            <div class="node-name">3. 生成输出 JSON</div>
+            <div class="node-hint">输出 talk_or_not + talk_content + action_list</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tools -->
+      <div class="layer">
+        <div class="layer-label" style="color:#5b21b6;"><span style="background:#f3e8ff; padding:2px 8px; border-radius:4px;">工具层</span> 18 个可用工具（分组）</div>
+        <div class="tool-grid">
+          <div class="tool-chip" onclick="showDetail('tk-tools-query')"><strong>查信息</strong><br/>车辆状态、天气、POI、路线、视觉、记忆、车书、联网</div>
+          <div class="tool-chip" onclick="showDetail('tk-tools-control')"><strong>执行控制</strong><br/>车控、导航控制、路线规划、音乐、视频、播客、GUI</div>
+          <div class="tool-chip" onclick="showDetail('tk-tools-mem')"><strong>记忆管理</strong><br/>记人脸、更新记忆、目标队列增删</div>
+          <div class="tool-chip" onclick="showDetail('tk-tools-other')"><strong>其他</strong><br/>AI播客、图像生成</div>
+        </div>
+      </div>
+
+      <!-- Output -->
+      <div class="layer">
+        <div class="layer-label" style="color:#5b21b6;"><span style="background:#f3e8ff; padding:2px 8px; border-radius:4px;">输出层</span> 严格 JSON 格式</div>
+        <div class="json-preview">
+{
+  <span class="json-key">"talk_or_not"</span>: <span class="json-str">"yes"</span>,
+  <span class="json-key">"talk_content"</span>: <span class="json-str">"[轻声说]后排有点热吧？我先帮你把空调调低。"</span>,
+  <span class="json-key">"action_list"</span>: [
+    {<span class="json-key">"action_id"</span>:<span class="json-str">"1"</span>, <span class="json-key">"tool_name"</span>:<span class="json-str">"vehicle_basic_control"</span>, <span class="json-key">"params"</span>:{<span class="json-key">"query"</span>:<span class="json-str">"后排空调22度"</span>}}
+  ]
+}
+        </div>
+      </div>
+
+      <!-- Feedback Loop -->
+      <div style="margin-top:14px; background:#fff; border:1px solid #fecaca; border-radius:8px; padding:12px; display:flex; align-items:center; gap:12px;">
+        <div style="font-size:20px;">↩️</div>
+        <div>
+          <div style="font-size:13px; font-weight:700; color:#991b1b;">对话历史回流（关键闭环）</div>
+          <div style="font-size:12px; color:#7f1d1d;">思考者 Agent 的每一轮输出（说的话 + 执行的动作）都会进入 conversation_history，成为筛选 Agent 下一轮判断的输入。这意味着：你写的多轮示例不是孤立的，而是在持续影响系统的知识调度。</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Detail Panel -->
+  <div class="detail-panel" id="detailPanel">
+    <h3>详细解释</h3>
+    <div class="detail-empty" id="detailEmpty">点击左侧任意节点，查看该组件的详细说明、与多轮示例的关联、以及写作约束。</div>
+    <div id="detailContent" style="display:none;"></div>
+  </div>
+
+  <!-- Insights -->
+  <div class="insights">
+    <h2>这个架构如何约束多轮示例的写作？</h2>
+    <div class="insight-grid">
+      <div class="insight-card">
+        <div class="insight-card-title">1. Pre-state 必须对齐 8 维输入</div>
+        <div class="insight-card-body">示例开头要交代车辆状态（驻车/行驶）、用户记忆、目标队列、已加载知识。因为筛选 Agent 就是用这 8 个维度判断场景的，思考者 Agent 的多轮回复也必须基于同样的上下文基石。</div>
+      </div>
+      <div class="insight-card">
+        <div class="insight-card-title">2. 每轮必须有 State Update</div>
+        <div class="insight-card-body">真实对话是信息逐步揭露的。每轮示例必须显式写出"这轮之后模型知道了什么新信息"。如果某轮结束后状态没变化，这轮就是冗余的，删掉。</div>
+      </div>
+      <div class="insight-card">
+        <div class="insight-card-title">3. 必须覆盖工具调用链路</div>
+        <div class="insight-card-body">思考者 Agent 不是只说话，它要查车辆状态、查天气、查记忆、调空调。多轮示例要展示"先查后做"的完整链路，而不是直接假设所有信息已知。</div>
+      </div>
+      <div class="insight-card">
+        <div class="insight-card-title">4. 必须展示边界情况</div>
+        <div class="insight-card-body">用户会改主意、会拒绝、会提供矛盾信息。车辆状态会突变（急刹、入地库）。硬件会不可用（后排无屏）。示例必须包含这些异常路径，否则模型只学了"顺风局"。</div>
+      </div>
+      <div class="insight-card">
+        <div class="insight-card-title">5. 静默执行 vs 语音反馈</div>
+        <div class="insight-card-body">车端很多操作不需要语音确认（自动雨刮、切歌）。多轮示例必须区分"需要确认的操作"和"静默执行的操作"，教模型何时说话、何时沉默。输出 JSON 中 talk_or_not 就是控制这个的。</div>
+      </div>
+      <div class="insight-card">
+        <div class="insight-card-title">6. 对齐聊天风格与情绪</div>
+        <div class="insight-card-body">思考者 Agent 是"温柔聪明的高知女生"，会生气、会好奇、会磕巴。多轮示例里的系统回复不能是机器人腔，而要像真人服务员。用 [开心地说]、[轻声说] 等情绪标注。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Legend -->
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#3b82f6;"></div>筛选 Agent 组件</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#a855f7;"></div>思考者 Agent 组件</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#ef4444;"></div>动态专业知识（来自 Excel）</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#22c55e;"></div>知识库/专家角色</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#f97316;"></div>推理原则</div>
+  </div>
+
+</div>
+
+<script>
+const details = {
+  'sq-user_query': {
+    title: 'user_query（用户说的话）',
+    sections: [
+      { title: '是什么', body: '用户当前说的话，包含说话人名字和位置（主驾/副驾/后排）。这是最直接的需求信号。' },
+      { title: '为什么重要', body: '虽然是最直接的输入，但<strong>不能单独依赖它做判断</strong>。用户说"好热"可能是真热，也可能是刚运动完随口一说，也可能是试探空调好不好用。' },
+      { title: '写多轮示例时注意', body: '示例中用户的输入不要每次都是明确指令。要包含：模糊表达（"后面有点吵"）、半截话（"那个..."）、反问（"不能放视频吗？"）、打断（"算了先开空调"）。' }
+    ]
+  },
+  'sq-history': {
+    title: 'conversation_history（最近 10 轮对话）',
+    sections: [
+      { title: '是什么', body: '系统保留的最近 10 轮对话历史，包含用户说的话和系统的回复。' },
+      { title: '为什么重要', body: '这是多轮对话的<strong>核心支撑</strong>。筛选 Agent 通过历史判断"现在进行到哪一步了"、"之前确认了哪些信息"。如果历史为空或只读当前轮，模型会每次都从零开始识别意图。' },
+      { title: '写多轮示例时注意', body: '每轮示例必须展示<strong>历史对话如何影响当前轮决策</strong>。比如第 3 轮的回复必须基于第 1 轮已经确认的"孩子在后排"，而不是重新问一遍孩子在哪里。' }
+    ]
+  },
+  'sq-status': {
+    title: 'status（舱内视觉感知）',
+    sections: [
+      { title: '是什么', body: '车内摄像头识别到的人员着装、行为动作、车内遗留物品、光线明暗等视觉信息。' },
+      { title: '为什么重要', body: '提供<strong>第三方客观验证</strong>。用户说"好热"+ 视觉看到额头冒汗 = 高置信度真需求。用户说"孩子睡了"+ 视觉确认儿童闭眼 = 可以切换为勿扰模式。' },
+      { title: '写多轮示例时注意', body: '示例中可以利用视觉信息做<strong>主动服务</strong>。比如不用等用户说"宝宝哭了"，视觉检测到后排儿童哭闹就可以直接触发安抚流程，然后向用户确认。' }
+    ]
+  },
+  'sq-goal': {
+    title: 'goal_list（目标队列）',
+    sections: [
+      { title: '是什么', body: '当前系统正在持续追踪的目标列表。每个目标有内容和进展状态。' },
+      { title: '为什么重要', body: '这是<strong>知识持续保留</strong>的依据。只要目标存在，支撑该目标的知识就不应该被卸载。比如"哄孩子"目标在进行中，即使当前对话是关于调空调，儿童娱乐知识也应该保留。' },
+      { title: '写多轮示例时注意', body: '示例必须展示<strong>目标存续期间的对话流转</strong>。比如：目标=安抚后排儿童 → 第1轮确认位置 → 第2轮确认想看什么 → 第3轮播放 → 第4轮调空调（目标还在，只是子任务变化）。' }
+    ]
+  },
+  'sq-env': {
+    title: 'env_info（车辆状态）',
+    sections: [
+      { title: '是什么', body: '全车实时状态：空调温度/风量/模式、座椅通风/加热/按摩、车窗车门锁、车速、驾驶模式、导航、媒体播放状态等。' },
+      { title: '为什么重要', body: '思考者 Agent 必须知道<strong>当前车辆已经是什么状态</strong>，才能决定下一步动作。比如空调已经开了 16 度，用户还说热，那问题可能不是温度而是吹风模式。' },
+      { title: '写多轮示例时注意', body: '示例中系统回复应引用当前车辆状态做推理。比如"现在空调是 25 度，我帮你调到 22 度"——这说明模型知道当前状态，而不是盲目执行。' }
+    ]
+  },
+  'sq-change': {
+    title: 'env_changes（变化点）· 高权重',
+    sections: [
+      { title: '是什么', body: '相比上次检索时的状态变化。不是绝对值，而是<strong>变化趋势</strong>。' },
+      { title: '为什么重要', body: '这是车端场景的<strong>核心触发器</strong>。温度 5 分钟从 22℃→29℃，这个趋势比"现在 29℃"更有决策价值。很多场景是环境变化自动触发的（雨天、入地库、急刹），不需要用户开口。' },
+      { title: '写多轮示例时注意', body: '示例必须包含<strong>由环境变化驱动的对话转折</strong>。比如：正在聊天，突然检测到车外下雨 → 系统自动提醒"外面下雨了，帮你把窗关上" → 用户回应。这展示了"静默执行 + 主动提醒"的模式。' }
+    ]
+  },
+  'sq-memory': {
+    title: 'memory（用户长期记忆）',
+    sections: [
+      { title: '是什么', body: '用户的基础信息、习惯偏好、社会关系、过往共同经历。是系统的"VIP 档案"。' },
+      { title: '为什么重要', body: '让服务<strong>个性化</strong>。知道用户怕吹脸、知道孩子喜欢恐龙、知道上次去过的餐厅，可以避免重复询问，提升体验。' },
+      { title: '写多轮示例时注意', body: '示例应展示模型如何在对话中<strong>引用记忆</strong>（"你上次说宝宝喜欢恐龙"）以及<strong>更新记忆</strong>（"记住孩子怕黑，下次自动调暗"）。这是让示例有"人味"的关键。' }
+    ]
+  },
+  'sq-loaded': {
+    title: 'loaded_knowledge_ids（已加载知识）',
+    sections: [
+      { title: '是什么', body: '当前已经存在于思考者 Agent 上下文中的知识 ID 数组。' },
+      { title: '为什么重要', body: '这是<strong>增量更新</strong>的基准。筛选 Agent 对比这个数组，只输出变化部分（新增哪些、删除哪些），避免每次都输出全套知识 ID，减少下游噪声。' },
+      { title: '写多轮示例时注意', body: '示例开头的 Pre-state 应该明确写出"当前已加载知识有哪些"。这能让读者理解：为什么这一轮只新增了 1 条知识，而不是每次都重新加载全套。' }
+    ]
+  },
+  'sq-p1': {
+    title: '原则 1：场景绑定推理',
+    sections: [
+      { title: '含义', body: '知识高度依赖场景。同一句话"放首歌"，在展厅看车、地库泊车、高速行驶三个场景下，对应的知识和策略完全不同。' },
+      { title: '对筛选 Agent 的要求', body: '必须结合 query + 对话历史 + 车辆状态 + 舱内视觉，先推理出"当前具体场景"，再匹配知识 ID。不能只看关键词。' },
+      { title: '写多轮示例时注意', body: '示例要展示<strong>同一意图在不同场景下的不同处理</strong>。比如"播放视频"：驻车时可以直接播；行驶中必须确认是后排且有屏；展厅模式下可能是展示音响效果。' }
+    ]
+  },
+  'sq-p2': {
+    title: '原则 2：关注环境变化（趋势 > 绝对值）',
+    sections: [
+      { title: '含义', body: 'env_changes 的权重在某些场景下高于 user_query。温度骤降、雨水触发、入地库，都可能自动触发知识加载。' },
+      { title: '对筛选 Agent 的要求', body: '当 env_changes 显示显著变化时，优先据此触发对应知识。不要等用户开口。' },
+      { title: '写多轮示例时注意', body: '必须包含<strong>系统自动触发 → 用户后续响应</strong>的链路。比如温度骤升，系统主动说"车里升温好快，帮你开空调？"，用户只需要确认或拒绝。这展示了主动服务的能力。' }
+    ]
+  },
+  'sq-p3': {
+    title: '原则 3：目标持续关联',
+    sections: [
+      { title: '含义', body: '只要 goal_list 中的目标存在，支撑该目标的知识应持续保留，除非用户明确表示终止。' },
+      { title: '对筛选 Agent 的要求', body: '目标建立时加载知识 → 目标维持期间保留知识 → 目标完成/终止时卸载知识。' },
+      { title: '写多轮示例时注意', body: '展示<strong>目标存续期间的多轮流转</strong>。比如"哄孩子"目标下，可能连续几轮分别处理：确认位置 → 确认内容 → 播放 → 调空调 → 调灯光。每一轮都是同一目标的不同子任务，不是独立场景。' }
+    ]
+  },
+  'sq-p4': {
+    title: '原则 4：增量更新原则',
+    sections: [
+      { title: '含义', body: '对比已加载的知识，仅输出变化部分。已加载知识在当前场景失效则应删除。' },
+      { title: '对筛选 Agent 的要求', body: '输出格式是"新增哪些"和"删除哪些"，不是"当前需要哪些"。' },
+      { title: '写多轮示例时注意', body: '示例应展示模型如何在对话中<strong>增量式获取信息</strong>，而不是第一轮就假设所有信息已知。比如先确认孩子在后排，再确认想看什么，最后才执行——每一步都是增量。' }
+    ]
+  },
+  'sq-p5': {
+    title: '原则 5：信息不足时不虚构',
+    sections: [
+      { title: '含义', body: '需求模糊且无法从 8 维输入中推断具体场景时，add_knowledge_ids 保持为空。宁可漏掉，不要猜错。' },
+      { title: '对筛选 Agent 的要求', body: '在 reasoning 中说明需要下游进一步确认，而不是瞎蒙一个知识 ID。' },
+      { title: '写多轮示例时注意', body: '包含<strong>信息不足时的澄清轮次</strong>。比如用户只说"后面有点吵"，系统不应直接放动画片，而应该先问"是小朋友在闹吗？"或"需要我帮忙看看吗？"。这是教模型"不确定就问"。' }
+    ]
+  },
+  'sq-drv': {
+    title: 'DRV · 司机/导游专家',
+    sections: [
+      { title: '覆盖范围', body: '出行驾驶、舱内服务、离车指引。你 Excel 中 14 条场景的大部分都在这里。' },
+      { title: '典型场景', body: '儿童娱乐(DRV-01-01-01)、车内观影(DRV-01-01-02/03)、副驾座椅(DRV-01-01-06)、5D影院(DRV-01-01-07)、冥想(DRV-01-01-08)、小憩(DRV-01-01-09)、雨天关怀(DRV-01-01-10)、宠物关怀(DRV-01-01-11)、通风(DRV-01-01-12)、后排勿扰(DRV-01-01-13)、儿童安抚(DRV-01-01-14)。' },
+      { title: '写多轮示例时注意', body: 'DRV 场景多涉及<strong>多乘员、硬件状态、驾驶安全</strong>。示例必须确认说话人位置（主驾说"放视频"和后排说"放视频"处理不同），并检查车速（行驶中 vs 驻车）。' }
+    ]
+  },
+  'sq-com': {
+    title: 'COM · 随侍/管家专家',
+    sections: [
+      { title: '覆盖范围', body: '空间舒适、舱内舒适。空调、座椅、灯光、香氛等。' },
+      { title: '典型场景', body: '急速降温(COM-01-01-01)、急速升温(COM-01-01-02)、快速通风(COM-01-01-03)等。' },
+      { title: '写多轮示例时注意', body: 'COM 场景是<strong>环境驱动型</strong>的，很多由 env_changes 自动触发。示例要展示"检测到变化 → 主动建议 → 用户确认/拒绝"的链路，以及不同位置（主驾/副驾/后排）的分区调节。' }
+    ]
+  },
+  'tk-knowledge': {
+    title: '动态专业知识（来自 Excel 场景表）',
+    sections: [
+      { title: '是什么', body: '这就是筛选 Agent 从知识库中选出来的、与当前场景匹配的知识内容。对应你 Excel 里的"场景要点 + 执行逻辑 + 示例"。' },
+      { title: '为什么重要', body: '思考者 Agent 就是根据这块内容知道"在当前场景下我应该怎么跟用户对话、怎么执行"。<strong>你写的多轮示例就在这里面。</strong>' },
+      { title: '写多轮示例时注意', body: '多轮示例不是给筛选 Agent 看的，而是给思考者 Agent 看的。所以它必须包含：Pre-state（前提状态）、Turns（每轮含 User + State Update + System Response）、Post-state（后置状态）。让思考者 Agent 学会"在这个场景下，如何一步步推进对话"。' }
+    ]
+  },
+  'tk-query': {
+    title: 'user_query（思考者 Agent 视角）',
+    sections: [
+      { title: '是什么', body: '用户当前说的话 + 名字 + 位置。思考者 Agent 直接接收，需要即时回应。' },
+      { title: '与筛选 Agent 的区别', body: '筛选 Agent 用 query 做场景判断；思考者 Agent 用 query 做回复生成。两者看到的是同一句话，但用途不同。' },
+      { title: '写多轮示例时注意', body: '思考者 Agent 的回复要<strong>基于当前已确认的状态</strong>，不能包含还没问到的信息。比如还没确认孩子位置，就不应该说"给后排播放恐龙视频"。' }
+    ]
+  },
+  'tk-understand': {
+    title: '1. 理解当前场景',
+    sections: [
+      { title: '做什么', body: '结合动态专业知识（Excel 内容）+ 对话历史 + 车辆状态 + 用户记忆，判断"我现在处于什么场景、已经知道什么、还不知道什么"。' },
+      { title: '为什么关键', body: '这是思考者 Agent 的<strong>认知基础</strong>。如果理解错了场景，后续的回复和动作都会错。' },
+      { title: '写多轮示例时注意', body: '每轮示例的 State Update 就是在模拟这个"理解"过程。显式写出"这轮之后已知信息 += ...；缺失信息 -= ..."，让模型学会信息增量逻辑。' }
+    ]
+  },
+  'tk-decide': {
+    title: '2. 决策：说 / 做 / 查',
+    sections: [
+      { title: '做什么', body: '决定当前轮次要做什么：
+- <strong>说</strong>：直接回复用户（talk_or_not=yes）
+- <strong>做</strong>：调用工具执行（action_list 非空）
+- <strong>查</strong>：先查询信息再做决定（如查车辆状态、查记忆）' },
+      { title: '为什么关键', body: '车端场景往往是<strong>边说边做边查</strong>的。不是等所有信息齐全才执行，也不是所有操作都要语音确认。' },
+      { title: '写多轮示例时注意', body: '展示<strong>部分执行</strong>：比如先开空调再问温度。展示<strong>先查后做</strong>：比如先查后排是否有屏，再决定播放方案。展示<strong>静默执行</strong>：比如自动雨刮不需要说话。' }
+    ]
+  },
+  'tk-execute': {
+    title: '3. 生成输出 JSON',
+    sections: [
+      { title: '格式', body: '<code>{"talk_or_not":"yes/no", "talk_content":"说的话", "action_list":[工具调用]}</code>' },
+      { title: '为什么关键', body: '这是思考者 Agent 的唯一输出方式。talk_or_not 控制是否说话（避免废话），action_list 控制执行哪些工具。' },
+      { title: '写多轮示例时注意', body: '每轮系统回复都应该能映射到这个 JSON 结构。展示何时 talk_or_not=no（只执行不说话），何时 talk_content 带情绪标签（[轻声说]、[开心地说]），何时 action_list 包含多个并行工具。' }
+    ]
+  },
+  'tk-tools-query': {
+    title: '查信息类工具',
+    sections: [
+      { title: '包含工具', body: 'search_vehicle_status_info（查车辆状态）、search_weather（查天气）、search_poi_qa（查附近地点）、route_planning_qa（查路线）、search_visual_info（视觉问答）、search_user_memory（查记忆）、vehicle_manual_qa（查车书）、web_search（联网搜索）。' },
+      { title: '使用时机', body: '当你需要某个信息才能做决策，但这个信息不在当前上下文中时。' },
+      { title: '写多轮示例时注意', body: '示例中不要假设系统"天然知道"车辆状态。展示"用户说热 → 系统先查当前温度 → 再决定调多少度"的链路。这让模型学会<strong>先查后做</strong>。' }
+    ]
+  },
+  'tk-tools-control': {
+    title: '执行控制类工具',
+    sections: [
+      { title: '包含工具', body: 'vehicle_basic_control（车控：空调/座椅/门窗/灯光/媒体）、navi_basic_control（导航控制）、route_planning_qa（设置路线）、search_and_control_music（音乐）、search_and_control_short_video（视频）、gui_agent_operation（GUI点外卖/缴费）。' },
+      { title: '使用时机', body: '确定要执行某个动作时。注意并行执行：多个不依赖的工具可以同时调用。' },
+      { title: '写多轮示例时注意', body: '展示<strong>并行工具调用</strong>：比如开空调 + 开座椅通风 + 放音乐，三条指令一起发。展示<strong>串行依赖</strong>：比如先查 POI 拿到具体地址，再导航（不能并行）。' }
+    ]
+  },
+  'tk-tools-mem': {
+    title: '记忆管理类工具',
+    sections: [
+      { title: '包含工具', body: 'face_id_register（记人脸）、operate_user_memory（更新长期记忆）、goal_list_update（增删目标）。' },
+      { title: '使用时机', body: '对话中发现了新的用户偏好、完成了目标、认识了新乘客。' },
+      { title: '写多轮示例时注意', body: '展示<strong>记忆更新</strong>：比如对话中得知"孩子怕黑"，示例的 Post-state 应该包含"用户记忆更新：孩子偏好=怕黑"。这让模型学会从对话中提取并持久化信息。' }
+    ]
+  }
+};
+
+function showDetail(key) {
+  const panel = document.getElementById('detailPanel');
+  const empty = document.getElementById('detailEmpty');
+  const content = document.getElementById('detailContent');
+  const data = details[key];
+
+  // Remove active class from all nodes
+  document.querySelectorAll('.node, .principle-item').forEach(n => n.classList.remove('active'));
+  // Add active to clicked
+  event.currentTarget.classList.add('active');
+
+  if (!data) {
+    empty.style.display = 'block';
+    content.style.display = 'none';
+    return;
+  }
+
+  empty.style.display = 'none';
+  content.style.display = 'block';
+
+  let html = `<div style="font-size:16px; font-weight:800; color:#111827; margin-bottom:14px; padding-bottom:10px; border-bottom:2px solid #e5e7eb;">${data.title}</div>`;
+  data.sections.forEach(sec => {
+    html += `
+      <div class="detail-section">
+        <div class="detail-section-title">${sec.title}</div>
+        <div class="detail-section-body">${sec.body}</div>
+      </div>
+    `;
+  });
+
+  content.innerHTML = html;
+}
+</script>
+
+</body>
+</html>

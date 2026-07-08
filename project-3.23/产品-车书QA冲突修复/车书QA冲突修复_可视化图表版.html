@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>车书QA冲突修复 — 可视化图表版</title>
+<style>
+:root{--bg:#0c0e14;--c1:#151820;--c2:#1b1f2b;--bd:#252a3a;--tx:#dde0ea;--dm:#6b7089;--ac:#6875ff;--tl:#42d4c4;--rd:#ff5f5f;--og:#ff9f40;--gn:#4dcc60;--yw:#ffd040;--pp:#af92ff;--bl:#68b0ff;--pk:#f080a0}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,'PingFang SC',sans-serif;background:var(--bg);color:var(--tx);line-height:1.7;padding:24px 12px}
+.w{max-width:1200px;margin:0 auto}
+h1{font-size:28px;font-weight:800;text-align:center;background:linear-gradient(135deg,var(--ac),var(--tl));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin:30px 0 6px}
+.sub{text-align:center;color:var(--dm);font-size:13px;margin-bottom:40px}
+.sec{margin-bottom:60px}
+.sec-t{font-size:20px;font-weight:800;margin-bottom:20px;padding-left:14px;border-left:4px solid var(--ac)}
+.dv{height:1px;background:var(--bd);margin:50px 0}
+.note{font-size:12px;color:var(--dm);margin-top:8px}
+
+/* ===== FLOW DIAGRAM SYSTEM ===== */
+.flow-canvas{background:var(--c1);border:1px solid var(--bd);border-radius:16px;padding:30px 24px;position:relative;overflow:visible}
+.flow-title{font-size:15px;font-weight:700;color:var(--ac);margin-bottom:24px;text-align:center}
+
+/* Nodes */
+.fn{display:inline-flex;align-items:center;justify-content:center;padding:10px 18px;border-radius:10px;font-size:12px;font-weight:600;text-align:center;line-height:1.5;white-space:nowrap;position:relative}
+.fn.usr{background:#1a3560;color:var(--bl);border:2px solid #2a5590}
+.fn.sys{background:#2a1a50;color:var(--pp);border:2px solid #4a3080}
+.fn.data{background:#1a3a38;color:var(--tl);border:2px solid #2a5a58}
+.fn.warn{background:#3a2a10;color:var(--og);border:2px solid #5a4a20}
+.fn.ok{background:#1a3a1a;color:var(--gn);border:2px solid #2a5a2a}
+.fn.bad{background:#3a1515;color:var(--rd);border:2px solid #5a2525}
+.fn.new{background:#2a2810;color:var(--yw);border:2px solid #4a4820}
+.fn.dim{background:var(--c2);color:var(--dm);border:1px dashed var(--bd)}
+.fn.big{padding:14px 24px;font-size:14px;border-radius:14px}
+.fn.wide{width:100%;justify-content:center}
+
+/* Flow rows */
+.frow{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
+.farr{color:var(--dm);font-size:22px;font-weight:700;flex-shrink:0}
+.farr-d{text-align:center;color:var(--dm);font-size:20px;font-weight:700;padding:4px 0}
+.farr-label{font-size:10px;color:var(--dm);text-align:center;margin:-2px 0 4px}
+
+/* Parallel branches */
+.branch{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:10px 0}
+.branch-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin:10px 0}
+.branch-box{background:var(--c2);border:1px solid var(--bd);border-radius:12px;padding:16px;position:relative}
+.branch-box.bad{border-color:#4a2020;background:#1a0e0e}
+.branch-box.ok{border-color:#204a20;background:#0e1a0e}
+.branch-box.hl{border-color:var(--yw);background:#1a1808}
+.branch-box.pp{border-color:#4030a0;background:#150e2a}
+.branch-label{font-size:11px;font-weight:700;margin-bottom:8px}
+.branch-box p{font-size:12px;color:var(--dm);line-height:1.7}
+.branch-box .fn{margin:4px 0;font-size:11px}
+
+/* Decision diamond */
+.diamond{display:flex;align-items:center;justify-content:center;margin:10px auto;width:fit-content;padding:12px 28px;background:#2a2010;border:2px solid #5a4820;border-radius:12px;font-size:13px;font-weight:700;color:var(--yw);transform:perspective(200px) rotateX(2deg)}
+
+/* Result box */
+.result{padding:14px 20px;border-radius:12px;margin:10px 0;font-size:13px;font-weight:600;text-align:center}
+.result.ok{background:#0e1a0e;border:2px solid #2a5a2a;color:var(--gn)}
+.result.bad{background:#1a0e0e;border:2px solid #5a2020;color:var(--rd)}
+
+/* VS layout */
+.vs{display:grid;grid-template-columns:1fr 40px 1fr;gap:0;margin:16px 0;align-items:stretch}
+.vs-l{padding:16px;border-radius:12px 0 0 12px;background:#1a0e0e;border:1px solid #4a2020}
+.vs-r{padding:16px;border-radius:0 12px 12px 0;background:#0e1a0e;border:1px solid #204a20}
+.vs-m{display:flex;align-items:center;justify-content:center;background:var(--c2);font-size:12px;font-weight:800;color:var(--dm)}
+.vs h4{font-size:13px;font-weight:700;margin-bottom:8px}
+.vs p,.vs li{font-size:12px;line-height:1.9}
+.vs ul{padding-left:16px}
+
+/* Info cards */
+.info-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0}
+.info-card{background:var(--c2);border:1px solid var(--bd);border-radius:12px;padding:16px;text-align:center}
+.info-card.green{border-color:#2a5a2a}.info-card.red{border-color:#5a2020}.info-card.blue{border-color:#2050a0}.info-card.yellow{border-color:#5a4820}
+.info-num{font-size:36px;font-weight:800;line-height:1;margin-bottom:4px}
+.info-num.green{color:var(--gn)}.info-num.red{color:var(--rd)}.info-num.blue{color:var(--bl)}.info-num.yellow{color:var(--yw)}
+.info-label{font-size:11px;color:var(--dm)}
+
+/* Meter */
+.meter{display:flex;align-items:center;gap:10px;margin:6px 0}
+.meter-l{font-size:11px;color:var(--dm);width:80px;text-align:right;flex-shrink:0}
+.meter-b{flex:1;height:22px;background:var(--c2);border-radius:11px;overflow:hidden;border:1px solid var(--bd)}
+.meter-f{height:100%;border-radius:11px;display:flex;align-items:center;justify-content:flex-end;padding-right:10px;font-size:10px;font-weight:700}
+.meter-f.g{background:linear-gradient(90deg,#1a5a1a,#2a8a2a);color:#aaffaa}
+.meter-f.o{background:linear-gradient(90deg,#5a3a1a,#8a5a2a);color:#ffddaa}
+.meter-f.r{background:linear-gradient(90deg,#5a1a1a,#8a2a2a);color:#ffaaaa}
+
+/* Timeline */
+.timeline{position:relative;padding-left:30px;margin:16px 0}
+.timeline::before{content:'';position:absolute;left:12px;top:0;bottom:0;width:2px;background:var(--bd)}
+.tl-item{position:relative;margin-bottom:16px;padding:12px 16px;background:var(--c2);border:1px solid var(--bd);border-radius:10px}
+.tl-item::before{content:'';position:absolute;left:-24px;top:16px;width:10px;height:10px;border-radius:50%;background:var(--ac);border:2px solid var(--bg)}
+.tl-item.green::before{background:var(--gn)}
+.tl-item.yellow::before{background:var(--yw)}
+.tl-item.red::before{background:var(--rd)}
+.tl-time{font-size:11px;color:var(--ac);font-weight:700;margin-bottom:2px}
+.tl-text{font-size:12px;color:var(--dm)}
+
+/* Code-like box (minimal) */
+.cbox{background:#080a10;border:1px solid var(--bd);border-radius:8px;padding:14px;font-family:'SF Mono','Menlo',monospace;font-size:11.5px;line-height:1.7;color:#b0b8c8;margin:10px 0;overflow-x:auto;white-space:pre-wrap}
+.cbox .g{color:var(--gn);font-weight:600}
+.cbox .r{color:var(--rd)}
+.cbox .y{color:var(--yw)}
+.cbox .p{color:var(--pp)}
+.cbox .d{color:#555}
+.cbox .o{color:var(--og)}
+
+/* Tag */
+.t{display:inline-block;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:700}
+.t.g{background:#1a3a1a;color:var(--gn)}.t.r{background:#3a1515;color:var(--rd)}.t.o{background:#3a2510;color:var(--og)}.t.b{background:#152a50;color:var(--bl)}.t.y{background:#2a2810;color:var(--yw)}
+
+/* Table */
+.tb{width:100%;border-collapse:collapse;font-size:12px;margin:12px 0}
+.tb th{background:var(--c2);padding:8px 10px;text-align:left;font-weight:700;border-bottom:2px solid var(--bd);color:var(--ac);font-size:11px}
+.tb td{padding:8px 10px;border-bottom:1px solid rgba(37,42,58,.5);vertical-align:middle}
+
+/* Skeleton */
+.sk{margin:12px 0}
+.sk-row{display:flex;align-items:stretch;border-bottom:1px solid rgba(37,42,58,.4)}
+.sk-row:last-child{border:none}
+.sk-bar{width:6px;flex-shrink:0;border-radius:3px;margin:3px 0}
+.sk-bar.r{background:var(--rd)}.sk-bar.g{background:var(--gn)}.sk-bar.p{background:var(--pp)}.sk-bar.d{background:var(--bd)}
+.sk-c{flex:1;padding:8px 12px;font-size:12px;display:flex;align-items:center;gap:10px}
+.sk-c .label{font-weight:700;white-space:nowrap;min-width:140px}
+.sk-c .desc{color:var(--dm);font-size:11px}
+
+@media(max-width:800px){.branch,.branch-3,.vs,.info-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="w">
+
+<h1>车书QA冲突修复 — 可视化方案</h1>
+<div class="sub">以图表为主 · 文字极简 · 基于实际SP</div>
+
+<!-- ============================================================ -->
+<!-- DIAGRAM 1: SP SKELETON -->
+<!-- ============================================================ -->
+<div class="sec">
+<h2 class="sec-t">图1：Director SP 骨架结构</h2>
+
+<div class="flow-canvas">
+<div class="flow-title">prompt.md 完整结构 — 从上到下就是 Director 读取的顺序</div>
+
+<div class="sk">
+  <div class="sk-row"><div class="sk-bar d"></div><div class="sk-c"><span class="label">角色定义</span><span class="desc">"你是豆包，一台AI汽车的个人助手"</span></div></div>
+  <div class="sk-row"><div class="sk-bar d"></div><div class="sk-c"><span class="label">输入格式 × 3</span><span class="desc">user_query / advisor / tool_feedback</span></div></div>
+  <div class="sk-row"><div class="sk-bar d"></div><div class="sk-c"><span class="label">工具列表 × 18</span><span class="desc">vehicle_basic_control · search_vehicle_status_info · vehicle_manual_qa · 音乐 · POI · 导航 ...</span></div></div>
+  <div class="sk-row"><div class="sk-bar d"></div><div class="sk-c"><span class="label">输出JSON格式</span><span class="desc">talk_or_not + talk_content + action_list</span></div></div>
+  <div class="sk-row"><div class="sk-bar d"></div><div class="sk-c"><span class="label">注意事项 × 14</span><span class="desc">全局行为规则（不可修改）</span></div></div>
+  <div class="sk-row"><div class="sk-bar d"></div><div class="sk-c"><span class="label">参考示例 × 8</span><span class="desc">导航/车控/视觉/记忆/GUI/图片/规划/综合</span></div></div>
+  <div class="sk-row"><div class="sk-bar d"></div><div class="sk-c"><span class="label">车辆设备知识</span><span class="desc">空调分区/座椅档位/灯光颜色/音量范围/驾驶模式</span></div></div>
+  <div class="sk-row"><div class="sk-bar d"></div><div class="sk-c"><span class="label">工具tips × 11</span><span class="desc">使用技巧（含：座椅移动不支持语音、不支持自动驾驶操作）</span></div></div>
+  <div class="sk-row"><div class="sk-bar d"></div><div class="sk-c"><span class="label">聊天风格</span><span class="desc">温柔聪明女生人设 / 口语化 / 静默原则</span></div></div>
+  <div class="sk-row"><div class="sk-bar p"></div><div class="sk-c"><span class="label" style="color:var(--pp)">{{status}}</span><span class="desc">舱内视觉感知（工程注入）</span></div></div>
+  <div class="sk-row"><div class="sk-bar p"></div><div class="sk-c"><span class="label" style="color:var(--pp)">{{goal_list}}</span><span class="desc">目标队列（工程注入）</span></div></div>
+  <div class="sk-row"><div class="sk-bar p"></div><div class="sk-c"><span class="label" style="color:var(--pp)">{{env_info}}</span><span class="desc">车辆状态（工程注入）</span></div></div>
+  <div class="sk-row"><div class="sk-bar p"></div><div class="sk-c"><span class="label" style="color:var(--pp)">{{memory}}</span><span class="desc">用户记忆（工程注入）</span></div></div>
+  <div class="sk-row" style="background:rgba(255,95,95,.06)"><div class="sk-bar r"></div><div class="sk-c"><span class="label" style="color:var(--rd)">{{car_function_simple_qa}}</span><span class="desc" style="color:var(--rd)">车书QA检索结果 — 问题源头 · 引导语太弱 · 每轮全量注入top3</span><span class="t r" style="margin-left:auto">问题</span></div></div>
+  <div class="sk-row" style="background:rgba(77,204,96,.06)"><div class="sk-bar g"></div><div class="sk-c"><span class="label" style="color:var(--gn)">{{knowledge}}</span><span class="desc" style="color:var(--gn)">动态专业知识 — 泽民完全可控 · 当前为空 · 方案E在此注入</span><span class="t g" style="margin-left:auto">可控</span></div></div>
+</div>
+</div>
+</div>
+
+<!-- ============================================================ -->
+<!-- DIAGRAM 2: PROBLEM FLOW -->
+<!-- ============================================================ -->
+<div class="sec">
+<h2 class="sec-t">图2：问题发生流程</h2>
+
+<div class="flow-canvas">
+<div class="flow-title">用户说"打开定速巡航" → 为什么输出了错误结果？</div>
+
+<div class="frow"><div class="fn usr big">用户："打开定速巡航"</div></div>
+<div class="farr-d">↓</div>
+<div class="farr-label">同时触发两条管线</div>
+
+<div class="branch">
+  <div class="branch-box bad">
+    <div class="branch-label" style="color:var(--rd)">管线A：QA向量检索（全量触发）</div>
+    <div class="frow" style="justify-content:flex-start"><div class="fn dim" style="font-size:11px">"打开定速巡航" 向量化</div></div>
+    <div class="farr-d" style="font-size:14px">↓</div>
+    <div class="frow" style="justify-content:flex-start"><div class="fn warn" style="font-size:11px">检索QA库 top3</div></div>
+    <div class="farr-d" style="font-size:14px">↓</div>
+    <div class="frow" style="justify-content:flex-start"><div class="fn bad" style="font-size:11px;white-space:normal;text-align:left">Top1命中：<br>Q"定速巡航怎么开"<br>A"进入车辆设置-辅助驾驶..."</div></div>
+    <div class="farr-d" style="font-size:14px">↓</div>
+    <div class="frow" style="justify-content:flex-start"><div class="fn bad" style="font-size:11px">注入 {{car_function_simple_qa}}</div></div>
+  </div>
+  <div class="branch-box" style="border-color:#4030a0;background:#0e0a1a">
+    <div class="branch-label" style="color:var(--pp)">管线B：Knowledge Selector</div>
+    <div class="frow" style="justify-content:flex-start"><div class="fn dim" style="font-size:11px">判断需要哪些场景知识</div></div>
+    <div class="farr-d" style="font-size:14px">↓</div>
+    <div class="frow" style="justify-content:flex-start"><div class="fn dim" style="font-size:11px">没有匹配的条目</div></div>
+    <div class="farr-d" style="font-size:14px">↓</div>
+    <div class="frow" style="justify-content:flex-start"><div class="fn bad" style="font-size:11px">{{knowledge}} = 空</div></div>
+    <div style="height:40px"></div>
+    <div class="frow" style="justify-content:flex-start"><div class="fn dim" style="font-size:10px;border:none;color:var(--rd)">没有任何规则指导Director</div></div>
+  </div>
+</div>
+
+<div class="farr-d">↓</div>
+<div class="farr-label">汇入 Director LLM</div>
+
+<div class="frow">
+  <div class="fn warn big" style="white-space:normal;max-width:500px">Director 看到 context 中有"操作步骤"<br>但没有任何规则说"应该调工具"</div>
+</div>
+<div class="farr-d">↓</div>
+
+<div class="result bad">❌ 输出文字教程："进入车辆设置-辅助驾驶..." &nbsp;&nbsp;|&nbsp;&nbsp; action_list = 空</div>
+</div>
+</div>
+
+<!-- ============================================================ -->
+<!-- DIAGRAM 3: THREE INTENT TYPES -->
+<!-- ============================================================ -->
+<div class="sec">
+<h2 class="sec-t">图3：三类意图判断树</h2>
+
+<div class="flow-canvas">
+<div class="flow-title">用户说的话属于哪种意图？→ 对应什么正确处理？</div>
+
+<div class="frow"><div class="fn usr big">用户说了一句关于车辆功能的话</div></div>
+<div class="farr-d">↓</div>
+<div class="diamond">包含什么信号词？</div>
+<div style="height:8px"></div>
+
+<div class="branch-3">
+  <div class="branch-box ok" style="text-align:center">
+    <div class="branch-label" style="color:var(--gn);font-size:13px">执行型</div>
+    <p style="color:var(--gn);font-size:13px;font-weight:700;margin:6px 0">"打开" "关闭" "调高"<br>"开启" "设为" "调到"</p>
+    <div style="height:6px"></div>
+    <p style="color:#aaddaa">例："打开空调"<br>"把温度调到24度"<br>"关闭车窗"</p>
+    <div style="height:8px"></div>
+    <div class="fn ok wide" style="font-size:12px">→ 调 vehicle_basic_control</div>
+  </div>
+  <div class="branch-box" style="border-color:#2050a0;background:#0a1020;text-align:center">
+    <div class="branch-label" style="color:var(--bl);font-size:13px">查询型</div>
+    <p style="color:var(--bl);font-size:13px;font-weight:700;margin:6px 0">"XX多少" "当前XX"<br>"剩余XX" "XX正常吗"</p>
+    <div style="height:6px"></div>
+    <p style="color:#aaccee">例："现在时速多少"<br>"剩余电量多少"<br>"胎压正常吗"</p>
+    <div style="height:8px"></div>
+    <div class="fn" style="background:#152a50;color:var(--bl);border:2px solid #2050a0;width:100%;justify-content:center;font-size:12px">→ 调 search_vehicle_status_info</div>
+  </div>
+  <div class="branch-box pp" style="text-align:center">
+    <div class="branch-label" style="color:var(--pp);font-size:13px">咨询型</div>
+    <p style="color:var(--pp);font-size:13px;font-weight:700;margin:6px 0">"怎么用" "如何设置"<br>"步骤" "方法" "咋调"</p>
+    <div style="height:6px"></div>
+    <p style="color:#ccaaee">例："定速巡航怎么用"<br>"雨刮器咋调"<br>"怎么设置自动大灯"</p>
+    <div style="height:8px"></div>
+    <div class="fn sys wide" style="font-size:12px">→ 用QA知识回答</div>
+  </div>
+</div>
+</div>
+</div>
+
+<!-- ============================================================ -->
+<!-- DIAGRAM 4: SOLUTION E FLOW -->
+<!-- ============================================================ -->
+<div class="sec">
+<h2 class="sec-t">图4：方案E — 在 {{knowledge}} 注入示例</h2>
+
+<div class="flow-canvas">
+<div class="flow-title">方案E如何改变 Director 的决策路径</div>
+
+<div class="vs">
+<div class="vs-l">
+  <h4 style="color:var(--rd)">❌ 当前（{{knowledge}} 为空）</h4>
+  <ul style="color:#ddaaaa">
+    <li>Director 看到 QA知识中有操作步骤</li>
+    <li>没有任何规则说"应该调工具"</li>
+    <li>默认用知识做文字回答</li>
+    <li style="color:var(--rd);font-weight:700">→ 输出错误</li>
+  </ul>
+</div>
+<div class="vs-m">VS</div>
+<div class="vs-r">
+  <h4 style="color:var(--gn)">✅ 方案E后（{{knowledge}} 有示例）</h4>
+  <ul style="color:#aaddaa">
+    <li>Director 看到 QA知识中有操作步骤</li>
+    <li><strong>同时看到示例："打开XX→调工具"</strong></li>
+    <li>模式匹配：当前case像示例1</li>
+    <li style="color:var(--gn);font-weight:700">→ 调用 vehicle_basic_control ✅</li>
+  </ul>
+</div>
+</div>
+
+<div style="margin-top:20px">
+<div class="flow-title" style="font-size:13px">方案E注入的4个示例覆盖全场景</div>
+<div class="branch" style="grid-template-columns:1fr 1fr 1fr 1fr;gap:8px">
+  <div class="branch-box ok" style="text-align:center;padding:10px">
+    <div style="font-size:20px;margin-bottom:4px">🔧</div>
+    <div class="branch-label" style="color:var(--gn);font-size:11px">示例1: 执行</div>
+    <p style="font-size:11px">"打开空调"<br>→ 调工具</p>
+  </div>
+  <div class="branch-box" style="border-color:#2050a0;text-align:center;padding:10px">
+    <div style="font-size:20px;margin-bottom:4px">📊</div>
+    <div class="branch-label" style="color:var(--bl);font-size:11px">示例2: 查询</div>
+    <p style="font-size:11px">"时速多少"<br>→ 调工具</p>
+  </div>
+  <div class="branch-box pp" style="text-align:center;padding:10px">
+    <div style="font-size:20px;margin-bottom:4px">📖</div>
+    <div class="branch-label" style="color:var(--pp);font-size:11px">示例3: 咨询</div>
+    <p style="font-size:11px">"怎么用"<br>→ 用知识答</p>
+  </div>
+  <div class="branch-box" style="border-color:#5a4820;text-align:center;padding:10px">
+    <div style="font-size:20px;margin-bottom:4px">🔄</div>
+    <div class="branch-label" style="color:var(--og);font-size:11px">示例4: 兜底</div>
+    <p style="font-size:11px">工具失败<br>→ 用知识答</p>
+  </div>
+</div>
+</div>
+</div>
+
+<!-- E: Actual content to copy -->
+<div class="flow-canvas" style="border-color:var(--gn)">
+<div class="flow-title" style="color:var(--gn)">方案E — 要注入 {{knowledge}} 的完整内容（直接复制）</div>
+<div class="cbox"><span class="y">【车辆功能问答知识正确使用指南】</span>
+
+你的context中可能包含「基础车辆功能问答」部分的参考知识（来自车辆手册检索结果）。
+这些知识描述了功能的手动操作方法，但不代表你应该直接用它们回答用户。
+请根据用户的真实意图选择正确的处理方式：
+
+<span class="o">━━━ 示例1：执行指令 → 调工具（不用知识回答）━━━</span>
+用户说："打开空调"
+此时「基础车辆功能问答」中有："空调可通过中控屏底部空调按钮开启，点击后选择温度和风量"
+<span class="g">✅ 正确：调用 vehicle_basic_control({"query":"打开空调"})，说"好的，正在为你打开空调"</span>
+<span class="r">✗ 错误：回答"空调可以通过中控屏底部的空调按钮开启..."</span>
+<span class="p">依据："打开"是执行动作词 → 用户要系统帮他执行，不是教他手动操作</span>
+
+<span class="o">━━━ 示例2：实时查询 → 调工具查数据（不用知识回答）━━━</span>
+用户说："现在时速多少"
+此时「基础车辆功能问答」中有："车速信息是仪表屏常显信息，非P挡时可直接查看"
+<span class="g">✅ 正确：调用 search_vehicle_status_info({"query":"查询当前车速"})</span>
+<span class="r">✗ 错误：回答"车速信息可以在仪表屏上查看"</span>
+<span class="p">依据："现在XX多少"是问实时数值 → 用户要具体数字</span>
+
+<span class="o">━━━ 示例3：操作咨询 → 用知识回答（知识的正确使用场景）━━━</span>
+用户说："定速巡航怎么用"
+此时「基础车辆功能问答」中有："定速巡航开启方法：进入车辆设置-辅助驾驶..."
+<span class="g">✅ 正确：参考知识回答"定速巡航可以这样开：进入车辆设置..."</span>
+<span class="p">依据："怎么用"是咨询操作方法 → 知识中的步骤正是答案</span>
+
+<span class="o">━━━ 示例4：工具失败 → 知识兜底 ━━━</span>
+用户说"打开定速巡航" → 调用vehicle_basic_control → 返回失败
+<span class="g">✅ 正确：告知"暂时无法语音开启，你可以手动操作：进入车辆设置..."</span>
+<span class="p">依据：工具失败后，知识中的手动步骤是最好的兜底</span></div>
+</div>
+</div>
+
+<!-- ============================================================ -->
+<!-- DIAGRAM 5: SOLUTION D FLOW -->
+<!-- ============================================================ -->
+<div class="sec">
+<h2 class="sec-t">图5：方案D — 竞争性QA检索对</h2>
+
+<div class="flow-canvas">
+<div class="flow-title">方案D如何改变检索结果排序</div>
+
+<div class="vs">
+<div class="vs-l">
+  <h4 style="color:var(--rd)">❌ 当前检索结果（query="打开定速巡航"）</h4>
+  <div style="margin:10px 0">
+    <div style="display:flex;align-items:center;gap:8px;margin:6px 0"><span class="t r">Top1</span><span style="font-size:12px;color:#ddaaaa">Q"定速巡航<strong>怎么开</strong>" → A"进入车辆设置..."</span></div>
+    <div style="display:flex;align-items:center;gap:8px;margin:6px 0"><span class="t" style="background:var(--c2);color:var(--dm)">Top2</span><span style="font-size:12px;color:var(--dm)">Q"巡航速度怎么调" → A"按RES+/SET-键..."</span></div>
+    <div style="display:flex;align-items:center;gap:8px;margin:6px 0"><span class="t" style="background:var(--c2);color:var(--dm)">Top3</span><span style="font-size:12px;color:var(--dm)">Q"怎么退出巡航" → A"踩刹车退出..."</span></div>
+  </div>
+  <p style="color:var(--rd);font-size:12px;font-weight:700">Director 看到的全是手动步骤 → 用知识回答</p>
+</div>
+<div class="vs-m">→</div>
+<div class="vs-r">
+  <h4 style="color:var(--gn)">✅ 方案D后的检索结果</h4>
+  <div style="margin:10px 0">
+    <div style="display:flex;align-items:center;gap:8px;margin:6px 0"><span class="t y">Top1 新</span><span style="font-size:12px;color:var(--yw)">Q"<strong>打开</strong>定速巡航" → A"<strong>由系统语音直接执行</strong>"</span></div>
+    <div style="display:flex;align-items:center;gap:8px;margin:6px 0"><span class="t" style="background:var(--c2);color:var(--dm)">Top2</span><span style="font-size:12px;color:var(--dm)">Q"定速巡航怎么开" → A"进入车辆设置..."</span></div>
+    <div style="display:flex;align-items:center;gap:8px;margin:6px 0"><span class="t" style="background:var(--c2);color:var(--dm)">Top3</span><span style="font-size:12px;color:var(--dm)">Q"巡航速度怎么调" → A"按RES+/SET-键..."</span></div>
+  </div>
+  <p style="color:var(--gn);font-size:12px;font-weight:700">Director 首先看到"由系统执行" → 调工具</p>
+</div>
+</div>
+
+<!-- Why consult not affected -->
+<div style="margin-top:20px">
+<div class="flow-title" style="font-size:13px">为什么咨询型query不受影响？（向量相似度对比）</div>
+<div class="branch">
+  <div class="branch-box ok">
+    <div class="branch-label" style="color:var(--gn)">执行型 query = "打开定速巡航"</div>
+    <div class="meter"><span class="meter-l" style="width:130px;font-size:11px">新QA"打开定速巡航"</span><div class="meter-b"><div class="meter-f g" style="width:98%">0.98</div></div></div>
+    <div class="meter"><span class="meter-l" style="width:130px;font-size:11px">旧QA"巡航怎么开"</span><div class="meter-b"><div class="meter-f o" style="width:72%">0.72</div></div></div>
+    <p class="note" style="color:var(--gn)">新QA稳居Top1 ✅</p>
+  </div>
+  <div class="branch-box pp">
+    <div class="branch-label" style="color:var(--pp)">咨询型 query = "定速巡航怎么用"</div>
+    <div class="meter"><span class="meter-l" style="width:130px;font-size:11px">旧QA"巡航怎么开"</span><div class="meter-b"><div class="meter-f g" style="width:91%">0.91</div></div></div>
+    <div class="meter"><span class="meter-l" style="width:130px;font-size:11px">新QA"打开定速巡航"</span><div class="meter-b"><div class="meter-f o" style="width:58%">0.58</div></div></div>
+    <p class="note" style="color:var(--pp)">旧QA仍是Top1，新QA排在底部 ✅ 不受干扰</p>
+  </div>
+</div>
+</div>
+</div>
+
+<!-- D: QA pairs sample -->
+<div class="flow-canvas" style="border-color:var(--yw)">
+<div class="flow-title" style="color:var(--yw)">方案D — 新增QA对清单（共56条，按类别）</div>
+<table class="tb">
+<thead><tr><th>类别</th><th>条数</th><th>示例Q</th><th>统一Answer格式</th></tr></thead>
+<tbody>
+<tr><td><span class="t o">空调</span></td><td>12</td><td>打开空调 / 关闭空调 / 调到25度 / 温度调高 / 开内循环 / 开除雾...</td><td>"空调XX支持语音直接控制，由系统自动执行。"</td></tr>
+<tr><td><span class="t b">车窗</span></td><td>8</td><td>打开车窗 / 关闭车窗 / 开主驾车窗 / 关所有车窗...</td><td>"车窗支持语音直接控制，由系统自动执行。"</td></tr>
+<tr><td><span class="t g">座椅</span></td><td>8</td><td>打开座椅加热 / 关闭座椅通风 / 打开按摩...</td><td>"座椅XX支持语音直接控制，由系统自动执行。"</td></tr>
+<tr><td><span class="t y">灯光</span></td><td>6</td><td>打开氛围灯 / 关闭氛围灯 / 调亮 / 换颜色 / 阅读灯...</td><td>"XX灯支持语音直接控制，由系统自动执行。"</td></tr>
+<tr><td><span class="t" style="background:#2a1a30;color:var(--pk)">其他车控</span></td><td>12</td><td>音量调大 / 切换运动模式 / 方向盘加热 / 后视镜折叠...</td><td>"XX支持语音直接控制/调节，由系统自动执行。"</td></tr>
+<tr><td><span class="t" style="background:#15253a;color:#80c0ff">状态查询</span></td><td>10</td><td>现在时速多少 / 剩余电量 / 胎压正常吗 / 车内温度...</td><td>"XX支持语音实时查询，系统将返回精确数据。"</td></tr>
+</tbody>
+</table>
+<p class="note">完整56条列表见之前的文档。入库格式支持CSV/JSON，可直接复制。</p>
+</div>
+</div>
+
+<!-- ============================================================ -->
+<!-- DIAGRAM 6: E+D COMBINED FLOW -->
+<!-- ============================================================ -->
+<div class="sec">
+<h2 class="sec-t">图6：E+D 组合 — 双层保障流程</h2>
+
+<div class="flow-canvas" style="border-color:var(--ac)">
+<div class="flow-title">用户说"打开定速巡航" → E+D 如何协同工作</div>
+
+<div class="frow"><div class="fn usr big">用户："打开定速巡航"</div></div>
+<div class="farr-d">↓</div>
+<div class="farr-label">同时触发</div>
+
+<div class="branch">
+  <div class="branch-box hl">
+    <div class="branch-label" style="color:var(--yw)">方案D 作用点 — 检索层</div>
+    <div class="frow" style="justify-content:flex-start"><div class="fn new" style="font-size:11px">QA检索 top1 = 新增QA</div></div>
+    <div class="farr-d" style="font-size:14px">↓</div>
+    <div class="frow" style="justify-content:flex-start"><div class="fn ok" style="font-size:11px;white-space:normal">"定速巡航支持语音直接控制，<br>由系统自动执行"</div></div>
+    <div style="margin-top:8px"><div class="fn ok" style="font-size:11px;border-style:dashed">信号1: 由系统执行 → 调工具</div></div>
+  </div>
+  <div class="branch-box ok">
+    <div class="branch-label" style="color:var(--gn)">方案E 作用点 — 知识层</div>
+    <div class="frow" style="justify-content:flex-start"><div class="fn data" style="font-size:11px">{{knowledge}} 有使用指南</div></div>
+    <div class="farr-d" style="font-size:14px">↓</div>
+    <div class="frow" style="justify-content:flex-start"><div class="fn ok" style="font-size:11px;white-space:normal">示例1匹配："打开XX"=执行<br>→ 调 vehicle_basic_control</div></div>
+    <div style="margin-top:8px"><div class="fn ok" style="font-size:11px;border-style:dashed">信号2: 模式匹配 → 调工具</div></div>
+  </div>
+</div>
+
+<div class="farr-d">↓</div>
+<div class="diamond">两个独立信号一致 → 高置信度</div>
+<div class="farr-d">↓</div>
+<div class="result ok">✅ vehicle_basic_control("打开定速巡航") &nbsp;|&nbsp; talk = "好的，正在为你开启定速巡航"</div>
+</div>
+
+<!-- Scenario matrix -->
+<div class="flow-canvas">
+<div class="flow-title">E+D 在5种场景下的行为</div>
+<table class="tb">
+<thead><tr><th style="width:70px">场景</th><th style="width:120px">用户说</th><th>方案D信号</th><th>方案E信号</th><th>输出</th><th style="width:40px"></th></tr></thead>
+<tbody>
+<tr><td><span class="t g">执行</span></td><td>"打开空调"</td><td>Top1新: "由系统执行"</td><td>示例1: "打开"→调工具</td><td>vehicle_basic_control</td><td><span class="t g">✅</span></td></tr>
+<tr><td><span class="t b">查询</span></td><td>"时速多少"</td><td>Top1新: "语音实时查询"</td><td>示例2: "多少"→调工具</td><td>search_vehicle_status_info</td><td><span class="t g">✅</span></td></tr>
+<tr><td><span class="t" style="background:#2a1540;color:var(--pp)">咨询</span></td><td>"巡航怎么用"</td><td>Top1旧: 手动步骤（不受干扰）</td><td>示例3: "怎么"→用知识答</td><td>talk_content=操作步骤</td><td><span class="t g">✅</span></td></tr>
+<tr><td><span class="t o">兜底</span></td><td>工具失败时</td><td>Top2旧: 有手动步骤可用</td><td>示例4: 失败→知识兜底</td><td>talk=手动操作方法</td><td><span class="t g">✅</span></td></tr>
+<tr><td><span class="t" style="background:var(--c2);color:var(--dm)">非车控</span></td><td>"放首歌"</td><td>QA无相关结果</td><td>示例不匹配</td><td>search_and_control_music</td><td><span class="t g">✅</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- Probability -->
+<div class="info-grid">
+  <div class="info-card green"><div class="info-num green">93-98%</div><div class="info-label">E+D 组合修复率</div></div>
+  <div class="info-card yellow"><div class="info-num yellow">0</div><div class="info-label">SP修改 / 代码修改</div></div>
+  <div class="info-card blue"><div class="info-num blue">1天</div><div class="info-label">总耗时（并行）</div></div>
+</div>
+
+<div class="flow-canvas" style="padding:16px 20px">
+<div style="font-size:12px;color:var(--dm)">
+<strong style="color:var(--yw)">概率计算：</strong>
+E单独失效 10-25% × D单独失效 10-20% = 组合失效 1-5% → <strong style="color:var(--gn)">组合修复 95-99%</strong>（保守取 93-98%）
+</div>
+</div>
+</div>
+
+<!-- ============================================================ -->
+<!-- DIAGRAM 7: REAL I/O EXAMPLE -->
+<!-- ============================================================ -->
+<div class="sec">
+<h2 class="sec-t">图7：真实输入输出对比（3个核心case）</h2>
+
+<!-- Case 1 -->
+<div class="flow-canvas" style="margin-bottom:16px">
+<div class="flow-title">Case 1："打开定速巡航"（执行型）</div>
+<div class="cbox"><span class="d">input：</span>{"query":"<span class="y">打开定速巡航</span>","speaker_name":"张先生","speaker_position":"主驾驶位"}
+<span class="d">模拟QA注入：</span>"定速巡航开启方法：进入车辆设置-辅助驾驶，打开自适应巡航辅助，按PILOT键"
+
+<span class="r">❌ 当前错误output：</span>
+{"talk_or_not":"yes","talk_content":"<span class="r">定速巡航可以这样开：进入车辆设置...</span>","action_list":<span class="r">[]</span>}
+
+<span class="g">✅ E+D后正确output：</span>
+{"talk_or_not":"yes","talk_content":"<span class="g">好的，正在为你开启定速巡航。</span>","action_list":[{"action_id":"1","params":{"query":"打开定速巡航"},"tool_name":"<span class="g">vehicle_basic_control</span>"}]}</div>
+</div>
+
+<!-- Case 2 -->
+<div class="flow-canvas" style="margin-bottom:16px">
+<div class="flow-title">Case 2："现在时速多少"（查询型）</div>
+<div class="cbox"><span class="d">input：</span>{"query":"<span class="y">现在时速多少</span>","speaker_name":"张先生","speaker_position":"主驾驶位"}
+<span class="d">模拟QA注入：</span>"车速信息是仪表屏常显信息，非P挡时可直接在仪表盘查看"
+
+<span class="r">❌ 当前错误output：</span>
+{"talk_or_not":"yes","talk_content":"<span class="r">车速信息在仪表盘中间区域可以直接看到</span>","action_list":<span class="r">[]</span>}
+
+<span class="g">✅ E+D后正确output：</span>
+{"talk_or_not":"no","talk_content":"","action_list":[{"action_id":"1","params":{"query":"查询当前车速"},"tool_name":"<span class="g">search_vehicle_status_info</span>"}]}</div>
+</div>
+
+<!-- Case 3 -->
+<div class="flow-canvas">
+<div class="flow-title">Case 3："定速巡航怎么用"（咨询型 — 应保持正确）</div>
+<div class="cbox"><span class="d">input：</span>{"query":"<span class="y">定速巡航怎么用啊</span>","speaker_name":"张先生","speaker_position":"主驾驶位"}
+<span class="d">模拟QA注入：</span>"定速巡航开启方法：进入车辆设置-辅助驾驶，打开自适应巡航辅助，按PILOT键"
+
+<span class="g">✅ 当前正确 + E+D后仍正确：</span>
+{"talk_or_not":"yes","talk_content":"<span class="g">定速巡航可以这样开：进入车辆设置，找到辅助驾驶...</span>","action_list":<span class="g">[]</span>}
+<span class="p">→ 用知识回答，不调工具 = 正确（没有矫枉过正）</span></div>
+</div>
+</div>
+
+<!-- ============================================================ -->
+<!-- DIAGRAM 8: EXECUTION TIMELINE -->
+<!-- ============================================================ -->
+<div class="sec">
+<h2 class="sec-t">图8：执行时间线</h2>
+
+<div class="branch">
+<div class="flow-canvas">
+<div class="flow-title" style="color:var(--gn)">方案E — 泽民独立（3小时）</div>
+<div class="timeline">
+  <div class="tl-item green"><div class="tl-time">9:00 - 9:15</div><div class="tl-text">FORNAX创建知识条目 → 复制上面的内容 → 设置始终加载</div></div>
+  <div class="tl-item"><div class="tl-time">9:15 - 9:45</div><div class="tl-text">基线测试：3条badcase在当前配置下跑一遍（记录错误输出）</div></div>
+  <div class="tl-item green"><div class="tl-time">9:45 - 10:30</div><div class="tl-text">注入E后对比测试：同样3条case × 3次 → 看是否修复</div></div>
+  <div class="tl-item yellow"><div class="tl-time">10:30</div><div class="tl-text"><strong>决策点</strong>：E修复率 >80%? →继续 / <60%? →调整策略</div></div>
+  <div class="tl-item"><div class="tl-time">10:30 - 12:00</div><div class="tl-text">扩大测试：22条完整case → 计算修复率</div></div>
+</div>
+</div>
+
+<div class="flow-canvas">
+<div class="flow-title" style="color:var(--yw)">方案D — 需入库配合（3-5小时）</div>
+<div class="timeline">
+  <div class="tl-item yellow"><div class="tl-time">9:00 - 9:30</div><div class="tl-text">确认入库权限和流程</div></div>
+  <div class="tl-item"><div class="tl-time">9:30 - 10:00</div><div class="tl-text">整理56条QA对数据文件（从上面的清单）</div></div>
+  <div class="tl-item"><div class="tl-time">10:00 - 11:00</div><div class="tl-text">人工审核：确认每条功能是否支持语音控制</div></div>
+  <div class="tl-item yellow"><div class="tl-time">11:00 - 13:00</div><div class="tl-text">入库 + 等待索引更新生效</div></div>
+  <div class="tl-item green"><div class="tl-time">14:00 - 15:30</div><div class="tl-text">验证E+D组合效果：22条case → 出最终修复率</div></div>
+  <div class="tl-item green"><div class="tl-time">16:00</div><div class="tl-text">整理结论 → 同步团队 → >90%推上线</div></div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- ============================================================ -->
+<!-- DIAGRAM 9: COMPARISON TABLE -->
+<!-- ============================================================ -->
+<div class="sec">
+<h2 class="sec-t">图9：方案对比</h2>
+
+<div class="flow-canvas">
+<table class="tb">
+<thead><tr><th>方案</th><th>做什么</th><th>改SP?</th><th>改数据?</th><th>谁做</th><th>耗时</th><th>修复率</th><th>推荐</th></tr></thead>
+<tbody>
+<tr style="background:rgba(77,204,96,.04)"><td><strong style="color:var(--gn)">E</strong></td><td>{{knowledge}}注入4示例</td><td><span class="t g">不改</span></td><td><span class="t g">不改</span></td><td>泽民独立</td><td>3h</td><td><span class="t o">75-90%</span></td><td><span class="t g">首选</span></td></tr>
+<tr style="background:rgba(255,208,64,.04)"><td><strong style="color:var(--yw)">D</strong></td><td>QA库新增56条QA对</td><td><span class="t g">不改</span></td><td><span class="t y">只新增</span></td><td>泽民+配合</td><td>3-5h</td><td><span class="t g">80-90%</span></td><td><span class="t g">推荐</span></td></tr>
+<tr style="background:rgba(104,117,255,.06)"><td><strong style="color:var(--ac)">E+D</strong></td><td>双层组合</td><td><span class="t g">不改</span></td><td><span class="t y">只新增</span></td><td>并行</td><td>1天</td><td><span class="t g"><strong>93-98%</strong></span></td><td><span class="t g"><strong>最优</strong></span></td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="flow-canvas" style="padding:16px 20px">
+<div class="flow-title" style="font-size:14px">效果判断标准</div>
+<div class="meter"><span class="meter-l">>90% 达标</span><div class="meter-b"><div class="meter-f g" style="width:100%">上线 + 监控2周</div></div></div>
+<div class="meter"><span class="meter-l">80-90% 可用</span><div class="meter-b"><div class="meter-f o" style="width:85%">上线 + 分析失败case补充</div></div></div>
+<div class="meter"><span class="meter-l">60-80% 不够</span><div class="meter-b"><div class="meter-f o" style="width:70%">推动SP最小改动（改引导语一句话）</div></div></div>
+<div class="meter"><span class="meter-l"><60% 不足</span><div class="meter-b"><div class="meter-f r" style="width:50%">带数据推工程方案</div></div></div>
+</div>
+</div>
+
+<div style="text-align:center;padding:30px 0;color:var(--dm);font-size:11px;border-top:1px solid var(--bd);margin-top:30px">
+  2026-05-19 · 可视化图表版 · 9张核心图表
+</div>
+
+</div>
+</body>
+</html>

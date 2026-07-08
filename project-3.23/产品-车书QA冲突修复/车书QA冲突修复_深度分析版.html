@@ -1,0 +1,1170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>车书QA冲突修复 — 深度可行性分析</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --card: #1a1d27;
+    --card-alt: #21242f;
+    --border: #2a2d3a;
+    --text: #e2e4e9;
+    --text-dim: #8b8fa3;
+    --accent: #6c7eff;
+    --accent2: #4ecdc4;
+    --red: #ff6b6b;
+    --orange: #ffa94d;
+    --green: #51cf66;
+    --yellow: #ffd43b;
+    --purple: #b197fc;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, 'SF Pro Text', 'PingFang SC', 'Helvetica Neue', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    padding: 40px 20px;
+  }
+  .container { max-width: 1200px; margin: 0 auto; }
+
+  /* Header */
+  .header {
+    text-align: center;
+    padding: 50px 0 40px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 50px;
+  }
+  .header h1 {
+    font-size: 32px;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 12px;
+  }
+  .header .subtitle { color: var(--text-dim); font-size: 15px; margin-bottom: 20px; }
+  .constraints {
+    display: flex; justify-content: center; gap: 16px; flex-wrap: wrap;
+  }
+  .constraint-tag {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 20px; padding: 6px 16px; font-size: 13px; color: var(--text-dim);
+  }
+  .constraint-tag strong { color: var(--orange); }
+
+  /* Sections */
+  .section { margin-bottom: 60px; }
+  .section-title {
+    font-size: 22px; font-weight: 700; margin-bottom: 24px;
+    padding-left: 16px; border-left: 4px solid var(--accent);
+  }
+  .section-desc { color: var(--text-dim); font-size: 14px; margin-bottom: 24px; padding-left: 20px; }
+
+  /* Generic card */
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 28px; margin-bottom: 24px;
+  }
+  .card.highlight { border-color: var(--accent); box-shadow: 0 0 20px rgba(108,126,255,0.1); }
+  .card h3 { font-size: 18px; margin-bottom: 6px; }
+  .card .sub { color: var(--text-dim); font-size: 13px; margin-bottom: 20px; }
+
+  /* Detail block */
+  .detail-block {
+    background: var(--card-alt); border-radius: 10px;
+    padding: 20px; margin-bottom: 16px;
+  }
+  .detail-block h4 { font-size: 14px; color: var(--accent2); margin-bottom: 10px; }
+  .detail-block p, .detail-block li { font-size: 14px; line-height: 1.8; }
+  .detail-block ul { padding-left: 20px; }
+
+  /* Pro/Con/Risk boxes */
+  .pro-box, .con-box, .risk-box, .feasibility-box, .cost-box, .verdict-box {
+    border-radius: 12px; padding: 20px 24px; margin: 12px 0;
+  }
+  .pro-box {
+    background: linear-gradient(135deg, #1a3d1a, #152015);
+    border: 1px solid #2a5d2a;
+  }
+  .pro-box h4 { color: var(--green); font-size: 15px; margin-bottom: 10px; }
+  .pro-box li { color: #aaddaa; font-size: 13px; line-height: 2; }
+  .pro-box ul { padding-left: 20px; }
+
+  .con-box {
+    background: linear-gradient(135deg, #3d1a1a, #2d1515);
+    border: 1px solid #5d2a2a;
+  }
+  .con-box h4 { color: var(--red); font-size: 15px; margin-bottom: 10px; }
+  .con-box li { color: #ffaaaa; font-size: 13px; line-height: 2; }
+  .con-box ul { padding-left: 20px; }
+
+  .risk-box {
+    background: linear-gradient(135deg, #2d2a1a, #201d15);
+    border: 1px solid #5d4a2a;
+  }
+  .risk-box h4 { color: var(--orange); font-size: 15px; margin-bottom: 10px; }
+  .risk-box p, .risk-box li { color: #ddcc99; font-size: 13px; line-height: 2; }
+  .risk-box ul { padding-left: 20px; }
+
+  .feasibility-box {
+    background: linear-gradient(135deg, #1a2d4d, #152035);
+    border: 1px solid #2a4d7d;
+  }
+  .feasibility-box h4 { color: #7eb8ff; font-size: 15px; margin-bottom: 10px; }
+  .feasibility-box p, .feasibility-box li { color: #aaccee; font-size: 13px; line-height: 2; }
+  .feasibility-box ul { padding-left: 20px; }
+
+  .cost-box {
+    background: linear-gradient(135deg, #2d1a4d, #201535);
+    border: 1px solid #4a2a7d;
+  }
+  .cost-box h4 { color: var(--purple); font-size: 15px; margin-bottom: 10px; }
+  .cost-box p, .cost-box li { color: #ccaaee; font-size: 13px; line-height: 2; }
+  .cost-box ul { padding-left: 20px; }
+
+  .verdict-box {
+    background: linear-gradient(135deg, #1a3d3a, #152d2a);
+    border: 2px solid var(--accent2);
+  }
+  .verdict-box h4 { color: var(--accent2); font-size: 15px; margin-bottom: 10px; }
+  .verdict-box p { color: #aaddcc; font-size: 14px; line-height: 1.8; }
+
+  /* Tables */
+  .compare-table {
+    width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px;
+  }
+  .compare-table th {
+    background: var(--card-alt); padding: 12px 16px; text-align: left;
+    font-weight: 600; border-bottom: 2px solid var(--border); color: var(--accent);
+  }
+  .compare-table td {
+    padding: 10px 16px; border-bottom: 1px solid var(--border); vertical-align: top;
+  }
+  .compare-table tr:hover td { background: rgba(108,126,255,0.05); }
+
+  .tag {
+    display: inline-block; padding: 2px 10px; border-radius: 10px;
+    font-size: 11px; font-weight: 600;
+  }
+  .tag.green { background: #1a3d1a; color: var(--green); }
+  .tag.orange { background: #3d2a1a; color: var(--orange); }
+  .tag.red { background: #3d1a1a; color: var(--red); }
+  .tag.blue { background: #1a2d4d; color: #7eb8ff; }
+  .tag.purple { background: #2d1a4d; color: var(--purple); }
+
+  /* Flow */
+  .flow-diagram {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 28px; margin-bottom: 24px; overflow-x: auto;
+  }
+  .flow-diagram h3 { font-size: 16px; color: var(--accent); margin-bottom: 20px; }
+  .flow-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .flow-box {
+    padding: 10px 18px; border-radius: 10px; font-size: 13px;
+    font-weight: 600; white-space: nowrap;
+  }
+  .flow-box.input { background: #1e3a5f; color: #7eb8ff; border: 1px solid #2d5a8a; }
+  .flow-box.process { background: #2d2350; color: #b197fc; border: 1px solid #4a3880; }
+  .flow-box.inject { background: #1a3d3a; color: #4ecdc4; border: 1px solid #2a5d5a; }
+  .flow-box.decision { background: #3d2a1a; color: #ffa94d; border: 1px solid #5d4a2a; }
+  .flow-box.output-good { background: #1a3d1a; color: #51cf66; border: 1px solid #2a5d2a; }
+  .flow-box.output-bad { background: #3d1a1a; color: #ff6b6b; border: 1px solid #5d2a2a; }
+  .flow-arrow { color: var(--text-dim); font-size: 18px; font-weight: bold; }
+
+  /* Code block */
+  .code-block {
+    background: #0d0f15; border: 1px solid var(--border); border-radius: 8px;
+    padding: 16px 20px; margin: 12px 0;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 13px; line-height: 1.6; overflow-x: auto; white-space: pre-wrap; color: #c9d1d9;
+  }
+  .code-block .comment { color: #6a737d; }
+  .code-block .highlight { color: var(--green); font-weight: 600; }
+  .code-block .old { color: var(--red); text-decoration: line-through; opacity: 0.7; }
+  .code-block .new { color: var(--green); }
+  .code-block .label { color: var(--orange); }
+
+  /* Meter bar */
+  .meter-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+  .meter-label { font-size: 13px; color: var(--text-dim); width: 120px; text-align: right; }
+  .meter-bar {
+    flex: 1; height: 20px; background: var(--card-alt); border-radius: 10px; overflow: hidden;
+    position: relative;
+  }
+  .meter-fill {
+    height: 100%; border-radius: 10px; transition: width 0.3s;
+    display: flex; align-items: center; justify-content: flex-end; padding-right: 8px;
+    font-size: 11px; font-weight: 700;
+  }
+  .meter-fill.green { background: linear-gradient(90deg, #1a5d1a, #2a8d2a); color: #aaffaa; }
+  .meter-fill.orange { background: linear-gradient(90deg, #5d3a1a, #8d5a2a); color: #ffddaa; }
+  .meter-fill.red { background: linear-gradient(90deg, #5d1a1a, #8d2a2a); color: #ffaaaa; }
+  .meter-fill.blue { background: linear-gradient(90deg, #1a3d6d, #2a5d9d); color: #aaddff; }
+  .meter-fill.purple { background: linear-gradient(90deg, #3d1a6d, #5d2a9d); color: #ddaaff; }
+
+  /* Problem box */
+  .problem-box {
+    background: linear-gradient(135deg, #3d1a1a, #2d1515);
+    border: 1px solid #5d2a2a; border-radius: 12px; padding: 24px; margin-bottom: 24px;
+  }
+  .problem-box h3 { color: var(--red); font-size: 16px; margin-bottom: 12px; }
+  .problem-box p { color: #ffaaaa; font-size: 14px; }
+  .problem-box code {
+    background: #4d1a1a; padding: 2px 8px; border-radius: 4px; font-size: 13px; color: #ff9999;
+  }
+
+  /* Two column */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 768px) { .two-col { grid-template-columns: 1fr; } }
+
+  /* Scenario comparison */
+  .scenario-row {
+    display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px;
+    align-items: center; margin-bottom: 16px;
+  }
+  .scenario-left, .scenario-right {
+    padding: 16px; border-radius: 10px; font-size: 13px;
+  }
+  .scenario-left { background: #2d1515; border: 1px solid #4d2a2a; color: #ffaaaa; }
+  .scenario-right { background: #152d15; border: 1px solid #2a4d2a; color: #aaddaa; }
+  .scenario-vs { color: var(--text-dim); font-size: 12px; font-weight: 700; }
+  @media (max-width: 768px) {
+    .scenario-row { grid-template-columns: 1fr; }
+    .scenario-vs { text-align: center; }
+  }
+
+  /* Divider */
+  .divider {
+    height: 1px; background: var(--border); margin: 40px 0;
+  }
+
+  /* Number highlight */
+  .num-highlight {
+    font-size: 36px; font-weight: 800; line-height: 1;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .num-unit { font-size: 14px; color: var(--text-dim); }
+  .num-row { display: flex; gap: 48px; margin: 20px 0; flex-wrap: wrap; }
+  .num-item { text-align: center; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- ==================== HEADER ==================== -->
+<div class="header">
+  <h1>车书QA冲突修复 — 深度可行性分析</h1>
+  <div class="subtitle">方案优劣势 / 资源成本 / 成功概率 / 失败预案 / 可行性判定</div>
+  <div class="constraints">
+    <span class="constraint-tag"><strong>角色</strong> 泽民 · 场景知识/Skill注入</span>
+    <span class="constraint-tag"><strong>约束</strong> 不修改SP固定内容</span>
+    <span class="constraint-tag"><strong>工程</strong> 不改代码/检索逻辑</span>
+    <span class="constraint-tag"><strong>时间</strong> 1-2天出结论</span>
+  </div>
+</div>
+
+<!-- ==================== 问题回顾 ==================== -->
+<div class="section">
+  <h2 class="section-title">零、问题本质与根因定位</h2>
+
+  <div class="problem-box">
+    <h3>问题现象</h3>
+    <p>用户说 <code>打开定速巡航</code>（执行指令），Director没有调用 <code>vehicle_basic_control</code> 工具，而是用车书QA知识做了文字回答："定速巡航可以这样开启：进入车辆设置..."</p>
+  </div>
+
+  <div class="card">
+    <h3>根因分析</h3>
+    <div class="detail-block">
+      <h4>直接原因：SP中 <code>{{car_function_simple_qa}}</code> 的引导语太弱</h4>
+      <p>当前引导语：<code>"可能会用上的一些基础车辆问答信息"</code></p>
+      <p style="margin-top:8px;">这句话对Director来说等于说"这是可以用的答案"。Director在决策时天然倾向于用已有的context回答，而不是去调用一个工具——<strong>调工具需要"主动判断"，用现成知识只需要"跟随"</strong>。当引导语没有明确告诉它"不要直接用"，它就会用。</p>
+    </div>
+    <div class="detail-block">
+      <h4>深层原因：LLM的"context跟随倾向"</h4>
+      <p>LLM有一个被广泛观察到的行为模式：<strong>当context中包含了一个看起来直接可用的答案时，模型倾向于使用它，而不是走额外的工具调用路径</strong>。这是因为：</p>
+      <ul>
+        <li>工具调用需要模型"认为当前context不够"才会触发</li>
+        <li>当QA知识已经提供了一个"看起来合理"的回答，模型的"需要调工具"信号被抑制</li>
+        <li>SP中的注意事项有14条，但没有一条明确说"工具优先于知识"</li>
+      </ul>
+    </div>
+    <div class="detail-block">
+      <h4>为什么之前没出问题？</h4>
+      <p>车书一期没有 <code>{{car_function_simple_qa}}</code> 的全量检索注入。二期上线后，每条query都会触发向量检索top3，将车书QA结果注入Director context。这是一个<strong>新引入的"噪声信号"</strong>，而SP没有为它建立防护机制。</p>
+    </div>
+  </div>
+
+  <div class="flow-diagram">
+    <h3>问题发生链路</h3>
+    <div class="flow-row">
+      <div class="flow-box input">用户："打开定速巡航"</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-box process">QA向量检索（全量top3）</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-box inject">注入："定速巡航开启方法：进入车辆设置..."</div>
+    </div>
+    <div class="flow-row" style="margin-left:40px;">
+      <span class="flow-arrow">↓</span>
+      <span style="font-size:12px; color:var(--text-dim);">引导语仅说"可能会用上的一些基础车辆问答信息"</span>
+    </div>
+    <div class="flow-row">
+      <div class="flow-box decision">Director内部决策</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-box output-bad">context中已有答案 → 直接用它回答 → 不调工具</div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 方案A 深度分析 ==================== -->
+<div class="section">
+  <h2 class="section-title">一、方案A — 定向修改QA数据（在answer中标注"支持语音控制"）</h2>
+
+  <div class="card">
+    <h3>方案概述</h3>
+    <div class="sub">不改500-2000条全量QA，只改与车控功能重叠的80-150条。在answer开头加标准前缀："该功能支持语音直接控制..."</div>
+
+    <!-- ===== 核心逻辑 ===== -->
+    <div class="detail-block">
+      <h4>核心逻辑：为什么加一句话就能改变Director行为？</h4>
+      <p>当前Director看到的context是：</p>
+      <div class="code-block"><span class="comment">// 当前QA answer内容</span>
+"定速巡航开启方法：进入【车辆设置】-【辅助驾驶】，打开【自适应巡航辅助】，然后按方向盘PILOT按键激活。"
+
+<span class="comment">// Director的"思考"过程：</span>
+<span class="old">用户要打开定速巡航 → context里有操作方法 → 直接告诉用户怎么操作</span></div>
+      <p style="margin-top:12px;">加了前缀后Director看到的context变成：</p>
+      <div class="code-block"><span class="comment">// 修改后的QA answer内容</span>
+<span class="new">"该功能支持语音直接控制，用户说'打开定速巡航'即可由系统执行。</span>若需手动操作：进入【车辆设置】-【辅助驾驶】..."
+
+<span class="comment">// Director的"思考"过程：</span>
+<span class="new">用户要打开定速巡航 → context说"支持语音控制，由系统执行" → 我应该调工具执行</span></div>
+      <p style="margin-top:12px;"><strong>关键机制</strong>：LLM在决策时，会<strong>优先采信context中最前面的信息</strong>（primacy effect）。当answer开头就说"支持语音控制"，这个信号比后面的手动操作步骤更先被模型处理和采信。</p>
+    </div>
+
+    <!-- ===== 优势 ===== -->
+    <div class="pro-box">
+      <h4>优势分析（5条）</h4>
+      <ul>
+        <li><strong>改在"信息源头"</strong>：不是在下游修补，而是在上游数据层直接把信息改对了。Director看到的context本身就包含了正确的引导，不需要在其他地方再加规则。这是最干净的修复方式。</li>
+        <li><strong>对LLM行为影响确定性高</strong>：学术研究和工程实践都表明，context中包含显式的处理指引（"该功能支持语音控制"）比抽象的规则（"执行型指令要调工具"）对LLM行为影响更大。因为前者是具体事实，后者需要模型做推理。</li>
+        <li><strong>不侵入任何系统组件</strong>：不改SP、不改工程、不改检索逻辑、不改Knowledge Selector。只改了数据内容，回滚也简单（把前缀去掉即可）。</li>
+        <li><strong>不增加任何token开销</strong>：QA对的总长度略微增加（每条多20-30字），但对检索结果注入的token量影响很小（top3 answer总共也就300-500字，加前缀后变400-600字）。</li>
+        <li><strong>与会议结论方向一致</strong>：会上李明骏提出的就是"在answer中加入语音可控信息"的方向。此方案是对这个方向的系统化执行。</li>
+      </ul>
+    </div>
+
+    <!-- ===== 劣势 ===== -->
+    <div class="con-box">
+      <h4>劣势分析（4条）</h4>
+      <ul>
+        <li><strong>不是100%保证有效</strong>：加了"支持语音控制"后，Director <em>大概率</em>会选择调工具，但LLM行为有不确定性。在某些复杂context下（比如多轮对话、用户指令模糊），模型仍可能选择用手动操作步骤回答。<strong>预估单靠方案A的修复率在70-85%</strong>。</li>
+        <li><strong>需要人力标注和审核</strong>：需要逐条判断"哪些QA描述的功能支持语音控制"。虽然可以参照SP中的"车辆设备知识"表，但仍需人工对照确认。如果映射错误（标注了一个实际不支持语音控制的功能），会导致新的badcase。</li>
+        <li><strong>QA数据的长期维护成本</strong>：未来每次新增QA对，都需要判断是否需要加前缀。如果没有建立标注规范和流程，问题会随新数据再次出现。</li>
+        <li><strong>需要产品/标注侧配合</strong>：泽民不能独立完成——需要有人导出QA数据、执行批量修改、重新导入向量库。如果产品侧排期紧张，可能无法在1-2天内完成。</li>
+      </ul>
+    </div>
+
+    <!-- ===== 资源成本 ===== -->
+    <div class="cost-box">
+      <h4>资源成本精算</h4>
+      <ul>
+        <li><strong>人力</strong>：
+          <br>- 制作"功能→是否语音可控"映射表：<span style="color:var(--purple);">2-3小时</span>（需熟悉SP车辆设备知识 + 逐条QA核对）
+          <br>- 编写批量修改脚本：<span style="color:var(--purple);">1小时</span>（标准前缀 + 映射表 → 自动拼接）
+          <br>- 人工审核修改结果（抽查20-30条）：<span style="color:var(--purple);">1小时</span>
+          <br>- QA数据重新导入向量库：<span style="color:var(--purple);">0.5小时</span>（取决于工程流程）
+          <br>- 验证测试（跑10-15个case）：<span style="color:var(--purple);">1-2小时</span>
+          <br><strong>总计：约6-8小时，1人/天</strong>
+        </li>
+        <li><strong>token开销变化</strong>：
+          <br>- 每条QA answer增加约20-30字（~30-40 tokens）
+          <br>- top3检索结果总共增加约90-120 tokens
+          <br>- 对Director单次调用的context长度影响：<span style="color:var(--purple);"><1%</span>
+          <br>- <strong>可忽略不计</strong>
+        </li>
+        <li><strong>长期维护成本</strong>：
+          <br>- 每次新增QA批次时需同步标注（每批次约30分钟-1小时）
+          <br>- 如果不建立规范，3-6个月后新QA会再次引起问题
+        </li>
+      </ul>
+    </div>
+
+    <!-- ===== 可行性评估 ===== -->
+    <div class="feasibility-box">
+      <h4>可行性评估</h4>
+      <ul>
+        <li><strong>技术可行性</strong>：<span class="tag green">高</span> — 只是文本拼接，技术上没有难点</li>
+        <li><strong>组织可行性</strong>：<span class="tag orange">中</span> — 需要产品侧配合导出数据+重新导入。如果产品侧排不出人，泽民要自己做数据处理。确认问题：<strong>泽民是否有QA数据的直接编辑权限？</strong></li>
+        <li><strong>效果可行性</strong>：<span class="tag orange">中高</span> — 预估修复率70-85%。原因：前缀信息改变了context的"语义倾向"，但不是硬性约束，模型仍有选择空间。</li>
+        <li><strong>时间可行性</strong>：<span class="tag orange">紧张</span> — 如果泽民有数据编辑权限，1天可完成。如果需要走数据导入流程，可能需要1.5天。</li>
+      </ul>
+    </div>
+
+    <!-- ===== 失败场景 ===== -->
+    <div class="risk-box">
+      <h4>可能的失败场景与应对</h4>
+      <ul>
+        <li><strong>失败场景1：Director忽略前缀信息</strong>
+          <br>概率：15-25%
+          <br>原因：Director SP中有14条注意事项+20多个示例，如果执行类的few-shot示例中没有类似场景，模型可能仍按原有模式处理
+          <br>应对：<strong>叠加方案B</strong>，用 {{knowledge}} 从另一个维度强化规则
+        </li>
+        <li><strong>失败场景2：映射表不准确</strong>
+          <br>概率：5-10%（映射出错的那些QA对会出问题）
+          <br>原因：标注"支持语音控制"的功能实际上不支持（如智能驾驶开关是拨杆控制）
+          <br>应对：严格参照SP"车辆设备知识"表核对，不确定的宁可不标注
+        </li>
+        <li><strong>失败场景3：前缀和原answer语义冲突</strong>
+          <br>概率：5%
+          <br>原因：某些QA的answer本身就包含"不支持语音控制"或限定条件，前缀和正文矛盾
+          <br>应对：人工审核抽查，发现矛盾的手动调整
+        </li>
+      </ul>
+    </div>
+
+    <!-- ===== 综合判定 ===== -->
+    <div class="verdict-box">
+      <h4>方案A综合判定</h4>
+      <p>
+        <strong>适用场景</strong>：作为"数据层修复"，是从源头改善问题的正路方向。中长期必须做。<br>
+        <strong>单独使用的局限</strong>：修复率预估70-85%，不够"保险"。因为前缀信息是"事实陈述"不是"行为指令"，Director可能知道这个功能支持语音控制，但仍选择用文字回答。<br>
+        <strong>建议</strong>：不建议单独使用。应与方案B组合。
+      </p>
+    </div>
+
+    <!-- 可视化评分 -->
+    <div style="margin-top:20px;">
+      <div class="meter-row">
+        <span class="meter-label">效果确定性</span>
+        <div class="meter-bar"><div class="meter-fill orange" style="width:75%;">75%</div></div>
+      </div>
+      <div class="meter-row">
+        <span class="meter-label">实施难度</span>
+        <div class="meter-bar"><div class="meter-fill orange" style="width:60%;">中等</div></div>
+      </div>
+      <div class="meter-row">
+        <span class="meter-label">资源消耗</span>
+        <div class="meter-bar"><div class="meter-fill orange" style="width:55%;">1人/天</div></div>
+      </div>
+      <div class="meter-row">
+        <span class="meter-label">泽民可控度</span>
+        <div class="meter-bar"><div class="meter-fill orange" style="width:50%;">需配合</div></div>
+      </div>
+      <div class="meter-row">
+        <span class="meter-label">回滚安全性</span>
+        <div class="meter-bar"><div class="meter-fill green" style="width:90%;">安全</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- ==================== 方案B 深度分析 ==================== -->
+<div class="section">
+  <h2 class="section-title">二、方案B — 通过 {{knowledge}} 注入处理规则</h2>
+
+  <div class="card">
+    <h3>方案概述</h3>
+    <div class="sub">在动态专业知识 {{knowledge}} 中创建一条"车辆功能问答知识使用规则"（RULE-01），教Director区分执行/查询/咨询三种意图</div>
+
+    <!-- ===== 核心逻辑 ===== -->
+    <div class="detail-block">
+      <h4>核心逻辑：为什么通过 {{knowledge}} 注入规则能起作用？</h4>
+      <p><strong>机制1 — SP赋予的权重</strong></p>
+      <p>SP中 {{knowledge}} 的引导语是：<code>"根据当前情景、任务，动态加载的专业知识，灵活参考能有效帮助你把事情做得更好"</code>。这句话告诉Director要"灵活参考"这里的内容。所以这里注入的规则不会被忽略——Director会把它当成"专业建议"来处理。</p>
+      <p style="margin-top:12px;"><strong>机制2 — 规则的具体性</strong></p>
+      <p>我们注入的不是抽象的原则（如"要正确使用知识"），而是具体的 if-then 规则：<code>"用户说'打开XX' → 调 vehicle_basic_control"</code>。LLM对具体规则+示例的遵循度远高于抽象原则。</p>
+      <p style="margin-top:12px;"><strong>机制3 — 与 {{car_function_simple_qa}} 同时可见</strong></p>
+      <p>Director在同一轮推理中会同时看到两块内容：QA知识和我们的规则。当两者在同一个attention窗口内时，规则可以直接"override"QA知识的误导效应。</p>
+    </div>
+
+    <!-- ===== 具体内容 ===== -->
+    <div class="detail-block">
+      <h4>要注入的知识条目完整内容（可直接复制使用）</h4>
+      <div class="code-block"><span class="label">知识ID: RULE-01 (或 COM-99-01-01)</span>
+<span class="label">知识名称: 车辆功能问答知识的使用规则</span>
+<span class="label">触发策略: 始终加载（先验证效果，后续可改为条件触发）</span>
+<span class="label">────────────────────────────────────</span>
+
+<span class="highlight">【车辆功能问答知识使用规则】</span>
+
+你的context中可能包含「基础车辆功能问答」知识（从车辆手册中检索的参考信息）。这些知识描述了功能的手动操作方法。<strong>你必须根据用户的真实意图决定是调用工具还是使用知识回答</strong>：
+
+<span class="highlight">规则1 — 执行指令 → 调用工具，不用知识回答</span>
+判断标准：用户说出带动作词的指令："打开XX""关闭XX""调高XX""调低XX""开启XX""设为XX"
+处理方式：调用 vehicle_basic_control 执行操作
+反面要求：即使「基础车辆功能问答」中有该功能的操作步骤，也不要用它做文字回答
+例：用户说"打开定速巡航" → 调 vehicle_basic_control，不要说"进入车辆设置..."
+
+<span class="highlight">规则2 — 实时状态查询 → 调用工具，不用知识回答</span>
+判断标准：用户问实时数据："现在XX多少""当前XX""剩余XX""XX正常吗"
+处理方式：调用 search_vehicle_status_info 查询
+反面要求：不要用知识中"去仪表盘看"类的回答替代实时查询
+例：用户说"现在时速多少" → 调 search_vehicle_status_info，不要说"可以在仪表盘查看"
+
+<span class="highlight">规则3 — 操作方法咨询 → 使用知识回答</span>
+判断标准：用户问方法："怎么用""如何设置""步骤是什么""咋调"
+处理方式：参考「基础车辆功能问答」中的知识回答
+例：用户说"定速巡航怎么用" → 用知识回答操作步骤
+
+<span class="highlight">规则4 — 工具失败兜底</span>
+当工具调用失败时，用「基础车辆功能问答」知识告诉用户手动操作方法</div>
+    </div>
+
+    <!-- ===== 触发策略深度对比 ===== -->
+    <div class="detail-block">
+      <h4>Knowledge Selector 触发策略：深度对比</h4>
+
+      <div style="margin-bottom:20px;">
+        <p style="font-weight:600; color:var(--accent2); margin-bottom:8px;">策略1：始终加载（推荐先用）</p>
+        <table class="compare-table">
+          <tr><td width="100"><strong>做法</strong></td><td>将 RULE-01 设为基线知识，不走 Knowledge Selector 的条件判断，每轮都注入</td></tr>
+          <tr><td><strong>原理</strong></td><td>因为 {{car_function_simple_qa}} 本身就是全量触发的（每轮都检索），所以规则也应该每轮都在。两者同频出现才能对冲。</td></tr>
+          <tr><td><strong>优点</strong></td><td>最简单、最稳定、不会漏匹配、泽民完全自主可控、2小时内可完成</td></tr>
+          <tr><td><strong>缺点</strong></td><td>非车控场景也会注入（如用户问天气、放歌时也会看到这条规则）。每轮多占约150 tokens。</td></tr>
+          <tr><td><strong>缺点的实际影响</strong></td><td>
+            150 tokens vs Director单次调用通常消耗 3000-8000 tokens，占比 <strong>2-5%</strong>。<br>
+            非车控场景注入规则：Director看到"车辆功能问答知识使用规则"但context中没有车辆功能问答知识时，这条规则不会产生任何效果（因为规则是条件式的："如果有车辆功能问答知识，则..."）。<br>
+            <strong>结论：缺点影响极小，可接受。</strong>
+          </td></tr>
+        </table>
+      </div>
+
+      <div style="margin-bottom:20px;">
+        <p style="font-weight:600; color:var(--orange); margin-bottom:8px;">策略2：关键词触发</p>
+        <table class="compare-table">
+          <tr><td width="100"><strong>做法</strong></td><td>在 Knowledge Selector 中加条件：query含动作词（打开/关闭/调高/多少/剩余...）+ 车控设备词时加载</td></tr>
+          <tr><td><strong>优点</strong></td><td>精准匹配，不浪费token</td></tr>
+          <tr><td><strong>缺点</strong></td><td>
+            1. 需要维护关键词表（动作词+设备词的组合数很大）<br>
+            2. 用户说"帮我把巡航打开"或"调一下那个温度"这种非标准表述可能漏匹配<br>
+            3. Knowledge Selector 本身有延迟问题（当前1.8s，目标<500ms），加复杂规则会进一步增加延迟<br>
+            4. 调试和维护成本高——每次有新的漏匹配case都要更新关键词
+          </td></tr>
+          <tr><td><strong>结论</strong></td><td>效果验证后，如果token开销确实是问题，再切换到这个策略。现阶段不推荐。</td></tr>
+        </table>
+      </div>
+
+      <div>
+        <p style="font-weight:600; color:#7eb8ff; margin-bottom:8px;">策略3：与 {{car_function_simple_qa}} 联动</p>
+        <table class="compare-table">
+          <tr><td width="100"><strong>做法</strong></td><td>工程侧实现：当 {{car_function_simple_qa}} 非空时，自动同时注入 RULE-01</td></tr>
+          <tr><td><strong>优点</strong></td><td>最精准——有QA知识时才有规则，完美对冲</td></tr>
+          <tr><td><strong>缺点</strong></td><td>需要工程改动，短期不可行（约束条件排除）</td></tr>
+          <tr><td><strong>结论</strong></td><td>中期优化方向。短期用策略1代替。</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- ===== 优势 ===== -->
+    <div class="pro-box">
+      <h4>优势分析（6条）</h4>
+      <ul>
+        <li><strong>泽民完全自主可控，不需要任何人配合</strong>：这是方案B最大的优势。创建一条知识条目+配置触发策略，全在泽民的职责和权限范围内。不需要产品侧、工程侧、标注侧任何人参与。</li>
+        <li><strong>速度最快</strong>：从动手到验证完成，预计2-3小时。今天上午就能出结论。</li>
+        <li><strong>不改任何数据</strong>：QA数据完全不动。如果效果不好，删掉知识条目就回滚了，零风险。</li>
+        <li><strong>不改SP</strong>：符合团队约束。</li>
+        <li><strong>规则写一次、长期有效</strong>：不管QA数据怎么变、新增多少条，这条规则始终适用。不需要跟着数据迭代。</li>
+        <li><strong>Director对 {{knowledge}} 中的内容有明确的参考权重</strong>：SP引导语说了"灵活参考能有效帮助你把事情做得更好"，Director不会忽略这里的内容。</li>
+      </ul>
+    </div>
+
+    <!-- ===== 劣势 ===== -->
+    <div class="con-box">
+      <h4>劣势分析（4条）—— 这是你需要重点关注的</h4>
+      <ul>
+        <li><strong>{{knowledge}} 的权重是"参考"级，不是"指令"级</strong>：这是方案B最大的不确定性。SP引导语说的是"灵活参考"，不是"必须遵循"。Director可能参考规则，也可能在某些情况下"灵活"地不参考。对比：SP注意事项中的规则是"硬约束"（如"不要说脏话"），{{knowledge}} 中的内容更像是"建议"。<br>
+        <strong>预估单靠方案B的修复率：60-80%</strong>。比方案A的70-85%略低，因为规则的"绑定力"弱于数据层的直接信息。</li>
+        <li><strong>始终加载策略有token浪费</strong>：每轮多约150 tokens。月度来看，假设日均100万次调用：
+          <br>- 每次多150 tokens → 日增1.5亿 tokens → 月增45亿 tokens
+          <br>- 按Claude/GPT-4级别模型 $15/M tokens计算 → 月增约 $67,500
+          <br>- 按国内模型 ¥2/M tokens计算 → 月增约 ¥9,000
+          <br>- <strong>实际影响取决于调用量和模型单价，需要跟李浩然确认是否可接受</strong>
+        </li>
+        <li><strong>"规则"放在"知识"的位置，语义上有点违和</strong>：{{knowledge}} 的设计初衷是注入"场景化的专业知识"（如接机场景的注意事项、晕车场景的应对方法），不是注入"通用处理规则"。这条RULE-01更像是一个"元规则"而非"场景知识"。<br>
+        <strong>实际影响</strong>：对Director来说没区别——它只看内容不看"这是知识还是规则"。但对团队的知识管理体系来说，这是一个"架构上不那么优雅"的做法。</li>
+        <li><strong>无法处理"规则和QA知识都缺失"的情况</strong>：如果某轮对话中 {{car_function_simple_qa}} 为空（检索没命中），但 {{knowledge}} 中有规则，规则不会产生任何效果（也不会有副作用）。但反过来，如果因为触发策略问题导致规则没注入，而QA知识注入了，问题就会复发。所以<strong>始终加载策略是必须的</strong>，不能省。</li>
+      </ul>
+    </div>
+
+    <!-- ===== 资源成本 ===== -->
+    <div class="cost-box">
+      <h4>资源成本精算</h4>
+      <ul>
+        <li><strong>人力</strong>：
+          <br>- 编写 RULE-01 知识条目内容：<span style="color:var(--purple);">30分钟</span>（上面已给出完整内容，微调即可）
+          <br>- 在知识管理系统中创建条目并配置触发策略：<span style="color:var(--purple);">30分钟</span>
+          <br>- 在FORNAX上验证3条badcase：<span style="color:var(--purple);">1小时</span>
+          <br>- 扩展验证（10-15条测试case）：<span style="color:var(--purple);">1小时</span>
+          <br><strong>总计：约3小时，泽民一人完成</strong>
+        </li>
+        <li><strong>token开销</strong>：
+          <br>- RULE-01 内容约 200字 ≈ <span style="color:var(--purple);">~250 tokens</span>（含标签格式）
+          <br>- 始终加载 → 每轮多 250 tokens
+          <br>- vs Director单次调用总token通常 5000-10000 tokens
+          <br>- <strong>占比 2.5-5%，可接受</strong>
+        </li>
+        <li><strong>长期维护成本</strong>：
+          <br>- 基本为零——规则是通用的，不需要随QA数据更新
+          <br>- 只有当车控工具的名称或能力发生变化时才需更新
+        </li>
+      </ul>
+    </div>
+
+    <!-- ===== 可行性评估 ===== -->
+    <div class="feasibility-box">
+      <h4>可行性评估</h4>
+      <ul>
+        <li><strong>技术可行性</strong>：<span class="tag green">高</span> — 创建知识条目是泽民的日常工作，完全在能力范围内</li>
+        <li><strong>组织可行性</strong>：<span class="tag green">高</span> — 不需要任何人配合。这是泽民可以"今天就做"的方案</li>
+        <li><strong>效果可行性</strong>：<span class="tag orange">中</span> — 预估修复率60-80%。核心不确定性在于 {{knowledge}} 的"参考"权重是否足以override QA知识的"直接回答"吸引力</li>
+        <li><strong>时间可行性</strong>：<span class="tag green">高</span> — 3小时可完成全流程</li>
+      </ul>
+    </div>
+
+    <!-- ===== 失败场景 ===== -->
+    <div class="risk-box">
+      <h4>可能的失败场景与应对</h4>
+      <ul>
+        <li><strong>失败场景1：Director不遵循规则</strong>
+          <br>概率：20-35%
+          <br>原因：{{knowledge}} 权重不够，或在特定context组合下规则被"淹没"
+          <br>应对：<strong>叠加方案A</strong>，从数据层提供另一个信号源；或者退而推动SP最小改动（改引导语那一句话）
+        </li>
+        <li><strong>失败场景2：规则导致矫枉过正</strong>
+          <br>概率：5-10%
+          <br>具体表现：本该用QA知识回答的咨询型问题（如"定速巡航怎么用"），Director强行去调了工具
+          <br>原因：规则中对"咨询型"的判断标准不够清晰，或用户表述介于执行和咨询之间
+          <br>应对：在规则中加强咨询型的判断标准描述；测试验证矫枉过正case
+        </li>
+        <li><strong>失败场景3：token预算问题</strong>
+          <br>概率：10%
+          <br>原因：产品侧或工程侧认为每轮多250 tokens不可接受
+          <br>应对：切换为关键词触发策略（策略2），但需要投入更多时间做关键词维护
+        </li>
+      </ul>
+    </div>
+
+    <!-- ===== 综合判定 ===== -->
+    <div class="verdict-box">
+      <h4>方案B综合判定</h4>
+      <p>
+        <strong>最大价值</strong>：速度快、泽民自主可控、零依赖。是"今天就能出结论"的最快路径。<br>
+        <strong>最大风险</strong>：{{knowledge}} 的"参考"权重可能不够强，单独使用修复率预估60-80%。<br>
+        <strong>建议</strong>：<strong>应该第一个执行</strong>——先验证方案B效果，即使修复率只有60-70%，也为方案A的叠加提供了基础。
+      </p>
+    </div>
+
+    <!-- 可视化评分 -->
+    <div style="margin-top:20px;">
+      <div class="meter-row">
+        <span class="meter-label">效果确定性</span>
+        <div class="meter-bar"><div class="meter-fill orange" style="width:65%;">65%</div></div>
+      </div>
+      <div class="meter-row">
+        <span class="meter-label">实施难度</span>
+        <div class="meter-bar"><div class="meter-fill green" style="width:25%;">低</div></div>
+      </div>
+      <div class="meter-row">
+        <span class="meter-label">资源消耗</span>
+        <div class="meter-bar"><div class="meter-fill green" style="width:20%;">3h/1人</div></div>
+      </div>
+      <div class="meter-row">
+        <span class="meter-label">泽民可控度</span>
+        <div class="meter-bar"><div class="meter-fill green" style="width:95%;">完全自主</div></div>
+      </div>
+      <div class="meter-row">
+        <span class="meter-label">回滚安全性</span>
+        <div class="meter-bar"><div class="meter-fill green" style="width:98%;">极安全</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- ==================== 方案C 深度分析 ==================== -->
+<div class="section">
+  <h2 class="section-title">三、方案C — A+B组合双层保障（推荐）</h2>
+
+  <div class="card highlight">
+    <h3>方案概述</h3>
+    <div class="sub">同时执行方案A（改QA数据）和方案B（注入Knowledge规则），从数据层和推理层双重保障</div>
+
+    <!-- ===== 为什么需要组合 ===== -->
+    <div class="detail-block">
+      <h4>核心问题：为什么单独的A或B不够？</h4>
+
+      <div style="margin:16px 0;">
+        <p style="font-weight:600; color:var(--orange); margin-bottom:12px;">方案A单独使用的薄弱点：</p>
+        <p style="font-size:13px; line-height:1.8; color:var(--text);">
+          A在数据层说了"该功能支持语音控制"，但这是一个<strong>事实陈述</strong>，不是<strong>行为指令</strong>。Director可能的"思考"：<br>
+          <code style="background:var(--card-alt); padding:4px 8px; border-radius:4px;">"嗯，这个功能支持语音控制，我知道了。但用户问的是怎么操作，我来告诉他步骤吧。"</code><br>
+          模型知道了事实，但没有被告知"知道这个事实后应该怎么做"。
+        </p>
+      </div>
+
+      <div style="margin:16px 0;">
+        <p style="font-weight:600; color:var(--orange); margin-bottom:12px;">方案B单独使用的薄弱点：</p>
+        <p style="font-size:13px; line-height:1.8; color:var(--text);">
+          B在知识层给了明确规则"执行指令→调工具"，但规则是<strong>抽象的</strong>。Director面对具体的QA知识（详细的操作步骤）和抽象的规则时，具体内容的"吸引力"可能更强。<br>
+          <code style="background:var(--card-alt); padding:4px 8px; border-radius:4px;">"规则说要调工具，但context里已经有详细的操作步骤了，直接说不是更高效吗？"</code><br>
+          规则没有足够的context支持来抵抗具体知识的吸引力。
+        </p>
+      </div>
+
+      <div style="margin:16px 0;">
+        <p style="font-weight:600; color:var(--green); margin-bottom:12px;">A+B组合为什么能弥补：</p>
+        <p style="font-size:13px; line-height:1.8; color:var(--text);">
+          当两层信号同时存在时，Director的"思考"变成：<br>
+          <code style="background:#152d15; padding:4px 8px; border-radius:4px; color:#aaddaa;">"QA知识说'该功能支持语音控制，由系统执行'（方案A信号）→ 知识规则也说'执行指令要调工具'（方案B信号）→ 两个独立信息源都指向同一结论 → 调工具"</code><br>
+          <strong>这就是"信号叠加"效应</strong>：两个独立的弱信号叠加后变成强信号。
+        </p>
+      </div>
+    </div>
+
+    <!-- ===== 概率分析 ===== -->
+    <div class="detail-block">
+      <h4>效果概率分析</h4>
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th>方案</th>
+            <th>预估修复率</th>
+            <th>概率逻辑</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>方案A单独</td>
+            <td><span class="tag orange">70-85%</span></td>
+            <td>数据层信号强度高（primacy effect），但不是行为指令，模型有选择空间</td>
+          </tr>
+          <tr>
+            <td>方案B单独</td>
+            <td><span class="tag orange">60-80%</span></td>
+            <td>规则明确但权重是"参考"级，具体知识可能override抽象规则</td>
+          </tr>
+          <tr>
+            <td>方案C (A+B)</td>
+            <td><span class="tag green">90-95%</span></td>
+            <td>
+              两个独立信号同时失效的概率 = 失效A × 失效B<br>
+              保守估计：(1-0.70) × (1-0.60) = 0.30 × 0.40 = 0.12 → 修复率88%<br>
+              乐观估计：(1-0.85) × (1-0.80) = 0.15 × 0.20 = 0.03 → 修复率97%<br>
+              <strong>取中间值：约90-95%修复率</strong>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <p style="font-size:12px; color:var(--text-dim); margin-top:8px;">
+        注意：上述概率是粗估，基于"两个信号独立"的假设。实际上A和B不完全独立（它们在同一个context中被Director同时处理），但信号叠加效应仍然成立。
+      </p>
+    </div>
+
+    <!-- ===== 优势 ===== -->
+    <div class="pro-box">
+      <h4>优势分析（5条）</h4>
+      <ul>
+        <li><strong>修复率最高</strong>：预估90-95%，远高于任一方案单独使用。双层保障的本质是"冗余设计"——即使一层失效，另一层仍能工作。</li>
+        <li><strong>覆盖了两种失效模式</strong>：
+          <br>- 方案A失效（Director忽略数据前缀）→ 方案B的规则仍在起作用
+          <br>- 方案B失效（Director不遵循规则）→ 方案A的数据信号仍在引导
+        </li>
+        <li><strong>可并行执行</strong>：泽民做方案B（3小时），产品侧同步做方案A（1天）。不需要串行等待。</li>
+        <li><strong>阶段性验证</strong>：上午先验证B的效果，下午A就位后验证A+B的组合效果。两个数据点帮助判断每层的贡献度。</li>
+        <li><strong>为中长期优化积累数据</strong>：通过对比"只有B"vs"A+B"的效果差异，可以量化数据层改动的增量价值，为后续是否大规模改造QA数据提供决策依据。</li>
+      </ul>
+    </div>
+
+    <!-- ===== 劣势 ===== -->
+    <div class="con-box">
+      <h4>劣势分析（3条）</h4>
+      <ul>
+        <li><strong>资源消耗是A和B的总和</strong>：需要泽民做方案B（3小时）+ 产品侧做方案A（6-8小时/1人天）+ 联合验证（2小时）。如果只有泽民一个人，且产品侧无法配合，那实际上只能执行方案B部分。<br>
+        <strong>关键依赖</strong>：方案A是否能在1-2天内完成取决于产品侧的配合度。</li>
+        <li><strong>调试复杂度增加</strong>：如果出现badcase，需要判断是A层还是B层的问题。比如出现矫枉过正（咨询型问题被调了工具），是规则写得太强还是前缀引导有误？需要分别关闭A/B来定位。</li>
+        <li><strong>长期维护有两个"维护面"</strong>：QA数据的标注要持续维护（方案A），Knowledge规则也需要在工具变动时更新（方案B）。虽然各自维护成本不高，但有两个面意味着两个可能出错的点。</li>
+      </ul>
+    </div>
+
+    <!-- ===== 资源成本 ===== -->
+    <div class="cost-box">
+      <h4>资源成本精算（总和）</h4>
+      <ul>
+        <li><strong>人力</strong>：
+          <br>- 方案B部分（泽民）：<span style="color:var(--purple);">3小时</span>
+          <br>- 方案A部分（产品标注 or 泽民兼做）：<span style="color:var(--purple);">6-8小时</span>
+          <br>- 联合验证：<span style="color:var(--purple);">2小时</span>
+          <br><strong>总计：约11-13小时。如果两人并行，1天可完成。如果泽民一人做，需要1.5天。</strong>
+        </li>
+        <li><strong>token开销</strong>：
+          <br>- 方案A增加：每轮约 90-120 tokens（QA answer前缀）
+          <br>- 方案B增加：每轮约 250 tokens（RULE-01知识）
+          <br>- <strong>总增加约 340-370 tokens/轮</strong>
+          <br>- vs Director单次调用5000-10000 tokens → <strong>占比 3.5-7%，可接受</strong>
+        </li>
+      </ul>
+    </div>
+
+    <!-- ===== 可行性评估 ===== -->
+    <div class="feasibility-box">
+      <h4>可行性评估</h4>
+      <ul>
+        <li><strong>技术可行性</strong>：<span class="tag green">高</span> — A和B技术上都没有难点</li>
+        <li><strong>组织可行性</strong>：<span class="tag orange">中</span> — 取决于方案A部分是否有人配合。如果只有泽民一人，实际方案C退化为"方案B + 方案A的部分"</li>
+        <li><strong>效果可行性</strong>：<span class="tag green">高</span> — 预估修复率90-95%</li>
+        <li><strong>时间可行性</strong>：<span class="tag orange">中</span> — 并行1天 / 串行1.5天</li>
+      </ul>
+    </div>
+
+    <!-- ===== 综合判定 ===== -->
+    <div class="verdict-box">
+      <h4>方案C综合判定</h4>
+      <p>
+        <strong>如果产品侧能配合</strong>：A+B并行执行，1天完成，修复率90-95%。这是最优解。<br>
+        <strong>如果只有泽民一人</strong>：先执行方案B（上午3小时），验证效果。如果修复率已经够（>80%），暂时只用B。如果不够，泽民自己抽时间做方案A的数据修改（约需额外半天），或者推动产品侧在第二天配合。<br>
+        <strong>核心建议</strong>：<strong>无论如何，方案B今天上午就应该做掉</strong>。它是成本最低、速度最快的第一步。
+      </p>
+    </div>
+
+    <!-- 可视化评分 -->
+    <div style="margin-top:20px;">
+      <div class="meter-row">
+        <span class="meter-label">效果确定性</span>
+        <div class="meter-bar"><div class="meter-fill green" style="width:92%;">92%</div></div>
+      </div>
+      <div class="meter-row">
+        <span class="meter-label">实施难度</span>
+        <div class="meter-bar"><div class="meter-fill orange" style="width:55%;">中等</div></div>
+      </div>
+      <div class="meter-row">
+        <span class="meter-label">资源消耗</span>
+        <div class="meter-bar"><div class="meter-fill orange" style="width:60%;">1-1.5天</div></div>
+      </div>
+      <div class="meter-row">
+        <span class="meter-label">泽民可控度</span>
+        <div class="meter-bar"><div class="meter-fill orange" style="width:65%;">B自主/A需配合</div></div>
+      </div>
+      <div class="meter-row">
+        <span class="meter-label">回滚安全性</span>
+        <div class="meter-bar"><div class="meter-fill green" style="width:90%;">安全</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- ==================== 方案对决 ==================== -->
+<div class="section">
+  <h2 class="section-title">四、三方案终极对比</h2>
+
+  <table class="compare-table">
+    <thead>
+      <tr>
+        <th style="width:160px;">评估维度</th>
+        <th>方案A · 改QA数据</th>
+        <th>方案B · 改Knowledge</th>
+        <th>方案C · A+B组合</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>修复率预估</strong></td>
+        <td><span class="tag orange">70-85%</span></td>
+        <td><span class="tag orange">60-80%</span></td>
+        <td><span class="tag green">90-95%</span></td>
+      </tr>
+      <tr>
+        <td><strong>见效速度</strong></td>
+        <td><span class="tag orange">1天</span>（需数据流程）</td>
+        <td><span class="tag green">3小时</span></td>
+        <td><span class="tag orange">B先3h见效/A次日到位</span></td>
+      </tr>
+      <tr>
+        <td><strong>人力成本</strong></td>
+        <td><span class="tag orange">6-8h · 需产品配合</span></td>
+        <td><span class="tag green">3h · 泽民独立</span></td>
+        <td><span class="tag orange">11-13h · 可并行</span></td>
+      </tr>
+      <tr>
+        <td><strong>token增加</strong></td>
+        <td><span class="tag green">~100 tokens/轮</span></td>
+        <td><span class="tag green">~250 tokens/轮</span></td>
+        <td><span class="tag orange">~350 tokens/轮</span></td>
+      </tr>
+      <tr>
+        <td><strong>月度token成本<br>（假设100万次/日）</strong></td>
+        <td>~¥6,000/月</td>
+        <td>~¥15,000/月</td>
+        <td>~¥21,000/月</td>
+      </tr>
+      <tr>
+        <td><strong>泽民自主可控度</strong></td>
+        <td><span class="tag red">低</span> 需产品侧数据</td>
+        <td><span class="tag green">高</span> 完全自主</td>
+        <td><span class="tag orange">B自主/A需配合</span></td>
+      </tr>
+      <tr>
+        <td><strong>需改SP</strong></td>
+        <td><span class="tag green">不需要</span></td>
+        <td><span class="tag green">不需要</span></td>
+        <td><span class="tag green">不需要</span></td>
+      </tr>
+      <tr>
+        <td><strong>需工程配合</strong></td>
+        <td><span class="tag green">不需要</span></td>
+        <td><span class="tag green">不需要</span></td>
+        <td><span class="tag green">不需要</span></td>
+      </tr>
+      <tr>
+        <td><strong>对其他功能影响</strong></td>
+        <td><span class="tag green">无</span></td>
+        <td><span class="tag green">极小</span>（多150 tokens）</td>
+        <td><span class="tag green">极小</span></td>
+      </tr>
+      <tr>
+        <td><strong>矫枉过正风险</strong></td>
+        <td><span class="tag green">低</span>（数据只陈述事实）</td>
+        <td><span class="tag orange">中</span>（规则可能过强）</td>
+        <td><span class="tag orange">中</span>（需测试验证）</td>
+      </tr>
+      <tr>
+        <td><strong>长期维护成本</strong></td>
+        <td><span class="tag orange">中</span> 新QA要同步标注</td>
+        <td><span class="tag green">低</span> 规则长期有效</td>
+        <td><span class="tag orange">中</span> 两个维护面</td>
+      </tr>
+      <tr>
+        <td><strong>回滚难度</strong></td>
+        <td><span class="tag green">低</span> 去掉前缀即可</td>
+        <td><span class="tag green">极低</span> 删知识条目</td>
+        <td><span class="tag green">低</span></td>
+      </tr>
+      <tr>
+        <td><strong>失败后的降级方案</strong></td>
+        <td>推动SP最小改动</td>
+        <td>叠加方案A / 推SP改动</td>
+        <td>推动SP最小改动</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- 月度成本说明 -->
+  <div class="detail-block" style="margin-top:16px;">
+    <h4>token成本假设说明</h4>
+    <p style="font-size:13px;">
+      上表月度成本按以下假设计算：日均100万次Director调用 × 30天 × 增量tokens × ¥0.002/token（国产大模型均价）。<br>
+      实际成本取决于：(1) 日调用量——如果实际只有10万次/日，成本是上表的1/10；(2) 模型单价——不同模型差异巨大。<br>
+      <strong>建议向李浩然确认实际调用量和token预算约束</strong>，再决定是否需要为方案B做条件触发优化。
+    </p>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- ==================== 决策树 ==================== -->
+<div class="section">
+  <h2 class="section-title">五、决策建议：根据你的实际情况选择</h2>
+
+  <div class="card">
+    <h3>决策路径</h3>
+
+    <div class="detail-block" style="border-left: 4px solid var(--green); border-radius: 0 10px 10px 0;">
+      <h4 style="color:var(--green);">路径1：产品侧能在1天内配合（最优）</h4>
+      <p>
+        <strong>执行方案C</strong><br>
+        上午：泽民做方案B（3小时），验证3条badcase，记录单独B的修复率<br>
+        同步：产品侧做方案A（映射表+批量修改+审核）<br>
+        下午：QA数据更新后，验证A+B组合效果<br>
+        晚上：整理结论，同步团队<br>
+        <strong>预期修复率：90-95%</strong>
+      </p>
+    </div>
+
+    <div class="detail-block" style="border-left: 4px solid var(--accent); border-radius: 0 10px 10px 0;">
+      <h4 style="color:var(--accent);">路径2：只有泽民一个人（现实路径）</h4>
+      <p>
+        <strong>先执行方案B，视效果决定是否自己做方案A</strong><br>
+        上午：泽民做方案B（3小时），验证3条badcase<br>
+        下午：扩大验证（15条case），评估修复率<br>
+        <br>
+        如果修复率 >80%：<strong>暂时只用方案B</strong>，同步结论给团队，推动产品侧后续补做方案A<br>
+        如果修复率 60-80%：泽民自己做方案A的核心部分（只改20-30条最高频的车控功能QA），次日验证组合效果<br>
+        如果修复率 <60%：方案B效果不理想，需要重新评估。可能需要推动SP最小改动（改那一句引导语）<br>
+        <strong>预期：方案B单独大概率能到70%左右修复率</strong>
+      </p>
+    </div>
+
+    <div class="detail-block" style="border-left: 4px solid var(--text-dim); border-radius: 0 10px 10px 0;">
+      <h4 style="color:var(--text-dim);">路径3：A+B都不够好（兜底路径）</h4>
+      <p>
+        如果A+B组合后修复率仍不到85%，说明不改SP很难彻底解决问题。此时建议：<br>
+        1. 带着A+B的实验数据去跟团队沟通："我们试了两种不改SP的方案，最好也只能到XX%"<br>
+        2. 提出<strong>最小SP改动</strong>：只改 {{car_function_simple_qa}} section的一句引导语（5分钟，~30字）<br>
+        3. 这不是结构性改动，只是改了一句描述文本。配合A+B，预估修复率可达98%+<br>
+        <br>
+        <strong>要改的那句话</strong>：<br>
+        <code style="color:var(--red); text-decoration:line-through;">可能会用用上的一些基础车辆问答信息</code><br>
+        →<br>
+        <code style="color:var(--green);">以下是从车辆手册检索到的参考知识。执行指令时优先调用工具，仅在咨询操作方法或工具失败时参考以下内容回答</code>
+      </p>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- ==================== 验证体系 ==================== -->
+<div class="section">
+  <h2 class="section-title">六、验证方法论</h2>
+
+  <div class="card">
+    <h3>如何科学验证方案效果</h3>
+
+    <div class="detail-block">
+      <h4>验证步骤（严格按此执行）</h4>
+      <ol style="padding-left:20px; font-size:14px; line-height:2.2;">
+        <li><strong>基线测量</strong>：在FORNAX上，用下面的测试case跑一遍<strong>未做任何改动</strong>的当前版本，记录每条case的输出。这是对照组。</li>
+        <li><strong>方案B验证</strong>：注入RULE-01后，<strong>不改QA数据</strong>，用同样的case再跑一遍。对比基线。</li>
+        <li><strong>方案A+B验证</strong>（如果做了方案A）：QA数据更新+RULE-01同时存在，用同样的case跑第三遍。对比前两次。</li>
+        <li><strong>每次跑测试，同一条case至少跑3次</strong>（LLM有随机性），取多数结果判定。</li>
+      </ol>
+    </div>
+
+    <div class="detail-block">
+      <h4>完整测试Case矩阵（22条）</h4>
+
+      <p style="font-weight:600; color:var(--green); margin-bottom:8px;">执行型 — 预期：调 vehicle_basic_control（8条）</p>
+      <table class="compare-table">
+        <thead><tr><th>Query</th><th>模拟QA知识内容</th><th>预期输出</th></tr></thead>
+        <tbody>
+          <tr><td>打开定速巡航</td><td>定速巡航开启方法：进入车辆设置-辅助驾驶...</td><td>action_list含vehicle_basic_control</td></tr>
+          <tr><td>关闭车窗</td><td>关窗方法：长按车门上的窗户开关...</td><td>action_list含vehicle_basic_control</td></tr>
+          <tr><td>打开空调</td><td>空调开启方法：点击中控屏空调按钮...</td><td>action_list含vehicle_basic_control</td></tr>
+          <tr><td>把温度调到24度</td><td>温度调节：在空调面板上下滑动调节...</td><td>action_list含vehicle_basic_control</td></tr>
+          <tr><td>打开座椅加热</td><td>座椅加热可在座椅控制面板开启...</td><td>action_list含vehicle_basic_control</td></tr>
+          <tr><td>开启辅助驾驶</td><td>辅助驾驶通过方向盘PILOT键激活...</td><td>action_list含vehicle_basic_control</td></tr>
+          <tr><td>打开后排遮阳帘</td><td>后排遮阳帘可通过后排控制面板操作...</td><td>action_list含vehicle_basic_control</td></tr>
+          <tr><td>把音量调大一点</td><td>音量可通过方向盘按键或中控旋钮调节...</td><td>action_list含vehicle_basic_control</td></tr>
+        </tbody>
+      </table>
+
+      <p style="font-weight:600; color:#7eb8ff; margin:16px 0 8px;">查询型 — 预期：调 search_vehicle_status_info（4条）</p>
+      <table class="compare-table">
+        <thead><tr><th>Query</th><th>模拟QA知识内容</th><th>预期输出</th></tr></thead>
+        <tbody>
+          <tr><td>现在时速多少</td><td>车速信息是仪表屏常显信息...</td><td>action_list含search_vehicle_status_info</td></tr>
+          <tr><td>剩余电量多少</td><td>电池电量可在仪表屏右侧查看...</td><td>action_list含search_vehicle_status_info</td></tr>
+          <tr><td>胎压正常吗</td><td>胎压信息可在车辆设置-轮胎信息中查看...</td><td>action_list含search_vehicle_status_info</td></tr>
+          <tr><td>现在车内温度多少</td><td>车内温度显示在空调面板上...</td><td>action_list含search_vehicle_status_info</td></tr>
+        </tbody>
+      </table>
+
+      <p style="font-weight:600; color:var(--purple); margin:16px 0 8px;">咨询型 — 预期：用QA知识回答（5条）</p>
+      <table class="compare-table">
+        <thead><tr><th>Query</th><th>模拟QA知识内容</th><th>预期输出</th></tr></thead>
+        <tbody>
+          <tr><td>定速巡航怎么用</td><td>定速巡航开启方法：进入车辆设置...</td><td>talk_content含操作步骤，action_list为空</td></tr>
+          <tr><td>雨刮器快慢咋调</td><td>雨刮器通过方向盘右侧拨杆调节...</td><td>talk_content含操作步骤</td></tr>
+          <tr><td>怎么设置自动大灯</td><td>自动大灯在车辆设置-灯光中开启...</td><td>talk_content含操作步骤</td></tr>
+          <tr><td>座椅记忆功能怎么弄</td><td>座椅记忆需先调整好座椅位置后...</td><td>talk_content含操作步骤</td></tr>
+          <tr><td>无钥匙解锁怎么用</td><td>无钥匙解锁需携带钥匙靠近车门...</td><td>talk_content含操作步骤</td></tr>
+        </tbody>
+      </table>
+
+      <p style="font-weight:600; color:var(--orange); margin:16px 0 8px;">矫枉过正检测 — 预期：不受影响（5条）</p>
+      <table class="compare-table">
+        <thead><tr><th>Query</th><th>预期行为</th><th>检测点</th></tr></thead>
+        <tbody>
+          <tr><td>帮我放首歌</td><td>调search_and_control_music</td><td>不能被规则干扰成调vehicle_basic_control</td></tr>
+          <tr><td>导航去浦东机场</td><td>调route_planning_qa</td><td>不能被规则干扰</td></tr>
+          <tr><td>今天天气怎么样</td><td>调search_weather</td><td>不能被规则干扰</td></tr>
+          <tr><td>帮我画只猫</td><td>调image_generate</td><td>不能被规则干扰</td></tr>
+          <tr><td>明天有什么日程</td><td>调search_schedule</td><td>不能被规则干扰</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="detail-block">
+      <h4>效果评判标准</h4>
+      <table class="compare-table">
+        <thead><tr><th>修复率</th><th>判定</th><th>下一步</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="tag green">>90%</span></td>
+            <td>效果达标</td>
+            <td>方案上线，同步结论给团队，持续监控2周</td>
+          </tr>
+          <tr>
+            <td><span class="tag orange">80-90%</span></td>
+            <td>基本可用但有边缘case</td>
+            <td>上线当前方案 + 分析失败case → 针对性补充规则或标注</td>
+          </tr>
+          <tr>
+            <td><span class="tag orange">60-80%</span></td>
+            <td>有效果但不够</td>
+            <td>如果只做了B → 叠加A再测。如果A+B都不够 → 推动SP最小改动</td>
+          </tr>
+          <tr>
+            <td><span class="tag red"><60%</span></td>
+            <td>效果不理想</td>
+            <td>不改SP可能无法彻底解决。带数据去推动SP改动或工程方案</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- ==================== 最终建议 ==================== -->
+<div class="section">
+  <h2 class="section-title">七、给泽民的最终建议</h2>
+
+  <div class="card highlight">
+    <div style="text-align:center; margin-bottom:24px;">
+      <div class="num-row" style="justify-content:center;">
+        <div class="num-item">
+          <div class="num-highlight">3h</div>
+          <div class="num-unit">方案B最快见效</div>
+        </div>
+        <div class="num-item">
+          <div class="num-highlight">90%+</div>
+          <div class="num-unit">A+B组合修复率</div>
+        </div>
+        <div class="num-item">
+          <div class="num-highlight">0</div>
+          <div class="num-unit">SP改动</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="verdict-box">
+      <h4>执行建议（按优先级排序）</h4>
+      <p>
+        <strong>1. 今天上午立刻执行方案B</strong> — 创建RULE-01知识条目，始终加载，验证3条badcase。这是你完全自主可控的、成本最低的第一步。即使最终效果只有60-70%，也为后续决策提供了关键数据。<br><br>
+        <strong>2. 如果方案B修复率>80%</strong> — 暂时够用。同步给团队："通过Knowledge规则注入，修复率已达XX%"。推动产品侧后续补做方案A进一步提升。<br><br>
+        <strong>3. 如果方案B修复率<80%</strong> — 今天下午开始做方案A（或协调产品侧帮做）。先只改最高频的20-30条车控相关QA（空调、车窗、座椅、导航等核心功能），验证A+B组合效果。<br><br>
+        <strong>4. 如果A+B都不够</strong> — 带着实验数据去推动SP最小改动。你有了数据支撑，说服力远强于空口建议。数据是："我们已经在不改SP的前提下做到了XX%修复率，如果再改一句引导语，可以达到98%+。"<br><br>
+        <strong>关键心态</strong>：不要追求一次到位。先快速出方案B的结论，有了数据再决定下一步。每一步都在积累说服团队的证据。
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- Footer -->
+<div style="text-align:center; padding:40px 0; color:var(--text-dim); font-size:12px; border-top:1px solid var(--border); margin-top:40px;">
+  生成时间：2026-05-19 &nbsp;|&nbsp; 深度可行性分析版 &nbsp;|&nbsp; 约束：不改SP · 1-2天出结论
+</div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,544 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Director / Planner 架构全景 · 骨架 + 细节 总整合</title>
+<style>
+:root{--bg:#020617;--panel:rgba(15,23,42,.82);--ink:#e8eef9;--muted:#9fb0c7;--line:#26344b;--blue:#60a5fa;--cyan:#22d3ee;--green:#34d399;--amber:#fbbf24;--orange:#fb923c;--rose:#fb7185;--violet:#a78bfa;--grey:#64748b;}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;color:var(--ink);line-height:1.6;font-family:ui-sans-serif,system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+background:linear-gradient(rgba(20,30,55,.18) 1px,transparent 1px),linear-gradient(90deg,rgba(20,30,55,.18) 1px,transparent 1px),radial-gradient(circle at 10% 2%,rgba(34,211,238,.10),transparent 22%),radial-gradient(circle at 90% 0,rgba(96,165,250,.10),transparent 26%),var(--bg);background-size:48px 48px,48px 48px,auto,auto,auto;}
+a{color:var(--cyan);text-decoration:none}
+.wrap{max-width:1260px;margin:0 auto;padding:26px 20px 110px}
+.layout{display:grid;grid-template-columns:236px minmax(0,1fr);gap:24px;align-items:start}
+nav{position:sticky;top:12px;border:1px solid var(--line);border-radius:12px;background:var(--panel);backdrop-filter:blur(10px);padding:13px 10px;font-size:12px;max-height:95vh;overflow:auto}
+nav b{display:block;color:var(--cyan);font-size:11px;letter-spacing:.5px;margin:2px 6px 7px}
+nav a{display:block;color:var(--muted);padding:4px 8px;border-radius:6px;border-left:2px solid transparent}
+nav a:hover{color:var(--ink);background:rgba(96,165,250,.10);border-left-color:var(--blue)}
+nav .n0{color:#cbd5e1;font-weight:700;margin-top:7px}
+.hero{border:1px solid var(--line);border-radius:14px;background:var(--panel);backdrop-filter:blur(10px);padding:24px 26px;margin-bottom:18px}
+.eyebrow{color:var(--cyan);font-weight:800;font-size:12px;margin-bottom:8px}
+h1{margin:0;font-size:clamp(23px,2.9vw,33px);line-height:1.2}
+.hero p{color:#cbd5e1;margin:12px 0 0;font-size:14.5px}
+.tldr{margin-top:14px;padding:13px 15px;border-radius:10px;border:1px solid rgba(52,211,153,.35);background:rgba(6,78,59,.2)}
+.tldr b{color:#6ee7b7}
+section{border:1px solid var(--line);border-radius:14px;background:var(--panel);backdrop-filter:blur(8px);padding:22px 24px;margin-bottom:16px;scroll-margin-top:12px}
+section>h2{margin:0 0 4px;font-size:21px;display:flex;align-items:center;gap:10px}
+section>h2 .num{font-size:13px;color:#020617;background:var(--cyan);font-weight:800;min-width:28px;height:26px;padding:0 6px;border-radius:8px;display:inline-grid;place-items:center}
+.sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+h3{font-size:16px;margin:20px 0 7px;color:#f1f5f9;border-left:3px solid var(--blue);padding-left:9px}
+h4{font-size:13.5px;margin:13px 0 5px;color:#cbd5e1}
+p{margin:7px 0}
+.tag{display:inline-block;font-size:10px;font-weight:700;padding:1px 7px;border-radius:999px;vertical-align:middle;margin-left:5px;border:1px solid}
+.t-live{color:#6ee7b7;border-color:rgba(52,211,153,.5);background:rgba(6,78,59,.25)}
+.t-soon{color:#fde68a;border-color:rgba(251,191,36,.5);background:rgba(120,53,15,.25)}
+.t-exp{color:#a5b4fc;border-color:rgba(129,140,248,.5);background:rgba(49,46,129,.3)}
+.t-new{color:#6ee7b7;border-color:rgba(52,211,153,.5);background:rgba(6,78,59,.25)}
+.t-fix{color:#fda4af;border-color:rgba(251,113,133,.5);background:rgba(136,19,55,.25)}
+.t-img{color:#c4b5fd;border-color:rgba(167,139,250,.5);background:rgba(49,46,129,.3)}
+.t-sp{color:#bfdbfe;border-color:rgba(96,165,250,.5);background:rgba(30,64,175,.2)}
+.q{margin:9px 0;padding:9px 13px;border-left:3px solid var(--blue);background:rgba(30,64,175,.12);border-radius:0 8px 8px 0;color:#dbeafe;font-size:13px}
+.q::before{content:"原文 · ";color:var(--blue);font-weight:700;font-size:11px}
+.note{margin:10px 0;padding:10px 13px;border:1px dashed rgba(251,146,60,.6);background:rgba(124,45,18,.16);border-radius:10px;color:#fed7aa;font-size:12.5px}
+.note b{color:#fdba74}
+.key{margin:10px 0;padding:10px 13px;border:1px solid rgba(34,211,238,.35);background:rgba(8,47,73,.3);border-radius:10px;font-size:13px}
+.key b{color:#67e8f9}
+table{width:100%;border-collapse:collapse;margin:10px 0;font-size:12px}
+th,td{border:1px solid var(--line);padding:6px 9px;text-align:left;vertical-align:top}
+th{background:rgba(30,41,59,.7);color:#e2e8f0;font-weight:700}
+td code,p code,li code,h4 code{color:#7dd3fc;background:rgba(8,47,73,.5);border:1px solid rgba(34,211,238,.18);border-radius:5px;padding:1px 5px;font-size:11px}
+tr:nth-child(even) td{background:rgba(15,23,42,.4)}
+.io{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0}
+.io>div{border:1px solid var(--line);border-radius:10px;padding:10px 13px;background:rgba(15,23,42,.5)}
+.io .in{border-top:3px solid var(--green)}.io .out{border-top:3px solid var(--amber)}
+.io h4{margin:0 0 5px}.io .in h4{color:#6ee7b7}.io .out h4{color:#fcd34d}
+ul,ol{margin:6px 0;padding-left:19px}li{margin:3px 0}
+pre{background:#040a18;border:1px solid var(--line);border-radius:10px;padding:11px 13px;overflow:auto;font-size:11.5px;color:#cbd5e1;margin:9px 0}
+pre .k{color:#7dd3fc}pre .s{color:#86efac}pre .c{color:#64748b}pre .n{color:#fcd34d}
+.node{border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin:10px 0;background:rgba(15,23,42,.55)}
+.node>h4{margin:0 0 4px;font-size:14.5px;color:#bfdbfe;display:flex;align-items:center;gap:7px}
+.node .dim{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:7px;font-size:12px}
+.node .dim>div{border-left:2px solid var(--line);padding-left:8px}
+.node .dim b{color:#93c5fd;font-size:11px;display:block}
+.diagram{border:1px solid var(--line);border-radius:12px;background:#040a18;padding:8px;margin:12px 0;overflow:auto}
+.diagram svg{display:block}
+.legend{display:flex;flex-wrap:wrap;gap:11px;font-size:11px;color:var(--muted);margin:6px 2px 0}
+.legend span{display:inline-flex;align-items:center;gap:5px}.legend i{width:11px;height:11px;border-radius:3px}
+.seq{margin:10px 0;font-size:12px}
+.seq .step{display:grid;grid-template-columns:30px 1fr;gap:9px;padding:5px 0;border-bottom:1px solid rgba(38,52,75,.6)}
+.seq .step .n{background:var(--cyan);color:#020617;font-weight:800;border-radius:6px;height:22px;display:grid;place-items:center;font-size:11px}
+.seq .arr{color:#67e8f9;font-weight:600}
+.tl{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0}
+.tl>div{border-radius:11px;padding:12px;border:1px solid}
+.tl-live{border-color:rgba(52,211,153,.4);background:rgba(6,78,59,.16)}.tl-soon{border-color:rgba(251,191,36,.4);background:rgba(120,53,15,.14)}.tl-exp{border-color:rgba(129,140,248,.4);background:rgba(49,46,129,.18)}
+.tl h4{margin:0 0 7px;font-size:13px}.tl ul{font-size:11.5px;color:#cbd5e1;padding-left:15px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.statemachine{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin:9px 0}
+.statemachine>div{border:1px solid var(--line);border-radius:8px;padding:7px 4px;font-size:11px;text-align:center}
+@media(max-width:920px){.layout{grid-template-columns:1fr}nav{position:static;max-height:none}.io,.node .dim,.grid2,.tl,.statemachine{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="hero">
+  <div class="eyebrow">总整合版 · 余昌龙陪读 · 熔合 Round1~4 全部内容（架构图OCR + Director真身SP + 目标驱动PRD + Context + 感知 + 交互策略）</div>
+  <h1>Director / Planner 架构全景图谱：从整体骨架到每个节点细节，一份讲透</h1>
+  <p>这是把前几轮所有内容整合成的<b>一份总图谱</b>。结构是"<b>先骨架、后细节</b>"：第0章给你整个系统的一张总图和心智模型，第1~9章逐层逐节点钻到底（含 I/O、原理、SP真身、26工具、情绪状态机、感知、交互、优化）。每条都标了来源。</p>
+  <div class="tldr">
+    <b>整套系统一句话：</b>用户一句话 → <b>多级拒识+仲裁分流</b>(简单走端侧150ms/复杂进云) → <b>Director(=Planner)</b> 用 ReAct+26工具 把需求拆成动作 → 做不完的升级成 <b>goal + 动态advisor</b> 持续盯 → <b>感知订阅(VLM/条件/定时)</b> 触发监工推进 → <b>单通路交互治理</b>(打断/合并/排队)把结果说给用户。底层模型 Doubao-Seed-1.8，车是荣威D6X五座。
+  </div>
+</div>
+
+<div class="layout">
+<nav>
+  <b>全景目录</b>
+  <a class="n0" href="#c0">0 · 骨架总览(一张总图)</a>
+  <a class="n0" href="#c1">1 · 宏观主链路(漏斗)</a>
+  <a href="#c1a">多级拒识 + 仲裁分流</a>
+  <a href="#c1b">时延预算</a>
+  <a class="n0" href="#c2">2 · 三层泳道架构</a>
+  <a class="n0" href="#c3">3 · Director大脑(SP真身)</a>
+  <a href="#c3a">ReAct循环 + 13块骨架</a>
+  <a href="#c3b">三输入 / 五输出</a>
+  <a href="#c3c">26个工具全表</a>
+  <a href="#c3d">14注意事项</a>
+  <a href="#c3e">情绪状态机 + emoji + 时间感知</a>
+  <a href="#c3f">D6X设备边界(防幻觉)</a>
+  <a href="#c3g">工具tips + 聊天风格</a>
+  <a class="n0" href="#c4">4 · 公共Context服务</a>
+  <a href="#c4a">13类内容 + 优化</a>
+  <a href="#c4b">前置筛选(知识筛选专家)</a>
+  <a class="n0" href="#c5">5 · 目标驱动协作层</a>
+  <a href="#c5a">goal list + advisor</a>
+  <a href="#c5b">照顾二排宝宝时序(11步)</a>
+  <a href="#c5c">数量仲裁 + 条件触发器</a>
+  <a class="n0" href="#c6">6 · 感知层(VLM/Watcher)</a>
+  <a class="n0" href="#c7">7 · 任务与交互管理</a>
+  <a class="n0" href="#c8">8 · 四类任务→架构映射</a>
+  <a class="n0" href="#c9">9 · 底层原理+优化+排查</a>
+  <a class="n0" href="#c10">10 · 纠偏 + 认知自测</a>
+</nav>
+
+<main>
+
+<!-- ===== 0 骨架总览 ===== -->
+<section id="c0">
+  <h2><span class="num">0</span>骨架总览：整个系统的一张总图 + 三个时间面</h2>
+  <p class="sub">先建立全局心智模型，再钻细节。整套系统是"漏斗骨架 + 目标驱动层 + 感知层 + Context服务"四件套。</p>
+
+  <div class="diagram">
+    <svg viewBox="0 0 1180 470" role="img" aria-label="全景总图">
+      <defs><marker id="a" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#94a3b8"/></marker></defs>
+      <!-- context top -->
+      <rect x="20" y="14" width="1140" height="40" rx="8" fill="rgba(76,29,149,.25)" stroke="#a78bfa"/>
+      <text x="590" y="38" fill="#c4b5fd" font-size="13" text-anchor="middle" font-weight="700">公共 Context 服务（情景/端状态/记忆/视觉/任务队列 13类）  ＋  goal list 共享看板</text>
+      <!-- main flow -->
+      <g font-size="11.5" font-family="sans-serif">
+      <rect x="20" y="210" width="92" height="46" rx="8" fill="rgba(8,47,73,.7)" stroke="#22d3ee"/><text x="66" y="230" fill="#e8eef9" text-anchor="middle">用户语音</text><text x="66" y="246" fill="#9fb0c7" text-anchor="middle" font-size="10">ASR</text>
+      <rect x="132" y="210" width="100" height="46" rx="8" fill="rgba(6,78,59,.4)" stroke="#34d399"/><text x="182" y="228" fill="#e8eef9" text-anchor="middle" font-size="11">多级拒识</text><text x="182" y="244" fill="#9fb0c7" text-anchor="middle" font-size="9">端白名单+云拒识</text>
+      <rect x="252" y="158" width="104" height="40" rx="8" fill="rgba(6,78,59,.4)" stroke="#34d399"/><text x="304" y="182" fill="#e8eef9" text-anchor="middle" font-size="11">简单车控旁路</text>
+      <rect x="252" y="214" width="104" height="40" rx="8" fill="rgba(30,64,175,.3)" stroke="#60a5fa"/><text x="304" y="232" fill="#e8eef9" text-anchor="middle" font-size="11">仲裁模型</text><text x="304" y="246" fill="#9fb0c7" text-anchor="middle" font-size="9">简单/复杂分流</text>
+      <!-- director big -->
+      <rect x="386" y="150" width="220" height="118" rx="11" fill="rgba(30,64,175,.32)" stroke="#60a5fa" stroke-width="2"/>
+      <text x="496" y="172" fill="#bfdbfe" text-anchor="middle" font-size="14" font-weight="700">Director / Planner（大脑）</text>
+      <text x="496" y="191" fill="#cbd5e1" text-anchor="middle" font-size="10">ReAct循环 · 26工具 · Doubao-Seed-1.8</text>
+      <text x="496" y="208" fill="#cbd5e1" text-anchor="middle" font-size="10">SP: 角色/工具/示例/情绪状态机/D6X</text>
+      <text x="496" y="227" fill="#9fb0c7" text-anchor="middle" font-size="9">输出 talk_or_not / emoji_id /</text>
+      <text x="496" y="240" fill="#9fb0c7" text-anchor="middle" font-size="9">emotional_state_change / action_list</text>
+      <text x="496" y="258" fill="#fcd34d" text-anchor="middle" font-size="9">建目标→撒手给监工</text>
+      <!-- agents -->
+      <rect x="636" y="158" width="118" height="40" rx="8" fill="rgba(120,53,15,.3)" stroke="#fbbf24"/><text x="695" y="176" fill="#e8eef9" text-anchor="middle" font-size="11">26个下游工具</text><text x="695" y="190" fill="#9fb0c7" text-anchor="middle" font-size="9">车控/导航/音乐/GUI…</text>
+      <rect x="636" y="214" width="118" height="40" rx="8" fill="rgba(120,53,15,.3)" stroke="#fbbf24"/><text x="695" y="238" fill="#e8eef9" text-anchor="middle" font-size="11">HMI 卡片+TTS</text>
+      <!-- goal driven layer -->
+      <rect x="790" y="120" width="370" height="150" rx="11" fill="rgba(49,46,129,.22)" stroke="#a78bfa"/>
+      <text x="975" y="140" fill="#c4b5fd" text-anchor="middle" font-size="12" font-weight="700">目标驱动协作层（持续照看）</text>
+      <rect x="806" y="152" width="110" height="42" rx="7" fill="rgba(30,41,59,.7)" stroke="#a78bfa"/><text x="861" y="170" fill="#e8eef9" text-anchor="middle" font-size="10">静态advisor×4</text><text x="861" y="184" fill="#9fb0c7" text-anchor="middle" font-size="9">舒适/出行/情感/内容</text>
+      <rect x="928" y="152" width="110" height="42" rx="7" fill="rgba(30,41,59,.7)" stroke="#a78bfa"/><text x="983" y="170" fill="#e8eef9" text-anchor="middle" font-size="10">动态advisor</text><text x="983" y="184" fill="#9fb0c7" text-anchor="middle" font-size="9">一目标一监工</text>
+      <rect x="1050" y="152" width="98" height="42" rx="7" fill="rgba(30,41,59,.7)" stroke="#a78bfa"/><text x="1099" y="170" fill="#e8eef9" text-anchor="middle" font-size="10">感知订阅</text><text x="1099" y="184" fill="#9fb0c7" text-anchor="middle" font-size="9">感知/条件/定时</text>
+      <rect x="806" y="210" width="342" height="46" rx="8" fill="rgba(6,78,59,.3)" stroke="#34d399"/><text x="977" y="230" fill="#6ee7b7" text-anchor="middle" font-size="11">感知层 · VLM/Watcher（端侧Always on，视觉转语言）</text><text x="977" y="246" fill="#9fb0c7" text-anchor="middle" font-size="9">sp/attention 调识别目标 → 流式写回 context</text>
+      <!-- hmi bottom -->
+      <rect x="20" y="410" width="1140" height="38" rx="8" fill="rgba(15,23,42,.9)" stroke="#64748b"/><text x="590" y="433" fill="#cbd5e1" font-size="12" text-anchor="middle">HMI（单通路语音管道：打断/合并/排队/插队治理）  ·  小卡/大卡/通知卡  ·  asr上屏</text>
+      </g>
+      <g stroke="#94a3b8" stroke-width="1.4" fill="none" marker-end="url(#a)">
+      <path d="M112 233 L132 233"/>
+      <path d="M232 233 C244 233 244 178 252 178"/>
+      <path d="M232 233 L252 233"/>
+      <path d="M356 178 C370 178 370 200 386 200" stroke="#34d399"/>
+      <path d="M356 234 L386 220"/>
+      <path d="M606 200 L636 178"/>
+      <path d="M606 230 L636 230"/>
+      <path d="M754 234 L790 234" stroke="#a78bfa"/>
+      </g>
+      <path d="M695 254 L695 410" stroke="#64748b" stroke-dasharray="4 4" fill="none" marker-end="url(#a)"/>
+      <path d="M590 54 L496 150" stroke="#a78bfa" stroke-dasharray="5 4" fill="none" marker-end="url(#a)"/>
+      <path d="M977 256 C977 90 700 70 606 60" stroke="#34d399" stroke-dasharray="5 4" fill="none" marker-end="url(#a)"/>
+      <text x="1010" y="300" fill="#a78bfa" font-size="9">advisor推进目标→回Director</text>
+      <path d="M975 270 C975 320 620 300 606 250" stroke="#a78bfa" stroke-width="1.2" fill="none" marker-end="url(#a)" stroke-dasharray="4 4"/>
+    </svg>
+    <div class="legend"><span><i style="background:#34d399"></i>端侧/感知</span><span><i style="background:#60a5fa"></i>推理/Director</span><span><i style="background:#fbbf24"></i>执行/HMI</span><span><i style="background:#a78bfa"></i>目标驱动/Context</span></div>
+  </div>
+
+  <h3>三个时间面（别混为一谈）</h3>
+  <div class="tl">
+    <div class="tl-live"><h4>🟢 已上线 LIVE</h4><ul><li>RAG漏斗 + ReAct + 26工具 FC</li><li>Doubao-Seed-1.8（S08切换）</li><li>单通路交互治理</li><li>情绪状态机/emoji（真身SP已有）</li></ul></div>
+    <div class="tl-soon"><h4>🟡 落地中 LANDING</h4><ul><li>goal list + 静态/动态advisor</li><li>感知订阅模块</li><li>公共Context服务</li><li>前置筛选(知识筛选专家)</li></ul></div>
+    <div class="tl-exp"><h4>🔵 实验提案(未上线)</h4><ul><li>基于COT快慢思考</li><li>执行结论前置</li><li>边想边搜/流式截取</li></ul></div>
+  </div>
+  <div class="key"><b>心智模型一句话：</b>Director 是"快速响应+执行"的大脑(重时延)；advisor 是"盯目标"的监工(重思考)；goal list 是它俩共享的看板；Context 是大家共用的"现场和记忆"；感知层是"眼睛"。<b>能当场做完的 Director 闭环；做不完的升级成 goal+监工持续盯</b>——这就是从"一人包揽"到"团队协作"。</div>
+</section>
+
+<!-- ===== 1 主链路 ===== -->
+<section id="c1">
+  <h2><span class="num">1</span>宏观主链路（漏斗骨架）：一句话从嘴到执行</h2>
+  <p class="sub">骨架原则(原文)："①层层过滤(便宜的活别让贵模型干) ②不同阶段注入知识(简单→复杂) ③数据回流把后面的能力推到前面。" Planner在漏斗最底，既是兜底又是云端teacher。</p>
+  <table>
+    <tr><th>节点</th><th>职责</th><th>输入</th><th>输出</th></tr>
+    <tr><td><b>ASR</b></td><td>语音转文字</td><td>用户语音</td><td>query文本</td></tr>
+    <tr><td><b>端侧白名单+LLM</b></td><td>判断端上接不接得住</td><td>query</td><td>命中→端侧执行；未命中→上云</td></tr>
+    <tr><td><b>句法RAG</b></td><td>明确单轮规则匹配，毫秒级</td><td>单轮query</td><td><code>{type:directExecute,reject_ornot,task_list}</code></td></tr>
+    <tr><td><b>情景RAG</b></td><td>模糊query注入知识(few-shot)，不直接给结果</td><td>模糊query+记忆+情景</td><td><code>{type:modelExecute,knowledge,agentLimit}</code></td></tr>
+    <tr><td><b>仲裁模型</b></td><td>召回后判别+简单/复杂路由(Seed1.6 flash SFT)</td><td>召回query</td><td>明确→云LLM快出；复杂→Director慢思考</td></tr>
+    <tr><td><b>Director</b></td><td>复杂/通用任务推理编排，兜底+teacher</td><td>[SP, UP]（三输入形态）</td><td>JSON决策(见§3)</td></tr>
+    <tr><td><b>下游Agent</b></td><td>原子执行(一agent一任务)</td><td>task_desc自然语言</td><td>tool_feedback(status/failure/nlg)</td></tr>
+  </table>
+
+  <h3 id="c1a">多级拒识 + 分流判定树（排查"走错模块"必背）<span class="tag t-img">PRD图</span></h3>
+  <table>
+    <tr><th>判定</th><th>结果</th></tr>
+    <tr><td>离线fc命中白名单</td><td>优先端侧执行（旁路绕过Director）</td></tr>
+    <tr><td>未命中白名单</td><td>优先云端；云端超时无结果→用端上；端上也无→兜底</td></tr>
+    <tr><td>云端：未拒识+仲裁为车控+6大意图</td><td>直接给fc（简单快链路）</td></tr>
+    <tr><td>云端：条件不同时成立 / 拒识超时</td><td>给Director（复杂慢思考/兜底）</td></tr>
+    <tr><td>云端：拒识成功</td><td>进context事件日志，被advisor感知(可转主动服务)</td></tr>
+  </table>
+  <div class="note"><b>拒识是三级的：</b>① 端侧白名单+LLM → ② 云侧Director前置拒识 → ③ Director内部 plan_describe 前再拒识一次。排查"该拒识没拒/不该拒被拒"要定位到具体哪一级。</div>
+
+  <h3 id="c1b">时延预算（性能优化标尺）<span class="tag t-sp">PRD</span></h3>
+  <table>
+    <tr><td>asr→nlu 200+300ms</td><td>planner思考 500ms</td><td>planner回答 500ms</td></tr>
+    <tr><td>FC.SFT解析(简单) 300ms</td><td>端上车控 150ms</td><td>tts生成 200ms</td></tr>
+    <tr><td colspan="3"><b>总目标：P50首token≤500ms，P90≤800ms；推理ACC≥90%，端状态回复ACC≥93%</b></td></tr>
+  </table>
+</section>
+
+<!-- ===== 2 三层泳道 ===== -->
+<section id="c2">
+  <h2><span class="num">2</span>三层泳道架构（图2 对内主架构图，全节点）<span class="tag t-img">PRD图</span></h2>
+  <p class="sub">系统竖切三层：感知/信息层(知道啥情况) → 推理层(决定干啥) → 执行/交互层(做了并告诉用户)。</p>
+  <div class="grid2">
+    <div class="node"><h4>感知/信息层(6节点)</h4>
+      <div class="dim">
+        <div><b>user</b>语音/手势/屏幕→query(带speaker_position)</div>
+        <div><b>advisor</b>4静态+动态给Director建议(主动服务源)</div>
+        <div><b>context</b>13类公共上下文(详见§4)</div>
+        <div><b>感知/端状态/记忆/工具知识</b>各子来源写入context</div>
+      </div>
+    </div>
+    <div class="node"><h4>推理层(5节点)</h4>
+      <div class="dim">
+        <div><b>离线fc+白名单</b>端侧简单车控召回(150ms)</div>
+        <div><b>云端拒识·仲裁意图</b>两子模型,简单/复杂分流</div>
+        <div><b>Director</b>内部循环:流式响应→拆解→任务序列→反思</div>
+        <div><b>触发器</b>(离线/在线)条件任务+<b>任务工程管理</b>打断/恢复/挂起</div>
+      </div>
+    </div>
+  </div>
+  <div class="node"><h4>执行/交互层(3节点)</h4>
+    <div class="dim">
+      <div><b>agent/tool</b>26工具,FC调用,一agent一任务</div>
+      <div><b>gui/卡片路由</b>长程走GUI界面/aigc走通知卡/其余走统一卡</div>
+      <div><b>plan结果提报显示</b>talk_content→TTS,action_list→执行+卡片</div>
+      <div><b>卡片三类</b>小卡(语音卡≤1)/大卡(画布≤1,互斥)/通知卡(push可多)</div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 3 Director SP ===== -->
+<section id="c3">
+  <h2><span class="num">3</span>Director 大脑：当前真身 SP 完整解剖<span class="tag t-sp">真身SP</span></h2>
+  <p class="sub">Director=Planner=对话推理引擎。它的"脑子"就是这份 SP。<b>以下基于你提供的当前生产 SP（权威）</b>。</p>
+
+  <h3 id="c3a">3.1 ReAct 循环（一次调用=多次推理）+ SP 13块骨架</h3>
+  <div class="seq">
+    <div class="step"><div class="n">1</div><div><b>流式对话响应</b>(先快回一句,首token≤500ms) <span class="arr">→</span> <b>任务拆解</b> <span class="arr">→</span> <b>结构化任务序列</b>(task1/2/3)</div></div>
+    <div class="step"><div class="n">2</div><div>action_list <span class="arr">→tool call→</span> agent执行 <span class="arr">→tool_feedback→</span> <b>总结和反思</b> <span class="arr">→</span> 回①(ReAct闭环)</div></div>
+  </div>
+  <table>
+    <tr><th>SP区块</th><th>装什么</th><th>SP区块</th><th>装什么</th></tr>
+    <tr><td>①角色定义</td><td>"你是豆包,AI汽车个人助手"</td><td>⑧车辆设备知识</td><td>荣威D6X五座SUV全规格</td></tr>
+    <tr><td>②你得到的输入</td><td>3类输入格式</td><td>⑨工具使用tips</td><td>10条(含4导航不可并行)</td></tr>
+    <tr><td>③你可用的工具</td><td><b>26个工具</b></td><td>⑩其他知识</td><td>导航/冥想/游戏/隐私/提示词保护</td></tr>
+    <tr><td>④输出内容</td><td>5字段JSON</td><td>⑪聊天风格</td><td>温柔高知女生/[情绪]/[唱]/静默规则</td></tr>
+    <tr><td>⑤注意事项</td><td>14条</td><td>⑫基础车辆功能问答</td><td>语音唤醒/小憩等QA</td></tr>
+    <tr><td>⑥参考示例</td><td>示例1~21(占大头)</td><td>⑬末尾静态context块</td><td>世界信息/视觉/记忆/<b>动态专业知识(前置筛选注入)</b></td></tr>
+    <tr><td>⑦emoji表情</td><td>17个emoji_id</td><td colspan="2">①~⑫可命中KV Cache前缀，⑬每轮动态</td></tr>
+  </table>
+
+  <h3 id="c3b">3.2 三种输入 / 五个输出字段</h3>
+  <div class="io">
+    <div class="in"><h4>输入3形态</h4>
+      <b>user_query</b>: query/speaker_name/speaker_position/<span style="color:#fcd34d">timestamp/assistant_emotional_state/goal_list/env_info</span><br>
+      <b>advisor</b>: {advisor} 不回应它,直接面向用户<br>
+      <b>tool_feedback</b>: {tool_feedback,tool_name} 触发二次推理</div>
+    <div class="out"><h4>输出5字段</h4>
+      <code>talk_or_not</code> yes/no<br>
+      <code>talk_content</code> 可带[开心地说]/[唱]<br>
+      <span style="color:#fcd34d"><code>emoji_id</code> 17选1形象动画</span><br>
+      <span style="color:#fcd34d"><code>emotional_state_change</code> 仅情绪变化时输出</span><br>
+      <code>action_list</code> [{action_id,params,tool_name}]</div>
+  </div>
+  <div class="note"><b>降时延设计：</b><code>goal_list</code>和<code>env_info</code>每轮随输入直传，原文说"可直接参考,<b>避免不必要的工具调用</b>"——能从输入读的车况/目标别再调工具查。</div>
+
+  <h3 id="c3c">3.3 全部 26 个工具<span class="tag t-fix">真身26个,非23/18</span></h3>
+  <table>
+    <tr><th>#</th><th>工具</th><th>作用</th><th>#</th><th>工具</th><th>作用</th></tr>
+    <tr><td>1</td><td>vehicle_basic_control</td><td>车控(窗/空调/座椅/灯/冰箱…)</td><td>14</td><td>personal_skill_record<span class="tag t-new">新</span></td><td>个性化交互技能(增改删)</td></tr>
+    <tr><td>2</td><td>vehicle_system_settings<span class="tag t-new">新</span></td><td>系统设置+<b>媒体播控(上一首/暂停)</b></td><td>15</td><td>web_search</td><td>联网搜索</td></tr>
+    <tr><td>3</td><td>vehicle_communication_control<span class="tag t-new">新</span></td><td>蓝牙电话/视频通话</td><td>16</td><td>goal_list_update</td><td>持续目标增删</td></tr>
+    <tr><td>4</td><td>search_vehicle_status_info</td><td>查车辆状态</td><td>17</td><td>ai_broadcast_generate</td><td>生成AI播客</td></tr>
+    <tr><td>5</td><td>search_weather</td><td>天气</td><td>18</td><td>search_and_control_broadcast</td><td>播客搜索播放</td></tr>
+    <tr><td>6</td><td>search_poi_qa</td><td>POI搜索问答</td><td>19</td><td>auto_drive</td><td>智驾(泊车+行车)</td></tr>
+    <tr><td>7</td><td>route_planning_qa</td><td>路线规划导航</td><td>20</td><td>ambient_light_control</td><td>氛围灯</td></tr>
+    <tr><td>8</td><td>navi_basic_control</td><td>导航基础控制+收藏</td><td>21</td><td>car_log</td><td>用车报告</td></tr>
+    <tr><td>9</td><td>search_and_control_short_video</td><td>短视频(抖音)+长视频(腾讯)</td><td>22</td><td>car_care_qa</td><td>车况维养</td></tr>
+    <tr><td>10</td><td>search_and_control_music</td><td>音乐搜索(搜后自动播第一首)</td><td>23</td><td>recording_minutes</td><td>录音纪要</td></tr>
+    <tr><td>11</td><td>search_user_memory</td><td>记忆检索</td><td>24</td><td>trip_plan_record<span class="tag t-new">新</span></td><td>行程规划记录</td></tr>
+    <tr><td>12</td><td>face_id_register</td><td>人脸注册{name,position}</td><td>25</td><td>image_generate</td><td>生图{type,query}</td></tr>
+    <tr><td>13</td><td>operate_user_memory</td><td>基础信息记忆(仅客观事实)</td><td>26</td><td>search_visual_info</td><td>视觉问答(车内/屏幕/车外)</td></tr>
+  </table>
+  <div class="note"><b>3个易混点(评测重点)：</b>① 搜歌/搜视频用9/10，但"上一首/暂停/单曲循环"归 <b>vehicle_system_settings(2)</b>；② 客观事实记忆→13，交互习惯偏好→14；③ 打电话→vehicle_communication_control(3) 不是车控。</div>
+
+  <h3 id="c3d">3.4 14 条注意事项（含3条新规则）</h3>
+  <p>1听不懂不说不调 · 2模糊可询问 · 3闲聊仅说话 · 4工具返回不一定回话 · 5失败不道歉 · <b>6串行依赖不一次多调</b> · 7不重复 · 8反复失败可放弃 · 9连续重复输入不说话 · <b>10品牌立场引导负面</b><span class="tag t-new">新</span> · 11仅输出JSON · 12每次独立不预判失败 · <b>13自我时间感知</b><span class="tag t-new">新</span> · <b>14情绪状态机</b><span class="tag t-new">新</span></p>
+
+  <h3 id="c3e">3.5 三大拟人子系统：情绪状态机 / emoji / 时间感知<span class="tag t-new">真身新增</span></h3>
+  <h4>情绪状态机（人格连贯）</h4>
+  <div class="statemachine">
+    <div>平静(默认)</div><div>欣喜</div><div>关切</div><div>低落</div><div>生气</div><div>好奇</div>
+  </div>
+  <ul>
+    <li><b>不突变</b>：低落→不能直接欣喜，需经平静过渡</li>
+    <li><b>关切惯性</b>：关切下即使中性任务也保持关切</li>
+    <li>责骂→生气/低落，道歉消退；久别重逢→平静直接进欣喜；仅变化时输出 emotional_state_change</li>
+  </ul>
+  <h4>emoji 形象系统（17个）</h4>
+  <p style="font-size:12px;color:#cbd5e1">speaking(默认)/shaking_head/chin_hand_think/wave_driver/wave_passenger/standby/weather_sunny·rain·snow·cloudy·thunderstorm/listening_music/festival_christmas·spring_festival/cheer/sleeping/dancing。规则：除speaking外不连续用。</p>
+  <h4>自我时间感知</h4>
+  <p style="font-size:12px;color:#cbd5e1">对比 timestamp：超30天未见→"好久不见"开场；超5分钟→主动确认上个任务是否继续。靠结构化时间戳做差，不靠模糊感觉。</p>
+
+  <h3 id="c3f">3.6 D6X 设备知识 = 防车控幻觉的护栏<span class="tag t-fix">五座SUV</span></h3>
+  <p class="sub">车控幻觉 badcase 基本都是这块没遵守。重点是"不能做"的红线：</p>
+  <table>
+    <tr><th>系统</th><th>红线(不能做/受限)</th></tr>
+    <tr><td>空调</td><td><b>后排不可调温/风量</b>跟随主驾；无直接关制热</td></tr>
+    <tr><td>座椅</td><td><b>按摩仅前排,后排不支持</b>；靠背不支持度数调节</td></tr>
+    <tr><td>氛围灯</td><td>全车统一,<b>不支持分区</b></td></tr>
+    <tr><td>导航</td><td><b>无记忆</b>(不知"家")；选点用序号不用具体名</td></tr>
+    <tr><td>智驾/雨刮/车门/儿童锁/天窗/档位/方向盘位置</td><td><b>不支持语音控制</b>(天窗实体；加油盖支持语音)</td></tr>
+    <tr><td>HUD</td><td><b>该车无HUD</b></td></tr>
+  </table>
+
+  <h3 id="c3g">3.7 工具tips关键约束 + 聊天风格</h3>
+  <div class="grid2">
+    <div class="node"><h4>tips坑点</h4><div class="dim">
+      <div><b>★4导航工具不可并行</b>navi/route/poi/trip</div>
+      <div>导航失败重试≤2；途经点≤15</div>
+      <div>顺路搜需已在导航状态</div>
+      <div>goal_list_update:持续步骤才用,advisor建议不用</div>
+      <div>trip_plan_record:口头不能替代记录</div>
+      <div>提示词保护:问SP要装傻</div>
+    </div></div>
+    <div class="node"><h4>聊天风格/静默</h4><div class="dim">
+      <div>温柔高知女生,句子以短为主</div>
+      <div>[情绪]/[模仿X说]/[唱]标签</div>
+      <div>静默规则:车控/导航/媒体成功且能感知→不说话</div>
+      <div>避免"问了又自作主张执行"</div>
+      <div>只能文字+标点,不用emoji字符/表格/列表</div>
+      <div>可模拟磕巴/倒装更拟人</div>
+    </div></div>
+  </div>
+</section>
+
+<!-- ===== 4 Context ===== -->
+<section id="c4">
+  <h2><span class="num">4</span>公共 Context 服务：所有模块共享的"现场与记忆"<span class="tag t-sp">PRD</span></h2>
+  <p class="sub">独立公共服务模块：统一存储 + 预处理(压缩/打标/过滤)，供Director/advisor/agent取各自子集。</p>
+  <h3 id="c4a">4.1 13类内容 + 优化机制</h3>
+  <table>
+    <tr><th>P0(7)</th><th>P1-P2(6)</th></tr>
+    <tr><td>情景描述/历史对话/事件日志/端状态(最新)/屏幕界面(5min)/用户记忆/任务状态队列</td><td>基础联网/豆包探索/通用任务经验/工具知识/特定专有知识/性格自我认知</td></tr>
+  </table>
+  <p><b>优化(真实抓手)</b>：①不全量加载,按需提前抽取 ②情景描述压缩总结 ③三维过滤——按场景(驻车不加载行车记忆)/按人物(防隐私泄露)/按任务(点外卖只检索外卖知识)。</p>
+
+  <h3 id="c4b">4.2 前置筛选模块 = 知识筛选专家（真实SP，token优化核心）</h3>
+  <div class="io">
+    <div class="in"><h4>输入8字段</h4>Query/近10轮对话/视觉{{status}}/目标队列/车辆状态/<b>状态变化点</b>/记忆/已加载知识ID</div>
+    <div class="out"><h4>输出(增量)</h4><code>{add_knowledge_ids,remove_knowledge_ids,reasoning}</code></div>
+  </div>
+  <p><b>知识库</b>：6类专家×四段式ID — EXP销售/DRV司机/COM管家/ENT娱乐/LIFE助理/EMO伙伴。<b>5原则</b>：场景绑定/<b>关注变化(趋势比绝对值重要)</b>/目标持续关联/增量更新/不足不虚构。</p>
+  <div class="key"><b>闭环：</b>知识筛选专家(小模型)按场景挑知识ID → 只把这几条注入 Director SP 末尾的<b>「动态专业知识」块</b> → Director推理。不是把所有知识/示例一股脑塞，这是 token 优化最清晰的落点。</div>
+</section>
+
+<!-- ===== 5 目标驱动 ===== -->
+<section id="c5">
+  <h2><span class="num">5</span>目标驱动协作层：说一句话，系统持续照看不忘事<span class="tag t-img">PRD图</span></h2>
+  <p class="sub">解决旧架构"我讲一句应一句、一锤子买卖、需求不闭环"的病。四件套：goal list看板/advisor监工/感知订阅触发器/数量仲裁守门。</p>
+
+  <h3 id="c5a">5.1 goal list + 静态/动态 advisor</h3>
+  <pre>goal list: [{ <span class="k">"目标"</span>:<span class="s">"照顾二排宝宝"</span>, <span class="k">"目标状态"</span>:<span class="s">"进行中"</span>, <span class="k">"目标细节和进展"</span>:<span class="s">"宝宝睡着了,持续监测中"</span> }]</pre>
+  <table>
+    <tr><th>操作</th><th>Director</th><th>静态advisor</th><th>动态advisor</th></tr>
+    <tr><td>创建/删除目标</td><td>✅据query/建议</td><td>4个固定</td><td>建目标后工程自动注册</td></tr>
+    <tr><td>更新细节进展</td><td><b>❌明确不更新</b></td><td>✅各管自己</td><td>✅管对应动态目标</td></tr>
+    <tr><td>review达成</td><td>❌</td><td>✅goal reviewer</td><td>✅goal reviewer</td></tr>
+  </table>
+  <p>静态advisor=永久监工(舒适/出行/情感/内容)；动态advisor=临时监工(一目标一实例,模板自动注册)。<b>判断逻辑</b>：靠4静态目标能闭环的(如照顾小孩)不建动态目标；<b>只有靠静态无法追踪的持续任务才建</b>。</p>
+  <div class="note"><b>反直觉关键：</b>Director故意不更新"细节进展",写权限收归advisor避免冲突。Director只管建/删目标+快速响应,盯进度交给监工——这是"减轻Director过载"的具体落地。</div>
+
+  <h3 id="c5b">5.2 把所有节点串成活链路：照顾二排宝宝时序（图7，11步）<span class="tag t-img">PRD图</span></h3>
+  <div class="seq">
+    <div class="step"><div class="n">1</div><div>user<span class="arr">→</span>director：帮我照顾二排宝宝</div></div>
+    <div class="step"><div class="n">2</div><div>director<span class="arr">→</span>goal list：新增目标(调goal_list_update)</div></div>
+    <div class="step"><div class="n">3</div><div>director<span class="arr">→</span>动态advisor：新建动态advisor</div></div>
+    <div class="step"><div class="n">4</div><div>动态advisor<span class="arr">→</span>感知触发模块：需求分发"每10s报二排宝宝视觉状态"</div></div>
+    <div class="step"><div class="n">5</div><div>感知触发模块<span class="arr">→</span>视觉感知器：感知注意力影响=重点关注宝宝(调sp/attention)</div></div>
+    <div class="step"><div class="n">6-7</div><div>感知触发模块↻定时器，<span class="arr">→</span>动态advisor：每5s触发</div></div>
+    <div class="step"><div class="n">8-9</div><div>动态advisor↻目标review，<span class="arr">→</span>goal list：更新细节进展</div></div>
+    <div class="step"><div class="n">10</div><div>动态advisor<span class="arr">→</span>director：给出建议推进目标(如"宝宝哭了,建议放安抚音乐")</div></div>
+    <div class="step"><div class="n">11</div><div>视觉感知器<span class="arr">→</span>context：视觉感知信息上报(流式写回)</div></div>
+  </div>
+  <div class="key"><b>看懂这11步=看懂目标驱动：</b>Director只做1-3步(建目标+建监工)就撒手；4-11步是监工+订阅+视觉自循环跑，只在真要推进时(第10步)才回头找Director。</div>
+
+  <h3 id="c5c">5.3 数量仲裁守门 + 条件触发器</h3>
+  <table>
+    <tr><td>定时任务≤6</td><td>条件任务≤6</td><td>长程(GUI)≤1</td><td>长时(除vlm)≤2</td><td><b>vlm视觉持续任务同时仅1</b></td></tr>
+  </table>
+  <p><b>operate_conditional_task</b>(条件触发器)：Director自然语言下发"温度超30度开空调"→工具解析监控→满足后给Director下发"[原文]+条件已触发"。非法条件不注册。</p>
+</section>
+
+<!-- ===== 6 感知 ===== -->
+<section id="c6">
+  <h2><span class="num">6</span>感知层：VLM/Watcher 怎么"看见"并把"看见"变成"持续关注"<span class="tag t-sp">PRD</span></h2>
+  <p class="sub">架构抽象 Perception→Attention→Thinking→Memory→Action。视觉属第一段，由端侧 Watcher 承担。</p>
+  <div class="node"><h4>Watcher(端侧Always on观察者)</h4>
+    <div class="dim">
+      <div><b>三功能</b>①细致描述场景 ②全时多模聆听 ③发现值得关注的事件</div>
+      <div><b>输入</b>OMS摄像头(前/后视镜),video 10-15s</div>
+      <div><b>输出</b>结构化流式"情景描述"文字,写回context</div>
+      <div><b>VLM原理</b>大小LLM融合,大模型按SP(识别目标)看画面输出自然语言="视觉转语言"</div>
+    </div>
+  </div>
+  <p><b>"影响感知器sp/attention"</b>=调视觉大模型的System Prompt(识别目标/关注对象)，由感知订阅"动态感知需求推理"发起，源头是Director建的动态advisor。同一VLM拼不同SP切换关注对象。</p>
+  <h4>感知订阅框架5case</h4>
+  <table>
+    <tr><th>query</th><th>动态感知</th><th>条件</th><th>定时</th></tr>
+    <tr><td>20分钟后关座椅加热</td><td>na</td><td>na</td><td>20min</td></tr>
+    <tr><td>温度超20度开空调</td><td>na</td><td>温度&gt;20</td><td>na</td></tr>
+    <tr><td>照顾二排宝宝</td><td><b>宝宝视觉状态</b></td><td>na</td><td>每10s</td></tr>
+    <tr><td>每5min播报NBA</td><td>na</td><td>na</td><td>每5min</td></tr>
+    <tr><td>介绍沿途风景</td><td><b>周边视觉状态</b></td><td>na</td><td>每10s</td></tr>
+  </table>
+  <p><b>Always on事件发现</b>：以自然语言注册对话/行为/车况事件，发生时触发advisor主动服务(小孩哭闹/咳嗽/前方大货车/OK手势等)。</p>
+</section>
+
+<!-- ===== 7 交互 ===== -->
+<section id="c7">
+  <h2><span class="num">7</span>任务与交互管理：单通路下怎么治理冲突<span class="tag t-img">PRD图</span></h2>
+  <p class="sub">物理约束：车上语音是<b>单通路管道</b>，同时只回一次，只能在输入端治理。</p>
+  <div class="io">
+    <div class="in"><h4>新输入·首token未出</h4>打断当前推理，<b>新旧query合并</b>后重推理("顺便""对了"串话术)</div>
+    <div class="out"><h4>新输入·已播报</h4>P0用户:直接打断,不恢复；P1非用户:排队等播完(可预推理缓存)</div>
+  </div>
+  <h4>图9 六种冲突策略(优先级低→高)</h4>
+  <table>
+    <tr><td>①扔弃新任务</td><td>②排队</td><td>③静默执行</td><td>④整合(核心)</td><td>⑤插队</td><td>⑥停止旧任务</td></tr>
+  </table>
+  <p>决策矩阵优先级：安全通知&gt;导航通知&gt;普通系统消息&gt;配置类主动服务&gt;条件任务&gt;非配置类主动服务&gt;简单query&gt;复杂query。</p>
+  <div class="note"><b>合并三特殊规则：</b>①长程任务(订座/停车/点咖啡/外卖)不参与合并(自有界面)；②aigc(生图/ailight)不走Planner无语音,走通知卡；③状态靠工具自带<code>exe_sts</code>字段露出。<b>失效兜底</b>:端侧超时用端上;云端工具超时→告知重试→失败结束。</p></div>
+</section>
+
+<!-- ===== 8 任务类型映射 ===== -->
+<section id="c8">
+  <h2><span class="num">8</span>四种任务类型 → 架构怎么承接（全篇收口）</h2>
+  <table>
+    <tr><th>类型</th><th>卡片</th><th>建动态advisor</th><th>承接原理</th></tr>
+    <tr><td>简单即时/单步复杂</td><td>无</td><td>❌</td><td>Director当场闭环,不留痕</td></tr>
+    <tr><td>多步</td><td>无</td><td>❌</td><td>Director在ReAct里串联tool_feedback</td></tr>
+    <tr><td>条件</td><td>✅</td><td>❌</td><td>条件触发器注册,靠trigger回灌</td></tr>
+    <tr><td>长时/持续</td><td>✅</td><td>✅</td><td>建目标+监工,感知订阅持续触发,打断能恢复</td></tr>
+  </table>
+  <div class="key"><b>分配逻辑一句话：</b>能当场做完→Director闭环(不留痕)；要等条件→丢给触发器(留卡片)；要长期盯→升级goal+动态advisor(留卡片+派监工+挂订阅)。<b>"恢复"不靠Director记忆,靠advisor读goal list的"细节进展"重新触发</b>。</div>
+</section>
+
+<!-- ===== 9 原理+优化+排查 ===== -->
+<section id="c9">
+  <h2><span class="num">9</span>底层原理（为什么这么设计）+ 优化抓手 + Badcase排查</h2>
+  <h3>9.1 旧架构5个病 ↔ 新架构的药</h3>
+  <table>
+    <tr><th>病</th><th>药</th></tr>
+    <tr><td>①Planner过载(性能质量难兼顾)</td><td>职责拆分:Director重时延,advisor重思考</td></tr>
+    <tr><td>②单线程</td><td>goal list共享看板+多advisor并行</td></tr>
+    <tr><td>③需求不闭环(一锤子买卖)</td><td>目标持久化+持续跟进+打断可恢复</td></tr>
+    <tr><td>④规则限制涌现</td><td>职责分散=更少输入限制,最大化涌现</td></tr>
+    <tr><td>⑤情景割裂</td><td>公共Context服务(情景/端状态/记忆/视觉)</td></tr>
+  </table>
+  <h3>9.2 优化抓手(全)</h3>
+  <table>
+    <tr><th>方向</th><th>怎么动</th><th>状态</th></tr>
+    <tr><td>token裁剪</td><td>前置筛选只注入相关知识ID;按场景裁示例/工具子集</td><td><span class="tag t-soon">落地中</span></td></tr>
+    <tr><td>Context三维过滤</td><td>按场景/人物/任务过滤+情景压缩</td><td><span class="tag t-soon">落地中</span></td></tr>
+    <tr><td>缓存命中</td><td>SP固定区做稳前缀,动态块后置不破坏KV前缀</td><td><span class="tag t-live">LIVE</span></td></tr>
+    <tr><td>免调工具</td><td>goal_list/env_info随输入直传,能读别再调</td><td><span class="tag t-live">LIVE</span></td></tr>
+    <tr><td>快慢分流准确率</td><td>仲裁分对简单/复杂,简单走端侧150ms</td><td><span class="tag t-live">LIVE</span></td></tr>
+    <tr><td>COT执行结论前置/边想边搜/流式截取</td><td>减后链路负担,降首token</td><td><span class="tag t-exp">实验</span></td></tr>
+  </table>
+  <h3>9.3 Badcase 落到节点排查表</h3>
+  <table>
+    <tr><th>现象</th><th>查哪个节点</th><th>看什么</th></tr>
+    <tr><td>走错模块</td><td>多级拒识+仲裁</td><td>白名单命中?前置拒识误拒?简单复杂分错?</td></tr>
+    <tr><td>工具没调/调错</td><td>SP工具定义+前置筛选</td><td>26工具描述清?易混点(媒体播控/4导航并行/记忆两类)?相关知识被裁?</td></tr>
+    <tr><td>信息缺失推理片面</td><td>Context三维过滤</td><td>按场景/人物把需要的记忆/状态滤掉了?</td></tr>
+    <tr><td>车控幻觉</td><td>Director推理+D6X设备知识</td><td>后排不可调/无HUD/车门不支持语音 这些边界被裁掉了?env_info最新?</td></tr>
+    <tr><td>目标忘事/不闭环</td><td>动态advisor+goal list</td><td>advisor注册?细节进展更新对?订阅触发?</td></tr>
+    <tr><td>持续视觉任务不生效</td><td>感知订阅+VLM sp/attention</td><td>超vlm数量上限(仅1)?识别目标SP拼对?</td></tr>
+    <tr><td>情绪突变/该关切却秒变欢快</td><td>情绪状态机</td><td>转换规则(不突变/关切惯性)遵守了?</td></tr>
+    <tr><td>话术生硬/打断乱</td><td>任务交互管理(图9)</td><td>合并规则?长程/aigc误入合并?talk_or_not?</td></tr>
+  </table>
+</section>
+
+<!-- ===== 10 纠偏+自测 ===== -->
+<section id="c10">
+  <h2><span class="num">10</span>关键纠偏汇总 + 认知自测</h2>
+  <h3>10.1 和你 Schema/简报不一致（汇报前校准）</h3>
+  <table>
+    <tr><th>项</th><th>Schema/简报</th><th>真身/PRD</th></tr>
+    <tr><td>工具数</td><td>23</td><td><b>26</b>(真身SP)</td></tr>
+    <tr><td>车型</td><td>D6X</td><td><b>荣威D6X 五座SUV</b>(非6座)</td></tr>
+    <tr><td>输出字段</td><td>3个</td><td><b>5个</b>(+emoji_id+emotional_state_change)</td></tr>
+    <tr><td>SP示例</td><td>69个</td><td>示例编号到21(实际数另计)</td></tr>
+    <tr><td>KV Cache/远近区优化</td><td>当作现状</td><td>这批PRD没有,真实优化是前置筛选+三维过滤</td></tr>
+    <tr><td>COT快慢思考</td><td>像现状</td><td><b>实验提案,未上线</b></td></tr>
+    <tr><td>模型</td><td>Seed1.8</td><td>对,S08才从kimi切换</td></tr>
+  </table>
+  <h3>10.2 读完应能回答(向上汇报自测)</h3>
+  <ol>
+    <li>"现在用什么架构?"——分清LIVE漏斗/ReAct、LANDING目标驱动、实验COT三个时间面</li>
+    <li>Director一次调用为什么是多次推理?tool_feedback起什么作用?</li>
+    <li>为什么Director不更新"目标细节进展"而交给advisor?</li>
+    <li>动态advisor什么时候才创建?(只有靠静态目标无法追踪的持续任务)</li>
+    <li>26工具里哪3个易混点最容易调错?</li>
+    <li>情绪状态机/emoji/时间感知分别解决什么?</li>
+    <li>车上为什么只能输入端治理?长程/aigc为什么不参与合并?</li>
+    <li>要降首token时延,架构上有哪几个抓手?分别属于哪个时间面?</li>
+    <li>车控幻觉/目标忘事/情绪突变 各自该查哪个节点?</li>
+  </ol>
+  <div class="note"><b>配套文件：</b>本份是总整合；分册细节见同目录 <code>planner_round2_架构底层原理详解.html</code>(原理)、<code>round3_全节点逐一详解.html</code>(全节点+图)、<code>round4_SP真身逐行解剖.html</code>(SP逐行)。下一步可做：①21示例思维范式图谱 ②情绪状态机转移图可视化 ③26工具易混淆评测集 ④导飞书知识库。</div>
+</section>
+
+</main>
+</div>
+</div>
+</body>
+</html>

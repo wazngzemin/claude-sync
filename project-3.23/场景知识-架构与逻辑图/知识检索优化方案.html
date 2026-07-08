@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>知识检索模块优化方案</title>
+<style>
+  :root {
+    --bg: #0f0f1a;
+    --card: #161625;
+    --border: #2a2a40;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --dim: #64748b;
+    --purple: #a855f7;
+    --blue: #3b82f6;
+    --green: #10b981;
+    --orange: #f97316;
+    --red: #ef4444;
+    --yellow: #eab308;
+    --pink: #ec4899;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    padding: 40px 60px;
+    line-height: 1.7;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    background: linear-gradient(135deg, #a855f7, #3b82f6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .subtitle { color: var(--muted); font-size: 14px; margin-bottom: 40px; }
+  h2 {
+    font-size: 20px;
+    font-weight: 600;
+    margin: 40px 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  h2 .num {
+    display: inline-flex;
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  h3 { font-size: 16px; font-weight: 600; margin: 20px 0 10px; color: var(--text); }
+  p { margin-bottom: 12px; color: var(--muted); font-size: 15px; }
+  strong { color: var(--text); }
+
+  /* Problem section */
+  .problem-box {
+    background: #1a1020;
+    border: 1px solid #4a2060;
+    border-radius: 12px;
+    padding: 24px;
+    margin: 16px 0;
+  }
+  .trace-flow {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin: 20px 0;
+    flex-wrap: wrap;
+  }
+  .trace-step {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    text-align: center;
+    min-width: 140px;
+  }
+  .trace-step .name { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .trace-step .time { font-size: 22px; font-weight: 700; }
+  .trace-step.bad { border-color: var(--red); }
+  .trace-step.bad .time { color: var(--red); }
+  .trace-step.ok .time { color: var(--muted); }
+  .trace-arrow {
+    font-size: 20px;
+    color: var(--dim);
+    padding: 0 6px;
+  }
+  .trace-total {
+    margin-left: auto;
+    text-align: right;
+  }
+  .trace-total .label { font-size: 12px; color: var(--dim); }
+  .trace-total .val { font-size: 28px; font-weight: 700; color: var(--red); }
+
+  /* Diagnosis */
+  .diagnosis {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 16px 0;
+  }
+  .diag-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+  }
+  .diag-card .label { font-size: 12px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.05em; }
+  .diag-card .value { font-size: 24px; font-weight: 700; margin: 4px 0; }
+  .diag-card .desc { font-size: 13px; color: var(--muted); }
+  .diag-card.red .value { color: var(--red); }
+  .diag-card.green .value { color: var(--green); }
+
+  /* Solution cards */
+  .solution {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin: 16px 0;
+    position: relative;
+  }
+  .solution.primary {
+    border-color: var(--green);
+    background: linear-gradient(135deg, #0a1a15, var(--card));
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 99px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .badge.p0 { background: #2d1a0a; color: var(--orange); border: 1px solid #5a3000; }
+  .badge.p1 { background: #1a1a2d; color: var(--blue); border: 1px solid #2a3a6a; }
+  .badge.p2 { background: #1a1a1a; color: var(--dim); border: 1px solid #333; }
+  .badge.save { background: #0a2d1a; color: var(--green); border: 1px solid #0a5030; margin-left: 8px; }
+  .badge.cost { background: #1a1020; color: var(--pink); border: 1px solid #4a2060; margin-left: 8px; }
+
+  /* Before/After */
+  .compare {
+    display: grid;
+    grid-template-columns: 1fr 40px 1fr;
+    gap: 0;
+    margin: 20px 0;
+    align-items: start;
+  }
+  .compare-side {
+    background: var(--bg);
+    border-radius: 8px;
+    padding: 16px;
+    font-size: 13px;
+  }
+  .compare-side.before { border: 1px solid #4a2020; }
+  .compare-side.after { border: 1px solid #204a20; }
+  .compare-side .tag {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+  }
+  .compare-side.before .tag { color: var(--red); }
+  .compare-side.after .tag { color: var(--green); }
+  .compare-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    color: var(--dim);
+    padding-top: 30px;
+  }
+  pre {
+    background: #0a0a15;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    font-size: 13px;
+    font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+    overflow-x: auto;
+    line-height: 1.6;
+    color: var(--muted);
+    margin: 12px 0;
+    white-space: pre-wrap;
+  }
+  pre .kw { color: var(--purple); }
+  pre .id { color: var(--orange); }
+  pre .anchor { color: var(--blue); }
+  pre .rule { color: var(--yellow); }
+  pre .comment { color: var(--dim); font-style: italic; }
+
+  /* Result summary */
+  .result-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: linear-gradient(135deg, #0a1a2a, #0a2a1a);
+    border: 1px solid var(--green);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin: 24px 0;
+  }
+  .result-bar .metric {
+    text-align: center;
+    flex: 1;
+  }
+  .result-bar .metric .label { font-size: 11px; color: var(--dim); text-transform: uppercase; }
+  .result-bar .metric .from { font-size: 16px; color: var(--red); text-decoration: line-through; }
+  .result-bar .metric .to { font-size: 24px; font-weight: 700; color: var(--green); }
+  .result-bar .metric .arrow-down { font-size: 14px; color: var(--green); margin: 2px 0; }
+  .divider { width: 1px; height: 50px; background: var(--border); }
+
+  /* Steps */
+  .steps {
+    display: flex;
+    gap: 12px;
+    margin: 16px 0;
+    flex-wrap: wrap;
+  }
+  .step {
+    flex: 1;
+    min-width: 200px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+  }
+  .step .num { font-size: 24px; font-weight: 700; color: var(--purple); margin-bottom: 4px; }
+  .step .title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .step .desc { font-size: 12px; color: var(--muted); }
+
+  .callout {
+    background: #1a1a10;
+    border-left: 3px solid var(--yellow);
+    padding: 12px 16px;
+    margin: 16px 0;
+    border-radius: 0 8px 8px 0;
+    font-size: 14px;
+  }
+  .callout strong { color: var(--yellow); }
+
+  .footer {
+    margin-top: 48px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--dim);
+  }
+</style>
+</head>
+<body>
+
+<h1>知识检索模块 — 延迟优化方案</h1>
+<p class="subtitle">司机 Agent 2.0 / 场景知识匹配 / 2026-05-18</p>
+
+<!-- ==================== 1. 问题 ==================== -->
+<h2><span class="num" style="background:#2d1020;color:#ef4444;">1</span> 问题在哪</h2>
+
+<p>当前知识检索模块（Knowledge Selector）单次调用耗时 <strong>1.8 秒</strong>，在整个对话链路中占比过高。用户从说话到得到回复，总延迟超过 6 秒。</p>
+
+<div class="trace-flow">
+  <div class="trace-step bad">
+    <div class="name">知识检索 Selector</div>
+    <div class="time">1.8s</div>
+  </div>
+  <div class="trace-arrow">→</div>
+  <div class="trace-step ok">
+    <div class="name">SP 拼接</div>
+    <div class="time">~0ms</div>
+  </div>
+  <div class="trace-arrow">→</div>
+  <div class="trace-step bad">
+    <div class="name">Director 推理</div>
+    <div class="time">4.7s</div>
+  </div>
+  <div class="trace-arrow">=</div>
+  <div class="trace-total">
+    <div class="label">用户等待总时长</div>
+    <div class="val">6.5s</div>
+  </div>
+</div>
+
+<h3>为什么这么慢？</h3>
+
+<div class="diagnosis">
+  <div class="diag-card red">
+    <div class="label">Input Tokens</div>
+    <div class="value">~3,200</div>
+    <div class="desc">13 个场景的完整描述全塞在 prompt 里，模型每次请求都要读完。这是延迟主因。</div>
+  </div>
+  <div class="diag-card green">
+    <div class="label">Output Tokens</div>
+    <div class="value">~150</div>
+    <div class="desc">输出就是一个 ID + reasoning。占比极小，压缩输出效果有限。</div>
+  </div>
+</div>
+
+<p><strong>一句话诊断</strong>：Selector 做的是"分类"（这个 query 匹配哪个场景），但 prompt 里塞的是"说明书"（如何执行该场景）。模型读了 3000 tokens 的说明书，只为了输出一个分类编号。</p>
+
+<!-- ==================== 2. 方案 ==================== -->
+<h2><span class="num" style="background:#0a2d1a;color:#10b981;">2</span> 怎么改</h2>
+
+<p>两步走，都只改 prompt，不动架构。</p>
+
+<!-- 方案 A -->
+<div class="solution primary">
+  <h3><span class="badge p0">P0 必做</span><span class="badge save">省 800ms</span><span class="badge cost">改 prompt</span> 压缩场景索引</h3>
+
+  <p>Selector 不需要知道"怎么处理晕车"，它只需要知道"这个 query 是不是在说晕车"。</p>
+  <p><strong>把场景描述换成锚词表</strong>：每个场景一行，只保留匹配关键词。</p>
+
+  <div class="compare">
+    <div class="compare-side before">
+      <div class="tag">现在：每个场景 200-400 字</div>
+      <p style="font-size:12px;color:var(--muted);margin:0;">名称ID: ID_004<br>
+      名称场景：舒适用车-车内环境-急速降温-急速降温/智能调窗/风噪管控/动态风噪平衡调节<br>
+      场景描述：1.用户在夏天车辆暴晒后上车需要快速降温，或行车中因车速变化需要调整车窗和天窗打开百分比以减少风噪。2.用户行车途中感知风量不适、想通风换气……</p>
+    </div>
+    <div class="compare-arrow">→</div>
+    <div class="compare-side after">
+      <div class="tag">改后：每个场景 1 行</div>
+      <p style="font-size:12px;color:var(--muted);margin:0;">004 急速降温｜好热/暴晒/降温/风噪/开窗调节</p>
+    </div>
+  </div>
+
+  <p style="font-size:14px;"><strong>13 个场景总计从 ~4000 字 → ~500 字</strong>，input tokens 直接砍掉 80%。</p>
+</div>
+
+<!-- 方案 B -->
+<div class="solution">
+  <h3><span class="badge p0">P0 必做</span><span class="badge save">省 150ms</span><span class="badge cost">改 prompt</span> 精简输出格式</h3>
+
+  <p>输出从 JSON + reasoning 改为纯数字。</p>
+
+  <div class="compare">
+    <div class="compare-side before">
+      <div class="tag">现在的输出</div>
+      <p style="font-size:12px;color:var(--muted);margin:0;font-family:monospace;">{"add_knowledge_ids": ["DRV-01-01-05"],<br>"remove_knowledge_ids": [],<br>"reasoning": {"add_reason": "用户当前Query为去医院…", "remove_reason": "无"}}</p>
+    </div>
+    <div class="compare-arrow">→</div>
+    <div class="compare-side after">
+      <div class="tag">改后的输出</div>
+      <p style="font-size:12px;color:var(--muted);margin:0;font-family:monospace;">004</p>
+      <p style="font-size:11px;color:var(--dim);margin:4px 0 0;">多命中：001,013<br>未命中：000</p>
+    </div>
+  </div>
+
+  <div class="callout">
+    <strong>注意：</strong>reasoning 字段在调试阶段有价值。建议保留一个 debug 开关：正式环境只输出 ID，调试环境带 reasoning。
+  </div>
+</div>
+
+<!-- 方案 C -->
+<div class="solution">
+  <h3><span class="badge p0">P0 必做</span><span class="badge save">保准确率</span><span class="badge cost">加 5 行</span> 保留互斥规则</h3>
+
+  <p>场景描述可以砍，但<strong>互斥判断规则不能丢</strong>——这是分类准确率的关键。</p>
+  <p>这些规则解决的是"听起来像 A 但其实是 B"的边界情况。压缩后单独列出：</p>
+
+<pre><span class="rule">## 易混淆区分</span>
+<span class="comment">- 孩子睡了/别打扰 → 013  ≠  陪孩子玩 → 001</span>
+<span class="comment">- 孩子困了要睡   → 009  ≠  哄孩子开心 → 001</span>
+<span class="comment">- 驻车看片       → 003  ≠  行车后排看 → 002</span>
+<span class="comment">- 暴晒急降温     → 004  ≠  抽烟通风   → 012</span>
+<span class="comment">- 冥想正念       → 008  ≠  打盹午休   → 009</span></pre>
+</div>
+
+<!-- ==================== 3. 改后 Prompt ==================== -->
+<h2><span class="num" style="background:#1a1a2d;color:#3b82f6;">3</span> 改后的完整 Prompt</h2>
+
+<p>直接可以替换到 PromptHub，预估 ~400 tokens。</p>
+
+<pre>你是车载场景分类器。根据 query + context 判断命中哪个场景。
+
+<span class="rule">## 规则</span>
+- 命中输出场景 ID（如 004），多命中逗号分隔
+- 未命中输出 000
+- 仅输出数字，无任何其他内容
+
+<span class="rule">## 场景</span>
+<span class="id">001</span> <span class="kw">儿童陪伴安抚</span>｜<span class="anchor">照顾/哄/陪孩子/儿歌/故事/益智/安抚/猜谜/逗孩子</span>
+<span class="id">002</span> <span class="kw">后排观影</span>｜<span class="anchor">后排看/吸顶屏/电影/追剧/综艺/纪录片</span>
+<span class="id">003</span> <span class="kw">驻车前排观影</span>｜<span class="anchor">驻车+看片/等人看电影/充电看剧</span>
+<span class="id">004</span> <span class="kw">急速降温</span>｜<span class="anchor">好热/暴晒/降温/风噪大/开窗调节</span>
+<span class="id">005</span> <span class="kw">急速升温</span>｜<span class="anchor">好冷/冻僵/预热/除雾/升温</span>
+<span class="id">006</span> <span class="kw">副驾座椅</span>｜<span class="anchor">副驾座椅/女王副驾/副驾调节/副驾不舒服</span>
+<span class="id">007</span> <span class="kw">5D沉浸观影</span>｜<span class="anchor">5D/沉浸影院/座椅震动+观影</span>
+<span class="id">008</span> <span class="kw">冥想空间</span>｜<span class="anchor">冥想/正念/压力大/驻车+放松</span>
+<span class="id">009</span> <span class="kw">车内小憩</span>｜<span class="anchor">打盹/午休/小憩/睡一会/叫醒</span>
+<span class="id">010</span> <span class="kw">雨天关怀</span>｜<span class="anchor">下雨/起雾/雪天/能见度/雨刮</span>
+<span class="id">011</span> <span class="kw">宠物关怀</span>｜<span class="anchor">宠物/狗猫/留车/宠物不适</span>
+<span class="id">012</span> <span class="kw">快速通风</span>｜<span class="anchor">抽烟/通风/异味/闷/换气</span>
+<span class="id">013</span> <span class="kw">后排勿扰</span>｜<span class="anchor">后排别扰/后排睡了/儿童锁屏</span>
+
+<span class="rule">## 易混淆</span>
+- 孩子睡了/别打扰→013 ≠ 陪孩子玩→001
+- 孩子困了要睡→009 ≠ 哄孩子开心→001
+- 驻车看片→003 ≠ 行车后排看→002
+- 暴晒降温→004 ≠ 抽烟通风→012
+- 冥想正念→008 ≠ 打盹午休→009</pre>
+
+<!-- ==================== 4. 预期效果 ==================== -->
+<h2><span class="num" style="background:#1a2d1a;color:#10b981;">4</span> 预期效果</h2>
+
+<div class="result-bar">
+  <div class="metric">
+    <div class="label">Selector 延迟</div>
+    <div class="from">1,805ms</div>
+    <div class="arrow-down">↓</div>
+    <div class="to">~400ms</div>
+  </div>
+  <div class="divider"></div>
+  <div class="metric">
+    <div class="label">Input Tokens</div>
+    <div class="from">~3,200</div>
+    <div class="arrow-down">↓</div>
+    <div class="to">~400</div>
+  </div>
+  <div class="divider"></div>
+  <div class="metric">
+    <div class="label">Output Tokens</div>
+    <div class="from">~150</div>
+    <div class="arrow-down">↓</div>
+    <div class="to">~5</div>
+  </div>
+  <div class="divider"></div>
+  <div class="metric">
+    <div class="label">总链路预估</div>
+    <div class="from">6.5s</div>
+    <div class="arrow-down">↓</div>
+    <div class="to">~5.1s</div>
+  </div>
+</div>
+
+<!-- ==================== 5. 验证步骤 ==================== -->
+<h2><span class="num" style="background:#2d1a0a;color:#f97316;">5</span> 验证步骤</h2>
+
+<div class="steps">
+  <div class="step">
+    <div class="num">01</div>
+    <div class="title">Playground 跑测试集</div>
+    <div class="desc">用精简 prompt 替换，跑现有 74 条测试用例，对比场景命中准确率</div>
+  </div>
+  <div class="step">
+    <div class="num">02</div>
+    <div class="title">关注边界用例</div>
+    <div class="desc">重点看"易混淆"场景的准确率：001/013、008/009、003/002、004/012</div>
+  </div>
+  <div class="step">
+    <div class="num">03</div>
+    <div class="title">延迟对比</div>
+    <div class="desc">对比新旧 prompt 的 TTFT 和总延迟，确认 tokens 下降比例</div>
+  </div>
+</div>
+
+<div class="callout">
+  <strong>风险提示：</strong>锚词表的覆盖率取决于用户表达的多样性。如果测试集中有"隐晦表达"（如用户说"车里好闷"可能同时触发降温和通风），需要补充锚词或调整互斥规则。建议先跑测试集，收集 miss 的 case，再迭代补充锚词。
+</div>
+
+<!-- ==================== 6. 进阶 ==================== -->
+<h2><span class="num" style="background:#1a1a2d;color:var(--dim);">6</span> 进阶优化（可选，不急）</h2>
+
+<div class="solution">
+  <h3><span class="badge p1">P1</span> 高频场景规则前置</h3>
+  <p>对"抽烟通风""冥想"等高置信度场景，用正则关键词直接命中，跳过 LLM 调用。覆盖约 30-40% 请求，命中时延迟 < 10ms。</p>
+</div>
+
+<div class="solution">
+  <h3><span class="badge p2">P2</span> Embedding 预筛 + LLM 精排</h3>
+  <p>场景扩展到 50+ 时，用 embedding 相似度取 top-3 候选，再用 LLM 做 3 选 1 精排。延迟恒定在 ~350ms，不受场景数量影响。</p>
+</div>
+
+<div class="footer">
+  方案制作：场景知识优化 / Andy Matuschak Context Engineering 视角<br>
+  数据来源：Trace 日志 + 【场景知识】测试用例.xlsx（74 cases）
+</div>
+
+</body>
+</html>

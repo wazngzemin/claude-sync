@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <title>Planner Trace 阅读方法论 — Driver Agent 2.0 Badcase 归因指南</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        :root {
+            --bg: #f7f9fc;
+            --card: #fff;
+            --text: #2c3e50;
+            --light: #666;
+            --accent: #3498db;
+            --border: #eaeaea;
+            --max-w: 920px;
+        }
+        * { box-sizing: border-box; }
+        body { margin:0; background:var(--bg); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif; color:var(--text); line-height:1.85; }
+        .container { max-width:var(--max-w); margin:40px auto; padding:0 20px; }
+
+        /* ── Header ── */
+        .header { background:linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); color:#fff; padding:50px 40px; border-radius:16px; margin-bottom:30px; position:relative; overflow:hidden; }
+        .header::after { content:''; position:absolute; top:-50%; right:-20%; width:400px; height:400px; background:radial-gradient(circle, rgba(52,152,219,.15) 0%, transparent 70%); }
+        .header h1 { font-size:1.9rem; margin:0 0 8px; font-weight:700; position:relative; z-index:1; }
+        .header .sub { font-size:1rem; color:rgba(255,255,255,.7); position:relative; z-index:1; }
+        .header .badge { display:inline-block; background:rgba(52,152,219,.3); border:1px solid rgba(52,152,219,.5); color:#7ec8e3; padding:3px 14px; border-radius:20px; font-size:.8rem; margin-top:14px; position:relative; z-index:1; }
+
+        /* ── Card ── */
+        .card { background:var(--card); border-radius:12px; box-shadow:0 2px 12px rgba(0,0,0,.04); padding:36px 40px; margin-bottom:24px; border:1px solid var(--border); }
+        @media(max-width:768px){ .card { padding:20px; } }
+        .card h2 { font-size:1.35rem; margin:0 0 6px; color:var(--text); display:flex; align-items:center; gap:10px; }
+        .card h2 .num { background:var(--accent); color:#fff; width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.85rem; font-weight:700; flex-shrink:0; }
+        .card h2 .num.red { background:#e74c3c; }
+        .card h2 .num.orange { background:#e67e22; }
+        .card h2 .num.green { background:#27ae60; }
+        .card h2 .num.purple { background:#8e44ad; }
+        .card .role { font-size:.88rem; color:var(--light); margin-bottom:20px; }
+
+        /* ── Section styles ── */
+        h3 { font-size:1.1rem; margin-top:28px; margin-bottom:8px; color:#2c3e50; padding-bottom:6px; border-bottom:1px solid #f0f0f0; }
+        h4 { font-size:1rem; margin-top:20px; margin-bottom:6px; color:#555; }
+        p { margin:10px 0; font-size:.94rem; }
+
+        /* ── Callout boxes ── */
+        .box { padding:16px 20px; margin:14px 0; border-radius:0 8px 8px 0; font-size:.9rem; line-height:1.7; }
+        .box-blue { background:#f0f7ff; border-left:4px solid var(--accent); }
+        .box-red { background:#fff0f0; border-left:4px solid #e74c3c; }
+        .box-yellow { background:#fff8e6; border-left:4px solid #f0ad4e; }
+        .box-green { background:#eefbf3; border-left:4px solid #27ae60; }
+        .box-purple { background:#f5f0ff; border-left:4px solid #8e44ad; }
+        .box-gray { background:#f8f9fa; border-left:4px solid #95a5a6; }
+        .box strong { font-weight:600; }
+        .box .label { font-weight:700; display:block; margin-bottom:4px; }
+
+        /* ── Trace tree ── */
+        .tree { background:#1a1a2e; color:#a8d8ea; border-radius:10px; padding:24px 28px; margin:16px 0; font-family:'SF Mono','Fira Code','Cascadia Code',Consolas,monospace; font-size:.82rem; line-height:1.9; overflow-x:auto; }
+        .tree .hl { color:#f39c12; font-weight:700; }
+        .tree .hl-red { color:#e74c3c; font-weight:700; }
+        .tree .hl-green { color:#2ecc71; }
+        .tree .hl-dim { color:#5a6a7a; }
+        .tree .hl-blue { color:#3498db; }
+        .tree .anno { color:#7f8c8d; font-style:italic; }
+
+        /* ── Table ── */
+        table { width:100%; border-collapse:collapse; margin:14px 0; font-size:.88rem; }
+        th, td { border:1px solid var(--border); padding:10px 14px; text-align:left; }
+        th { background:#f8fafc; font-weight:600; color:#555; font-size:.85rem; }
+        td { vertical-align:top; }
+
+        /* ── Tags ── */
+        .tag { display:inline-block; padding:2px 10px; border-radius:12px; font-size:.78rem; font-weight:500; margin-right:4px; }
+        .tag-must { background:#fde8e8; color:#c0392b; }
+        .tag-cond { background:#fff3e0; color:#e67e22; }
+        .tag-opt { background:#e8f4fd; color:#2980b9; }
+        .tag-star { background:#e8f8f5; color:#1abc9c; }
+
+        /* ── Steps / Flow ── */
+        .step { display:flex; gap:14px; margin:12px 0; }
+        .step-num { background:var(--accent); color:#fff; width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.75rem; font-weight:700; flex-shrink:0; margin-top:2px; }
+        .step-num.red { background:#e74c3c; }
+        .step-num.green { background:#27ae60; }
+        .step-content { flex:1; font-size:.92rem; }
+
+        /* ── Case study ── */
+        .case { background:#fffdf5; border:1px solid #f5e6c8; border-radius:8px; padding:18px 22px; margin:14px 0; }
+        .case .case-title { font-weight:700; color:#d35400; font-size:.92rem; margin-bottom:8px; display:flex; align-items:center; gap:6px; }
+        .case code { background:#fff3e0; padding:1px 6px; border-radius:3px; font-size:.84rem; color:#e67e22; }
+        .case p { margin:6px 0; font-size:.88rem; }
+
+        /* ── Code block ── */
+        pre { background:#2d2d2d; color:#f8f8f2; padding:18px 22px; border-radius:8px; font-size:.82rem; line-height:1.6; overflow-x:auto; font-family:'SF Mono','Fira Code',Consolas,monospace; }
+        pre .key { color:#66d9ef; }
+        pre .str { color:#a6e22e; }
+        pre .val { color:#e6db74; }
+        pre .cmt { color:#75715e; }
+
+        code { background:#f0f0f0; padding:1px 6px; border-radius:3px; font-size:.86rem; color:#c0392b; font-family:'SF Mono','Fira Code',Consolas,monospace; }
+
+        /* ── Checklist ── */
+        .checklist { background:#f8fafc; border:1px solid var(--border); border-radius:8px; padding:20px 24px; margin:16px 0; }
+        .checklist .item { display:flex; gap:10px; margin:8px 0; font-size:.9rem; align-items:flex-start; }
+        .checklist .check { width:20px; height:20px; border:2px solid #ccc; border-radius:4px; flex-shrink:0; margin-top:2px; }
+        .checklist .check.filled { background:var(--accent); border-color:var(--accent); position:relative; }
+        .checklist .check.filled::after { content:'✓'; color:#fff; position:absolute; top:-2px; left:3px; font-size:.75rem; font-weight:700; }
+        .checklist .divider { border-top:1px dashed #ddd; margin:12px 0; }
+
+        /* ── Flowchart ── */
+        .flow { background:#fafbfd; border:1px solid #e0e6ed; border-radius:10px; padding:24px; margin:16px 0; }
+        .flow-node { background:#fff; border:2px solid #ddd; border-radius:8px; padding:12px 16px; margin:8px 0 8px 0; font-size:.88rem; }
+        .flow-node.decision { border-color:#3498db; background:#f0f7ff; border-style:solid; }
+        .flow-node.result { border-color:#27ae60; background:#eefbf3; }
+        .flow-node.result-bad { border-color:#e74c3c; background:#fff0f0; }
+        .flow-arrow { color:#999; font-size:.85rem; padding-left:20px; margin:4px 0; }
+        .flow-branch { padding-left:30px; border-left:2px solid #ddd; margin-left:14px; }
+
+        /* ── TOC ── */
+        .toc { background:#f8fafc; border:1px solid var(--border); border-radius:10px; padding:24px 28px; margin-bottom:24px; }
+        .toc h3 { margin:0 0 12px; font-size:1.05rem; color:var(--text); border:none; padding:0; }
+        .toc ol { padding-left:22px; margin:0; }
+        .toc li { margin:6px 0; font-size:.9rem; }
+        .toc a { color:var(--accent); text-decoration:none; }
+        .toc a:hover { text-decoration:underline; }
+        .toc .toc-sub { padding-left:20px; list-style-type:disc; }
+
+        /* ── Summary table ── */
+        .summary-row { display:grid; grid-template-columns:50px 1fr 2fr 80px; gap:0; border-bottom:1px solid var(--border); padding:12px 0; align-items:start; font-size:.88rem; }
+        .summary-row.header { font-weight:700; color:#555; font-size:.82rem; border-bottom:2px solid var(--border); padding-bottom:8px; }
+        .summary-row:last-child { border-bottom:none; }
+        @media(max-width:600px){ .summary-row { grid-template-columns:1fr; gap:4px; } }
+
+        /* ── Importance meter ── */
+        .importance { display:flex; gap:3px; align-items:center; }
+        .importance .star { width:14px; height:14px; }
+        .importance .star.on { color:#f39c12; }
+        .importance .star.off { color:#ddd; }
+
+        /* ── Footer ── */
+        .footer { text-align:center; color:var(--light); font-size:.82rem; padding:30px 0; }
+    </style>
+</head>
+<body>
+<div class="container">
+
+<!-- ═══════════ Header ═══════════ -->
+<div class="header">
+    <h1>Planner Trace 阅读方法论</h1>
+    <div class="sub">Driver Agent 2.0 Badcase 归因指南 · 基于 Fornax 日志平台</div>
+    <div class="badge">v2.0 · 2026-05-14 · Harrison Chase 风格技术评审</div>
+</div>
+
+<!-- ═══════════ TOC ═══════════ -->
+<div class="toc">
+    <h3>📑 目录</h3>
+    <ol>
+        <li><a href="#mental-model">核心思维模型 — 为什么要看 Trace</a></li>
+        <li><a href="#trace-tree">你的 Trace 树长什么样</a></li>
+        <li><a href="#station1">第一站：Planner 第一轮 Output</a></li>
+        <li><a href="#station2">第二站：Tool 的原始返回</a></li>
+        <li><a href="#station3">第三站：Planner 的 Input Arguments</a>
+            <ul class="toc-sub">
+                <li><a href="#arg-knowledge">knowledge（动态知识）</a></li>
+                <li><a href="#arg-envinfo">env_info（车辆环境状态）</a></li>
+                <li><a href="#arg-memory">memory（用户记忆）</a></li>
+                <li><a href="#arg-goallist">goal_list（目标队列）</a></li>
+                <li><a href="#arg-speaker">speaker 说话人信息</a></li>
+            </ul>
+        </li>
+        <li><a href="#station4">第四站：对话历史 History</a></li>
+        <li><a href="#station5">第五站：System Prompt 变体选择</a></li>
+        <li><a href="#station6">第六站：拒识模块</a></li>
+        <li><a href="#station7">第七站：Planner 第二轮 Output</a></li>
+        <li><a href="#station8">第八站：Timing 性能数据</a></li>
+        <li><a href="#decision-tree">速查决策树 — 60 秒定位方向</a></li>
+        <li><a href="#checklist">必看清单（打印贴工位）</a></li>
+        <li><a href="#template">归因模板（填 Bug Report 用）</a></li>
+    </ol>
+</div>
+
+
+<!-- ═══════════ 0. Mental Model ═══════════ -->
+<div class="card" id="mental-model">
+    <h2><span class="num" style="background:#1a1a2e;">0</span> 核心思维模型 — 为什么要看 Trace</h2>
+    <div class="role">在看任何 trace 之前，先建立正确的思维框架</div>
+
+    <h3>Agent 是一条数据变换链</h3>
+    <p>用户的一句话进来，经过一个个模块的加工，最终变成一段回复 + 一组动作出去：</p>
+
+    <div class="tree">
+用户说话 ──→ [拒识判断] ──→ [变体选择] ──→ [Planner 推理] ──→ [Tool 执行] ──→ [二轮推理] ──→ 回复 + 动作
+    </div>
+
+    <div class="box box-blue">
+        <span class="label">💡 核心原则</span>
+        <strong>badcase 意味着这条链里某一步的变换出了错。</strong>你的工作就是找到是哪一步。方法只有一个：在每个节点查看 input 和 output，找到<strong>第一个 output 开始出错的节点</strong> — 那就是根因所在。
+    </div>
+
+    <p>这就像<strong>查电路故障</strong>：不是猜哪里断了，而是拿万用表从电源端一个节点一个节点往下量，找到第一个电压跌落的位置。</p>
+
+    <div class="box box-red">
+        <span class="label">⚠️ 最常见的错误</span>
+        拿到一个 badcase 就直觉猜"肯定是 prompt 的问题"或"模型太笨了"。<strong>不要猜，看数据。</strong>像五哈那条 case，看起来像 prompt 问题，实际是 tool 返回穿透。数据不会骗你，直觉会。
+    </div>
+
+    <p>你的 <strong>Fornax trace 树</strong>就是这条链的可视化。树上的每个节点就是一个变换步骤。下面按<strong>你应该看的顺序</strong>逐个展开。</p>
+</div>
+
+
+<!-- ═══════════ Trace Tree ═══════════ -->
+<div class="card" id="trace-tree">
+    <h2><span class="num" style="background:#1a1a2e;">🌲</span> 你的 Trace 树结构</h2>
+    <div class="role">Fornax 平台上看到的树结构，标注了每个节点的查看优先级</div>
+
+    <div class="tree">
+send_message_by_sse
+└── <span class="hl">aidv-main-flow</span>
+    │
+    ├── collect-tools-info <span class="hl-dim">(5ms)</span>                      <span class="anno">← 辅助看</span>
+    │
+    ├── <span class="hl-blue">intent-and-refusal</span>                            <span class="anno">← ⑥ 条件看（沉默/误拒时）</span>
+    │   └── reject-analyse
+    │       └── ArkChatModel <span class="hl-dim">(ep-...xvtrm, 2.36s, 5780 tok)</span>
+    │
+    └── <span class="hl">planner_analyze_task_text</span>
+        │
+        ├── <span class="hl-blue">get-system-prompt-vari</span>                    <span class="anno">← ⑤ 条件看（风格跑偏时）</span>
+        │   └── ArkChatModel <span class="hl-dim">(ep-...tkhpg, 1.42s, 36 tok)</span>
+        │
+        └── <span class="hl">text_planner</span>
+            │
+            ├── <span class="hl-red">★ ChatModel (ep-...d6lmc, 2.30s)</span>       <span class="anno">← ①③④ 必看：Input + Output</span>
+            │   │
+            │   ├── Input 侧
+            │   │   ├── system prompt <span class="hl-dim">(194K chars)</span>
+            │   │   ├── <span class="hl">arguments</span>                         <span class="anno">← ③ 必看</span>
+            │   │   │   ├── knowledge    <span class="anno">动态知识</span>
+            │   │   │   ├── env_info     <span class="anno">车辆状态</span>
+            │   │   │   ├── memory       <span class="anno">用户记忆</span>
+            │   │   │   ├── goal_list    <span class="anno">目标队列</span>
+            │   │   │   ├── speaker_name <span class="anno">说话人</span>
+            │   │   │   └── car_basic_info <span class="anno">车型</span>
+            │   │   └── <span class="hl">history</span>                           <span class="anno">← ④ 必看</span>
+            │   │
+            │   └── <span class="hl-red">Output: JSON</span>                      <span class="anno">← ① 第一个看</span>
+            │       ├── talk_or_not
+            │       ├── talk_content
+            │       ├── emoji_id
+            │       ├── emotional_state_change
+            │       └── action_list[ ]
+            │
+            ├── <span class="hl-red">Tools</span>                                 <span class="anno">← ② 必看</span>
+            │   └── search_and_control_short_video
+            │       ├── video_search → mixer_search
+            │       ├── <span class="hl-green">Input: Planner 传的 param</span>
+            │       └── <span class="hl-green">Output: 搜索结果原始数据</span>
+            │
+            └── <span class="hl-blue">planner-tts:send-to-play</span>             <span class="anno">← ⑦ 有 tool 调用时必看</span>
+                └── ChatModel <span class="hl-dim">(ep-...d6lmc, 1.85s)</span>
+                    └── Output: 最终回复 JSON
+    </div>
+
+    <div class="box box-green">
+        <span class="label">阅读顺序总览</span>
+        <strong>①→② 每条必看</strong>（3分钟内，覆盖80%的badcase）→ <strong>③→④ 定位不到时看</strong>（再1.5分钟）→ <strong>⑤⑥ 特定症状才看</strong> → <strong>⑦ 有 tool 调用时看</strong>
+    </div>
+</div>
+
+
+<!-- ═══════════ Station 1 ═══════════ -->
+<div class="card" id="station1">
+    <h2><span class="num red">①</span> 第一站：Planner 第一轮 Output</h2>
+    <div class="role">
+        <span class="tag tag-must">每条必看</span>
+        树上位置：<code>text_planner → ChatModel → Output</code>
+    </div>
+
+    <h3>为什么第一个看这里</h3>
+    <p>Planner 是整个 Agent 的<strong>中枢大脑</strong>。它的 output 决定了三件事：</p>
+    <table>
+        <tr><th style="width:35%;">决定什么</th><th>对应 output 字段</th></tr>
+        <tr><td>要不要和用户说话</td><td><code>talk_or_not</code>（yes / no）</td></tr>
+        <tr><td>说什么话、用什么语气</td><td><code>talk_content</code>（回复文本）</td></tr>
+        <tr><td>要不要执行动作、调哪个工具</td><td><code>action_list</code>（工具 + 参数列表）</td></tr>
+    </table>
+
+    <div class="box box-blue">
+        <span class="label">💡 为什么先看 output 不先看 input</span>
+        因为你的目标是<strong>快速判断问题在 Planner 还是在 Planner 之后</strong>。如果 output 已经错了，就不用往下游查了，直接转向查 input（第三站）来找原因。如果 output 是对的但最终回复是错的，说明问题在下游（tool 执行或二轮推理）。<br><br>
+        <strong>先看结果，再追原因。</strong>就像医生先看症状再做检查，不是反过来。
+    </div>
+
+    <h3>逐字段检查指南</h3>
+
+    <h4>🔍 <code>action_list</code> — 最关键的字段</h4>
+    <p>这个字段记录了 Planner 决定调用哪些工具、传什么参数。它是 badcase 的重灾区。你要看三件事：</p>
+
+    <div class="box box-yellow">
+        <span class="label">检查点 A：tool 选对了没有</span>
+        你们有 24 个 tool。Planner 需要从里面挑对的。常见错法：<br>
+        • 该用 <code>vehicle_basic_control</code>（车控）却用了 <code>search_and_control_short_video</code>（搜视频）<br>
+        • 该用 <code>web_search</code>（搜信息）却用了 <code>route_planning_qa</code>（导航问答）<br>
+        • 该同时调两个 tool 却只调了一个<br><br>
+        <strong>为什么 tool 会选错？</strong>因为 Planner 是靠 system prompt 里的 tool description 来理解每个 tool 能干什么的。如果 tool description 写得有歧义，或两个 tool 的功能描述有重叠，模型就可能选错。<strong>所以当你看到 tool 选错时，不要只记录"选错了"，要去看 tool description 是不是写得有问题。</strong>
+    </div>
+
+    <div class="box box-yellow">
+        <span class="label">检查点 B：params 传对了没有</span>
+        即使选对了 tool，传的参数也可能有问题。常见错法：<br>
+        • <strong>多意图揉成一个 query</strong> — 五哈那条 case 就是这个问题<br>
+        • query 太模糊导致搜索跑偏<br>
+        • query 太精确导致搜不到结果（写了全名"哈哈哈哈哈"搜不到，写"五哈"反而能搜到）<br><br>
+        <strong>为什么 params 会传错？</strong>一是 prompt 里没有教 Planner 怎么拆分多意图请求；二是 tool 的 param 描述不够清晰，模型不知道该传什么粒度的内容。
+    </div>
+
+    <div class="box box-yellow">
+        <span class="label">检查点 C：action 的顺序和依赖</span>
+        如果 Planner 输出了多个 action，执行顺序对不对？有没有该串行的写成了并行？比如"先激活屏幕，再搜索视频"应该是两个 action 按顺序执行，不能合成一个。
+    </div>
+
+    <h4>🔍 <code>talk_content</code> — 回复文本</h4>
+    <p>逐字读，问自己三个问题：</p>
+    <table>
+        <tr><th>问题</th><th>异常信号</th></tr>
+        <tr><td>内容对不对？</td><td>事实错误、竞品品牌、不该出现的信息</td></tr>
+        <tr><td>语气对不对？</td><td>该关切时在开玩笑，该简短时太啰嗦</td></tr>
+        <tr><td>完整不完整？</td><td>说了一半截断，遗漏用户问的某个点</td></tr>
+    </table>
+
+    <h4>🔍 <code>talk_or_not</code> — 是否说话</h4>
+    <p>有一类 badcase 就卡在这里：用户问了问题，Planner 判断 <code>"no"</code> 不说话。</p>
+    <div class="box box-gray">
+        <strong>常见原因：</strong>prompt 注意事项第一条写了"若用户说的话听不懂，或感觉不是对你说的，不需要说话也不用调用工具"— 模型误判了用户的话不是对它说的。
+    </div>
+
+    <h4>🔍 <code>emoji_id</code> — 表情选择</h4>
+    <p>只在情感类 badcase 关注。要和 <code>emotional_state_change</code> 对照 — 如果情绪从"欣喜"变成"关切"但 emoji 还在用 <code>cheer</code>（欢呼），说明情绪状态机和表情选择脱节了。</p>
+
+    <div class="case">
+        <div class="case-title">📋 实战案例：五哈 badcase 在这一站发现了什么</div>
+        <p>查看 Planner 第一轮 output，发现 <code>action_list</code> 里的 query 是 <code>"激活后排吸顶屏并播放综艺《哈哈哈哈哈》"</code>。</p>
+        <p><strong>问题：</strong>两个意图（车控：激活屏幕 + 搜索：搜五哈）被塞进了一个工具调用。应该拆成 <code>vehicle_basic_control</code> 激活屏幕 + <code>search_and_control_short_video</code> 搜"综艺 五哈"。</p>
+        <p><strong>判断：</strong>Planner output 已经有问题了 → 继续查 tool 返回（第二站）确认影响范围。</p>
+    </div>
+</div>
+
+
+<!-- ═══════════ Station 2 ═══════════ -->
+<div class="card" id="station2">
+    <h2><span class="num red">②</span> 第二站：Tool 的原始返回</h2>
+    <div class="role">
+        <span class="tag tag-must">每条必看</span>
+        树上位置：<code>text_planner → Tools → [具体tool名]</code>
+    </div>
+
+    <h3>为什么看这里</h3>
+    <p>Planner 不是全知的 — <strong>它的第二轮回复完全取决于 tool 返回了什么。</strong></p>
+
+    <div class="box box-red">
+        <span class="label">⚠️ 很多新人会忽略的关键认知</span>
+        你看到最终回复里有一句错误的话，第一反应可能是"prompt 写得不好"或"模型理解力不行"。但实际上，<strong>大量 badcase 的真正原因是 tool 返回了脏数据，模型只是忠实地引用了它。</strong><br><br>
+        模型对 tool 返回有天然的<strong>信任倾向</strong> — 它会认为"工具返回的就是事实"。如果搜索工具返回了一条理想汽车的视频，模型会认为这是合理结果并引用它，不会想到"这是竞品品牌我不能提"。
+    </div>
+
+    <div class="box box-blue">
+        <span class="label">💡 这是 badcase 归因的分水岭</span>
+        • 如果脏数据在 tool 返回里就有 → <strong>根因在工具层</strong>，修 prompt 没用<br>
+        • 如果 tool 返回是干净的但最终回复是错的 → <strong>根因在 Planner 推理层</strong>
+    </div>
+
+    <h3>具体怎么看</h3>
+    <p>展开 tool 节点，找到最底层的原始返回数据。比如 <code>search_and_control_short_video</code> 下面会有 <code>video_search → mixer_search</code>，你要看的是 <code>mixer_search</code> 返回的<strong>完整结果列表</strong>，不是上层封装过的摘要。</p>
+
+    <table>
+        <tr><th style="width:30%;">检查项</th><th>看什么</th><th>异常信号</th></tr>
+        <tr>
+            <td><strong>结果相关性</strong></td>
+            <td>返回内容和用户意图匹配吗？</td>
+            <td>搜"五哈"出来全是吸顶屏教程 = query 跑偏</td>
+        </tr>
+        <tr>
+            <td><strong>敏感内容</strong></td>
+            <td>逐条看 <code>desc</code>、<code>title</code>、<code>author</code></td>
+            <td>竞品品牌、敏感词、不合规内容</td>
+        </tr>
+        <tr>
+            <td><strong>结果条数</strong></td>
+            <td>返回了多少条？</td>
+            <td>只有 1-2 条 → Planner 被迫引用差结果</td>
+        </tr>
+        <tr>
+            <td><strong>工具报错</strong></td>
+            <td>tool 有没有执行失败？</td>
+            <td>超时、服务异常 → Planner 可能复述错误信息</td>
+        </tr>
+    </table>
+
+    <div class="case">
+        <div class="case-title">📋 实战案例：五哈 badcase 在这一站发现了什么</div>
+        <p>展开 tool 返回，看到 9 条抖音搜索结果。<strong>没有一条是《哈哈哈哈哈》的正片</strong>，全是各品牌吸顶屏操作教程。</p>
+        <p>其中 rank 3（doc_id: <code>7448638465375309113</code>）的 desc 里有：</p>
+        <pre>"理想的超大娱乐屏，丝滑又好用...追五哈真的太嗨了！
+#我和理想L7的日常 <span class="key">#理想汽车</span> #娱乐屏"</pre>
+        <p>这就是"理想车机"的<strong>污染源</strong>。一条理想 L7 车主看五哈的 vlog，desc 里带了竞品品牌。</p>
+        <p><strong>判断：</strong>脏数据在 tool 返回里就有 → 根因在工具层（搜索结果无品牌过滤），不是 prompt 问题。</p>
+    </div>
+</div>
+
+
+<!-- ═══════════ Station 3 ═══════════ -->
+<div class="card" id="station3">
+    <h2><span class="num orange">③</span> 第三站：Planner 的 Input Arguments</h2>
+    <div class="role">
+        <span class="tag tag-must">①②定位不到时必看</span>
+        树上位置：<code>text_planner → ChatModel → Input → arguments</code>
+    </div>
+
+    <h3>为什么看这里</h3>
+
+    <div class="box box-purple">
+        <span class="label">🧠 Context Engineering 的核心理念</span>
+        模型的表现不只取决于它的能力，<strong>更取决于你在它的 context window 里放了什么。</strong>同一个模型，给它完整的上下文它能做对，给它残缺的上下文它就会犯错。<br><br>
+        Arguments 是每一轮动态注入到 Planner context 里的实时信息。如果这些信息是错的、缺的、或格式不对的，Planner 就是在<strong>基于错误前提做推理</strong> — 结论自然是错的。
+    </div>
+
+    <!-- knowledge -->
+    <h3 id="arg-knowledge">3.1 <code>knowledge</code>（动态知识）</h3>
+    <div style="margin-bottom:4px;">
+        <span class="tag tag-must">必查</span>
+        <span class="tag tag-star">重要性 ★★★</span>
+    </div>
+
+    <h4>这个字段是什么</h4>
+    <p>上游有一个<strong>知识路由模块</strong>，它根据用户意图从你们的知识库（Excel 原表 <code>场景知识（saic）_数据总览.xlsx</code> 里的 13 条场景知识）中选一条注入。注入后，知识成为 Planner 推理时的"专家指导"。</p>
+
+    <h4>为什么重要</h4>
+    <p>知识注入是你们系统的<strong>差异化能力</strong> — 没有知识的 Planner 只能靠通用 prompt 里的 21 个示例来推理，有知识的 Planner 能获得场景化的精准指导。如果知识加载链路有问题，这个差异化能力就形同虚设。</p>
+
+    <h4>检查四件事</h4>
+    <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content"><strong>有没有加载？</strong> — <code>knowledge</code> 字段是空字符串还是有内容？如果测试标注了"有知识"但 trace 里是空的，说明知识路由模块出 bug — 问题不在 Planner。</div>
+    </div>
+    <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content"><strong>加载的对不对？</strong> — 把 trace 里的 knowledge 内容和 Excel 原表对比。比如用户说"用吸顶屏看五哈"，应该加载 <code>DRV-01-01-02 后排车内观影</code>。如果加载了 <code>DRV-01-01-07 5D沉浸观影</code>，那是路由选错了。</div>
+    </div>
+    <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content"><strong>内容有没有被截断？</strong> — 知识在传输过程中有没有被截断或乱码？把 trace 全文和 Excel 原文逐段对比。</div>
+    </div>
+    <div class="step">
+        <div class="step-num red">4</div>
+        <div class="step-content"><strong>格式兼容不兼容？</strong> — 知识示例用的 JSON schema 和主 prompt 要求的 schema 是否一致。这是五哈 case 发现的问题：知识用 <code>speak/content/actions</code>，主 prompt 用 <code>talk_or_not/talk_content/action_list</code>，两套 schema 打架，降低知识的实际约束力。</div>
+    </div>
+
+    <div class="case">
+        <div class="case-title">📋 实战案例：五哈 badcase 在这一站发现了什么</div>
+        <p>✅ 加载了：<code>knowledge</code> 字段有内容，场景名称 <code>"内容娱乐-乘客娱乐-后排车内观影"</code></p>
+        <p>✅ 加载对了：和 Excel 原表 <code>DRV-01-01-02</code> 完全匹配</p>
+        <p>✅ 没有截断：全文一致</p>
+        <p>❌ 格式不兼容：知识示例用 <code>{"speak","content","actions"}</code>，主 prompt 用 <code>{"talk_or_not","talk_content","action_list"}</code></p>
+        <p>✅ 知识里无竞品词：全表 13 条扫描，零竞品品牌</p>
+    </div>
+
+    <!-- env_info -->
+    <h3 id="arg-envinfo">3.2 <code>env_info</code>（车辆环境状态）</h3>
+    <div style="margin-bottom:4px;">
+        <span class="tag tag-must">必查</span>
+        <span class="tag tag-star">重要性 ★★★</span>
+    </div>
+
+    <h4>这个字段是什么</h4>
+    <p>车辆当前的物理状态快照：车速、档位、屏幕状态、导航状态、音量等。</p>
+
+    <h4>为什么重要</h4>
+    <p>Planner 需要知道车辆当前状态才能做正确决策。如果 <code>env_info</code> 说吸顶屏"息屏待激活"，Planner 就知道需要先激活。如果实际已经开了但 <code>env_info</code> 说没开，Planner 就会做多余操作。</p>
+
+    <h4>检查三件事</h4>
+    <table>
+        <tr><th>检查项</th><th>异常信号</th><th>会导致什么</th></tr>
+        <tr><td>车速、档位</td><td>实际驻车但显示行驶中</td><td>驻车功能被错误禁用</td></tr>
+        <tr><td>屏幕状态</td><td>实际已开但显示待激活</td><td>Planner 多发一次激活指令</td></tr>
+        <tr><td>导航/媒体状态</td><td>和实际不符</td><td>错误的上下文推理</td></tr>
+    </table>
+
+    <!-- memory -->
+    <h3 id="arg-memory">3.3 <code>memory</code>（用户记忆）</h3>
+    <div style="margin-bottom:4px;">
+        <span class="tag tag-cond">条件看</span>
+        <span class="tag tag-star">重要性 ★★</span>
+    </div>
+
+    <h4>这个字段是什么</h4>
+    <p>分三部分：短期记忆（近期对话总结）、长期语义记忆（用户偏好）、长期情景记忆（具体事件）。</p>
+
+    <h4>为什么重要</h4>
+    <p>如果记忆里有错误信息，模型会基于错误记忆做推荐。比如长期记忆标签写了"喜欢科幻电影"，但用户实际喜欢喜剧 — 推荐就全偏了。</p>
+
+    <h4>检查三件事</h4>
+    <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content"><strong>短期记忆有没有把上一轮的错误回复也记进去了</strong> — 这会形成"错误滚雪球"，一个错误污染后续所有轮次。</div>
+    </div>
+    <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content"><strong>长期记忆里的偏好标签对不对</strong> — 标签错误 → 推荐方向全偏。</div>
+    </div>
+    <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content"><strong>记忆是不是空的</strong> — 有些知识示例写了"查询用户记忆中的观影历史偏好"，如果记忆空了，知识引导就无法完整执行。</div>
+    </div>
+
+    <!-- goal_list -->
+    <h3 id="arg-goallist">3.4 <code>goal_list</code>（目标队列）</h3>
+    <div style="margin-bottom:4px;">
+        <span class="tag tag-cond">条件看</span>
+        <span class="tag tag-star">重要性 ★★</span>
+    </div>
+
+    <h4>这个字段是什么</h4>
+    <p>当前正在追踪的用户目标列表，比如 <code>"1. 帮小明点肯德基外卖（进行中）"</code>。</p>
+
+    <h4>为什么重要</h4>
+    <p>如果有未完成的旧目标，新请求进来时 Planner 需要决定：是切换目标还是继续追踪。如果旧目标和新请求冲突，可能导致行为混乱。</p>
+
+    <h4>什么时候看</h4>
+    <p>大部分单轮 case 的 <code>goal_list</code> 是空的，可以跳过。只有在<strong>多轮连续对话中出现目标跟丢或目标冲突</strong>时才需要检查。</p>
+
+    <!-- speaker -->
+    <h3 id="arg-speaker">3.5 <code>speaker_name</code> + <code>speaker_position</code></h3>
+    <div style="margin-bottom:4px;">
+        <span class="tag tag-opt">辅助看</span>
+        <span class="tag tag-star">重要性 ★</span>
+    </div>
+
+    <h4>为什么重要</h4>
+    <p>多人车舱场景下，Planner 需要知道谁在说话、在哪个位置。如果主驾说了话但 <code>speaker_position</code> 标成了"二排左"，Planner 可能错误启动后排设备。</p>
+
+    <h4>什么时候看</h4>
+    <p>只有在<strong>回复对象错误</strong>（回答了错的人）或<strong>设备操作方向错误</strong>（操作了错的座位/屏幕）时才需要检查。</p>
+</div>
+
+
+<!-- ═══════════ Station 4 ═══════════ -->
+<div class="card" id="station4">
+    <h2><span class="num orange">④</span> 第四站：对话历史 History</h2>
+    <div class="role">
+        <span class="tag tag-must">①②定位不到时必看</span>
+        树上位置：<code>text_planner → ChatModel → Input → history</code>
+    </div>
+
+    <h3>为什么看这里</h3>
+
+    <div class="box box-purple">
+        <span class="label">🧠 Transformer 架构的本质特性</span>
+        LLM 的注意力机制<strong>不区分"当前轮"和"历史轮"</strong> — 它对所有 context 一视同仁地 attend。<br><br>
+        这意味着：即使当前轮次完全没提到"理想汽车"，如果历史对话里有一条 tool 返回曾经包含过这个词，模型在生成回复时仍然可能被历史中的这个词影响。<strong>这不是 bug，是 Transformer 架构的工作方式。</strong>
+    </div>
+
+    <h3>具体检查四件事</h3>
+
+    <div class="step">
+        <div class="step-num red">1</div>
+        <div class="step-content"><strong>历史里有没有竞品品牌词</strong> — 前面的对话里用户或系统有没有提到过竞品？可能是之前某次 tool 返回带回来的，一直留在 context 里影响后续轮次。</div>
+    </div>
+    <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content"><strong>历史的轮次数和总长度</strong> — 你们的 system prompt 已经 195K 字符。如果再加上长对话历史，总 context 可能接近模型窗口上限。<strong>越靠近上限，模型对中间位置信息的注意力越弱</strong>（"lost in the middle" 现象），你的知识注入和 tool description 可能正好处于注意力洼地。</div>
+    </div>
+    <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content"><strong>历史中有没有格式错乱</strong> — 正常应该是 user/assistant 交替的 JSON 格式。如果拼接出问题（两轮 user 消息连在一起、assistant 的 JSON 被截断），模型解析上下文的能力会急剧下降。</div>
+    </div>
+    <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-content"><strong>历史里之前的 tool_feedback</strong> — 之前轮次的 tool 返回也在历史里。如果某个搜索结果包含了脏数据，这些脏数据就一直留在 context 里，影响后续所有轮次。</div>
+    </div>
+
+    <div class="case">
+        <div class="case-title">📋 实战案例：五哈 badcase 在这一站发现了什么</div>
+        <p>历史显示前面几轮都是罗勇在给宝宝找娱乐内容（游戏、动画片），然后才说"我想用吸顶屏看五哈"。</p>
+        <p>✅ 历史里没有出现"理想"这个词 → 排除历史污染</p>
+        <p>ℹ️ 儿童/家庭娱乐的上下文影响了 Planner 的场景理解，但这不是 bug 的直接原因</p>
+    </div>
+</div>
+
+
+<!-- ═══════════ Station 5 ═══════════ -->
+<div class="card" id="station5">
+    <h2><span class="num purple">⑤</span> 第五站：System Prompt 变体选择</h2>
+    <div class="role">
+        <span class="tag tag-cond">条件看：整体风格跑偏时</span>
+        树上位置：<code>get-system-prompt-vari → ArkChatModel</code>
+    </div>
+
+    <h3>为什么有这个模块</h3>
+    <p>你们的架构在 Planner 主推理之前，先用一次额外的 LLM 调用（<strong>1.42 秒、36 个 token</strong>）来动态选择 system prompt 的变体。这意味着你们有<strong>多套 system prompt</strong>，针对不同场景用不同版本。</p>
+
+    <h3>为什么重要</h3>
+    <div class="box box-red">
+        <span class="label">⚠️ Single Point of Failure（单点故障源）</span>
+        这 36 个 token 决定了 Planner 用哪套"大脑操作系统"。如果选错了变体，后面整条链路用的就是错误的 system prompt，<strong>所有行为逻辑从根上就偏了</strong>。但因为它只有 36 个 token，非常容易被忽略。
+    </div>
+
+    <h3>什么时候必须看</h3>
+    <table>
+        <tr><th>症状</th><th>可能原因</th></tr>
+        <tr><td>Planner 回复整体风格跑偏（闲聊 vs 任务执行混淆）</td><td>选了错误的 prompt 变体</td></tr>
+        <tr><td>Planner 调用了不该有的 tool</td><td>不同变体的 tool 列表可能不同</td></tr>
+        <tr><td>同一个 query 有时候对有时候错</td><td>变体选择不稳定，同一输入选了不同变体</td></tr>
+    </table>
+
+    <h3>怎么看</h3>
+    <p>展开这个节点，看 output 那 36 个 token 到底是什么 — 是变体编号？一段 JSON？一个路由标签？把它记下来，然后和后端确认这个编号对应的 system prompt 是哪个版本。</p>
+
+    <h3>什么时候不用看</h3>
+    <p>如果 badcase 只是某个具体细节错了（比如说错一个词、选错一个 tool），而整体风格和能力范围是对的，那大概率不是变体选择的问题，跳过这一站。</p>
+</div>
+
+
+<!-- ═══════════ Station 6 ═══════════ -->
+<div class="card" id="station6">
+    <h2><span class="num purple">⑥</span> 第六站：拒识模块</h2>
+    <div class="role">
+        <span class="tag tag-cond">条件看：沉默或误拒时</span>
+        树上位置：<code>intent-and-refusal → reject-analyse → ArkChatModel</code>
+    </div>
+
+    <h3>这个模块做什么</h3>
+    <p>拒识模块和 Planner 是<strong>并行跑的</strong>（从 trace 树上可以看出 <code>intent-and-refusal</code> 和 <code>planner_analyze_task_text</code> 在 <code>aidv-main-flow</code> 下面是同级节点）。它的职责是判断用户的请求是否应该被拒绝。</p>
+
+    <h3>为什么重要</h3>
+    <div class="box box-blue">
+        <span class="label">💡 拒识模块有"否决权"</span>
+        即使 Planner 规划正确了，如果拒识模块误判"这个请求应该拒绝"，用户也会得到拒绝回复。反过来，即使用户请求应该被拒绝，如果拒识模块漏判了，Planner 就会照常执行。<br><br>
+        所以拒识模块可以<strong>"覆盖"Planner 的决策</strong>，这使得它在特定 badcase 中是关键排查点。
+    </div>
+
+    <h3>什么时候必须看</h3>
+    <table>
+        <tr><th>badcase 症状</th><th>排查方向</th></tr>
+        <tr><td>用户合理请求被拒绝了（"我不太明白"、"暂时无法处理"）</td><td>拒识模块误杀了 → 看 reject-analyse 的判断逻辑</td></tr>
+        <tr><td>危险请求没被拦住（行车中调大屏幕亮度等）</td><td>拒识模块漏了 → 看 reject-analyse 是否正确识别了风险</td></tr>
+        <tr><td>回复被截断或突然中止</td><td>可能是拒识模块中途拦截</td></tr>
+    </table>
+
+    <h3>怎么看</h3>
+    <p>展开 <code>reject-analyse</code> 的 input 和 output：</p>
+    <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content"><strong>Input（5780 tokens）</strong>— 拒识模块的输入是什么？是只有用户原话？还是把完整对话历史都塞进去了？如果是后者，大部分 token 是浪费的，拒识只需要当前轮 query + 少量上下文。</div>
+    </div>
+    <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content"><strong>Output</strong>— 结论是什么？"通过"还是"拒绝"？拒绝理由是什么？理由和用户实际意图匹配吗？</div>
+    </div>
+
+    <h3>什么时候不用看</h3>
+    <p>绝大部分 badcase（回复内容错误、tool 选错、语气不对等）跟拒识模块无关。<strong>只有当 Planner 完全没有正常输出（沉默、拒绝模板话术）时才需要排查。</strong>五哈那条 case 就不需要看，因为 Planner 确实产出了回复和 action，只是内容有问题。</p>
+</div>
+
+
+<!-- ═══════════ Station 7 ═══════════ -->
+<div class="card" id="station7">
+    <h2><span class="num green">⑦</span> 第七站：direct_return（最终交给用户的内容）</h2>
+    <div class="role">
+        <span class="tag tag-must">必看 — 这才是用户真正听到的话</span>
+        树上位置：<code>text_planner → direct_return</code>（在树的最底部）
+    </div>
+
+    <div class="box box-red">
+        <span class="label">⚠️ 重要更正：ChatModel Output ≠ 用户听到的话</span>
+        <strong>很多人会以为 ChatModel 的 Output 就是最终回复 — 这是错的。</strong><br><br>
+        ChatModel Output 是<strong>大脑那一刻写下的草稿</strong>。从大脑写完到用户听到，中间还有 TTS 合成、文本拼装等后处理模块（比如 <code>sami_tts</code> 链路），这些模块<strong>可能会修改、补充、拼接最终文案</strong>。<br><br>
+        <code>direct_return</code> 才是经过所有后处理之后、真正送给用户的最终版本。
+    </div>
+
+    <h3>怎么区分这两个</h3>
+    <table>
+        <tr><th style="width:25%;"></th><th>ChatModel Output</th><th>direct_return</th></tr>
+        <tr>
+            <td><strong>是什么</strong></td>
+            <td>大脑思考的那一刻写下的草稿</td>
+            <td>经过所有后处理之后，最终交给用户的成品</td>
+        </tr>
+        <tr>
+            <td><strong>对话轮数</strong></td>
+            <td>N 轮（不包含本轮新生成的内容）</td>
+            <td>N+1 轮（包含本轮新生成 + 后处理结果）</td>
+        </tr>
+        <tr>
+            <td><strong>什么场景下不一样</strong></td>
+            <td colspan="2">中间有 TTS、文本拼装、内容补充等模块时，两者可能不一致</td>
+        </tr>
+        <tr>
+            <td><strong>用户实际听到</strong></td>
+            <td>❌ 不一定</td>
+            <td>✅ 是的</td>
+        </tr>
+    </table>
+
+    <h3>为什么必须看 direct_return</h3>
+    <p>用户投诉的所有 bug，都是基于<strong>他们实际听到的话</strong>。如果你只看 ChatModel Output，会漏掉一类很隐蔽的 bug：<strong>大脑写的没问题，但后处理改坏了。</strong></p>
+
+    <div class="box box-blue">
+        <span class="label">💡 用电视台节目做类比</span>
+        ChatModel Output = 主持人写的稿子<br>
+        direct_return = 观众电视上看到的最终成片<br><br>
+        中间可能经过：剪辑、配音、字幕、片头片尾拼接。如果观众反映节目内容有问题，你不能只看主持人的原稿，必须看最终成片 — 因为问题可能出在剪辑环节。
+    </div>
+
+    <h3>看的时候要做的对比</h3>
+    <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content"><strong>把 direct_return 的最后一条（第 N+1 轮）和 ChatModel Output 做比对</strong>。如果两者一致 → bug 在大脑思考阶段（看第二站 tool 返回 + 第一站 Planner Output）；如果两者不一致 → bug 在后处理阶段（找研发查中间的处理模块）。</div>
+    </div>
+    <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content"><strong>把 direct_return 的内容和第二站 tool 返回做比对</strong>。后处理模块有没有把 tool 返回的某些片段拼进了最终文案？这是隐蔽的"内容穿透"路径。</div>
+    </div>
+    <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content"><strong>问研发：从 ChatModel 到 direct_return 中间有哪些模块在动这段文本？</strong>你看到的 trace 里有 <code>sami_tts:connect</code>、<code>sami_tts</code>、<code>sami_tts:first_token</code> — 这些只是合成语音的，还是会改写文本？</div>
+    </div>
+
+    <div class="case">
+        <div class="case-title">📋 实战案例：五哈 badcase 的关键发现</div>
+        <p>"理想车机"这四个字<strong>只在 direct_return 的第 29 轮里出现，ChatModel Output 里没有</strong>。</p>
+        <p>这说明 ChatModel 那一刻并没有说"理想车机" — 是大脑写完之后，下游的某个后处理模块把搜索结果里"理想的超大娱乐屏"相关内容拼进了最终回复。</p>
+        <p><strong>归因结论要修正：</strong></p>
+        <ul style="font-size:.9rem;">
+            <li>之前我们以为：bug 在 ChatModel 二轮推理引用了脏数据 → <strong>这个判断不准</strong></li>
+            <li>实际情况：bug 在 ChatModel 之后的后处理模块，可能直接从搜索结果拼接了内容</li>
+            <li>修复方向也要变：除了第二站说的"tool 加品牌过滤"，还要查 ChatModel 之后的后处理逻辑</li>
+        </ul>
+        <p><strong>这条 case 教会我们：永远以 direct_return 为准。</strong></p>
+    </div>
+</div>
+
+
+<!-- ═══════════ Station 8 ═══════════ -->
+<div class="card" id="station8">
+    <h2><span class="num" style="background:#95a5a6;">⑧</span> 第八站：Timing 性能数据</h2>
+    <div class="role">
+        <span class="tag tag-opt">辅助参考</span>
+        树上位置：每个节点的耗时标注
+    </div>
+
+    <h3>为什么有时候要看</h3>
+    <p>性能数据本身不是 badcase 归因的直接线索，但有<strong>两种情况</strong>需要关注：</p>
+
+    <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content"><strong>某个节点耗时异常长</strong> — 比如 tool 调用花了 10 秒+，可能是超时后返回了兜底结果（质量通常很差），模型基于兜底结果生成的回复自然也差。</div>
+    </div>
+    <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content"><strong>并行模块的完成时序</strong> — 如果 <code>collect-tools-info</code> 应该在 Planner 之前完成（提供可用 tool 列表），但因为延迟 Planner 在没有完整 tool 列表的情况下就开始推理了，可能导致 tool 选择不全。</div>
+    </div>
+
+    <h3>你的 trace 里的关键耗时参考</h3>
+    <table>
+        <tr><th>节点</th><th>参考耗时</th><th>异常阈值</th></tr>
+        <tr><td><code>get-system-prompt-vari</code></td><td>~1.4 秒</td><td>&gt;3 秒需关注</td></tr>
+        <tr><td><code>text_planner</code> 主推理</td><td>~2.3 秒</td><td>&gt;5 秒需关注</td></tr>
+        <tr><td>Tool 执行</td><td>视 tool 而定</td><td>&gt;10 秒大概率返回兜底结果</td></tr>
+        <tr><td><code>planner-tts</code> 二轮推理</td><td>~1.85 秒</td><td>&gt;4 秒需关注</td></tr>
+        <tr><td><code>reject-analyse</code></td><td>~2.4 秒</td><td>和 Planner 并行，不阻塞</td></tr>
+    </table>
+</div>
+
+
+<!-- ═══════════ Decision Tree ═══════════ -->
+<div class="card" id="decision-tree">
+    <h2><span class="num" style="background:#e67e22;">🌳</span> 速查决策树 — 60 秒定位方向</h2>
+    <div class="role">拿到一条 badcase 后，按这个决策树走，60 秒内确定排查方向</div>
+
+    <div class="flow">
+        <div class="flow-node decision"><strong>拿到 badcase，先看症状 ↓</strong></div>
+
+        <div class="flow-arrow">── 回复里有竞品/脏数据/幻觉内容？</div>
+        <div class="flow-branch">
+            <div class="flow-arrow">↓ 先看 <strong>第二站 Tool Output</strong> — 是 tool 带回来的还是模型编的？</div>
+            <div class="flow-branch">
+                <div class="flow-node result-bad">Tool 返回里有脏数据 → <strong>工具层问题</strong>（P0: 加品牌过滤）</div>
+                <div class="flow-node result-bad">Tool 返回是干净的 → <strong>模型幻觉</strong>（看 prompt 有没有约束规则）</div>
+            </div>
+        </div>
+
+        <div class="flow-arrow">── 调错 tool 或没调 tool？</div>
+        <div class="flow-branch">
+            <div class="flow-arrow">↓ 看 <strong>第一站 Planner Output</strong> 的 action_list</div>
+            <div class="flow-branch">
+                <div class="flow-node result-bad">选错 tool → 看 <strong>tool description</strong> 是不是有歧义</div>
+                <div class="flow-node result-bad">param 写错 → 看是不是多意图塞一个 tool / param 描述不清</div>
+                <div class="flow-node result-bad">该调没调 → 看 <strong>knowledge</strong> 和 <strong>env_info</strong> 有没有提供足够信息</div>
+            </div>
+        </div>
+
+        <div class="flow-arrow">── 说了不该说的话 / 语气不对？</div>
+        <div class="flow-branch">
+            <div class="flow-arrow">↓ 看 <strong>第三站 knowledge</strong> 有没有加载 → 看 <strong>第四站 history</strong> 上下文</div>
+            <div class="flow-branch">
+                <div class="flow-node result-bad">都正常 → 大概率是 <strong>prompt 示例引导问题</strong>（21个示例的覆盖度/引导力）</div>
+            </div>
+        </div>
+
+        <div class="flow-arrow">── 沉默了（该说没说）？</div>
+        <div class="flow-branch">
+            <div class="flow-arrow">↓ 看 <code>talk_or_not</code> 是 no → 检查 <strong>第六站 reject-analyse</strong></div>
+            <div class="flow-branch">
+                <div class="flow-node result-bad">被拒识误杀 → <strong>拒识模块问题</strong></div>
+                <div class="flow-node result-bad">没被拒识 → 看 prompt 注意事项是不是有"不需要说话"的规则匹配错了</div>
+            </div>
+        </div>
+
+        <div class="flow-arrow">── 知识没生效？</div>
+        <div class="flow-branch">
+            <div class="flow-arrow">↓ 先确认 <strong>第三站 knowledge</strong> 字段有没有值</div>
+            <div class="flow-branch">
+                <div class="flow-node result-bad">没有值 → <strong>知识加载链路问题</strong>，不是 Planner 的锅</div>
+                <div class="flow-node result-bad">有值 → 看知识格式对不对、示例约束力够不够强</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- ═══════════ Checklist ═══════════ -->
+<div class="card" id="checklist">
+    <h2><span class="num" style="background:#27ae60;">✓</span> 必看清单</h2>
+    <div class="role">每条 badcase 至少看完前 5 项才能下结论。可以打印贴工位。</div>
+
+    <div class="checklist">
+        <div style="font-weight:700; color:#c0392b; margin-bottom:12px;">━━ 必看项（每条 badcase 都要看）━━</div>
+
+        <div class="item">
+            <div class="check"></div>
+            <div><strong>1. Planner Output</strong> — <code>talk_content</code> + <code>action_list</code> 的完整 JSON</div>
+        </div>
+        <div class="item">
+            <div class="check"></div>
+            <div><strong>2. Tool Output</strong> — 工具返回的原始数据（全部结果，不只第一条）</div>
+        </div>
+        <div class="item">
+            <div class="check"></div>
+            <div><strong>3. Tool Input</strong> — Planner 传给工具的 param / query 是什么</div>
+        </div>
+        <div class="item">
+            <div class="check"></div>
+            <div><strong>4. Knowledge</strong> — 有没有加载？加载了哪条？和 Excel 原表对得上吗？格式兼容吗？</div>
+        </div>
+        <div class="item">
+            <div class="check"></div>
+            <div><strong>5. History</strong> — 对话历史完整吗？有没有竞品污染？有没有格式错乱？</div>
+        </div>
+
+        <div class="divider"></div>
+        <div style="font-weight:700; color:#e67e22; margin-bottom:12px;">━━ 按需检查项 ━━</div>
+
+        <div class="item">
+            <div class="check"></div>
+            <div><strong>6. env_info</strong> — 车辆状态信息和实际一致吗？</div>
+        </div>
+        <div class="item">
+            <div class="check"></div>
+            <div><strong>7. memory</strong> — 记忆有没有误导？有没有错误滚雪球？</div>
+        </div>
+        <div class="item">
+            <div class="check"></div>
+            <div><strong>8. System Prompt 变体</strong> — 36 token 选的变体对不对？</div>
+        </div>
+        <div class="item">
+            <div class="check"></div>
+            <div><strong>9. reject-analyse</strong> — 有没有误杀或漏杀？</div>
+        </div>
+        <div class="item">
+            <div class="check"></div>
+            <div><strong>10. 第二轮 Output</strong> — tool_feedback 之后的最终回复 vs tool 返回的比对</div>
+        </div>
+    </div>
+
+    <div class="box box-green">
+        <span class="label">⏱ 时间基准</span>
+        按这个清单走，一条 badcase 从打开 trace 到得出归因结论，应该控制在 <strong>5 分钟以内</strong>。<br>
+        如果超过 5 分钟还没头绪，大概率是<strong>缺数据</strong> — trace 平台没有记录你需要的那个节点的 input/output，需要找研发补数据。
+    </div>
+</div>
+
+
+<!-- ═══════════ Template ═══════════ -->
+<div class="card" id="template">
+    <h2><span class="num" style="background:#8e44ad;">📝</span> 归因模板</h2>
+    <div class="role">填 Bug Report 用的标准模板</div>
+
+    <pre>
+<span class="key">Bug 现象</span>：[用户说了什么 → 系统回了什么 → 哪里错了]
+
+<span class="key">排查结果</span>：
+├ Planner Output:  [正常 / 异常，描述]
+├ Tool 选择:       [对 / 错，实际选了 X 应该选 Y]
+├ Tool Param:      [对 / 错，传了 X 应该传 Y]
+├ Tool 返回:       [正常 / 异常，描述]
+├ Knowledge:       [已加载 X / 未加载 / 加载错误]
+├ History:         [干净 / 有污染，描述]
+└ Prompt 约束:     [有 / 缺失，描述]
+
+<span class="key">根因层</span>：[工具层 / Planner层 / Prompt层 / 知识层 / 模型能力层]
+<span class="key">根因描述</span>：[一句话说清楚]
+<span class="key">修复建议</span>：
+  P0: [紧急修复项]
+  P1: [重要改进项]
+  P2: [优化建议]
+    </pre>
+
+    <h3>五哈 badcase 的归因模板示例</h3>
+    <pre>
+<span class="key">Bug 现象</span>：用户说"我想用吸顶屏看五哈" → 回复中出现竞品品牌"理想车机"
+
+<span class="key">排查结果</span>：
+├ Planner Output:  <span class="val">异常</span>，两个意图塞一个 tool call
+├ Tool 选择:       <span class="str">部分对</span>，用了 search_and_control_short_video，
+│                  但缺少 vehicle_basic_control 激活屏幕
+├ Tool Param:      <span class="val">异常</span>，query 写了"激活后排吸顶屏并播放综艺《哈哈哈哈哈》"
+│                  应该只写"综艺 五哈 最新一期"
+├ Tool 返回:       <span class="val">异常</span>，9条结果无一相关，rank3 含竞品品牌"理想汽车"
+│                  (doc_id: 7448638465375309113)
+├ Knowledge:       <span class="str">已加载 DRV-01-01-02 后排观影</span>，内容无竞品词，
+│                  但格式不兼容（speak/content/actions vs talk_or_not/talk_content/action_list）
+├ History:         <span class="str">干净</span>，无竞品品牌词
+└ Prompt 约束:     <span class="val">缺失</span>，无竞品品牌过滤规则
+
+<span class="key">根因层</span>：工具层 + Planner层
+<span class="key">根因描述</span>：Planner 将车控意图混入搜索 query 导致搜索跑偏，
+         搜索工具返回竞品品牌内容且无过滤，Planner 忠实引用了竞品描述
+
+<span class="key">修复建议</span>：
+  P0: 搜索工具增加竞品品牌过滤（理想/蔚来/小鹏/比亚迪等）
+  P1: Prompt 增加多意图拆分规则 + 品牌约束兜底规则
+  P2: 知识示例 JSON 格式统一为主 prompt 的 talk_or_not/talk_content/action_list
+    </pre>
+</div>
+
+
+<!-- ═══════════ Footer ═══════════ -->
+<div class="footer">
+    <p>Driver Agent 2.0 · Planner Trace 阅读方法论 v2.0</p>
+    <p>基于 Harrison Chase (LangChain/LangGraph) 技术评审框架 · 2026-05-14</p>
+</div>
+
+</div><!-- container -->
+</body>
+</html>

@@ -1,0 +1,794 @@
+<!-- ========================================================================
+     第5章  Context、交互管理与执行层
+     讲义体 · 5 sections · 纯 HTML section 片段
+     ======================================================================== -->
+
+<!-- ==================== 5.1 公共Context服务 ==================== -->
+<section id="ch5-context">
+<h2><span class="num">5.1</span>公共 Context 服务——所有 Agent 的"共享记忆仓库"</h2>
+<p class="sub">Director / Advisor / 感知模块都需要知道"现在车里发生了什么"，但各自去采集会重复且不一致。Context 服务是唯一的中间层：收集、存储、预处理、按需分发。</p>
+
+<h3>骨架图：多源写入 - 存储预处理 - 多方读取</h3>
+<div class="diagram">
+<svg viewBox="0 0 820 520" style="min-width:760px;display:block">
+<defs>
+  <marker id="ctx-arr" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#94a3b8"/></marker>
+  <marker id="ctx-arr-cyan" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#22d3ee"/></marker>
+  <marker id="ctx-arr-green" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#34d399"/></marker>
+</defs>
+
+<!-- 左：写入源 -->
+<text x="90" y="20" fill="#9fb0c7" font-size="10" text-anchor="middle">写入源</text>
+<rect x="10" y="34" width="160" height="36" rx="8" fill="rgba(52,211,153,.15)" stroke="#34d399"/>
+<text x="90" y="56" fill="#e8eef9" font-size="11" text-anchor="middle">感知模块 (VLM/ASR)</text>
+<rect x="10" y="82" width="160" height="36" rx="8" fill="rgba(52,211,153,.15)" stroke="#34d399"/>
+<text x="90" y="104" fill="#e8eef9" font-size="11" text-anchor="middle">ASR + TTS 模块</text>
+<rect x="10" y="130" width="160" height="36" rx="8" fill="rgba(52,211,153,.15)" stroke="#34d399"/>
+<text x="90" y="152" fill="#e8eef9" font-size="11" text-anchor="middle">事件日志模块</text>
+<rect x="10" y="178" width="160" height="36" rx="8" fill="rgba(52,211,153,.15)" stroke="#34d399"/>
+<text x="90" y="200" fill="#e8eef9" font-size="11" text-anchor="middle">端状态模块</text>
+<rect x="10" y="226" width="160" height="36" rx="8" fill="rgba(52,211,153,.15)" stroke="#34d399"/>
+<text x="90" y="248" fill="#e8eef9" font-size="11" text-anchor="middle">长期记忆服务</text>
+<rect x="10" y="274" width="160" height="36" rx="8" fill="rgba(52,211,153,.15)" stroke="#34d399"/>
+<text x="90" y="296" fill="#e8eef9" font-size="11" text-anchor="middle">任务管理模块</text>
+<rect x="10" y="322" width="160" height="36" rx="8" fill="rgba(52,211,153,.15)" stroke="#34d399"/>
+<text x="90" y="344" fill="#e8eef9" font-size="11" text-anchor="middle">探索/知识库/性格</text>
+
+<!-- 箭头: 写入源 → Context -->
+<line x1="170" y1="52" x2="270" y2="190" stroke="#34d399" stroke-width="1.2" marker-end="url(#ctx-arr-green)"/>
+<line x1="170" y1="100" x2="270" y2="195" stroke="#34d399" stroke-width="1.2" marker-end="url(#ctx-arr-green)"/>
+<line x1="170" y1="148" x2="270" y2="200" stroke="#34d399" stroke-width="1.2" marker-end="url(#ctx-arr-green)"/>
+<line x1="170" y1="196" x2="270" y2="210" stroke="#34d399" stroke-width="1.2" marker-end="url(#ctx-arr-green)"/>
+<line x1="170" y1="244" x2="270" y2="220" stroke="#34d399" stroke-width="1.2" marker-end="url(#ctx-arr-green)"/>
+<line x1="170" y1="292" x2="270" y2="230" stroke="#34d399" stroke-width="1.2" marker-end="url(#ctx-arr-green)"/>
+<line x1="170" y1="340" x2="270" y2="240" stroke="#34d399" stroke-width="1.2" marker-end="url(#ctx-arr-green)"/>
+
+<!-- 中：Context 存储+预处理 -->
+<rect x="270" y="110" width="280" height="200" rx="10" fill="rgba(96,165,250,.08)" stroke="#60a5fa" stroke-width="1.6"/>
+<text x="410" y="134" fill="#60a5fa" font-size="12" text-anchor="middle" font-weight="bold">公共 Context 服务</text>
+<rect x="290" y="148" width="240" height="34" rx="8" fill="rgba(96,165,250,.15)" stroke="#60a5fa"/>
+<text x="410" y="170" fill="#e8eef9" font-size="11" text-anchor="middle">结构化存储（13类 Context）</text>
+<rect x="290" y="194" width="240" height="34" rx="8" fill="rgba(251,191,36,.12)" stroke="#fbbf24"/>
+<text x="410" y="216" fill="#e8eef9" font-size="11" text-anchor="middle">预处理：压缩总结 / 打标分类</text>
+<rect x="290" y="240" width="240" height="34" rx="8" fill="rgba(167,139,250,.12)" stroke="#a78bfa"/>
+<text x="410" y="262" fill="#e8eef9" font-size="11" text-anchor="middle">三维过滤：场景/人物/任务</text>
+
+<!-- 右：读取方 -->
+<text x="700" y="20" fill="#9fb0c7" font-size="10" text-anchor="middle">读取方</text>
+<rect x="620" y="80" width="180" height="44" rx="8" fill="rgba(96,165,250,.15)" stroke="#60a5fa"/>
+<text x="710" y="98" fill="#e8eef9" font-size="11" text-anchor="middle">Director (主推理)</text>
+<text x="710" y="114" fill="#9fb0c7" font-size="9" text-anchor="middle">读全量 Context 注入 SP/UP</text>
+<rect x="620" y="140" width="180" height="44" rx="8" fill="rgba(167,139,250,.15)" stroke="#a78bfa"/>
+<text x="710" y="158" fill="#e8eef9" font-size="11" text-anchor="middle">4 静态 Advisor</text>
+<text x="710" y="174" fill="#9fb0c7" font-size="9" text-anchor="middle">读情景+目标+记忆</text>
+<rect x="620" y="200" width="180" height="44" rx="8" fill="rgba(167,139,250,.15)" stroke="#a78bfa"/>
+<text x="710" y="218" fill="#e8eef9" font-size="11" text-anchor="middle">动态 Advisor</text>
+<text x="710" y="234" fill="#9fb0c7" font-size="9" text-anchor="middle">读任务相关子集</text>
+<rect x="620" y="260" width="180" height="44" rx="8" fill="rgba(22,211,238,.12)" stroke="#22d3ee"/>
+<text x="710" y="278" fill="#e8eef9" font-size="11" text-anchor="middle">前置筛选/知识专家</text>
+<text x="710" y="294" fill="#9fb0c7" font-size="9" text-anchor="middle">读 8 字段做筛选决策</text>
+
+<!-- 箭头: Context → 读取方 -->
+<line x1="550" y1="175" x2="618" y2="102" stroke="#60a5fa" stroke-width="1.2" marker-end="url(#ctx-arr)"/>
+<line x1="550" y1="195" x2="618" y2="162" stroke="#a78bfa" stroke-width="1.2" marker-end="url(#ctx-arr)"/>
+<line x1="550" y1="215" x2="618" y2="222" stroke="#a78bfa" stroke-width="1.2" marker-end="url(#ctx-arr)"/>
+<line x1="550" y1="235" x2="618" y2="282" stroke="#22d3ee" stroke-width="1.2" marker-end="url(#ctx-arr-cyan)"/>
+
+<!-- 底部：任务队列数据结构 -->
+<rect x="190" y="360" width="440" height="140" rx="10" fill="rgba(251,191,36,.06)" stroke="#fbbf24" stroke-dasharray="6,4"/>
+<text x="410" y="382" fill="#fbbf24" font-size="11" text-anchor="middle" font-weight="bold">任务队列数据结构示例</text>
+<text x="220" y="402" fill="#9fb0c7" font-size="10" font-family="monospace">[{</text>
+<text x="232" y="416" fill="#e8eef9" font-size="10" font-family="monospace">"task_id":"2", "rank":"1",</text>
+<text x="232" y="430" fill="#e8eef9" font-size="10" font-family="monospace">"task_content":"给明骏开座椅按摩波浪最大档",</text>
+<text x="232" y="444" fill="#e8eef9" font-size="10" font-family="monospace">"task_condition":"",</text>
+<text x="232" y="458" fill="#e8eef9" font-size="10" font-family="monospace">"task_nlg":""</text>
+<text x="220" y="472" fill="#9fb0c7" font-size="10" font-family="monospace">}, {...}, {...}]</text>
+<text x="410" y="494" fill="#9fb0c7" font-size="9" text-anchor="middle">task_condition 为条件触发条件（如"车辆挂D档"）/ task_nlg 为预设话术</text>
+</svg>
+</div>
+<div class="legend">
+  <span><i style="background:#34d399"></i>写入/感知</span>
+  <span><i style="background:#60a5fa"></i>存储/推理</span>
+  <span><i style="background:#fbbf24"></i>预处理/执行</span>
+  <span><i style="background:#a78bfa"></i>目标/Advisor</span>
+  <span><i style="background:#22d3ee"></i>筛选入口</span>
+</div>
+
+<div class="explain">
+<h4>讲解：公共 Context 到底在干什么</h4>
+
+<div class="step">
+<b>第一步：理解 Context 的定义。</b>Context = 传给模型的上下文信息。每个 Agent（Director、各 Advisor、工具 Agent）需要的 Context 不同，但很多内容是公用的——比如"现在车里有几个人""外面在下雨吗""用户刚才说了什么"。与其让每个 Agent 自己去采集，不如统一做一套公共 Context 服务来管理维护。它的核心功能就两个：<b>按结构存储公共 context 信息</b>，以及<b>做预处理</b>（压缩总结、打标分类、提前过滤）。
+</div>
+
+<div class="step">
+<b>第二步：13 类 Context 内容全表。</b>下面这张表是系统中所有公共 Context 类型的完整清单。按优先级分 P0（每次都带）、P1（场景需要时带）、P2（辅助/低频）：
+</div>
+
+<table>
+<tr><th>类型</th><th>说明</th><th>来源</th><th>优先级</th></tr>
+<tr><td><b>情景描述</b></td><td>感知模块 Always on 持续输出的舱内/舱外情景描述，按时间线记录</td><td>感知模块</td><td>P0</td></tr>
+<tr><td><b>历史对话</b></td><td>用户(ASR)和AI(TTS)的对话记录，按时间线排列</td><td>ASR/TTS 模块</td><td>P0</td></tr>
+<tr><td><b>事件日志</b></td><td>全量事件：人/车/助手完成的各类事件</td><td>事件日志模块</td><td>P0</td></tr>
+<tr><td><b>端状态</b></td><td>仅保留最新一帧——空调温度、车速、档位等</td><td>端状态模块</td><td>P0</td></tr>
+<tr><td><b>屏幕截图</b></td><td>5 分钟窗口内的屏幕截图序列</td><td>端侧采集</td><td>P0</td></tr>
+<tr><td><b>用户记忆</b></td><td>按人物 id 加载——偏好/事件总结/基本信息/习惯</td><td>长期记忆</td><td>P0</td></tr>
+<tr><td><b>任务状态</b></td><td>任务队列里所有任务及其状态（见下方数据结构）</td><td>任务管理模块</td><td>P0</td></tr>
+<tr><td><b>基础联网信息</b></td><td>时间/日期/星期/农历/节日/节气/天气</td><td>联网服务</td><td>P1</td></tr>
+<tr><td><b>豆包探索</b></td><td>豆包自我探索的结果，按主题、时间线记录</td><td>探索模块</td><td>P1</td></tr>
+<tr><td><b>通用任务经验</b></td><td>人工总结的经验（如"点外卖先确定地点"）</td><td>知识库</td><td>P1</td></tr>
+<tr><td><b>工具知识</b></td><td>可调用工具的范围、说明、使用示例</td><td>工具库</td><td>P2</td></tr>
+<tr><td><b>特定专有知识</b></td><td>车品牌相关知识（如 D6X 五座规格）</td><td>知识库</td><td>P2</td></tr>
+<tr><td><b>豆包性格与自我认知</b></td><td>性格描述、世界观、价值观、自我了解</td><td>自我认知模块</td><td>P2</td></tr>
+</table>
+
+<div class="step">
+<b>第三步：Context 的优化机制——三维过滤 + 情景压缩 + 按需抽取。</b>13 类内容全部注入 SP/UP 会爆 token。所以 Context 服务不是"全塞"，而是做了三层优化：
+<br><br>
+<b>（1）三维过滤</b>——按场景/人物/任务三个维度裁剪：
+<br>- <b>场景过滤</b>：当前是驻车场景，行车场景下的记忆偏好就不加载；当前是去外地自驾游，日常通勤的记忆就不用带；
+<br>- <b>人物过滤</b>：车里只有主驾一个人，就不加载副驾或后排乘客的隐私记忆，减少噪音同时保护隐私；
+<br>- <b>任务过滤</b>：当前任务是点外卖，就检索外卖相关的任务知识和用户偏好，不带导航知识。
+<br><br>
+<b>（2）情景压缩</b>——情景描述是 Always on 感知模块持续输出的，时间一长就会很长。做法是对远程情景做总结压缩（把"09:42 明骏上车，09:43 明骏系安全带，09:44 明骏拿出手机"压缩成"09:42-09:44 明骏上车后正常就座"），只保留近期的原始细节。
+<br><br>
+<b>（3）按需抽取</b>——短期用过的长期记忆会被 Context 服务"保持住"，不用重新检索；而长期记忆不会一次性全部加载，而是根据场景变化提前取一部分。
+</div>
+
+<div class="eg">
+用户说"去昨天那家游泳馆"。Context 服务此时做的事：（1）场景过滤确认当前是行车场景；（2）人物过滤确认当前说话人是主驾"超然"；（3）任务过滤识别到"昨天那家"涉及记忆，从长期记忆中按人物 id 抽取"超然"的地点偏好和最近事件总结；（4）组装成 Context 注入 Director SP 的动态变量槽位 {{memory}} 和 {{env_info}}。Director 读到后才能决策"先调 search_user_memory → 拿到地址 → 再调 route_planning_qa"。
+</div>
+
+<div class="step">
+<b>第四步：任务队列数据结构。</b>任务状态是 P0 Context 中最核心的运行时数据。每个任务是一个 JSON 对象，包含五个字段：
+<br>- <code>task_id</code>：唯一标识
+<br>- <code>rank</code>：执行优先级（数字越小越先执行）
+<br>- <code>task_content</code>：任务描述自然语言
+<br>- <code>task_condition</code>：触发条件（空=立即执行；"车辆挂入D档"=等条件满足）
+<br>- <code>task_nlg</code>：预设话术（空=让 Director 自己组织语言）
+</div>
+
+<div class="eg">
+一个早晨通勤场景的任务队列：rank=1 是"给明骏和雨晴开座椅按摩"（立即执行），rank=2 是"导航去雨晴公司再去明骏公司"（条件=挂D档），rank=3 是"推荐小宇宙播客最新一期"（条件=车辆开始行驶后，且有预设 NLG 话术），rank=4 是"调研GPT5做PPT"（无条件但最低优先级，随时可能被更高优先级打断）。
+</div>
+
+<div class="why">
+为什么 Context 是"公共服务"而不是各 Agent 自己管？因为多个 Agent 同时运行（Director + 4 个 Advisor + 若干动态 Advisor），如果各自采集，会出现数据不一致（A 认为空调 24 度，B 认为 22 度）和重复采集浪费资源的问题。统一服务确保 single source of truth。
+</div>
+
+<div class="trap">
+"远近区"优化是 1.0 时代的做法（远区删 tool_feedback/action_list、近区完整保留）。2.0 架构中 Context 优化的正确描述是"三维过滤 + 情景压缩 + 按需抽取"，不要混淆。三维过滤是面向整个 Context 空间的，不只是对话历史。
+</div>
+
+<div class="trap">
+P0 类 Context（情景描述、历史对话、事件日志、端状态、屏幕截图、用户记忆、任务状态）每次调用都会注入，加起来可能就 15K-20K tokens。如果 SP 固定部分再有 30K+，整个 input 很容易超过 50K，命中 KV Cache 的概率会急剧下降。这是"长对话越来越慢"的根因之一。
+</div>
+</div>
+</section>
+
+<!-- ==================== 5.2 前置筛选/知识筛选专家 ==================== -->
+<section id="ch5-filter">
+<h2><span class="num">5.2</span>前置筛选 / 知识筛选专家——"Director 调用前先塞对的知识"</h2>
+<p class="sub">Director 的 SP 有 30K+ tokens，不可能把所有场景知识都塞进去。前置筛选是一个轻量 Selector 模型，在 Director 推理之前，根据当前状态判断"该给 Director 加载哪些专家知识"，做增量注入。</p>
+
+<h3>骨架图：8字段输入 - 6类专家知识库 - 增量输出 - 注入动态专业知识</h3>
+<div class="diagram">
+<svg viewBox="0 0 820 480" style="min-width:760px;display:block">
+<defs>
+  <marker id="flt-arr" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#94a3b8"/></marker>
+  <marker id="flt-cyan" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#22d3ee"/></marker>
+</defs>
+
+<!-- 左：8字段输入 -->
+<text x="80" y="18" fill="#22d3ee" font-size="11" text-anchor="middle" font-weight="bold">8 字段输入</text>
+<rect x="10" y="28" width="140" height="30" rx="8" fill="rgba(22,211,238,.12)" stroke="#22d3ee"/>
+<text x="80" y="48" fill="#e8eef9" font-size="10" text-anchor="middle">1. Query（当前用户说的）</text>
+<rect x="10" y="66" width="140" height="30" rx="8" fill="rgba(22,211,238,.12)" stroke="#22d3ee"/>
+<text x="80" y="86" fill="#e8eef9" font-size="10" text-anchor="middle">2. 近10轮对话</text>
+<rect x="10" y="104" width="140" height="30" rx="8" fill="rgba(22,211,238,.12)" stroke="#22d3ee"/>
+<text x="80" y="124" fill="#e8eef9" font-size="10" text-anchor="middle">3. 视觉感知</text>
+<rect x="10" y="142" width="140" height="30" rx="8" fill="rgba(22,211,238,.12)" stroke="#22d3ee"/>
+<text x="80" y="162" fill="#e8eef9" font-size="10" text-anchor="middle">4. 目标队列</text>
+<rect x="10" y="180" width="140" height="30" rx="8" fill="rgba(22,211,238,.12)" stroke="#22d3ee"/>
+<text x="80" y="200" fill="#e8eef9" font-size="10" text-anchor="middle">5. 车辆状态</text>
+<rect x="10" y="218" width="140" height="30" rx="8" fill="rgba(22,211,238,.12)" stroke="#22d3ee"/>
+<text x="80" y="238" fill="#e8eef9" font-size="10" text-anchor="middle">6. 变化点</text>
+<rect x="10" y="256" width="140" height="30" rx="8" fill="rgba(22,211,238,.12)" stroke="#22d3ee"/>
+<text x="80" y="276" fill="#e8eef9" font-size="10" text-anchor="middle">7. 用户记忆</text>
+<rect x="10" y="294" width="140" height="30" rx="8" fill="rgba(22,211,238,.12)" stroke="#22d3ee"/>
+<text x="80" y="314" fill="#e8eef9" font-size="10" text-anchor="middle">8. 已加载知识ID</text>
+
+<!-- Selector 模型 -->
+<rect x="220" y="80" width="240" height="200" rx="10" fill="rgba(96,165,250,.08)" stroke="#60a5fa" stroke-width="1.6"/>
+<text x="340" y="104" fill="#60a5fa" font-size="12" text-anchor="middle" font-weight="bold">Knowledge Selector</text>
+<text x="340" y="120" fill="#9fb0c7" font-size="9" text-anchor="middle">doubao-seed-1.6-flash</text>
+<rect x="240" y="134" width="200" height="30" rx="8" fill="rgba(96,165,250,.15)" stroke="#60a5fa"/>
+<text x="340" y="154" fill="#e8eef9" font-size="10" text-anchor="middle">步骤1: 是否车内场景需求?</text>
+<rect x="240" y="172" width="200" height="30" rx="8" fill="rgba(96,165,250,.15)" stroke="#60a5fa"/>
+<text x="340" y="192" fill="#e8eef9" font-size="10" text-anchor="middle">步骤2: 单动作 or 套方案?</text>
+<rect x="240" y="210" width="200" height="30" rx="8" fill="rgba(96,165,250,.15)" stroke="#60a5fa"/>
+<text x="340" y="230" fill="#e8eef9" font-size="10" text-anchor="middle">步骤3: 匹配触发规则+互斥锚定</text>
+<rect x="240" y="248" width="200" height="22" rx="6" fill="rgba(251,191,36,.12)" stroke="#fbbf24"/>
+<text x="340" y="264" fill="#fbbf24" font-size="9" text-anchor="middle">输出: {"add_knowledge_ids","remove_knowledge_ids","reasoning"}</text>
+
+<!-- 箭头: 输入 → Selector -->
+<line x1="150" y1="50" x2="218" y2="140" stroke="#22d3ee" stroke-width="1" marker-end="url(#flt-cyan)"/>
+<line x1="150" y1="86" x2="218" y2="155" stroke="#22d3ee" stroke-width="1" marker-end="url(#flt-cyan)"/>
+<line x1="150" y1="124" x2="218" y2="170" stroke="#22d3ee" stroke-width="1" marker-end="url(#flt-cyan)"/>
+<line x1="150" y1="162" x2="218" y2="185" stroke="#22d3ee" stroke-width="1" marker-end="url(#flt-cyan)"/>
+<line x1="150" y1="200" x2="218" y2="200" stroke="#22d3ee" stroke-width="1" marker-end="url(#flt-cyan)"/>
+<line x1="150" y1="238" x2="218" y2="215" stroke="#22d3ee" stroke-width="1" marker-end="url(#flt-cyan)"/>
+<line x1="150" y1="276" x2="218" y2="230" stroke="#22d3ee" stroke-width="1" marker-end="url(#flt-cyan)"/>
+<line x1="150" y1="314" x2="218" y2="250" stroke="#22d3ee" stroke-width="1" marker-end="url(#flt-cyan)"/>
+
+<!-- 右：6类专家知识库 -->
+<text x="620" y="18" fill="#a78bfa" font-size="11" text-anchor="middle" font-weight="bold">6 类专家知识库</text>
+<rect x="530" y="30" width="180" height="50" rx="8" fill="rgba(251,191,36,.12)" stroke="#fbbf24"/>
+<text x="620" y="50" fill="#e8eef9" font-size="11" text-anchor="middle">EXP 销售专家</text>
+<text x="620" y="70" fill="#9fb0c7" font-size="9" text-anchor="middle">功能介绍/产品卖点/新手引导</text>
+<rect x="530" y="90" width="180" height="50" rx="8" fill="rgba(52,211,153,.12)" stroke="#34d399"/>
+<text x="620" y="110" fill="#e8eef9" font-size="11" text-anchor="middle">DRV 司机专家</text>
+<text x="620" y="130" fill="#9fb0c7" font-size="9" text-anchor="middle">驾驶安全/路况/临停/泊车</text>
+<rect x="530" y="150" width="180" height="50" rx="8" fill="rgba(96,165,250,.12)" stroke="#60a5fa"/>
+<text x="620" y="170" fill="#e8eef9" font-size="11" text-anchor="middle">COM 管家专家</text>
+<text x="620" y="190" fill="#9fb0c7" font-size="9" text-anchor="middle">温控/座椅/空气/灯光/关怀场景</text>
+<rect x="530" y="210" width="180" height="50" rx="8" fill="rgba(167,139,250,.12)" stroke="#a78bfa"/>
+<text x="620" y="230" fill="#e8eef9" font-size="11" text-anchor="middle">ENT 娱乐专家</text>
+<text x="620" y="250" fill="#9fb0c7" font-size="9" text-anchor="middle">音乐/短视频/播客/观影</text>
+<rect x="530" y="270" width="180" height="50" rx="8" fill="rgba(22,211,238,.12)" stroke="#22d3ee"/>
+<text x="620" y="290" fill="#e8eef9" font-size="11" text-anchor="middle">LIFE 生活助理专家</text>
+<text x="620" y="310" fill="#9fb0c7" font-size="9" text-anchor="middle">外卖/订座/日程/充电/记忆</text>
+<rect x="530" y="330" width="180" height="50" rx="8" fill="rgba(251,113,133,.12)" stroke="#fb7185"/>
+<text x="620" y="350" fill="#e8eef9" font-size="11" text-anchor="middle">EMO 情感伙伴专家</text>
+<text x="620" y="370" fill="#9fb0c7" font-size="9" text-anchor="middle">情绪安抚/聊天/冥想/放松</text>
+
+<!-- 箭头: Selector → 知识库 (双向) -->
+<line x1="460" y1="165" x2="528" y2="55" stroke="#94a3b8" stroke-width="1" marker-end="url(#flt-arr)"/>
+<line x1="460" y1="175" x2="528" y2="115" stroke="#94a3b8" stroke-width="1" marker-end="url(#flt-arr)"/>
+<line x1="460" y1="190" x2="528" y2="175" stroke="#94a3b8" stroke-width="1" marker-end="url(#flt-arr)"/>
+<line x1="460" y1="200" x2="528" y2="235" stroke="#94a3b8" stroke-width="1" marker-end="url(#flt-arr)"/>
+<line x1="460" y1="215" x2="528" y2="295" stroke="#94a3b8" stroke-width="1" marker-end="url(#flt-arr)"/>
+<line x1="460" y1="225" x2="528" y2="355" stroke="#94a3b8" stroke-width="1" marker-end="url(#flt-arr)"/>
+
+<!-- 底部：注入 Director SP -->
+<rect x="220" y="340" width="240" height="50" rx="8" fill="rgba(96,165,250,.15)" stroke="#60a5fa"/>
+<text x="340" y="360" fill="#e8eef9" font-size="11" text-anchor="middle">注入 Director SP {{knowledge}} 槽位</text>
+<text x="340" y="378" fill="#9fb0c7" font-size="9" text-anchor="middle">如 COM-01-01-01 急速降温 全套编排方案</text>
+<line x1="340" y1="270" x2="340" y2="338" stroke="#60a5fa" stroke-width="1.2" marker-end="url(#flt-arr)"/>
+
+<!-- 完整链路 -->
+<rect x="100" y="420" width="620" height="44" rx="8" fill="rgba(52,211,153,.06)" stroke="#34d399" stroke-dasharray="5,3"/>
+<text x="410" y="436" fill="#34d399" font-size="10" text-anchor="middle" font-weight="bold">完整链路示例: "好热啊" → Selector 命中 COM-01-01-01 → 注入急速降温编排方案</text>
+<text x="410" y="454" fill="#9fb0c7" font-size="9" text-anchor="middle">→ Director 读到方案后知道: 查空调状态+调温+调风量+开通风+关天窗 五步并行</text>
+</svg>
+</div>
+<div class="legend">
+  <span><i style="background:#22d3ee"></i>输入字段</span>
+  <span><i style="background:#60a5fa"></i>Selector 推理</span>
+  <span><i style="background:#fbbf24"></i>EXP销售</span>
+  <span><i style="background:#34d399"></i>DRV司机</span>
+  <span><i style="background:#a78bfa"></i>ENT娱乐</span>
+  <span><i style="background:#fb7185"></i>EMO情感</span>
+</div>
+
+<div class="explain">
+<h4>讲解：为什么需要前置筛选，它到底在做什么</h4>
+
+<div class="step">
+<b>核心问题：Director SP 的 {{knowledge}} 槽位大小有限。</b>Director 的 SP 已经 30K+ tokens，不可能把所有场景的编排方案都塞进去。13 个场景（急速降温、急速升温、冥想、小憩、后排观影、宠物关怀......）的完整知识加起来可能有上万 tokens。所以需要一个"前置筛选器"：在 Director 推理之前，判断当前 query 可能涉及哪些场景，只把命中的场景知识注入。
+</div>
+
+<div class="step">
+<b>Selector 的输入是 8 个字段。</b>它不只看 query 本身，还看近 10 轮对话（判断上下文连续性）、视觉感知（后排有小孩？）、目标队列（正在执行什么？）、车辆状态（驻车 or 行车？）、变化点（什么刚刚发生了变化？）、用户记忆（这人有什么偏好？）、以及已加载的知识 ID（避免重复注入）。
+</div>
+
+<div class="step">
+<b>输出格式是增量式的 JSON：</b><code>{"add_knowledge_ids": ["COM-01-01-01"], "remove_knowledge_ids": ["ENT-02-01"], "reasoning": {...}}</code>。add 是这次需要新加载的场景知识 ID，remove 是上一轮加载了但本轮不再需要的。增量更新而非全量替换，确保知识不会无谓膨胀也不会丢失。
+</div>
+
+<div class="step">
+<b>6 类专家知识库对照表：</b>
+</div>
+
+<table>
+<tr><th>专家代码</th><th>角色</th><th>覆盖场景</th><th>典型知识 ID</th></tr>
+<tr><td><b>EXP</b></td><td>销售专家</td><td>功能介绍、产品亮点、新手引导、试驾陪伴</td><td>EXP-01-xx</td></tr>
+<tr><td><b>DRV</b></td><td>司机专家</td><td>驾驶安全、路况播报、临停、泊车、驾驶风格</td><td>DRV-01-xx</td></tr>
+<tr><td><b>COM</b></td><td>管家专家</td><td>温控（降温/升温）、座椅、空气、灯光、关怀场景</td><td>COM-01-xx</td></tr>
+<tr><td><b>ENT</b></td><td>娱乐专家</td><td>音乐、短视频、播客、前排/后排/5D 观影</td><td>ENT-01-xx</td></tr>
+<tr><td><b>LIFE</b></td><td>生活助理专家</td><td>外卖、订座、日程、充电、记忆管理</td><td>LIFE-01-xx</td></tr>
+<tr><td><b>EMO</b></td><td>情感伙伴专家</td><td>情绪安抚、深度聊天、冥想空间、放松模式</td><td>EMO-01-xx</td></tr>
+</table>
+
+<div class="step">
+<b>5 条筛选原则——Selector 不是搜索引擎，是"守门员"：</b>
+<br>（1）<b>场景绑定</b>：知识必须跟当前场景强相关。驻车场景不加载行车安全知识，行车场景不加载驻车观影知识。
+<br>（2）<b>关注变化</b>：优先关注"什么刚刚发生了变化"。温度骤降 10 度、有人上车、雨刚开始下——这些变化点才是触发场景知识的信号。
+<br>（3）<b>目标关联</b>：如果目标队列里有"正在导航去西湖"，就应该加载 DRV 的沿途信息相关知识。
+<br>（4）<b>增量更新</b>：只 add 新命中的、remove 不再需要的，不做全量替换。
+<br>（5）<b>不虚构</b>：如果没有匹配的场景，输出 ID_000（无匹配），绝不强行塞知识进去。宁可不加也不加错。
+</div>
+
+<div class="eg">
+<b>完整链路："好热啊" 从 query 到知识注入：</b>
+<br>1. 用户说"好热啊"，ASR 转文本。
+<br>2. Selector 接收 8 字段输入：query="好热啊"、sound_area=主驾、近 10 轮无温控相关话题、视觉感知=阳光强烈、车辆状态=外温 38 度/内温 29 度/空调 AUTO 模式、变化点=外温 5 分钟内升了 4 度、已加载知识 ID=空。
+<br>3. Selector 三步判定：步骤 1 是车内场景需求 → 步骤 2 "好热啊"需要一套方案而非单一动作 → 步骤 3 匹配 COM-01-01-01（急速降温）触发规则"含明确热体感词"。
+<br>4. 输出 <code>{"add_knowledge_ids":["COM-01-01-01"],"remove_knowledge_ids":[]}</code>。
+<br>5. 系统把 COM-01-01-01 的完整编排方案（查空调当前状态 → 调低温度到 22 度 → 风量调到最大 → 开内循环 → 关天窗遮阳帘）注入 Director SP 的 {{knowledge}} 槽位。
+<br>6. Director 读到后，就知道这不是简单的"调空调到某某度"，而是一套多步骤编排，输出相应的 action_list。
+</div>
+
+<div class="why">
+为什么不直接让 Director 自己判断该用什么知识？因为 Director 的 SP 已经 30K+ tokens，如果还要它在推理时"先想想该加载什么知识"，等于把分类任务和执行任务混在一起，注意力分散会导致分类不准且推理变慢。Selector 用的是轻量 flash 模型（doubao-seed-1.6-flash），延迟目标 &lt; 500ms，跟 Director 推理并行执行，总链路不增加等待时间。
+</div>
+
+<div class="trap">
+Selector 当前最大的坑是<b>延迟</b>。初版 Selector 延迟 1,805ms（input tokens 3,355，大部分是场景描述），优化方向是把场景描述压缩成"关键词锚定"格式（4000 字压到 600 字），input tokens 降到 ~800，预计 TTFT 降低 40-60%。更进一步可以做"规则前置 + LLM 兜底"——高频场景（抽烟/通风/冥想/小憩）用正则直接命中 &lt; 10ms，覆盖约 40% 请求。
+</div>
+
+<div class="trap">
+<b>易混淆场景的互斥锚定</b>是 Selector 出错的重灾区：
+<br>- "孩子睡了别打扰" → 013（后排勿扰）而非 001（儿童陪伴）
+<br>- "累了减压" → 008（冥想）而非 009（小憩）
+<br>- "好热好臭开窗" → 004+012（双命中，降温+异味通风）
+<br>- "把空调调到25度" → 000（单一动作，不需要场景知识）
+<br>区分的关键在于第 2 步："需要一套方案"还是"单一动作"。有体感词（好热/好冷）就走场景，有精准参数（25度）就走 000。
+</div>
+</div>
+</section>
+
+<!-- ==================== 5.3 Goal List 共享目标看板 ==================== -->
+<section id="ch5-goallist">
+<h2><span class="num">5.3</span>Goal List 共享目标看板——Director 和 Advisor 的"协作白板"</h2>
+<p class="sub">从"Planner 一人包揽"进化到"团队协作"的关键结构。Goal List 是一个所有角色都能读写的共享看板，让 Director 管快速响应+执行，Advisor 管深度思考+目标监控。</p>
+
+<h3>骨架图：中心看板被 Director / Advisor / HMI 读写</h3>
+<div class="diagram">
+<svg viewBox="0 0 820 420" style="min-width:760px;display:block">
+<defs>
+  <marker id="gl-arr" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#94a3b8"/></marker>
+  <marker id="gl-purple" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#a78bfa"/></marker>
+  <marker id="gl-blue" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#60a5fa"/></marker>
+</defs>
+
+<!-- 中心：Goal List 看板 -->
+<rect x="260" y="100" width="300" height="200" rx="12" fill="rgba(167,139,250,.10)" stroke="#a78bfa" stroke-width="2"/>
+<text x="410" y="126" fill="#a78bfa" font-size="13" text-anchor="middle" font-weight="bold">Goal List 共享看板</text>
+
+<!-- static 区 -->
+<rect x="280" y="140" width="130" height="80" rx="8" fill="rgba(96,165,250,.12)" stroke="#60a5fa"/>
+<text x="345" y="158" fill="#60a5fa" font-size="10" text-anchor="middle" font-weight="bold">Static 区</text>
+<text x="345" y="172" fill="#9fb0c7" font-size="9" text-anchor="middle">舒适 Advisor</text>
+<text x="345" y="184" fill="#9fb0c7" font-size="9" text-anchor="middle">出行 Advisor</text>
+<text x="345" y="196" fill="#9fb0c7" font-size="9" text-anchor="middle">情感 Advisor</text>
+<text x="345" y="208" fill="#9fb0c7" font-size="9" text-anchor="middle">内容 Advisor</text>
+
+<!-- dynamic 区 -->
+<rect x="420" y="140" width="130" height="80" rx="8" fill="rgba(251,191,36,.12)" stroke="#fbbf24"/>
+<text x="485" y="158" fill="#fbbf24" font-size="10" text-anchor="middle" font-weight="bold">Dynamic 区</text>
+<text x="485" y="172" fill="#9fb0c7" font-size="9" text-anchor="middle">介绍沿途风景</text>
+<text x="485" y="184" fill="#9fb0c7" font-size="9" text-anchor="middle">点咖啡</text>
+<text x="485" y="196" fill="#9fb0c7" font-size="9" text-anchor="middle">新手引导</text>
+<text x="485" y="208" fill="#9fb0c7" font-size="9" text-anchor="middle">...</text>
+
+<!-- 数据结构 -->
+<rect x="280" y="234" width="270" height="52" rx="6" fill="rgba(167,139,250,.08)" stroke="#a78bfa" stroke-dasharray="4,3"/>
+<text x="290" y="252" fill="#e8eef9" font-size="9" font-family="monospace">[{"目标":"介绍车功能",</text>
+<text x="296" y="264" fill="#e8eef9" font-size="9" font-family="monospace">"目标状态":"进行中",</text>
+<text x="296" y="276" fill="#e8eef9" font-size="9" font-family="monospace">"目标细节和进展":"已介绍智驾,待介绍座舱"}]</text>
+
+<!-- 上：Director -->
+<rect x="310" y="14" width="200" height="50" rx="8" fill="rgba(96,165,250,.15)" stroke="#60a5fa"/>
+<text x="410" y="34" fill="#e8eef9" font-size="12" text-anchor="middle" font-weight="bold">Director</text>
+<text x="410" y="50" fill="#9fb0c7" font-size="9" text-anchor="middle">创建目标 / 删除目标 / 读取</text>
+<line x1="410" y1="64" x2="410" y2="98" stroke="#60a5fa" stroke-width="1.5" marker-end="url(#gl-blue)"/>
+<line x1="390" y1="98" x2="390" y2="64" stroke="#60a5fa" stroke-width="1.5" marker-end="url(#gl-blue)"/>
+
+<!-- 左：4 静态 Advisor -->
+<rect x="30" y="130" width="180" height="130" rx="8" fill="rgba(167,139,250,.12)" stroke="#a78bfa"/>
+<text x="120" y="152" fill="#a78bfa" font-size="11" text-anchor="middle" font-weight="bold">4 静态 Advisor</text>
+<text x="120" y="170" fill="#e8eef9" font-size="10" text-anchor="middle">更新"目标细节和进展"</text>
+<text x="120" y="186" fill="#e8eef9" font-size="10" text-anchor="middle">Review 目标达成</text>
+<text x="120" y="202" fill="#e8eef9" font-size="10" text-anchor="middle">建议恢复被打断任务</text>
+<text x="120" y="222" fill="#9fb0c7" font-size="9" text-anchor="middle">只读+更新进展，不创建/删除</text>
+<line x1="210" y1="180" x2="258" y2="180" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#gl-purple)"/>
+<line x1="258" y1="200" x2="210" y2="200" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#gl-purple)"/>
+
+<!-- 右：动态 Advisor -->
+<rect x="610" y="130" width="180" height="100" rx="8" fill="rgba(251,191,36,.12)" stroke="#fbbf24"/>
+<text x="700" y="152" fill="#fbbf24" font-size="11" text-anchor="middle" font-weight="bold">动态 Advisor</text>
+<text x="700" y="170" fill="#e8eef9" font-size="10" text-anchor="middle">绑定特定目标</text>
+<text x="700" y="186" fill="#e8eef9" font-size="10" text-anchor="middle">目标结束→生命周期结束</text>
+<text x="700" y="210" fill="#9fb0c7" font-size="9" text-anchor="middle">读+更新所绑定目标</text>
+<line x1="562" y1="180" x2="608" y2="180" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#gl-arr)"/>
+<line x1="608" y1="200" x2="562" y2="200" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#gl-arr)"/>
+
+<!-- 下：HMI 卡片 -->
+<rect x="310" y="330" width="200" height="50" rx="8" fill="rgba(251,191,36,.12)" stroke="#fbbf24"/>
+<text x="410" y="350" fill="#e8eef9" font-size="11" text-anchor="middle">HMI 卡片层</text>
+<text x="410" y="368" fill="#9fb0c7" font-size="9" text-anchor="middle">只读：展示目标进度/状态</text>
+<line x1="410" y1="300" x2="410" y2="328" stroke="#fbbf24" stroke-width="1.2" marker-end="url(#gl-arr)"/>
+
+<!-- 生命周期标注 -->
+<text x="410" y="408" fill="#9fb0c7" font-size="10" text-anchor="middle">生命周期: 创建 → 更新进展 → review 达成 → 删除</text>
+</svg>
+</div>
+<div class="legend">
+  <span><i style="background:#60a5fa"></i>Director (创建/删除/读取)</span>
+  <span><i style="background:#a78bfa"></i>静态Advisor (更新/review/读取)</span>
+  <span><i style="background:#fbbf24"></i>动态Advisor/HMI (读取/更新)</span>
+</div>
+
+<div class="explain">
+<h4>讲解：Goal List 是怎么运转的</h4>
+
+<div class="step">
+<b>第一步：理解为什么需要 Goal List。</b>1.0 架构中，Planner 一人包揽所有事情——理解意图、规划任务、调工具、跟踪进度、恢复被打断的任务。这导致 Planner 过载：SP 太长、注意力分散、容易"忘事"。Goal List 的引入就是把"任务管理"从 Planner 脑子里拿出来，变成一个外部化的、所有角色共享的数据结构。
+</div>
+
+<div class="step">
+<b>第二步：读写权责。</b>不同角色对 Goal List 的权限不同：
+</div>
+
+<table>
+<tr><th>角色</th><th>创建目标</th><th>更新进展</th><th>Review 达成</th><th>删除目标</th><th>读取</th></tr>
+<tr><td><b>Director</b></td><td>可以</td><td>-</td><td>-</td><td>可以</td><td>可以</td></tr>
+<tr><td><b>4 静态 Advisor</b></td><td>-</td><td>可以</td><td>可以</td><td>-</td><td>可以</td></tr>
+<tr><td><b>动态 Advisor</b></td><td>-</td><td>可以(仅绑定目标)</td><td>可以(仅绑定目标)</td><td>-</td><td>可以</td></tr>
+<tr><td><b>HMI 卡片</b></td><td>-</td><td>-</td><td>-</td><td>-</td><td>可以</td></tr>
+</table>
+
+<div class="step">
+<b>第三步：数据结构。</b>Goal List 是一个 JSON 数组，每个元素三个字段：
+<br>- <code>"目标"</code>：目标描述（如"介绍车功能"）
+<br>- <code>"目标状态"</code>：进行中 / 已完成 / 暂停 / 取消
+<br>- <code>"目标细节和进展"</code>：自由文本，记录目标的当前进展和中间信息
+<br><br>
+分两区存储：<b>static 区</b>对应 4 个永久 Advisor（舒适、出行、情感、内容），这些 Advisor 是"永久合同监工"，只要车在开就在运行；<b>dynamic 区</b>对应动态注册的 Advisor，目标达成/取消后 Advisor 生命周期结束，目标从 dynamic 区移除。
+</div>
+
+<div class="step">
+<b>第四步：生命周期完整流程。</b>
+<br>（1）<b>创建</b>：用户说"介绍一下这台车的功能"→ Director 判断这是长时任务 → 调用 goal_list_update 工具（type=add_goal）→ Goal List 新增一条{"目标":"介绍车功能","目标状态":"进行中","目标细节和进展":""}→ 工程动态注册一个"功能介绍 Advisor"。
+<br>（2）<b>更新</b>：Director 开始介绍智驾功能，介绍到一半被用户打断 → 对应 Advisor 更新进展字段为"已介绍智驾部分，待介绍座舱和车控"。
+<br>（3）<b>Review</b>：用户打断处理完后，静态 Advisor（内容类）读取 Goal List，发现有"介绍车功能"还没完成 → 发出 advisor 建议"可以接着介绍了" → Director 收到后决定是否恢复。
+<br>（4）<b>删除</b>：介绍完成 → Advisor review 判断目标达成 → Director 调用 goal_list_update（type=delete_goal）→ 目标移除，动态 Advisor 生命周期结束。
+</div>
+
+<div class="eg">
+用户说"介绍一下这台车的功能"。Director 创建目标，开始介绍智驾。说到"此外我还可以帮你做很多别的事情——"，用户打断说"导航去赛力斯集团"。Director 立即处理导航。导航完成后，内容 Advisor 读 Goal List 发现目标"介绍车功能"状态为"进行中"、细节为"已讲智驾，待讲座舱"，于是发出 advisor 建议："刚被打断了，可以继续介绍车功能"。Director 收到后恢复："刚刚被打断啦，我们接着来介绍吧～刚说到，我可以帮你做很多别的事情，包括......"
+</div>
+
+<div class="why">
+为什么 Director 只负责创建和删除，进展更新交给 Advisor？因为 Director 是"快响应"角色——收到 query 就要尽快出 action_list，没有余力去细致跟踪每个目标的进展。而 Advisor 是异步运行的"后台监工"，有时间慢慢 review 目标的完成度。这就是"分工协作"的精髓：Director 管执行，Advisor 管跟踪。
+</div>
+
+<div class="trap">
+<b>"目标细节和进展"是自由文本</b>，这带来一个隐患：不同 Advisor 写入的进展格式不统一、信息质量参差不齐。比如一个 Advisor 写"已完成第一步"，另一个写"导航已设置，目的地赛力斯集团龙兴基地，全程13公里"——信息密度差很远。当 Director 需要读进展来恢复任务时，如果进展描述太模糊，恢复质量就会很差。这是当前架构的一个已知软肋。
+</div>
+
+<div class="trap">
+Goal List 的大小没有上限控制。如果用户在一次长对话中创建了十几个目标、大部分处于"进行中"状态，整个 Goal List 作为 Context 注入 Director SP 的 {{goal_list}} 变量，会占用大量 tokens，挤压其他信息的空间，且容易导致 Director 注意力分散、"忘掉"某些目标。
+</div>
+</div>
+</section>
+
+<!-- ==================== 5.4 任务与交互管理 ==================== -->
+<section id="ch5-interaction">
+<h2><span class="num">5.4</span>任务与交互管理——"新 query 来了，该排队还是打断？"</h2>
+<p class="sub">车载语音是单通路管道：同时只能有一个 TTS 在播报、一个 Director 在推理。当新输入到达时，系统必须在毫秒级决定：打断还是排队？合并还是丢弃？这套决策逻辑是交互管理的核心。</p>
+
+<h3>流程图：新输入到达 - 首 token 出没出 - 打断/合并/排队</h3>
+<div class="diagram">
+<svg viewBox="0 0 820 560" style="min-width:760px;display:block">
+<defs>
+  <marker id="im-arr" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#94a3b8"/></marker>
+  <marker id="im-rose" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#fb7185"/></marker>
+  <marker id="im-green" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#34d399"/></marker>
+</defs>
+
+<!-- 入口 -->
+<rect x="310" y="10" width="200" height="40" rx="8" fill="rgba(22,211,238,.15)" stroke="#22d3ee"/>
+<text x="410" y="35" fill="#e8eef9" font-size="12" text-anchor="middle" font-weight="bold">新输入到达 (ASR/Advisor/Signal)</text>
+
+<!-- 判断菱形：首 token 出了没？ -->
+<polygon points="410,70 520,120 410,170 300,120" fill="rgba(96,165,250,.10)" stroke="#60a5fa" stroke-width="1.2"/>
+<text x="410" y="116" fill="#e8eef9" font-size="11" text-anchor="middle">上一轮 Director</text>
+<text x="410" y="130" fill="#e8eef9" font-size="11" text-anchor="middle">首 token 出了没?</text>
+<line x1="410" y1="50" x2="410" y2="70" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#im-arr)"/>
+
+<!-- 左分支：还没出 → 打断合并 -->
+<text x="260" y="110" fill="#34d399" font-size="10">没出</text>
+<line x1="300" y1="120" x2="200" y2="120" stroke="#34d399" stroke-width="1.2" marker-end="url(#im-green)"/>
+<rect x="60" y="100" width="140" height="44" rx="8" fill="rgba(52,211,153,.15)" stroke="#34d399"/>
+<text x="130" y="118" fill="#e8eef9" font-size="11" text-anchor="middle">打断旧进程</text>
+<text x="130" y="136" fill="#9fb0c7" font-size="9" text-anchor="middle">合并两次输入,重新请求</text>
+<line x1="130" y1="144" x2="130" y2="186" stroke="#34d399" stroke-width="1.2" marker-end="url(#im-green)"/>
+<rect x="40" y="188" width="180" height="60" rx="8" fill="rgba(52,211,153,.08)" stroke="#34d399" stroke-dasharray="4,3"/>
+<text x="130" y="206" fill="#e8eef9" font-size="10" text-anchor="middle">合并示例:</text>
+<text x="130" y="222" fill="#9fb0c7" font-size="9" text-anchor="middle">"讲财经新闻"+"先导航海底捞"</text>
+<text x="130" y="236" fill="#9fb0c7" font-size="9" text-anchor="middle">→ 合并后一次性响应两个意图</text>
+
+<!-- 右分支：已出 → 已播报 -->
+<text x="538" y="110" fill="#fb7185" font-size="10">已出</text>
+<line x1="520" y1="120" x2="600" y2="120" stroke="#fb7185" stroke-width="1.2" marker-end="url(#im-rose)"/>
+
+<!-- 右分支再判断：新输入类型 -->
+<polygon points="700,120 790,165 700,210 610,165" fill="rgba(251,113,133,.10)" stroke="#fb7185" stroke-width="1.2"/>
+<text x="700" y="160" fill="#e8eef9" font-size="10" text-anchor="middle">新输入来源?</text>
+<text x="700" y="175" fill="#9fb0c7" font-size="9" text-anchor="middle">P0用户 / P1非用户</text>
+
+<!-- P0 用户打断 -->
+<text x="620" y="226" fill="#fb7185" font-size="10">P0 用户</text>
+<line x1="660" y1="210" x2="610" y2="260" stroke="#fb7185" stroke-width="1.2" marker-end="url(#im-rose)"/>
+<rect x="510" y="262" width="200" height="54" rx="8" fill="rgba(251,113,133,.15)" stroke="#fb7185"/>
+<text x="610" y="280" fill="#e8eef9" font-size="11" text-anchor="middle">立即打断 TTS</text>
+<text x="610" y="296" fill="#9fb0c7" font-size="9" text-anchor="middle">停止当前播报,不恢复</text>
+<text x="610" y="308" fill="#9fb0c7" font-size="9" text-anchor="middle">执行新 query</text>
+
+<!-- P1 非用户排队 -->
+<text x="770" y="226" fill="#fbbf24" font-size="10">P1 非用户</text>
+<line x1="740" y1="210" x2="760" y2="260" stroke="#fbbf24" stroke-width="1.2" marker-end="url(#im-arr)"/>
+<rect x="680" y="262" width="130" height="54" rx="8" fill="rgba(251,191,36,.12)" stroke="#fbbf24"/>
+<text x="745" y="280" fill="#e8eef9" font-size="10" text-anchor="middle">排队等播完</text>
+<text x="745" y="296" fill="#9fb0c7" font-size="9" text-anchor="middle">可预推理缓存</text>
+<text x="745" y="308" fill="#9fb0c7" font-size="9" text-anchor="middle">播完后出结果</text>
+
+<!-- 下方：打断后任务工程 -->
+<rect x="160" y="340" width="500" height="44" rx="8" fill="rgba(96,165,250,.10)" stroke="#60a5fa"/>
+<text x="410" y="358" fill="#60a5fa" font-size="11" text-anchor="middle" font-weight="bold">打断后任务工程管理</text>
+<text x="410" y="374" fill="#9fb0c7" font-size="9" text-anchor="middle">被打断任务 → 状态=interrupted + 保存 checkpoint → Advisor 读 Goal List 决定是否恢复</text>
+<line x1="130" y1="248" x2="260" y2="340" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#im-arr)"/>
+<line x1="610" y1="316" x2="510" y2="340" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#im-arr)"/>
+
+<!-- 恢复/挂起/失效 -->
+<rect x="100" y="410" width="180" height="50" rx="8" fill="rgba(167,139,250,.12)" stroke="#a78bfa"/>
+<text x="190" y="430" fill="#e8eef9" font-size="11" text-anchor="middle">恢复：Advisor 触发</text>
+<text x="190" y="448" fill="#9fb0c7" font-size="9" text-anchor="middle">带上下文重新触发任务</text>
+
+<rect x="320" y="410" width="180" height="50" rx="8" fill="rgba(251,191,36,.12)" stroke="#fbbf24"/>
+<text x="410" y="430" fill="#e8eef9" font-size="11" text-anchor="middle">挂起：Always on 监听</text>
+<text x="410" y="448" fill="#9fb0c7" font-size="9" text-anchor="middle">长时任务持续在后台运行</text>
+
+<rect x="540" y="410" width="180" height="50" rx="8" fill="rgba(251,113,133,.12)" stroke="#fb7185"/>
+<text x="630" y="430" fill="#e8eef9" font-size="11" text-anchor="middle">失效：超时兜底</text>
+<text x="630" y="448" fill="#9fb0c7" font-size="9" text-anchor="middle">端侧/云端超时→告知重试→失败结束</text>
+
+<line x1="310" y1="384" x2="190" y2="408" stroke="#a78bfa" stroke-width="1" marker-end="url(#im-arr)"/>
+<line x1="410" y1="384" x2="410" y2="408" stroke="#fbbf24" stroke-width="1" marker-end="url(#im-arr)"/>
+<line x1="510" y1="384" x2="630" y2="408" stroke="#fb7185" stroke-width="1" marker-end="url(#im-rose)"/>
+
+<!-- 优先级矩阵标注 -->
+<rect x="100" y="490" width="620" height="50" rx="8" fill="rgba(22,211,238,.06)" stroke="#22d3ee" stroke-dasharray="5,3"/>
+<text x="410" y="510" fill="#22d3ee" font-size="10" text-anchor="middle" font-weight="bold">优先级矩阵 (从高到低)</text>
+<text x="410" y="528" fill="#9fb0c7" font-size="9" text-anchor="middle">安全 > 导航 > 普通 > 配置 > 条件 > 非配置 > 简单 > 复杂</text>
+</svg>
+</div>
+
+<div class="explain">
+<h4>讲解：交互管理的核心决策树</h4>
+
+<div class="step">
+<b>第一步：理解"单通路管道"约束。</b>车载语音交互不像聊天软件可以开多个对话窗。同一时刻只能有一个 TTS 在播报、一个 Director 在推理。所以当新输入到达时，系统必须做出选择：当前正在做的事情怎么处理？新来的事情怎么安排？
+</div>
+
+<div class="step">
+<b>第二步：核心分叉——"首 token 出了没？"</b>
+<br><b>情况 A：首 token 还没出（Director 还在思考中）。</b>这时候最优策略是"打断合并"——把旧 query 和新 query 合并成一个请求，重新提交给 Director。因为 Director 还没产出任何结果，打断无成本。
+<br><b>情况 B：首 token 已出（TTS 正在播报或已有输出）。</b>这时候要看新输入的来源：
+<br>- <b>P0 用户打断式</b>：用户亲自说了话，立即停止当前播报，执行新 query。用户永远最优先。
+<br>- <b>P1 非用户排队式</b>：Advisor 或系统事件触发的，排队等当前播报完再处理。可以利用等待时间做"预推理缓存"——先偷偷推理好，播完了直接出结果。
+</div>
+
+<div class="step">
+<b>第三步：六种冲突策略。</b>
+</div>
+
+<table>
+<tr><th>策略</th><th>说明</th><th>典型场景</th></tr>
+<tr><td><b>扔弃</b></td><td>直接丢弃旧任务的结果</td><td>旧任务还在思考，用户说了完全不相关的新指令</td></tr>
+<tr><td><b>排队</b></td><td>新任务排在旧任务之后</td><td>Advisor 建议在用户对话中间到达</td></tr>
+<tr><td><b>静默</b></td><td>新任务静默执行，不打断播报</td><td>简单车控（开车窗）只发叮声，不停止当前 TTS</td></tr>
+<tr><td><b>整合</b></td><td>合并旧 query 和新 query 重新提交</td><td>首 token 未出时两个 query 合并</td></tr>
+<tr><td><b>插队</b></td><td>新任务强制优先执行</td><td>安全类告警、紧急导航变更</td></tr>
+<tr><td><b>停止旧</b></td><td>立即终止旧任务执行新任务</td><td>用户打断正在播报的内容</td></tr>
+</table>
+
+<div class="step">
+<b>第四步：优先级矩阵。</b>当多个任务冲突时，按以下优先级排序（从高到低）：
+<br><b>安全</b>（碰撞预警/紧急制动）> <b>导航</b>（路线变更/到站提醒）> <b>普通用户指令</b> > <b>配置类</b>（调空调/座椅）> <b>条件触发类</b>（到站叫醒）> <b>非配置类</b>（播音乐）> <b>简单查询</b> > <b>复杂多步任务</b>
+<br>注意最后一个：复杂多步任务优先级最低。因为它耗时长，如果让它占住管道，短任务就得排很久队。
+</div>
+
+<div class="step">
+<b>第五步：三条合并特殊规则。</b>
+<br>（1）<b>长程任务不参与合并</b>：如果旧任务是"介绍沿途风景"这种 Always on 长程任务，新 query 来了不要把两者合并，而是暂停长程任务，处理完新 query 后由 Advisor 决定是否恢复。
+<br>（2）<b>AIGC 内容走通知卡，不走 Director 管道</b>：AI 播客生成完成、图片生成完成这类 AIGC 产物，不要插入 Director 的推理管道，而是直接以通知卡片形式 push 到 HMI，不抢占语音通路。
+<br>（3）<b>同一个 Advisor 只保留最新</b>：如果舒适 Advisor 连发了两条建议（第一条"温度有点高，建议调低"、第二条"已检测到你开了车窗，取消降温建议"），只保留最新的那条。
+</div>
+
+<div class="step">
+<b>第六步：任务工程管理——打断后怎么恢复？</b>
+<br>（1）<b>打断 → 保存 checkpoint</b>：被打断的任务状态标记为 interrupted，同时保存当前的执行进度（已调了哪些工具、tool_feedback 是什么、Goal List 里的进展记录）作为 checkpoint。
+<br>（2）<b>恢复 → Advisor 读 Goal List 重触发</b>：新任务执行完后，对应的 Advisor 读 Goal List 发现有 interrupted 的目标，发出 advisor 建议"可以恢复介绍车功能"，Director 收到后带着 checkpoint 上下文继续。
+<br>（3）<b>挂起 → Always on 监听</b>：长时任务（如"帮我介绍沿途风景"）不是被打断就结束，而是挂起到后台，感知模块持续监听，条件满足时重新激活。
+<br>（4）<b>失效兜底</b>：端侧超时（端侧等不到云端响应）或云端工具超时（工具调用无返回）→ 先告知用户"稍等"→ 重试一次 → 仍失败则告知用户并结束任务。
+</div>
+
+<div class="eg">
+用户说"给我讲讲今天的财经新闻"。Director 开始推理、调用 web_search、拿到结果、开始 TTS 播报。播报到一半，用户打断说"先导航到海底捞"。
+<br><b>首 token 已出 + P0 用户打断</b> → 立即停止 TTS → 状态=interrupted + checkpoint（已播报到"证监会部署多项..."）→ 执行导航任务。
+<br>导航完成后，内容 Advisor 读 Goal List 发现"讲财经新闻"还没完，发出 advisor 建议 → Director 恢复："刚刚被打断了，我接着为你讲今天的财经新闻吧，刚说到证监会部署多项资本市场发展举措......"
+</div>
+
+<div class="eg">
+<b>合并场景</b>：用户说"给我讲讲财经新闻"，Director 还在思考（首 token 未出），用户又说"先导航海底捞"。→ 打断旧进程 → 合并两个 query → 重新请求 Director → 输出："好的，我来帮你导航去海底捞，顺便整理播报今天的财经新闻。"一次性解决两个需求。
+</div>
+
+<div class="why">
+为什么"首 token 出没出"是核心分叉点？因为首 token 出了意味着已经产生了用户可感知的输出（TTS 开始播了），打断会造成"说了一半突然停"的不良体验，需要更慎重地处理（保存 checkpoint、后续恢复）。而首 token 还没出时，用户还在等待中，合并重发对用户体验零损失。
+</div>
+
+<div class="trap">
+"预推理缓存"听起来很美——P1 排队时偷偷推理好，播完直接出结果。但实际上有坑：如果当前 TTS 播报的内容会改变 context（比如 Director 正在和用户确认某件事，用户回答了"好"），那"偷偷推理"的时候 context 还没包含这个回答，推理出来的结果可能已经过时。所以预推理只适用于"不依赖当前播报结果"的场景。
+</div>
+</div>
+</section>
+
+<!-- ==================== 5.5 执行层：26工具+HMI卡片 ==================== -->
+<section id="ch5-execution">
+<h2><span class="num">5.5</span>执行层：26 工具 + HMI 卡片——"action_list 出来之后，谁干活？"</h2>
+<p class="sub">Director 输出 action_list，交互管理决定执行顺序，最终工具执行器逐条调用。成功就把 tool_feedback 回灌给 Director，失败就触发 Replan。同时，结果要通过 HMI 卡片呈现给用户。</p>
+
+<h3>流程图：action_list - 工具执行 - 成功回灌/失败 Replan</h3>
+<div class="diagram">
+<svg viewBox="0 0 820 440" style="min-width:760px;display:block">
+<defs>
+  <marker id="ex-arr" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#94a3b8"/></marker>
+  <marker id="ex-green" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#34d399"/></marker>
+  <marker id="ex-rose" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#fb7185"/></marker>
+</defs>
+
+<!-- Director 输出 -->
+<rect x="20" y="50" width="180" height="50" rx="8" fill="rgba(96,165,250,.15)" stroke="#60a5fa"/>
+<text x="110" y="70" fill="#e8eef9" font-size="12" text-anchor="middle" font-weight="bold">Director 输出</text>
+<text x="110" y="88" fill="#9fb0c7" font-size="9" text-anchor="middle">action_list + talk_content</text>
+
+<!-- 箭头 -->
+<line x1="200" y1="75" x2="260" y2="75" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ex-arr)"/>
+
+<!-- 工具执行器 -->
+<rect x="262" y="30" width="200" height="90" rx="10" fill="rgba(251,191,36,.10)" stroke="#fbbf24" stroke-width="1.6"/>
+<text x="362" y="52" fill="#fbbf24" font-size="12" text-anchor="middle" font-weight="bold">工具执行器</text>
+<text x="362" y="70" fill="#e8eef9" font-size="10" text-anchor="middle">并行调用无依赖工具</text>
+<text x="362" y="86" fill="#e8eef9" font-size="10" text-anchor="middle">串行调用有依赖工具</text>
+<text x="362" y="102" fill="#9fb0c7" font-size="9" text-anchor="middle">26 个下游工具 / Agent</text>
+
+<!-- 成功回灌 -->
+<line x1="462" y1="55" x2="560" y2="55" stroke="#34d399" stroke-width="1.2" marker-end="url(#ex-green)"/>
+<rect x="562" y="30" width="200" height="50" rx="8" fill="rgba(52,211,153,.15)" stroke="#34d399"/>
+<text x="662" y="50" fill="#34d399" font-size="11" text-anchor="middle" font-weight="bold">成功：tool_feedback</text>
+<text x="662" y="68" fill="#9fb0c7" font-size="9" text-anchor="middle">回灌 Director 继续推理</text>
+
+<!-- 回灌箭头 -->
+<path d="M662,80 C662,140 110,140 110,100" fill="none" stroke="#34d399" stroke-width="1" stroke-dasharray="5,3" marker-end="url(#ex-green)"/>
+<text x="400" y="148" fill="#34d399" font-size="9" text-anchor="middle">tool_feedback 作为下一轮 input 回灌</text>
+
+<!-- 失败 Replan -->
+<line x1="462" y1="95" x2="560" y2="95" stroke="#fb7185" stroke-width="1.2" marker-end="url(#ex-rose)"/>
+<rect x="562" y="80" width="200" height="50" rx="8" fill="rgba(251,113,133,.15)" stroke="#fb7185"/>
+<text x="662" y="100" fill="#fb7185" font-size="11" text-anchor="middle" font-weight="bold">失败：Replan</text>
+<text x="662" y="118" fill="#9fb0c7" font-size="9" text-anchor="middle">告知 Director 失败原因 → 重规划</text>
+
+<!-- 播报归属 -->
+<rect x="20" y="190" width="380" height="100" rx="10" fill="rgba(96,165,250,.06)" stroke="#60a5fa" stroke-dasharray="5,3"/>
+<text x="210" y="210" fill="#60a5fa" font-size="11" text-anchor="middle" font-weight="bold">播报归属：谁来播？</text>
+<rect x="40" y="222" width="160" height="54" rx="8" fill="rgba(96,165,250,.12)" stroke="#60a5fa"/>
+<text x="120" y="240" fill="#e8eef9" font-size="10" text-anchor="middle">Director 统一播</text>
+<text x="120" y="256" fill="#9fb0c7" font-size="9" text-anchor="middle">车控/音乐/短视频/GUI</text>
+<text x="120" y="268" fill="#9fb0c7" font-size="9" text-anchor="middle">→ 收 tool_feedback 后总结</text>
+<rect x="220" y="222" width="160" height="54" rx="8" fill="rgba(167,139,250,.12)" stroke="#a78bfa"/>
+<text x="300" y="240" fill="#e8eef9" font-size="10" text-anchor="middle">Agent 自己播</text>
+<text x="300" y="256" fill="#9fb0c7" font-size="9" text-anchor="middle">本地生活/VQA/车书/S2S</text>
+<text x="300" y="268" fill="#9fb0c7" font-size="9" text-anchor="middle">→ Agent 有自己的 TTS</text>
+
+<rect x="420" y="190" width="380" height="100" rx="10" fill="rgba(167,139,250,.06)" stroke="#a78bfa" stroke-dasharray="5,3"/>
+<text x="610" y="210" fill="#a78bfa" font-size="11" text-anchor="middle" font-weight="bold">特殊：web_search</text>
+<rect x="440" y="222" width="340" height="54" rx="8" fill="rgba(167,139,250,.12)" stroke="#a78bfa"/>
+<text x="610" y="240" fill="#e8eef9" font-size="10" text-anchor="middle">Director 总结播</text>
+<text x="610" y="256" fill="#9fb0c7" font-size="9" text-anchor="middle">web_search 返回原始结果 → Director 阅读后</text>
+<text x="610" y="268" fill="#9fb0c7" font-size="9" text-anchor="middle">生成 talk_content 播报给用户</text>
+
+<!-- HMI 三类卡 -->
+<rect x="20" y="320" width="780" height="104" rx="10" fill="rgba(251,191,36,.06)" stroke="#fbbf24"/>
+<text x="410" y="342" fill="#fbbf24" font-size="12" text-anchor="middle" font-weight="bold">HMI 三类卡片</text>
+
+<rect x="40" y="354" width="220" height="56" rx="8" fill="rgba(22,211,238,.12)" stroke="#22d3ee"/>
+<text x="150" y="372" fill="#22d3ee" font-size="11" text-anchor="middle" font-weight="bold">小卡 (AI 语音卡)</text>
+<text x="150" y="390" fill="#9fb0c7" font-size="9" text-anchor="middle">最多同时1张 / 我方容器</text>
+<text x="150" y="402" fill="#9fb0c7" font-size="9" text-anchor="middle">展示 Director talk_content</text>
+
+<rect x="290" y="354" width="240" height="56" rx="8" fill="rgba(96,165,250,.12)" stroke="#60a5fa"/>
+<text x="410" y="372" fill="#60a5fa" font-size="11" text-anchor="middle" font-weight="bold">大卡 (AI 画布卡)</text>
+<text x="410" y="390" fill="#9fb0c7" font-size="9" text-anchor="middle">最多同时1张 / 上汽容器 / 与小卡互斥</text>
+<text x="410" y="402" fill="#9fb0c7" font-size="9" text-anchor="middle">富文本/图表/搜索结果/POI列表</text>
+
+<rect x="560" y="354" width="220" height="56" rx="8" fill="rgba(52,211,153,.12)" stroke="#34d399"/>
+<text x="670" y="372" fill="#34d399" font-size="11" text-anchor="middle" font-weight="bold">通知卡 (Push 通知)</text>
+<text x="670" y="390" fill="#9fb0c7" font-size="9" text-anchor="middle">可同时多张 / 独立通道</text>
+<text x="670" y="402" fill="#9fb0c7" font-size="9" text-anchor="middle">AIGC完成/条件触发/Advisor建议</text>
+</svg>
+</div>
+<div class="legend">
+  <span><i style="background:#fbbf24"></i>执行</span>
+  <span><i style="background:#34d399"></i>成功/回灌</span>
+  <span><i style="background:#fb7185"></i>失败/Replan</span>
+  <span><i style="background:#22d3ee"></i>小卡</span>
+  <span><i style="background:#60a5fa"></i>大卡</span>
+</div>
+
+<div class="explain">
+<h4>讲解：执行层的工作机制</h4>
+
+<div class="step">
+<b>第一步：action_list 怎么执行。</b>Director 输出的 JSON 中 action_list 是一个数组，每个 action 包含 action_id、tool_name、params。工具执行器拿到后判断依赖关系：无依赖的工具并行调用（如 search_poi_qa 和 route_planning_qa 可以同时发），有依赖的串行调用（如先 search_user_memory 拿到地址，再 route_planning_qa 导航）。Director 在 SP 注意事项第 6 条已经约束了："如果工具有串行依赖，不要一次性输出多个工具请求"——这就是让模型自己管好串行依赖。
+</div>
+
+<div class="step">
+<b>第二步：3 个易混点——新人最容易搞错的地方。</b>
+<br>（1）<b>媒体播控不是独立工具，归 vehicle_basic_control</b>。上一首/下一首/暂停/播放这些播控指令不走 search_and_control_music，而是走 vehicle_basic_control（它管导航、播控、空调、座椅等所有车辆基础控制）。search_and_control_music 只管"搜索/推荐"。
+<br>（2）<b>记忆分两类：search_user_memory（只读检索）和 operate_user_memory（写入更新）</b>。查"超然爱吃什么"用前者，记住"超然今天点了日料"用后者。Director SP 中两个工具的 tool_describe 差异很细微，模型经常搞混。
+<br>（3）<b>4 个导航类工具不要并行调用</b>。search_poi_qa（搜 POI）、route_planning_qa（规划路线）、navi_basic_control（导航控制）、search_weather（天气查询，影响路线选择）——它们之间往往有隐含依赖。比如搜完 POI 才能导航去那个地方，所以不要并行。
+</div>
+
+<div class="step">
+<b>第三步：播报归属——谁 Director 统一回？谁 Agent 自己播？</b>
+<br><b>Director 统一播的工具</b>：vehicle_basic_control、search_and_control_music、search_and_control_short_video、gui_agent_operation——这些工具返回的 tool_feedback 是结构化数据（POI 列表、路线信息、车况数据），需要 Director 阅读后用自然语言总结播报给用户。
+<br><b>Agent 自己播的工具</b>：本地生活类（实时语音交互）、search_visual_info（VQA 有自己的回答模板）、vehicle_manual_qa（车书查询有自己的回答格式）、S2S（端到端语音模型）——这些 Agent 有自己的 TTS 通路。
+<br><b>特殊：web_search</b>——返回的是原始网页摘要，由 Director 阅读后总结成用户友好的 talk_content 播报。
+</div>
+
+<div class="step">
+<b>第四步：HMI 三类卡片。</b>
+<br>（1）<b>小卡（AI 语音卡）</b>：最多同时显示 1 张。展示 Director 的 talk_content 文字版——就是语音播报的文字对照。我方（字节）容器控制。
+<br>（2）<b>大卡（AI 画布卡）</b>：最多同时显示 1 张，且<b>与小卡互斥</b>（显示大卡时小卡消失）。用于展示富内容——POI 列表、搜索结果、图表、图片生成结果等。上汽容器控制（因为涉及车机大屏 UI）。
+<br>（3）<b>通知卡（Push 通知）</b>：可同时存在多张。独立通道，不占用语音管道。用于 AIGC 内容完成通知、条件触发提醒、Advisor 建议卡片等。
+</div>
+
+<div class="eg">
+用户说"去虹桥机场附近找个好吃的日料"。Director 并行调用 route_planning_qa（规划路线）和 search_poi_qa（搜日料店）。route_planning_qa 先返回"路线规划成功"——Director 看到后判断不需要说话（界面已显示路线）。search_poi_qa 返回 3 家日料店——Director 阅读后总结："沿途有家�的一日本料理，评分 4.8，就在 T2 附近，要不要设为途经点？" 同时 HMI 显示大卡展示 3 家店的详情列表。
+</div>
+
+<div class="step">
+<b>第五步：Badcase 排查表。</b>当线上出了问题，按以下路径排查：
+</div>
+
+<table>
+<tr><th>问题类型</th><th>症状</th><th>排查方向</th></tr>
+<tr><td><b>走错模块</b></td><td>应该走句法 RAG 的走了 Director，或反过来</td><td>路由层规则/仲裁模型配置</td></tr>
+<tr><td><b>工具误调</b></td><td>该调 search_poi_qa 调了 route_planning_qa</td><td>Director SP 工具描述是否清晰；前置筛选是否注入了正确的场景知识</td></tr>
+<tr><td><b>信息缺失</b></td><td>Director 不知道用户的记忆/车况/情景</td><td>Context 服务是否正确注入；三维过滤是否过度裁剪</td></tr>
+<tr><td><b>车控幻觉</b></td><td>Director 执行了车辆不支持的功能</td><td>SP 中 D6X 设备知识是否完整；工具 notice 是否明确约束能力边界</td></tr>
+<tr><td><b>目标忘事</b></td><td>被打断后没有恢复之前的任务</td><td>Goal List 是否正确记录；Advisor 是否触发了 review；checkpoint 是否完整</td></tr>
+<tr><td><b>情绪突变</b></td><td>前一句温柔后一句冷漠，人设断裂</td><td>SP 性格设定是否被冲刷；上下文窗口是否太短丢失了对话风格</td></tr>
+<tr><td><b>话术乱</b></td><td>播报内容重复/断句/信息不全</td><td>TTS 打断恢复机制是否正确；talk_content 生成是否受到 tool_feedback 格式影响</td></tr>
+</table>
+
+<div class="why">
+为什么"成功回灌"而不是"成功直接结束"？因为很多任务是多步的。Director 调 search_user_memory 拿到"昨天去的是XX游泳馆"，这只是中间步骤——还需要拿着这个地址调 route_planning_qa 去导航。所以 tool_feedback 必须回灌给 Director 作为下一轮的 input，让 Director 决定"是继续调工具还是可以对用户说话了"。
+</div>
+
+<div class="why">
+为什么大卡和小卡互斥？因为车机大屏空间有限。如果同时显示 AI 语音卡的文字和 POI 列表的富内容卡，界面会很拥挤，用户注意力分散。互斥确保同一时刻屏幕上只有一个重点信息在展示。
+</div>
+
+<div class="trap">
+<b>Replan 的死循环陷阱</b>：如果工具调用失败，Director 收到失败的 tool_feedback 后会尝试 replan。但如果 replan 后再次调用同一个工具还是失败（比如网络断了），Director 可能会无限重试。SP 注意事项第 8 条约束了这一点："工具反复调用失败时，可暂时放弃。" 但实际上模型不一定能严格遵守，需要工程侧加上最大重试次数（通常 2-3 次）的硬限制。
+</div>
+
+<div class="trap">
+<b>26 个工具的 SP token 占比问题</b>：26 个工具的完整 tool_describe + param + notice 在 SP 中占据约 5K-8K tokens。加上参考示例（占 SP 约 50%），SP 总量很容易超过 30K。这直接影响 KV Cache 命中率和推理延迟。优化方向之一是动态工具加载——根据前置筛选的结果，只注入当前场景需要的工具子集，而不是全量 26 个。
+</div>
+</div>
+</section>

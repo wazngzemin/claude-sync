@@ -1,0 +1,620 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>触发器引擎 · 模块分组流水线（⑮云端6组 + ㉔端侧4组）</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0b0f17;color:#e6edf3;font-family:"PingFang SC","Heiti SC",-apple-system,sans-serif;line-height:1.5;padding:28px 24px 60px}
+h1{font-size:22px;margin-bottom:4px}
+.sub{color:#8b9bb0;font-size:13px;margin-bottom:24px;line-height:1.7}
+.sub b{color:#fbbf24}
+.sub .cyan{color:#22d3ee}
+.sub .green{color:#34d399}
+
+/* ===== Section ===== */
+.section{margin-bottom:40px}
+.section-title{font-size:19px;font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:10px}
+.section-title .badge{font-size:13px;padding:2px 10px;border-radius:10px;font-weight:600}
+.section-sub{font-size:12px;color:#8b9bb0;margin-bottom:18px;line-height:1.7}
+.section-sub b{color:#fbbf24}
+
+/* ===== Pipeline Grid ===== */
+.pipeline{display:grid;gap:16px;margin-bottom:10px}
+.pipeline-cloud{grid-template-columns:1fr 1fr 1fr;grid-template-rows:auto auto}
+.pipeline-device{grid-template-columns:1fr 1fr 1fr 1fr;grid-template-rows:auto}
+
+/* ===== Group Box ===== */
+.group{border-radius:14px;padding:16px;position:relative}
+.group-hd{margin-bottom:12px}
+.group-num{font-size:13px;font-weight:700;opacity:.7}
+.group-name{font-size:17px;font-weight:700}
+.group-desc{font-size:11px;opacity:.6;margin-top:2px;font-style:italic}
+
+/* Cloud Group Colors */
+.g1{background:#1a1440;border:2px solid #6d5acd}
+.g1 .group-num,.g1 .group-name{color:#c4b5fd}
+.g2{background:#2a1a08;border:2px solid #d97706}
+.g2 .group-num,.g2 .group-name{color:#fbbf24}
+.g3{background:#291408;border:2px solid #ea580c}
+.g3 .group-num,.g3 .group-name{color:#fb923c}
+.g4{background:#062623;border:2px solid #0d9488}
+.g4 .group-num,.g4 .group-name{color:#5eead4}
+.g5{background:#2a0a22;border:2px solid #db2777}
+.g5 .group-num,.g5 .group-name{color:#f9a8d4}
+.g6{background:#2a0a0a;border:2px solid #dc2626}
+.g6 .group-num,.g6 .group-name{color:#fca5a5}
+
+/* Device Group Colors */
+.dg1{background:#0a1f1a;border:2px solid #059669}
+.dg1 .group-num,.dg1 .group-name{color:#6ee7b7}
+.dg2{background:#1a1f0a;border:2px solid #65a30d}
+.dg2 .group-num,.dg2 .group-name{color:#bef264}
+.dg3{background:#0a1a1f;border:2px solid #0891b2}
+.dg3 .group-num,.dg3 .group-name{color:#67e8f9}
+.dg4{background:#0f1a2a;border:2px solid #2563eb}
+.dg4 .group-num,.dg4 .group-name{color:#93c5fd}
+.dg-cdc{background:#1f0a1a;border:2px dashed #9d4edd;opacity:.7}
+.dg-cdc .group-num,.dg-cdc .group-name{color:#d8b4fe}
+
+/* ===== Module Card ===== */
+.mod{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:8px 11px;margin-bottom:6px;transition:background .15s}
+.mod:hover{background:rgba(255,255,255,.1)}
+.mod:last-child{margin-bottom:0}
+.mod-id{font-size:12px;font-weight:700;color:#fbbf24;margin-right:6px}
+.mod-name{font-size:13px;font-weight:600;color:#e6edf3}
+.mod-detail{font-size:11px;color:#8b9bb0;margin-top:3px;line-height:1.5}
+.mod-origin{font-size:10px;color:#6b7280;margin-top:2px}
+.mod-origin b{color:#a78bfa}
+.mod-new{border-left:3px solid #f59e0b}
+.mod-split{border-left:3px solid #ec4899}
+.mod-star{border-left:3px solid #22d3ee}
+
+/* ===== Flow Arrows ===== */
+.flow-row{display:flex;justify-content:center;align-items:center;gap:6px;margin:6px 0;color:#6b7280;font-size:18px;letter-spacing:4px}
+.flow-row.reverse{flex-direction:row-reverse}
+.flow-between{display:flex;justify-content:space-around;align-items:center;margin:4px 0;font-size:11px;color:#6b7280}
+.arrow-down{text-align:center;font-size:20px;color:#6b7280;margin:4px 0}
+.arrow-label{font-size:10px;color:#8b9bb0;text-align:center;margin:0 0 4px}
+
+/* ===== Cloud Flow Layout ===== */
+.cloud-flow{display:flex;flex-direction:column;gap:6px}
+.cloud-row{display:grid;grid-template-columns:1fr 40px 1fr 40px 1fr;gap:0;align-items:stretch}
+.cloud-row .group{min-height:0}
+.cloud-arrow{display:flex;align-items:center;justify-content:center;font-size:26px;color:#6b7280}
+.cloud-mid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;align-items:center;padding:0 20px}
+.cloud-mid-cell{display:flex;align-items:center;justify-content:center;font-size:22px;color:#6b7280;height:32px}
+
+/* ===== Device Flow Layout ===== */
+.device-flow{display:grid;grid-template-columns:1fr 36px 1fr 36px 1fr 36px 1fr;align-items:stretch;gap:0}
+.device-arrow{display:flex;align-items:center;justify-content:center;font-size:26px;color:#6b7280}
+
+/* ===== Cross Ref Table ===== */
+.xref{margin-top:28px;border-collapse:collapse;width:100%;font-size:12px}
+.xref th{background:#1a1f2e;color:#8b9bb0;padding:8px 12px;text-align:left;border:1px solid #222c3c;font-weight:600}
+.xref td{padding:7px 12px;border:1px solid #222c3c;vertical-align:top}
+.xref tr:nth-child(even) td{background:rgba(255,255,255,.02)}
+.xref .cloud-tag{color:#fbbf24;font-weight:600}
+.xref .device-tag{color:#34d399;font-weight:600}
+.xref .cdc-tag{color:#f472b6;font-weight:600}
+
+/* ===== Notes ===== */
+.note{font-size:12px;color:#9aa9bd;margin-top:18px;background:#101725;border:1px solid #222c3c;border-left:4px solid #f59e0b;border-radius:10px;padding:13px 16px;line-height:1.8}
+.note b{color:#ffce6e}
+.note .pink{color:#f9a8d4}
+.note .cyan{color:#22d3ee}
+.note .green{color:#34d399}
+.note .red{color:#fca5a5}
+
+/* ===== Output Direction ===== */
+.output-bar{margin-top:16px;background:linear-gradient(135deg,#1a0a2e,#0a1a2e);border:1.5px solid #7c3aed;border-radius:12px;padding:14px 18px;font-size:12px;line-height:1.8}
+.output-bar .title{font-size:14px;font-weight:700;color:#c4b5fd;margin-bottom:6px}
+.output-bar .path{color:#a78bfa}
+.output-bar .highlight{color:#fbbf24;font-weight:600}
+
+/* ===== Legend ===== */
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:11px;margin-bottom:20px}
+.legend-item{display:flex;align-items:center;gap:5px}
+.legend-dot{width:14px;height:4px;border-radius:2px}
+
+.mapping-section{margin-top:28px}
+.mapping-title{font-size:15px;font-weight:700;color:#c4b5fd;margin-bottom:12px}
+</style>
+</head>
+<body>
+
+<h1>触发器引擎 · 模块分组流水线</h1>
+<p class="sub">
+  将 <b>⑮云端引擎18个模块</b> 按功能归为 <b>6组流水线</b>，将 <b class="green">㉔端侧引擎9个模块</b> 归为 <b class="green">4组流水线</b>。<br>
+  基于6.22评审定版 + 6.30动态Advisor视觉链路定版。含新旧编号映射、拆分说明、CDC移交清单。<br>
+  <span class="cyan">标记说明：</span>左侧 <b>黄条</b>=图7新增 &nbsp; <b style="color:#ec4899">粉条</b>=原模块拆分而来 &nbsp; <b class="cyan">青条</b>=核心不可替代
+</p>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div>图7新增模块</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#ec4899"></div>原模块拆分</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#22d3ee"></div>核心模块</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#6b7280"></div>普通模块</div>
+</div>
+
+<!-- ============================================================ -->
+<!-- ⑮ CLOUD ENGINE -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="section-title">
+    <span>⑮ 触发器引擎（云端）—— 系统心脏 + 事件组装中心</span>
+    <span class="badge" style="background:#d97706;color:#000">18个模块 → 6组</span>
+  </div>
+  <div class="section-sub">
+    输入: L12信号快照 + L13场景库 ｜ 输出: 命中事件→push Advisor / 通知Director / 下发端侧 / 直接执行<br>
+    <b>主链路:</b> 15-1~3注册 → 15-4~7判定 → 15-8仲裁 → 15-9分类 → 15-10~12输出 ｜ <b style="color:#ef4444">事件:</b> 15-13组装push + 15-14视觉SP + 15-15兜底
+  </div>
+
+  <!-- Row 1: Group 1 → 2 → 3 -->
+  <div class="cloud-flow">
+    <div class="cloud-row">
+      <!-- Group 1: 注册 -->
+      <div class="group g1">
+        <div class="group-hd">
+          <div class="group-num">第1组</div>
+          <div class="group-name">注册</div>
+          <div class="group-desc">"规则进来→检查→存→开始盯"</div>
+        </div>
+        <div class="mod">
+          <div><span class="mod-id">15-1</span><span class="mod-name">场景校验</span></div>
+          <div class="mod-detail">iCanDo校验：场景注册时检查引擎是否具备执行能力</div>
+          <div class="mod-origin">原 <b>15-1</b> 注册校验 iCanDo</div>
+        </div>
+        <div class="mod">
+          <div><span class="mod-id">15-2</span><span class="mod-name">订阅管理</span></div>
+          <div class="mod-detail">场景入库（版本+灰度），管理哪些场景在监听中</div>
+          <div class="mod-origin">原 <b>15-2</b> 场景入库(版本+灰度)</div>
+        </div>
+        <div class="mod mod-new">
+          <div><span class="mod-id">15-15</span><span class="mod-name">规则缓存</span></div>
+          <div class="mod-detail">5000场景上限，热缓存避免重复加载</div>
+          <div class="mod-origin">图7新增</div>
+        </div>
+      </div>
+
+      <div class="cloud-arrow">→</div>
+
+      <!-- Group 2: 判定 -->
+      <div class="group g2">
+        <div class="group-hd">
+          <div class="group-num">第2组</div>
+          <div class="group-name">判定</div>
+          <div class="group-desc">"信号变了→条件满足？→防抖→频控"</div>
+        </div>
+        <div class="mod">
+          <div><span class="mod-id">15-3</span><span class="mod-name">条件判定</span></div>
+          <div class="mod-detail">AND/OR/变更 三种逻辑组合判定</div>
+          <div class="mod-origin">原 <b>15-4</b> 条件判定(AND/OR/变更)</div>
+        </div>
+        <div class="mod">
+          <div><span class="mod-id">15-5</span><span class="mod-name">频控</span></div>
+          <div class="mod-detail">冷却时间(cooldown)，防止同一场景短时间反复触发</div>
+          <div class="mod-origin">原 <b>15-7</b> 冷却频控(cooldown)</div>
+        </div>
+        <div class="mod">
+          <div><span class="mod-id">15-6</span><span class="mod-name">防抖过滤</span></div>
+          <div class="mod-detail">±区间容忍，信号抖动不误触</div>
+          <div class="mod-origin">原 <b>15-6</b> 抖动过滤(±区间)</div>
+        </div>
+        <div class="mod mod-split">
+          <div><span class="mod-id">15-10</span><span class="mod-name">穿越检测</span></div>
+          <div class="mod-detail">阈值穿越F→T检测，从状态变化中捕捉"变更为"瞬间</div>
+          <div class="mod-origin">拆自原 <b>15-13</b> 状态→事件组装·push 的穿越部分</div>
+        </div>
+      </div>
+
+      <div class="cloud-arrow">→</div>
+
+      <!-- Group 3: 仲裁 -->
+      <div class="group g3">
+        <div class="group-hd">
+          <div class="group-num">第3组</div>
+          <div class="group-name">仲裁</div>
+          <div class="group-desc">"多个同时触发→排队→在哪执行"</div>
+        </div>
+        <div class="mod">
+          <div><span class="mod-id">15-7</span><span class="mod-name">优先级仲裁</span></div>
+          <div class="mod-detail">P0~P4 五级优先级，高级抢占低级</div>
+          <div class="mod-origin">原 <b>15-8</b> 优先级仲裁P0~P4</div>
+        </div>
+        <div class="mod">
+          <div><span class="mod-id">15-9</span><span class="mod-name">端云分类</span></div>
+          <div class="mod-detail">总开关：决定这条规则走云端还是下发端侧</div>
+          <div class="mod-origin">原 <b>15-9</b> 端云分类(总开关)</div>
+        </div>
+        <div class="mod mod-split">
+          <div><span class="mod-id">15-16</span><span class="mod-name">互斥锁</span></div>
+          <div class="mod-detail">VLM_CABIN / VLM_FRONT 两把锁，避免同类VLM任务并发冲突</div>
+          <div class="mod-origin">拆自原 <b>15-16</b> 枚举/描述信号分流 → 互斥控制部分</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Middle arrows: down from row 1 to row 2 -->
+    <div class="cloud-mid">
+      <div class="cloud-mid-cell"></div>
+      <div class="cloud-mid-cell"></div>
+      <div class="cloud-mid-cell" style="font-size:26px">↓</div>
+    </div>
+
+    <!-- Row 2: Group 6 ← Group 5 ← Group 4 -->
+    <div class="cloud-row">
+      <!-- Group 6: VLM处理 -->
+      <div class="group g6">
+        <div class="group-hd">
+          <div class="group-num">第6组</div>
+          <div class="group-name">VLM处理</div>
+          <div class="group-desc">"分流→判方向→拼SP→下发VLM"</div>
+        </div>
+        <div class="mod mod-split">
+          <div><span class="mod-id">15-13</span><span class="mod-name">VLM条件分流</span></div>
+          <div class="mod-detail">枚举类(性别/位置/有无小狗)→直接条件匹配；描述类(着装/毯子/项圈)→动态SP链路</div>
+          <div class="mod-origin">拆自原 <b>15-16</b> 枚举/描述信号分流 → 描述类部分</div>
+        </div>
+        <div class="mod">
+          <div><span class="mod-id">15-14</span><span class="mod-name">描述→标签映射</span></div>
+          <div class="mod-detail">注意力SP注册下发：⑰拆出SP→注册→经15-12下发端模→回收→交15-13组装</div>
+          <div class="mod-origin">原 <b>15-14</b> 动态视觉·注意力SP注册下发</div>
+        </div>
+        <div class="mod">
+          <div><span class="mod-id">15-17</span><span class="mod-name">提槽→方向判断</span></div>
+          <div class="mod-detail">西钺公共化：从VQA拆出独立部署，判舱内→VLM / 舱外→VQA，⑮直接调用</div>
+          <div class="mod-origin">原 <b>15-17</b> 提槽工具调用·direction判断</div>
+        </div>
+        <div class="mod">
+          <div><span class="mod-id">15-18</span><span class="mod-name">SP拼接引擎</span></div>
+          <div class="mod-detail">Advisor给人话需求→⑮工程拼接SP→KV槽位对应→多任务合并同一SP→经15-12下发端模</div>
+          <div class="mod-origin">原 <b>15-18</b> SP拼接引擎</div>
+        </div>
+        <div class="mod mod-split">
+          <div><span class="mod-id">15-4b</span><span class="mod-name">VLM结果解析</span></div>
+          <div class="mod-detail">VLM task编译(7字段)的解析侧，处理端侧回传的VLM推理结果</div>
+          <div class="mod-origin">拆自原 <b>15-5</b> VLM task编译(7字段)</div>
+        </div>
+        <div class="mod mod-split">
+          <div><span class="mod-id">15-6b</span><span class="mod-name">VLM防抖</span></div>
+          <div class="mod-detail">VLM输出专属防抖，与信号防抖(15-6)逻辑不同</div>
+          <div class="mod-origin">拆自原 <b>15-6</b> 抖动过滤 → VLM专属</div>
+        </div>
+        <div class="mod-detail" style="margin-top:10px;font-size:11px;color:#ef4444;font-weight:600">
+          → L14下发SP给㉔ → L22转发给⑤VLM
+        </div>
+      </div>
+
+      <div class="cloud-arrow">←</div>
+
+      <!-- Group 5: 输出 -->
+      <div class="group g5">
+        <div class="group-hd">
+          <div class="group-num">第5组</div>
+          <div class="group-name">输出</div>
+          <div class="group-desc">"打包→路由→下发端侧"</div>
+        </div>
+        <div class="mod">
+          <div><span class="mod-id">15-11</span><span class="mod-name">路由分发</span></div>
+          <div class="mod-detail">Callback路由（四出口）：静态Advisor / 动态Advisor / Director / 端侧</div>
+          <div class="mod-origin">原 <b>15-11</b> Callback路由(四出口)</div>
+        </div>
+        <div class="mod">
+          <div><span class="mod-id">15-12</span><span class="mod-name">规则包封装</span></div>
+          <div class="mod-detail">场景下发㉔(L14)，将命中规则打包成端侧可执行的规则包</div>
+          <div class="mod-origin">原 <b>15-12</b> 场景下发㉔(L14)</div>
+        </div>
+      </div>
+
+      <div class="cloud-arrow">←</div>
+
+      <!-- Group 4: 事件感知 -->
+      <div class="group g4">
+        <div class="group-hd">
+          <div class="group-num">第4组</div>
+          <div class="group-name">事件感知</div>
+          <div class="group-desc">"状态变化→打包成事件→推送"</div>
+        </div>
+        <div class="mod mod-split">
+          <div><span class="mod-id">15-4</span><span class="mod-name">状态变化感知</span></div>
+          <div class="mod-detail">5s心跳信号扫描 + 监听④/⑫变化，捕捉状态切换瞬间</div>
+          <div class="mod-origin">合并自原 <b>15-3</b> 信号扫描(5s心跳) + 原 <b>15-13</b> 监听变化部分</div>
+        </div>
+        <div class="mod mod-split">
+          <div><span class="mod-id">15-8</span><span class="mod-name">事件组装</span></div>
+          <div class="mod-detail">标准事件打包 + 组装语义事件→push Advisor</div>
+          <div class="mod-origin">合并自原 <b>15-10</b> 标准事件打包 + 原 <b>15-13</b> 事件组装部分</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Output Direction Bar -->
+  <div class="output-bar">
+    <div class="title">输出方向（四路push）</div>
+    <div><span class="path">穿越事件push →</span> <span class="highlight">L17 ⑯静态Advisor</span> ｜ <span class="highlight">L18 ⑰动态Advisor</span> ｜ <span class="highlight">L21 ⑲Director</span> ｜ <span class="highlight">→ 直执行</span></div>
+    <div><span class="path">规则包+SP下发 →</span> <span class="highlight">L14 → ㉔端侧</span></div>
+    <div style="margin-top:6px;font-size:11px;color:#8b9bb0">
+      6.22: condition→Context / event→⑮push ｜ 6.30: 描述类→提槽→舱内VLM/舱外VQA ｜ SP拼接管理全归⑮ ｜ ⑰只给人话需求
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- ㉔ DEVICE ENGINE -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="section-title">
+    <span>㉔ 触发器引擎（端侧）· 6.22定版: scope仅动态任务</span>
+    <span class="badge" style="background:#059669;color:#000">9个模块 → 4组</span>
+  </div>
+  <div class="section-sub">
+    6.22收窄: 固定闭环→CDC底软 ｜ 端侧只做: 云端下发定时/条件任务 + 动态视觉感知 + 通用视觉通道 + 弱网兜底<br>
+    西钺原话: "不要开发两个触发器" / "端侧触发器只在CDC，VLM在AI Box" / 仁杰: "闭环的任务它都不做了"
+  </div>
+
+  <!-- Device Flow: 4 groups in a row -->
+  <div class="device-flow">
+    <!-- Group 1: 接收与存储 -->
+    <div class="group dg1">
+      <div class="group-hd">
+        <div class="group-num">第1组</div>
+        <div class="group-name">接收与存储</div>
+        <div class="group-desc">"规则进来→持久化→同步"</div>
+      </div>
+      <div class="mod">
+        <div><span class="mod-id">24-1</span><span class="mod-name">规则接收</span></div>
+        <div class="mod-detail">接⑮经15-12下发的规则包，解析场景配置</div>
+      </div>
+      <div class="mod">
+        <div><span class="mod-id">24-2</span><span class="mod-name">本地持久化·任务库</span></div>
+        <div class="mod-detail">SQLite·掉电不丢·供24-13读写</div>
+      </div>
+      <div class="mod mod-new">
+        <div><span class="mod-id">24-13</span><span class="mod-name">任务中心端云同步</span></div>
+        <div class="mod-detail">持久库读写·任务级vs感知级字段·enable/disable·与佳杰双向同步</div>
+        <div class="mod-origin">6.22新增</div>
+      </div>
+    </div>
+
+    <div class="device-arrow">→</div>
+
+    <!-- Group 2: 定时与执行 -->
+    <div class="group dg2">
+      <div class="group-hd">
+        <div class="group-num">第2组</div>
+        <div class="group-name">定时与执行</div>
+        <div class="group-desc">"计时→到期→执行动作"</div>
+      </div>
+      <div class="mod mod-star">
+        <div><span class="mod-id">24-5</span><span class="mod-name">★ 本地定时器（核心·不可替代）</span></div>
+        <div class="mod-detail">倒计时/Cron/日期/节日·最小1min·最大30并发·断网照跑</div>
+      </div>
+      <div class="mod">
+        <div><span class="mod-id">24-12'</span><span class="mod-name">下发任务执行</span></div>
+        <div class="mod-detail">收窄·仅动态/定时任务<br>白名单动作: TTS/音量/温度/车窗/氛围灯/AIPush</div>
+      </div>
+    </div>
+
+    <div class="device-arrow">→</div>
+
+    <!-- Group 3: VLM视觉处理 -->
+    <div class="group dg3">
+      <div class="group-hd">
+        <div class="group-num">第3组</div>
+        <div class="group-name">VLM视觉处理</div>
+        <div class="group-desc">"SP下发→VLM推理→五态归一→回收"</div>
+      </div>
+      <div class="mod">
+        <div><span class="mod-id">24-8'</span><span class="mod-name">动态视觉SP下发·回收</span></div>
+        <div class="mod-detail">云端15-14注意力SP→下发AIBox端模→回收结果</div>
+      </div>
+      <div class="mod">
+        <div><span class="mod-id">24-9</span><span class="mod-name">VLM五态归一</span></div>
+        <div class="mod-detail">success / empty / failed / timeout / interrupted</div>
+      </div>
+      <div class="mod mod-new">
+        <div><span class="mod-id">24-14</span><span class="mod-name">通用视觉通道</span></div>
+        <div class="mod-detail">承接15-15·SP增量非覆盖·舱内静态/舱内动态/舱外三类·动态观测字段上报</div>
+        <div class="mod-origin">6.22新增</div>
+      </div>
+    </div>
+
+    <div class="device-arrow">→</div>
+
+    <!-- Group 4: 上报 -->
+    <div class="group dg4">
+      <div class="group-hd">
+        <div class="group-num">第4组</div>
+        <div class="group-name">上报</div>
+        <div class="group-desc">"结果→Context→云端事件组装"</div>
+      </div>
+      <div class="mod">
+        <div><span class="mod-id">24-11</span><span class="mod-name">结果回写④→上报②Context</span></div>
+        <div class="mod-detail">
+          <b style="color:#ef4444">铁律②:</b> 不直推Advisor·断网缓存队列·只报客观状态·事件组装在云端15-13
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CDC Transfer -->
+  <div style="margin-top:16px">
+    <div class="group dg-cdc">
+      <div class="group-hd">
+        <div class="group-num">已移交</div>
+        <div class="group-name">CDC底软（赛力斯）· 不在㉔范围</div>
+        <div class="group-desc">固定闭环→赛力斯CDC自己做 · 6.22定版边界</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:6px">
+        <div class="mod">
+          <div><span class="mod-id" style="color:#f472b6">原24-3</span><span class="mod-name">信号扫描</span></div>
+          <div class="mod-origin">对应⑮ 组4 事件感知</div>
+        </div>
+        <div class="mod">
+          <div><span class="mod-id" style="color:#f472b6">原24-4</span><span class="mod-name">两级判定</span></div>
+          <div class="mod-origin">对应⑮ 组2 判定</div>
+        </div>
+        <div class="mod">
+          <div><span class="mod-id" style="color:#f472b6">原24-6</span><span class="mod-name">防抖冷却</span></div>
+          <div class="mod-origin">对应⑮ 组2 判定</div>
+        </div>
+        <div class="mod">
+          <div><span class="mod-id" style="color:#f472b6">原24-7</span><span class="mod-name">优先级仲裁</span></div>
+          <div class="mod-origin">对应⑮ 组3 仲裁</div>
+        </div>
+        <div class="mod">
+          <div><span class="mod-id" style="color:#f472b6">原24-10</span><span class="mod-name">阈值穿越</span></div>
+          <div class="mod-origin">对应⑮ 组2 判定</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- CROSS REFERENCE TABLE -->
+<!-- ============================================================ -->
+<div class="mapping-section">
+  <div class="mapping-title">端云能力对照表</div>
+  <table class="xref">
+    <thead>
+      <tr>
+        <th style="width:100px">功能组</th>
+        <th style="width:90px">职责</th>
+        <th>⑮ 云端模块</th>
+        <th>㉔ 端侧模块</th>
+        <th style="width:180px">协作关系</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="cloud-tag">注册</span> / <span class="device-tag">接收</span></td>
+        <td>规则管理</td>
+        <td>15-1 场景校验<br>15-2 订阅管理<br>15-15 规则缓存</td>
+        <td>24-1 规则接收<br>24-2 本地持久化<br>24-13 端云同步</td>
+        <td>⑮注册校验 → 15-12封包 → ㉔接收持久化</td>
+      </tr>
+      <tr>
+        <td><span class="cloud-tag">判定</span></td>
+        <td>条件匹配</td>
+        <td>15-3 条件判定<br>15-5 频控<br>15-6 防抖过滤<br>15-10 穿越检测</td>
+        <td><span class="cdc-tag">→ CDC底软</span><br>原24-4 两级判定<br>原24-6 防抖冷却<br>原24-10 阈值穿越</td>
+        <td>6.22收窄: 端侧判定全移交CDC，云端保留完整判定能力</td>
+      </tr>
+      <tr>
+        <td><span class="cloud-tag">仲裁</span></td>
+        <td>优先级排队</td>
+        <td>15-7 优先级仲裁<br>15-9 端云分类<br>15-16 互斥锁</td>
+        <td><span class="cdc-tag">→ CDC底软</span><br>原24-7 优先级仲裁</td>
+        <td>仲裁决策权在云端，端侧只执行</td>
+      </tr>
+      <tr>
+        <td><span class="cloud-tag">事件感知</span></td>
+        <td>状态→事件</td>
+        <td>15-4 状态变化感知<br>15-8 事件组装</td>
+        <td>—</td>
+        <td>纯云端能力，端侧通过24-11上报原始状态，由云端15-8组装事件</td>
+      </tr>
+      <tr>
+        <td><span class="cloud-tag">输出</span></td>
+        <td>路由分发</td>
+        <td>15-11 路由分发<br>15-12 规则包封装</td>
+        <td>—</td>
+        <td>云端四路输出: Advisor×2 + Director + 端侧</td>
+      </tr>
+      <tr>
+        <td><span class="cloud-tag">VLM</span> / <span class="device-tag">VLM</span></td>
+        <td>视觉处理</td>
+        <td>15-13 VLM条件分流<br>15-14 描述→标签映射<br>15-17 提槽判断<br>15-18 SP拼接引擎<br>15-4b VLM结果解析<br>15-6b VLM防抖</td>
+        <td>24-8' SP下发·回收<br>24-9 VLM五态归一<br>24-14 通用视觉通道</td>
+        <td>云端拼SP + 分流决策；端侧下发AIBox推理 + 五态归一 + 回收上报</td>
+      </tr>
+      <tr>
+        <td><span class="device-tag">定时执行</span></td>
+        <td>本地计时+动作</td>
+        <td>—</td>
+        <td>24-5 ★本地定时器<br>24-12' 下发任务执行</td>
+        <td>端侧独有：断网照跑，云端无此能力</td>
+      </tr>
+      <tr>
+        <td><span class="device-tag">上报</span></td>
+        <td>结果回传</td>
+        <td>—</td>
+        <td>24-11 结果回写Context</td>
+        <td>端侧独有：只报客观状态，不直推Advisor</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ============================================================ -->
+<!-- RENUMBER MAPPING TABLE -->
+<!-- ============================================================ -->
+<div class="mapping-section">
+  <div class="mapping-title">⑮ 新旧编号映射 + 拆分说明</div>
+  <table class="xref">
+    <thead>
+      <tr>
+        <th style="width:80px">图5原编号</th>
+        <th style="width:220px">原始名称</th>
+        <th style="width:50px">→</th>
+        <th style="width:80px">图7新编号</th>
+        <th style="width:180px">新名称</th>
+        <th style="width:60px">归入组别</th>
+        <th>说明</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>15-1</td><td>注册校验 iCanDo</td><td>→</td><td>15-1</td><td>场景校验</td><td>组1</td><td>改名</td></tr>
+      <tr><td>15-2</td><td>场景入库(版本+灰度)</td><td>→</td><td>15-2</td><td>订阅管理</td><td>组1</td><td>改名</td></tr>
+      <tr><td>15-3</td><td>信号扫描(5s心跳)</td><td>→</td><td>15-4</td><td>状态变化感知</td><td>组4</td><td>改号+合并 → 与15-13监听部分合并</td></tr>
+      <tr><td>15-4</td><td>条件判定(AND/OR/变更)</td><td>→</td><td>15-3</td><td>条件判定</td><td>组2</td><td>改号</td></tr>
+      <tr style="background:rgba(239,68,68,.08)"><td>15-5</td><td>VLM task编译(7字段)</td><td>→</td><td>15-4b</td><td>VLM结果解析</td><td>组6</td><td>拆分，解析侧归VLM组</td></tr>
+      <tr style="background:rgba(239,68,68,.08)"><td rowspan="2">15-6</td><td rowspan="2">抖动过滤(±区间)</td><td>→</td><td>15-6</td><td>防抖过滤</td><td>组2</td><td rowspan="2">一拆二：信号防抖 + VLM防抖</td></tr>
+      <tr style="background:rgba(239,68,68,.08)"><td>→</td><td>15-6b</td><td>VLM防抖</td><td>组6</td></tr>
+      <tr><td>15-7</td><td>冷却频控(cooldown)</td><td>→</td><td>15-5</td><td>频控</td><td>组2</td><td>改号+改名</td></tr>
+      <tr><td>15-8</td><td>优先级仲裁P0~P4</td><td>→</td><td>15-7</td><td>优先级仲裁</td><td>组3</td><td>改号</td></tr>
+      <tr><td>15-9</td><td>端云分类(总开关)</td><td>→</td><td>15-9</td><td>端云分类</td><td>组3</td><td>不变</td></tr>
+      <tr><td>15-10</td><td>标准事件打包</td><td>→</td><td>15-8</td><td>事件组装</td><td>组4</td><td>改号+合并 → 与15-13事件组装合并</td></tr>
+      <tr><td>15-11</td><td>Callback路由(四出口)</td><td>→</td><td>15-11</td><td>路由分发</td><td>组5</td><td>改名</td></tr>
+      <tr><td>15-12</td><td>场景下发㉔(L14)</td><td>→</td><td>15-12</td><td>规则包封装</td><td>组5</td><td>改名</td></tr>
+      <tr style="background:rgba(239,68,68,.08)"><td rowspan="3">15-13</td><td rowspan="3">状态→事件组装·push</td><td>→</td><td>15-4</td><td>状态变化感知(部分)</td><td>组4</td><td rowspan="3">一拆三：感知/组装/穿越</td></tr>
+      <tr style="background:rgba(239,68,68,.08)"><td>→</td><td>15-8</td><td>事件组装(部分)</td><td>组4</td></tr>
+      <tr style="background:rgba(239,68,68,.08)"><td>→</td><td>15-10</td><td>穿越检测</td><td>组2</td></tr>
+      <tr><td>15-14</td><td>动态视觉·注意力SP注册下发</td><td>→</td><td>15-14</td><td>描述→标签映射</td><td>组6</td><td>改名</td></tr>
+      <tr><td>15-15</td><td>通用视觉事件通道</td><td>→</td><td>15-15</td><td>规则缓存(5000场景上限)</td><td>组1</td><td>编号复用，功能重定义</td></tr>
+      <tr style="background:rgba(239,68,68,.08)"><td rowspan="2">15-16</td><td rowspan="2">枚举/描述信号分流</td><td>→</td><td>15-16</td><td>互斥锁(VLM_CABIN/FRONT)</td><td>组3</td><td rowspan="2">一拆二：互斥→仲裁，分流→VLM</td></tr>
+      <tr style="background:rgba(239,68,68,.08)"><td>→</td><td>15-13</td><td>VLM条件分流</td><td>组6</td></tr>
+      <tr><td>15-17</td><td>提槽工具调用·direction判断</td><td>→</td><td>15-17</td><td>提槽→方向判断</td><td>组6</td><td>改名</td></tr>
+      <tr><td>15-18</td><td>SP拼接引擎</td><td>→</td><td>15-18</td><td>SP拼接引擎</td><td>组6</td><td>不变</td></tr>
+      <tr style="background:rgba(245,158,11,.08)"><td>—</td><td>—</td><td>→</td><td>15-15</td><td>规则缓存(5000场景上限)</td><td>组1</td><td>图7新增</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ============================================================ -->
+<!-- NOTES -->
+<!-- ============================================================ -->
+<div class="note">
+  <b>⑮ 云端主链路:</b> 15-1~3注册 → 15-4~7判定 → 15-8仲裁 → 15-9分类 → 15-10~12输出<br>
+  <b>事件支线:</b> 15-13组装push + 15-14视觉SP + 15-15兜底<br>
+  <b class="pink">push四方向:</b> → L17 ⑯静态Advisor ｜ → L18 ⑰动态Advisor ｜ → L21 ⑲Director ｜ → 直执行<br>
+  <b class="cyan">6.22关键变更:</b> condition→Context / event→⑮push（不轮询）<br>
+  <b class="red">6.30关键变更:</b> 描述类→提槽→舱内VLM/舱外VQA ｜ SP拼接管理全归⑮ ｜ ⑰只给人话需求
+</div>
+
+<div class="note" style="border-left-color:#10b981;margin-top:12px">
+  <b style="color:#5eecc0">㉔ 端侧主链路:</b> 24-1接收 → 24-2持久化 → 24-5定时/24-8'视觉 → 24-11上报Context → 云端15-13组装<br>
+  <b style="color:#5eecc0">6.22定版边界:</b> CDC底软做固定闭环(赛力斯自闭环) / 端侧触发器只做动态任务(字节AIBox) / VLM在AIBox<br>
+  <b style="color:#f472b6">CDC移交5项:</b> 原24-3信号扫描 / 24-4两级判定 / 24-6防抖冷却 / 24-7优先级仲裁 / 24-10阈值穿越
+</div>
+
+<div class="note" style="border-left-color:#a855f7;margin-top:12px">
+  <b style="color:#c4b5fd">原模块拆分统计:</b><br>
+  原15-6 抖动过滤 → <span class="pink">一拆二</span>：15-6信号防抖(组2) + 15-6b VLM防抖(组6)<br>
+  原15-13 状态→事件组装 → <span class="pink">一拆三</span>：15-4感知(组4) + 15-8组装(组4) + 15-10穿越(组2)<br>
+  原15-16 枚举/描述分流 → <span class="pink">一拆二</span>：15-16互斥锁(组3) + 15-13 VLM条件分流(组6)<br>
+  原15-15 通用视觉通道 → 编号复用为 15-15规则缓存(组1)，原功能下沉到㉔ 24-14
+</div>
+
+</body></html>

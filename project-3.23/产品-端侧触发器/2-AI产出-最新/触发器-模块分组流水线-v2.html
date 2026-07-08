@@ -1,0 +1,580 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>触发器系统 · 全链路模块分组流水线（⑬后台6节点 → ⑮云端6组 → ㉔端侧4组）v2</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0b0f17;color:#e6edf3;font-family:"PingFang SC","Heiti SC",-apple-system,sans-serif;line-height:1.5;padding:28px 24px 60px}
+h1{font-size:22px;margin-bottom:4px}
+.sub{color:#8b9bb0;font-size:13px;margin-bottom:24px;line-height:1.7}
+.sub b{color:#fbbf24}
+.sub .cyan{color:#22d3ee}
+.sub .green{color:#34d399}
+.sub .purple{color:#c084fc}
+
+.section{margin-bottom:40px}
+.section-title{font-size:19px;font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.section-title .badge{font-size:13px;padding:2px 10px;border-radius:10px;font-weight:600}
+.section-sub{font-size:12px;color:#8b9bb0;margin-bottom:18px;line-height:1.7}
+.section-sub b{color:#fbbf24}
+
+.group{border-radius:14px;padding:16px;position:relative}
+.group-hd{margin-bottom:12px}
+.group-num{font-size:13px;font-weight:700;opacity:.7}
+.group-name{font-size:17px;font-weight:700}
+.group-desc{font-size:11px;opacity:.6;margin-top:2px;font-style:italic}
+
+/* ⑬ Backend colors */
+.bg1{background:#1a0a2e;border:2px solid #9333ea}
+.bg1 .group-num,.bg1 .group-name{color:#d8b4fe}
+.bg2{background:#1f0a28;border:2px solid #a855f7}
+.bg2 .group-num,.bg2 .group-name{color:#e9d5ff}
+.bg3{background:#200a1e;border:2px solid #c026d3}
+.bg3 .group-num,.bg3 .group-name{color:#f0abfc}
+.bg4{background:#1a0820;border:2px solid #a21caf}
+.bg4 .group-num,.bg4 .group-name{color:#e879f9}
+.bg5{background:#180a28;border:2px solid #7c3aed}
+.bg5 .group-num,.bg5 .group-name{color:#c4b5fd}
+.bg6{background:#1a0a22;border:2px solid #6d28d9}
+.bg6 .group-num,.bg6 .group-name{color:#a78bfa}
+
+/* ⑮ Cloud colors */
+.g1{background:#1a1440;border:2px solid #6d5acd}
+.g1 .group-num,.g1 .group-name{color:#c4b5fd}
+.g2{background:#2a1a08;border:2px solid #d97706}
+.g2 .group-num,.g2 .group-name{color:#fbbf24}
+.g3{background:#291408;border:2px solid #ea580c}
+.g3 .group-num,.g3 .group-name{color:#fb923c}
+.g4{background:#062623;border:2px solid #0d9488}
+.g4 .group-num,.g4 .group-name{color:#5eead4}
+.g5{background:#2a0a22;border:2px solid #db2777}
+.g5 .group-num,.g5 .group-name{color:#f9a8d4}
+.g6{background:#2a0a0a;border:2px solid #dc2626}
+.g6 .group-num,.g6 .group-name{color:#fca5a5}
+
+/* ㉔ Device colors */
+.dg1{background:#0a1f1a;border:2px solid #059669}
+.dg1 .group-num,.dg1 .group-name{color:#6ee7b7}
+.dg2{background:#1a1f0a;border:2px solid #65a30d}
+.dg2 .group-num,.dg2 .group-name{color:#bef264}
+.dg3{background:#0a1a1f;border:2px solid #0891b2}
+.dg3 .group-num,.dg3 .group-name{color:#67e8f9}
+.dg4{background:#0f1a2a;border:2px solid #2563eb}
+.dg4 .group-num,.dg4 .group-name{color:#93c5fd}
+.dg-cdc{background:#1f0a1a;border:2px dashed #9d4edd;opacity:.7}
+.dg-cdc .group-num,.dg-cdc .group-name{color:#d8b4fe}
+
+/* Module cards */
+.mod{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:8px 11px;margin-bottom:6px;transition:background .15s}
+.mod:hover{background:rgba(255,255,255,.1)}
+.mod:last-child{margin-bottom:0}
+.mod-id{font-size:12px;font-weight:700;color:#fbbf24;margin-right:6px}
+.mod-name{font-size:13px;font-weight:600;color:#e6edf3}
+.mod-detail{font-size:11px;color:#8b9bb0;margin-top:3px;line-height:1.5}
+.mod-origin{font-size:10px;color:#6b7280;margin-top:2px}
+.mod-origin b{color:#a78bfa}
+.mod-new{border-left:3px solid #f59e0b}
+.mod-split{border-left:3px solid #ec4899}
+.mod-star{border-left:3px solid #22d3ee}
+
+/* Tags for dropdown values */
+.tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.tag{font-size:10px;padding:2px 7px;border-radius:4px;display:inline-block}
+.tag-purple{background:rgba(168,85,247,.2);color:#d8b4fe;border:1px solid rgba(168,85,247,.3)}
+.tag-amber{background:rgba(245,158,11,.15);color:#fbbf24;border:1px solid rgba(245,158,11,.25)}
+.tag-cyan{background:rgba(6,182,212,.15);color:#67e8f9;border:1px solid rgba(6,182,212,.25)}
+.tag-pink{background:rgba(236,72,153,.15);color:#f9a8d4;border:1px solid rgba(236,72,153,.25)}
+.tag-green{background:rgba(16,185,129,.15);color:#6ee7b7;border:1px solid rgba(16,185,129,.25)}
+
+/* Field row */
+.field-row{display:flex;align-items:center;gap:4px;margin-top:4px;flex-wrap:wrap}
+.field-box{font-size:10px;padding:3px 8px;border-radius:5px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#cbd5e1}
+.field-arrow{color:#6b7280;font-size:11px}
+.field-label{font-size:10px;color:#6b7280;margin-right:2px}
+
+/* Layouts */
+.cloud-flow{display:flex;flex-direction:column;gap:6px}
+.cloud-row{display:grid;grid-template-columns:1fr 40px 1fr 40px 1fr;gap:0;align-items:stretch}
+.cloud-arrow{display:flex;align-items:center;justify-content:center;font-size:26px;color:#6b7280}
+.cloud-mid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;align-items:center;padding:0 20px}
+.cloud-mid-cell{display:flex;align-items:center;justify-content:center;font-size:22px;color:#6b7280;height:32px}
+
+.device-flow{display:grid;grid-template-columns:1fr 36px 1fr 36px 1fr 36px 1fr;align-items:stretch;gap:0}
+.device-arrow{display:flex;align-items:center;justify-content:center;font-size:26px;color:#6b7280}
+
+/* Connector between sections */
+.section-connector{text-align:center;margin:8px 0 24px;font-size:28px;color:#7c3aed;letter-spacing:8px}
+.section-connector-label{font-size:11px;color:#8b9bb0;text-align:center;margin-bottom:4px}
+
+/* Output bar */
+.output-bar{margin-top:16px;background:linear-gradient(135deg,#1a0a2e,#0a1a2e);border:1.5px solid #7c3aed;border-radius:12px;padding:14px 18px;font-size:12px;line-height:1.8}
+.output-bar .title{font-size:14px;font-weight:700;color:#c4b5fd;margin-bottom:6px}
+.output-bar .path{color:#a78bfa}
+.output-bar .highlight{color:#fbbf24;font-weight:600}
+
+/* Tables */
+.xref{margin-top:16px;border-collapse:collapse;width:100%;font-size:12px}
+.xref th{background:#1a1f2e;color:#8b9bb0;padding:8px 12px;text-align:left;border:1px solid #222c3c;font-weight:600}
+.xref td{padding:7px 12px;border:1px solid #222c3c;vertical-align:top}
+.xref tr:nth-child(even) td{background:rgba(255,255,255,.02)}
+.xref .cloud-tag{color:#fbbf24;font-weight:600}
+.xref .device-tag{color:#34d399;font-weight:600}
+.xref .cdc-tag{color:#f472b6;font-weight:600}
+.xref .backend-tag{color:#c084fc;font-weight:600}
+
+.note{font-size:12px;color:#9aa9bd;margin-top:18px;background:#101725;border:1px solid #222c3c;border-left:4px solid #f59e0b;border-radius:10px;padding:13px 16px;line-height:1.8}
+.note b{color:#ffce6e}
+.note .pink{color:#f9a8d4}
+.note .cyan{color:#22d3ee}
+.note .green{color:#34d399}
+.note .red{color:#fca5a5}
+.note .purple{color:#d8b4fe}
+
+.mapping-section{margin-top:28px}
+.mapping-title{font-size:15px;font-weight:700;color:#c4b5fd;margin-bottom:12px}
+
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:11px;margin-bottom:20px}
+.legend-item{display:flex;align-items:center;gap:5px}
+.legend-dot{width:14px;height:4px;border-radius:2px}
+</style>
+</head>
+<body>
+
+<h1>触发器系统 · 全链路模块分组流水线 v2</h1>
+<p class="sub">
+  <span class="purple">⑬火山后台 6节点</span> → <b>⑮云端引擎 6组18模块</b> → <b class="green">㉔端侧引擎 4组9模块</b><br>
+  ⑬ 后台截图中真实 UI 字段 + 下拉选项全量提取。基于6.22评审 + 6.30视觉链路定版。
+</p>
+
+<!-- ============================================================ -->
+<!-- ⑬ BACKEND CONFIG PLATFORM -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="section-title">
+    <span>⑬ 火山后台 / 规则配置平台 —— 场景创建入口</span>
+    <span class="badge" style="background:#9333ea;color:#fff">6节点流水线</span>
+  </div>
+  <div class="section-sub">
+    /aidv/v1/trigger · HMAC-SHA256签名鉴权 ｜ <b style="color:#c084fc">6 API:</b> signals / actions / scene / update / query / status<br>
+    <b style="color:#c084fc">DSL 五结构:</b> Condition / Option / Action / Param / ExecuteInfo<br>
+    <b>场景公式:</b> conditions + dynamic_conditions + actions + priority(1-10) + effective_scope + execute_policy<br>
+    <b>注册来源:</b> 用户App / 产品预设 / 运营 / 静态Advisor / Planner ｜ <b style="color:#ef4444">弋途对外:</b> 6API+DSL文档·HMAC签名·联调口径
+  </div>
+
+  <div class="cloud-flow">
+    <!-- Row 1: 基础信息 → 发布范围 → 动态条件 -->
+    <div class="cloud-row">
+
+      <!-- Node 1: 基础信息 -->
+      <div class="group bg1">
+        <div class="group-hd">
+          <div class="group-num">节点1</div>
+          <div class="group-name">基础信息</div>
+          <div class="group-desc">DSL: priority + scene_name</div>
+        </div>
+        <div class="mod">
+          <div><span class="mod-id">字段</span><span class="mod-name">场景名称</span></div>
+          <div class="mod-detail">命名规范：【测试/正式】-【使用方】-【场景】</div>
+        </div>
+        <div class="mod">
+          <div><span class="mod-id">字段</span><span class="mod-name">优先级</span></div>
+          <div class="mod-detail">数值 1-10，数字越小优先级越高</div>
+          <div class="mod-origin">→ 映射到⑮ 15-7 优先级仲裁 P0~P4</div>
+        </div>
+      </div>
+
+      <div class="cloud-arrow">→</div>
+
+      <!-- Node 2: 发布范围 -->
+      <div class="group bg2">
+        <div class="group-hd">
+          <div class="group-num">节点2</div>
+          <div class="group-name">发布范围</div>
+          <div class="group-desc">DSL: effective_scope</div>
+        </div>
+        <div class="mod">
+          <div><span class="mod-id">字段</span><span class="mod-name">渠道</span></div>
+          <div class="tags">
+            <span class="tag tag-purple">AIDV主线</span>
+            <span class="tag tag-purple">上汽DNA</span>
+            <span class="tag tag-purple">赛力斯</span>
+          </div>
+        </div>
+        <div class="mod">
+          <div><span class="mod-id">字段</span><span class="mod-name">指定车辆</span></div>
+          <div class="mod-detail">可选，指定特定VIN</div>
+        </div>
+        <div class="mod">
+          <div><span class="mod-id">字段</span><span class="mod-name">适用车型</span></div>
+          <div class="mod-detail">可选，限定车型范围</div>
+        </div>
+        <div class="mod">
+          <div><span class="mod-id">字段</span><span class="mod-name">软件版本</span></div>
+          <div class="mod-detail">运算符 + 版本号（如: ≥ 1.0.1，默认全版本生效）</div>
+        </div>
+      </div>
+
+      <div class="cloud-arrow">→</div>
+
+      <!-- Node 3: 动态条件 -->
+      <div class="group bg3">
+        <div class="group-hd">
+          <div class="group-num">节点3</div>
+          <div class="group-name">触发条件 · 动态条件</div>
+          <div class="group-desc">DSL: dynamic_conditions[]</div>
+        </div>
+        <div class="mod-detail" style="margin-bottom:8px;color:#e879f9;font-weight:600">五级联动选择器</div>
+        <div class="field-row" style="margin-bottom:8px">
+          <span class="field-box" style="border-color:#c026d3">条件类型 ▾</span>
+          <span class="field-arrow">→</span>
+          <span class="field-box" style="border-color:#c026d3">选择信号 ▾</span>
+          <span class="field-arrow">→</span>
+          <span class="field-box" style="border-color:#c026d3">选择字段 ▾</span>
+          <span class="field-arrow">→</span>
+          <span class="field-box" style="border-color:#c026d3">运算符 ▾</span>
+          <span class="field-arrow">→</span>
+          <span class="field-box" style="border-color:#c026d3">选择值 ▾</span>
+        </div>
+        <div class="mod">
+          <div><span class="mod-id">L1</span><span class="mod-name">条件类型</span></div>
+          <div class="tags">
+            <span class="tag tag-amber">车状态信号</span>
+            <span class="tag tag-cyan">vlm 信号</span>
+          </div>
+        </div>
+        <div class="mod">
+          <div><span class="mod-id">L2</span><span class="mod-name">车状态信号 → 信号列表</span></div>
+          <div class="tags">
+            <span class="tag tag-amber">车辆行进状态</span>
+            <span class="tag tag-amber">ASR识别状态</span>
+            <span class="tag tag-amber">车门状态</span>
+            <span class="tag tag-amber">车门锁状态</span>
+            <span class="tag tag-amber">座位占座信息</span>
+            <span class="tag tag-amber">TTS播报状态</span>
+          </div>
+        </div>
+        <div class="mod">
+          <div><span class="mod-id">L4</span><span class="mod-name">运算符</span></div>
+          <div class="tags">
+            <span class="tag tag-pink">等于</span>
+            <span class="tag tag-pink" style="border-color:rgba(236,72,153,.5);font-weight:700">变更为</span>
+          </div>
+          <div class="mod-origin">"等于"=当前态匹配 ｜ "变更为"=捕捉状态切换瞬间</div>
+        </div>
+        <div class="mod">
+          <div><span class="mod-id">L5</span><span class="mod-name">TTS播报状态 → 值枚举</span></div>
+          <div class="tags">
+            <span class="tag tag-green">开始播放</span>
+            <span class="tag tag-green">播放出错</span>
+            <span class="tag tag-green">播放被打断</span>
+            <span class="tag tag-green">正常结束播放</span>
+          </div>
+        </div>
+        <div class="mod-detail" style="margin-top:8px;color:#8b9bb0">支持多条件组：条件组1 <b style="color:#e879f9">且/或</b> 条件组2 ｜ +新增条件组</div>
+      </div>
+    </div>
+
+    <!-- Middle arrows -->
+    <div class="cloud-mid">
+      <div class="cloud-mid-cell"></div>
+      <div class="cloud-mid-cell"></div>
+      <div class="cloud-mid-cell" style="font-size:26px">↓</div>
+    </div>
+
+    <!-- Row 2: 执行策略 ← 执行动作 ← 静态条件 -->
+    <div class="cloud-row">
+
+      <!-- Node 6: 执行策略 -->
+      <div class="group bg6">
+        <div class="group-hd">
+          <div class="group-num">节点6</div>
+          <div class="group-name">执行策略设置</div>
+          <div class="group-desc">DSL: execute_policy</div>
+        </div>
+        <div class="mod">
+          <div><span class="mod-id">字段</span><span class="mod-name">执行总次数</span></div>
+          <div class="mod-detail">__ 次（不填=无限）</div>
+        </div>
+        <div class="mod">
+          <div><span class="mod-id">字段</span><span class="mod-name">单次上电周期内</span></div>
+          <div class="mod-detail">__ 次（不填=无限）</div>
+        </div>
+        <div class="mod">
+          <div><span class="mod-id">字段</span><span class="mod-name">自然日内总次数</span></div>
+          <div class="mod-detail">__ 次（不填=无限）</div>
+        </div>
+        <div class="mod mod-star">
+          <div><span class="mod-id">字段</span><span class="mod-name">执行最小间隔</span></div>
+          <div class="mod-detail">__ 分钟 __ 秒（必填，示例: 0分30秒）</div>
+          <div class="mod-origin">→ 映射到⑮ 15-5 频控(cooldown)</div>
+        </div>
+        <div class="mod-detail" style="margin-top:8px;color:#a78bfa;font-size:10px">
+          示例预设: 总100次 / 天100 / 上电10 / 间隔60s
+        </div>
+      </div>
+
+      <div class="cloud-arrow">←</div>
+
+      <!-- Node 5: 执行动作 -->
+      <div class="group bg5">
+        <div class="group-hd">
+          <div class="group-num">节点5</div>
+          <div class="group-name">执行动作设置</div>
+          <div class="group-desc">DSL: actions[]</div>
+        </div>
+        <div class="mod">
+          <div><span class="mod-id">动作1</span><span class="mod-name">舒适 Advisor</span></div>
+          <div class="mod-detail">参数: 事件/注意力信息(下拉) + 下游输入(文本框)</div>
+          <div class="mod-origin">→ 映射到⑮ 15-11 路由 → L17 ⑯静态Advisor</div>
+        </div>
+        <div class="mod">
+          <div><span class="mod-id">动作2</span><span class="mod-name">出行 Advisor</span></div>
+          <div class="mod-detail">参数: 选择或输入参数</div>
+        </div>
+        <div class="mod">
+          <div><span class="mod-id">动作3</span><span class="mod-name">主动推荐</span></div>
+          <div class="mod-detail">参数: 选择或输入参数</div>
+        </div>
+        <div class="mod">
+          <div><span class="mod-id">动作4</span><span class="mod-name">延时执行</span></div>
+          <div class="mod-detail">参数: 选择或输入参数</div>
+          <div class="mod-origin">→ 映射到㉔ 24-5 本地定时器</div>
+        </div>
+        <div class="mod-detail" style="margin-top:8px;color:#8b9bb0">+新增动作（可多选并行）</div>
+      </div>
+
+      <div class="cloud-arrow">←</div>
+
+      <!-- Node 4: 静态条件 -->
+      <div class="group bg4">
+        <div class="group-hd">
+          <div class="group-num">节点4</div>
+          <div class="group-name">触发条件 · 静态条件</div>
+          <div class="group-desc">DSL: conditions[]（VLM类）</div>
+        </div>
+        <div class="mod">
+          <div><span class="mod-id">L1</span><span class="mod-name">条件类型（固定）</span></div>
+          <div class="tags"><span class="tag tag-cyan">vlm 信号</span></div>
+        </div>
+        <div class="mod">
+          <div><span class="mod-id">L2</span><span class="mod-name">VLM信号源</span></div>
+          <div class="tags">
+            <span class="tag tag-cyan">舱内视觉输出/人物列表</span>
+            <span class="tag tag-cyan">舱内视觉输出/舱内整体物品</span>
+          </div>
+        </div>
+        <div class="mod">
+          <div><span class="mod-id">L3</span><span class="mod-name">人物列表 → 11个字段</span></div>
+          <div class="tags">
+            <span class="tag tag-purple">位置</span>
+            <span class="tag tag-purple">性别</span>
+            <span class="tag tag-purple">动作</span>
+            <span class="tag tag-purple">安全带状态</span>
+            <span class="tag tag-purple">服饰颜色</span>
+            <span class="tag tag-purple">服饰种类</span>
+            <span class="tag tag-purple">配饰</span>
+            <span class="tag tag-purple">年龄</span>
+            <span class="tag tag-purple">表情</span>
+            <span class="tag tag-purple">外貌发型</span>
+            <span class="tag tag-purple">外貌发型颜色</span>
+          </div>
+        </div>
+        <div class="mod">
+          <div><span class="mod-id">L4</span><span class="mod-name">运算符</span></div>
+          <div class="tags"><span class="tag tag-pink">包含</span></div>
+        </div>
+        <div class="mod">
+          <div><span class="mod-id">L5</span><span class="mod-name">配饰 → 值枚举</span></div>
+          <div class="tags">
+            <span class="tag tag-green">发箍</span>
+            <span class="tag tag-green">口罩</span>
+            <span class="tag tag-green">墨镜</span>
+            <span class="tag tag-green">手表</span>
+            <span class="tag tag-green">普通眼镜</span>
+            <span class="tag tag-green">耳机</span>
+          </div>
+        </div>
+        <div class="mod-detail" style="margin-top:6px;color:#8b9bb0">
+          静态条件 = VLM枚举类字段(性别/位置/配饰…) → <b style="color:#e879f9">直接条件匹配</b><br>
+          对应⑮ 15-13 VLM条件分流 → 枚举类链路
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⑬ DSL mapping bar -->
+  <div class="output-bar" style="border-color:#9333ea;margin-top:16px">
+    <div class="title" style="color:#d8b4fe">⑬ → ⑮ 字段映射关系</div>
+    <table class="xref" style="margin:0;font-size:11px">
+      <thead><tr>
+        <th style="width:160px">⑬ 后台节点/字段</th>
+        <th style="width:160px">DSL 结构</th>
+        <th>→ ⑮ 云端引擎模块</th>
+        <th style="width:100px">→ ㉔ 端侧</th>
+      </tr></thead>
+      <tbody>
+        <tr><td>节点1 优先级(1-10)</td><td>priority</td><td>15-7 优先级仲裁 P0~P4</td><td>—</td></tr>
+        <tr><td>节点2 渠道/车型/版本</td><td>effective_scope</td><td>15-1 场景校验(iCanDo) + 15-2 订阅管理(灰度)</td><td>—</td></tr>
+        <tr><td>节点3 动态条件·车状态信号</td><td>dynamic_conditions.Condition</td><td>15-3 条件判定(AND/OR) + 15-10 穿越检测(变更为)</td><td>CDC 24-4</td></tr>
+        <tr><td>节点3 动态条件·运算符"变更为"</td><td>Condition.operator</td><td>15-10 穿越检测 F→T</td><td>CDC 24-10</td></tr>
+        <tr><td>节点4 静态条件·VLM枚举</td><td>conditions.Condition</td><td>15-13 VLM条件分流 → 枚举类直接匹配</td><td>—</td></tr>
+        <tr><td>节点4 静态条件·VLM描述</td><td>conditions.Condition</td><td>15-13 分流 → 15-17 提槽 → 15-18 SP拼接</td><td>24-8' SP下发</td></tr>
+        <tr><td>节点5 执行动作·Advisor</td><td>actions.Action</td><td>15-11 路由分发(四出口) + 15-8 事件组装</td><td>—</td></tr>
+        <tr><td>节点5 执行动作·延时执行</td><td>actions.Action</td><td>15-12 规则包封装 → 下发㉔</td><td>24-5 本地定时器</td></tr>
+        <tr><td>节点6 执行最小间隔</td><td>execute_policy.interval</td><td>15-5 频控(cooldown)</td><td>—</td></tr>
+        <tr><td>节点6 上电/日/总次数</td><td>execute_policy.limits</td><td>15-5 频控(计数器)</td><td>—</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note" style="border-left-color:#9333ea">
+    <b class="purple">后台侧导航结构:</b> 模拟器 → <b style="color:#e879f9">触发器(场景管理 / 触发记录)</b> → 日志管理 → Agent管理平台(定义列表 / 实现列表) → 快捷工具<br>
+    <b class="purple">6 API:</b> ①signals 录入信号定义 → ②actions 录入动作定义 → ③scene 创建场景 → ④update 更新 → ⑤query 查询 → ⑥status 状态管理<br>
+    <b class="purple">依赖关系:</b> 需①录signals · 需⑥协议拍平 · 需⑮15-12透出事件 · 对外暴露弋途
+  </div>
+</div>
+
+<!-- Connector: ⑬ → ⑮ -->
+<div class="section-connector-label">⑬ 后台配置场景 → 注册到 ⑮ 云端引擎</div>
+<div class="section-connector">↓ ↓ ↓</div>
+
+<!-- ============================================================ -->
+<!-- ⑮ CLOUD ENGINE (same as v1) -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="section-title">
+    <span>⑮ 触发器引擎（云端）—— 系统心脏 + 事件组装中心</span>
+    <span class="badge" style="background:#d97706;color:#000">18个模块 → 6组</span>
+  </div>
+  <div class="section-sub">
+    输入: L12信号快照 + L13场景库 ｜ 输出: 命中事件→push Advisor / 通知Director / 下发端侧 / 直接执行<br>
+    <b>主链路:</b> 15-1~3注册 → 15-4~7判定 → 15-8仲裁 → 15-9分类 → 15-10~12输出 ｜ <b style="color:#ef4444">事件:</b> 15-13组装push + 15-14视觉SP + 15-15兜底
+  </div>
+
+  <div class="cloud-flow">
+    <div class="cloud-row">
+      <div class="group g1">
+        <div class="group-hd"><div class="group-num">第1组</div><div class="group-name">注册</div><div class="group-desc">"规则进来→检查→存→开始盯"</div></div>
+        <div class="mod"><div><span class="mod-id">15-1</span><span class="mod-name">场景校验</span></div><div class="mod-detail">iCanDo校验：⑬传入的场景注册，检查引擎是否具备执行能力</div></div>
+        <div class="mod"><div><span class="mod-id">15-2</span><span class="mod-name">订阅管理</span></div><div class="mod-detail">场景入库（版本+灰度），管理哪些场景在监听中</div></div>
+        <div class="mod mod-new"><div><span class="mod-id">15-15</span><span class="mod-name">规则缓存</span></div><div class="mod-detail">5000场景上限，热缓存避免重复加载</div></div>
+      </div>
+      <div class="cloud-arrow">→</div>
+      <div class="group g2">
+        <div class="group-hd"><div class="group-num">第2组</div><div class="group-name">判定</div><div class="group-desc">"信号变了→条件满足？→防抖→频控"</div></div>
+        <div class="mod"><div><span class="mod-id">15-3</span><span class="mod-name">条件判定</span></div><div class="mod-detail">AND/OR/变更 三种逻辑组合判定</div></div>
+        <div class="mod"><div><span class="mod-id">15-5</span><span class="mod-name">频控</span></div><div class="mod-detail">冷却时间(cooldown)，⑬节点6的执行最小间隔在此生效</div></div>
+        <div class="mod"><div><span class="mod-id">15-6</span><span class="mod-name">防抖过滤</span></div><div class="mod-detail">±区间容忍，信号抖动不误触</div></div>
+        <div class="mod mod-split"><div><span class="mod-id">15-10</span><span class="mod-name">穿越检测</span></div><div class="mod-detail">阈值穿越F→T检测 — ⑬中"运算符=变更为"的判定逻辑</div></div>
+      </div>
+      <div class="cloud-arrow">→</div>
+      <div class="group g3">
+        <div class="group-hd"><div class="group-num">第3组</div><div class="group-name">仲裁</div><div class="group-desc">"多个同时触发→排队→在哪执行"</div></div>
+        <div class="mod"><div><span class="mod-id">15-7</span><span class="mod-name">优先级仲裁</span></div><div class="mod-detail">P0~P4 五级，⑬节点1的优先级(1-10)映射到此</div></div>
+        <div class="mod"><div><span class="mod-id">15-9</span><span class="mod-name">端云分类</span></div><div class="mod-detail">总开关：决定走云端还是下发端侧</div></div>
+        <div class="mod mod-split"><div><span class="mod-id">15-16</span><span class="mod-name">互斥锁</span></div><div class="mod-detail">VLM_CABIN / VLM_FRONT 两把锁</div></div>
+      </div>
+    </div>
+    <div class="cloud-mid">
+      <div class="cloud-mid-cell"></div>
+      <div class="cloud-mid-cell"></div>
+      <div class="cloud-mid-cell" style="font-size:26px">↓</div>
+    </div>
+    <div class="cloud-row">
+      <div class="group g6">
+        <div class="group-hd"><div class="group-num">第6组</div><div class="group-name">VLM处理</div><div class="group-desc">"分流→判方向→拼SP→下发VLM"</div></div>
+        <div class="mod mod-split"><div><span class="mod-id">15-13</span><span class="mod-name">VLM条件分流</span></div><div class="mod-detail">⑬节点4静态条件 → 枚举类直接匹配；描述类→动态SP</div></div>
+        <div class="mod"><div><span class="mod-id">15-14</span><span class="mod-name">描述→标签映射</span></div><div class="mod-detail">注意力SP注册下发 → 经15-12下发端模 → 回收</div></div>
+        <div class="mod"><div><span class="mod-id">15-17</span><span class="mod-name">提槽→方向判断</span></div><div class="mod-detail">判舱内→VLM / 舱外→VQA</div></div>
+        <div class="mod"><div><span class="mod-id">15-18</span><span class="mod-name">SP拼接引擎</span></div><div class="mod-detail">多任务合并同一SP → 经15-12下发端模</div></div>
+        <div class="mod mod-split"><div><span class="mod-id">15-4b</span><span class="mod-name">VLM结果解析</span></div><div class="mod-detail">VLM task编译(7字段)的解析侧</div></div>
+        <div class="mod mod-split"><div><span class="mod-id">15-6b</span><span class="mod-name">VLM防抖</span></div><div class="mod-detail">VLM输出专属防抖</div></div>
+      </div>
+      <div class="cloud-arrow">←</div>
+      <div class="group g5">
+        <div class="group-hd"><div class="group-num">第5组</div><div class="group-name">输出</div><div class="group-desc">"打包→路由→下发端侧"</div></div>
+        <div class="mod"><div><span class="mod-id">15-11</span><span class="mod-name">路由分发</span></div><div class="mod-detail">四出口：⑬节点5的Advisor类型决定路由方向</div></div>
+        <div class="mod"><div><span class="mod-id">15-12</span><span class="mod-name">规则包封装</span></div><div class="mod-detail">场景下发㉔(L14)</div></div>
+      </div>
+      <div class="cloud-arrow">←</div>
+      <div class="group g4">
+        <div class="group-hd"><div class="group-num">第4组</div><div class="group-name">事件感知</div><div class="group-desc">"状态变化→打包成事件→推送"</div></div>
+        <div class="mod mod-split"><div><span class="mod-id">15-4</span><span class="mod-name">状态变化感知</span></div><div class="mod-detail">5s心跳扫描 + 监听变化</div></div>
+        <div class="mod mod-split"><div><span class="mod-id">15-8</span><span class="mod-name">事件组装</span></div><div class="mod-detail">打包语义事件 → push Advisor/Director</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="output-bar">
+    <div class="title">输出方向（四路push）</div>
+    <div><span class="path">穿越事件push →</span> <span class="highlight">L17 ⑯静态Advisor</span> ｜ <span class="highlight">L18 ⑰动态Advisor</span> ｜ <span class="highlight">L21 ⑲Director</span> ｜ <span class="highlight">→ 直执行</span></div>
+    <div><span class="path">规则包+SP下发 →</span> <span class="highlight">L14 → ㉔端侧</span></div>
+  </div>
+</div>
+
+<!-- Connector: ⑮ → ㉔ -->
+<div class="section-connector-label">⑮ 规则包封装(15-12) + SP下发(15-14) → ㉔ 端侧引擎</div>
+<div class="section-connector">↓ ↓ ↓</div>
+
+<!-- ============================================================ -->
+<!-- ㉔ DEVICE ENGINE -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="section-title">
+    <span>㉔ 触发器引擎（端侧）· 6.22定版: scope仅动态任务</span>
+    <span class="badge" style="background:#059669;color:#000">9个模块 → 4组</span>
+  </div>
+  <div class="section-sub">
+    6.22收窄: 固定闭环→CDC底软 ｜ 端侧只做: 云端下发定时/条件任务 + 动态视觉感知 + 通用视觉通道 + 弱网兜底
+  </div>
+
+  <div class="device-flow">
+    <div class="group dg1">
+      <div class="group-hd"><div class="group-num">第1组</div><div class="group-name">接收与存储</div><div class="group-desc">"规则进来→持久化→同步"</div></div>
+      <div class="mod"><div><span class="mod-id">24-1</span><span class="mod-name">规则接收</span></div><div class="mod-detail">接⑮经15-12下发的规则包</div></div>
+      <div class="mod"><div><span class="mod-id">24-2</span><span class="mod-name">本地持久化·任务库</span></div><div class="mod-detail">SQLite·掉电不丢</div></div>
+      <div class="mod mod-new"><div><span class="mod-id">24-13</span><span class="mod-name">任务中心端云同步</span></div><div class="mod-detail">与佳杰双向同步</div></div>
+    </div>
+    <div class="device-arrow">→</div>
+    <div class="group dg2">
+      <div class="group-hd"><div class="group-num">第2组</div><div class="group-name">定时与执行</div><div class="group-desc">"计时→到期→执行动作"</div></div>
+      <div class="mod mod-star"><div><span class="mod-id">24-5</span><span class="mod-name">★ 本地定时器</span></div><div class="mod-detail">倒计时/Cron/日期/节日·断网照跑<br>⑬节点5"延时执行"动作在此落地</div></div>
+      <div class="mod"><div><span class="mod-id">24-12'</span><span class="mod-name">下发任务执行</span></div><div class="mod-detail">白名单: TTS/音量/温度/车窗/氛围灯/AIPush</div></div>
+    </div>
+    <div class="device-arrow">→</div>
+    <div class="group dg3">
+      <div class="group-hd"><div class="group-num">第3组</div><div class="group-name">VLM视觉处理</div><div class="group-desc">"SP下发→VLM推理→回收"</div></div>
+      <div class="mod"><div><span class="mod-id">24-8'</span><span class="mod-name">动态视觉SP下发·回收</span></div><div class="mod-detail">云端15-14 SP → AIBox端模 → 回收</div></div>
+      <div class="mod"><div><span class="mod-id">24-9</span><span class="mod-name">VLM五态归一</span></div><div class="mod-detail">success/empty/failed/timeout/interrupted</div></div>
+      <div class="mod mod-new"><div><span class="mod-id">24-14</span><span class="mod-name">通用视觉通道</span></div><div class="mod-detail">舱内静态/舱内动态/舱外三类</div></div>
+    </div>
+    <div class="device-arrow">→</div>
+    <div class="group dg4">
+      <div class="group-hd"><div class="group-num">第4组</div><div class="group-name">上报</div><div class="group-desc">"结果→Context→云端"</div></div>
+      <div class="mod"><div><span class="mod-id">24-11</span><span class="mod-name">结果回写→上报Context</span></div><div class="mod-detail"><b style="color:#ef4444">铁律②:</b> 不直推Advisor·只报客观状态</div></div>
+    </div>
+  </div>
+
+  <div style="margin-top:16px">
+    <div class="group dg-cdc">
+      <div class="group-hd"><div class="group-num">已移交</div><div class="group-name">CDC底软（赛力斯）</div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:6px">
+        <div class="mod"><div><span class="mod-id" style="color:#f472b6">原24-3</span><span class="mod-name">信号扫描</span></div></div>
+        <div class="mod"><div><span class="mod-id" style="color:#f472b6">原24-4</span><span class="mod-name">两级判定</span></div></div>
+        <div class="mod"><div><span class="mod-id" style="color:#f472b6">原24-6</span><span class="mod-name">防抖冷却</span></div></div>
+        <div class="mod"><div><span class="mod-id" style="color:#f472b6">原24-7</span><span class="mod-name">优先级仲裁</span></div></div>
+        <div class="mod"><div><span class="mod-id" style="color:#f472b6">原24-10</span><span class="mod-name">阈值穿越</span></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- FULL CHAIN SUMMARY -->
+<!-- ============================================================ -->
+<div class="note" style="border-left-color:#9333ea">
+  <b class="purple">全链路一句话:</b> PM在⑬后台配场景(条件+动作+策略) → ⑮云端引擎注册、判定、仲裁、组装事件、路由输出 → ㉔端侧接收执行+VLM推理+上报Context<br>
+  <b>⑬后台 6节点:</b> 基础信息 → 发布范围 → 动态条件(车状态+VLM) → 静态条件(VLM枚举) → 执行动作(4种Advisor) → 执行策略(次数+间隔)<br>
+  <b>⑮云端 6组:</b> 注册(3) → 判定(4) → 仲裁(3) → 事件感知(2) → 输出(2) → VLM处理(6)<br>
+  <b class="green">㉔端侧 4组:</b> 接收存储(3) → 定时执行(2) → VLM视觉(3) → 上报(1) ｜ <span class="pink">CDC移交5项</span>
+</div>
+
+</body></html>

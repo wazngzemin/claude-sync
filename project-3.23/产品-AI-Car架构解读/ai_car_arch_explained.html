@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ai Car 更新架构 — 详细解读</title>
+    <style>
+        :root {
+            --zone-bottom: #e8d5f5;
+            --zone-middle: #d5c4e8;
+            --zone-top: #c8e6c9;
+            --accent: #5b6abf;
+            --text: #2c3e50;
+            --card-bg: #ffffff;
+            --border: #ddd;
+            --flow-color: #e74c3c;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #f5f7fa;
+            color: var(--text);
+            line-height: 1.6;
+        }
+        .header {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            color: white;
+            text-align: center;
+            padding: 40px 20px;
+        }
+        .header h1 { font-size: 2rem; margin-bottom: 8px; }
+        .header p { opacity: 0.8; font-size: 0.95rem; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 30px 20px; }
+
+        /* 图例 */
+        .legend {
+            display: flex; justify-content: center; gap: 30px;
+            padding: 15px; background: white; border-radius: 10px;
+            margin-bottom: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+        }
+        .legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
+        .legend-dot { width: 18px; height: 18px; border-radius: 4px; }
+
+        /* 层 */
+        .zone {
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+            position: relative;
+        }
+        .zone-title {
+            font-size: 1.1rem; font-weight: 700;
+            margin-bottom: 15px; padding-bottom: 10px;
+            border-bottom: 2px solid rgba(0,0,0,0.1);
+            display: flex; align-items: center; gap: 10px;
+        }
+        .zone-tag {
+            font-size: 0.75rem; padding: 3px 10px;
+            border-radius: 20px; background: rgba(0,0,0,0.15);
+            font-weight: 500;
+        }
+        .zone-bottom { background: var(--zone-bottom); }
+        .zone-middle { background: var(--zone-middle); }
+        .zone-top { background: var(--zone-top); }
+
+        /* 模块网格 */
+        .modules {
+            display: flex; flex-wrap: wrap; gap: 15px;
+            align-items: flex-start;
+        }
+        .module {
+            background: white;
+            border-radius: 8px;
+            padding: 14px 16px;
+            min-width: 160px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+            flex: 1;
+        }
+        .module:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(91,106,191,0.2);
+        }
+        .module.active {
+            border-color: var(--accent);
+            box-shadow: 0 4px 15px rgba(91,106,191,0.3);
+        }
+        .module-name {
+            font-weight: 700; font-size: 0.95rem;
+            margin-bottom: 6px; color: var(--accent);
+        }
+        .module-name-en {
+            font-size: 0.75rem; color: #999; font-weight: 400;
+        }
+        .module-items {
+            font-size: 0.82rem; color: #555;
+        }
+        .module-items span {
+            display: inline-block;
+            background: #f0f0f5;
+            padding: 2px 8px;
+            border-radius: 4px;
+            margin: 2px 3px 2px 0;
+            font-size: 0.78rem;
+        }
+
+        /* 流转箭头区域 */
+        .flow-section {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(255,255,255,0.7);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            font-size: 0.85rem;
+        }
+        .flow-arrow {
+            color: var(--flow-color);
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+        .flow-box {
+            background: white;
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-weight: 600;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+            border: 1px solid #e0e0e0;
+        }
+
+        /* 详情面板 */
+        .detail-panel {
+            background: white;
+            border-radius: 12px;
+            padding: 25px 30px;
+            margin-top: 30px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            display: none;
+        }
+        .detail-panel.show { display: block; }
+        .detail-panel h3 {
+            color: var(--accent);
+            margin-bottom: 12px;
+            font-size: 1.2rem;
+        }
+        .detail-panel h4 {
+            color: #444;
+            margin: 12px 0 6px;
+            font-size: 0.95rem;
+        }
+        .detail-panel p, .detail-panel li {
+            font-size: 0.9rem;
+            color: #555;
+        }
+        .detail-panel ul {
+            padding-left: 20px;
+            margin: 6px 0;
+        }
+        .detail-panel li { margin-bottom: 4px; }
+        .example-box {
+            background: #fff8e1;
+            border-left: 4px solid #ffc107;
+            padding: 12px 16px;
+            border-radius: 0 8px 8px 0;
+            margin: 12px 0;
+            font-size: 0.88rem;
+        }
+        .example-box strong { color: #e65100; }
+        .flow-desc {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 12px 16px;
+            border-radius: 0 8px 8px 0;
+            margin: 12px 0;
+            font-size: 0.88rem;
+        }
+        .flow-desc strong { color: #0d47a1; }
+
+        /* 层间连接 */
+        .inter-zone-flow {
+            text-align: center;
+            padding: 10px;
+            font-size: 0.85rem;
+            color: #666;
+        }
+        .inter-zone-flow .arrow { font-size: 1.5rem; display: block; margin: 5px 0; }
+
+        /* 示例流程 */
+        .example-flow {
+            background: white;
+            border-radius: 12px;
+            padding: 25px 30px;
+            margin-top: 30px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+        .example-flow h3 {
+            color: #2e7d32;
+            margin-bottom: 15px;
+        }
+        .step-list {
+            list-style: none;
+            padding: 0;
+        }
+        .step-list li {
+            padding: 10px 15px;
+            margin: 8px 0;
+            border-radius: 8px;
+            position: relative;
+            padding-left: 50px;
+        }
+        .step-list li .step-num {
+            position: absolute;
+            left: 12px; top: 50%;
+            transform: translateY(-50%);
+            background: var(--accent);
+            color: white;
+            width: 26px; height: 26px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.8rem; font-weight: 700;
+        }
+        .step-list .step-bottom { background: var(--zone-bottom); }
+        .step-list .step-middle { background: var(--zone-middle); }
+        .step-list .step-top { background: var(--zone-top); }
+
+        .close-btn {
+            float: right;
+            background: none;
+            border: none;
+            font-size: 1.2rem;
+            cursor: pointer;
+            color: #999;
+        }
+        .close-btn:hover { color: #333; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>Ai Car 更新架构 — 详细解读</h1>
+    <p>豆包大模型上车 · 三层架构全景 · 点击任意模块查看详解</p>
+</div>
+
+<div class="container">
+
+    <!-- 图例 -->
+    <div class="legend">
+        <div class="legend-item">
+            <div class="legend-dot" style="background: var(--zone-bottom)"></div>
+            <span>底层：云-端交互层</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-dot" style="background: var(--zone-middle)"></div>
+            <span>中层：像人一样交互层</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-dot" style="background: var(--zone-top)"></div>
+            <span>顶层：更复杂任务闭环层</span>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- 第三层（顶层）：更复杂任务闭环 -->
+    <!-- ============================================ -->
+    <div class="zone zone-top">
+        <div class="zone-title">
+            顶层：更复杂任务闭环
+            <span class="zone-tag">Goals / Advisor / Watcher 生态</span>
+        </div>
+        <div class="modules">
+            <div class="module" onclick="showDetail('goals')">
+                <div class="module-name">Goals <span class="module-name-en">目标管理器</span></div>
+                <div class="module-items">
+                    <span>Advisor1</span><span>Advisor2</span><span>... </span><span>AdvisorX</span>
+                </div>
+            </div>
+            <div class="module" onclick="showDetail('advisor-creator')">
+                <div class="module-name">Advisor Creator <span class="module-name-en">任务创建器</span></div>
+                <div class="module-items">
+                    <span>条件触发</span><span>定时触发</span><span>长程任务</span><span>持续任务</span>
+                </div>
+            </div>
+            <div class="module" onclick="showDetail('watcher')">
+                <div class="module-name">Watcher <span class="module-name-en">感知监控器</span></div>
+                <div class="module-items">
+                    <span>Always-on 感知</span><span>动态感知引擎</span><span>端侧 VLM</span><span>触发器</span>
+                </div>
+            </div>
+            <div class="module" onclick="showDetail('user-channels')">
+                <div class="module-name">用户触达通道</div>
+                <div class="module-items">
+                    <span>豆包空间·日常/待办</span><span>运营Web</span><span>车主App</span>
+                </div>
+            </div>
+            <div class="module" onclick="showDetail('video-call')">
+                <div class="module-name">豆包视频通话</div>
+                <div class="module-items">
+                    <span>实时视频</span><span>远程监控</span>
+                </div>
+            </div>
+        </div>
+        <div class="flow-section">
+            <span class="flow-box">Goals</span>
+            <span class="flow-arrow">→</span>
+            <span class="flow-box">用户触达通道</span>
+            <span class="flow-arrow">→</span>
+            <span class="flow-box">Watcher / 视频通话</span>
+            <span class="flow-arrow">→</span>
+            <span class="flow-box">感知结果回传 Goals</span>
+        </div>
+    </div>
+
+    <div class="inter-zone-flow">
+        <span class="arrow">⬆ ⬇</span>
+        Goals 通过「订阅感知触发同步」向下连接中层；Goals 产生的任务通过 Advisor Creator 解析后分发给 Advisor 执行
+    </div>
+
+    <!-- ============================================ -->
+    <!-- 第二层（中层）：像人一样交互 -->
+    <!-- ============================================ -->
+    <div class="zone zone-middle">
+        <div class="zone-title">
+            中层：像人一样交互
+            <span class="zone-tag">Director / Context / TTS 核心链路</span>
+        </div>
+        <div class="modules">
+            <div class="module" onclick="showDetail('asr')">
+                <div class="module-name">豆包 ASR <span class="module-name-en">语音识别</span></div>
+                <div class="module-items">
+                    <span>进程1</span><span>进程2</span><span>进程3</span><span>进程4</span>
+                </div>
+            </div>
+            <div class="module" onclick="showDetail('rhythm')">
+                <div class="module-name">对话推理节奏控制</div>
+                <div class="module-items">
+                    <span>合并</span><span>打断</span><span>排队</span>
+                </div>
+            </div>
+            <div class="module" onclick="showDetail('director')">
+                <div class="module-name">对话推理引擎 Director <span class="module-name-en">核心调度</span></div>
+                <div class="module-items">
+                    <span>意图理解</span><span>对话策略</span><span>工具调用</span>
+                </div>
+            </div>
+            <div class="module" onclick="showDetail('context')">
+                <div class="module-name">Context 管理 <span class="module-name-en">上下文管理</span></div>
+                <div class="module-items">
+                    <span>端状态信息</span><span>人人对话</span><span>长期记忆</span>
+                    <span>豆包记忆</span><span>知识</span><span>视觉情景</span><span>Goal list</span>
+                </div>
+            </div>
+            <div class="module" onclick="showDetail('tools')">
+                <div class="module-name">工具集</div>
+                <div class="module-items">
+                    <span>车控</span><span>智驾</span><span>...</span>
+                </div>
+            </div>
+            <div class="module" onclick="showDetail('voice-actor')">
+                <div class="module-name">Voice Actor (S2S)</div>
+                <div class="module-items">
+                    <span>语音到语音</span><span>端到端</span>
+                </div>
+            </div>
+            <div class="module" onclick="showDetail('sami-tts')">
+                <div class="module-name">Sami TTS</div>
+                <div class="module-items">
+                    <span>文本转语音</span><span>高保真</span>
+                </div>
+            </div>
+        </div>
+        <div class="flow-section">
+            <span class="flow-box">ASR</span>
+            <span class="flow-arrow">→</span>
+            <span class="flow-box">节奏控制</span>
+            <span class="flow-arrow">→</span>
+            <span class="flow-box">Director</span>
+            <span class="flow-arrow">→</span>
+            <span class="flow-box">Voice Actor / Sami TTS</span>
+            <span class="flow-arrow">→</span>
+            <span class="flow-box">Goals</span>
+        </div>
+    </div>
+
+    <div class="inter-zone-flow">
+        <span class="arrow">⬆ ⬇</span>
+        中层 Director 通过端侧LLM调用底层能力；底层 Context 上报为中层提供状态；执行器执行中层的工具调用指令
+    </div>
+
+    <!-- ============================================ -->
+    <!-- 第一层（底层）：云-端交互 -->
+    <!-- ============================================ -->
+    <div class="zone zone-bottom">
+        <div class="zone-title">
+            底层：云-端交互
+            <span class="zone-tag">端侧LLM / 信号采集 / 执行器 / GUI</span>
+        </div>
+        <div class="modules">
+            <div class="module" onclick="showDetail('audio')">
+                <div class="module-name">4音区音频 <span class="module-name-en">4-Area Audio</span></div>
+                <div class="module-items">
+                    <span>softvad</span><span>不拒识</span><span>不在白名单</span>
+                </div>
+            </div>
+            <div class="module" onclick="showDetail('input-asr')">
+                <div class="module-name">豆包输入法ASR <span class="module-name-en">端侧ASR</span></div>
+                <div class="module-items">
+                    <span>进程1</span><span>进程2</span><span>进程3</span><span>进程4</span>
+                </div>
+            </div>
+            <div class="module" onclick="showDetail('edge-llm')">
+                <div class="module-name">端侧 LLM <span class="module-name-en">Edge LLM</span></div>
+                <div class="module-items">
+                    <span>本地推理</span><span>低延迟响应</span>
+                </div>
+            </div>
+            <div class="module" onclick="showDetail('arbitration')">
+                <div class="module-name">端云仲裁 <span class="module-name-en">Edge-Cloud Arbitration</span></div>
+                <div class="module-items">
+                    <span>端侧优先</span><span>云端兜底</span>
+                </div>
+            </div>
+            <div class="module" onclick="showDetail('state-collect')">
+                <div class="module-name">端状态采集</div>
+                <div class="module-items">
+                    <span>Face ID</span><span>豆包账号体系</span><span>事件日志</span>
+                </div>
+            </div>
+            <div class="module" onclick="showDetail('offline-tts')">
+                <div class="module-name">离线 TTS</div>
+                <div class="module-items">
+                    <span>本地语音合成</span><span>无网可用</span>
+                </div>
+            </div>
+            <div class="module" onclick="showDetail('executor')">
+                <div class="module-name">执行器 <span class="module-name-en">Executor</span></div>
+                <div class="module-items">
+                    <span>车控制</span><span>AI导航</span><span>媒体</span>
+                </div>
+            </div>
+            <div class="module" onclick="showDetail('gui')">
+                <div class="module-name">GUI 小程序框架</div>
+                <div class="module-items">
+                    <span>Advisor生成式交互卡</span><span>模板交互卡</span><span>GuiAgent</span>
+                </div>
+            </div>
+        </div>
+        <div class="flow-section">
+            <span class="flow-box">4音区音频</span>
+            <span class="flow-arrow">→</span>
+            <span class="flow-box">端侧ASR</span>
+            <span class="flow-arrow">→</span>
+            <span class="flow-box">端侧LLM</span>
+            <span class="flow-arrow">→</span>
+            <span class="flow-box">离线TTS / 执行器</span>
+            <span class="flow-arrow">→</span>
+            <span class="flow-box">GUI渲染</span>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- 模块详情面板 -->
+    <!-- ============================================ -->
+    <div class="detail-panel" id="detailPanel">
+        <button class="close-btn" onclick="hideDetail()">✕</button>
+        <div id="detailContent"></div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- 端到端示例 -->
+    <!-- ============================================ -->
+    <div class="example-flow">
+        <h3>端到端示例：用户说"帮我找一下车内有没有手机"</h3>
+        <ul class="step-list">
+            <li class="step-bottom">
+                <span class="step-num">1</span>
+                <strong>4音区音频</strong>采集用户语音 → <strong>softvad</strong>检测到有效语音（不在白名单过滤范围内）→ 送入<strong>豆包输入法ASR</strong>进行语音转文字
+            </li>
+            <li class="step-bottom">
+                <span class="step-num">2</span>
+                <strong>端侧LLM</strong>快速做初步意图判断（"找手机" → 需要视觉能力）→ <strong>端云仲裁</strong>决定是否需要云端大模型介入
+            </li>
+            <li class="step-middle">
+                <span class="step-num">3</span>
+                <strong>豆包ASR</strong>做精细识别 → <strong>对话推理节奏控制</strong>确认不需要合并/打断 → 送入<strong>Director</strong>
+            </li>
+            <li class="step-middle">
+                <span class="step-num">4</span>
+                <strong>Director</strong>结合<strong>Context管理</strong>中的端状态信息（当前车内场景）和<strong>工具集</strong>（智驾工具）→ 解析意图为"车内寻物" → 创建一个 Advisor 任务
+            </li>
+            <li class="step-top">
+                <span class="step-num">5</span>
+                <strong>Advisor Creator</strong>将任务解析为条件触发型 → 注册到<strong>Goals</strong> → 生成"寻物Advisor"
+            </li>
+            <li class="step-top">
+                <span class="step-num">6</span>
+                <strong>Watcher</strong>中的<strong>端侧VLM</strong>被激活 → 对车内摄像头进行目标检测 → 识别到"副驾座位上有一部手机"
+            </li>
+            <li class="step-top">
+                <span class="step-num">7</span>
+                感知结果回传 <strong>Goals</strong> → 通过<strong>豆包空间/车主App</strong>通知用户 → 同时通过<strong>GuiAgent</strong>在屏幕上标注手机位置
+            </li>
+            <li class="step-middle">
+                <span class="step-num">8</span>
+                <strong>Voice Actor (S2S)</strong>或<strong>Sami TTS</strong>将结果转成语音 → "我在副驾座位上找到了您的手机"
+            </li>
+            <li class="step-bottom">
+                <span class="step-num">9</span>
+                <strong>执行器</strong>触发<strong>Advisor生成式交互卡</strong> → <strong>GUI小程序框架</strong>渲染交互卡片 → 显示手机位置图片
+            </li>
+        </ul>
+    </div>
+
+    <div class="example-flow">
+        <h3>端到端示例：靠边停车（舱驾融合）</h3>
+        <ul class="step-list">
+            <li class="step-bottom">
+                <span class="step-num">1</span>
+                <strong>4音区音频</strong>采集用户指令"前面靠边停一下" → <strong>端侧ASR</strong>转文字 → <strong>端侧LLM</strong>初步判断：这是智驾指令
+            </li>
+            <li class="step-middle">
+                <span class="step-num">2</span>
+                <strong>Director</strong>通过<strong>Context</strong>获取当前车速、车道信息 → 调用<strong>工具集·智驾</strong> → 下发"靠边停车"意图
+            </li>
+            <li class="step-middle">
+                <span class="step-num">3</span>
+                <strong>工具集</strong>将意图传递到底层<strong>执行器·车控制</strong> → 触发智驾系统执行靠边停车
+            </li>
+            <li class="step-top">
+                <span class="step-num">4</span>
+                <strong>Watcher·端侧VLM</strong>持续监控周围环境（行人、障碍物）→ 实时感知结果上报 <strong>Goals</strong>
+            </li>
+            <li class="step-middle">
+                <span class="step-num">5</span>
+                <strong>Director</strong>根据 VLM 感知结果调整策略 → <strong>Voice Actor</strong>实时播报："右侧有行人，正在等待..."
+            </li>
+            <li class="step-bottom">
+                <span class="step-num">6</span>
+                停车完成后 → <strong>执行器</strong>确认状态 → <strong>GUI</strong>显示停车完成卡片
+            </li>
+        </ul>
+    </div>
+
+    <div class="example-flow">
+        <h3>端到端示例：Always-on 主动安全提醒</h3>
+        <ul class="step-list">
+            <li class="step-top">
+                <span class="step-num">1</span>
+                <strong>Watcher·Always-on 感知</strong>持续运行（闲时3秒/帧）→ 检测到"驾驶员疲劳" → 结果写入<strong>Goals</strong>
+            </li>
+            <li class="step-top">
+                <span class="step-num">2</span>
+                <strong>Goals</strong>中对应的疲劳提醒 Advisor 被触发 → 通过<strong>豆包空间/车主App</strong>推送提醒
+            </li>
+            <li class="step-middle">
+                <span class="step-num">3</span>
+                <strong>Director</strong>收到触发 → 调用<strong>Context</strong>判断是否在高速行驶 → 决定提醒策略
+            </li>
+            <li class="step-middle">
+                <span class="step-num">4</span>
+                <strong>Voice Actor</strong>播报"检测到您有些疲劳，是否需要导航到最近的服务区？"
+            </li>
+            <li class="step-bottom">
+                <span class="step-num">5</span>
+                用户确认 → <strong>执行器·AI导航</strong>发起导航 → <strong>GUI</strong>显示服务区路线卡片
+            </li>
+        </ul>
+    </div>
+
+</div>
+
+<script>
+const details = {
+    'audio': `
+        <h3>4音区音频 (4-Area Audio)</h3>
+        <h4>作用</h4>
+        <p>车舱内分为4个声学区域（主驾、副驾、后排左、后排右），每个区域独立采集音频。</p>
+        <h4>核心机制</h4>
+        <ul>
+            <li><strong>softvad</strong>：软件级语音活动检测，判断是否有有效人声</li>
+            <li><strong>不拒识</strong>：不过滤任何语音输入（不拒绝识别）</li>
+            <li><strong>不在白名单</strong>：非唤醒词白名单模式 — 不需要特定唤醒词即可触发</li>
+        </ul>
+        <div class="example-box">
+            <strong>例子：</strong>用户不需要说"嗨豆包"，直接说"帮我开空调"就能被识别。4音区可以判断是主驾还是副驾在说话。
+        </div>
+        <div class="flow-desc">
+            <strong>数据流：</strong>4音区音频 → softvad检测 → 有效语音送入 ASR
+        </div>
+    `,
+    'input-asr': `
+        <h3>豆包输入法ASR（端侧）</h3>
+        <h4>作用</h4>
+        <p>在车机本地运行的语音识别引擎，把音频转成文字。多进程并行处理4个音区的输入。</p>
+        <h4>核心机制</h4>
+        <ul>
+            <li><strong>4个进程</strong>：对应4个音区，并行处理，互不干扰</li>
+            <li><strong>端侧运行</strong>：不依赖网络，本地完成识别，延迟低</li>
+        </ul>
+        <div class="example-box">
+            <strong>例子：</strong>主驾说"导航到公司"的同时副驾说"开窗户" — 进程1和进程2分别独立识别，互不影响。
+        </div>
+        <div class="flow-desc">
+            <strong>数据流：</strong>4音区音频 → 各进程独立ASR → 文字结果送入端侧LLM
+        </div>
+    `,
+    'edge-llm': `
+        <h3>端侧 LLM（Edge LLM）</h3>
+        <h4>作用</h4>
+        <p>部署在车机上的轻量大语言模型，做本地推理。负责低延迟的初步意图理解和快速响应。</p>
+        <h4>核心机制</h4>
+        <ul>
+            <li>本地推理，不依赖网络，响应速度快（亚秒级）</li>
+            <li>处理简单任务（开关窗、调空调等）无需上云</li>
+            <li>复杂任务判断后交给云端</li>
+        </ul>
+        <div class="example-box">
+            <strong>例子：</strong>"开空调到24度" → 端侧LLM直接理解并执行，不需要等云端响应。<br>
+            "帮我分析一下这个路口的通行安全" → 端侧LLM判断复杂度高，通过端云仲裁上交云端。
+        </div>
+        <div class="flow-desc">
+            <strong>数据流：</strong>ASR文字 → 端侧LLM推理 → 简单指令直接到离线TTS/执行器；复杂任务上交给中层Director
+        </div>
+    `,
+    'arbitration': `
+        <h3>端云仲裁（Edge-Cloud Arbitration）</h3>
+        <h4>作用</h4>
+        <p>判断用户请求应该在端侧处理还是需要上云。核心决策逻辑：端侧能做的就不上云。</p>
+        <h4>仲裁规则</h4>
+        <ul>
+            <li><strong>端侧优先</strong>：简单指令（车控、媒体）端侧直接处理</li>
+            <li><strong>云端兜底</strong>：复杂推理、多轮对话、知识问答上云</li>
+            <li><strong>降级策略</strong>：网络不可用时，全部走端侧LLM（能力降级）</li>
+        </ul>
+        <div class="example-box">
+            <strong>例子：</strong>"打开天窗" → 端侧直接处理 ✅<br>
+            "昨天那个特斯拉的新闻怎么看" → 需要联网搜索 → 上云处理 ☁️
+        </div>
+    `,
+    'state-collect': `
+        <h3>端状态采集</h3>
+        <h4>作用</h4>
+        <p>采集车机和用户的各种状态信息，作为Context的原始数据来源。</p>
+        <h4>采集内容</h4>
+        <ul>
+            <li><strong>Face ID</strong>：通过摄像头识别人脸，判断是谁在用车</li>
+            <li><strong>豆包账号体系</strong>：关联用户的豆包账号，获取个性化设置</li>
+            <li><strong>事件日志</strong>：记录车机上的各种事件（开关门、启动等）</li>
+        </ul>
+        <div class="example-box">
+            <strong>例子：</strong>张三上车 → Face ID识别 → 关联豆包账号 → 自动加载张三的偏好（座椅位置、常听歌单等）→ 写入Context。
+        </div>
+        <div class="flow-desc">
+            <strong>数据流：</strong>传感器/摄像头 → 状态采集 → Context管理
+        </div>
+    `,
+    'offline-tts': `
+        <h3>离线 TTS</h3>
+        <h4>作用</h4>
+        <p>本地文字转语音引擎。不依赖网络，在任何网络条件下都能将文字合成语音播放。</p>
+        <div class="example-box">
+            <strong>例子：</strong>车在隧道里没有网络 → 用户说"现在几点了" → 端侧LLM回答 → 离线TTS合成"现在是下午三点二十分" → 正常播放。
+        </div>
+        <div class="flow-desc">
+            <strong>数据流：</strong>端侧LLM生成的文字 → 离线TTS → TTS状态缓存 → 执行器 → 音频输出
+        </div>
+    `,
+    'executor': `
+        <h3>执行器（Executor）</h3>
+        <h4>作用</h4>
+        <p>将系统决策转化为实际动作的执行单元。包含三大类执行能力。</p>
+        <h4>执行能力</h4>
+        <ul>
+            <li><strong>车控制</strong>：控制车辆硬件 — 空调、车窗、天窗、座椅等</li>
+            <li><strong>AI导航</strong>：发起导航、规划路线、搜索目的地</li>
+            <li><strong>媒体</strong>：音乐、视频、电台等媒体播放控制</li>
+        </ul>
+        <div class="example-box">
+            <strong>例子：</strong>用户说"打开空调，导航到公司，放首周杰伦的歌" → 执行器同时调度三个子模块：车控开空调、导航设定目的地、媒体播放音乐。
+        </div>
+        <div class="flow-desc">
+            <strong>数据流：</strong>Director/Goals的指令 → 执行器 → 生成交互卡 → GUI渲染呈现
+        </div>
+    `,
+    'gui': `
+        <h3>GUI 小程序框架</h3>
+        <h4>作用</h4>
+        <p>统一的车机界面渲染框架。支持两种卡片类型和GuiAgent交互。</p>
+        <h4>核心组件</h4>
+        <ul>
+            <li><strong>Advisor生成式交互卡</strong>：AI动态生成的交互卡片，内容灵活可变</li>
+            <li><strong>模板交互卡</strong>：预定义模板的标准化卡片（如天气、导航卡）</li>
+            <li><strong>GuiAgent</strong>：GUI智能体，根据Goals订阅的内容动态渲染界面</li>
+        </ul>
+        <div class="example-box">
+            <strong>例子（生成式卡）：</strong>VLM检测到车内有手机 → 生成一张带标注图的卡片"在副驾座上发现了手机"。<br>
+            <strong>例子（模板卡）：</strong>导航卡片、天气卡片 — 使用固定模板填充数据。
+        </div>
+    `,
+    'asr': `
+        <h3>豆包 ASR（中层语音识别）</h3>
+        <h4>作用</h4>
+        <p>中层的语音识别引擎，比端侧ASR更精细。同样有4个进程对应4个音区。</p>
+        <h4>与端侧ASR的区别</h4>
+        <ul>
+            <li>端侧ASR：快速粗识别，用于端侧LLM初步判断</li>
+            <li>中层ASR：精细识别，用于Director的完整对话理解</li>
+        </ul>
+        <div class="flow-desc">
+            <strong>数据流：</strong>音频 → ASR → 对话推理节奏控制 → Director
+        </div>
+    `,
+    'rhythm': `
+        <h3>对话推理节奏控制</h3>
+        <h4>作用</h4>
+        <p>控制多人同时说话时的对话策略。三种模式：</p>
+        <ul>
+            <li><strong>合并</strong>：多个指令合并处理 — "开空调...再开窗户" → 合并为一个多意图请求</li>
+            <li><strong>打断</strong>：高优先级打断当前执行 — 正在播报天气时，用户说"停！" → 中断</li>
+            <li><strong>排队</strong>：低优先级排队等待 — 副驾在问天气时，后排说"到哪了" → 排队等天气播完</li>
+        </ul>
+        <div class="example-box">
+            <strong>例子：</strong>系统正在播报"今天天气..." → 用户打断"别说了，开窗" → 节奏控制触发"打断"策略 → 停止播报 → 执行开窗。
+        </div>
+    `,
+    'director': `
+        <h3>对话推理引擎 Director（核心调度）</h3>
+        <h4>作用</h4>
+        <p>整个系统的<strong>大脑</strong>。负责理解用户意图、制定对话策略、调用工具、生成回复。</p>
+        <h4>核心能力</h4>
+        <ul>
+            <li><strong>意图理解</strong>：从用户话语中理解真实意图（包含隐含意图）</li>
+            <li><strong>对话策略</strong>：决定什么时候问、什么时候直接执行、什么时候确认</li>
+            <li><strong>工具调用</strong>：从工具集中选择合适的工具执行任务</li>
+            <li><strong>Context整合</strong>：结合当前状态、历史记忆、视觉信息做决策</li>
+        </ul>
+        <div class="example-box">
+            <strong>例子：</strong>用户说"我有点冷" → Director理解隐含意图"调高空调温度" → 查Context得知当前22度 → 调用车控工具设为25度 → Voice Actor播报"好的，已经帮您调到25度了"。
+        </div>
+        <div class="flow-desc">
+            <strong>数据流：</strong>ASR（经节奏控制）+ Context + 工具集 → Director推理 → Voice Actor/TTS 语音输出 + 工具执行
+        </div>
+    `,
+    'context': `
+        <h3>Context 管理（上下文管理）</h3>
+        <h4>作用</h4>
+        <p>系统级的共享上下文空间。所有模块从这里读取状态，也把新状态写入这里。</p>
+        <h4>7个维度</h4>
+        <ul>
+            <li><strong>端状态信息</strong>：车速、档位、车门状态等实时车辆状态</li>
+            <li><strong>人人对话</strong>：车内乘客之间的对话内容</li>
+            <li><strong>长期记忆</strong>：跨会话的用户偏好和历史记录</li>
+            <li><strong>豆包记忆</strong>：豆包生态的用户数据（日历、待办等）</li>
+            <li><strong>知识</strong>：通用知识库和车机知识库</li>
+            <li><strong>视觉情景</strong>：VLM感知到的当前视觉场景描述</li>
+            <li><strong>Goal list</strong>：当前活跃的目标/任务列表</li>
+        </ul>
+        <div class="example-box">
+            <strong>例子：</strong>Director收到"帮我找手机" → 读取Context中的「视觉情景」→ 得知VLM最近一次扫描结果 → 结合「端状态信息」判断车辆静止 → 决策：触发新一轮VLM扫描。
+        </div>
+    `,
+    'tools': `
+        <h3>工具集（车控、智驾等）</h3>
+        <h4>作用</h4>
+        <p>Director可以调用的外部工具/API集合。是"理解意图"到"执行动作"之间的桥梁。</p>
+        <h4>工具类别</h4>
+        <ul>
+            <li><strong>车控工具</strong>：空调、车窗、座椅、灯光等车辆控制</li>
+            <li><strong>智驾工具</strong>：导航、靠边停车、自动泊车等智能驾驶功能</li>
+            <li>更多工具可扩展...</li>
+        </ul>
+        <div class="example-box">
+            <strong>例子（舱驾融合）：</strong>Director理解"靠边停车"意图 → 调用智驾工具 → 智驾工具下发指令到底层执行器 → 触发智驾系统的靠边停车流程。
+        </div>
+    `,
+    'voice-actor': `
+        <h3>Voice Actor (S2S)</h3>
+        <h4>作用</h4>
+        <p>端到端的语音到语音（Speech-to-Speech）模型。跳过文字中间步骤，直接从语音生成语音回复。</p>
+        <h4>优势</h4>
+        <ul>
+            <li>延迟极低（省去TTS的文字合成步骤）</li>
+            <li>保留语气、情感等副语言信息</li>
+            <li>可以模仿用户声音风格</li>
+        </ul>
+        <div class="example-box">
+            <strong>例子：</strong>用户焦急地说"快帮我找个加油站" → Voice Actor直接用带安抚语气的声音回复"附近500米有一个中石化加油站，正在为您导航"，保留情感色彩。
+        </div>
+    `,
+    'sami-tts': `
+        <h3>Sami TTS</h3>
+        <h4>作用</h4>
+        <p>高保真文字转语音引擎。适合对音质要求高、对延迟要求没那么极致的场景。</p>
+        <h4>与Voice Actor的区别</h4>
+        <ul>
+            <li>Voice Actor (S2S)：语音到语音，延迟低，适合快速对话</li>
+            <li>Sami TTS：文字到语音，音质更好，适合播报长文本</li>
+        </ul>
+        <div class="example-box">
+            <strong>例子：</strong>用户说"给我讲讲今天的新闻" → Director生成一段新闻摘要文字 → Sami TTS合成高质量语音播报（而不是用S2S，因为文本较长需要稳定音质）。
+        </div>
+    `,
+    'goals': `
+        <h3>Goals（目标管理器）</h3>
+        <h4>作用</h4>
+        <p>管理所有活跃的 Advisor（顾问任务）。每个 Advisor 是一个独立运行的智能体，负责特定任务。</p>
+        <h4>核心机制</h4>
+        <ul>
+            <li><strong>Advisor 实例</strong>：Advisor1、Advisor2、...AdvisorX — 每个对应一个任务</li>
+            <li><strong>订阅机制</strong>：Advisor 订阅感兴趣的事件，事件触发时自动执行</li>
+            <li><strong>生命周期管理</strong>：创建、执行、完成、撤销</li>
+        </ul>
+        <div class="example-box">
+            <strong>例子：</strong>Goals 中同时运行：<br>
+            - Advisor1：疲劳驾驶监测（Always-on）<br>
+            - Advisor2：手机遗忘提醒（条件触发：开门+手机在车内）<br>
+            - Advisor3：寻物任务（用户主动触发）
+        </div>
+        <div class="flow-desc">
+            <strong>数据流：</strong>Advisor Creator创建任务 → 注册到Goals → Goals分配Advisor实例 → 执行结果通过用户触达通道推送
+        </div>
+    `,
+    'advisor-creator': `
+        <h3>Advisor Creator（任务创建器）</h3>
+        <h4>作用</h4>
+        <p>将用户的复杂意图解析为可执行的 Advisor 任务。定义任务的触发方式。</p>
+        <h4>四种触发模式</h4>
+        <ul>
+            <li><strong>条件触发</strong>：满足条件时执行 — "下车时检查有没有遗忘物品"</li>
+            <li><strong>定时触发</strong>：固定时间执行 — "每天早上8点播报今天的日程"</li>
+            <li><strong>长程任务</strong>：持续一段时间的任务 — "接下来30分钟帮我监控前方路况"</li>
+            <li><strong>持续任务</strong>：一直运行的任务 — "Always-on 疲劳监测"</li>
+        </ul>
+        <div class="example-box">
+            <strong>例子：</strong>用户说"下车的时候提醒我拿手机" → Advisor Creator 解析为「条件触发型任务」→ 触发条件：车门解锁 → 注册到 Goals → 等待触发。
+        </div>
+    `,
+    'watcher': `
+        <h3>Watcher（感知监控器）</h3>
+        <h4>作用</h4>
+        <p>统一管理所有感知能力的执行器。负责调用 VLM、管理触发器、运行 Always-on 任务。</p>
+        <h4>核心组件</h4>
+        <ul>
+            <li><strong>Always-on 感知</strong>：闲时持续运行，高频3秒/帧、低频5秒/帧（如疲劳监测、车内状态）</li>
+            <li><strong>动态感知引擎</strong>：根据运行时段和条件动态激活的感知任务</li>
+            <li><strong>端侧 VLM</strong>：在车机上运行的视觉语言模型，做目标检测、场景理解</li>
+            <li><strong>触发器</strong>：信号变化时判断是否需要激活感知任务</li>
+        </ul>
+        <div class="example-box">
+            <strong>例子：</strong>触发器检测到车速归零 + P档 + 车门解锁 → 激活端侧VLM扫描车内 → VLM发现副驾有物品 → 结果上报Goals → 手机遗忘Advisor被触发 → 推送提醒。
+        </div>
+        <div class="flow-desc">
+            <strong>这就是你（泽民）负责的端侧触发器所在的位置！</strong>Watcher是触发器的上层容器，触发器在Watcher内部做信号判断和任务调度。
+        </div>
+    `,
+    'user-channels': `
+        <h3>用户触达通道</h3>
+        <h4>作用</h4>
+        <p>Advisor 的结果通过这三个通道触达用户。</p>
+        <h4>三个通道</h4>
+        <ul>
+            <li><strong>豆包空间·日常/待办</strong>：车内大屏上的豆包App，展示日常信息和待办事项</li>
+            <li><strong>运营Web</strong>：运营后台，用于远程管理和配置</li>
+            <li><strong>车主App</strong>：手机端的车主应用，远程查看车况和接收提醒</li>
+        </ul>
+        <div class="example-box">
+            <strong>例子：</strong>用户已经下车离开 → 手机遗忘Advisor触发 → 车主App推送"您的手机可能遗忘在车内" → 用户远程查看车内照片（通过豆包视频通话）。
+        </div>
+    `,
+    'video-call': `
+        <h3>豆包视频通话</h3>
+        <h4>作用</h4>
+        <p>用户通过视频通话远程查看车内摄像头画面，与车内环境实时交互。</p>
+        <div class="example-box">
+            <strong>例子：</strong>用户收到"手机遗忘提醒" → 打开车主App → 发起豆包视频通话 → 远程查看车内摄像头画面 → 确认手机在副驾 → 通过App远程锁车。
+        </div>
+    `
+};
+
+function showDetail(key) {
+    const panel = document.getElementById('detailPanel');
+    const content = document.getElementById('detailContent');
+    if (details[key]) {
+        content.innerHTML = details[key];
+        panel.classList.add('show');
+        panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    // highlight active module
+    document.querySelectorAll('.module').forEach(m => m.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+}
+
+function hideDetail() {
+    document.getElementById('detailPanel').classList.remove('show');
+    document.querySelectorAll('.module').forEach(m => m.classList.remove('active'));
+}
+</script>
+
+</body>
+</html>

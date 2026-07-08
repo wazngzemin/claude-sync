@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>不可逆决策六坑扫描 · AI硬件避坑工作台</title>
+<style>
+:root{
+  --bg:#0a0e13; --panel:#131a23; --panel2:#0f151d; --line:#223041;
+  --txt:#dbe4ee; --muted:#8fa3b8; --amber:#f5a524; --blue:#4cc2ff;
+  --green:#34d399; --red:#f87171; --purple:#a78bfa; --yellow:#fbbf24;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;font-size:15px;line-height:1.7}
+aside{position:fixed;left:0;top:0;bottom:0;width:212px;background:var(--panel2);border-right:1px solid var(--line);padding:18px 12px;overflow-y:auto;z-index:10}
+.logo{font-size:16px;font-weight:700;color:var(--amber);padding:4px 10px 14px;border-bottom:1px solid var(--line);margin-bottom:12px}
+.logo small{display:block;color:var(--muted);font-weight:400;font-size:11px;margin-top:4px}
+nav button{display:block;width:100%;text-align:left;background:none;border:none;color:var(--muted);padding:9px 10px;border-radius:8px;cursor:pointer;font-size:14px;margin-bottom:2px;font-family:inherit}
+nav button:hover{background:#182230;color:var(--txt)}
+nav button.on{background:#1d2a3a;color:var(--amber);font-weight:600}
+.sidefoot{margin-top:18px;padding:10px;font-size:11px;color:var(--muted);border-top:1px solid var(--line)}
+main{margin-left:212px;padding:28px 34px 60px;max-width:1060px}
+h1{font-size:22px;margin-bottom:6px}
+h2{font-size:19px;margin:0 0 14px;color:var(--amber)}
+h3{font-size:16px;margin:18px 0 8px;color:var(--blue)}
+.sub{color:var(--muted);margin-bottom:20px;font-size:14px}
+section.panel{display:none;animation:fade .25s}
+section.panel.active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:16px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.tag{display:inline-block;font-size:12px;padding:2px 10px;border-radius:20px;border:1px solid var(--line);color:var(--muted);margin-right:6px}
+.pill{display:inline-block;font-size:12px;padding:3px 10px;border-radius:20px;font-weight:600}
+.pill.g{background:#0d2b22;color:var(--green)}.pill.y{background:#2d2410;color:var(--yellow)}.pill.r{background:#2e1516;color:var(--red)}.pill.b{background:#0e2434;color:var(--blue)}
+button.act{background:var(--amber);color:#14100a;border:none;border-radius:9px;padding:9px 18px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit}
+button.act:hover{filter:brightness(1.1)}
+button.ghost{background:none;border:1px solid var(--line);color:var(--txt);border-radius:9px;padding:8px 16px;font-size:13px;cursor:pointer;font-family:inherit}
+button.ghost:hover{border-color:var(--amber);color:var(--amber)}
+textarea,input[type=text],select{width:100%;background:#0c1219;border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:9px 12px;font-size:14px;font-family:inherit;resize:vertical}
+textarea:focus,input:focus,select:focus{outline:none;border-color:var(--amber)}
+label.q{display:block;margin:10px 0 4px;font-size:14px;color:var(--txt)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{border:1px solid var(--line);padding:9px 12px;text-align:left;vertical-align:top}
+th{background:#182230;color:var(--blue);font-size:13px}
+pre{background:#0c1219;border:1px solid var(--line);border-radius:10px;padding:14px;font-size:13px;white-space:pre-wrap;word-break:break-all;font-family:"SF Mono",Menlo,Consolas,monospace;color:#c9d7e6;max-height:420px;overflow:auto}
+.bar{height:12px;background:#0c1219;border-radius:8px;overflow:hidden;border:1px solid var(--line)}
+.bar i{display:block;height:100%;border-radius:8px;transition:width .3s}
+.qrow{padding:10px 12px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;background:var(--panel2)}
+.qrow .opts{margin-top:6px}
+.qrow label{margin-right:16px;font-size:13px;color:var(--muted);cursor:pointer}
+.qrow input{accent-color:var(--amber)}
+.slider-row{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.slider-row span.nm{width:120px;font-size:13px;color:var(--muted)}
+.slider-row input[type=range]{flex:1;accent-color:var(--amber)}
+.slider-row b{width:28px;text-align:center;color:var(--amber)}
+.verdict{border-left:3px solid var(--amber);background:#181f14;background:#171e28;padding:12px 16px;border-radius:0 10px 10px 0;margin-top:14px;font-size:14px}
+.chk{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border-radius:8px;cursor:pointer;font-size:14px}
+.chk:hover{background:#182230}
+.chk input{margin-top:5px;accent-color:var(--amber)}
+.case{border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:var(--panel2);cursor:pointer;margin-bottom:10px}
+.case:hover{border-color:var(--amber)}
+.case .detail{display:none;margin-top:10px;color:var(--muted);font-size:14px;border-top:1px dashed var(--line);padding-top:10px}
+.case.open .detail{display:block}
+.hint{font-size:12.5px;color:var(--muted)}
+#toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);background:var(--amber);color:#14100a;padding:9px 22px;border-radius:24px;font-weight:700;font-size:14px;display:none;z-index:99}
+.mini{font-size:12px;color:var(--muted)}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:900px){
+  aside{position:static;width:100%;height:auto;display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:10px}
+  .logo{border:none;margin:0;padding:4px 8px}
+  nav{display:flex;flex-wrap:wrap;gap:4px}
+  nav button{width:auto;padding:6px 10px;font-size:13px}
+  .sidefoot{display:none}
+  main{margin:0;padding:18px}
+  .grid2,.split{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<aside>
+  <div class="logo">⚙️ 六坑扫描<small>AI硬件避坑工作台 · 青蓝图TNT Fork</small></div>
+  <nav id="nav">
+    <button data-s="map" class="on">📍 全景地图</button>
+    <button data-s="triage">🧭 可逆性分诊器</button>
+    <button data-s="compare">⚖️ 软件 vs 硬件</button>
+    <button data-s="scan">🕳️ 六坑自查评分</button>
+    <button data-s="track">🎯 赛道评估器</button>
+    <button data-s="four">🧩 四要素工作台</button>
+    <button data-s="vendor">🤝 合作方尽调</button>
+    <button data-s="mkt">📣 营销铁三角</button>
+    <button data-s="due">🤖 尽调卡生成器</button>
+    <button data-s="cases">📚 案例库</button>
+  </nav>
+  <div class="sidefoot">Fork: 2026-07-08 10:50<br>原文：青蓝图《AI硬件避坑指南》<br>单文件离线可用 · 无外部依赖</div>
+</aside>
+<main>
+
+<!-- ===================== 1 全景地图 ===================== -->
+<section class="panel active" id="sec-map">
+  <h1>不可逆决策六坑扫描</h1>
+  <p class="sub">硬件创业 90% 的坑 = 拿软件世界"决策可逆"的直觉，跑硬件世界"不可逆"的任务。本工具把青蓝图的六坑框架做成可运行的自查、评估与尽调工作台。</p>
+  <div class="card">
+    <h3>决策可逆性光谱：坑的生成函数</h3>
+    <svg viewBox="0 0 960 190" style="width:100%;height:auto" role="img">
+      <defs>
+        <linearGradient id="rev" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#4cc2ff"/><stop offset="0.55" stop-color="#f5a524"/><stop offset="1" stop-color="#f87171"/>
+        </linearGradient>
+        <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="#8fa3b8"/></marker>
+      </defs>
+      <text x="20" y="28" fill="#4cc2ff" font-size="14" font-weight="700">可逆 · 软件逻辑（快跑试错）</text>
+      <text x="940" y="28" fill="#f87171" font-size="14" font-weight="700" text-anchor="end">不可逆 · 硬件逻辑（慢决策重验证）</text>
+      <rect x="20" y="44" width="920" height="20" rx="10" fill="url(#rev)"/>
+      <g font-size="12" fill="#dbe4ee" text-anchor="middle">
+        <line x1="70" y1="66" x2="70" y2="86" stroke="#8fa3b8"/><text x="70" y="104">改一版话术</text><text x="70" y="121" fill="#8fa3b8">小时级</text>
+        <line x1="240" y1="66" x2="240" y2="86" stroke="#8fa3b8"/><text x="240" y="104">发一个版本</text><text x="240" y="121" fill="#8fa3b8">天级</text>
+        <line x1="410" y1="66" x2="410" y2="86" stroke="#8fa3b8"/><text x="410" y="104">换一个功能</text><text x="410" y="121" fill="#8fa3b8">周级</text>
+        <line x1="580" y1="66" x2="580" y2="86" stroke="#8fa3b8"/><text x="580" y="104">定形态/开模</text><text x="580" y="121" fill="#8fa3b8">月级</text>
+        <line x1="760" y1="66" x2="760" y2="86" stroke="#8fa3b8"/><text x="760" y="104">定品类/选公司</text><text x="760" y="121" fill="#8fa3b8">3年绑定</text>
+        <line x1="910" y1="66" x2="910" y2="86" stroke="#8fa3b8"/><text x="900" y="104">第一代产品口碑</text><text x="900" y="121" fill="#8fa3b8">不可逆</text>
+      </g>
+      <text x="480" y="165" fill="#f5a524" font-size="13.5" text-anchor="middle" font-weight="600">坑的生成函数：把光谱右侧的决策，用左侧的逻辑来做</text>
+    </svg>
+  </div>
+  <div class="card">
+    <h3>六坑路径图：从选赛道到团队</h3>
+    <svg viewBox="0 0 980 250" style="width:100%;height:auto" role="img">
+      <defs><marker id="arr2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="#f5a524"/></marker></defs>
+      <g font-size="13">
+        <rect x="16" y="30" width="172" height="76" rx="10" fill="#1d2a3a" stroke="#f5a524"/>
+        <text x="102" y="56" fill="#f5a524" text-anchor="middle" font-weight="700">坑1 选赛道=选命</text>
+        <text x="102" y="78" fill="#dbe4ee" text-anchor="middle" font-size="11.5">解药：生态位算法</text>
+        <text x="102" y="94" fill="#8fa3b8" text-anchor="middle" font-size="11.5">别算盘子，算你的位置</text>
+        <rect x="212" y="30" width="172" height="76" rx="10" fill="#1d2a3a" stroke="#a78bfa"/>
+        <text x="298" y="56" fill="#a78bfa" text-anchor="middle" font-weight="700">坑2 思维金句中毒</text>
+        <text x="298" y="78" fill="#dbe4ee" text-anchor="middle" font-size="11.5">解药：金句还原语境</text>
+        <text x="298" y="94" fill="#8fa3b8" text-anchor="middle" font-size="11.5">硬件引进门 软件来服务</text>
+        <rect x="408" y="30" width="172" height="76" rx="10" fill="#1d2a3a" stroke="#4cc2ff"/>
+        <text x="494" y="56" fill="#4cc2ff" text-anchor="middle" font-weight="700">坑3 抄招式做产品</text>
+        <text x="494" y="78" fill="#dbe4ee" text-anchor="middle" font-size="11.5">解药：四要素推导来时路</text>
+        <text x="494" y="94" fill="#8fa3b8" text-anchor="middle" font-size="11.5">形态·功能·设计·价格</text>
+        <rect x="604" y="30" width="172" height="76" rx="10" fill="#1d2a3a" stroke="#34d399"/>
+        <text x="690" y="56" fill="#34d399" text-anchor="middle" font-weight="700">坑4 供应链轻信</text>
+        <text x="690" y="78" fill="#dbe4ee" text-anchor="middle" font-size="11.5">解药：深层信号尽调</text>
+        <text x="690" y="94" fill="#8fa3b8" text-anchor="middle" font-size="11.5">方案商=外部合伙人</text>
+        <rect x="800" y="30" width="164" height="76" rx="10" fill="#1d2a3a" stroke="#fbbf24"/>
+        <text x="882" y="56" fill="#fbbf24" text-anchor="middle" font-weight="700">坑5 SOP套路营销</text>
+        <text x="882" y="78" fill="#dbe4ee" text-anchor="middle" font-size="11.5">解药：铁三角分层诊断</text>
+        <text x="882" y="94" fill="#8fa3b8" text-anchor="middle" font-size="11.5">战略→产品→营销</text>
+        <line x1="188" y1="68" x2="208" y2="68" stroke="#f5a524" stroke-width="2" marker-end="url(#arr2)"/>
+        <line x1="384" y1="68" x2="404" y2="68" stroke="#f5a524" stroke-width="2" marker-end="url(#arr2)"/>
+        <line x1="580" y1="68" x2="600" y2="68" stroke="#f5a524" stroke-width="2" marker-end="url(#arr2)"/>
+        <line x1="776" y1="68" x2="796" y2="68" stroke="#f5a524" stroke-width="2" marker-end="url(#arr2)"/>
+        <rect x="16" y="140" width="948" height="52" rx="10" fill="#131a23" stroke="#f87171"/>
+        <text x="490" y="162" fill="#f87171" text-anchor="middle" font-weight="700">坑6 团队拼盘（贯穿全程）—— 解药：大厂视野 × 小团队战斗力的杂交配比，0-1 要能徒手解决问题的多面手</text>
+        <text x="490" y="182" fill="#8fa3b8" text-anchor="middle" font-size="11.5">大厂方法有资源前提：大疆"凡事自己来"成立于大疆的体量，小团队照搬 = 眼高手低</text>
+        <text x="490" y="228" fill="#8fa3b8" text-anchor="middle" font-size="12.5">三个元建议：来深圳（换环境）· 用户心动为最高标准（换标准）· 站出来说话（换姿态）</text>
+      </g>
+    </svg>
+  </div>
+  <div class="card">
+    <h3>本工具怎么用</h3>
+    <table>
+      <tr><th>你的场景</th><th>建议路径</th></tr>
+      <tr><td>评估一家具身智能/硬件公司（跳槽尽调）</td><td>可逆性分诊 → 六坑自查 → 尽调卡生成器（输出 markdown 存档）</td></tr>
+      <tr><td>评估一个硬件/产品想法</td><td>赛道评估器 → 四要素工作台 → 六坑自查</td></tr>
+      <tr><td>评估一个外部合作方（方案商/端侧/供应商）</td><td>合作方尽调（廉价信号 vs 昂贵信号计分）</td></tr>
+      <tr><td>做内容/写拆解帖</td><td>案例库找参照 → 四要素工作台生成拆解卡</td></tr>
+      <tr><td>纠结要不要慢下来分析</td><td>先过可逆性分诊器：软件型决策直接快跑，别过度分析</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ===================== 2 可逆性分诊器 ===================== -->
+<section class="panel" id="sec-triage">
+  <h2>🧭 可逆性分诊器</h2>
+  <p class="sub">六坑扫描之前先装总开关：这个决策到底是"软件型"还是"硬件型"？分诊错了，后面全错——把软件型决策拖进重分析是瘫痪，把硬件型决策当软件型快跑是翻车。</p>
+  <div class="card">
+    <label class="q">1. 掉头成本：如果 6 个月后发现错了，退出或改向要付出什么？</label>
+    <select id="tCost">
+      <option value="0">低 —— 删掉重来，几乎无沉没成本</option>
+      <option value="1">中 —— 损失几周时间或一些信誉，可承受</option>
+      <option value="2">高 —— 模具/库存/口碑/职业窗口期，掉头等于重伤</option>
+    </select>
+    <label class="q">2. 绑定期：这个决策会锁定我多久？</label>
+    <select id="tLock">
+      <option value="0">天/周级 —— 随时能换</option>
+      <option value="1">月级 —— 一个季度到半年</option>
+      <option value="2">年级 —— 一年以上（定品类/换工作/定第一代产品）</option>
+    </select>
+    <label class="q">3. 锁定机制检查（勾选实际存在的项 —— 识破"伪装成软件型的硬件型决策"）</label>
+    <label class="chk"><input type="checkbox" class="tlockchk">换掉它需要重做底层（结构/模具/架构/数据）</label>
+    <label class="chk"><input type="checkbox" class="tlockchk">它会写进我的履历/口碑/第一代产品评价，覆盖不掉</label>
+    <label class="chk"><input type="checkbox" class="tlockchk">周围人/组织会基于它做后续投入，形成路径依赖</label>
+    <label class="chk"><input type="checkbox" class="tlockchk">错过这个窗口期，同样的机会不会再出现</label>
+    <div style="margin-top:14px"><button class="act" onclick="triage()">分诊</button></div>
+    <div class="verdict" id="tOut" style="display:none"></div>
+  </div>
+</section>
+
+<!-- ===================== 3 软件 vs 硬件 ===================== -->
+<section class="panel" id="sec-compare">
+  <h2>⚖️ 软件逻辑 vs 硬件规律</h2>
+  <p class="sub">每一行都是一个"直觉对撞现场"。点击行可展开对应的掉坑姿势与解药。</p>
+  <div class="card" id="cmpWrap"></div>
+</section>
+
+<!-- ===================== 4 六坑自查 ===================== -->
+<section class="panel" id="sec-scan">
+  <h2>🕳️ 六坑自查评分</h2>
+  <p class="sub">24 条陈述，对你正在评估的项目/公司/方案逐条作答：<b>是=2 分（已验证）· 部分=1 分（想过没验证）· 否=0 分（没想过）</b>。每坑满分 8 分，低于 4 分亮红灯。</p>
+  <div id="scanWrap"></div>
+  <div class="card">
+    <h3>扫描结果</h3>
+    <div id="scanBars"></div>
+    <div class="verdict" id="scanOut">尚未作答。回答任意一题后实时更新。</div>
+    <div style="margin-top:12px"><button class="ghost" onclick="copyScan()">📋 复制扫描报告</button></div>
+  </div>
+</section>
+
+<!-- ===================== 5 赛道评估器 ===================== -->
+<section class="panel" id="sec-track">
+  <h2>🎯 赛道评估器（生态位算法）</h2>
+  <p class="sub">别算"市场多大"，算"留给你的位置多大"。拖动滑杆放置你的品类，参照系来自原文案例。</p>
+  <div class="split">
+    <div class="card">
+      <div class="slider-row"><span class="nm">需求大众度</span><input type="range" id="sDemand" min="1" max="10" value="5" oninput="track()"><b id="vDemand">5</b></div>
+      <div class="slider-row"><span class="nm">竞争激烈度</span><input type="range" id="sComp" min="1" max="10" value="5" oninput="track()"><b id="vComp">5</b></div>
+      <div class="slider-row"><span class="nm">工程复杂度</span><input type="range" id="sCplx" min="1" max="10" value="5" oninput="track()"><b id="vCplx">5</b></div>
+      <div class="slider-row"><span class="nm">AI赋能真实度</span><input type="range" id="sAi" min="1" max="10" value="5" oninput="track()"><b id="vAi">5</b></div>
+      <p class="hint">需求大众度：谁需要、多久一次、不用会怎样。竞争激烈度：上有巨头？下有白牌？三明治？工程复杂度：高=门槛也=烧钱，取决于团队能力。AI赋能真实度：真实体验提升，还是概念叠加。</p>
+      <div class="verdict" id="trackOut"></div>
+    </div>
+    <div class="card">
+      <svg viewBox="0 0 440 400" style="width:100%;height:auto" id="trackSvg">
+        <rect x="60" y="20" width="180" height="170" fill="#171e28"/>
+        <rect x="240" y="20" width="180" height="170" fill="#2e1516" opacity="0.55"/>
+        <rect x="60" y="190" width="180" height="170" fill="#131a23"/>
+        <rect x="240" y="190" width="180" height="170" fill="#0d2b22" opacity="0.5"/>
+        <text x="150" y="40" fill="#8fa3b8" font-size="11" text-anchor="middle">夹缝区（小众×激烈）</text>
+        <text x="330" y="40" fill="#f87171" font-size="11" text-anchor="middle">绞肉机（大众×激烈）</text>
+        <text x="150" y="350" fill="#8fa3b8" font-size="11" text-anchor="middle">利基区（能活·天花板低）</text>
+        <text x="330" y="350" fill="#34d399" font-size="11" text-anchor="middle">黄金位（大众×未饱和）</text>
+        <line x1="60" y1="360" x2="420" y2="360" stroke="#223041"/>
+        <line x1="60" y1="20" x2="60" y2="360" stroke="#223041"/>
+        <text x="240" y="385" fill="#8fa3b8" font-size="12" text-anchor="middle">需求大众度 →</text>
+        <text x="30" y="190" fill="#8fa3b8" font-size="12" text-anchor="middle" transform="rotate(-90 30 190)">竞争激烈度 →</text>
+        <g id="trackDots"></g>
+        <circle id="meDot" cx="240" cy="190" r="9" fill="#f5a524" stroke="#14100a" stroke-width="2"/>
+        <text id="meLbl" x="240" y="172" fill="#f5a524" font-size="12" font-weight="700" text-anchor="middle">你的品类</text>
+      </svg>
+      <p class="hint" id="trackLegend"></p>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 6 四要素工作台 ===================== -->
+<section class="panel" id="sec-four">
+  <h2>🧩 硬件定义四要素工作台</h2>
+  <p class="sub">形态=战略 · 功能=价值 · 设计=心动 · 价格=决策。按漏斗顺序推导；四要素打架时回到形态层重选，不要在下游硬调。也可用来拆解别人的新品（写 X 帖）。</p>
+  <div class="card">
+    <label class="q">产品/项目名称</label>
+    <input type="text" id="fName" placeholder="例：AI 录音卡 / 某桌面机器人 / 你要拆解的新品">
+    <div class="grid2" style="margin-top:12px">
+      <div>
+        <label class="q">① 形态（战略层）</label>
+        <textarea id="fForm" rows="4" placeholder="选这个形态把它带进了哪个品类战场？上面是谁、下面是谁？供应链复杂度和用户预期是什么？"></textarea>
+      </div>
+      <div>
+        <label class="q">② 功能（价值层）</label>
+        <textarea id="fFunc" rows="4" placeholder="哪些功能是必要的？哪些只是为了显得厉害？哪个功能让产品变复杂、变贵、变难用？"></textarea>
+      </div>
+      <div>
+        <label class="q">③ 设计（心动层）</label>
+        <textarea id="fDesign" rows="4" placeholder="用户第一眼愿不愿意多看一秒？拿在手里有没有惊喜？愿不愿意公开使用、推荐朋友？"></textarea>
+      </div>
+      <div>
+        <label class="q">④ 价格（决策层）</label>
+        <textarea id="fPrice" rows="4" placeholder="价格带和目标用户的认知匹配吗？对标什么价位段？为什么用户觉得值？"></textarea>
+      </div>
+    </div>
+    <label class="q">⑤ 来时路判断（一句话）</label>
+    <textarea id="fPath" rows="2" placeholder="为什么是这家团队、在这个时点、做这个形态？是自己推导的，还是在抄某个成功者的招式？"></textarea>
+    <div style="margin-top:14px">
+      <button class="act" onclick="fourGen()">生成定义卡</button>
+      <button class="ghost" onclick="copyText(document.getElementById('fourOut').textContent)" style="margin-left:8px">📋 复制</button>
+      <span class="mini" id="fourMeter" style="margin-left:12px"></span>
+    </div>
+    <pre id="fourOut" style="margin-top:12px;display:none"></pre>
+  </div>
+</section>
+
+<!-- ===================== 7 合作方尽调 ===================== -->
+<section class="panel" id="sec-vendor">
+  <h2>🤝 合作方深层信号尽调</h2>
+  <p class="sub">方案商=外部合伙人。价格低、态度好是任何弱合作方都能廉价发出的信号——甚至恰恰因为能力弱才给得出。只对昂贵信号计分。适用：方案商 / 外包 / 端侧协作团队 / 供应商。</p>
+  <div class="split">
+    <div class="card">
+      <h3 style="color:var(--red)">⚠️ 廉价信号（勾选出现的项 · 不加分）</h3>
+      <label class="chk"><input type="checkbox" class="vCheap">报价明显低于同行</label>
+      <label class="chk"><input type="checkbox" class="vCheap">态度热情、随叫随到</label>
+      <label class="chk"><input type="checkbox" class="vCheap">什么需求都说"能做"，从不说难</label>
+      <label class="chk"><input type="checkbox" class="vCheap">熟人推荐，但推荐人没和它做过真实交付</label>
+      <label class="chk"><input type="checkbox" class="vCheap">承诺全是口头/态度级，没有量化条款</label>
+    </div>
+    <div class="card">
+      <h3 style="color:var(--green)">💎 昂贵信号（勾选确认的项 · 每项 +1）</h3>
+      <label class="chk"><input type="checkbox" class="vExp">有同品类/同难度交付案例，可看实物或数据</label>
+      <label class="chk"><input type="checkbox" class="vExp">客户名单里有对品质挑剔的知名客户</label>
+      <label class="chk"><input type="checkbox" class="vExp">敢质疑我的需求、指出我方案里的坑</label>
+      <label class="chk"><input type="checkbox" class="vExp">能讲清良品率/爬坡节奏，愿意谈失败案例</label>
+      <label class="chk"><input type="checkbox" class="vExp">关键技术角色第一次会议就到场</label>
+      <label class="chk"><input type="checkbox" class="vExp">愿意给字段级/工艺级/工期级书面承诺</label>
+    </div>
+  </div>
+  <div class="card">
+    <button class="act" onclick="vendor()">评估风险</button>
+    <div class="verdict" id="vOut" style="display:none"></div>
+  </div>
+</section>
+
+<!-- ===================== 8 营销铁三角 ===================== -->
+<section class="panel" id="sec-mkt">
+  <h2>📣 营销铁三角诊断</h2>
+  <p class="sub">"每个环节指标都健康，整体却失败" = 错位发生在营销动作之前。按 战略 → 产品 → 营销 顺序诊断，禁止跳层。也适用于评审/汇报被质疑时定位问题层。</p>
+  <div class="card">
+    <h3 style="color:var(--purple)">战略层（品类阶段）</h3>
+    <label class="chk"><input type="checkbox" class="mS">我判断过这个品类/话题在目标渠道处于早期、中期还是后期</label>
+    <label class="chk"><input type="checkbox" class="mS">我知道目标用户对这个品类的疲劳程度（看过多少同类）</label>
+    <label class="chk"><input type="checkbox" class="mS">作为后来者/先行者，我据此调整过预期和打法</label>
+    <h3 style="color:var(--blue)">产品层（差异化）</h3>
+    <label class="chk"><input type="checkbox" class="mP">我的差异化定位能一句话讲清，别人听完能复述</label>
+    <label class="chk"><input type="checkbox" class="mP">我分析过目标用户与头部玩家用户的重叠度</label>
+    <label class="chk"><input type="checkbox" class="mP">差异化是用户在意的差异，不是参数表上的差异</label>
+    <h3 style="color:var(--yellow)">营销层（动作创新）</h3>
+    <label class="chk"><input type="checkbox" class="mM">方案里有至少一处 SOP 之外、同行没做过的动作</label>
+    <label class="chk"><input type="checkbox" class="mM">我清楚表面指标（获客成本/邮箱/定金/阅读量）不能证明战略层正确</label>
+    <label class="chk"><input type="checkbox" class="mM">营销承接了战略和产品结论，不是外包给服务商的孤立环节</label>
+    <div style="margin-top:14px"><button class="act" onclick="mkt()">诊断</button></div>
+  </div>
+  <div class="split">
+    <div class="card">
+      <svg viewBox="0 0 360 300" style="width:100%;height:auto">
+        <polygon points="180,36 40,258 320,258" fill="#171e28" stroke="#223041" stroke-width="2"/>
+        <circle id="mDotS" cx="180" cy="36" r="13" fill="#223041"/>
+        <circle id="mDotP" cx="40" cy="258" r="13" fill="#223041"/>
+        <circle id="mDotM" cx="320" cy="258" r="13" fill="#223041"/>
+        <text x="180" y="18" fill="#a78bfa" font-size="13" text-anchor="middle" font-weight="700">战略</text>
+        <text x="34" y="284" fill="#4cc2ff" font-size="13" text-anchor="middle" font-weight="700">产品</text>
+        <text x="322" y="284" fill="#fbbf24" font-size="13" text-anchor="middle" font-weight="700">营销</text>
+        <text x="180" y="170" fill="#8fa3b8" font-size="11.5" text-anchor="middle">三角一角塌，指标再好也白搭</text>
+      </svg>
+    </div>
+    <div class="card"><div class="verdict" id="mOut">先勾选左侧符合项，再点"诊断"。</div></div>
+  </div>
+</section>
+
+<!-- ===================== 9 尽调卡生成器 ===================== -->
+<section class="panel" id="sec-due">
+  <h2>🤖 六坑尽调卡生成器</h2>
+  <p class="sub">为"认真看一家硬件/具身智能公司"设计：10 分钟填一张卡，半年攒一个可对比的公司库。生成 markdown 后复制存档。每格尽量写一句依据+出处，没有信息就选"未知"，不编。</p>
+  <div class="card">
+    <div class="grid2">
+      <div><label class="q">公司/项目名</label><input type="text" id="dName" placeholder="例：某人形机器人公司"></div>
+      <div><label class="q">品类/方向</label><input type="text" id="dCat" placeholder="例：人形通用 / 轮式配送 / 机械臂 / 大脑方案"></div>
+    </div>
+    <div id="dueWrap"></div>
+    <div class="grid2" style="margin-top:10px">
+      <div><label class="q">综合判断</label><select id="dFinal"><option>待定</option><option>强 —— 值得深入接触</option><option>中 —— 保持观察</option><option>弱 —— 风险大于机会</option></select></div>
+      <div><label class="q">最大的一个风险</label><input type="text" id="dRisk" placeholder="一句话"></div>
+    </div>
+    <label class="q">面试/接触时最想反问的 2 个问题</label>
+    <textarea id="dAsk" rows="2" placeholder="例：第一代产品从 Demo 到交付踩过最大的坑是什么？团队里谁管良品率？"></textarea>
+    <div style="margin-top:14px">
+      <button class="act" onclick="dueGen()">生成尽调卡</button>
+      <button class="ghost" onclick="copyText(document.getElementById('dueOut').textContent)" style="margin-left:8px">📋 复制 markdown</button>
+    </div>
+    <pre id="dueOut" style="margin-top:12px;display:none"></pre>
+  </div>
+</section>
+
+<!-- ===================== 10 案例库 ===================== -->
+<section class="panel" id="sec-cases">
+  <h2>📚 原文案例库</h2>
+  <p class="sub">八个案例不是用来抄的，是用来拆前提的。点击展开每个案例的"坑位启示"与成立前提——抄招式之前先检查前提在你的品类是否存在。</p>
+  <div id="casesWrap"></div>
+</section>
+
+<footer style="margin-top:40px;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px">
+  Fork 自青蓝图《AI 硬件避坑指南：第一次做硬件，最应该建立的底层认知》（TNT 播客整理，主讲：邹霖）· Fork 时间 2026-07-08 10:50 · 本工具单文件离线可用，无任何外部依赖。核心提醒：本页所有金句同样适用"金句还原术"——包括"选赛道就是选命"本身。
+</footer>
+</main>
+<div id="toast">已复制</div>
+
+<script>
+/* ---------- 导航 ---------- */
+document.getElementById('nav').addEventListener('click',function(e){
+  var b=e.target.closest('button'); if(!b)return;
+  document.querySelectorAll('#nav button').forEach(function(x){x.classList.remove('on')});
+  b.classList.add('on');
+  document.querySelectorAll('section.panel').forEach(function(s){s.classList.remove('active')});
+  document.getElementById('sec-'+b.dataset.s).classList.add('active');
+  window.scrollTo(0,0);
+});
+
+/* ---------- 通用复制 ---------- */
+function toast(msg){var t=document.getElementById('toast');t.textContent=msg||'已复制';t.style.display='block';setTimeout(function(){t.style.display='none'},1400)}
+function copyText(txt){
+  if(!txt||!txt.trim()){toast('先生成内容');return}
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(function(){toast('已复制')},function(){fallbackCopy(txt)});
+  }else{fallbackCopy(txt)}
+}
+function fallbackCopy(txt){
+  var ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);
+  ta.select();try{document.execCommand('copy');toast('已复制')}catch(e){toast('复制失败，请手动选择')}
+  document.body.removeChild(ta);
+}
+
+/* ---------- 可逆性分诊 ---------- */
+function triage(){
+  var cost=+document.getElementById('tCost').value;
+  var lock=+document.getElementById('tLock').value;
+  var mech=document.querySelectorAll('.tlockchk:checked').length;
+  var out=document.getElementById('tOut');out.style.display='block';
+  var html='';
+  if(cost===0&&lock===0&&mech===0){
+    html='<b style="color:var(--blue)">软件型决策 → 用快逻辑。</b><br>小步快跑、灰度试错、先发制人。不要为它启动六坑扫描——过度分析本身就是坑（分析瘫痪）。今天就行动，错了明天改。';
+  }else if(cost===2||lock===2||mech>=3){
+    html='<b style="color:var(--red)">硬件型决策 → 用慢逻辑。</b><br>绑定期长、掉头成本高'+(mech>=3?'、且存在 '+mech+' 个锁定机制':'')+'。启动完整流程：<b>六坑自查 → 赛道评估 → 四要素推导 → 合作方尽调</b>。原则：先尽调后行动，为交付期才暴露的坑准备 Plan B，并在绑定期内设定期检查点。';
+  }else if((cost===0&&lock===0)&&mech>0){
+    html='<b style="color:var(--yellow)">⚠️ 疑似"伪装成软件型的硬件型决策"——最危险的一类。</b><br>表面看随时能改（掉头成本低、绑定期短），但你勾选了 '+mech+' 个锁定机制。典型如"先随便选个方案商跑起来"（换方案商=重做结构）、"先加入这家公司看看"（时间窗口不可逆）。<b>先把锁定机制列清楚，按硬件型决策处理。</b>';
+  }else{
+    html='<b style="color:var(--yellow)">中间态 → 混合策略。</b><br>核心动作可以快跑，但先花 30 分钟把不可逆的部分剥出来（哪些一旦做了改不了？），对那部分单独用慢逻辑。建议至少过一遍六坑自查里对应的坑。';
+  }
+  out.innerHTML=html;
+}
+
+/* ---------- 软件 vs 硬件 对照 ---------- */
+var CMP=[
+ {dim:'迭代周期',s:'天/周级，随时发版',h:'8个月-1年起，模具与产线锁死节奏',trap:'掉坑姿势：拿"2-3个月出货抢先机"的互联网节奏选品类、压方案商工期，仓促打一拳打在棉花上。',cure:'解药：硬件战役按年规划（Plaud 2023发布→2024大卖→竞品2025才到场）。节奏错了，每个下游决策都会变形。'},
+ {dim:'试错成本',s:'上线新版本即可修复',h:'一代产品口碑不可逆，库存和模具是真金白银',trap:'掉坑姿势："先发了再说，有问题OTA修" —— 硬件的第一印象修不回来，KOL手里坏掉的样机就是判决书。',cure:'解药：把验证前置——四要素在开模前验证，样机在寄出前按交付标准测试。'},
+ {dim:'方向调整',s:'换功能、换形态、连品类都能换',h:'定品类=绑定至少3年',trap:'掉坑姿势：赛道随便选，想着"不行再转型"。硬件转型=团队技能、供应链、渠道全部作废重来。',cure:'解药：选赛道用生态位算法慢决策；切口不过大（撞巨头）不过小（长不大）。'},
+ {dim:'先发优势',s:'早2-3个月上线=声量碾压（Manus式）',h:'早发但没打磨好=给对手当教材',trap:'掉坑姿势：追求"第一个发布"，牺牲良品率和工艺完成度。',cure:'解药：硬件的先发是"第一个让用户心动"，不是"第一个出现在货架上"。'},
+ {dim:'价值感知',s:'用户看功能和流畅度，工具好用就付费',h:'用户先看到硬件本身：形态、工艺、触感、美感',trap:'掉坑姿势：90%时间聊后端AI能力，硬件"能承载软件就行" —— 软件活，硬件木。',cure:'解药：硬件引进门，软件来服务。心动是必要条件，一个倒角、一个色差都在说话。'},
+ {dim:'量产概念',s:'部署=点一下按钮，边际成本≈0',h:'量产比原型难10-100倍（马斯克），良品率会远低于认知',trap:'掉坑姿势：以为"量产两个月爬坡到1万台/月"，良品率崩了，成本、交付、口碑、售后全被拖垮。',cure:'解药：把供应链当产品做（大疆）；尽调方案商的爬坡与良品率案例，不听态度听数据。'},
+ {dim:'用户关系',s:'躲在屏幕后，用流量算法增长',h:'硬件品牌需要情感连接（喜欢大疆索尼苹果，不会"喜欢"打车APP）',trap:'掉坑姿势：把硬件当APP运营，只做投放不做沟通。',cure:'解药：站出来说话，Build in Public——用户不只买功能，也在参与产品成长。'}
+];
+(function(){
+  var w=document.getElementById('cmpWrap'),html='<table><tr><th style="width:90px">维度</th><th>软件逻辑</th><th>硬件规律</th></tr>';
+  CMP.forEach(function(r,i){
+    html+='<tr style="cursor:pointer" onclick="cmpToggle('+i+')"><td><b>'+r.dim+'</b><div class="mini">点击展开</div></td><td style="color:var(--blue)">'+r.s+'</td><td style="color:var(--amber)">'+r.h+'</td></tr>';
+    html+='<tr id="cmpx'+i+'" style="display:none"><td colspan="3" style="background:#0f151d"><span style="color:var(--red)">'+r.trap+'</span><br><span style="color:var(--green)">'+r.cure+'</span></td></tr>';
+  });
+  w.innerHTML=html+'</table>';
+})();
+function cmpToggle(i){var r=document.getElementById('cmpx'+i);r.style.display=(r.style.display==='none')?'table-row':'none'}
+
+/* ---------- 六坑自查 ---------- */
+var SCAN=[
+ {pit:'坑1 · 赛道',color:'#f5a524',cure:'回到生态位算法：画出上下结构（上面巨头为什么不做、下面白牌抄不抄得动），并评估模型突变的翻盘风险。切口过大撞红海，过小长不大。',qs:[
+  '我能说清目标用户是谁、多久用一次、不用会损失什么（需求大众度有据可依）',
+  '我画得出生态位的上下结构：上面的巨头是谁、为什么不做；下面的白牌能不能抄',
+  '我评估过 AI/模型能力突变对这个品类的翻盘风险',
+  '切口大小做过论证：既不撞巨头红海，也不至于长不大']},
+ {pit:'坑2 · 思维',color:'#a78bfa',cure:'做金句还原术：检查信奉的方法论原本说给谁听；找出被降权的"用户第一触点"，恢复它的资源权重。',qs:[
+  '我检查过自己信奉的方法论金句原本是说给谁听的（投资语境≠产品语境）',
+  '用户第一触点（外观/触感/首次交互）在资源分配里权重足够',
+  '讨论产品时，聊"第一眼心动"的时间不少于聊后端能力的时间',
+  '我能指出当前方案里被降权的第一触点，并有恢复动作']},
+ {pit:'坑3 · 产品',color:'#4cc2ff',cure:'停止抄招式：先拆你想抄的打法在原品类成立的前提，再用四要素（形态/功能/设计/价格）推导自己的来时路。',qs:[
+  '形态选择有推导过程（为什么是这个形态），不是默认跟随头部',
+  '每个功能都能回答"必要，还是只是显得厉害"',
+  '想抄的招式（加法/减法/低价/高端），我拆过它在原品类成立的前提',
+  '形态/功能/设计/价格四要素各有验证计划，不止拍脑袋']},
+ {pit:'坑4 · 供应链',color:'#34d399',cure:'把关键合作方当合伙人尽调：只对昂贵信号计分（案例/客户层级/量产数据），要字段级承诺，为交付期暴露的坑备 Plan B。',qs:[
+  '关键合作方按"合伙人标准"尽调过（案例/客户层级/量产经验）',
+  '我没有被"价格低、态度好、愿配合"说服——这些是廉价信号',
+  '良品率、爬坡节奏、交付时间拿到过量化承诺或案例背书',
+  '为交付阶段才暴露的坑准备了 Plan B']},
+ {pit:'坑5 · 营销',color:'#fbbf24',cure:'按铁三角顺序补课：先判断品类/话题的阶段（早中后期），再打穿差异化定位，最后才优化动作层。SOP 是地板不是天花板。',qs:[
+  '我判断过这个品类/话题在目标渠道处于早/中/后期（用户疲劳度）',
+  '差异化定位能一句话讲清，且分析过与头部的用户重叠度',
+  '我清楚表面指标健康（获客成本/邮箱/定金）不代表战略层正确',
+  '方案里有至少一处 SOP 之外的创新动作']},
+ {pit:'坑6 · 团队',color:'#f87171',cure:'检查配比：0-1 阶段要能徒手解决问题的多面手；大厂视野用于避免弯路，不是复刻大厂流程。拼盘不是团队。',qs:[
+  '团队里有能徒手解决问题的多面手（不依赖流程和下属）',
+  '大厂背景成员清楚自己方法的资源前提，不硬搬大厂做法',
+  '团队是"视野×战斗力"杂交结构，不是 title 拼盘',
+  '每个关键人都能说出"亲手做成过什么"']}
+];
+(function(){
+  var w=document.getElementById('scanWrap'),html='';
+  SCAN.forEach(function(p,i){
+    html+='<div class="card"><h3 style="color:'+p.color+'">'+p.pit+'</h3>';
+    p.qs.forEach(function(q,j){
+      var n='sq'+i+'_'+j;
+      html+='<div class="qrow">'+q+'<div class="opts">'
+        +'<label><input type="radio" name="'+n+'" value="2" onchange="scan()"> 是（已验证）</label>'
+        +'<label><input type="radio" name="'+n+'" value="1" onchange="scan()"> 部分（想过没验证）</label>'
+        +'<label><input type="radio" name="'+n+'" value="0" onchange="scan()"> 否（没想过）</label>'
+        +'</div></div>';
+    });
+    html+='</div>';
+  });
+  w.innerHTML=html;
+})();
+function scanScores(){
+  return SCAN.map(function(p,i){
+    var s=0,answered=0;
+    p.qs.forEach(function(q,j){
+      var v=document.querySelector('input[name="sq'+i+'_'+j+'"]:checked');
+      if(v){s+=+v.value;answered++}
+    });
+    return{pit:p.pit,cure:p.cure,color:p.color,score:s,answered:answered,max:p.qs.length*2};
+  });
+}
+function scan(){
+  var arr=scanScores(),bars='',total=0,answeredAll=0;
+  arr.forEach(function(r){
+    total+=r.score;answeredAll+=r.answered;
+    var pct=Math.round(r.score/r.max*100);
+    var col=r.score>=7?'var(--green)':(r.score>=4?'var(--yellow)':'var(--red)');
+    bars+='<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:13px"><span>'+r.pit+'</span><span style="color:'+col+'">'+r.score+'/'+r.max+'</span></div><div class="bar"><i style="width:'+pct+'%;background:'+col+'"></i></div></div>';
+  });
+  document.getElementById('scanBars').innerHTML=bars;
+  var out=document.getElementById('scanOut');
+  if(answeredAll===0){out.innerHTML='尚未作答。回答任意一题后实时更新。';return}
+  var red=arr.filter(function(r){return r.answered>0&&r.score<4});
+  var level=total>=38?'<span class="pill g">整体稳健（'+total+'/48）</span>':(total>=24?'<span class="pill y">带病前行（'+total+'/48）</span>':'<span class="pill r">高危（'+total+'/48）</span>');
+  var html=level+'<br><br>';
+  if(red.length){
+    html+='<b style="color:var(--red)">红灯坑（&lt;4分）优先处理：</b><ul style="margin:6px 0 0 20px">';
+    red.forEach(function(r){html+='<li style="margin-bottom:6px"><b style="color:'+r.color+'">'+r.pit+'</b> —— '+r.cure+'</li>'});
+    html+='</ul>';
+  }else{
+    html+='没有红灯坑。注意：分数高只代表"想过并验证过"，不代表结论正确——三个月后回看是否被事实修正。';
+  }
+  if(answeredAll<24)html+='<br><span class="mini">已答 '+answeredAll+'/24 题，答完更准。</span>';
+  out.innerHTML=html;
+}
+function copyScan(){
+  var arr=scanScores(),t='# 六坑扫描报告\n\n';
+  var total=0;arr.forEach(function(r){total+=r.score;t+='- '+r.pit+'：'+r.score+'/'+r.max+(r.score<4&&r.answered>0?'（红灯）→ '+r.cure:'')+'\n'});
+  t+='\n总分：'+total+'/48\n生成时间：'+new Date().toLocaleString('zh-CN');
+  copyText(t);
+}
+
+/* ---------- 赛道评估器 ---------- */
+var TRACKREF=[
+ {n:'AI录音卡 2023（Plaud入场时）',d:8,c:2.5,col:'#34d399'},
+ {n:'AI录音卡 2025（竞品涌入后）',d:8,c:7,col:'#fbbf24'},
+ {n:'翻译耳机',d:3.5,c:7,col:'#f87171'},
+ {n:'通用AI耳机',d:9,c:9.5,col:'#f87171'},
+ {n:'AI眼镜',d:7,c:8,col:'#fbbf24'},
+ {n:'桌面陪伴机器人',d:4,c:5,col:'#8fa3b8'}
+];
+(function(){
+  var g=document.getElementById('trackDots'),html='',legend='参照点：';
+  TRACKREF.forEach(function(p){
+    var x=60+(p.d-1)/9*360, y=360-(p.c-1)/9*340;
+    html+='<circle cx="'+x+'" cy="'+y+'" r="6" fill="'+p.col+'" opacity="0.85"></circle>';
+    legend+='<span style="color:'+p.col+'">● '+p.n+'</span>　';
+  });
+  g.innerHTML=html;
+  document.getElementById('trackLegend').innerHTML=legend;
+})();
+function track(){
+  var d=+document.getElementById('sDemand').value,c=+document.getElementById('sComp').value,
+      x=+document.getElementById('sCplx').value,a=+document.getElementById('sAi').value;
+  document.getElementById('vDemand').textContent=d;document.getElementById('vComp').textContent=c;
+  document.getElementById('vCplx').textContent=x;document.getElementById('vAi').textContent=a;
+  var cx=60+(d-1)/9*360, cy=360-(c-1)/9*340;
+  var dot=document.getElementById('meDot'),lbl=document.getElementById('meLbl');
+  dot.setAttribute('cx',cx);dot.setAttribute('cy',cy);
+  lbl.setAttribute('x',cx);lbl.setAttribute('y',Math.max(18,cy-16));
+  var zone,advice;
+  if(d>=6&&c<=5){zone='<span class="pill g">黄金位：大众需求 × 竞争未饱和</span>';advice='Plaud 2023 式机会窗口。关键问题变成"为什么现在没人做/巨头为什么躺平"——答案必须是结构性的（如索尼多年不更新），否则可能是你没看到的坑。窗口按年关闭，节奏要按硬件逻辑抓紧但不仓促。';}
+  else if(d>=6&&c>5){zone='<span class="pill r">绞肉机：大众需求 × 竞争激烈</span>';advice='上有巨头下有白牌的三明治。除非有拓竹式"性能设计全面碾压"的团队能力＋供应链功力，否则别用"市场大"安慰自己——市场大是品类的，不是你的。';}
+  else if(d<6&&c>5){zone='<span class="pill r">夹缝区：小众需求 × 竞争激烈</span>';advice='翻译耳机式处境：上不去下不来。能活（时空壶证明了），但天花板低、难有 Plaud 级增长。要么重新切需求（找到里面的大众子集），要么接受利基定位并把成本结构做对。';}
+  else{zone='<span class="pill y">利基区：小众需求 × 竞争缓和</span>';advice='能活但长不大的区域。适合当"第一块跳板"：用小切口建立用户和认知，再横向扩品类。警惕：切口过小，产品再好也难以长大。';}
+  var extra='';
+  if(x>=7)extra+='<br>⚙️ 工程复杂度 '+x+'/10：高门槛是双刃剑——团队有对应能力＝壁垒（大疆式），没有＝烧钱黑洞。先做团队能力自检（坑6）。';
+  if(x<=3)extra+='<br>⚙️ 工程复杂度 '+x+'/10：门槛低意味着白牌进场快，Build in Public 要慎重（公开定义=送图纸），壁垒要建在品牌/心智/进化速度上。';
+  if(a<=4)extra+='<br>🤖 AI赋能真实度 '+a+'/10 偏低：警惕概念叠加。用户心动才是最高标准，AI 不 AI 不是。';
+  if(a>=8)extra+='<br>🤖 AI赋能真实度 '+a+'/10：确认它是"真实体验提升"后，注意模型能力普及后这个优势是否还独占（模型突变翻盘风险）。';
+  document.getElementById('trackOut').innerHTML=zone+'<br>'+advice+extra;
+}
+track();
+
+/* ---------- 四要素 ---------- */
+function fourGen(){
+  var name=document.getElementById('fName').value.trim()||'（未命名产品）';
+  var f=document.getElementById('fForm').value.trim(),u=document.getElementById('fFunc').value.trim(),
+      de=document.getElementById('fDesign').value.trim(),p=document.getElementById('fPrice').value.trim(),
+      pa=document.getElementById('fPath').value.trim();
+  var filled=[f,u,de,p,pa].filter(function(x){return x}).length;
+  document.getElementById('fourMeter').textContent='完整度 '+filled+'/5'+(filled<5?'（空白项 = 还没想清楚的战略盲区）':'');
+  var t='# 硬件定义卡 · '+name+'\n\n'
+   +'## ① 形态（战略层：决定品类/竞品/供应链/用户预期）\n'+(f||'【未填 —— 形态没推导 = 赛道是默认选的，回坑1】')+'\n\n'
+   +'## ② 功能（价值层：必要 vs 显得厉害）\n'+(u||'【未填 —— 功能清单还停留在堆叠阶段】')+'\n\n'
+   +'## ③ 设计（心动层：第一眼/公开使用/愿意推荐）\n'+(de||'【未填 —— 警惕"软件活硬件木"：心动没人负责】')+'\n\n'
+   +'## ④ 价格（决策层：价格带与认知匹配）\n'+(p||'【未填 —— 再有想象力，价格带错配用户也不买单】')+'\n\n'
+   +'## ⑤ 来时路（为什么是我们、在这个时点、做这个形态）\n'+(pa||'【未填 —— 说不出来时路 = 大概率在抄别人招式】')+'\n\n'
+   +'---\n生成于 '+new Date().toLocaleString('zh-CN')+' · 不可逆决策六坑扫描工作台';
+  var o=document.getElementById('fourOut');o.textContent=t;o.style.display='block';
+}
+
+/* ---------- 合作方尽调 ---------- */
+function vendor(){
+  var c=document.querySelectorAll('.vCheap:checked').length;
+  var e=document.querySelectorAll('.vExp:checked').length;
+  var out=document.getElementById('vOut');out.style.display='block';
+  var html='昂贵信号 <b style="color:var(--green)">'+e+'/6</b> · 廉价信号 <b style="color:var(--red)">'+c+'/5</b><br><br>';
+  if(e>=4){html+='<span class="pill g">可进入深度合作谈判</span><br>昂贵信号充足。仍要：①把承诺落成字段级/工艺级/工期级书面条款；②为交付阶段才暴露的坑准备 Plan B；③设爬坡与良品率的检查点。';}
+  else if(e===3){html+='<span class="pill y">继续验证</span><br>信号方向对但不够厚。下一步：看实物/数据、约关键技术角色进会、要一个失败案例。补齐到 4 项以上再谈深度绑定。';}
+  else if(c>=3){html+='<span class="pill r">高风险："热情的表面"</span><br>典型逆向选择：恰恰因为研发弱、客户层级低，才给得出好价格好态度。原文原型：交付阶段不断 delay，样机寄到 KOL 手里就坏。如果你自己硬件能力弱，这个合作方实际是你的"外部合伙人"——用招核心工程师的挑剔程度重新选。';}
+  else{html+='<span class="pill b">信息不足</span><br>两类信号都未确认，说明尽调还没真正开始。先做三件事：要同类交付案例、要客户名单、约技术角色进会。';}
+  out.innerHTML=html;
+}
+
+/* ---------- 营销铁三角 ---------- */
+function mkt(){
+  var s=document.querySelectorAll('.mS:checked').length,
+      p=document.querySelectorAll('.mP:checked').length,
+      m=document.querySelectorAll('.mM:checked').length;
+  function col(v){return v>=3?'#34d399':(v>=2?'#fbbf24':'#f87171')}
+  document.getElementById('mDotS').setAttribute('fill',col(s));
+  document.getElementById('mDotP').setAttribute('fill',col(p));
+  document.getElementById('mDotM').setAttribute('fill',col(m));
+  var out=document.getElementById('mOut'),html='战略 '+s+'/3 · 产品 '+p+'/3 · 营销 '+m+'/3<br><br>';
+  if(s<2){html+='<b style="color:var(--a78bfa,#a78bfa)">先补战略层。</b>品类阶段（早/中/后期）没判断，任何动作层优化都是空转——"每个环节指标都不错、整体失败"的病根就在这里。KS 用户对疲劳品类不会因为你的投放更精准就下单。';}
+  else if(p<2){html+='<b style="color:var(--blue)">战略层OK，卡在产品层。</b>差异化没打穿，营销会变成自吹自擂、自说自话。先回答：与已占位头部相比，用户在意的那个差异是什么？一句话讲不清就不要加投放预算。';}
+  else if(m<2){html+='<b style="color:var(--yellow)">基本盘对，动作层平庸。</b>战略与差异化成立，但全按 SOP 执行必然均值回归——SOP 是行业公共知识，超额收益按定义来自别人没做的事。找一个"同行没做过的动作"再上线。';}
+  else{html+='<b style="color:var(--green)">铁三角完整。</b>三层都及格。上线后监控：表面指标（获客成本/邮箱/定金）健康只证明动作层没错——用真实转化率和复购做终审，别被中间指标骗。';}
+  out.innerHTML=html;
+}
+
+/* ---------- 尽调卡生成器 ---------- */
+var DUE=[
+ {k:'赛道坑',q:'它切的生态位：上有哪些巨头、下有哪些低价方案商？需求是大众刚需还是演示型需求？模型突变会不会摧毁这个位置？'},
+ {k:'思维坑',q:'对外叙事里，本体（硬件）和大脑（软件）哪个被降权了？被降权的是不是客户第一触点？'},
+ {k:'产品坑',q:'形态选择（人形/轮式/机械臂/专机）有没有自洽的来时路，还是在复刻头部招式？四要素哪个最弱？'},
+ {k:'供应链坑',q:'团队有没有量产背景的人？有没有 Demo 到交付的公开证据（客户案例/交付数量/良品率/复购）？'},
+ {k:'营销坑',q:'融资/PR 叙事处于品类叙事周期的早/中/后期？一句话差异化是什么？讲不出来算弱。'},
+ {k:'团队坑',q:'核心团队是大厂拼盘还是"视野×战斗力"杂交？谁看起来能徒手解决问题？'}
+];
+(function(){
+  var w=document.getElementById('dueWrap'),html='';
+  DUE.forEach(function(d,i){
+    html+='<div class="qrow"><b style="color:var(--amber)">'+d.k+'</b><span class="mini">　'+d.q+'</span>'
+      +'<div class="grid2" style="margin-top:8px"><div><select id="dg'+i+'"><option>未知</option><option>强</option><option>中</option><option>弱</option></select></div>'
+      +'<div><input type="text" id="dn'+i+'" placeholder="一句话依据 + 出处"></div></div></div>';
+  });
+  w.innerHTML=html;
+})();
+function dueGen(){
+  var name=document.getElementById('dName').value.trim()||'（未命名公司）';
+  var cat=document.getElementById('dCat').value.trim()||'（未填品类）';
+  var t='# 六坑尽调卡 · '+name+'\n\n- 品类/方向：'+cat+'\n- 尽调日期：'+new Date().toLocaleDateString('zh-CN')+'\n- 性质提醒：加入=硬件型决策（绑定约3年，掉头成本高）\n\n| 坑位 | 判断 | 依据/出处 |\n|---|---|---|\n';
+  DUE.forEach(function(d,i){
+    var g=document.getElementById('dg'+i).value;
+    var n=document.getElementById('dn'+i).value.trim()||'（待补证据）';
+    t+='| '+d.k+' | '+g+' | '+n+' |\n';
+  });
+  t+='\n## 综合判断\n'+document.getElementById('dFinal').value
+   +'\n\n## 最大风险\n'+(document.getElementById('dRisk').value.trim()||'（待填）')
+   +'\n\n## 接触时要反问的问题\n'+(document.getElementById('dAsk').value.trim()||'（待填）')
+   +'\n\n---\n规则：判断必须有依据和出处；没有信息写"未知"，不编。三个月后回看此卡，校验判断是否被事实修正。';
+  var o=document.getElementById('dueOut');o.textContent=t;o.style.display='block';
+}
+
+/* ---------- 案例库 ---------- */
+var CASES=[
+ {n:'Plaud（AI录音卡）',tag:'坑1 正面 · 坑4 正面',one:'选赛道的第一刻就赢了大半，做薄是挑战工艺的结果',detail:'启示：①生态位算法的教科书——录音需求被AI激活（人人要会议/访谈/备忘总结）而赛道无强巨头（索尼多年不更新）；②"第一代做到那么薄"依赖敢挑战工艺结构的方案商，普通厂"加厚一点差不多得了"就杀死了惊艳感。成立前提：2023年的空窗期＋团队对硬件有审美追求（倒角/色差/触感）。抄它之前先问：你的品类还有空窗吗？（2025年录音卡已是红海）'},
+ {n:'时空壶（翻译耳机）',tag:'坑1 边界案例',one:'夹缝生态位能活，但难出 Plaud 级增长',detail:'启示：小众需求（出国/跨境商务才用）×高工程投入（好耳机不是套AI功能）×三明治竞争（上有苹果华为下有白牌）。它证明夹缝区不是死刑，是天花板低。抄它之前先问：你接受利基定位的增长曲线吗？你的成本结构撑得起小众市场吗？'},
+ {n:'WHOOP（健康手环）',tag:'坑3 减法招式',one:'去掉屏幕，聚焦恢复与订阅——减法的来时路',detail:'启示：减法成立的前提是①目标人群明确（高强度运动人群）②去掉的东西（屏幕）与核心价值（恢复数据/长寿）冲突③订阅制承接长期关系。抄它之前先问：你去掉屏幕后，用户拿什么感知价值？你的品类有订阅的付费习惯吗？"任何赛道去掉屏幕就能成为下一个WHOOP"是典型的招式搬运错误。'},
+ {n:'拓竹（3D打印机）',tag:'坑3 加法招式',one:'用更强性能更好设计把在位者按在地上摩擦',detail:'启示：加法成立的前提是①品类工程复杂度高，有"性能可玩出花样"的空间②在位者产品力确实弱③团队有系统性工程能力（大疆系）。抄它之前先问：你的品类有足够的工程维度可以碾压吗？AI录音卡这种构造简单的品类，性能牌打不出差异。'},
+ {n:'追觅（清洁电器）',tag:'坑3 加法招式',one:'强产品力+强供应链+强渠道+强营销的组合拳',detail:'启示：在成熟品类里靠综合运营强度打穿功能/性能/价格带。成立前提：成熟品类（用户教育完成）＋团队具备全链条运营能力＋资本支持烧得起组合拳。抄它之前先问：你是0-1创业团队还是有资源的成熟组织？小团队学追觅=用别人的运行时环境跑自己的代码。'},
+ {n:'大疆（无人机）',tag:'坑4 正面 · 坑6 反面教材',one:'把供应链当产品做；但"凡事自己来"有体量前提',detail:'启示（双面）：①正面——Pocket做到第四代无人能及，因为供应链本身被当成产品打磨，量产know-how是真壁垒，大疆系人才"做的产品都不差"；②反面——大疆"凡事自己来"（自建团队优于外部服务商）成立于它的体量、资源和长期战略，小公司照搬=又慢又贵又招不到人。从大疆挖人时验证：他知不知道自己方法的资源前提？'},
+ {n:'阅星曈 xteink（电子墨水屏）',tag:'坑3下半场 正面',one:'Build in Public：想法公开→共创→每阶段认知领先',detail:'启示：壁垒从"起点想法"换成"进化速度"——小红书公开想法，先聚种子用户（先发+积累），再靠真诚沟通拿真实反馈，跑起来后每个阶段认知都领先同行。成立前提（文章没说但关键）：电子墨水屏是白牌兴趣低的小众品类，公开定义不会被瞬间抄死。抄它之前先问你所在品类的抄袭经济学：白牌复制你的成本和周期是多少？'},
+ {n:'Manus（AI Agent）',tag:'坑4 节奏反衬',one:'软件世界先发即声量——恰好证明硬件不能这么打',detail:'启示：Manus早推出2-3个月=海量用户认知，晚了声量掉一大截——这是软件逻辑的胜利。文章用它反衬：硬件按8个月-1年计（Plaud 2023发布→2024大卖→竞品2025才到），拿Manus节奏做硬件，选品类/选方案商/压工期的每个决策都会变形。这是"可逆性光谱"两端的活教材。'}
+];
+(function(){
+  var w=document.getElementById('casesWrap'),html='';
+  CASES.forEach(function(c,i){
+    html+='<div class="case" onclick="this.classList.toggle(\'open\')"><b>'+c.n+'</b>　<span class="tag">'+c.tag+'</span><div class="mini" style="margin-top:4px">'+c.one+'　<span style="color:var(--amber)">点击展开 ▾</span></div><div class="detail">'+c.detail+'</div></div>';
+  });
+  w.innerHTML=html;
+})();
+</script>
+</body>
+</html>

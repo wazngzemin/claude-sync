@@ -1,0 +1,2550 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SP Optimization · PE3-0415 — Technical Brief</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   SP Optimization Brief — Dark IDE × Editorial Hybrid
+   Palette: Supabase emerald + Linear purple on near-black
+   ============================================================ */
+
+:root {
+  --bg: #0a0a0a;
+  --surface: #141414;
+  --surface-2: #1a1a1a;
+  --surface-hi: #1f1f1f;
+  --border: #262626;
+  --border-soft: rgba(255, 255, 255, 0.06);
+  --border-strong: #3a3a3a;
+  --text: #ededed;
+  --text-dim: #a1a1a1;
+  --text-faint: #6b6b6b;
+  --text-mute: #4a4a4a;
+  --accent: #3ecf8e;
+  --accent-dim: rgba(62, 207, 142, 0.15);
+  --accent-line: rgba(62, 207, 142, 0.3);
+  --purple: #8b7eff;
+  --purple-dim: rgba(139, 126, 255, 0.12);
+  --orange: #ff9b50;
+  --orange-dim: rgba(255, 155, 80, 0.12);
+  --red: #ff5470;
+  --red-dim: rgba(255, 84, 112, 0.12);
+  --yellow: #ffce5e;
+
+  --font-sans: "Geist", "HarmonyOS Sans SC", "PingFang SC", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono", "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+
+  --sidebar-w: 256px;
+  --content-max: 760px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+*::selection { background: var(--accent-dim); color: var(--accent); }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.6;
+  background: var(--bg);
+  color: var(--text);
+  font-feature-settings: "cv11", "ss01", "ss03";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-weight: 400;
+  letter-spacing: -0.005em;
+}
+
+/* ===========================
+   LAYOUT — Sidebar + Content
+   =========================== */
+
+.app {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  min-height: 100vh;
+}
+
+aside.sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  border-right: 1px solid var(--border);
+  background: var(--bg);
+  overflow-y: auto;
+  padding: 24px 0;
+}
+
+aside.sidebar::-webkit-scrollbar { width: 4px; }
+aside.sidebar::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 2px; }
+
+.sidebar-header {
+  padding: 0 20px 20px;
+  border-bottom: 1px solid var(--border-soft);
+  margin-bottom: 16px;
+}
+.sidebar-header .tag {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--accent);
+  background: var(--accent-dim);
+  padding: 2px 8px;
+  border-radius: 3px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.sidebar-header h1 {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.sidebar-header .meta {
+  margin-top: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.sidebar-section {
+  padding: 0 20px;
+  margin-bottom: 8px;
+}
+.sidebar-section .label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-mute);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 8px 0;
+}
+
+nav.toc { padding: 0; }
+nav.toc a {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 20px;
+  font-size: 13px;
+  color: var(--text-dim);
+  text-decoration: none;
+  border-left: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+nav.toc a .num {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-mute);
+  flex-shrink: 0;
+  min-width: 16px;
+  font-variant-numeric: tabular-nums;
+}
+nav.toc a:hover {
+  color: var(--text);
+  background: var(--surface);
+}
+nav.toc a.active {
+  color: var(--accent);
+  border-left-color: var(--accent);
+  background: var(--accent-dim);
+  font-weight: 500;
+}
+nav.toc a.active .num {
+  color: var(--accent);
+}
+
+main {
+  padding: 64px 80px 120px;
+  max-width: calc(var(--content-max) + 160px);
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* ===========================
+   HERO — Tech Bar
+   =========================== */
+
+.hero {
+  border-top: 1px solid var(--accent-line);
+  padding: 32px 0 40px;
+  margin-bottom: 56px;
+  position: relative;
+}
+
+.hero::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: 0;
+  width: 80px;
+  height: 1px;
+  background: var(--accent);
+}
+
+.hero .breadcrumb {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-bottom: 16px;
+  letter-spacing: 0.02em;
+}
+.hero .breadcrumb .sep { color: var(--text-mute); margin: 0 6px; }
+
+.hero h1 {
+  font-size: 36px;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.04em;
+  margin-bottom: 12px;
+}
+.hero h1 .accent { color: var(--accent); }
+
+.hero .lead {
+  font-size: 15px;
+  color: var(--text-dim);
+  line-height: 1.6;
+  max-width: 560px;
+  margin-bottom: 32px;
+}
+
+.hero-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+}
+.hero-stats > div {
+  background: var(--bg);
+  padding: 14px 16px;
+}
+.hero-stats .key {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 4px;
+}
+.hero-stats .val {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.hero-stats .val.up { color: var(--accent); }
+.hero-stats .val.down { color: var(--accent); }
+.hero-stats .delta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===========================
+   SECTIONS
+   =========================== */
+
+section {
+  margin: 72px 0;
+  scroll-margin-top: 32px;
+}
+
+section > .sec-head {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 32px;
+}
+section > .sec-head .id {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-mute);
+  font-variant-numeric: tabular-nums;
+}
+section > .sec-head h2 {
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  flex: 1;
+}
+section > .sec-head .anchor {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+h3 {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin: 40px 0 12px;
+  color: var(--text);
+}
+h3 .prefix {
+  font-family: var(--font-mono);
+  color: var(--text-mute);
+  font-weight: 400;
+  margin-right: 8px;
+}
+
+h4 {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  margin: 28px 0 10px;
+  text-transform: none;
+}
+
+p {
+  margin: 12px 0;
+  color: var(--text);
+  max-width: 65ch;
+}
+p.lead {
+  font-size: 15px;
+  color: var(--text-dim);
+  max-width: 60ch;
+}
+
+a { color: var(--purple); text-decoration: none; border-bottom: 1px solid rgba(139, 126, 255, 0.3); }
+a:hover { border-bottom-color: var(--purple); }
+
+strong, b { font-weight: 600; color: var(--text); }
+em { font-style: italic; color: var(--text-dim); }
+
+code {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: var(--accent);
+  font-weight: 500;
+}
+
+ul, ol { margin: 12px 0; padding-left: 22px; }
+li { margin: 4px 0; color: var(--text); }
+li::marker { color: var(--text-faint); }
+
+/* ===========================
+   IDE-STYLE BLOCKS
+   =========================== */
+
+/* Margin note (replaces callouts) */
+.note {
+  border-left: 2px solid var(--text-mute);
+  padding: 12px 16px;
+  margin: 20px 0;
+  background: var(--surface);
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+.note .label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text-faint);
+}
+.note p { margin: 4px 0; max-width: none; color: var(--text-dim); }
+.note p strong { color: var(--text); }
+.note.accent { border-left-color: var(--accent); }
+.note.accent .label { color: var(--accent); }
+.note.purple { border-left-color: var(--purple); }
+.note.purple .label { color: var(--purple); }
+.note.orange { border-left-color: var(--orange); }
+.note.orange .label { color: var(--orange); }
+.note.red { border-left-color: var(--red); }
+.note.red .label { color: var(--red); }
+
+/* PM Talking Points */
+.pm-talk {
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--yellow);
+  background: var(--surface);
+  padding: 16px 20px;
+  margin: 24px 0;
+  font-size: 13px;
+}
+.pm-talk .label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--yellow);
+  margin-bottom: 8px;
+}
+.pm-talk p { margin: 6px 0; color: var(--text-dim); max-width: none; }
+.pm-talk p strong { color: var(--text); }
+
+/* Code block */
+pre {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 14px 16px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.65;
+  overflow-x: auto;
+  margin: 16px 0;
+  color: var(--text-dim);
+}
+pre::-webkit-scrollbar { height: 6px; }
+pre::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+
+pre .k { color: var(--purple); }       /* keyword */
+pre .s { color: var(--yellow); }       /* string */
+pre .n { color: var(--accent); }       /* number */
+pre .c { color: var(--text-mute); font-style: italic; }  /* comment */
+pre .o { color: var(--text-dim); }     /* operator */
+pre .t { color: var(--orange); }       /* type / tool */
+pre .e { color: var(--red); }          /* error */
+pre .ok { color: var(--accent); }      /* ok */
+
+/* Tables */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 13px;
+}
+thead { border-bottom: 1px solid var(--border-strong); }
+th {
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 8px 12px;
+}
+td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-soft);
+  color: var(--text-dim);
+  vertical-align: top;
+}
+td:first-child { padding-left: 12px; }
+td strong { color: var(--text); font-weight: 500; }
+td.num, th.num {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+tr:last-child td { border-bottom: 1px solid var(--border-strong); }
+tr.hl td { background: var(--surface); }
+tr.hl td strong { color: var(--accent); }
+
+/* Tag pills */
+.tag {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  margin: 0 2px;
+  letter-spacing: 0.02em;
+}
+.tag.static { color: var(--accent); border-color: var(--accent-line); background: var(--accent-dim); }
+.tag.dyn { color: var(--purple); border-color: rgba(139, 126, 255, 0.3); background: var(--purple-dim); }
+.tag.mixed { color: var(--orange); border-color: rgba(255, 155, 80, 0.3); background: var(--orange-dim); }
+
+/* Inline metric */
+.metric {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.metric .v { color: var(--text); font-weight: 500; }
+.metric .u { color: var(--text-faint); font-size: 0.85em; }
+.metric.up .v { color: var(--accent); }
+.metric.down .v { color: var(--accent); }
+.metric.warn .v { color: var(--orange); }
+.metric.bad .v { color: var(--red); }
+
+/* Figure */
+.figure {
+  margin: 28px 0;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.figure .head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.figure .head .id {
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.figure .head .title {
+  color: var(--text-dim);
+  flex: 1;
+}
+.figure .head .meta {
+  color: var(--text-faint);
+}
+.figure .body { padding: 16px; }
+.figure svg { width: 100%; height: auto; display: block; }
+.figure .cap {
+  border-top: 1px solid var(--border-soft);
+  padding: 8px 14px;
+  font-size: 12px;
+  color: var(--text-faint);
+  font-style: normal;
+  line-height: 1.5;
+}
+
+/* Two-column code/text */
+.split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin: 20px 0;
+}
+.split > div {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.split > div > .label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+  padding: 8px 12px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+}
+.split > div > .body { padding: 12px; font-size: 13px; }
+.split > div pre { margin: 0; border: none; background: transparent; }
+
+/* Metric cards (eval section) */
+.metric-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  margin: 24px 0;
+}
+.mc {
+  background: var(--bg);
+  padding: 16px;
+}
+.mc .k {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+}
+.mc .v {
+  font-family: var(--font-mono);
+  font-size: 26px;
+  font-weight: 500;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.mc .v small { font-size: 14px; color: var(--text-dim); margin-left: 2px; }
+.mc .base {
+  margin-top: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+.mc .base s { color: var(--text-mute); }
+.mc .delta {
+  display: inline-block;
+  margin-left: 4px;
+  color: var(--accent);
+}
+
+/* ============ Round cards ============ */
+.round {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  margin: 0;
+  overflow: hidden;
+}
+.round-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 16px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+}
+.round-head .pid {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--purple);
+  letter-spacing: 0.02em;
+}
+.trigger-tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1px solid;
+}
+.trigger-tag.user { color: var(--accent); border-color: var(--accent-line); background: var(--accent-dim); }
+.trigger-tag.tool { color: var(--orange); border-color: rgba(255,155,80,0.3); background: var(--orange-dim); }
+.round-head .desc {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-left: auto;
+}
+.stage {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 16px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.stage:last-child { border-bottom: none; }
+.stage-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-faint);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding-top: 2px;
+  line-height: 1.5;
+}
+.stage-label .step {
+  display: inline-block;
+  color: var(--accent);
+  font-weight: 600;
+  margin-right: 4px;
+}
+.stage-body { font-size: 13px; color: var(--text); }
+.stage-body p { margin: 0 0 6px; color: var(--text-dim); max-width: none; }
+.stage-body p:last-child { margin-bottom: 0; }
+.stage-body pre { margin: 6px 0 0; font-size: 12px; }
+.stage-body ol, .stage-body ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.stage-body ol li, .stage-body ul li { margin: 4px 0; }
+.stage-body ol li strong, .stage-body ul li strong { color: var(--text); font-weight: 500; }
+.stage-body .meta-line {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 4px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.round-arrow {
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-mute);
+  padding: 6px 0;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.round-arrow::before {
+  content: "";
+  display: inline-block;
+  width: 1px;
+  height: 14px;
+  background: var(--border-strong);
+  margin-right: 8px;
+  vertical-align: middle;
+}
+.round-arrow::after {
+  content: "";
+  display: inline-block;
+  width: 1px;
+  height: 14px;
+  background: var(--border-strong);
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+/* Mobile */
+@media (max-width: 900px) {
+  .app { grid-template-columns: 1fr; }
+  aside.sidebar { position: fixed; top: 0; left: -260px; z-index: 100; transition: left 0.2s; }
+  aside.sidebar.open { left: 0; }
+  main { padding: 32px 20px 80px; }
+  .hero-stats { grid-template-columns: repeat(2, 1fr); }
+  .metric-cards { grid-template-columns: repeat(2, 1fr); }
+  .split { grid-template-columns: 1fr; }
+  .menu-btn { display: block !important; }
+}
+
+.menu-btn {
+  display: none;
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 101;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+</style>
+</head>
+<body>
+
+<button class="menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('open')">≡ TOC</button>
+
+<div class="app">
+
+<!-- ============ SIDEBAR ============ -->
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <span class="tag">PE3-0415</span>
+    <h1>SP Optimization<br/>Technical Brief</h1>
+    <div class="meta">Planner / Driver Agent 2.0</div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="label">概览</div>
+    <nav class="toc">
+      <a href="#sec-tldr"><span class="num">00</span><span>一图看懂</span></a>
+      <a href="#sec-why"><span class="num">01</span><span>病灶诊断</span></a>
+      <a href="#sec-arch"><span class="num">02</span><span>三层注入架构</span></a>
+      <a href="#sec-kvk"><span class="num">03</span><span>示例 vs 知识</span></a>
+    </nav>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="label">六大优化项</div>
+    <nav class="toc">
+      <a href="#sec-opt1"><span class="num">04</span><span>字段精简</span></a>
+      <a href="#sec-opt2"><span class="num">05</span><span>静态/动态拆分</span></a>
+      <a href="#sec-opt3"><span class="num">06</span><span>检索加载</span></a>
+      <a href="#sec-opt4"><span class="num">07</span><span>示例压缩</span></a>
+      <a href="#sec-opt5"><span class="num">08</span><span>人工反馈闭环</span></a>
+      <a href="#sec-opt6"><span class="num">09</span><span>整体并行架构</span></a>
+    </nav>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="label">结果</div>
+    <nav class="toc">
+      <a href="#sec-result"><span class="num">10</span><span>评测与汇报口径</span></a>
+    </nav>
+  </div>
+</aside>
+
+<!-- ============ MAIN ============ -->
+<main>
+
+<!-- ============ HERO ============ -->
+<div class="hero">
+  <div class="breadcrumb">
+    wiki <span class="sep">/</span> concepts <span class="sep">/</span> sp-optimization-explainer
+  </div>
+  <h1>把 32K 的 SP 压到 16K<br/><span class="accent">同时让 Planner 更准 · 更快 · 长尾更稳</span></h1>
+  <p class="lead">
+    这是 Driver Agent 2.0 Planner 模块 PE3-0415 版本的核心优化纪录。
+    178 条 badcase 中 51% 指向同一个根因：SP 过长 → 注意力分散。
+    专项交付后，准确率 +9pp，首包延时 −57%，长尾 P90 −38%。
+  </p>
+
+  <div class="hero-stats">
+    <div>
+      <div class="key">SP Tokens</div>
+      <div class="val down">16,000</div>
+      <div class="delta">↓ 51% from 32,806</div>
+    </div>
+    <div>
+      <div class="key">Accuracy</div>
+      <div class="val up">88.4%</div>
+      <div class="delta">↑ 9.0 pp from 79.4%</div>
+    </div>
+    <div>
+      <div class="key">First Token (P50)</div>
+      <div class="val down">998<small>ms</small></div>
+      <div class="delta">↓ 57% from 2,309ms</div>
+    </div>
+    <div>
+      <div class="key">Total (P50)</div>
+      <div class="val down">6.2<small>s</small></div>
+      <div class="delta">↓ 49% from 12.2s</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 00 TL;DR ============ -->
+<section id="sec-tldr">
+  <div class="sec-head">
+    <span class="id">00</span>
+    <h2>一图看懂这个专项</h2>
+    <span class="anchor">#tldr</span>
+  </div>
+
+  <p>
+    专项本质：<strong>把 SP 里占 80% 体积的"参考示例"从静态硬塞改成动态检索</strong>。
+    SP 体积下降 51%，剩余预算用来引入 VikingDB 检索 + 域分类小模型，构成三层注入架构。
+  </p>
+
+  <div class="figure">
+    <div class="head">
+      <span class="id">FIG-00</span>
+      <span class="title">SP 改造前后 / token 预算分配</span>
+      <span class="meta">unit: tokens</span>
+    </div>
+    <div class="body">
+<svg viewBox="0 0 760 320" xmlns="http://www.w3.org/2000/svg" font-family="Geist, sans-serif">
+  <!-- BEFORE -->
+  <g>
+    <text x="10" y="20" font-size="11" fill="#6b6b6b" font-family="Geist Mono">BEFORE · v1.30</text>
+    <text x="10" y="36" font-size="16" font-weight="600" fill="#ededed">32,806 tokens</text>
+
+    <!-- bar segments -->
+    <g>
+      <rect x="10" y="58" width="22" height="32" fill="#262626" stroke="#3a3a3a"/>
+      <text x="38" y="76" font-size="11" fill="#a1a1a1">车辆知识</text>
+      <text x="118" y="76" font-size="11" font-family="Geist Mono" fill="#6b6b6b">914 · 2.8%</text>
+
+      <rect x="10" y="100" width="65" height="32" fill="#262626" stroke="#3a3a3a"/>
+      <text x="80" y="118" font-size="11" fill="#a1a1a1">工具描述 (23)</text>
+      <text x="180" y="118" font-size="11" font-family="Geist Mono" fill="#6b6b6b">2,769 · 8.4%</text>
+
+      <rect x="10" y="142" width="56" height="32" fill="#262626" stroke="#3a3a3a"/>
+      <text x="72" y="160" font-size="11" fill="#a1a1a1">注意事项 + 其他知识</text>
+      <text x="194" y="160" font-size="11" font-family="Geist Mono" fill="#6b6b6b">2,500</text>
+
+      <rect x="10" y="184" width="340" height="60" fill="#3a1a1a" stroke="#ff5470"/>
+      <text x="18" y="208" font-size="13" fill="#ff5470" font-weight="600">参考示例 (69 个)</text>
+      <text x="18" y="226" font-size="11" font-family="Geist Mono" fill="#ff8a9c">26,164 · 79.8%</text>
+      <text x="18" y="240" font-size="10" fill="#a1a1a1">← 病灶 · 模型注意力被稀释的根源</text>
+    </g>
+  </g>
+
+  <!-- ARROW -->
+  <g transform="translate(390, 130)">
+    <line x1="0" y1="20" x2="50" y2="20" stroke="#3ecf8e" stroke-width="1"/>
+    <polygon points="48,16 56,20 48,24" fill="#3ecf8e"/>
+    <text x="2" y="14" font-size="10" font-family="Geist Mono" fill="#3ecf8e">6 OPTIMIZATIONS</text>
+    <text x="2" y="36" font-size="10" font-family="Geist Mono" fill="#6b6b6b">~ 3 weeks</text>
+  </g>
+
+  <!-- AFTER -->
+  <g transform="translate(460, 0)">
+    <text x="0" y="20" font-size="11" fill="#3ecf8e" font-family="Geist Mono">AFTER · PE3-0415</text>
+    <text x="0" y="36" font-size="16" font-weight="600" fill="#ededed">~16,000 tokens</text>
+
+    <g>
+      <rect x="0" y="58" width="22" height="32" fill="#262626" stroke="#3a3a3a"/>
+      <text x="28" y="76" font-size="11" fill="#a1a1a1">车辆知识</text>
+      <text x="120" y="76" font-size="11" font-family="Geist Mono" fill="#6b6b6b">914</text>
+
+      <rect x="0" y="100" width="65" height="32" fill="#262626" stroke="#3a3a3a"/>
+      <text x="70" y="118" font-size="11" fill="#a1a1a1">工具描述</text>
+      <text x="140" y="118" font-size="11" font-family="Geist Mono" fill="#6b6b6b">2,769</text>
+
+      <rect x="0" y="142" width="40" height="32" fill="#1a2a1a" stroke="#3ecf8e"/>
+      <text x="46" y="160" font-size="11" fill="#3ecf8e">静态示例 (10)</text>
+      <text x="160" y="160" font-size="11" font-family="Geist Mono" fill="#3ecf8e">~3,000</text>
+
+      <rect x="0" y="184" width="68" height="60" fill="#1a1f2a" stroke="#8b7eff" stroke-dasharray="4,3"/>
+      <text x="74" y="204" font-size="11" fill="#8b7eff" font-weight="600">动态注入槽位</text>
+      <text x="74" y="220" font-size="10" font-family="Geist Mono" fill="#a99dff">VikingDB top-K, ~5,000</text>
+      <text x="74" y="234" font-size="10" fill="#a1a1a1">每轮按 query/tool_feedback 重算</text>
+    </g>
+  </g>
+
+  <!-- bottom note -->
+  <line x1="10" y1="276" x2="750" y2="276" stroke="#262626"/>
+  <text x="10" y="296" font-size="11" font-family="Geist Mono" fill="#6b6b6b">PRINCIPLE</text>
+  <text x="80" y="296" font-size="11" fill="#a1a1a1">原本占 80% 的"硬塞示例"被外置 — SP 留 10 个核心 case，剩余 59 个进检索库按需召回</text>
+</svg>
+    </div>
+    <div class="cap">FIG-00 — 同样的能力覆盖，但每轮 LLM 调用只看到当下需要的 ~16K，而不是历史全集 ~32K</div>
+  </div>
+
+  <div class="pm-talk">
+    <div class="label">PM Talking Point · 一句话汇报</div>
+    <p>SP 优化专项把 Planner 大脑容量从 32K 压到 16K，将 80% 的参考示例从静态硬塞改为按需检索。<br/>线上准确率 79.4% → <strong>88.4%</strong>（+9pp），首包延时 2.3s → <strong>1.0s</strong>，长尾稳定性明显改善。</p>
+  </div>
+</section>
+
+<!-- ============ 01 病灶 ============ -->
+<section id="sec-why">
+  <div class="sec-head">
+    <span class="id">01</span>
+    <h2>病灶诊断：从 178 条 badcase 倒推</h2>
+    <span class="anchor">#why</span>
+  </div>
+
+  <p>
+    这个专项不是工程师"想优化就优化"，是被 0317 收集的 178 条 badcase 强约束推出来的。
+    所有 badcase 在 3.26 评审会上做了归类，结论非常清晰：
+    <strong>多数"看起来不相关"的 Planner 缺陷，本质都是 SP 过长导致的衍生症状</strong>。
+  </p>
+
+  <div class="figure">
+    <div class="head">
+      <span class="id">FIG-01</span>
+      <span class="title">178 条 Badcase 分类 / 3.26 评审给的修复路径</span>
+      <span class="meta">source: planner问题分析(0317).xlsx</span>
+    </div>
+    <div class="body">
+<svg viewBox="0 0 720 440" xmlns="http://www.w3.org/2000/svg" font-family="Geist, sans-serif" font-size="11">
+  <!-- header row -->
+  <text x="0" y="14" font-family="Geist Mono" fill="#6b6b6b" font-size="10" letter-spacing="0.1em">CATEGORY</text>
+  <text x="220" y="14" font-family="Geist Mono" fill="#6b6b6b" font-size="10" letter-spacing="0.1em">COUNT</text>
+  <text x="290" y="14" font-family="Geist Mono" fill="#6b6b6b" font-size="10" letter-spacing="0.1em">RATIO</text>
+  <text x="370" y="14" font-family="Geist Mono" fill="#6b6b6b" font-size="10" letter-spacing="0.1em">FIX PATH</text>
+  <line x1="0" y1="22" x2="720" y2="22" stroke="#3a3a3a"/>
+
+  <!-- rows -->
+  <g font-family="Geist" fill="#ededed">
+    <!-- 任务规划缺陷 -->
+    <text x="0" y="44" fill="#ededed">任务规划 / 拆解缺陷</text>
+    <text x="220" y="44" font-family="Geist Mono" fill="#ededed">26</text>
+    <text x="290" y="44" font-family="Geist Mono" fill="#a1a1a1">14.6%</text>
+    <rect x="370" y="34" width="180" height="14" fill="#3ecf8e" opacity="0.85"/>
+    <text x="556" y="44" font-family="Geist Mono" fill="#3ecf8e">SP_OPTIMIZATION</text>
+    <line x1="0" y1="56" x2="720" y2="56" stroke="#1a1a1a"/>
+
+    <!-- 模型幻觉 -->
+    <text x="0" y="74" fill="#ededed">模型幻觉</text>
+    <text x="220" y="74" font-family="Geist Mono" fill="#ededed">25</text>
+    <text x="290" y="74" font-family="Geist Mono" fill="#a1a1a1">14.0%</text>
+    <rect x="370" y="64" width="172" height="14" fill="#3ecf8e" opacity="0.85"/>
+    <text x="548" y="74" font-family="Geist Mono" fill="#3ecf8e">SP_OPTIMIZATION</text>
+    <line x1="0" y1="86" x2="720" y2="86" stroke="#1a1a1a"/>
+
+    <!-- 话术格式 -->
+    <text x="0" y="104" fill="#ededed">输出话术 / 格式异常</text>
+    <text x="220" y="104" font-family="Geist Mono" fill="#ededed">21</text>
+    <text x="290" y="104" font-family="Geist Mono" fill="#a1a1a1">11.8%</text>
+    <rect x="370" y="94" width="145" height="14" fill="#ff9b50" opacity="0.85"/>
+    <text x="520" y="104" font-family="Geist Mono" fill="#ff9b50">SP_OPT (待评估)</text>
+    <line x1="0" y1="116" x2="720" y2="116" stroke="#1a1a1a"/>
+
+    <!-- 待确认 -->
+    <text x="0" y="134" fill="#6b6b6b">待确认 / 年代久远</text>
+    <text x="220" y="134" font-family="Geist Mono" fill="#6b6b6b">23</text>
+    <text x="290" y="134" font-family="Geist Mono" fill="#6b6b6b">12.9%</text>
+    <rect x="370" y="124" width="158" height="14" fill="#4a4a4a"/>
+    <text x="534" y="134" font-family="Geist Mono" fill="#6b6b6b">SKIP</text>
+    <line x1="0" y1="146" x2="720" y2="146" stroke="#1a1a1a"/>
+
+    <!-- A2A -->
+    <text x="0" y="164" fill="#ededed">A2A 交互</text>
+    <text x="220" y="164" font-family="Geist Mono" fill="#ededed">13</text>
+    <text x="290" y="164" font-family="Geist Mono" fill="#a1a1a1">7.3%</text>
+    <rect x="370" y="154" width="89" height="14" fill="#8b7eff" opacity="0.85"/>
+    <text x="465" y="164" font-family="Geist Mono" fill="#8b7eff">DOWNSTREAM_TOOL</text>
+    <line x1="0" y1="176" x2="720" y2="176" stroke="#1a1a1a"/>
+
+    <!-- 工具调用决策 -->
+    <text x="0" y="194" fill="#ededed">工具调用决策错误</text>
+    <text x="220" y="194" font-family="Geist Mono" fill="#ededed">12</text>
+    <text x="290" y="194" font-family="Geist Mono" fill="#a1a1a1">6.7%</text>
+    <rect x="370" y="184" width="82" height="14" fill="#8b7eff" opacity="0.85"/>
+    <text x="458" y="194" font-family="Geist Mono" fill="#8b7eff">DOWNSTREAM_TOOL</text>
+    <line x1="0" y1="206" x2="720" y2="206" stroke="#1a1a1a"/>
+
+    <!-- 记忆 -->
+    <text x="0" y="224" fill="#ededed">记忆 / 改写能力</text>
+    <text x="220" y="224" font-family="Geist Mono" fill="#ededed">11</text>
+    <text x="290" y="224" font-family="Geist Mono" fill="#a1a1a1">6.2%</text>
+    <rect x="370" y="214" width="76" height="14" fill="#ff5470" opacity="0.85"/>
+    <text x="452" y="224" font-family="Geist Mono" fill="#ff5470">CONTEXT_FIX</text>
+    <line x1="0" y1="236" x2="720" y2="236" stroke="#1a1a1a"/>
+
+    <!-- 下游工具 -->
+    <text x="0" y="254" fill="#ededed">下游工具问题</text>
+    <text x="220" y="254" font-family="Geist Mono" fill="#ededed">11</text>
+    <text x="290" y="254" font-family="Geist Mono" fill="#a1a1a1">6.2%</text>
+    <rect x="370" y="244" width="76" height="14" fill="#8b7eff" opacity="0.85"/>
+    <text x="452" y="254" font-family="Geist Mono" fill="#8b7eff">DOWNSTREAM_TOOL</text>
+    <line x1="0" y1="266" x2="720" y2="266" stroke="#1a1a1a"/>
+
+    <!-- 推理 -->
+    <text x="0" y="284" fill="#ededed">逻辑 / 推理缺陷</text>
+    <text x="220" y="284" font-family="Geist Mono" fill="#ededed">10</text>
+    <text x="290" y="284" font-family="Geist Mono" fill="#a1a1a1">5.6%</text>
+    <rect x="370" y="274" width="69" height="14" fill="#3ecf8e" opacity="0.85"/>
+    <text x="445" y="284" font-family="Geist Mono" fill="#3ecf8e">SP_OPTIMIZATION</text>
+    <line x1="0" y1="296" x2="720" y2="296" stroke="#1a1a1a"/>
+
+    <!-- HMI -->
+    <text x="0" y="314" fill="#6b6b6b">UE / HMI</text>
+    <text x="220" y="314" font-family="Geist Mono" fill="#6b6b6b">8</text>
+    <text x="290" y="314" font-family="Geist Mono" fill="#6b6b6b">4.5%</text>
+    <rect x="370" y="304" width="55" height="14" fill="#4a4a4a"/>
+    <text x="431" y="314" font-family="Geist Mono" fill="#6b6b6b">BUG_FIX</text>
+    <line x1="0" y1="326" x2="720" y2="326" stroke="#1a1a1a"/>
+
+    <!-- 竞态 -->
+    <text x="0" y="344" fill="#6b6b6b">Planner / Advisor 竞态</text>
+    <text x="220" y="344" font-family="Geist Mono" fill="#6b6b6b">8</text>
+    <text x="290" y="344" font-family="Geist Mono" fill="#6b6b6b">4.5%</text>
+    <rect x="370" y="334" width="55" height="14" fill="#4a4a4a"/>
+    <text x="431" y="344" font-family="Geist Mono" fill="#6b6b6b">ARCH</text>
+    <line x1="0" y1="356" x2="720" y2="356" stroke="#1a1a1a"/>
+
+    <!-- 端状态 -->
+    <text x="0" y="374" fill="#ededed">端侧 / 状态理解</text>
+    <text x="220" y="374" font-family="Geist Mono" fill="#ededed">6</text>
+    <text x="290" y="374" font-family="Geist Mono" fill="#a1a1a1">3.4%</text>
+    <rect x="370" y="364" width="41" height="14" fill="#3ecf8e" opacity="0.85"/>
+    <text x="417" y="374" font-family="Geist Mono" fill="#3ecf8e">SP_OPTIMIZATION</text>
+    <line x1="0" y1="386" x2="720" y2="386" stroke="#1a1a1a"/>
+
+    <!-- 稳定性 -->
+    <text x="0" y="404" fill="#ededed">稳定性</text>
+    <text x="220" y="404" font-family="Geist Mono" fill="#ededed">3</text>
+    <text x="290" y="404" font-family="Geist Mono" fill="#a1a1a1">1.7%</text>
+    <rect x="370" y="394" width="21" height="14" fill="#3ecf8e" opacity="0.85"/>
+    <text x="397" y="404" font-family="Geist Mono" fill="#3ecf8e">SP_OPTIMIZATION</text>
+  </g>
+
+  <line x1="0" y1="416" x2="720" y2="416" stroke="#3a3a3a"/>
+  <text x="0" y="434" font-family="Geist Mono" fill="#3ecf8e" font-size="11">SUM_SP_OPTIMIZATION = 70 + 21 (待评估) = 91 / 178 = 51%</text>
+</svg>
+    </div>
+    <div class="cap">FIG-01 — 评审会把 51% 的 badcase 全部归到"SP 优化"这一条修复路径上，验证了优化方向</div>
+  </div>
+
+  <h3><span class="prefix">1.1</span>SP 病灶解剖</h3>
+
+  <p>看 SP 当前的 token 构成，立刻明白为什么注意力会散：</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>SP 组成块</th>
+        <th class="num">Tokens</th>
+        <th class="num">占比</th>
+        <th>评估</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>① 角色定义</td><td class="num">~500</td><td class="num">1.5%</td><td>必要</td></tr>
+      <tr><td>② 工具描述（23 个）</td><td class="num">2,769</td><td class="num">8.4%</td><td>必要 · 不易压</td></tr>
+      <tr><td>③ 车辆知识（D6X）</td><td class="num">914</td><td class="num">2.8%</td><td>必要</td></tr>
+      <tr><td>④ 注意事项 / Tips</td><td class="num">~2,500</td><td class="num">7.6%</td><td>可瘦身</td></tr>
+      <tr class="hl"><td><strong>⑤ 参考示例（69 个）</strong></td><td class="num"><strong>26,164</strong></td><td class="num"><strong>79.8%</strong></td><td><strong>→ 主战场</strong></td></tr>
+      <tr><td>⑥ 动态变量占位</td><td class="num">~500</td><td class="num">1.5%</td><td>动态填充</td></tr>
+      <tr><td><strong>合计</strong></td><td class="num"><strong>32,806</strong></td><td class="num"><strong>100%</strong></td><td></td></tr>
+    </tbody>
+  </table>
+
+  <div class="pm-talk">
+    <div class="label">PM Talking Point · 评审会防御口径</div>
+    <p>有人质疑"是不是不需要做"时，把表格里这行甩出去：<br/>
+    <strong>参考示例占了 SP 的 79.8%</strong>，几乎是其他所有内容的 4 倍。这不是优化项，是堵不了的窟窿。</p>
+  </div>
+</section>
+
+<!-- ============ 02 ARCHITECTURE ============ -->
+<section id="sec-arch">
+  <div class="sec-head">
+    <span class="id">02</span>
+    <h2>三层注入架构</h2>
+    <span class="anchor">#arch</span>
+  </div>
+
+  <p>整个专项的方法论可以浓缩成一个原则：<strong>把"一锅塞"改成"分层注入"</strong>。</p>
+
+  <div class="figure">
+    <div class="head">
+      <span class="id">FIG-02</span>
+      <span class="title">SP 三层结构 · 每层的 token 预算 / 刷新频率 / 数据来源</span>
+      <span class="meta">schematic</span>
+    </div>
+    <div class="body">
+<svg viewBox="0 0 760 440" xmlns="http://www.w3.org/2000/svg" font-family="Geist, sans-serif" font-size="11">
+  <!-- column headers -->
+  <text x="10" y="14" font-family="Geist Mono" fill="#6b6b6b" font-size="10" letter-spacing="0.1em">LAYER</text>
+  <text x="195" y="14" font-family="Geist Mono" fill="#6b6b6b" font-size="10" letter-spacing="0.1em">CONTENT</text>
+  <text x="450" y="14" font-family="Geist Mono" fill="#6b6b6b" font-size="10" letter-spacing="0.1em">BUDGET / FREQUENCY</text>
+  <text x="640" y="14" font-family="Geist Mono" fill="#6b6b6b" font-size="10" letter-spacing="0.1em">SOURCE</text>
+  <line x1="0" y1="22" x2="760" y2="22" stroke="#3a3a3a"/>
+
+  <!-- Layer 1: Static -->
+  <g>
+    <rect x="0" y="38" width="760" height="92" fill="#0f1f15" stroke="#3ecf8e"/>
+    <text x="10" y="60" font-family="Geist Mono" fill="#3ecf8e" font-size="12" font-weight="600">LAYER 01 · STATIC</text>
+    <text x="10" y="78" fill="#a1a1a1" font-size="10">SP 常驻 · 永不变</text>
+
+    <text x="195" y="60" fill="#ededed" font-size="13" font-weight="500">10–15 个最具代表性的示例</text>
+    <text x="195" y="80" fill="#a1a1a1" font-size="11">覆盖 4 大能力：多工具协同 / 串并行 / 异常处理 / 个性化</text>
+    <text x="195" y="98" fill="#6b6b6b" font-size="10" font-family="Geist Mono">→ static_examples.json</text>
+    <text x="195" y="114" fill="#6b6b6b" font-size="10" font-family="Geist Mono">→ planner_core_logic.md</text>
+
+    <!-- token bar -->
+    <text x="450" y="60" fill="#3ecf8e" font-family="Geist Mono" font-size="14">~3,000 tokens</text>
+    <g transform="translate(450, 70)">
+      <rect x="0" y="0" width="160" height="6" fill="#1a1a1a"/>
+      <rect x="0" y="0" width="30" height="6" fill="#3ecf8e"/>
+    </g>
+    <text x="450" y="96" fill="#a1a1a1" font-size="10" font-family="Geist Mono">REFRESH: never</text>
+    <text x="450" y="114" fill="#6b6b6b" font-size="10">每次调用都看到同一份</text>
+
+    <text x="640" y="60" fill="#a1a1a1" font-size="11">人工筛选</text>
+    <text x="640" y="78" fill="#6b6b6b" font-size="10">基于 badcase</text>
+    <text x="640" y="94" fill="#6b6b6b" font-size="10">高频场景</text>
+  </g>
+
+  <!-- inheritance arrow -->
+  <g transform="translate(20, 132)">
+    <line x1="0" y1="0" x2="0" y2="12" stroke="#3a3a3a" stroke-dasharray="2,2"/>
+    <text x="6" y="9" font-family="Geist Mono" fill="#6b6b6b" font-size="9">inherits ↓</text>
+  </g>
+
+  <!-- Layer 2: Skills -->
+  <g>
+    <rect x="0" y="150" width="760" height="92" fill="#1f1a14" stroke="#ff9b50"/>
+    <text x="10" y="172" font-family="Geist Mono" fill="#ff9b50" font-size="12" font-weight="600">LAYER 02 · SKILLS</text>
+    <text x="10" y="190" fill="#a1a1a1" font-size="10">按域加载</text>
+
+    <text x="195" y="172" fill="#ededed" font-size="13" font-weight="500">域分类小模型 → 加载该域的 skill pack</text>
+    <text x="195" y="192" fill="#a1a1a1" font-size="11">导航 · 车控 · 视觉 · 智驾 · 娱乐 · 行程规划</text>
+    <text x="195" y="210" fill="#6b6b6b" font-size="10" font-family="Geist Mono">→ skills/{domain}.md</text>
+    <text x="195" y="226" fill="#6b6b6b" font-size="10" font-family="Geist Mono">→ skills/{domain}.json</text>
+
+    <text x="450" y="172" fill="#ff9b50" font-family="Geist Mono" font-size="14">~2,000 tokens</text>
+    <g transform="translate(450, 182)">
+      <rect x="0" y="0" width="160" height="6" fill="#1a1a1a"/>
+      <rect x="0" y="0" width="20" height="6" fill="#ff9b50"/>
+    </g>
+    <text x="450" y="208" fill="#a1a1a1" font-size="10" font-family="Geist Mono">REFRESH: per query</text>
+    <text x="450" y="226" fill="#6b6b6b" font-size="10">同一对话内域不变就复用</text>
+
+    <text x="640" y="172" fill="#a1a1a1" font-size="11">域分类器 (小模型)</text>
+    <text x="640" y="190" fill="#6b6b6b" font-size="10">~50ms 推理</text>
+    <text x="640" y="206" fill="#6b6b6b" font-size="10">可并行</text>
+  </g>
+
+  <g transform="translate(20, 244)">
+    <line x1="0" y1="0" x2="0" y2="12" stroke="#3a3a3a" stroke-dasharray="2,2"/>
+    <text x="6" y="9" font-family="Geist Mono" fill="#6b6b6b" font-size="9">inherits ↓</text>
+  </g>
+
+  <!-- Layer 3: Dynamic -->
+  <g>
+    <rect x="0" y="262" width="760" height="92" fill="#15161f" stroke="#8b7eff"/>
+    <text x="10" y="284" font-family="Geist Mono" fill="#8b7eff" font-size="12" font-weight="600">LAYER 03 · DYNAMIC</text>
+    <text x="10" y="302" fill="#a1a1a1" font-size="10">按 turn 注入</text>
+
+    <text x="195" y="284" fill="#ededed" font-size="13" font-weight="500">基于 query / tool_feedback 双路检索</text>
+    <text x="195" y="304" fill="#a1a1a1" font-size="11">query top-5 + tool top-5 → top-K 注入示例槽位</text>
+    <text x="195" y="322" fill="#6b6b6b" font-size="10" font-family="Geist Mono">→ VikingDB(examples_index)</text>
+    <text x="195" y="338" fill="#6b6b6b" font-size="10" font-family="Geist Mono">→ retriever_v2.go</text>
+
+    <text x="450" y="284" fill="#8b7eff" font-family="Geist Mono" font-size="14">~5,000 tokens</text>
+    <g transform="translate(450, 294)">
+      <rect x="0" y="0" width="160" height="6" fill="#1a1a1a"/>
+      <rect x="0" y="0" width="50" height="6" fill="#8b7eff"/>
+    </g>
+    <text x="450" y="320" fill="#a1a1a1" font-size="10" font-family="Geist Mono">REFRESH: per turn</text>
+    <text x="450" y="338" fill="#6b6b6b" font-size="10">每一轮都重新检索</text>
+
+    <text x="640" y="284" fill="#a1a1a1" font-size="11">VikingDB</text>
+    <text x="640" y="302" fill="#6b6b6b" font-size="10">~80ms 检索</text>
+    <text x="640" y="318" fill="#6b6b6b" font-size="10">可并行</text>
+  </g>
+
+  <!-- → Planner -->
+  <g transform="translate(280, 358)">
+    <line x1="100" y1="0" x2="100" y2="14" stroke="#ededed" stroke-width="1"/>
+    <polygon points="96,10 100,16 104,10" fill="#ededed"/>
+  </g>
+
+  <!-- Planner box -->
+  <g>
+    <rect x="240" y="380" width="280" height="50" fill="#1a1a1a" stroke="#ededed"/>
+    <text x="380" y="402" text-anchor="middle" fill="#ededed" font-size="13" font-weight="600">PLANNER LLM</text>
+    <text x="380" y="418" text-anchor="middle" fill="#a1a1a1" font-family="Geist Mono" font-size="11">~16,000 tokens context</text>
+  </g>
+</svg>
+    </div>
+    <div class="cap">FIG-02 — 三层都标注了 token 预算、刷新频率、数据来源。三层并行获取，总耗时 = max(三路)，不阻塞主链路</div>
+  </div>
+
+  <div class="note accent">
+    <span class="label">类比</span>
+    <p>把 Planner 当成"开车的副驾"：<strong>Layer 1</strong> 是驾校的必修课本 · <strong>Layer 2</strong> 是上高速前打开的高速驾驶手册 · <strong>Layer 3</strong> 是遇到不认识的路标时掏出手机查一下相似案例。一个人不可能把所有路况都背下来，但有了这套机制，他能在每一刻都"刚好懂当前要做什么"。</p>
+  </div>
+</section>
+
+<!-- ============ 03 EX vs KN ============ -->
+<section id="sec-kvk">
+  <div class="sec-head">
+    <span class="id">03</span>
+    <h2>动态示例 vs 动态知识 — 必须分清</h2>
+    <span class="anchor">#kvk</span>
+  </div>
+
+  <p>
+    会议里反复出现"动态示例"和"动态知识"两个词，听起来都带"动态"，但
+    <strong>它们是两个完全不同的对象，工作方式也完全不同</strong>。
+    这是评审会最容易混乱的地方，本节单独讲透。
+  </p>
+
+  <h3><span class="prefix">3.1</span>核心区别一表</h3>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:18%">维度</th>
+        <th style="width:41%">动态示例 (Example)</th>
+        <th style="width:41%">动态知识 (Knowledge)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>本质</strong></td><td>Few-shot 演示（input → output 完整 JSON）</td><td>陈述性内容（规则 / 事实 / 经验 / Q&A）</td></tr>
+      <tr><td><strong>教什么</strong></td><td>"怎么做" — 通过模仿学习</td><td>"是什么 / 边界 / 规则"</td></tr>
+      <tr><td><strong>形态</strong></td><td>一个完整 case，含 user input + Planner 输出</td><td>一段文本，可以是规则、参数表、Q&A、tips</td></tr>
+      <tr><td><strong>粒度</strong></td><td><span class="metric"><span class="v">200–500</span><span class="u">tokens / 条</span></span></td><td><span class="metric"><span class="v">50–200</span><span class="u">tokens / 条</span></span></td></tr>
+      <tr><td><strong>SP 来源块</strong></td><td>第 ⑤ 块「参考示例」<span class="tag">26,164 t</span><span class="tag">69 个</span></td><td>第 ③ 车辆知识 + 第 ④ 工具 tips 等 <span class="tag">~5,000 t</span></td></tr>
+      <tr><td><strong>检索 key</strong></td><td>当前 query（改写后）/ 当前 tool_feedback 类型</td><td>任务类型 / 涉及的工具 / 涉及的车型 / 涉及的域</td></tr>
+      <tr><td><strong>更新触发</strong></td><td>Badcase 驱动 — 新场景就补示例</td><td>车型升级 / 工具迭代 / 新经验沉淀</td></tr>
+      <tr><td><strong>主要受众</strong></td><td>模型（让它模仿）</td><td>模型（让它知道边界）</td></tr>
+    </tbody>
+  </table>
+
+  <h3><span class="prefix">3.2</span>看实际内容 · 同一 query 的两种注入</h3>
+
+  <p class="lead">用户在主驾说"我好热"（车内 26℃，高速行驶 80 km/h）。Planner 需要看到两种东西才能正确决策：</p>
+
+  <div class="split">
+    <div>
+      <div class="label" style="color: var(--accent);">→ EXAMPLE · 动态示例（示例 #25）</div>
+      <div class="body">
+<pre><code><span class="c">// VikingDB 召回的相似 case</span>
+{
+  <span class="k">"query"</span>: <span class="s">"我好热"</span>,
+  <span class="k">"speaker"</span>: <span class="s">"超然"</span>,
+  <span class="k">"zone"</span>: <span class="s">"主驾驶位"</span>
+}
+
+<span class="c">// Planner 期望输出</span>
+{
+  <span class="k">"speak"</span>: <span class="s">"yes"</span>,
+  <span class="k">"content"</span>: <span class="s">"好嘞，给你降温"</span>,
+  <span class="k">"actions"</span>: [
+    { <span class="k">"tool"</span>: <span class="t">"search_vehicle_status_info"</span>,
+      <span class="k">"param"</span>: <span class="s">"查询空调状态"</span> },
+    { <span class="k">"tool"</span>: <span class="t">"vehicle_basic_control"</span>,
+      <span class="k">"param"</span>: <span class="s">"空调温度调到 22℃"</span> },
+    { <span class="k">"tool"</span>: <span class="t">"vehicle_basic_control"</span>,
+      <span class="k">"param"</span>: <span class="s">"风量调到 4 档"</span> }
+  ]
+}</code></pre>
+      </div>
+    </div>
+
+    <div>
+      <div class="label" style="color: var(--orange);">→ KNOWLEDGE · 动态知识（车辆设备 + 任务经验）</div>
+      <div class="body">
+<pre><code><span class="c"># 车辆设备知识 / D6X 空调</span>
+- 温度范围: <span class="n">16</span> – <span class="n">32</span>℃
+- 调节步长: <span class="n">1</span>℃
+- 风量档位: <span class="n">0</span> – <span class="n">7</span>
+- 自动模式: AUTO 键启动
+
+<span class="c"># 工具使用 tips · vehicle_basic_control</span>
+- 温度参数必须在范围内
+- 风量参数为整数
+- 不要重复发同一指令
+
+<span class="c"># 通用任务经验</span>
+- 用户喊"热 / 冷"等模糊词时:
+  · 先查当前车况
+  · 再判断调到合适温度
+  · 默认目标温度 <span class="n">22</span>℃</code></pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="note accent">
+    <span class="label">两者是配合关系，不是替代关系</span>
+    <p>没有示例，模型不知道把"我好热"拆成几个 action；<br/>没有知识，模型可能把空调温度调到 50℃（超出范围）。<br/>
+    <strong>只有两个都注入，Planner 才能做出"既懂方法又懂边界"的决策。</strong></p>
+  </div>
+
+  <div class="pm-talk">
+    <div class="label">PM Talking Point · 评审会问答</div>
+    <p><strong>问：</strong>"示例和知识是不是重复了？合并维护不是更简单？"</p>
+    <p><strong>答：</strong>① <strong>形态不同</strong> — 示例是 JSON case，知识是规则文本，模型学习方式不一样。② <strong>检索逻辑不同</strong> — 示例按 query 召回相似 case，知识按"涉及哪个工具/车型"圈出规则。③ <strong>更新节奏不同</strong> — 示例随 badcase 高频迭代，知识随车型/工具升级低频迭代。<br/>合并维护反而成本更高，因为索引逻辑要做并集，召回精度反而下降。</p>
+  </div>
+</section>
+
+<!-- ============ 04 OPT 1 ============ -->
+<section id="sec-opt1">
+  <div class="sec-head">
+    <span class="id">04</span>
+    <h2>Opt 1 · 输出格式精简</h2>
+    <span class="anchor">#opt1</span>
+  </div>
+
+  <p>最容易做、最快出收益的一项。<strong>字段名越短，首包延时越低</strong>。</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>原字段</th>
+        <th>优化后</th>
+        <th class="num">省 tokens</th>
+        <th>影响</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td><code>user_query</code></td><td><code>query</code></td><td class="num">1</td><td>每轮都出现</td></tr>
+      <tr><td><code>speaker_name</code></td><td><code>speaker</code></td><td class="num">1</td><td>每轮都出现</td></tr>
+      <tr><td><code>speaker_position</code></td><td><code>zone</code></td><td class="num">2</td><td>每轮都出现</td></tr>
+      <tr><td><code>talk_or_not</code></td><td><code>speak</code></td><td class="num">2</td><td>输出首字段</td></tr>
+      <tr><td><code>talk_content</code></td><td><code>content</code></td><td class="num">1</td><td>输出第二字段 · 影响首包</td></tr>
+      <tr><td><code>tool_name</code></td><td><code>tool</code></td><td class="num">1</td><td>每个 action 都出现</td></tr>
+      <tr><td><code>action_id</code></td><td><code>id</code></td><td class="num">1</td><td>每个 action</td></tr>
+      <tr><td><code>action_content</code></td><td><code>param</code></td><td class="num">1</td><td>每个 action</td></tr>
+    </tbody>
+  </table>
+
+  <div class="note accent">
+    <span class="label">核心收益</span>
+    <p>首 token 延时减少 <strong>~90ms</strong>。这 90ms 不是被浪费 — 它正好够做一次 VikingDB 检索，所以"延时省下来"立刻被"动态检索"用掉，<strong>总延时持平但能力大幅增强</strong>。</p>
+  </div>
+
+  <div class="pm-talk">
+    <div class="label">PM Talking Point</div>
+    <p>这一项的最大价值不是省 token，是<strong>挪出 90ms 的延时预算去做更有价值的事</strong>。<br/>汇报时把这两件事一起讲：90ms 怎么省的、怎么花的，逻辑闭环。</p>
+  </div>
+</section>
+
+<!-- ============ 05 OPT 2 ============ -->
+<section id="sec-opt2">
+  <div class="sec-head">
+    <span class="id">05</span>
+    <h2>Opt 2 · 静态 / 动态示例拆分</h2>
+    <span class="anchor">#opt2</span>
+  </div>
+
+  <p>这是整个专项最核心、也最难的一项。在看示例之前，必须先把"一轮"的定义搞清楚。</p>
+
+  <h3><span class="prefix">5.1</span>前置概念：什么叫"一轮"</h3>
+
+  <div class="note red">
+    <span class="label">最容易误解的地方</span>
+    <p>"一轮" <strong>不是</strong>"用户说一次话"。<br/>"一轮" 是 <strong>"Planner LLM 被调用一次"</strong>。<br/>用户说一句话能引发 N 轮，因为每次工具返回都要再调一次 Planner。</p>
+  </div>
+
+  <p>Planner 是个"循环大脑" — 每次<strong>用户说话</strong>或<strong>工具返回</strong>都会触发一次 Planner LLM 调用 = 一轮。</p>
+
+  <h3><span class="prefix">5.2</span>为什么一句话能变成 6 轮</h3>
+
+  <p>因为 Planner 不能"一次性想完所有步骤"。原因有三个：</p>
+
+  <table>
+    <thead><tr><th style="width:26%">原因</th><th>具体表现</th><th style="width:24%">类比</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>工具是真实执行的</strong></td>
+        <td>Planner 没法"预知"工具返回什么数据。必须真调一次 POI 搜索拿到真实结果，才能基于结果决策下一步。</td>
+        <td>厨师不知道冰箱里到底有什么，必须打开看一眼</td>
+      </tr>
+      <tr>
+        <td><strong>工具结果可能引发新问题</strong></td>
+        <td>"虹桥机场"搜出 3 个 POI（T2 / T3 / P7），歧义只有看到真实数据才暴露。必须停下来问用户。</td>
+        <td>地图搜出 3 个同名地点，必须让你选</td>
+      </tr>
+      <tr>
+        <td><strong>用户意图会演进</strong></td>
+        <td>用户原本说"机场附近找日料"，听到 P7 停车场后改主意"那就去停车场接人"。意图变了，整条规划要重来。</td>
+        <td>本来想吃日料，路上看到火锅店改主意</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3><span class="prefix">5.3</span>完整时间线 · "虹桥机场 + 日料"用例</h3>
+
+  <p>用户说一句话："<em>我现在从这里出发，去虹桥机场，然后在机场附近找个好吃的日料店去吃个饭</em>"。这句话引发 6 轮 Planner 调用：</p>
+
+  <div class="figure">
+    <div class="head">
+      <span class="id">FIG-03</span>
+      <span class="title">6 轮 Planner 调用 / Gantt 时间线</span>
+      <span class="meta">3 swim lanes × 6 P-blocks</span>
+    </div>
+    <div class="body">
+<svg viewBox="0 0 880 360" xmlns="http://www.w3.org/2000/svg" font-family="Geist, sans-serif" font-size="11">
+  <!-- Time axis -->
+  <g font-family="Geist Mono" fill="#6b6b6b" font-size="10">
+    <text x="60" y="22">0s</text>
+    <text x="180" y="22">2s</text>
+    <text x="300" y="22">4s</text>
+    <text x="420" y="22">6s</text>
+    <text x="540" y="22">8s</text>
+    <text x="660" y="22">10s</text>
+    <text x="780" y="22">12s</text>
+  </g>
+  <line x1="60" y1="30" x2="820" y2="30" stroke="#3a3a3a"/>
+  <!-- ticks -->
+  <g stroke="#262626">
+    <line x1="60" y1="30" x2="60" y2="320"/>
+    <line x1="180" y1="30" x2="180" y2="320" stroke-dasharray="2,3"/>
+    <line x1="300" y1="30" x2="300" y2="320" stroke-dasharray="2,3"/>
+    <line x1="420" y1="30" x2="420" y2="320" stroke-dasharray="2,3"/>
+    <line x1="540" y1="30" x2="540" y2="320" stroke-dasharray="2,3"/>
+    <line x1="660" y1="30" x2="660" y2="320" stroke-dasharray="2,3"/>
+    <line x1="780" y1="30" x2="780" y2="320" stroke-dasharray="2,3"/>
+  </g>
+
+  <!-- Lane labels -->
+  <g font-family="Geist Mono" font-size="10" fill="#6b6b6b">
+    <text x="0" y="68" letter-spacing="0.05em">USER</text>
+    <text x="0" y="168" letter-spacing="0.05em">PLANNER</text>
+    <text x="0" y="268" letter-spacing="0.05em">TOOLS</text>
+  </g>
+
+  <!-- USER lane -->
+  <g>
+    <rect x="60" y="50" width="80" height="32" fill="#1a1a1a" stroke="#3ecf8e"/>
+    <text x="64" y="64" fill="#ededed" font-size="10">💬 user.in</text>
+    <text x="64" y="78" fill="#a1a1a1" font-size="9">"去机场吃日料"</text>
+
+    <rect x="300" y="50" width="80" height="32" fill="#1a1a1a" stroke="#3ecf8e"/>
+    <text x="304" y="64" fill="#ededed" font-size="10">💬 user.in</text>
+    <text x="304" y="78" fill="#a1a1a1" font-size="9">"停车场接人"</text>
+
+    <rect x="540" y="50" width="80" height="32" fill="#1a1a1a" stroke="#3ecf8e"/>
+    <text x="544" y="64" fill="#ededed" font-size="10">💬 user.in</text>
+    <text x="544" y="78" fill="#a1a1a1" font-size="9">"好啊那就这家"</text>
+  </g>
+
+  <!-- PLANNER lane -->
+  <g>
+    <rect x="65" y="150" width="50" height="32" fill="#1f1a2a" stroke="#8b7eff"/>
+    <text x="68" y="164" fill="#8b7eff" font-size="11" font-weight="600">P1</text>
+    <text x="68" y="178" fill="#a1a1a1" font-size="9">in 1.2k · out 80</text>
+
+    <rect x="180" y="150" width="50" height="32" fill="#1f1a2a" stroke="#8b7eff"/>
+    <text x="183" y="164" fill="#8b7eff" font-size="11" font-weight="600">P2</text>
+    <text x="183" y="178" fill="#a1a1a1" font-size="9">in 2.1k · out 60</text>
+
+    <rect x="305" y="150" width="50" height="32" fill="#1f1a2a" stroke="#8b7eff"/>
+    <text x="308" y="164" fill="#8b7eff" font-size="11" font-weight="600">P3</text>
+    <text x="308" y="178" fill="#a1a1a1" font-size="9">in 2.4k · out 90</text>
+
+    <rect x="420" y="150" width="50" height="32" fill="#1f1a2a" stroke="#8b7eff"/>
+    <text x="423" y="164" fill="#8b7eff" font-size="11" font-weight="600">P4</text>
+    <text x="423" y="178" fill="#a1a1a1" font-size="9">in 3.0k · out 70</text>
+
+    <rect x="545" y="150" width="50" height="32" fill="#1f1a2a" stroke="#8b7eff"/>
+    <text x="548" y="164" fill="#8b7eff" font-size="11" font-weight="600">P5</text>
+    <text x="548" y="178" fill="#a1a1a1" font-size="9">in 3.3k · out 75</text>
+
+    <rect x="665" y="150" width="50" height="32" fill="#1f1a2a" stroke="#8b7eff"/>
+    <text x="668" y="164" fill="#8b7eff" font-size="11" font-weight="600">P6</text>
+    <text x="668" y="178" fill="#a1a1a1" font-size="9">in 3.8k · out 85</text>
+
+    <!-- decisions below -->
+    <g font-size="9" fill="#6b6b6b" font-family="Geist Mono">
+      <text x="68" y="200">→ search_poi</text>
+      <text x="183" y="200">→ ask user</text>
+      <text x="308" y="200">→ search_poi'</text>
+      <text x="423" y="200">→ recommend</text>
+      <text x="548" y="200">→ route_plan</text>
+      <text x="668" y="200">→ present 2</text>
+    </g>
+  </g>
+
+  <!-- TOOLS lane -->
+  <g>
+    <rect x="120" y="250" width="55" height="32" fill="#2a1f14" stroke="#ff9b50"/>
+    <text x="123" y="264" fill="#ff9b50" font-size="10">🔍 poi_qa</text>
+    <text x="123" y="278" fill="#a1a1a1" font-size="9">3 POI</text>
+
+    <rect x="360" y="250" width="55" height="32" fill="#2a1f14" stroke="#ff9b50"/>
+    <text x="363" y="264" fill="#ff9b50" font-size="10">🔍 poi_qa</text>
+    <text x="363" y="278" fill="#a1a1a1" font-size="9">3 日料</text>
+
+    <rect x="600" y="250" width="55" height="32" fill="#2a1f14" stroke="#ff9b50"/>
+    <text x="603" y="264" fill="#ff9b50" font-size="10">🗺 route</text>
+    <text x="603" y="278" fill="#a1a1a1" font-size="9">2 routes</text>
+  </g>
+
+  <!-- Connection lines -->
+  <g stroke="#3a3a3a" stroke-dasharray="3,3">
+    <!-- user -> P -->
+    <line x1="80" y1="82" x2="80" y2="150"/>
+    <line x1="320" y1="82" x2="320" y2="150"/>
+    <line x1="560" y1="82" x2="560" y2="150"/>
+    <!-- P -> tool -->
+    <line x1="115" y1="182" x2="135" y2="250"/>
+    <line x1="355" y1="182" x2="375" y2="250"/>
+    <line x1="595" y1="182" x2="615" y2="250"/>
+    <!-- tool -> P -->
+    <line x1="175" y1="250" x2="195" y2="182"/>
+    <line x1="415" y1="250" x2="435" y2="182"/>
+    <line x1="655" y1="250" x2="675" y2="182"/>
+  </g>
+
+  <!-- Summary -->
+  <line x1="0" y1="300" x2="880" y2="300" stroke="#3a3a3a"/>
+  <text x="0" y="320" font-family="Geist Mono" font-size="10" fill="#3ecf8e">EVENTS = 3 user.in + 3 tool.return = 6 P-calls</text>
+  <text x="0" y="338" font-size="10" fill="#a1a1a1">每一次"输入事件"都触发一次新的 Planner 调用 — 这就是"轮"的定义</text>
+</svg>
+    </div>
+    <div class="cap">FIG-03 — 横轴真实时间，三条泳道；每个 P-block 标注 input/output token 量，Gantt 风格而非纯方块</div>
+  </div>
+
+  <h3><span class="prefix">5.4</span>逐轮拆解 · 每轮的完整数据流</h3>
+
+  <p>下面把 6 轮全部展开。每一轮按 5 个阶段拆：<strong>输入数据 → Planner 内部推理 → 输出 JSON → 系统侧动作 → 触发下一轮的边界</strong>。看完你会清楚"轮"到底是怎么一回事。</p>
+
+  <!-- ============ P1 ============ -->
+  <div class="round" style="margin-top: 24px;">
+    <div class="round-head">
+      <span class="pid">P1</span>
+      <span class="trigger-tag user">user.in</span>
+      <span class="desc">第一轮 · 用户首次说话，Planner 拿到原始 query</span>
+    </div>
+
+    <div class="stage">
+      <div class="stage-label"><span class="step">①</span>输入</div>
+      <div class="stage-body">
+        <p>用户语音 → ASR → user prompt（UP）打包送给 Planner：</p>
+<pre><code><span class="c">// UP (user prompt)</span>
+{
+  <span class="k">"query"</span>: <span class="s">"我现在从这里出发，去虹桥机场，</span>
+<span class="s">           然后在机场附近找个好吃的日料店去吃个饭"</span>,
+  <span class="k">"speaker"</span>: <span class="s">"超然"</span>,
+  <span class="k">"zone"</span>: <span class="s">"主驾驶位"</span>
+}</code></pre>
+        <span class="meta-line">SP 这轮注入：静态 10 个示例 + query 检索动态 5 个</span>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage-label"><span class="step">②</span>Planner<br>内部推理</div>
+      <div class="stage-body">
+        <ol>
+          <li><strong>任务识别</strong>：一句话里有 2 件事 — 去虹桥机场 + 找日料店</li>
+          <li><strong>关键瓶颈</strong>："虹桥机场"是模糊地点（可能 T1 / T2 / T3 / 停车场），不能直接规划路线</li>
+          <li><strong>决策</strong>：先搜 POI 把"虹桥机场"具体化，日料的事先放着，下一步再处理</li>
+          <li><strong>话术</strong>：要先吱一声让用户知道"听到了"，再去调工具，否则会有沉默</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage-label"><span class="step">③</span>输出</div>
+      <div class="stage-body">
+        <p>Planner 给系统返回一个 JSON：</p>
+<pre><code>{
+  <span class="k">"speak"</span>: <span class="s">"yes"</span>,        <span class="c">// 要不要播报</span>
+  <span class="k">"content"</span>: <span class="s">"好"</span>,        <span class="c">// 铺垫话术</span>
+  <span class="k">"actions"</span>: [
+    {
+      <span class="k">"id"</span>: <span class="s">"1"</span>,
+      <span class="k">"tool"</span>: <span class="t">"search_poi_qa"</span>,
+      <span class="k">"param"</span>: <span class="s">"虹桥机场"</span>
+    }
+  ]
+}</code></pre>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage-label"><span class="step">④</span>系统侧<br>动作</div>
+      <div class="stage-body">
+        <ol>
+          <li>TTS 立刻播报 "好"（用户听到响应，<span class="metric"><span class="v">~1s</span></span> 内）</li>
+          <li>异步调用 <code>search_poi_qa("虹桥机场")</code></li>
+          <li>Planner <strong>挂起</strong>，等待工具结果</li>
+          <li>工具异步执行 ~1.5s 后返回</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage-label"><span class="step">⑤</span>为什么<br>必须停</div>
+      <div class="stage-body">
+        <p><strong>核心：Planner 没法预知工具会返回什么数据。</strong> 它不知道 search_poi_qa 会返回 1 个 POI、3 个 POI、还是空，所以不能"提前规划"。只能等真实数据回来 → 触发 P2。</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="round-arrow">tool.return ↓</div>
+
+  <!-- ============ P2 ============ -->
+  <div class="round">
+    <div class="round-head">
+      <span class="pid">P2</span>
+      <span class="trigger-tag tool">tool.return</span>
+      <span class="desc">POI 工具返回 3 个候选，Planner 要决定下一步</span>
+    </div>
+
+    <div class="stage">
+      <div class="stage-label"><span class="step">①</span>输入</div>
+      <div class="stage-body">
+        <p>工具结果包装成新的 user-side 输入送回（注意：tool_feedback 也走 user 角色，因为对 Planner 来说它就是"外部信息进来了"）：</p>
+<pre><code>{
+  <span class="k">"tool_feedback"</span>: <span class="s">"&lt;poi1&gt;名称:T2航站楼 距离:0km ...&lt;/poi1&gt;</span>
+<span class="s">                     &lt;poi2&gt;名称:P7停车场 距离:0.2km ...&lt;/poi2&gt;</span>
+<span class="s">                     &lt;poi3&gt;名称:T3航站楼 距离:0.3km ..."</span>,
+  <span class="k">"tool"</span>: <span class="t">"search_poi_qa"</span>
+}</code></pre>
+        <p>同时历史保留 — Planner 看到的完整 UP 是：<br/>
+          <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-faint);">
+            [user: P1 query] → [assistant: P1 output] → [user: tool_feedback]
+          </span>
+        </p>
+        <span class="meta-line">SP 这轮注入：静态 10 + tool 检索 5（POI 类示例）+ 上轮 query 检索 5</span>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage-label"><span class="step">②</span>Planner<br>内部推理</div>
+      <div class="stage-body">
+        <ol>
+          <li><strong>解读返回</strong>：3 个候选，性质各不同 — 2 个航站楼 + 1 个停车场</li>
+          <li><strong>能不能自己选？</strong> 用户原话只说"虹桥机场"，没指定 T 几或是停车场 → 不能默认选最近</li>
+          <li><strong>决策</strong>：必须反问用户消除歧义，先不调任何工具</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage-label"><span class="step">③</span>输出</div>
+      <div class="stage-body">
+<pre><code>{
+  <span class="k">"speak"</span>: <span class="s">"yes"</span>,
+  <span class="k">"content"</span>: <span class="s">"你是想去虹桥机场的T2或是T3的</span>
+<span class="s">              出发层，还是去P7停车场？"</span>,
+  <span class="k">"actions"</span>: []      <span class="c">// 空数组 = 不调工具，纯反问</span>
+}</code></pre>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage-label"><span class="step">④</span>系统侧<br>动作</div>
+      <div class="stage-body">
+        <ol>
+          <li>TTS 播报反问</li>
+          <li>没有 action → <strong>不调任何工具</strong>，进入等待用户状态</li>
+          <li>麦克风开启 → 监听用户回复 → 触发 P3</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage-label"><span class="step">⑤</span>为什么<br>必须停</div>
+      <div class="stage-body">
+        <p><strong>歧义不能由 Planner 自己消除。</strong> 即使 Planner 想替用户选"最近的那个"，也会引发"用户没要求过你这么做"的体验灾难。必须把决策权交回用户。</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="round-arrow">user.in ↓</div>
+
+  <!-- ============ P3 ============ -->
+  <div class="round">
+    <div class="round-head">
+      <span class="pid">P3</span>
+      <span class="trigger-tag user">user.in</span>
+      <span class="desc">用户回话，但意图变了 — Planner 要重新组织规划</span>
+    </div>
+
+    <div class="stage">
+      <div class="stage-label"><span class="step">①</span>输入</div>
+      <div class="stage-body">
+<pre><code>{
+  <span class="k">"query"</span>: <span class="s">"去接停车场接人"</span>,
+  <span class="k">"speaker"</span>: <span class="s">"超然"</span>,
+  <span class="k">"zone"</span>: <span class="s">"主驾驶位"</span>
+}</code></pre>
+        <span class="meta-line">SP 这轮注入：静态 10 + 上轮 query 检索 5 + 新 query 检索 5</span>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage-label"><span class="step">②</span>Planner<br>内部推理</div>
+      <div class="stage-body">
+        <ol>
+          <li><strong>意图演进识别</strong>：原本是"去虹桥机场航站楼吃饭"，现在变成了"去 P7 停车场接人 + 在 P7 附近吃日料"</li>
+          <li><strong>影响判断</strong>：之前那次 POI 搜索（搜的是"虹桥机场"）的结果已经作废 — 焦点变了</li>
+          <li><strong>决策</strong>：用新的 query 串重新搜 POI，把"P7 附近"和"日料"两个约束都带上</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage-label"><span class="step">③</span>输出</div>
+      <div class="stage-body">
+<pre><code>{
+  <span class="k">"speak"</span>: <span class="s">"yes"</span>,
+  <span class="k">"content"</span>: <span class="s">"好"</span>,
+  <span class="k">"actions"</span>: [
+    {
+      <span class="k">"id"</span>: <span class="s">"1"</span>,
+      <span class="k">"tool"</span>: <span class="t">"search_poi_qa"</span>,
+      <span class="k">"param"</span>: <span class="s">"虹桥机场P7停车场附近好吃的日料店"</span>
+    }
+  ]
+}</code></pre>
+        <p style="color: var(--text-faint); font-size: 12px;">注意 param 已经组合了"P7 停车场附近 + 日料店"两个约束 — 这是 Planner 把多轮信息融合的能力</p>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage-label"><span class="step">④</span>系统侧<br>动作</div>
+      <div class="stage-body">
+        <ol>
+          <li>TTS 播报 "好"</li>
+          <li>异步调 <code>search_poi_qa("虹桥机场P7停车场附近好吃的日料店")</code></li>
+          <li>等待返回 → 触发 P4</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage-label"><span class="step">⑤</span>为什么<br>必须停</div>
+      <div class="stage-body">
+        <p>同 P1 — 工具结果未知，不能盲规划路线。</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="round-arrow">tool.return ↓</div>
+
+  <!-- ============ P4 ============ -->
+  <div class="round">
+    <div class="round-head">
+      <span class="pid">P4</span>
+      <span class="trigger-tag tool">tool.return</span>
+      <span class="desc">3 家日料店返回 — Planner 这次能自己做选择题</span>
+    </div>
+
+    <div class="stage">
+      <div class="stage-label"><span class="step">①</span>输入</div>
+      <div class="stage-body">
+<pre><code>{
+  <span class="k">"tool_feedback"</span>: <span class="s">"&lt;poi1&gt;名称:鮨一日本料理(虹桥店) </span>
+<span class="s">                     评分:4.8 POI榜单:虹桥日料热门榜第1名&lt;/poi1&gt;</span>
+<span class="s">                     &lt;poi2&gt;名称:和亭日式料理 评分:4.5&lt;/poi2&gt;</span>
+<span class="s">                     &lt;poi3&gt;名称:酒吞日式料理 评分:4.2&lt;/poi3&gt;"</span>,
+  <span class="k">"tool"</span>: <span class="t">"search_poi_qa"</span>
+}</code></pre>
+        <span class="meta-line">SP 这轮注入：静态 10 + tool 检索 5 + 原 query 检索 5</span>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage-label"><span class="step">②</span>Planner<br>内部推理</div>
+      <div class="stage-body">
+        <ol>
+          <li><strong>评估可选项</strong>：3 家都是日料，评分 4.2 - 4.8</li>
+          <li><strong>能不能直接调路线？</strong> 不能 — 用户没指定哪家，自己选会强加意见</li>
+          <li><strong>能不能反问？</strong> 可以，但 3 个候选有明显优劣（鮨一是热门榜第一），<strong>主动推荐</strong>比把 3 个原样念给用户体验更好</li>
+          <li><strong>决策</strong>：推荐评分最高的鮨一，等用户确认（如果用户不爱可以再换）</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage-label"><span class="step">③</span>输出</div>
+      <div class="stage-body">
+<pre><code>{
+  <span class="k">"speak"</span>: <span class="s">"yes"</span>,
+  <span class="k">"content"</span>: <span class="s">"我找到3家，你可以选选，</span>
+<span class="s">              我最推荐鮨一日本料理，是日料热门榜第一"</span>,
+  <span class="k">"actions"</span>: []
+}</code></pre>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage-label"><span class="step">④</span>系统侧<br>动作</div>
+      <div class="stage-body">
+        <ol>
+          <li>TTS 播报推荐</li>
+          <li>等待用户回复 → 触发 P5</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage-label"><span class="step">⑤</span>为什么<br>必须停</div>
+      <div class="stage-body">
+        <p>用户还没确认最终选择。即使 Planner 推荐了一家，也不能直接调路线 — 万一用户不喜欢推荐的呢？<strong>"推荐"和"决定"是两件事，必须等用户答 "好啊"。</strong></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="round-arrow">user.in ↓</div>
+
+  <!-- ============ P5 ============ -->
+  <div class="round">
+    <div class="round-head">
+      <span class="pid">P5</span>
+      <span class="trigger-tag user">user.in</span>
+      <span class="desc">用户接受推荐 — POI 链条全部确定，可以算路线</span>
+    </div>
+
+    <div class="stage">
+      <div class="stage-label"><span class="step">①</span>输入</div>
+      <div class="stage-body">
+<pre><code>{
+  <span class="k">"query"</span>: <span class="s">"好啊，那就这家吧"</span>,
+  <span class="k">"speaker"</span>: <span class="s">"超然"</span>,
+  <span class="k">"zone"</span>: <span class="s">"主驾驶位"</span>
+}</code></pre>
+        <span class="meta-line">SP 这轮注入：静态 10 + 原 query 检索 5</span>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage-label"><span class="step">②</span>Planner<br>内部推理</div>
+      <div class="stage-body">
+        <ol>
+          <li><strong>解读"好啊那就这家"</strong>：指代 P4 推荐的鮨一日料</li>
+          <li><strong>盘点已知信息</strong>：出发点（当前位置）、途经（P7 停车场接人）、终点（鮨一）— 都有了</li>
+          <li><strong>决策</strong>：调用 route_planning_qa 算路线</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage-label"><span class="step">③</span>输出</div>
+      <div class="stage-body">
+<pre><code>{
+  <span class="k">"speak"</span>: <span class="s">"yes"</span>,
+  <span class="k">"content"</span>: <span class="s">"好"</span>,
+  <span class="k">"actions"</span>: [
+    {
+      <span class="k">"id"</span>: <span class="s">"1"</span>,
+      <span class="k">"tool"</span>: <span class="t">"route_planning_qa"</span>,
+      <span class="k">"param"</span>: <span class="s">"先到虹桥机场P7停车场，再鮨一日本料理(虹桥店)"</span>
+    }
+  ]
+}</code></pre>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage-label"><span class="step">④</span>系统侧<br>动作</div>
+      <div class="stage-body">
+        <ol>
+          <li>TTS 播报 "好"</li>
+          <li>异步调 <code>route_planning_qa(...)</code></li>
+          <li>等待返回 → 触发 P6</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage-label"><span class="step">⑤</span>为什么<br>必须停</div>
+      <div class="stage-body">
+        <p>路线规划工具的结果也未知 — 不知道会返回 1 条、2 条、还是堵车导致几条都不通。必须等真实路线数据。</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="round-arrow">tool.return ↓</div>
+
+  <!-- ============ P6 ============ -->
+  <div class="round">
+    <div class="round-head">
+      <span class="pid">P6</span>
+      <span class="trigger-tag tool">tool.return</span>
+      <span class="desc">2 条路线返回 — 终轮，把选择权交回给用户</span>
+    </div>
+
+    <div class="stage">
+      <div class="stage-label"><span class="step">①</span>输入</div>
+      <div class="stage-body">
+<pre><code>{
+  <span class="k">"tool_feedback"</span>: <span class="s">"&lt;路线1&gt;标签:大众常选|距离短</span>
+<span class="s">                       预估时间:25分钟 总里程:4.5km</span>
+<span class="s">                       红绿灯数:10&lt;/路线1&gt;</span>
+<span class="s">                     &lt;路线2&gt;标签:备选二</span>
+<span class="s">                       预估时间:27分钟 总里程:5.0km</span>
+<span class="s">                       红绿灯数:6&lt;/路线2&gt;"</span>,
+  <span class="k">"tool"</span>: <span class="t">"route_planning_qa"</span>
+}</code></pre>
+        <span class="meta-line">SP 这轮注入：静态 10 + tool 检索 5（路线类示例）</span>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage-label"><span class="step">②</span>Planner<br>内部推理</div>
+      <div class="stage-body">
+        <ol>
+          <li><strong>评估</strong>：路线 1 距离短稍快（25 分钟、10 红绿灯）；路线 2 略远但红绿灯少（27 分钟、6 红绿灯）</li>
+          <li><strong>能自己选吗？</strong> 不能 — 这是用户偏好题（赶时间 vs 怕红绿灯多走停停），<strong>没有客观最优解</strong></li>
+          <li><strong>决策</strong>：把 2 条特点说清楚，让用户选</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage-label"><span class="step">③</span>输出</div>
+      <div class="stage-body">
+<pre><code>{
+  <span class="k">"speak"</span>: <span class="s">"yes"</span>,
+  <span class="k">"content"</span>: <span class="s">"有两条路线，第一条距离短也稍快，</span>
+<span class="s">              第二条红绿灯少，你看看选哪个"</span>,
+  <span class="k">"actions"</span>: []
+}</code></pre>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage-label"><span class="step">④</span>系统侧<br>动作</div>
+      <div class="stage-body">
+        <ol>
+          <li>TTS 播报对比</li>
+          <li>HMI 同步展示 2 条路线（地图上高亮）</li>
+          <li>等待用户选择（"第一条" / "第二条"）— 这会触发 P7（不在本例范围）</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage-label"><span class="step">⑤</span>为什么<br>必须停</div>
+      <div class="stage-body">
+        <p>2 条路线各有优劣，是<strong>偏好问题不是事实问题</strong>。Planner 不能假设用户更在乎时间还是红绿灯数量，必须让用户自己选。</p>
+      </div>
+    </div>
+  </div>
+
+  <h4 style="margin-top: 32px;">两种触发源的通用模式</h4>
+
+  <p>把 6 轮抽象一下，其实只有 2 种处理模式：</p>
+
+  <table>
+    <thead>
+      <tr><th style="width:22%">触发源</th><th>固定处理路径</th><th>典型出口</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="trigger-tag user">user.in</span><br/><span style="font-family:var(--font-mono); font-size:11px; color:var(--text-faint);">P1, P3, P5</span></td>
+        <td>识别意图 → 评估"信息够不够下决定" → 不够则调工具<br/>话术固定输出"好/嗯/在听"作为铺垫</td>
+        <td><strong>actions ≠ []</strong> — 调工具，挂起等返回</td>
+      </tr>
+      <tr>
+        <td><span class="trigger-tag tool">tool.return</span><br/><span style="font-family:var(--font-mono); font-size:11px; color:var(--text-faint);">P2, P4, P6</span></td>
+        <td>解读返回数据 → 评估"能不能自己拍板" → 不能则反问用户/给选项<br/>能拍板就继续调下一个工具</td>
+        <td>多数情况 <strong>actions = []</strong> — 等用户回复</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="note accent">
+    <span class="label">关键认知 · 这就是"Agent 循环"的本质</span>
+    <p>Planner = 一个永远在等"下一个事件"的状态机。每一次 user.in 或 tool.return 都是一次事件。它的工作就是"看到这次事件 → 输出该做什么 → 挂起等下一次事件"。<br/>
+    <strong>"6 轮"不是固定的，是这个对话的复杂度（用户改主意 + 工具歧义）凑出来的结果。简单 query 可能只要 2 轮，复杂多任务可能 10 轮 +。</strong></p>
+  </div>
+
+  <div class="note accent">
+    <span class="label">SP 优化为什么收益被放大</span>
+    <p>正因为每个复杂请求都要 6+ 轮，每轮都要把 SP 发一遍 — SP 越长，总成本就被乘以 N 倍放大。<br/>
+    <strong>压缩 1 次 SP = 实际省下 N 次的计算量</strong>。这是"长度优化"收益非线性放大的根本原因。</p>
+  </div>
+
+  <h3><span class="prefix">5.5</span>69 个示例的完整分类</h3>
+
+  <p>根据 SP 优化专项文档，原本塞在 SP 里的 69 个示例按业务能力被分成 10 大类。这就是动态示例库的索引结构。</p>
+
+  <div class="figure">
+    <div class="head">
+      <span class="id">FIG-04</span>
+      <span class="title">10 大类示例 · 复杂度 × 频率象限</span>
+      <span class="meta">2D matrix</span>
+    </div>
+    <div class="body">
+<svg viewBox="0 0 800 460" xmlns="http://www.w3.org/2000/svg" font-family="Geist, sans-serif" font-size="11">
+  <!-- axes -->
+  <line x1="80" y1="40" x2="80" y2="400" stroke="#3a3a3a"/>
+  <line x1="80" y1="400" x2="780" y2="400" stroke="#3a3a3a"/>
+
+  <!-- axis labels -->
+  <text x="80" y="20" font-family="Geist Mono" fill="#6b6b6b" font-size="10">↑ 复杂度 (示例 token 量)</text>
+  <text x="700" y="425" font-family="Geist Mono" fill="#6b6b6b" font-size="10">调用频率 →</text>
+
+  <!-- grid -->
+  <g stroke="#1a1a1a" stroke-dasharray="2,4">
+    <line x1="80" y1="130" x2="780" y2="130"/>
+    <line x1="80" y1="220" x2="780" y2="220"/>
+    <line x1="80" y1="310" x2="780" y2="310"/>
+    <line x1="255" y1="40" x2="255" y2="400"/>
+    <line x1="430" y1="40" x2="430" y2="400"/>
+    <line x1="605" y1="40" x2="605" y2="400"/>
+  </g>
+
+  <!-- y-axis ticks -->
+  <g font-family="Geist Mono" fill="#6b6b6b" font-size="9">
+    <text x="58" y="46" text-anchor="end">高</text>
+    <text x="58" y="226" text-anchor="end">中</text>
+    <text x="58" y="403" text-anchor="end">低</text>
+  </g>
+  <g font-family="Geist Mono" fill="#6b6b6b" font-size="9">
+    <text x="80" y="418" text-anchor="middle">低</text>
+    <text x="432" y="418" text-anchor="middle">中</text>
+    <text x="780" y="418" text-anchor="middle">高</text>
+  </g>
+
+  <!-- Categories as data points -->
+  <!-- ① 导航 - high freq, high complexity (15 examples) -->
+  <g>
+    <circle cx="660" cy="80" r="20" fill="#3ecf8e" opacity="0.2" stroke="#3ecf8e"/>
+    <text x="660" y="84" text-anchor="middle" font-family="Geist Mono" fill="#3ecf8e" font-size="11" font-weight="600">15</text>
+    <text x="660" y="125" text-anchor="middle" fill="#ededed" font-size="11">① 导航与路线规划</text>
+    <text x="660" y="138" text-anchor="middle" fill="#6b6b6b" font-family="Geist Mono" font-size="9">1, 3, 5, 6, 21, 36, 39, 40, 41,</text>
+    <text x="660" y="148" text-anchor="middle" fill="#6b6b6b" font-family="Geist Mono" font-size="9">42, 48, 51, 52, 53, 54</text>
+  </g>
+
+  <!-- ② 车控 - high freq, medium complexity -->
+  <g>
+    <circle cx="700" cy="180" r="18" fill="#3ecf8e" opacity="0.2" stroke="#3ecf8e"/>
+    <text x="700" y="184" text-anchor="middle" font-family="Geist Mono" fill="#3ecf8e" font-size="11" font-weight="600">13</text>
+    <text x="700" y="218" text-anchor="middle" fill="#ededed" font-size="11">② 车辆座舱控制</text>
+    <text x="700" y="231" text-anchor="middle" fill="#6b6b6b" font-family="Geist Mono" font-size="9">2, 4, 19, 22, 24, 26, 27...</text>
+  </g>
+
+  <!-- ⑥ 目标管理 - mid-high freq, high complexity -->
+  <g>
+    <circle cx="500" cy="100" r="18" fill="#3ecf8e" opacity="0.2" stroke="#3ecf8e"/>
+    <text x="500" y="104" text-anchor="middle" font-family="Geist Mono" fill="#3ecf8e" font-size="11" font-weight="600">13</text>
+    <text x="500" y="148" text-anchor="middle" fill="#ededed" font-size="11">⑥ 目标任务管理</text>
+    <text x="500" y="161" text-anchor="middle" fill="#6b6b6b" font-family="Geist Mono" font-size="9">9, 10, 11, 12...</text>
+  </g>
+
+  <!-- ④ GUI - mid freq, very high complexity -->
+  <g>
+    <circle cx="430" cy="60" r="14" fill="#3ecf8e" opacity="0.2" stroke="#3ecf8e"/>
+    <text x="430" y="64" text-anchor="middle" font-family="Geist Mono" fill="#3ecf8e" font-size="10" font-weight="600">7</text>
+    <text x="430" y="98" text-anchor="middle" fill="#ededed" font-size="11">④ GUI 代理</text>
+    <text x="430" y="111" text-anchor="middle" fill="#6b6b6b" font-family="Geist Mono" font-size="9">9, 13, 43-46, 49</text>
+  </g>
+
+  <!-- ③ 娱乐 - mid-high freq, low-mid complexity -->
+  <g>
+    <circle cx="560" cy="280" r="16" fill="#8b7eff" opacity="0.2" stroke="#8b7eff"/>
+    <text x="560" y="284" text-anchor="middle" font-family="Geist Mono" fill="#8b7eff" font-size="11" font-weight="600">11</text>
+    <text x="560" y="318" text-anchor="middle" fill="#ededed" font-size="11">③ 娱乐与互动</text>
+    <text x="560" y="331" text-anchor="middle" fill="#6b6b6b" font-family="Geist Mono" font-size="9">7, 11, 24, 25, 28...</text>
+  </g>
+
+  <!-- ⑤ 记忆 - mid freq, mid complexity -->
+  <g>
+    <circle cx="380" cy="200" r="15" fill="#3ecf8e" opacity="0.2" stroke="#3ecf8e"/>
+    <text x="380" y="204" text-anchor="middle" font-family="Geist Mono" fill="#3ecf8e" font-size="10" font-weight="600">10</text>
+    <text x="380" y="238" text-anchor="middle" fill="#ededed" font-size="11">⑤ 用户记忆 / 身份</text>
+    <text x="380" y="251" text-anchor="middle" fill="#6b6b6b" font-family="Geist Mono" font-size="9">16, 17, 20, 23...</text>
+  </g>
+
+  <!-- ⑦ 通用搜索 - mid freq, low complexity -->
+  <g>
+    <circle cx="320" cy="350" r="13" fill="#8b7eff" opacity="0.2" stroke="#8b7eff"/>
+    <text x="320" y="354" text-anchor="middle" font-family="Geist Mono" fill="#8b7eff" font-size="10" font-weight="600">6</text>
+    <text x="320" y="380" text-anchor="middle" fill="#ededed" font-size="10">⑦ 通用信息搜索</text>
+  </g>
+
+  <!-- ⑩ 情感关怀 - low freq, low complexity -->
+  <g>
+    <circle cx="170" cy="370" r="11" fill="#8b7eff" opacity="0.2" stroke="#8b7eff"/>
+    <text x="170" y="374" text-anchor="middle" font-family="Geist Mono" fill="#8b7eff" font-size="10" font-weight="600">3</text>
+    <text x="170" y="395" text-anchor="middle" fill="#ededed" font-size="10">⑩ 情感关怀</text>
+  </g>
+
+  <!-- ⑧ AI 图像 - low freq, mid complexity -->
+  <g>
+    <circle cx="155" cy="240" r="11" fill="#8b7eff" opacity="0.2" stroke="#8b7eff"/>
+    <text x="155" y="244" text-anchor="middle" font-family="Geist Mono" fill="#8b7eff" font-size="10" font-weight="600">3</text>
+    <text x="155" y="270" text-anchor="middle" fill="#ededed" font-size="10">⑧ AI 图像生成</text>
+  </g>
+
+  <!-- ⑨ 车辆信息 - low freq, low complexity -->
+  <g>
+    <circle cx="135" cy="350" r="9" fill="#8b7eff" opacity="0.2" stroke="#8b7eff"/>
+    <text x="135" y="354" text-anchor="middle" font-family="Geist Mono" fill="#8b7eff" font-size="10" font-weight="600">2</text>
+    <text x="135" y="312" text-anchor="middle" fill="#ededed" font-size="10">⑨ 车辆信息查询</text>
+  </g>
+
+  <!-- Quadrant labels -->
+  <g font-family="Geist Mono" font-size="9" fill="#4a4a4a">
+    <text x="93" y="55">Q2 · 不常用但复杂</text>
+    <text x="618" y="55">Q1 · 必保 (高频+高复杂)</text>
+    <text x="93" y="395">Q3 · 长尾</text>
+    <text x="618" y="395">Q4 · 高频但简单</text>
+  </g>
+
+  <!-- Legend -->
+  <g transform="translate(80, 440)">
+    <circle cx="6" cy="6" r="6" fill="#3ecf8e" opacity="0.2" stroke="#3ecf8e"/>
+    <text x="18" y="10" fill="#3ecf8e" font-size="11">含静态代表 (蓝色)</text>
+    <circle cx="200" cy="6" r="6" fill="#8b7eff" opacity="0.2" stroke="#8b7eff"/>
+    <text x="212" y="10" fill="#8b7eff" font-size="11">全部下沉动态库 (紫色)</text>
+    <text x="420" y="10" fill="#6b6b6b" font-size="11" font-family="Geist Mono">圆圈大小 ∝ 示例数</text>
+  </g>
+</svg>
+    </div>
+    <div class="cap">FIG-04 — 复杂度 × 频率二维矩阵。Q1 象限的类目必须保留静态代表（兜底）；Q3/Q4 全部下沉动态库</div>
+  </div>
+
+  <h3><span class="prefix">5.6</span>建议保留的 10 个静态示例</h3>
+
+  <p>评审会必然被追问：<strong>静态选哪 10 个？凭什么？</strong> 给你一份可以直接对齐的清单：</p>
+
+  <table>
+    <thead><tr><th>示例</th><th>能力</th><th>选取理由</th></tr></thead>
+    <tbody>
+      <tr><td><span class="tag static">#1</span></td><td>POI 搜索 + 路线规划</td><td>覆盖最高频导航场景 · 第一轮 case</td></tr>
+      <tr><td><span class="tag static">#2</span></td><td>基础车控</td><td>"打开空调"类指令的范式</td></tr>
+      <tr><td><span class="tag static">#4</span></td><td>车控 + 闲聊</td><td>talk_content 和 action 同时输出</td></tr>
+      <tr><td><span class="tag static">#10</span></td><td>目标创建</td><td>goal_list_update 工具的标准用法</td></tr>
+      <tr><td><span class="tag static">#14</span></td><td>目标完成判定</td><td>多步任务收尾的范式</td></tr>
+      <tr><td><span class="tag static">#16</span></td><td>记忆查询</td><td>search_user_memory 用法</td></tr>
+      <tr><td><span class="tag static">#20</span></td><td>记忆更新</td><td>operate_user_memory 用法</td></tr>
+      <tr><td><span class="tag static">#43</span></td><td>GUI 多步执行</td><td>最复杂的 GUI 流程，必须兜底</td></tr>
+      <tr><td><span class="tag static">#44</span></td><td>GUI + 记忆</td><td>跨能力组合的典型</td></tr>
+      <tr><td><span class="tag static">#60</span></td><td>TTS 状态处理</td><td>播报中的特殊情况</td></tr>
+    </tbody>
+  </table>
+
+  <p>剩下 <strong>~59 个</strong>按 10 大类入 VikingDB，每条示例打多个 tag（query 关键词 / tool 名 / 域）。运行时按需召回 top-K。</p>
+
+  <div class="pm-talk">
+    <div class="label">PM Talking Point · 运维 SOP</div>
+    <p>静态名单不是一锤子买卖。<strong>上线后跑一段时间，建立动态调整机制</strong>：</p>
+    <p>· 某静态示例从未被模型实际"模仿"到 → 降级到动态库<br/>· 某动态示例被高频召回（top-3 命中率 &gt; 70%）→ 升级到静态层<br/>这条 SOP 要写进运维文档，否则静态层会越来越僵化。</p>
+  </div>
+</section>
+
+<!-- ============ 06 OPT 3 ============ -->
+<section id="sec-opt3">
+  <div class="sec-head">
+    <span class="id">06</span>
+    <h2>Opt 3 · 通过检索加载</h2>
+    <span class="anchor">#opt3</span>
+  </div>
+
+  <p>动态库放哪、怎么取？这一项解决"工程链路"问题。两条并行检索路径：</p>
+
+  <table>
+    <thead><tr><th>路径</th><th>输入</th><th>处理</th><th>代价</th><th>对策</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Query 路径</strong></td>
+        <td>用户口语化 query</td>
+        <td>小模型改写 → embedding → VikingDB 召回 top-5</td>
+        <td>多一次模型调用 ~50ms</td>
+        <td>与其他 context 模块并行</td>
+      </tr>
+      <tr>
+        <td><strong>Tool 路径</strong></td>
+        <td>上一轮 tool_feedback</td>
+        <td>直接按 tool name 取该类示例 top-5</td>
+        <td>几乎零延时</td>
+        <td>—</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="note purple">
+    <span class="label">为什么需要 query 改写</span>
+    <p>口语化召回率低。<code>"我好热"</code> 在向量库里的相似示例可能是 <code>"降温 / 开空调 / 风量调大"</code>。直接 embed "我好热"，召回率可能 40%；改写成 "降温车控请求" 后召回率提升到 85%+。</p>
+  </div>
+</section>
+
+<!-- ============ 07 OPT 4 ============ -->
+<section id="sec-opt4">
+  <div class="sec-head">
+    <span class="id">07</span>
+    <h2>Opt 4 · 示例压缩</h2>
+    <span class="anchor">#opt4</span>
+  </div>
+
+  <p>当前是"裸示例" — 直接把真实 tool_feedback 粘进去，每条 500+ tokens。模型只需要看到核心字段。</p>
+
+  <div class="split">
+    <div>
+      <div class="label" style="color: var(--red);">→ BEFORE · 裸示例</div>
+      <div class="body">
+<pre><code>&lt;路线1&gt;
+route_id:1234567890
+标签:大众常选|距离短
+预估时间:25分钟
+总里程:4.5km
+过路费:0
+红绿灯数:10
+道路状态:
+poi_list:[{<span class="s">'地址'</span>: <span class="s">'上海市闵行
+区申长路888号虹桥天地B座1层'</span>,
+<span class="s">'人均'</span>: <span class="n">0</span>, <span class="s">'距离'</span>: <span class="s">''</span>,
+<span class="s">'id'</span>: <span class="s">'B0IA61DPAE'</span>,
+<span class="s">'lonLat'</span>: {<span class="s">'lat'</span>: <span class="n">31.194800</span>,
+<span class="s">'lon'</span>: <span class="n">121.333500</span>},
+<span class="s">'名称'</span>: <span class="s">'鮨一日本料理(虹桥店)'</span>,
+<span class="s">'评分/排名'</span>: <span class="n">4.8</span>, ...}]
+&lt;/路线1&gt;</code></pre>
+      </div>
+    </div>
+    <div>
+      <div class="label" style="color: var(--accent);">→ AFTER · 抽象示例</div>
+      <div class="body">
+<pre><code>&lt;路线1&gt;
+预估时间:<span class="n">25</span>分钟
+总里程:<span class="n">4.5</span>km
+红绿灯数:<span class="n">10</span>
+&lt;/路线1&gt;
+
+&lt;路线2&gt;
+预估时间:<span class="n">27</span>分钟
+总里程:<span class="n">5.0</span>km
+红绿灯数:<span class="n">6</span>
+&lt;/路线2&gt;</code></pre>
+        <p style="margin-top:8px; color: var(--accent); font-family: var(--font-mono); font-size: 12px;">↓ ~70% reduction</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <span class="label">原则</span>
+    <p>示例的目的是"教模型决策"，不是"还原真实数据"。<strong>只保留影响决策的字段</strong>。这里只有时间 / 距离 / 红绿灯数影响"推荐哪条路线"的判断，其他字段全部删掉。</p>
+  </div>
+
+  <div class="pm-talk">
+    <div class="label">PM Talking Point · 验证机制</div>
+    <p>这一项的关键决策：<strong>压成什么样不影响模型学习</strong>。建议立一个评测集：对比"裸示例 vs 抽象示例"两版在同一批 query 上的准确率。差距 &lt;1pp 就放心压。</p>
+  </div>
+</section>
+
+<!-- ============ 08 OPT 5 ============ -->
+<section id="sec-opt5">
+  <div class="sec-head">
+    <span class="id">08</span>
+    <h2>Opt 5 · 人工反馈闭环</h2>
+    <span class="anchor">#opt5</span>
+  </div>
+
+  <p>动态库不是建好就完事。它必须能<strong>持续吸收新的 badcase</strong>。流程：</p>
+
+  <pre style="font-size: 12px;"><code><span class="c"># Badcase → 动态示例 闭环</span>
+
+<span class="t">① 发现 Badcase</span>       线上日志 / 测试反馈
+        ↓
+<span class="t">② 根因分析</span>          缺知识？还是缺示例？
+        ↓
+<span class="t">③ 人工抽象</span>          写成示例 JSON + 打 tag
+        ↓
+<span class="t">④ 入 VikingDB</span>       向量化 + 索引
+        ↓
+<span class="t">⑤ 验证修复</span>          回归测试 + 线上灰度
+        ↓
+<span class="c">(回到 ①，新 badcase 持续进入)</span></code></pre>
+
+  <h3><span class="prefix">8.1</span>真实 case · 洗车天气</h3>
+
+  <p>文档里给的一个例子非常说明问题：</p>
+
+<pre><code><span class="c">// 用户："帮我看看下午天气怎么样，适合洗车不"</span>
+
+<span class="e">❌ 错误执行</span>
+search_weather(<span class="s">"查询今天下午的天气情况以及洗车指数"</span>)
+        → <span class="e">FAIL · API 不知道是哪里的下午</span>
+
+<span class="ok">✅ 正确执行</span>
+search_weather(<span class="s">"查询今天<strong>上海</strong>下午的天气情况以及洗车指数"</span>)
+        → <span class="ok">OK</span></code></pre>
+
+  <p>根因：用户没说地点，模型也没结合 context（车辆当前位置）去推断。</p>
+
+  <p>修复：在动态库新增<strong>示例 #63 · 天气场景</strong>，明确演示"若用户未提地理位置，结合 context 推断"。下次类似 query 来，VikingDB 召回这个示例，模型就会模仿。</p>
+
+  <div class="note accent">
+    <span class="label">为什么动态注入比"改 SP"高级</span>
+    <p>改 SP 是<strong>全局污染</strong> — 加一条规则全员看到。<br/>动态注入是<strong>精准投放</strong> — 只有触发该场景的 query 才会看到。<br/>Badcase 越多，SP 不会变长，但召回精度持续上升。</p>
+  </div>
+
+  <div class="pm-talk">
+    <div class="label">PM Talking Point · 运营节奏</div>
+    <p>这套闭环需要建一条<strong>"Badcase → 示例"的人工流水线</strong> — 谁收集、谁分析、谁写示例、谁验证。<br/>建议每周固定 2 小时和算法同学一起处理新 badcase，形成节奏。否则动态库就死了。</p>
+  </div>
+</section>
+
+<!-- ============ 09 OPT 6 ============ -->
+<section id="sec-opt6">
+  <div class="sec-head">
+    <span class="id">09</span>
+    <h2>Opt 6 · 整体并行架构</h2>
+    <span class="anchor">#opt6</span>
+  </div>
+
+  <p>把前面所有优化拼成一个完整链路。关键是<strong>并行</strong> — 三层的获取不能串行，否则延时崩了。</p>
+
+  <div class="figure">
+    <div class="head">
+      <span class="id">FIG-05</span>
+      <span class="title">完整请求链路 · 三路并行检索 + SP 组装</span>
+      <span class="meta">latency budget breakdown</span>
+    </div>
+    <div class="body">
+<svg viewBox="0 0 780 440" xmlns="http://www.w3.org/2000/svg" font-family="Geist, sans-serif" font-size="11">
+  <!-- T0 Request -->
+  <rect x="290" y="20" width="200" height="44" fill="#1a1a1a" stroke="#3ecf8e"/>
+  <text x="390" y="40" text-anchor="middle" fill="#3ecf8e" font-size="12" font-weight="600">request_in</text>
+  <text x="390" y="56" text-anchor="middle" fill="#a1a1a1" font-family="Geist Mono" font-size="10">T0 = 0ms</text>
+
+  <!-- Fan out lines -->
+  <g stroke="#3a3a3a">
+    <line x1="390" y1="64" x2="120" y2="100"/>
+    <line x1="390" y1="64" x2="390" y2="100"/>
+    <line x1="390" y1="64" x2="660" y2="100"/>
+  </g>
+
+  <!-- Three parallel branches -->
+  <!-- Context retrieval -->
+  <g>
+    <rect x="20" y="100" width="200" height="100" fill="#2a1f14" stroke="#ff9b50"/>
+    <text x="32" y="120" fill="#ff9b50" font-family="Geist Mono" font-size="11" font-weight="600">CONTEXT_FETCH</text>
+    <text x="32" y="140" fill="#ededed" font-size="11">记忆 + 车况 + 情景</text>
+    <text x="32" y="156" fill="#a1a1a1" font-size="10">→ SP 动态变量 ⑪</text>
+    <line x1="32" y1="166" x2="208" y2="166" stroke="#3a3a3a"/>
+    <text x="32" y="184" fill="#ff9b50" font-family="Geist Mono" font-size="13">~60ms</text>
+  </g>
+
+  <!-- Dynamic examples (center) -->
+  <g>
+    <rect x="290" y="100" width="200" height="100" fill="#1f1a2a" stroke="#8b7eff"/>
+    <text x="302" y="120" fill="#8b7eff" font-family="Geist Mono" font-size="11" font-weight="600">EXAMPLES_RETRIEVE</text>
+    <text x="302" y="140" fill="#ededed" font-size="11">VikingDB · query + tool 双路</text>
+    <text x="302" y="156" fill="#a1a1a1" font-size="10">→ SP 示例槽位</text>
+    <line x1="302" y1="166" x2="478" y2="166" stroke="#3a3a3a"/>
+    <text x="302" y="184" fill="#8b7eff" font-family="Geist Mono" font-size="13">~80ms</text>
+    <text x="408" y="184" fill="#6b6b6b" font-family="Geist Mono" font-size="10">(critical path)</text>
+  </g>
+
+  <!-- Skills loading -->
+  <g>
+    <rect x="560" y="100" width="200" height="100" fill="#0f1f15" stroke="#3ecf8e"/>
+    <text x="572" y="120" fill="#3ecf8e" font-family="Geist Mono" font-size="11" font-weight="600">SKILLS_LOAD</text>
+    <text x="572" y="140" fill="#ededed" font-size="11">域分类小模型 → skill</text>
+    <text x="572" y="156" fill="#a1a1a1" font-size="10">→ SP skills 槽位</text>
+    <line x1="572" y1="166" x2="748" y2="166" stroke="#3a3a3a"/>
+    <text x="572" y="184" fill="#3ecf8e" font-family="Geist Mono" font-size="13">~50ms</text>
+  </g>
+
+  <!-- Convergence -->
+  <g stroke="#3a3a3a">
+    <line x1="120" y1="200" x2="390" y2="240"/>
+    <line x1="390" y1="200" x2="390" y2="240"/>
+    <line x1="660" y1="200" x2="390" y2="240"/>
+  </g>
+
+  <!-- SP Assembly -->
+  <rect x="240" y="240" width="300" height="50" fill="#1a1a1a" stroke="#262626" stroke-dasharray="4,3"/>
+  <text x="390" y="262" text-anchor="middle" fill="#ededed" font-size="13" font-weight="500">SP_ASSEMBLE</text>
+  <text x="390" y="280" text-anchor="middle" fill="#a1a1a1" font-family="Geist Mono" font-size="11">T0+80ms · bottleneck = max(60, 80, 50)</text>
+
+  <!-- arrow -->
+  <line x1="390" y1="290" x2="390" y2="320" stroke="#ededed"/>
+  <polygon points="386,316 390,324 394,316" fill="#ededed"/>
+
+  <!-- Planner LLM -->
+  <rect x="240" y="324" width="300" height="60" fill="#1a1a1a" stroke="#ededed"/>
+  <text x="390" y="346" text-anchor="middle" fill="#ededed" font-size="14" font-weight="600">PLANNER_LLM</text>
+  <text x="390" y="364" text-anchor="middle" fill="#a1a1a1" font-family="Geist Mono" font-size="11">T0+80ms ~ first_token T0+1080ms</text>
+  <text x="390" y="378" text-anchor="middle" fill="#3ecf8e" font-family="Geist Mono" font-size="11">total_first_pack: 998ms (P50)</text>
+
+  <!-- bottom note -->
+  <line x1="0" y1="408" x2="780" y2="408" stroke="#262626"/>
+  <text x="0" y="426" font-family="Geist Mono" fill="#3ecf8e" font-size="10">BUDGET: 90ms saved from field-rename ≈ 80ms parallel-fetch · 净延时 0</text>
+</svg>
+    </div>
+    <div class="cap">FIG-05 — 三路并行总耗时 = max(60, 80, 50) = 80ms · 正好被 Opt 1 省下的 ~90ms 覆盖 · 净延时不变</div>
+  </div>
+
+  <div class="note red">
+    <span class="label">工程依赖</span>
+    <p>这个架构能落地的前提：<strong>SP 必须先做模块化改造</strong>（留出 4 个可独立填充的槽位）。如果 SP 还是一坨字符串拼出来的，并行就无从谈起。所以工程侧第一步是 SP 模板引擎。</p>
+  </div>
+
+  <div class="pm-talk">
+    <div class="label">PM Talking Point · 跨团队对齐</div>
+    <p>这张架构图是跨团队对齐的核心物料。三方坐下来看：</p>
+    <p>· <strong>算法</strong>：示例库 + 改写小模型 + 域分类小模型<br/>· <strong>工程</strong>：VikingDB 接入 + SP 模板引擎 + 并行调度<br/>· <strong>产品（你）</strong>：定静态示例标准 + Badcase 闭环节奏</p>
+  </div>
+</section>
+
+<!-- ============ 10 RESULTS ============ -->
+<section id="sec-result">
+  <div class="sec-head">
+    <span class="id">10</span>
+    <h2>评测结果与汇报口径</h2>
+    <span class="anchor">#result</span>
+  </div>
+
+  <p>PE3-0415 实测数据，vs Baseline 对比：</p>
+
+  <div class="metric-cards">
+    <div class="mc">
+      <div class="k">Accuracy</div>
+      <div class="v">88.4<small>%</small></div>
+      <div class="base"><s>79.4%</s> <span class="delta">↑ +9.0pp</span></div>
+    </div>
+    <div class="mc">
+      <div class="k">First Token P50</div>
+      <div class="v">998<small>ms</small></div>
+      <div class="base"><s>2,309ms</s> <span class="delta">↓ 57%</span></div>
+    </div>
+    <div class="mc">
+      <div class="k">First Token P90</div>
+      <div class="v">1,317<small>ms</small></div>
+      <div class="base"><s>3,439ms</s> <span class="delta">↓ 62%</span></div>
+    </div>
+    <div class="mc">
+      <div class="k">Total P50</div>
+      <div class="v">6.2<small>s</small></div>
+      <div class="base"><s>12.2s</s> <span class="delta">↓ 49%</span></div>
+    </div>
+    <div class="mc">
+      <div class="k">Total P90</div>
+      <div class="v">15.1<small>s</small></div>
+      <div class="base"><s>24.4s</s> <span class="delta">↓ 38%</span></div>
+    </div>
+    <div class="mc">
+      <div class="k">0 分 Case</div>
+      <div class="v">0</div>
+      <div class="base"><s>5</s> <span class="delta">↓ 100%</span></div>
+    </div>
+    <div class="mc">
+      <div class="k">拒识 + 待确认</div>
+      <div class="v">0</div>
+      <div class="base"><s>7</s> <span class="delta">↓ 100%</span></div>
+    </div>
+    <div class="mc">
+      <div class="k">SP Tokens</div>
+      <div class="v">16<small>K</small></div>
+      <div class="base"><s>32.8K</s> <span class="delta">↓ 51%</span></div>
+    </div>
+  </div>
+
+  <h3><span class="prefix">10.1</span>ACC 评分分布</h3>
+
+  <table>
+    <thead>
+      <tr><th>版本</th><th class="num">4 分</th><th class="num">3 分</th><th class="num">2 分</th><th class="num">1 分</th><th class="num">0 分</th><th class="num">拒识+待确认</th><th class="num">ACC</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Baseline</td><td class="num">12</td><td class="num">142</td><td class="num">28</td><td class="num">7</td><td class="num">5</td><td class="num">7</td><td class="num"><strong>79.38%</strong></td></tr>
+      <tr class="hl"><td>PE3-0415</td><td class="num">10</td><td class="num">165</td><td class="num">20</td><td class="num">3</td><td class="num"><strong>0</strong></td><td class="num">0</td><td class="num"><strong>88.38%</strong></td></tr>
+    </tbody>
+  </table>
+
+  <div class="note accent">
+    <span class="label">最值得关注的不是 ACC</span>
+    <p><strong>"0 分 case 从 5 个清零"</strong> — 这意味着<strong>彻底翻车的极端情况消失了</strong>。<br/>对车载场景至关重要：用户在车上对错误的容忍度极低，一次"完全没听懂"足以毁掉信任。</p>
+  </div>
+
+  <h3><span class="prefix">10.2</span>汇报口径（可直接复用）</h3>
+
+  <div class="pm-talk">
+    <div class="label">3 分钟版 · 电梯汇报</div>
+    <p>Planner SP 优化专项 PE3-0415 已交付。核心动作：把 32K 的 System Prompt 砍到 16K，并把 80% 的示例从静态硬塞改成动态检索。<br/>线上准确率 79.4% → 88.4%（+9pp），首包延时 2.3s → 1.0s，长尾稳定性明显改善，极端翻车 case 清零。</p>
+  </div>
+
+  <div class="pm-talk">
+    <div class="label">10 分钟版 · 评审会汇报</div>
+    <p><strong>背景：</strong>0317 收集的 178 条 badcase 中，51% 在 3.26 评审上被定性为"SP 太长导致的注意力分散"。</p>
+    <p><strong>方案：</strong>6 项优化 — 字段精简（省 90ms 延时预算）、静态+动态示例拆分、VikingDB 检索、示例抽象压缩、Badcase 闭环、三层并行架构。</p>
+    <p><strong>效果：</strong>PE3-0415 实测 ACC +9pp、首包延时 −57%、总耗时 −49%、P90 长尾 −38%、0 分 case 清零、SP tokens −51%。</p>
+    <p><strong>下一步：</strong>通过 Badcase 闭环持续迭代动态示例库；建立"静态↔动态"双向升降机制。</p>
+  </div>
+</section>
+
+<footer style="margin-top: 80px; padding-top: 24px; border-top: 1px solid var(--border); font-family: var(--font-mono); font-size: 11px; color: var(--text-faint); letter-spacing: 0.02em;">
+  <div>SOURCES: <code>raw/articles/Sp 优化专项.html</code> · <code>raw/articles/planner问题分析(0317).xlsx</code> · <code>raw/articles/planner 会议.md</code></div>
+  <div style="margin-top: 6px;">VERSION: PE3-0415 · LAST UPDATE: 2026-05-26</div>
+</footer>
+
+</main>
+</div>
+
+<script>
+// Scroll spy: highlight active TOC item
+(function() {
+  const sections = document.querySelectorAll('section[id]');
+  const tocLinks = document.querySelectorAll('nav.toc a');
+
+  function onScroll() {
+    let current = sections[0].id;
+    const scrollY = window.scrollY;
+    for (const sec of sections) {
+      if (sec.offsetTop - 100 <= scrollY) current = sec.id;
+    }
+    tocLinks.forEach(a => {
+      a.classList.toggle('active', a.getAttribute('href') === '#' + current);
+    });
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+})();
+</script>
+
+</body>
+</html>

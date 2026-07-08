@@ -1,0 +1,1590 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>豆包上车 Director/Planner 全模块串讲图文讲义</title>
+<style>
+:root{--bg:#020617;--panel:rgba(15,23,42,.82);--ink:#e8eef9;--muted:#9fb0c7;--line:#26344b;--blue:#60a5fa;--cyan:#22d3ee;--green:#34d399;--amber:#fbbf24;--orange:#fb923c;--rose:#fb7185;--violet:#a78bfa;}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;color:var(--ink);line-height:1.82;font-family:ui-sans-serif,system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:linear-gradient(rgba(20,30,55,.18) 1px,transparent 1px),linear-gradient(90deg,rgba(20,30,55,.18) 1px,transparent 1px),radial-gradient(circle at 10% 2%,rgba(34,211,238,.10),transparent 22%),radial-gradient(circle at 90% 0,rgba(96,165,250,.10),transparent 28%),var(--bg);background-size:48px 48px,48px 48px,auto,auto,auto;}
+.w{max-width:880px;margin:0 auto;padding:32px 24px 140px}
+h1{font-size:27px;margin:0 0 6px;color:#f1f5f9}
+.lead{color:var(--muted);font-size:14.5px;margin:0 0 32px;line-height:1.7}
+h2{font-size:22px;margin:52px 0 10px;padding-bottom:8px;border-bottom:2px solid var(--line);color:#f1f5f9}
+h3{font-size:17px;margin:30px 0 8px;color:var(--cyan)}
+h4{font-size:15px;margin:22px 0 6px;color:#cbd5e1}
+p{margin:10px 0;font-size:15px}
+svg{max-width:100%;height:auto;display:block;margin:16px 0}
+.legend{display:flex;flex-wrap:wrap;gap:10px;font-size:12px;color:var(--muted);margin:6px 0 14px}
+.legend span{display:inline-flex;align-items:center;gap:5px}.legend i{width:11px;height:11px;border-radius:3px;display:inline-block}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+th{background:rgba(30,41,59,.7);color:#e2e8f0;font-weight:700}
+td code,p code,li code{color:#7dd3fc;background:rgba(8,47,73,.5);border:1px solid rgba(34,211,238,.18);border-radius:4px;padding:1px 5px;font-size:12.5px}
+tr:nth-child(even) td{background:rgba(15,23,42,.4)}
+pre{background:#040a18;border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow:auto;font-size:13px;color:#cbd5e1;margin:12px 0;line-height:1.65}
+ul,ol{margin:8px 0;padding-left:22px}li{margin:5px 0;font-size:15px}
+blockquote{margin:14px 0;padding:14px 18px;border-left:4px solid var(--blue);background:rgba(30,64,175,.12);border-radius:0 8px 8px 0;color:#bfdbfe;font-size:14.5px}
+.warn{margin:14px 0;padding:14px 18px;border-left:4px solid var(--orange);background:rgba(124,45,18,.18);border-radius:0 8px 8px 0;color:#fed7aa;font-size:14.5px}
+.eg{margin:14px 0;padding:14px 18px;border:1px solid rgba(52,211,153,.3);background:rgba(6,78,59,.16);border-radius:8px;font-size:14.5px}
+.key{margin:14px 0;padding:14px 18px;border:1px solid rgba(34,211,238,.3);background:rgba(8,47,73,.25);border-radius:8px;font-size:14.5px}
+hr{border:none;border-top:1px solid var(--line);margin:40px 0}
+</style>
+</head>
+<body>
+<div class="w">
+
+<h1>豆包上车 Director/Planner 架构 · 全模块串讲图文讲义</h1>
+<p class="lead">一份文档，从第一章到最后一章串着讲——系统全景 → 入口分流 → Director 与 ReAct → SP 结构与优化（静态示例/动态示例/动态知识三套加载体系）→ 公共 Context → 前置筛选 → goal list → 交互冲突 → 执行层 → 4个静态 Advisor → 动态 Advisor → 感知订阅 → VLM/Watcher。每个模块都有流程图 + 讲到底层的文字。基于 planner 架构/ 和 advisor 架构/ 全部 21 份文档精读。</p>
+
+<!-- ==================== 第一章 ==================== -->
+<h2>第一章 · 系统全景：三层漏斗 + 目标驱动</h2>
+
+<h3>1.1 全景流程图</h3>
+<svg viewBox="0 0 860 380" style="background:#0b1222;border-radius:10px;padding:8px">
+<defs><marker id="a1" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6Z" fill="#94a3b8"/></marker></defs>
+<rect x="30" y="8" width="800" height="32" rx="6" fill="rgba(167,139,250,.12)" stroke="#a78bfa"/>
+<text x="430" y="29" fill="#c4b5fd" font-size="11" text-anchor="middle" font-weight="700">公共Context(13类) + goal list看板 + 前置筛选(知识检索+动态示例+动态知识)</text>
+<rect x="30" y="160" width="84" height="42" rx="6" fill="rgba(34,211,238,.12)" stroke="#22d3ee"/>
+<text x="72" y="180" fill="#e8eef9" font-size="11" text-anchor="middle">用户语音</text><text x="72" y="194" fill="#9fb0c7" font-size="9" text-anchor="middle">ASR</text>
+<rect x="132" y="160" width="100" height="42" rx="6" fill="rgba(52,211,153,.12)" stroke="#34d399"/>
+<text x="182" y="178" fill="#e8eef9" font-size="10" text-anchor="middle">①句法RAG</text><text x="182" y="194" fill="#9fb0c7" font-size="9" text-anchor="middle">规则匹配·毫秒级</text>
+<rect x="250" y="100" width="96" height="38" rx="6" fill="rgba(52,211,153,.12)" stroke="#34d399"/>
+<text x="298" y="120" fill="#e8eef9" font-size="10" text-anchor="middle">端侧快执行</text><text x="298" y="132" fill="#34d399" font-size="9" text-anchor="middle">≈150ms</text>
+<rect x="250" y="160" width="96" height="42" rx="6" fill="rgba(96,165,250,.12)" stroke="#60a5fa"/>
+<text x="298" y="178" fill="#e8eef9" font-size="10" text-anchor="middle">②情景RAG</text><text x="298" y="194" fill="#9fb0c7" font-size="9" text-anchor="middle">few-shot注入</text>
+<rect x="364" y="160" width="96" height="42" rx="6" fill="rgba(96,165,250,.12)" stroke="#60a5fa"/>
+<text x="412" y="178" fill="#e8eef9" font-size="10" text-anchor="middle">③仲裁模型</text><text x="412" y="194" fill="#9fb0c7" font-size="9" text-anchor="middle">简单/复杂</text>
+<rect x="480" y="130" width="180" height="96" rx="8" fill="rgba(30,64,175,.18)" stroke="#60a5fa" stroke-width="1.5"/>
+<text x="570" y="152" fill="#bfdbfe" font-size="12" text-anchor="middle" font-weight="700">Director / Planner</text>
+<text x="570" y="168" fill="#9fb0c7" font-size="9" text-anchor="middle">ReAct循环 · 26工具 · Seed-1.8</text>
+<text x="570" y="182" fill="#9fb0c7" font-size="9" text-anchor="middle">5字段输出(含情绪/emoji)</text>
+<text x="570" y="196" fill="#fcd34d" font-size="9" text-anchor="middle">SP: 32806→16000tk(优化后)</text>
+<text x="570" y="210" fill="#9fb0c7" font-size="9" text-anchor="middle">静态10+动态5示例+动态知识</text>
+<text x="570" y="222" fill="#9fb0c7" font-size="9" text-anchor="middle">首包P50: 2309→998ms</text>
+<rect x="680" y="138" width="100" height="40" rx="6" fill="rgba(251,191,36,.12)" stroke="#fbbf24"/>
+<text x="730" y="156" fill="#e8eef9" font-size="10" text-anchor="middle">26个工具</text><text x="730" y="170" fill="#9fb0c7" font-size="9" text-anchor="middle">FC调用</text>
+<rect x="680" y="56" width="150" height="68" rx="7" fill="rgba(167,139,250,.12)" stroke="#a78bfa"/>
+<text x="755" y="74" fill="#c4b5fd" font-size="10" text-anchor="middle" font-weight="700">目标驱动协作层</text>
+<text x="755" y="90" fill="#9fb0c7" font-size="9" text-anchor="middle">4静态advisor(舒适/出行/内容/情感)</text>
+<text x="755" y="104" fill="#9fb0c7" font-size="9" text-anchor="middle">动态advisor(9套prompt·4类任务)</text>
+<text x="755" y="118" fill="#9fb0c7" font-size="9" text-anchor="middle">感知订阅·VLM阈值穿越</text>
+<rect x="30" y="330" width="800" height="32" rx="6" fill="rgba(15,23,42,.9)" stroke="#64748b"/>
+<text x="430" y="351" fill="#cbd5e1" font-size="10" text-anchor="middle">HMI(单通路语音管道·打断/合并/排队/6策略·小卡/大卡/通知卡) + 任务工程管理(打断/恢复/挂起)</text>
+<!-- arrows -->
+<line x1="114" y1="181" x2="130" y2="181" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#a1)"/>
+<path d="M232,172 C242,172 242,119 248,119" fill="none" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#a1)"/>
+<path d="M232,185 L248,185" fill="none" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#a1)"/>
+<line x1="346" y1="181" x2="362" y2="181" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#a1)"/>
+<line x1="460" y1="181" x2="478" y2="181" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#a1)"/>
+<line x1="660" y1="170" x2="678" y2="158" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#a1)"/>
+<path d="M730,138 L730,124" fill="none" stroke="#a78bfa" stroke-width="1.1" marker-end="url(#a1)"/>
+<path d="M755,124 C755,270 630,250 618,222" fill="none" stroke="#a78bfa" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#a1)"/>
+<text x="690" y="250" fill="#a78bfa" font-size="9">advisor建议→Director</text>
+<path d="M730,178 L730,330" fill="none" stroke="#64748b" stroke-width="1" stroke-dasharray="3 3" marker-end="url(#a1)"/>
+<path d="M430" y="40" L="570,128" fill="none" stroke="#a78bfa" stroke-width="1" stroke-dasharray="4 3"/>
+</svg>
+<div class="legend"><span><i style="background:#22d3ee"></i>端点</span><span><i style="background:#34d399"></i>端侧/RAG</span><span><i style="background:#60a5fa"></i>推理/Director</span><span><i style="background:#fbbf24"></i>执行</span><span><i style="background:#a78bfa"></i>目标驱动/Context</span></div>
+
+<h3>1.2 为什么是三层漏斗</h3>
+
+<p>车载场景对时延极敏感——"打开车窗"期望 150ms 响应，但"帮我规划周末自驾游"用户能接受等几秒。<b>一个大模型处理所有请求，简单的也要等 500ms+，不可接受；只用规则引擎，复杂的处理不了</b>。所以系统被设计成三层漏斗，越简单的越早被拦住。</p>
+
+<p>设计三原则（原文）：① <b>层层过滤</b>——能简单搞定的不漏后面；② <b>分阶段注入知识</b>——从固定规则到动态检索；③ <b>数据回流</b>——Planner 处理的难 case 回流训练前面的层，让漏斗自己变聪明。</p>
+
+<p>原文对这个设计的评价：<b>"这是一个过渡方案。如果后面模型能力提升起来了，把漏斗的下层提到前面去就行了——工作量非常小，是一个可以持续演进的架构。"</b></p>
+
+<h3>1.3 三层各自是什么</h3>
+
+<h4>第一层：句法 RAG</h4>
+<p><b>本质</b>：规则匹配 + 工程直接下发，不涉及大模型。处理"明确的单轮 query"。</p>
+<p><b>输入</b>：单轮 query 文本。</p>
+<p><b>输出</b>（原文 JSON 格式）：</p>
+<pre>{"type":"directExecute", "reject_ornot":"react/reject", "talk_content":"", "task_list":[...]}</pre>
+<p><code>type="directExecute"</code> 表示不需要模型，直接执行。<code>reject_ornot="reject"</code> 表示拒识（如"妈妈帮我拿水杯"→reject）。时延：毫秒级。</p>
+
+<h4>第二层：情景 RAG + 仲裁模型</h4>
+<p><b>情景 RAG</b> 不直接给答案，而是<b>给仲裁模型"补课"</b>——把场景知识以 few-shot 注入。输出格式：</p>
+<pre>{"type":"modelExecute", "knowledge":"当空调关闭时，'我好热'通常意味着需要开空调...", "agentLimit":[...]}</pre>
+<p><code>type="modelExecute"</code> 表示需要模型处理。<code>knowledge</code> 是 few-shot 示例，<code>agentLimit</code> 是能力边界约束。注意：<b>情景 RAG 只注入知识，不给结论</b>。</p>
+
+<p><b>仲裁模型（Seed1.6 flash SFT）</b>接收注入了知识的 query，判断简单/复杂。为什么用轻模型？因为只做二分类，不需要深度推理，大模型做这事太浪费时延。</p>
+
+<p>判定规则：<b>"未拒识 + 仲裁为车控 + 命中6大意图"三个同时满足 → 简单快车道</b>（FC.SFT 300ms → 端控 150ms）；<b>任何一个不满足 → 复杂 → Director</b>（思考 500ms + 回答 500ms）。设计逻辑：<b>宁可让复杂的走慢路，不可让简单的走错路</b>。</p>
+
+<div class="warn"><b>仲裁误判三大根因</b>（原文）：① <b>输入太单一</b>——同一句"我好热"因车况不同结论完全不同，如果情景 RAG 没注入正确的车况 knowledge 仲裁就判错；② <b>靠造数据学习，case 造不完</b>——"仍然是 NLU 的人肉解 bug 方法"；③ <b>意图处理信息量太少</b>——车控有上千函数，粗分类后从千函数里选效果很差。原文类比："人说到热，就只在开窗、空调、加热几个选项里想，不会想到车控这个大类然后在1千个范围内搜索。"</div>
+
+<h4>第三层：Director / Planner</h4>
+<p>漏斗最底层，云端大模型深度推理。详见第二章。它有双重身份：<b>兜底</b>（前面都接不住的它接）+ <b>云端 teacher</b>（它处理完的数据回流训练前面的层）。</p>
+
+<hr>
+
+<!-- ==================== 第二章 入口分流 ==================== -->
+<h2>第二章 · 入口分流：三级拒识 + 仲裁 + 端云协同降级</h2>
+
+<h3>2.1 分流流程图</h3>
+<svg viewBox="0 0 860 220" style="background:#0b1222;border-radius:10px;padding:8px">
+<defs><marker id="a2" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6Z" fill="#94a3b8"/></marker></defs>
+<rect x="16" y="80" width="110" height="50" rx="6" fill="rgba(34,211,238,.12)" stroke="#22d3ee"/>
+<text x="71" y="100" fill="#e8eef9" font-size="10" text-anchor="middle">① query进入</text><text x="71" y="118" fill="#9fb0c7" font-size="9" text-anchor="middle">"空调调低点"</text>
+<rect x="146" y="80" width="120" height="50" rx="6" fill="rgba(52,211,153,.12)" stroke="#34d399"/>
+<text x="206" y="100" fill="#e8eef9" font-size="10" text-anchor="middle">② 端侧白名单+fc</text><text x="206" y="118" fill="#9fb0c7" font-size="9" text-anchor="middle">命中？</text>
+<rect x="296" y="24" width="130" height="40" rx="6" fill="rgba(52,211,153,.12)" stroke="#34d399"/>
+<text x="361" y="42" fill="#e8eef9" font-size="10" text-anchor="middle">命中→端侧执行</text><text x="361" y="56" fill="#34d399" font-size="9" text-anchor="middle">≈150ms</text>
+<rect x="296" y="80" width="130" height="50" rx="6" fill="rgba(251,113,133,.12)" stroke="#fb7185"/>
+<text x="361" y="100" fill="#e8eef9" font-size="10" text-anchor="middle">③ 云侧拒识</text><text x="361" y="118" fill="#9fb0c7" font-size="9" text-anchor="middle">该不该车机处理？</text>
+<rect x="296" y="160" width="130" height="40" rx="6" fill="rgba(167,139,250,.12)" stroke="#a78bfa"/>
+<text x="361" y="178" fill="#e8eef9" font-size="10" text-anchor="middle">reject→advisor感知</text><text x="361" y="192" fill="#9fb0c7" font-size="9" text-anchor="middle">写context事件日志</text>
+<rect x="456" y="80" width="120" height="50" rx="6" fill="rgba(96,165,250,.12)" stroke="#60a5fa"/>
+<text x="516" y="100" fill="#e8eef9" font-size="10" text-anchor="middle">④ 仲裁模型</text><text x="516" y="118" fill="#9fb0c7" font-size="9" text-anchor="middle">Seed1.6 flash SFT</text>
+<rect x="606" y="44" width="130" height="38" rx="6" fill="rgba(251,191,36,.12)" stroke="#fbbf24"/>
+<text x="671" y="60" fill="#e8eef9" font-size="10" text-anchor="middle">简单→快车道</text><text x="671" y="74" fill="#9fb0c7" font-size="9" text-anchor="middle">FC 300ms+端控150ms</text>
+<rect x="606" y="100" width="130" height="38" rx="6" fill="rgba(96,165,250,.12)" stroke="#60a5fa"/>
+<text x="671" y="116" fill="#e8eef9" font-size="10" text-anchor="middle">复杂→Director</text><text x="671" y="130" fill="#9fb0c7" font-size="9" text-anchor="middle">思考500ms+回答500ms</text>
+<rect x="760" y="80" width="80" height="56" rx="6" fill="rgba(30,64,175,.15)" stroke="#60a5fa"/>
+<text x="800" y="104" fill="#bfdbfe" font-size="10" text-anchor="middle">⑤Director</text><text x="800" y="118" fill="#9fb0c7" font-size="9" text-anchor="middle">内部兜底</text><text x="800" y="130" fill="#9fb0c7" font-size="8" text-anchor="middle">再拒一次</text>
+<line x1="126" y1="105" x2="144" y2="105" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#a2)"/>
+<path d="M266,95 L294,44" fill="none" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#a2)"/><text x="278" y="62" fill="#34d399" font-size="8">命中</text>
+<path d="M266,110 L294,105" fill="none" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#a2)"/><text x="278" y="102" fill="#fb7185" font-size="8">未命中</text>
+<path d="M361,130 L361,158" fill="none" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#a2)"/><text x="374" y="148" fill="#fb7185" font-size="8">reject</text>
+<path d="M426,105 L454,105" fill="none" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#a2)"/><text x="438" y="98" fill="#60a5fa" font-size="8">召回</text>
+<path d="M576,98 L604,63" fill="none" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#a2)"/><text x="588" y="74" fill="#fbbf24" font-size="8">简单</text>
+<path d="M576,112 L604,119" fill="none" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#a2)"/><text x="588" y="120" fill="#60a5fa" font-size="8">复杂</text>
+<path d="M736,119 L758,110" fill="none" stroke="#94a3b8" stroke-width="1.1" marker-end="url(#a2)"/>
+</svg>
+
+<h3>2.2 三级拒识逐级详解</h3>
+
+<h4>第一级：端侧白名单 + 离线 fc 模型</h4>
+<p><b>位置</b>：端侧（车机本地），不上云。<b>组成</b>：离线 fc 小模型 + 一张白名单（已知的高频车控指令集）。</p>
+<p><b>判定逻辑</b>：query 进来 → fc 模型做 function call 匹配 → 匹配结果在白名单里？→ 是 → <b>端侧直接执行（≈150ms）</b>，不上云。不是 → <b>优先云端</b>，同时上报。</p>
+<p><b>白名单的作用</b>：fc 模型可能把"我好热"也匹配到"打开空调"，但这不一定对。白名单做<b>双保险</b>——fc 匹配了也要在白名单里才端侧执行，否则交云端。白名单由车厂可配置。</p>
+<p><b>端云协同超时降级</b>（完整链路）：云端超时无结果 → 看端侧 fc 有结果吗？→ 有 → 采纳端侧；无 → 超时播报兜底（"抱歉没听清"）。</p>
+
+<div class="eg"><b>完整时序举例</b>："帮我查下油耗"→ ASR 200ms → 端侧 fc 匹配到 search_vehicle_status_info → 不在白名单（白名单只有简单车控如开关窗/调温度）→ 上云 → <b>情况A</b>：云端 500ms 内返回 → 走云端结果；<b>情况B</b>：云端超时 → 端侧 fc 有结果 → 采纳端侧；<b>情况C</b>：云端超时 + 端侧也没匹配 → 兜底播报。</div>
+
+<h4>第二级：云侧前置拒识</h4>
+<p><b>位置</b>：云端，Director 之前。<b>判定</b>：这句话该不该由车机处理？<b>拒识不丢弃</b>——写入 context 事件日志被 advisor 感知。</p>
+
+<blockquote><b>为什么拒识不丢弃？</b>"妈妈帮我拿水杯"车机做不了→reject。但这句话透露"车里可能有小孩"。拒识内容写入事件日志后，情感advisor扫描到→可能触发主动服务（"车内有儿童，温度偏高，建议调低"）。<b>拒识的 query 不是没用的，只是不该由 Director 直接处理</b>。</blockquote>
+
+<p><b>拒识超时</b>：如果拒识模型没来得及返回 → 交给 Director（宁可慢不可无响应）。</p>
+
+<h4>第三级：Director 内部兜底</h4>
+<p>在 <code>plan_describe</code> 阶段之前再拒一次。原文承认"该方式存在格式输出不符合规定等缺点"——已知 bug。</p>
+
+<h3>2.3 仲裁完整判定树</h3>
+<table>
+<tr><th>条件</th><th>结果</th><th>走哪条路</th></tr>
+<tr><td>离线fc<b>命中白名单</b></td><td>端侧直接执行</td><td>不上云，≈150ms</td></tr>
+<tr><td>离线fc<b>未命中</b></td><td>上云，优先云端</td><td>超时→端上→兜底（三级降级）</td></tr>
+<tr><td>云端<b>未拒识+车控+6大意图</b>(三个同时满足)</td><td>给fc模型</td><td>简单快车道(300ms+150ms)</td></tr>
+<tr><td>条件<b>不同时成立</b> / 拒识超时</td><td>给Director</td><td>复杂慢思考(500ms+500ms) / 兜底</td></tr>
+<tr><td><b>拒识成功</b></td><td>写context事件日志</td><td>不走Director，可能触发advisor主动服务</td></tr>
+</table>
+
+<h3>2.4 时延预算 + SP优化实测</h3>
+<table>
+<tr><th>指标</th><th>优化前(Baseline)</th><th>优化后(PE3-0415)</th><th>变化</th></tr>
+<tr><td>SP tokens</td><td>32806</td><td>~16000</td><td>降51%</td></tr>
+<tr><td>首包P50</td><td>2309ms</td><td>998ms</td><td><b>降57%</b></td></tr>
+<tr><td>首包P90</td><td>3439ms</td><td>1317ms</td><td>降62%</td></tr>
+<tr><td>总耗时P50</td><td>12231ms</td><td>6179ms</td><td>降49%</td></tr>
+<tr><td>拒识ACC</td><td>79.38%</td><td>88.38%</td><td>升9pp</td></tr>
+</table>
+<p><b>目标</b>：P50首token≤500ms，P90≤800ms，推理ACC≥90%，端状态ACC≥93%。</p>
+
+<hr>
+
+<!-- ==================== 第三章 Director ==================== -->
+<h2>第三章 · Director 本体：什么是 ReAct、怎么运行、什么时候结束</h2>
+
+<h3>3.1 ReAct 流程图</h3>
+<svg viewBox="0 0 860 240" style="background:#0b1222;border-radius:10px;padding:8px">
+<defs><marker id="a3" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6Z" fill="#94a3b8"/></marker></defs>
+<rect x="16" y="16" width="130" height="30" rx="5" fill="rgba(34,211,238,.12)" stroke="#22d3ee"/>
+<text x="81" y="36" fill="#e8eef9" font-size="10" text-anchor="middle">user_query(含7字段)</text>
+<rect x="16" y="54" width="130" height="26" rx="5" fill="rgba(167,139,250,.12)" stroke="#a78bfa"/>
+<text x="81" y="72" fill="#e8eef9" font-size="10" text-anchor="middle">advisor建议</text>
+<rect x="16" y="88" width="130" height="26" rx="5" fill="rgba(251,191,36,.12)" stroke="#fbbf24"/>
+<text x="81" y="106" fill="#e8eef9" font-size="10" text-anchor="middle">tool_feedback</text>
+<!-- 第一次推理 -->
+<rect x="176" y="28" width="156" height="80" rx="7" fill="rgba(30,64,175,.2)" stroke="#60a5fa" stroke-width="1.4"/>
+<text x="254" y="50" fill="#bfdbfe" font-size="12" text-anchor="middle" font-weight="700">①第一次推理</text>
+<text x="254" y="68" fill="#9fb0c7" font-size="9" text-anchor="middle">读SP(13块)+UP(三输入)</text>
+<text x="254" y="82" fill="#9fb0c7" font-size="9" text-anchor="middle">先快回一句(首token≤500ms)</text>
+<text x="254" y="96" fill="#9fb0c7" font-size="9" text-anchor="middle">→出5字段JSON</text>
+<!-- 工具 -->
+<rect x="370" y="28" width="140" height="80" rx="7" fill="rgba(251,191,36,.12)" stroke="#fbbf24"/>
+<text x="440" y="50" fill="#e8eef9" font-size="11" text-anchor="middle">②工具执行</text>
+<text x="440" y="68" fill="#9fb0c7" font-size="9" text-anchor="middle">action_list里的工具</text>
+<text x="440" y="82" fill="#9fb0c7" font-size="9" text-anchor="middle">一agent一任务</text>
+<text x="440" y="96" fill="#9fb0c7" font-size="9" text-anchor="middle">成功/失败→feedback</text>
+<!-- 二次推理 -->
+<rect x="176" y="140" width="156" height="66" rx="7" fill="rgba(30,64,175,.2)" stroke="#60a5fa"/>
+<text x="254" y="162" fill="#bfdbfe" font-size="12" text-anchor="middle" font-weight="700">③二次推理</text>
+<text x="254" y="180" fill="#9fb0c7" font-size="9" text-anchor="middle">读feedback→判断：</text>
+<text x="254" y="194" fill="#9fb0c7" font-size="9" text-anchor="middle">A总结告诉用户 B继续调工具 C结束</text>
+<!-- 结束 -->
+<rect x="370" y="148" width="140" height="50" rx="7" fill="rgba(34,211,238,.12)" stroke="#22d3ee"/>
+<text x="440" y="168" fill="#e8eef9" font-size="11" text-anchor="middle">④结束/回用户</text>
+<text x="440" y="184" fill="#9fb0c7" font-size="9" text-anchor="middle">talk_content→TTS</text>
+<text x="440" y="196" fill="#9fb0c7" font-size="9" text-anchor="middle">emoji_id→形象动画</text>
+<!-- arrows -->
+<line x1="146" y1="31" x2="174" y2="48" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#a3)"/>
+<line x1="146" y1="67" x2="174" y2="68" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#a3)"/>
+<line x1="146" y1="101" x2="174" y2="100" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#a3)"/>
+<line x1="332" y1="68" x2="368" y2="68" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#a3)"/><text x="349" y="60" fill="#fbbf24" font-size="8">action</text>
+<path d="M440,108 L440,128 C440,138 340,138 310,140" fill="none" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#a3)"/><text x="380" y="130" fill="#9fb0c7" font-size="8">feedback回灌</text>
+<line x1="332" y1="173" x2="368" y2="173" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#a3)"/><text x="349" y="166" fill="#22d3ee" font-size="8">结束</text>
+<path d="M254,140 C230,130 210,120 195,110" fill="none" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#a3)"/><text x="204" y="128" fill="#9fb0c7" font-size="8">继续→再出JSON</text>
+</svg>
+
+<h3>3.2 什么是 ReAct</h3>
+
+<p>ReAct = <b>Reason + Act</b>（推理+行动）的循环。传统的 LLM 调用是"一次性想完所有事然后输出"，ReAct 不同——它是<b>想一步→做一步→看结果→再想下一步</b>。为什么车载场景要用 ReAct？因为工具的返回是<b>不确定的</b>——导航可能找不到地址、记忆可能没有、联网可能超时。"一次性想完再做"在不确定环境下容易出错；"想一步做一步"每步都基于真实反馈，稳定性高得多。</p>
+
+<h3>3.3 ReAct 怎么运行（逐步）</h3>
+
+<p><b>Step ①：第一次推理</b>。Director 收到三种输入之一（user_query / advisor / tool_feedback），结合 SP（13块系统提示词）做推理。它做的第一件事是<b>先快速回一句话</b>（首 token 在 500ms 内出来），让用户感到"它听到了"——这是体验优化，哪怕后面还要花几百毫秒调工具，用户已经不焦虑了。然后输出 5 字段 JSON。</p>
+
+<p><b>Step ②：工具执行</b>。<code>action_list</code> 里指定了调哪些工具、传什么参数。工具按 FC（Function Call）方式被调用，<b>一个 agent 只执行一个任务</b>。如果多个工具<b>有串行依赖</b>（先查记忆拿地址→再导航到该地址），<b>不能一次性全输出</b>（注意事项第6条）——必须先调第一个、等 feedback 回来，再决定是否调第二个。但<b>无依赖的可以并行</b>（如调空调+放音乐）。</p>
+
+<p><b>Step ③：二次推理（ReAct 的核心）</b>。工具返回 <code>tool_feedback</code>（如"导航成功"或"地址未找到"），Director 读取 feedback 做<b>二次推理</b>，判断三种情况：</p>
+
+<ul>
+<li><b>A. 任务完成 → 总结告诉用户</b>（或不说话——车窗关了用户能感受到，不必多嘴）</li>
+<li><b>B. 需要更多信息 → 继续调另一个工具</b>（回到 Step①再出一个 JSON）→ 这就是 ReAct <b>循环</b></li>
+<li><b>C. 失败 → Replan</b>——端上回传"未成功的原始任务 + 具体失败原因"，Director 综合当前上下文重新生成计划</li>
+</ul>
+
+<h3>3.4 什么时候结束</h3>
+
+<p>ReAct 的循环<b>没有固定的最大轮次上限</b>（至少在 PRD 层面没有明确写）。它的终止条件是：</p>
+
+<ol>
+<li><b>任务完成</b>：Director 判断所有 action 都成功完成了 → 输出最终的 talk_content（或静默）→ 结束</li>
+<li><b>失败且无法 Replan</b>：工具反复调用失败 → 注意事项第8条"工具反复调用失败时，可暂时放弃" → Director 输出告知用户的话术 → 结束</li>
+<li><b>用户打断</b>：用户在 Director 推理/播报期间说了新的话 → 触发交互管理的打断逻辑（详见第八章）→ 当前 ReAct 被打断，新 query 开始新的推理</li>
+<li><b>Director 判断不需要行动</b>：有时候 Director 读完 feedback 后决定"不需要再做什么了"→ <code>action_list: []</code> + 可能说一句话或静默 → 结束</li>
+</ol>
+
+<div class="eg"><b>"去昨天游泳馆"走两轮 ReAct</b>：<br>
+<b>第一轮</b>：Director 发现需要查记忆才知道"昨天游泳馆"是哪 → 输出 <code>action_list:[{tool:"search_user_memory", params:{query:"去过的游泳馆"}}]</code> → 同时 talk_content:"好的，我帮你查一下"（先快回一句）。<br>
+<b>工具返回</b>：<code>tool_feedback:"昨天去了虹桥游泳馆"</code>。<br>
+<b>第二轮</b>（feedback回灌触发二次推理）：有地址了 → 输出 <code>action_list:[{tool:"route_planning_qa", params:{query:"导航到虹桥游泳馆"}}]</code> → talk_or_not:"no"（不说话，直接导航）。<br>
+<b>工具返回</b>：<code>tool_feedback:"导航成功"</code>。<br>
+<b>第三轮</b>（再一次feedback）：导航成功了 → action_list:[] → talk_or_not:"no"（静默，用户能看到导航画面）→ <b>结束</b>。<br>
+整个过程：一次调用、三轮推理、两次工具调用。</div>
+
+<h3>3.5 三种输入各长什么样</h3>
+
+<p><b>user_query</b>（7个字段）：</p>
+<pre>{
+  "query": "去昨天游泳馆",
+  "speaker_name": "明骏",
+  "speaker_position": "主驾驶位",
+  "timestamp": "2026-04-13T14:30:05Z",        // ISO8601，用于推算时间间隔
+  "assistant_emotional_state": "平静",          // 上一轮情绪，保持连贯
+  "goal_list": "1.帮小明点肯德基(进行中)",       // 当前目标队列，直传不用再调工具查
+  "env_info": "车速45km/h，导航未设置，位于上海中山东一路"  // 最新车况，直传
+}</pre>
+
+<p><code>timestamp</code> 让 Director 能做<b>自我时间感知</b>：对比当前时间戳与记忆中的"上次见面时间" → 超 30 天 → "好久不见"开场；超 5 分钟 → 主动确认上个任务是否继续。<code>goal_list</code> 和 <code>env_info</code> <b>随输入直传</b>，原文说"可直接参考它们来编排行动，<b>避免不必要的工具调用</b>"——能从输入读的车况/目标别再调 <code>search_vehicle_status_info</code> 查。</p>
+
+<p><b>advisor</b>：<code>{"advisor":"车内温度35度，建议开启空调强力制冷和座椅通风"}</code>。<b>不回应 advisor</b>，直接面向用户做行动和表达。这不是用户说的话。</p>
+
+<p><b>tool_feedback</b>：<code>{"tool_feedback":"导航成功","tool_name":"route_planning_qa"}</code>。触发二次推理。对于简单成功（"车窗已关闭"），Director 通常<b>不说话</b>（talk_or_not:"no"）——用户能感受到结果。</p>
+
+<h3>3.6 五个输出字段</h3>
+<pre>{
+  "talk_or_not": "yes",                          // 可以选择不说话
+  "talk_content": "[轻声地] 后排左侧还没系安全带",  // 可带情绪标签[开心地说]/[唱]
+  "emoji_id": "speaking",                         // 17选1形象动画
+  "emotional_state_change": "关切",               // 仅情绪变化时输出，相同则省略
+  "action_list": [{"action_id":"1","params":{"query":"后排安全带状态"},"tool_name":"search_visual_info"}]
+}</pre>
+
+<p><b>情绪状态机</b>（6态）：平静(默认) / 欣喜 / 关切 / 低落 / 生气 / 好奇。转换规则：</p>
+<ul>
+<li><b>不能突变</b>：低落→不能直接欣喜，需经平静过渡</li>
+<li><b>关切惯性</b>：关切状态下即使中性任务也保持关切，不能秒变欣喜</li>
+<li>用户明确表达情绪好转 → 消退为平静</li>
+<li>被责骂 → 生气/低落，道歉后消退</li>
+<li>久别重逢 → 平静可直接进欣喜</li>
+</ul>
+
+<div class="eg"><b>情绪连贯示例</b>：用户说"豆包，我被裁员了" → Director 输出 emotional_state_change:"关切"，talk_content:"[轻声地] 雨晴……这事来得太突然了"。下一轮用户说"放首安静的歌" → Director <b>保持关切</b>（不输出 emotional_state_change 因为没变），talk_content:"[轻声地] 好。放一首没有歌词的"。直到用户说"好多了，谢谢" → 消退为平静。</div>
+
+<h3>3.7 Director 的职责边界</h3>
+<ul>
+<li><b>P0 目标增删</b>：据 query 判断是否需要新建/删除目标（调 goal_list_update 工具）</li>
+<li><b>P0 动态 advisor 增删</b>：据 query 判断是否需要创建/删除动态 advisor</li>
+<li><b>P1 合理性仲裁</b>：增删时校验——感知条件能不能监测到？触发频率合不合理（"每200ms播报NBA"不合理）？动作是否矛盾（"同条件下又开又关空调"）？是否违反价值观？</li>
+</ul>
+<blockquote><b>核心约束</b>：Director <b>明确不更新</b>目标的"细节和进展"——这个写权限收归 advisor。Director 只管"建/删目标+快速响应"，"盯进度/改进展"交给 advisor。这是为了避免 Director 与 advisor 双写冲突——如果两边都能改进展，Director 写"宝宝在睡觉"的同时 advisor 写"宝宝醒了在哭"，谁的为准？</blockquote>
+
+<hr>
+
+<!-- ==================== 第四章 SP ==================== -->
+<h2>第四章 · SP 结构与优化：13 块骨架 + 三套加载体系（静态示例/动态示例/动态知识）</h2>
+
+<h3>4.1 SP 骨架图</h3>
+<svg viewBox="0 0 860 420" style="background:#0b1222;border-radius:10px;padding:8px">
+<defs><marker id="a4" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6Z" fill="#94a3b8"/></marker></defs>
+<text x="200" y="18" fill="#9fb0c7" font-size="11" text-anchor="middle">SP 13块（写进模型的顺序）</text>
+<rect x="30" y="28" width="380" height="22" rx="5" fill="rgba(30,64,175,.2)" stroke="#60a5fa"/><text x="44" y="43" fill="#e8eef9" font-size="10">① 角色定义</text>
+<rect x="30" y="54" width="380" height="22" rx="5" fill="rgba(30,64,175,.2)" stroke="#60a5fa"/><text x="44" y="69" fill="#e8eef9" font-size="10">② 输入格式（3类7字段）</text>
+<rect x="30" y="80" width="380" height="22" rx="5" fill="rgba(30,64,175,.2)" stroke="#60a5fa"/><text x="44" y="95" fill="#e8eef9" font-size="10">③ 26个工具定义（2769tk）</text>
+<rect x="30" y="106" width="380" height="22" rx="5" fill="rgba(30,64,175,.2)" stroke="#60a5fa"/><text x="44" y="121" fill="#e8eef9" font-size="10">④ 输出格式（5字段）</text>
+<rect x="30" y="132" width="380" height="22" rx="5" fill="rgba(30,64,175,.2)" stroke="#60a5fa"/><text x="44" y="147" fill="#e8eef9" font-size="10">⑤ 14条注意事项</text>
+<rect x="30" y="158" width="380" height="30" rx="5" fill="rgba(167,139,250,.2)" stroke="#a78bfa" stroke-width="1.3"/><text x="44" y="178" fill="#c4b5fd" font-size="11" font-weight="700">⑥ 参考示例 ← SP体积主力(原26164tk/80%)</text>
+<rect x="30" y="192" width="380" height="22" rx="5" fill="rgba(30,64,175,.2)" stroke="#60a5fa"/><text x="44" y="207" fill="#e8eef9" font-size="10">⑦ 17个emoji表情</text>
+<rect x="30" y="218" width="380" height="22" rx="5" fill="rgba(30,64,175,.2)" stroke="#60a5fa"/><text x="44" y="233" fill="#e8eef9" font-size="10">⑧ D6X设备知识（防车控幻觉护栏，914tk）</text>
+<rect x="30" y="244" width="380" height="22" rx="5" fill="rgba(30,64,175,.2)" stroke="#60a5fa"/><text x="44" y="259" fill="#e8eef9" font-size="10">⑨ 工具tips（10条，含4导航不可并行）</text>
+<rect x="30" y="270" width="380" height="22" rx="5" fill="rgba(30,64,175,.2)" stroke="#60a5fa"/><text x="44" y="285" fill="#e8eef9" font-size="10">⑩ 其他知识 ⑪ 聊天风格 ⑫ 基础车辆功能问答</text>
+<path d="M418,28 L426,28 L426,292 L418,292" fill="none" stroke="#60a5fa" stroke-width="1"/>
+<text x="444" y="165" fill="#60a5fa" font-size="9" transform="rotate(90 444 165)">①~⑫ 固定前缀 → KV Cache 命中</text>
+<rect x="30" y="304" width="380" height="70" rx="6" fill="rgba(251,191,36,.12)" stroke="#fbbf24" stroke-width="1.3"/>
+<text x="44" y="322" fill="#fcd34d" font-size="11" font-weight="700">⑬ 末尾动态context（每轮变=缓存断裂点）</text>
+<text x="44" y="340" fill="#9fb0c7" font-size="9">· 基础世界信息 · 近一周行程</text>
+<text x="44" y="356" fill="#fcd34d" font-size="9">· {{舱内视觉感知}} · {{用户记忆}}</text>
+<text x="44" y="370" fill="#fcd34d" font-size="9">· {{动态专业知识}} = 前置筛选注入点 ★</text>
+<!-- 右侧三套加载体系 -->
+<rect x="480" y="28" width="350" height="348" rx="8" fill="rgba(52,211,153,.08)" stroke="#34d399"/>
+<text x="655" y="48" fill="#6ee7b7" font-size="12" text-anchor="middle" font-weight="700">三套加载体系（SP优化核心）</text>
+<rect x="496" y="60" width="318" height="78" rx="6" fill="rgba(30,64,175,.12)" stroke="#60a5fa"/>
+<text x="655" y="78" fill="#bfdbfe" font-size="11" text-anchor="middle" font-weight="700">A. 静态示例（常驻SP）</text>
+<text x="510" y="96" fill="#e8eef9" font-size="10">10个，授模型以"渔"（教通用能力）</text>
+<text x="510" y="112" fill="#9fb0c7" font-size="9">完整多轮input/output，覆盖10大类场景</text>
+<text x="510" y="128" fill="#9fb0c7" font-size="9">如：导航+顺路搜/车控联动/情感陪伴/GUI操作</text>
+<rect x="496" y="148" width="318" height="96" rx="6" fill="rgba(251,191,36,.12)" stroke="#fbbf24"/>
+<text x="655" y="168" fill="#fcd34d" font-size="11" text-anchor="middle" font-weight="700">B. 动态示例（按query检索注入）</text>
+<text x="510" y="186" fill="#e8eef9" font-size="10">5个，授模型以"鱼"（解单点bug）</text>
+<text x="510" y="202" fill="#9fb0c7" font-size="9">只含query+执行答案(调什么工具)，不需要完整多轮</text>
+<text x="510" y="218" fill="#9fb0c7" font-size="9">存入VikingDB向量引擎，按query语义检索top-5</text>
+<text x="510" y="234" fill="#9fb0c7" font-size="9">需解决多轮query改写(第二轮"好啊"→改写成完整意图)</text>
+<rect x="496" y="254" width="318" height="110" rx="6" fill="rgba(167,139,250,.12)" stroke="#a78bfa"/>
+<text x="655" y="274" fill="#c4b5fd" font-size="11" text-anchor="middle" font-weight="700">C. 动态知识（前置筛选注入）</text>
+<text x="510" y="292" fill="#e8eef9" font-size="10">66条场景知识(6类专家×四段式ID)</text>
+<text x="510" y="308" fill="#9fb0c7" font-size="9">知识筛选专家(小模型)按场景挑ID→只注入相关几条</text>
+<text x="510" y="324" fill="#9fb0c7" font-size="9">5原则：场景绑定/关注变化/目标关联/增量/不虚构</text>
+<text x="510" y="340" fill="#9fb0c7" font-size="9">注入SP末尾的{{动态专业知识}}块</text>
+<text x="510" y="356" fill="#9fb0c7" font-size="9">6专家：EXP销售/DRV出行/COM舒适/ENT内容/LIFE助理/EMO情感</text>
+</svg>
+
+<h3>4.2 为什么"固定在前动态在后"（KV Cache原理）</h3>
+
+<p>Director 每次推理=读一份 SP+UP。SP 的 ①~⑫ 是<b>固定的</b>——角色定义、工具定义、示例等每次调用完全一样。因为前缀完全匹配，<b>KV Cache（Prompt Cache）可以复用已算好的注意力向量</b>，不需要重新计算这几万个 token——只要算 ⑬ 的动态部分和 UP 的增量，推理时间大幅缩短。</p>
+
+<p>⑬ 放在最后，因为它<b>每轮都变</b>（车况不同、记忆不同、筛选出的知识不同）。一旦某个位置的 token 变了，<b>后面所有的 KV Cache 都作废</b>。所以把"变"的放最尾巴，"不变"的前缀尽可能长，缓存命中率最大化。</p>
+
+<p><b>同一请求内多轮调用</b>（ReAct 第2/3轮）：前序全部 token 的 KV 已算好，第2轮只算增量（几百 token 的 tool_feedback + 新的 output），显著更快。这就是为什么 ReAct 多轮推理不意味着时延翻倍——<b>只有增量需要计算</b>。</p>
+
+<h3>4.3 三套加载体系详解</h3>
+
+<h4>A. 静态示例（常驻 SP）</h4>
+
+<p><b>是什么</b>：10 个完整的多轮对话示例，常驻在 SP 的 ⑥ 区块里，每次推理都会读到。</p>
+
+<p><b>为什么叫"授模型以渔"</b>：静态示例教的是<b>通用能力</b>——不是教模型"遇到这个 query 调什么工具"，而是教它"<b>遇到这一类问题怎么思考</b>"。比如一个示例教模型"当 query 涉及导航+顺路搜时，要先导航再沿途搜"，模型学会后能泛化到所有类似的导航+顺路场景。</p>
+
+<p><b>覆盖 10 大类场景</b>（原文分类表）：导航与路线规划类 / 车辆座舱控制类 / 娱乐与互动类 / GUI代理生活服务类 / 用户记忆与身份管理类 / 目标任务管理类 / 通用信息搜索类 / AI图像生成类 / 车辆信息查询类 / 情感关怀与场景适配类。</p>
+
+<p><b>格式</b>：每个示例是一段完整的多轮对话——input1（用户说什么）→ output1（Director 输出什么 JSON）→ input2（工具返回什么）→ output2 → ……，少则 3 轮多则 12 轮。</p>
+
+<h4>B. 动态示例（按 query 检索注入）</h4>
+
+<p><b>是什么</b>：存在 VikingDB 向量检索引擎里的示例库（数量远多于10个），每次请求时根据当前 query 做<b>语义检索取 top-5</b>，注入 SP。</p>
+
+<p><b>为什么叫"授模型以鱼"</b>：动态示例解决的是<b>低频且无法归类抽象的单点 bug</b>。比如"切换壁纸"这种指令太少见了，不值得为它写一个教通用能力的静态示例，但确实需要告诉模型"这个指令调 vehicle_basic_control"。所以动态示例<b>只含 query + 执行答案（调什么工具）</b>，不需要完整的多轮 input/output。</p>
+
+<p><b>格式</b>（原文示例）：</p>
+<pre>query: 前挡都是雾，看不清了
+决策分析: 首先结合端状态的车内车外温差判断是车内有雾还是车外有雾，
+         其次结合端状态判断是否已经打开除霜除雾，未打开的情况下
+         如果车内起雾开空调除雾模式，如果车外起雾开雨刮器。</pre>
+
+<p><b>检索机制</b>：用 VikingDB 做向量检索。难点是<b>多轮 query 改写</b>——对话到第二轮时 query 可能只是"好啊"，需要结合对话历史改写成完整意图（如"好啊，就去那家日料"→改写为"导航到鮨一日本料理虹桥店"）再做检索，否则检索结果不相关。</p>
+
+<p><b>和静态示例的区别</b>（原文总结）：</p>
+<table>
+<tr><th></th><th>静态示例</th><th>动态示例</th></tr>
+<tr><td>目的</td><td>教通用能力（渔）</td><td>解单点bug（鱼）</td></tr>
+<tr><td>加载方式</td><td>常驻 SP</td><td>按 query 检索注入</td></tr>
+<tr><td>格式</td><td>完整多轮 input/output</td><td>只有 query + 决策分析/执行答案</td></tr>
+<tr><td>数量</td><td>10个</td><td>每轮检索5个</td></tr>
+<tr><td>适用场景</td><td>可被提炼共性的一组例子</td><td>简单明确无法归类的单点</td></tr>
+</table>
+
+<p><b>哪些问题不应该放动态示例</b>（原文）：可被提炼共性的一组例子，应该放静态示例。比如"离6月18日还有几天""春节期间有什么电影""下一个是什么节气"这类都涉及时间计算→应提炼成一条静态的决策分析规则（"查询时间日期先用 timestamp，其他用 web_search"），而不是为每个 query 都加一条动态示例。</p>
+
+<h4>C. 动态知识（前置筛选/知识检索注入）</h4>
+
+<p><b>是什么</b>：66 条场景知识（结构化为"6类专家 × 四段式 ID"），由一个<b>独立的知识筛选小模型</b>根据当前场景从中挑选几条，注入 SP 末尾的 <code>{{动态专业知识}}</code> 块。</p>
+
+<p><b>和动态示例的区别</b>：动态示例教模型"怎么做"（调什么工具），动态知识教模型"了解什么领域知识"（比如"分区温控按乘员位置独立调节，用户记忆偏好联动"这是一条舒适领域的 knowhow，不是一个示例）。</p>
+
+<p><b>知识筛选专家的输入</b>（5个字段）：user_query / 近10轮对话 / goal_list / env_info / 已加载知识ID列表。</p>
+
+<p><b>输出</b>：<code>{"add_knowledge_ids":["COM-01-01-01"],"remove_knowledge_ids":[],"reasoning":{add_reason,remove_reason}}</code>——<b>增量更新</b>，只输出变化部分。</p>
+
+<p><b>6类专家×66条知识</b>：</p>
+<table>
+<tr><th>专家代码</th><th>角色</th><th>条数</th><th>覆盖场景举例</th></tr>
+<tr><td>EXP</td><td>销售/体验官</td><td>17</td><td>展厅体验/试驾伴行/离车送别</td></tr>
+<tr><td>DRV</td><td>司机/导游</td><td>20</td><td>通勤/接送/自驾游/充电/泊车</td></tr>
+<tr><td>COM</td><td>随侍/管家</td><td>8</td><td>调温/调气味/调光/晕车/小憩/冥想</td></tr>
+<tr><td>ENT</td><td>DJ/陪乐/主播</td><td>7</td><td>听歌/播客/新闻/游戏/节目编排</td></tr>
+<tr><td>LIFE</td><td>管家/助理</td><td>7</td><td>停车缴费/查天气/查航班/查金融</td></tr>
+<tr><td>EMO</td><td>伙伴</td><td>7</td><td>迎宾/惊喜彩蛋/闲聊</td></tr>
+</table>
+
+<p><b>5条筛选原则</b>：① 场景绑定推理 ② <b>关注环境变化</b>（趋势比绝对值更重要——温度骤升 vs 温度一直是29度，前者更该触发调温知识）③ 目标持续关联（目标还在则知识保留）④ 增量更新 ⑤ 信息不足不虚构。</p>
+
+<div class="eg"><b>闭环举例</b>："好热啊" + env_info 显示温度5分钟从22°C升到29°C → 知识筛选专家的原则②触发（趋势>绝对值）→ 命中COM（管家）→ 输出 add:COM-01-01-01 → 该知识ID对应的内容"分区温控按乘员位置独立调节，用户记忆偏好联动，调节后闭环确认"被注入SP末尾{{动态专业知识}} → Director推理时参考这条知识决定"给主驾调到24度、风量3档"。</div>
+
+<h3>4.4 SP优化六项措施（完整版）</h3>
+
+<ol>
+<li><b>输出格式压缩</b>：字段名缩短（talk_or_not→speak省2tk，talk_content→content省1tk），首token降~90ms</li>
+<li><b>示例拆分静态+动态</b>：64个全量→静态10+动态检索5（最大的一项压缩）</li>
+<li><b>检索加载示例</b>：VikingDB向量检索top-5（需解决多轮query改写）</li>
+<li><b>示例压缩（抽象化）</b>：裸示例→删冗余字段（如POI返回只留预估时间/里程/红绿灯）</li>
+<li><b>基于人工反馈</b>：error case持续迭代示例（如天气查询缺位置→加示例教模型推断位置）</li>
+<li><b>渐进式架构</b>：静态示例+skills（场景分类组）+动态检索，三级加载</li>
+</ol>
+
+<hr>
+
+<!-- ==================== 第五章 Context ==================== -->
+<h2>第五章 · 公共 Context 服务 + 前置筛选完整体系</h2>
+
+<h3>5.1 公共 Context 服务流程图</h3>
+<svg viewBox="0 0 860 220" style="background:#0b1222;border-radius:10px;padding:8px">
+<defs><marker id="a5" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6Z" fill="#94a3b8"/></marker></defs>
+<rect x="16" y="70" width="130" height="80" rx="6" fill="rgba(52,211,153,.12)" stroke="#34d399"/>
+<text x="81" y="90" fill="#e8eef9" font-size="10" text-anchor="middle" font-weight="700">写入来源(6大类)</text>
+<text x="81" y="106" fill="#9fb0c7" font-size="9" text-anchor="middle">感知模块(情景描述)</text>
+<text x="81" y="118" fill="#9fb0c7" font-size="9" text-anchor="middle">ASR-TTS(历史对话)</text>
+<text x="81" y="130" fill="#9fb0c7" font-size="9" text-anchor="middle">端状态·屏幕·记忆·任务</text>
+<text x="81" y="142" fill="#9fb0c7" font-size="9" text-anchor="middle">事件日志·联网信息</text>
+<rect x="170" y="56" width="200" height="108" rx="7" fill="rgba(96,165,250,.12)" stroke="#60a5fa"/>
+<text x="270" y="76" fill="#bfdbfe" font-size="11" text-anchor="middle" font-weight="700">公共Context服务(独立模块)</text>
+<text x="270" y="94" fill="#9fb0c7" font-size="9" text-anchor="middle">13类内容·统一存储</text>
+<text x="270" y="110" fill="#e8eef9" font-size="10" text-anchor="middle">预处理层：</text>
+<text x="270" y="124" fill="#9fb0c7" font-size="9" text-anchor="middle">① 情景描述压缩总结</text>
+<text x="270" y="138" fill="#9fb0c7" font-size="9" text-anchor="middle">② 三维过滤(场景/人物/任务)</text>
+<text x="270" y="152" fill="#9fb0c7" font-size="9" text-anchor="middle">③ 按需抽取+短期缓存复用</text>
+<rect x="400" y="50" width="200" height="58" rx="6" fill="rgba(167,139,250,.12)" stroke="#a78bfa"/>
+<text x="500" y="70" fill="#c4b5fd" font-size="10" text-anchor="middle" font-weight="700">前置筛选(知识检索专家)</text>
+<text x="500" y="84" fill="#9fb0c7" font-size="9" text-anchor="middle">5字段输入→6类专家×66条→增量输出</text>
+<text x="500" y="98" fill="#9fb0c7" font-size="9" text-anchor="middle">→注入SP末尾{{动态专业知识}}</text>
+<rect x="400" y="120" width="200" height="44" rx="6" fill="rgba(251,191,36,.12)" stroke="#fbbf24"/>
+<text x="500" y="140" fill="#fcd34d" font-size="10" text-anchor="middle" font-weight="700">动态示例检索(VikingDB)</text>
+<text x="500" y="154" fill="#9fb0c7" font-size="9" text-anchor="middle">query语义→top-5示例注入SP⑥</text>
+<rect x="640" y="70" width="130" height="80" rx="6" fill="rgba(96,165,250,.12)" stroke="#60a5fa"/>
+<text x="705" y="90" fill="#bfdbfe" font-size="10" text-anchor="middle" font-weight="700">读取方</text>
+<text x="705" y="108" fill="#9fb0c7" font-size="9" text-anchor="middle">Director/Planner</text>
+<text x="705" y="120" fill="#9fb0c7" font-size="9" text-anchor="middle">4静态advisor</text>
+<text x="705" y="132" fill="#9fb0c7" font-size="9" text-anchor="middle">动态advisor</text>
+<text x="705" y="144" fill="#9fb0c7" font-size="9" text-anchor="middle">各下游agent</text>
+<line x1="146" y1="110" x2="168" y2="110" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#a5)"/>
+<line x1="370" y1="80" x2="398" y2="78" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#a5)"/>
+<line x1="370" y1="130" x2="398" y2="138" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#a5)"/>
+<line x1="600" y1="80" x2="638" y2="90" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#a5)"/>
+<line x1="600" y1="142" x2="638" y2="120" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#a5)"/>
+</svg>
+
+<h3>5.2 Context 的 13 类内容</h3>
+
+<p>Context 不是"一坨字塞给模型"，而是<b>一个独立的公共服务模块</b>——统一存储 + 预处理（压缩/打标/过滤），供 Director、advisor、各 agent 按需取各自需要的子集。</p>
+
+<table>
+<tr><th>类型</th><th>说明</th><th>来源</th><th>优先级</th></tr>
+<tr><td>情景描述</td><td>Always on 舱内外情景时间线（"明骏上车了，剪了寸头！"）</td><td>感知模块</td><td>P0</td></tr>
+<tr><td>历史对话</td><td>用户与AI的对话时间线</td><td>ASR-TTS</td><td>P0</td></tr>
+<tr><td>事件日志</td><td>全量事件（人/车/助手）</td><td>事件日志模块</td><td>P0</td></tr>
+<tr><td>端状态</td><td>仅<b>最新</b>（空调温度/风量/座椅/车速/导航…）</td><td>端状态模块</td><td>P0</td></tr>
+<tr><td>屏幕界面</td><td>近<b>5分钟</b>屏幕截图序列</td><td>端侧采集</td><td>P0</td></tr>
+<tr><td>用户记忆</td><td>按人物id加载：情景记忆(瞬时20min/短期/长期半年)+语义记忆(偏好/车控习惯/补能偏好/旅游偏好)+社会关系</td><td>长期记忆</td><td>P0</td></tr>
+<tr><td>任务状态</td><td>当前任务队列 <code>{task_id, rank, task_content, task_condition, task_nlg}</code></td><td>任务管理</td><td>P0</td></tr>
+<tr><td>基础联网</td><td>天气/精准时间/公历/农历/星期/节日/节气</td><td>联网</td><td>P0</td></tr>
+<tr><td>豆包探索</td><td>自我探索内容（按时间线+主题标记）</td><td>探索模块</td><td>P1</td></tr>
+<tr><td>通用任务经验</td><td>人工总结的任务技巧（"GUI点外卖先确定地点"）</td><td>知识库</td><td>P1</td></tr>
+<tr><td>工具知识</td><td>工具范围/说明/示例</td><td>工具库</td><td>P2</td></tr>
+<tr><td>特定专有知识</td><td>车品牌相关知识Q&A</td><td>知识库</td><td>P2</td></tr>
+<tr><td>性格&自我认知</td><td>豆包性格/世界观/价值观</td><td>自我认知</td><td>P2</td></tr>
+</table>
+
+<h3>5.3 Context 的三维过滤（真实的优化抓手，不是"远近区"）</h3>
+
+<p>这批 PRD 里<b>没有"远区精简近区完整"</b>——那是 Schema 知识。真实的优化是三维过滤：</p>
+
+<ul>
+<li><b>按场景过滤</b>：你在停车充电→不加载"行驶中路况记忆"；你在去自驾游→日常通勤记忆不加载。</li>
+<li><b>按人物过滤</b>：车上有A和B两个人→过滤A的私人行程记忆不给B看。<b>防隐私泄露</b>是硬红线。</li>
+<li><b>按任务过滤</b>：你在点外卖→只检索外卖相关知识偏好，不塞"洗车攻略"。</li>
+</ul>
+
+<p>此外：不全量加载长期记忆，按场景变化<b>提前抽取</b>一部分；短期用过的记忆<b>缓存住不重复检索</b>；情景描述做<b>压缩总结</b>。</p>
+
+<h3>5.4 前置筛选注入 + 动态示例注入：两条独立管线</h3>
+
+<p>Context 预处理后的内容通过两条独立管线注入 Director 的 SP：</p>
+
+<p><b>管线A：动态知识（前置筛选）</b>→ 知识筛选专家(小模型)按场景从66条知识里挑几条 → 注入SP末尾的<code>{{动态专业知识}}</code>块。这教Director"了解什么领域knowhow"。</p>
+
+<p><b>管线B：动态示例（VikingDB检索）</b>→ 根据当前query做语义检索取top-5示例 → 注入SP的⑥参考示例区域（和静态10个示例拼在一起）。这教Director"这种query调什么工具"。</p>
+
+<p>两条管线<b>独立运行、注入SP的不同位置、解决不同问题</b>。不要混为一谈。</p>
+
+<h3>5.5 任务队列字段（Context第7类的数据结构）</h3>
+<pre>{
+  "task_id": "t_0231",
+  "rank": 2,                    // 队列优先级序号
+  "task_content": "给明骏开启座椅按摩波浪模式",
+  "task_condition": "",         // 空=即时执行；非空=条件触发
+  "task_nlg": ""                // 条件满足时要说的话术
+}</pre>
+
+<hr>
+
+<!-- ==================== 第六章 goal list ==================== -->
+<h2>第六章 · goal list 共享看板 + goal_list_update 数量仲裁</h2>
+
+<h3>6.1 goal list 生命周期流程图</h3>
+<svg viewBox="0 0 860 130" style="background:#0b1222;border-radius:10px;padding:8px">
+<defs><marker id="a6" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6Z" fill="#94a3b8"/></marker></defs>
+<rect x="16" y="40" width="140" height="50" rx="6" fill="rgba(96,165,250,.12)" stroke="#60a5fa"/>
+<text x="86" y="60" fill="#e8eef9" font-size="10" text-anchor="middle">①Director创建目标</text><text x="86" y="76" fill="#9fb0c7" font-size="9" text-anchor="middle">调goal_list_update</text>
+<rect x="176" y="40" width="150" height="50" rx="6" fill="rgba(52,211,153,.12)" stroke="#34d399"/>
+<text x="251" y="58" fill="#e8eef9" font-size="10" text-anchor="middle">②advisor更新进展</text><text x="251" y="74" fill="#9fb0c7" font-size="9" text-anchor="middle">"宝宝睡着了"(自由文本)</text><text x="251" y="86" fill="#9fb0c7" font-size="8" text-anchor="middle">Director明确不更新这个</text>
+<rect x="346" y="40" width="140" height="50" rx="6" fill="rgba(167,139,250,.12)" stroke="#a78bfa"/>
+<text x="416" y="60" fill="#e8eef9" font-size="10" text-anchor="middle">③advisor review</text><text x="416" y="76" fill="#9fb0c7" font-size="9" text-anchor="middle">目标达成了吗？</text>
+<rect x="506" y="40" width="130" height="50" rx="6" fill="rgba(96,165,250,.12)" stroke="#60a5fa"/>
+<text x="571" y="60" fill="#e8eef9" font-size="10" text-anchor="middle">④Director删除</text><text x="571" y="76" fill="#9fb0c7" font-size="9" text-anchor="middle">或用户主动取消</text>
+<line x1="156" y1="65" x2="174" y2="65" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#a6)"/>
+<line x1="326" y1="65" x2="344" y2="65" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#a6)"/>
+<line x1="486" y1="65" x2="504" y2="65" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#a6)"/>
+<path d="M251,90 C251,112 176,112 176,90" fill="none" stroke="#94a3b8" stroke-width="1" stroke-dasharray="3 2" marker-end="url(#a6)"/>
+<text x="214" y="118" fill="#9fb0c7" font-size="8" text-anchor="middle">定时/触发循环更新</text>
+</svg>
+
+<h3>6.2 goal list 数据结构</h3>
+<pre>[
+  {"目标":"照顾二排宝宝","目标状态":"进行中","目标细节和进展":"宝宝睡着了，持续监测中"},
+  {"目标":"每5分钟播报NBA","目标状态":"进行中","目标细节和进展":"已完成第三次播报"}
+]</pre>
+
+<p>分 <b>static 区</b>（固定4目标：舒适/出行/情感/内容，一对一绑定4个静态advisor）和 <b>dynamic 区</b>（临时目标：功能介绍/照顾宝宝/点咖啡等，每个绑定一个动态advisor实例）。</p>
+
+<p><b>读写权责</b>（核心设计——为什么Director不更新进展）：</p>
+<table>
+<tr><th>操作</th><th>Director</th><th>静态advisor</th><th>动态advisor</th></tr>
+<tr><td>创建/删除目标</td><td>✅（调goal_list_update）</td><td>static 4个固定不增删</td><td>由Director建目标后工程自动注册</td></tr>
+<tr><td>更新"细节和进展"</td><td><b>❌ 明确不更新</b></td><td>✅（各管自己的目标）</td><td>✅（管对应动态目标）</td></tr>
+<tr><td>review目标是否达成</td><td>❌</td><td>✅（goal reviewer）</td><td>✅（goal reviewer）</td></tr>
+<tr><td>读 goal list</td><td>✅（随user_query直传）</td><td>✅</td><td>✅</td></tr>
+</table>
+
+<div class="warn"><b>"细节和进展"是自由文本</b>，不是结构化状态枚举——advisor用自然语言写"宝宝睡着了"。如果advisor写得含糊（"差不多了"），Director下一轮读到时可能误判→该删不删（目标残留）或不该删却删（任务中断）。这是已知badcase源。</div>
+
+<h3>6.3 goal_list_update 工具的数量仲裁</h3>
+
+<p>Director不直接改goal list的dynamic区，而是通过<code>goal_list_update</code>工具。该工具干两件事：<b>增删目标 + 数量仲裁</b>。超限返回<code>error:任务数量达到上限</code>。</p>
+
+<table>
+<tr><th>任务类型</th><th>上限</th><th>说明</th></tr>
+<tr><td>定时任务</td><td>≤6</td><td>循环最大30次，最小间隔1分钟</td></tr>
+<tr><td>条件任务</td><td>≤6</td><td>超限报error</td></tr>
+<tr><td>长程GUI</td><td>≤1</td><td>GUI独占屏幕</td></tr>
+<tr><td>长时(除vlm)</td><td>≤2</td><td>—</td></tr>
+<tr><td><b>VLM视觉持续</b></td><td><b>仅1</b></td><td>"照顾宝宝"和"介绍风景"<b>不能同时跑</b></td></tr>
+</table>
+
+<p><b>tips约束</b>：持续/较长步骤才用此工具→"打开车窗"不该建目标；输入是advisor建议时<b>不用</b>此工具；已有/相似目标不重复建；建GUI长时任务<b>必须同步建goal</b>。</p>
+
+<hr>
+
+<!-- ==================== 第七章 触发器 ==================== -->
+<h2>第七章 · 触发器体系：离线触发器 + 在线触发器 + 条件任务工具</h2>
+
+<h3>7.1 条件任务完整流程图</h3>
+<svg viewBox="0 0 860 140" style="background:#0b1222;border-radius:10px;padding:8px">
+<defs><marker id="a7" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6Z" fill="#94a3b8"/></marker></defs>
+<rect x="10" y="45" width="130" height="50" rx="6" fill="rgba(96,165,250,.12)" stroke="#60a5fa"/>
+<text x="75" y="66" fill="#e8eef9" font-size="10" text-anchor="middle">①Director下发</text><text x="75" y="82" fill="#9fb0c7" font-size="9" text-anchor="middle">"10分钟后关座椅加热"</text>
+<rect x="158" y="45" width="110" height="50" rx="6" fill="rgba(251,191,36,.12)" stroke="#fbbf24"/>
+<text x="213" y="66" fill="#e8eef9" font-size="10" text-anchor="middle">②工具回执</text><text x="213" y="82" fill="#9fb0c7" font-size="9" text-anchor="middle">"条件任务已注册"</text>
+<rect x="286" y="45" width="110" height="50" rx="6" fill="rgba(251,191,36,.12)" stroke="#fbbf24"/>
+<text x="341" y="66" fill="#e8eef9" font-size="10" text-anchor="middle">③拆出条件</text><text x="341" y="82" fill="#9fb0c7" font-size="9" text-anchor="middle">定时器10分钟</text>
+<rect x="414" y="45" width="130" height="50" rx="6" fill="rgba(167,139,250,.12)" stroke="#a78bfa"/>
+<text x="479" y="66" fill="#e8eef9" font-size="10" text-anchor="middle">④满足→通知</text><text x="479" y="82" fill="#9fb0c7" font-size="9" text-anchor="middle">"[原文]+条件已触发"</text>
+<rect x="562" y="45" width="140" height="50" rx="6" fill="rgba(96,165,250,.12)" stroke="#60a5fa"/>
+<text x="632" y="66" fill="#e8eef9" font-size="10" text-anchor="middle">⑤Director二次推理</text><text x="632" y="82" fill="#9fb0c7" font-size="9" text-anchor="middle">结合当前env_info执行</text>
+<rect x="720" y="45" width="110" height="50" rx="6" fill="rgba(52,211,153,.12)" stroke="#34d399"/>
+<text x="775" y="66" fill="#e8eef9" font-size="10" text-anchor="middle">⑥下游执行</text><text x="775" y="82" fill="#9fb0c7" font-size="9" text-anchor="middle">vehicle_basic_control</text>
+<line x1="140" y1="70" x2="156" y2="70" stroke="#94a3b8" stroke-width="1.1" marker-end="url(#a7)"/>
+<line x1="268" y1="70" x2="284" y2="70" stroke="#94a3b8" stroke-width="1.1" marker-end="url(#a7)"/>
+<line x1="396" y1="70" x2="412" y2="70" stroke="#94a3b8" stroke-width="1.1" marker-end="url(#a7)"/><text x="404" y="60" fill="#9fb0c7" font-size="8">到点</text>
+<line x1="544" y1="70" x2="560" y2="70" stroke="#94a3b8" stroke-width="1.1" marker-end="url(#a7)"/>
+<line x1="702" y1="70" x2="718" y2="70" stroke="#94a3b8" stroke-width="1.1" marker-end="url(#a7)"/>
+</svg>
+
+<h3>7.2 触发器在架构中的位置</h3>
+
+<p>图2三层泳道里，触发器位于推理层，分<b>离线触发器</b>和<b>在线触发器</b>两个子框。它们的下游有两条路：<b>① 触发advisor推理</b>（唤醒动态advisor做目标review）和 <b>② 触发条件任务下发</b>（条件满足后通知Director执行）。</p>
+
+<h3>7.2 条件触发器（operate_conditional_task / CTA）</h3>
+
+<p><b>为什么需要它</b>：用户说"10分钟后帮我关座椅加热"——Director不可能"挂起等10分钟"。它需要一个独立的模块来<b>持续监控条件、到时候再唤醒Director</b>。</p>
+
+<p><b>工作流程</b>（完整5步时序）：</p>
+<ol>
+<li>Director判断需要创建条件任务 → 调<code>operate_conditional_task</code>以<b>自然语言</b>下发："十分钟后，关闭主驾座椅加热"</li>
+<li>工具回执："条件任务已注册"（Director收到回执后继续处理别的事，<b>不挂起等待</b>）</li>
+<li>工具内部拆出条件="定时器10分钟"，开始监控</li>
+<li>10分钟后条件满足 → 工具给Director下发"[任务原文]+条件已触发"</li>
+<li>Director收到触发通知做<b>二次推理</b>——结合当前最新上下文决定是否仍然执行（因为10分钟后车况可能已变——用户可能已下车、座椅加热可能已被别的指令关掉了）</li>
+</ol>
+
+<div class="warn"><b>为什么条件满足后不直接执行而是回Director？</b>因为10分钟后的车况可能已变。让Director拿到"条件已触发"后做一次推理、结合当前env_info决定是否仍然执行——这比盲目执行安全得多。</div>
+
+<p><b>合法性校验</b>（5条，都过了才注册）：能否被感知（"世界毁灭"不能）/ 触发可能性（"温度1000度"不现实）/ 价值观（"200km/h时关安全气囊"违反安全）/ 可执行性 / 条件与动作是否矛盾（"下雨时打开天窗"）。非法→不注册，转聊天回复。</p>
+
+<h3>7.3 离线触发器 vs 在线触发器</h3>
+
+<p><b>离线触发器</b>：端侧运行，处理不依赖网络的触发条件（如端侧传感器信号：温度阈值、face id检测到某人上车、车速超阈值）。优势是弱网也能触发。</p>
+
+<p><b>在线触发器</b>：云端运行，处理需要云端能力的条件（如导航POI距离判断"距离外婆家<2km"、联网信息变化"航班延误了"）。</p>
+
+<p>二期新增：<b>端侧定时器</b>（弱网/断网时也能触发AI PUSH，端侧倒计时展示——不再显示"30分钟后"一直不变）、<b>导航场景感知</b>（距离某POI<指定距离时触发事件）。</p>
+
+<hr>
+
+<!-- ==================== 第八章 交互冲突 ==================== -->
+<h2>第八章 · 交互管理：单通路治理 + 6种冲突策略 + advisor排队规则</h2>
+
+<h3>8.0 交互治理流程图：新输入到达时的决策</h3>
+<svg viewBox="0 0 860 200" style="background:#0b1222;border-radius:10px;padding:8px">
+<defs><marker id="a8" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6Z" fill="#94a3b8"/></marker></defs>
+<rect x="16" y="75" width="120" height="50" rx="6" fill="rgba(34,211,238,.12)" stroke="#22d3ee"/>
+<text x="76" y="96" fill="#e8eef9" font-size="10" text-anchor="middle">新输入到达</text><text x="76" y="112" fill="#9fb0c7" font-size="9" text-anchor="middle">user/advisor/trigger</text>
+<rect x="160" y="75" width="160" height="50" rx="6" fill="rgba(96,165,250,.12)" stroke="#60a5fa"/>
+<text x="240" y="96" fill="#e8eef9" font-size="10" text-anchor="middle">判断Director状态</text><text x="240" y="112" fill="#9fb0c7" font-size="9" text-anchor="middle">首token出了没？</text>
+<rect x="360" y="20" width="180" height="46" rx="6" fill="rgba(52,211,153,.12)" stroke="#34d399"/>
+<text x="450" y="40" fill="#e8eef9" font-size="10" text-anchor="middle">首token未出→打断+合并</text><text x="450" y="56" fill="#9fb0c7" font-size="9" text-anchor="middle">新旧query合并重推理("顺便…")</text>
+<rect x="360" y="78" width="180" height="46" rx="6" fill="rgba(251,191,36,.12)" stroke="#fbbf24"/>
+<text x="450" y="96" fill="#e8eef9" font-size="10" text-anchor="middle">已播报·P0用户→直接打断</text><text x="450" y="114" fill="#9fb0c7" font-size="9" text-anchor="middle">被打断的播报不恢复</text>
+<rect x="360" y="136" width="180" height="46" rx="6" fill="rgba(167,139,250,.12)" stroke="#a78bfa"/>
+<text x="450" y="154" fill="#e8eef9" font-size="10" text-anchor="middle">已播报·P1非用户→排队</text><text x="450" y="172" fill="#9fb0c7" font-size="9" text-anchor="middle">等播完(可预推理缓存)</text>
+<rect x="580" y="78" width="160" height="90" rx="6" fill="rgba(96,165,250,.12)" stroke="#60a5fa"/>
+<text x="660" y="98" fill="#bfdbfe" font-size="10" text-anchor="middle" font-weight="700">6种冲突策略选一</text>
+<text x="660" y="114" fill="#9fb0c7" font-size="9" text-anchor="middle">①扔弃 ②排队 ③静默</text>
+<text x="660" y="128" fill="#9fb0c7" font-size="9" text-anchor="middle">④整合 ⑤插队 ⑥停止旧</text>
+<text x="660" y="144" fill="#9fb0c7" font-size="9" text-anchor="middle">按优先级矩阵决定</text>
+<text x="660" y="160" fill="#9fb0c7" font-size="8" text-anchor="middle">安全>导航>系统>配置>条件>主动>简单>复杂</text>
+<line x1="136" y1="100" x2="158" y2="100" stroke="#94a3b8" stroke-width="1.1" marker-end="url(#a8)"/>
+<path d="M320,90 L358,43" fill="none" stroke="#94a3b8" stroke-width="1.1" marker-end="url(#a8)"/><text x="336" y="58" fill="#34d399" font-size="8">未出</text>
+<path d="M320,100 L358,100" fill="none" stroke="#94a3b8" stroke-width="1.1" marker-end="url(#a8)"/><text x="336" y="94" fill="#fbbf24" font-size="8">P0</text>
+<path d="M320,110 L358,158" fill="none" stroke="#94a3b8" stroke-width="1.1" marker-end="url(#a8)"/><text x="336" y="142" fill="#a78bfa" font-size="8">P1</text>
+<line x1="540" y1="120" x2="578" y2="120" stroke="#94a3b8" stroke-width="1.1" marker-end="url(#a8)"/>
+</svg>
+
+<h3>8.1 为什么是"单通路"</h3>
+
+<p>车里的语音交互是<b>单线程、单通路管道</b>——原文说"同一时间只能对一次请求做出回应"。不像手机App可以弹多个通知让你逐个处理，车上你只能听到一个声音、看到一个卡片。所以多个输入同时到达时，<b>只能在输入端做治理</b>。</p>
+
+<h3>8.2 四种输入 + 优先级</h3>
+<table>
+<tr><th>输入类型</th><th>优先级</th><th>调度策略</th></tr>
+<tr><td>用户主动说的话（即时任务）</td><td><b>P0 最高</b></td><td>打断式</td></tr>
+<tr><td>非用户主动（定时/条件任务触发）</td><td>P1</td><td>排队式</td></tr>
+<tr><td>Tool feedback（车控/aigc/长程返回）</td><td>—</td><td>分流</td></tr>
+<tr><td>Advisor建议</td><td>—</td><td>排队，同一advisor只保留最新</td></tr>
+</table>
+
+<h3>8.3 核心判据：首token出了没</h3>
+
+<p><b>新输入到达时Director的首token还没出来</b>（正在推理中）→ <b>打断当前推理，新旧query合并后重推理</b>。合并后话术自然串联："车里是有点热呢我来调一下，<b>顺便</b>帮你找今天的热点新闻。"</p>
+
+<p><b>新输入到达时Director已经在播报</b>（首token已出/TTS正在播）→ 分情况：</p>
+<ul>
+<li><b>P0用户说话</b>：直接打断当前播报，按新query推理。<b>被打断的播报不恢复</b>。</li>
+<li><b>P1非用户（定时/条件触发）</b>：排队，等上一条TTS播完再处理。两种做法：A等播完再推理；B<b>预推理+结果缓存</b>（边播边在后台算好答案，播完直接出结果省时延）。</li>
+<li><b>Advisor建议</b>：在"用户正在讲话"或"任务流进行中"时（图8的红线）→ <b>丢弃</b>该建议（后续advisor推理后重新下发）。在"任务流结束后"（绿线）→ 允许下发。</li>
+</ul>
+
+<h3>8.4 六种冲突策略（已在播报时的新任务怎么处理）</h3>
+
+<table>
+<tr><th>#</th><th>策略</th><th>行为</th><th>例子</th></tr>
+<tr><td>①</td><td>扔弃新任务</td><td>新的到了直接丢</td><td>正回用户话，advisor下发→丢弃</td></tr>
+<tr><td>②</td><td>排队</td><td>新的等旧的播完</td><td>正回话，推送主动服务→排队</td></tr>
+<tr><td>③</td><td>静默执行</td><td>新的悄悄做不打断旧的</td><td>正找景点，"打开车窗"→静默开窗不打断找景点</td></tr>
+<tr><td>④</td><td><b>整合（核心）</b></td><td>暂停旧的，整合上下文重新规划</td><td>正规划行程，"再加个点"→暂停当前规划，整合后重新规划</td></tr>
+<tr><td>⑤</td><td>插队</td><td>暂停旧的，新的插入播完，旧的继续</td><td>播新闻中，"小心右侧行人"→安全提醒插播→继续新闻</td></tr>
+<tr><td>⑥</td><td>停止旧任务</td><td>旧的直接丢弃</td><td>正说"帮你开窗"，"下个路口左转"→导航优先→丢弃开窗</td></tr>
+</table>
+
+<p>决策依据是<b>优先级矩阵</b>——行=正在进行的旧交互，列=新来的交互，交叉格填具体用哪种策略。优先级从高到低：<b>安全通知 > 导航通知 > 普通系统消息 > 配置类主动服务 > 条件任务 > 非配置类主动服务 > 简单query > 复杂query</b>。</p>
+
+<h3>8.5 合并三特殊规则</h3>
+<ol>
+<li><b>长程任务（订座/停车/点咖啡/外卖）不参与合并</b>——它们有自己的GUI界面，合并会乱。</li>
+<li><b>aigc（生图/ailight）不走Planner、无语音播报</b>，完成后走通知卡系统通知。</li>
+<li><b>同一advisor排队期间的多条建议只保留最新一条</b>——防旧建议堆积。</li>
+</ol>
+
+<h3>8.6 任务工程管理模块：打断/恢复/挂起</h3>
+
+<p><b>打断</b>：端上请求中断接口（携带未完成任务）→ 标记plan为<code>interrupted</code> + 存<code>checkpoint</code>（当前哪些task完成了、中断在哪一步）→ 新query进来处理。</p>
+
+<p><b>恢复</b>：新query处理完后，<b>由advisor（goal reviewer）决定是否恢复</b>——不是Director自己记住。恢复 = 带上下文（含目标"细节和进展"）重新触发任务。续播规则：已完整缓存→从断点上一个句子起始处续播；未完整生成→话术衔接后基于上下文重新生成续播。</p>
+
+<p><b>挂起</b>：定时/条件任务注册后进入"挂起"态，<b>Always on模块持续监听车辆状态</b>，条件满足时通知Planner恢复为"进行中"调Agent执行。</p>
+
+<p><b>replan阻塞结果播报</b>（图2中Director下方的节点）：当工具执行失败需要Replan时，如果此时正在播报别的内容，Replan的结果会被阻塞等播报完再出。这个节点管的就是"Replan产生的新结果什么时候能被播报出去"的排队。</p>
+
+<h3>8.7 失效兜底</h3>
+<ul>
+<li><b>端侧上报超时</b>：白名单召走→采纳端侧不等云端；端侧有结果非白名单→超时采纳端侧；端侧无结果→超时播报兜底</li>
+<li><b>云端工具超时（ReAct链路）</b>：①工程判断超时，tool_feedback反馈超时 → ②告知用户后执行重试 → ③重试失败告知用户后结束任务</li>
+<li><b>被端侧召走的query</b>：云端并行在跑但结果被丢弃，被合并的任务恢复排队；云端历史对话保留端侧处理信息、不保留被打断的云端推理历史</li>
+</ul>
+
+<hr>
+
+<!-- ==================== 第九章 执行层 ==================== -->
+<h2>第九章 · 执行层：26工具执行 + GUI/卡片路由 + HMI呈现</h2>
+
+<h3>9.1 工具执行流程图</h3>
+<svg viewBox="0 0 860 150" style="background:#0b1222;border-radius:10px;padding:8px">
+<defs><marker id="a9" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6Z" fill="#94a3b8"/></marker></defs>
+<rect x="16" y="50" width="130" height="50" rx="6" fill="rgba(96,165,250,.12)" stroke="#60a5fa"/>
+<text x="81" y="70" fill="#e8eef9" font-size="10" text-anchor="middle">Director输出</text><text x="81" y="86" fill="#9fb0c7" font-size="9" text-anchor="middle">action_list</text>
+<rect x="166" y="50" width="130" height="50" rx="6" fill="rgba(251,191,36,.12)" stroke="#fbbf24"/>
+<text x="231" y="70" fill="#e8eef9" font-size="10" text-anchor="middle">26工具之一执行</text><text x="231" y="86" fill="#9fb0c7" font-size="9" text-anchor="middle">一agent一任务·FC调用</text>
+<rect x="316" y="20" width="120" height="40" rx="6" fill="rgba(52,211,153,.12)" stroke="#34d399"/>
+<text x="376" y="38" fill="#e8eef9" font-size="10" text-anchor="middle">成功→feedback回灌</text><text x="376" y="52" fill="#9fb0c7" font-size="9" text-anchor="middle">→Director二次推理</text>
+<rect x="316" y="76" width="120" height="40" rx="6" fill="rgba(251,113,133,.12)" stroke="#fb7185"/>
+<text x="376" y="94" fill="#e8eef9" font-size="10" text-anchor="middle">失败→Replan</text><text x="376" y="108" fill="#9fb0c7" font-size="9" text-anchor="middle">回传原因→重新规划</text>
+<rect x="460" y="40" width="160" height="56" rx="6" fill="rgba(34,211,238,.12)" stroke="#22d3ee"/>
+<text x="540" y="60" fill="#e8eef9" font-size="10" text-anchor="middle">gui/卡片路由判定</text><text x="540" y="76" fill="#9fb0c7" font-size="9" text-anchor="middle">长程→GUI界面</text><text x="540" y="88" fill="#9fb0c7" font-size="9" text-anchor="middle">aigc→通知卡 其余→统一卡片</text>
+<rect x="646" y="40" width="140" height="56" rx="6" fill="rgba(34,211,238,.12)" stroke="#22d3ee"/>
+<text x="716" y="58" fill="#e8eef9" font-size="10" text-anchor="middle">HMI呈现</text><text x="716" y="74" fill="#9fb0c7" font-size="9" text-anchor="middle">talk→TTS播报</text><text x="716" y="88" fill="#9fb0c7" font-size="9" text-anchor="middle">小卡≤1/大卡≤1(互斥)/通知卡可多</text>
+<line x1="146" y1="75" x2="164" y2="75" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#a9)"/>
+<path d="M296,65 L314,40" fill="none" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#a9)"/><text x="304" y="46" fill="#34d399" font-size="8">成功</text>
+<path d="M296,80 L314,96" fill="none" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#a9)"/><text x="304" y="94" fill="#fb7185" font-size="8">失败</text>
+<line x1="436" y1="40" x2="458" y2="55" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#a9)"/>
+<line x1="620" y1="68" x2="644" y2="68" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#a9)"/>
+</svg>
+
+<h3>9.2 工具执行原则</h3>
+<ul>
+<li><b>一agent一任务</b>，Director靠FC输出action_list</li>
+<li><b>串行依赖不能一次性全输出</b>（注意事项第6条）——先调一个等feedback再调下一个</li>
+<li><b>无依赖的可以并行</b>（调空调+放音乐）</li>
+<li><b>4个导航类工具不可并行</b>：navi_basic_control / route_planning_qa / search_poi_qa / trip_plan_record</li>
+<li>工具反复失败→注意事项第8条"可暂时放弃"</li>
+</ul>
+
+<h3>9.3 GUI/卡片路由判定</h3>
+<p>图2中的菱形节点，决定结果走哪个呈现通道：</p>
+<ul>
+<li><b>长程任务（订座/停车/点咖啡/外卖）</b>→ 走自有GUI界面（工程逻辑，不走Director统一卡片框架）</li>
+<li><b>aigc（生图/ailight）</b>→ 不走Planner无语音播报，完成后走通知卡系统通知</li>
+<li><b>其余</b>→ 走Director统一交互框架（小卡/大卡）</li>
+</ul>
+
+<p><b>长程/aigc任务的状态维护</b>：由工具本身增加字段<code>exe_sts</code>（包含在tool_feedback中），标准化方式露出最新状态（处理中/待用户澄清/待用户操作/完成/失败）。</p>
+
+<h3>9.4 播报归属</h3>
+<table>
+<tr><th>agent类型</th><th>谁播报</th></tr>
+<tr><td>车控/音乐搜播/条件任务/短视频/gui</td><td>给Director nlg内容，<b>Director统一回复</b></td></tr>
+<tr><td>本地生活/vqa/车书/s2s</td><td><b>agent自己播</b></td></tr>
+<tr><td>联网工具</td><td>websearch给Director总结后播；webqa自己播</td></tr>
+<tr><td>多agent调度</td><td>"自己播的agent都排最后"，其他agent收到feedback后和用户交互</td></tr>
+</table>
+
+<h3>9.5 HMI三类卡片</h3>
+<table>
+<tr><th>卡片</th><th>数量</th><th>谁开发</th><th>互斥</th><th>说明</th></tr>
+<tr><td>小卡(AI语音卡)</td><td>≤1</td><td>我方</td><td rowspan="2">小卡大卡互斥</td><td>提槽出结构化内容才进卡显示</td></tr>
+<tr><td>大卡(AI画布)</td><td>≤1</td><td>上汽容器,我方集成内容</td><td>—</td></tr>
+<tr><td>通知卡(AI push)</td><td>可多个</td><td>上汽容器</td><td>不互斥</td><td>aigc完成后走这个</td></tr>
+</table>
+<p>asr上屏，tts默认不上屏。</p>
+
+<hr>
+
+<!-- ==================== 第十章 舒适Advisor ==================== -->
+<h2>第十章 · 舒适 Advisor——车内的"体感管家"</h2>
+
+<h3>10.0 舒适Advisor推理链流程图</h3>
+<svg viewBox="0 0 860 140" style="background:#0b1222;border-radius:10px;padding:8px">
+<defs><marker id="a10" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6Z" fill="#94a3b8"/></marker></defs>
+<rect x="10" y="40" width="120" height="60" rx="6" fill="rgba(52,211,153,.12)" stroke="#34d399"/>
+<text x="70" y="60" fill="#e8eef9" font-size="10" text-anchor="middle">触发</text><text x="70" y="76" fill="#9fb0c7" font-size="9" text-anchor="middle">事件(上车/温度变)</text><text x="70" y="90" fill="#9fb0c7" font-size="9" text-anchor="middle">或1min定时review</text>
+<rect x="150" y="35" width="140" height="70" rx="6" fill="rgba(96,165,250,.12)" stroke="#60a5fa"/>
+<text x="220" y="54" fill="#e8eef9" font-size="10" text-anchor="middle">读context(5类变量)</text><text x="220" y="70" fill="#9fb0c7" font-size="9" text-anchor="middle">attention/watcher</text><text x="220" y="84" fill="#9fb0c7" font-size="9" text-anchor="middle">car_condition/memory</text><text x="220" y="98" fill="#9fb0c7" font-size="9" text-anchor="middle">web_information</text>
+<rect x="310" y="40" width="150" height="60" rx="6" fill="rgba(96,165,250,.15)" stroke="#60a5fa"/>
+<text x="385" y="60" fill="#bfdbfe" font-size="10" text-anchor="middle" font-weight="700">5条knowhow推理</text><text x="385" y="78" fill="#9fb0c7" font-size="9" text-anchor="middle">温度/空气/光线/声音/空间</text><text x="385" y="92" fill="#9fb0c7" font-size="9" text-anchor="middle">感知异常→诊断→方案</text>
+<rect x="480" y="40" width="140" height="60" rx="6" fill="rgba(251,191,36,.12)" stroke="#fbbf24"/>
+<text x="550" y="60" fill="#e8eef9" font-size="10" text-anchor="middle">输出JSON</text><text x="550" y="78" fill="#9fb0c7" font-size="9" text-anchor="middle">{舒适性问题,应对建议}</text><text x="550" y="92" fill="#9fb0c7" font-size="9" text-anchor="middle">→Director执行</text>
+<rect x="640" y="40" width="120" height="60" rx="6" fill="rgba(167,139,250,.12)" stroke="#a78bfa"/>
+<text x="700" y="60" fill="#e8eef9" font-size="10" text-anchor="middle">写goal list</text><text x="700" y="78" fill="#9fb0c7" font-size="9" text-anchor="middle">舒适子目标(P1)</text><text x="700" y="92" fill="#9fb0c7" font-size="9" text-anchor="middle">供定时review追踪</text>
+<line x1="130" y1="70" x2="148" y2="70" stroke="#94a3b8" stroke-width="1.1" marker-end="url(#a10)"/>
+<line x1="290" y1="70" x2="308" y2="70" stroke="#94a3b8" stroke-width="1.1" marker-end="url(#a10)"/>
+<line x1="460" y1="70" x2="478" y2="70" stroke="#94a3b8" stroke-width="1.1" marker-end="url(#a10)"/>
+<line x1="620" y1="70" x2="638" y2="70" stroke="#94a3b8" stroke-width="1.1" marker-end="url(#a10)"/>
+</svg>
+
+<h3>10.1 定位与职责</h3>
+<p>原文角色定义："你是座舱内负责用户舒适性的AI管家，你的目标是保障用户在车舱内的舒适性。"</p>
+
+<p>舒适advisor关注<b>6+1个舒适维度</b>：</p>
+<ol>
+<li><b>体感温度舒适性</b>——车内温度是否在人体适宜范围（约22-26度），乘客有没有表现出热/冷的体征</li>
+<li><b>空气质量舒适性</b>——PM2.5、CO2浓度、异味（如有人抽烟）是否超标</li>
+<li><b>光线舒适性</b>——有人在阅读/找东西/化妆时光线够不够亮，有人在睡觉时光线是不是太亮</li>
+<li><b>声音舒适性</b>——有人在睡觉时音量是不是太大，有人在听歌时音量是不是太小</li>
+<li><b>乘坐舒适性</b>——座椅角度/按摩/通风/加热是否匹配乘客当前状态（如长途驾驶后需要按摩放松）</li>
+<li><b>空间舒适性</b>——人员变动时（有人上车/下车）座椅空间是否够用（如后排坐了三个人是否太挤）</li>
+<li><b>其他舒适性</b>——上述6类覆盖不了的（如冥想场景需要综合调光+音乐+空调静音）</li>
+</ol>
+
+<p>对应知识专家 <b>COM（Comfort/随侍管家）</b>。PRD v1.0。<b>关键约束：舒适advisor不直接控车</b>——它只输出"分析+建议"给Director，Director决定要不要执行。这意味着如果Director此时正在处理更高优先级的用户query（交互管理的排队/丢弃策略），舒适advisor的建议可能被延迟执行甚至丢弃。</p>
+
+<h3>10.2 触发机制：事件触发 + 定时review</h3>
+
+<h4>事件触发（P0）</h4>
+<p>事件由"触发器"模块生成（产品负责人吴仁杰）。能触发舒适advisor的事件包括但不限于：</p>
+<ul>
+<li><b>有人上车/下车</b>——上车时需要判断当前车内环境对新来的人是否舒适（如车内38度很热）；下车时需要判断剩余乘客的空间是否需要调整</li>
+<li><b>温度变化</b>——车内/车外温度发生显著变化（如出了地库进入暴晒区域温度骤升）</li>
+<li><b>人员状态变化</b>——VLM观察到有人开始阅读（需要检查光线）、有人睡着了（需要检查音量和灯光）、有人擤鼻涕（可能需要调小风量避免直吹）</li>
+</ul>
+
+<h4>定时目标Review（P1）</h4>
+<p><b>触发条件</b>："1分钟内无新事件触发推理 + 当前存在未完成的舒适子目标"。两个条件必须<b>同时满足</b>——如果没有子目标，不会做无意义的轮询。</p>
+
+<p><b>为什么需要定时review</b>：因为舒适调节通常不是一次就完成的。比如用户说"我好热"→舒适advisor建议"开空调20度风速7档极速制冷"→Director执行→但极速制冷开了之后<b>不应该一直保持7档强风</b>——车内降到舒适温度后应该自动把风速降下来。如果没有定时review，空调就会一直以极速制冷的状态运行，用户从"太热"变成"风太大太冷"。</p>
+
+<div class="eg"><b>定时review的完整时序</b>：<br>
+T=0：事件触发——"车内38度，空调关闭"→舒适advisor建议"空调20度+风速7档极速制冷"→Director执行→同时写入舒适子目标"极速制冷中"到goal list<br>
+T=60s：1分钟过去，无新事件+子目标"极速制冷中"仍在→触发定时review<br>
+T=60s review结果：端信号显示"车内已降到26度但风速还在7档"→舒适advisor分析"温度已接近舒适但风速过大"→建议"风速降到3档，空调温度调到24度"→Director执行→更新子目标进展"温度已接近舒适，降低风速中"<br>
+T=120s：又过1分钟→再次review→"车内24度，风速3档"→分析"温度舒适，风速适中"→建议"/"（无需调整）→子目标标记完成→从goal list删除</div>
+
+<h3>10.3 输入：5类模板变量注入SP</h3>
+
+<p>舒适advisor有自己独立的SP（不是Director的SP），其中注入以下5类模板变量：</p>
+
+<table>
+<tr><th>变量</th><th>具体内容</th><th>数据来源</th><th>什么时候用</th></tr>
+<tr><td><code>{{attention}}</code></td><td>触发本次推理的事件。格式如"后排有人上车""车内温度从22升到29"</td><td>触发器模块</td><td>每次推理都有——要么是事件触发，要么是"你已经1分钟没检查了"的review触发</td></tr>
+<tr><td><code>{{watcher}}</code></td><td>VLM的视觉描述。如"主驾明骏穿短袖，额头有汗珠；后排有人在看书，光线较暗"</td><td>VLM/OMS感知</td><td>判断乘客的体征和行为——光靠端信号知道"温度28度"但不知道"乘客在擦汗"，视觉补这个缺</td></tr>
+<tr><td><code>{{car_condition}}</code></td><td>端信号。空调温度/风量/模式、车窗开闭、座椅加热通风按摩档位、车内外温度、湿度…</td><td>端状态模块</td><td>知道车辆硬件当前状态——你不能建议"调高风速"如果不知道当前风速是几档</td></tr>
+<tr><td><code>{{web_information}}</code></td><td>世界信息。当前时间（下午3点=容易犯困）、天气（晴天30度=车内可能更热）、节气</td><td>联网</td><td>辅助判断——冬天和夏天的"舒适温度"不一样，夜间和白天的"光线舒适"标准也不同</td></tr>
+<tr><td><code>{{memory}}</code></td><td>用户记忆。如"明骏偏好23度""雨晴有鼻炎怕风直吹""小北昨天说感冒了"</td><td>记忆模块</td><td>个性化——同样28度，没鼻炎的人开3档风，有鼻炎的人要开1档并且风口避开面部</td></tr>
+</table>
+
+<p><b>记忆的三个时间层级</b>（这是舒适advisor做个性化判断的关键）：</p>
+<ul>
+<li><b>瞬时记忆（20分钟内）</b>：刚才发生的事。如"3分钟前用户说了一句'有点冷'"——即使端信号显示温度在舒适范围，用户主观感受冷也需要响应。</li>
+<li><b>短期记忆（20分钟~上次夜间更新）</b>：今天的事。如"今天早上用户把空调调到了25度"——说明用户今天偏好25度。</li>
+<li><b>长期记忆（最长半年）</b>：用户的长期偏好。如"明骏总是把空调设到23度""雨晴夏天喜欢开车窗通风不开空调"。这些在<b>每晚更新</b>（系统离线总结当天的舒适数据）或用户主动要求时记录。</li>
+</ul>
+
+<h3>10.4 内部推理逻辑：SP内置5条knowhow（完整原文）</h3>
+
+<p>舒适advisor的SP中写了5条<b>决策树式的推理规则</b>（if-then结构），原文如下：</p>
+
+<ol>
+<li><b>温度舒适</b>（原文）："当车内温度超出人体适宜温度，思考如何快速的使车内温度达到适宜温度；<b>当车内人员表现出温度不适感（比如说话打颤、反复擦汗）</b>，思考如何调整<b>局部</b>车辆控制使对应人员舒适"——注意"局部"二字：不是把全车温度改了，而是只调不舒服的那个人附近的控制（如只调主驾空调）。</li>
+
+<li><b>空气舒适</b>（原文）："当车内空气质量超出正常范围，思考如何快速的使车内空气质量达到适宜值"——比如有人抽烟→开窗通风+空气净化。</li>
+
+<li><b>空间舒适</b>（原文）："当车内出现人员变动时，判断车内空间是否满足所有人员舒适条件"——后排上了第三个人→座椅可能要调整腾出空间。</li>
+
+<li><b>光线舒适</b>（原文）："当车内人员出现对光线有诉求的行为时（比如阅读、找东西、化妆、睡觉等），判断当前光线是否满足舒适要求"——有人看书→检查阅读灯是否开了、亮度够不够；有人睡觉→检查灯是不是太亮要关掉。</li>
+
+<li><b>声音舒适</b>（原文）："当车内人员出现对声音有诉求的行为时（比如睡觉、听歌等），判断当前车内音量是否满足舒适要求"——有人睡觉→音量要调低；有人在听歌但音量太小→建议调大。</li>
+</ol>
+
+<p>核心推理模式是一个三步链：<b>① 感知异常</b>（通过{{attention}}事件 + {{watcher}}视觉 + {{car_condition}}端信号，综合发现"有什么不对"）→ <b>② 诊断维度</b>（判断是温度/空气/光线/声音/空间哪个维度的问题）→ <b>③ 生成调节方案</b>（结合{{memory}}里的用户偏好，输出具体的调节建议）。</p>
+
+<p>这里的SP还引用了一份外部knowhow文档：<b>「AI car-舒适knowhow-baseline v0.4」</b>，里面有更详细的规则（如"人体适宜温度范围是22-26度""风量与温差的推荐对应关系""不同活动对光照度的要求"等）。</p>
+
+<h3>10.5 输出格式</h3>
+
+<p>输出是JSON，固定两个字段：</p>
+<pre>{
+  "当前的舒适性问题": "舱内温度已达24度，但空调还在16度且风速依旧较大，主驾可能会感到冷",
+  "应对建议": "建议把空调温度调到24度，风速调到2档，如果主驾之前说过感冒则风速调到1档"
+}</pre>
+
+<p><b>输出流向三个方向</b>（优先级不同）：</p>
+<table>
+<tr><th>输出类型</th><th>优先级</th><th>接收方</th><th>说明</th></tr>
+<tr><td>即时建议</td><td><b>P0</b></td><td>Director</td><td>Director收到后决定是否执行（可能因更高优先级query而延迟）</td></tr>
+<tr><td>舒适子目标</td><td>P1</td><td>goal list</td><td>如"极速制冷中"——写入goal list，供定时review追踪</td></tr>
+<tr><td>Dock栏透出</td><td>P2</td><td>HMI</td><td>在车机屏幕上向用户展示当前舒适任务的状态（设计待定）</td></tr>
+</table>
+
+<p>每条建议附<b>置信度</b>——置信度低时Director可能选择先问用户确认再执行。</p>
+
+<p><b>输出内容的约束</b>（原文注意事项）："先推测需求，不编造未知信息"——如果不确定用户是不是真的觉得热（只是温度高但用户没表现不适），要在建议里标注"可能"而不是直接断定。</p>
+
+<h3>10.6 SP结构（舒适advisor自己的SP）</h3>
+
+<p>舒适advisor的SP框架（原文贴了完整结构）：</p>
+<ol>
+<li><b>#角色</b> → 目标声明："你是座舱内负责用户舒适性的AI管家"</li>
+<li><b>舒适性细分目标</b> → 6+1个维度的定义</li>
+<li><b>可用参考信息</b> → 5类模板变量（attention/watcher/car_condition/web_information/memory）</li>
+<li><b>推理指令</b> → "根据以上信息判断是否给出建议"</li>
+<li><b>舒适认知(knowhow)</b> → 5条推理规则</li>
+<li><b>输出格式</b> → JSON两字段</li>
+<li><b>#注意</b> → "先推测需求，不编造未知信息"</li>
+</ol>
+
+<h3>10.7 和其他模块的交互</h3>
+<table>
+<tr><th>交互对象</th><th>数据流向</th><th>说明</th></tr>
+<tr><td>触发器</td><td>触发器→舒适Advisor</td><td>事件触发入口</td></tr>
+<tr><td>Director</td><td>舒适Advisor→Director</td><td>输出建议，Director决策执行</td></tr>
+<tr><td>VLM/OMS</td><td>感知→context→舒适Advisor</td><td>提供视觉描述（人的体征/行为）</td></tr>
+<tr><td>端状态</td><td>车辆→context→舒适Advisor</td><td>空调/温度/车窗等实时硬件状态</td></tr>
+<tr><td>记忆模块</td><td>记忆→context→舒适Advisor</td><td>用户偏好/健康信息</td></tr>
+<tr><td>goal list</td><td>舒适Advisor→goal list</td><td>写入舒适子目标（P1）</td></tr>
+<tr><td>HMI(Dock栏)</td><td>子目标→HMI</td><td>展示当前舒适任务进度（P2，设计待定）</td></tr>
+</table>
+
+<h3>10.8 真实case（完整时序）</h3>
+
+<div class="eg"><b>Case 1：夏季38度上车(P0)</b><br>
+<b>触发</b>：事件"主驾上车"<br>
+<b>输入</b>：{{attention}}="主驾明骏上车" / {{watcher}}="明骏穿短袖，额头有汗珠，表情略显不适" / {{car_condition}}="车内温度38度，车外温度35度，空调关闭，车窗全部关闭" / {{memory}}="明骏偏好23度"<br>
+<b>推理</b>：knowhow①触发——"车内38度超出适宜范围(22-26度)+人员表现出温度不适感(额头有汗)" → 需要快速降温<br>
+<b>输出</b>：<code>{"当前的舒适性问题":"车内38度远超舒适范围，明骏额头有汗表现出热感","应对建议":"开空调制冷20度+座椅通风3档+车窗先打开通风2分钟后关闭（先排出车内热空气再靠空调降温更快）"}</code><br>
+<b>后续</b>：Director接收执行 → 同时写入子目标"极速制冷中"到goal list → 1分钟后定时review"降到26度了风速该降" → 再1分钟"降到24度接近偏好的23度，风速已降，子目标完成删除"</div>
+
+<div class="eg"><b>Case 2：多人乘车有FaceID(P0)</b><br>
+<b>触发</b>：事件"副驾和后排分别上车"<br>
+<b>输入</b>：{{memory}}="爸爸偏好23度/妈妈偏好25度/宝宝适宜24度" / {{car_condition}}="双区空调，主驾23度副驾23度"<br>
+<b>推理</b>：knowhow①——多人温度偏好不同，需要分区调节。D6X是双区空调（主驾副驾独立温控），但<b>后排跟随主驾</b>（D6X设备知识的硬约束）<br>
+<b>输出</b>：<code>{"当前的舒适性问题":"爸爸主驾23度OK，妈妈副驾偏好25度但当前23度偏冷，宝宝后排跟随主驾23度偏冷","应对建议":"副驾温度调到25度；后排无法独立调温但可以把风量调小减少冷风直吹宝宝+风向调离宝宝方向"}</code><br>
+<b>注意</b>：这里advisor需要知道"后排不可调温"这个D6X硬约束——如果不知道就会建议"后排调到24度"导致车控幻觉。所以舒适advisor的SP里也需要有设备知识，或者靠前置筛选注入COM-01-01-01里的"分区温控"知识。</div>
+
+<div class="eg"><b>Case 3：冬季地库出库起雾(P1)</b><br>
+<b>触发</b>：事件"车辆从地库驶出到地面"<br>
+<b>输入</b>：{{car_condition}}="车内20度/车外2度/温差18度" / {{web_information}}="冬季,湿度高"<br>
+<b>推理</b>：大温差+高湿度→前挡可能起雾（虽然还没起雾但<b>预判</b>会起）<br>
+<b>输出</b>：<code>{"当前的舒适性问题":"出地库后车内外温差大可能起雾","应对建议":"提前打开前挡除雾+后视镜加热"}</code> → Director话术："等会出地库容易起雾，帮你提前准备好啦"<br>
+<b>注意</b>：这个case体现了舒适advisor的<b>预判能力</b>——不是等起雾了再处理，而是根据温差和湿度提前预防。</div>
+
+<div class="eg"><b>Case 4：结合视觉的舒适分析(TBD)</b><br>
+<b>触发</b>：VLM观察到"后排乘客在擤鼻涕、按揉太阳穴"<br>
+<b>推理</b>：擤鼻涕+按揉太阳穴→可能感冒或鼻炎→当前空调风量3档直吹后排→大风吹鼻子不舒服<br>
+<b>输出</b>：建议"后排风量调到1档+出风口方向调离乘客面部"<br>
+<b>状态</b>：<b>标TBD</b>——因为需要VLM能力足够细才能识别"擤鼻涕"和"按揉太阳穴"这种精细动作。目前VLM可能只能识别到"后排乘客在做某个动作"但分不清具体是什么。</div>
+
+<h3>10.9 做到什么程度</h3>
+<table>
+<tr><th>功能</th><th>状态</th><th>说明</th></tr>
+<tr><td>上车高温/低温快速调节</td><td><b>P0已定义</b></td><td>核心场景</td></tr>
+<tr><td>多人分区温控</td><td><b>P0已定义</b></td><td>依赖FaceID识别谁在哪+D6X双区约束</td></tr>
+<tr><td>睡眠中舒适调节</td><td>P1</td><td>后排睡觉→温度微升+关出风口+降音量</td></tr>
+<tr><td>个性化午休模式</td><td>P1</td><td>规律午休→灯光/座椅/白噪音联动</td></tr>
+<tr><td>结合视觉的高感场景</td><td><b>TBD</b></td><td>擤鼻涕/按揉太阳穴等，<b>依赖VLM精细识别能力</b></td></tr>
+<tr><td>反思机制（离线复盘推理质量）</td><td>P1待讨论</td><td>触发条件/上下文/knowhow/输出均未定</td></tr>
+<tr><td>Dock栏透出</td><td>P2</td><td>交互设计待讨论</td></tr>
+<tr><td>用户实时反馈闭环(语音/触摸)</td><td>P2</td><td>前提是语音反馈能被planner承接</td></tr>
+</table>
+
+<h3>10.10 Badcase排查</h3>
+<ul>
+<li><b>舒适advisor没触发</b>：查触发器是否产生了事件→触发器模块的事件注册是否覆盖了这个场景→1分钟定时review的前提是有子目标在</li>
+<li><b>判断错了维度</b>（温度问题判成光线问题）：查5条knowhow的if条件是否匹配→{{watcher}}视觉描述是否准确→{{car_condition}}端信号是否最新</li>
+<li><b>建议了D6X做不到的事</b>（如"后排调温度"）：检查SP里有没有D6X设备知识/前置筛选有没有注入COM知识→设备约束是否被模型读到了</li>
+<li><b>建议合理但Director没执行</b>：查交互管理——advisor建议是否被排队/丢弃了（在用户讲话中advisor红线丢弃）</li>
+<li><b>定时review没触发</b>：查是否有子目标在goal list上→子目标是否被误删了</li>
+</ul>
+
+<hr>
+
+<!-- ==================== 第十一章 出行Advisor ==================== -->
+<h2>第十一章 · 出行 Advisor——"理解你去哪、为什么去"</h2>
+
+<h3>11.0 出行目的预测流程图</h3>
+<svg viewBox="0 0 860 130" style="background:#0b1222;border-radius:10px;padding:8px">
+<defs><marker id="a11" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6Z" fill="#94a3b8"/></marker></defs>
+<rect x="10" y="35" width="120" height="60" rx="6" fill="rgba(52,211,153,.12)" stroke="#34d399"/>
+<text x="70" y="56" fill="#e8eef9" font-size="10" text-anchor="middle">触发：有人上车</text><text x="70" y="72" fill="#9fb0c7" font-size="9" text-anchor="middle">或导航变更/堵车</text><text x="70" y="86" fill="#9fb0c7" font-size="9" text-anchor="middle">或接近目的地</text>
+<rect x="150" y="30" width="150" height="70" rx="6" fill="rgba(96,165,250,.12)" stroke="#60a5fa"/>
+<text x="225" y="50" fill="#e8eef9" font-size="10" text-anchor="middle">融合10+数据源</text><text x="225" y="66" fill="#9fb0c7" font-size="9" text-anchor="middle">历史偏好/车内人员</text><text x="225" y="80" fill="#9fb0c7" font-size="9" text-anchor="middle">携带物品/时间/位置/日程</text><text x="225" y="94" fill="#9fb0c7" font-size="9" text-anchor="middle">常去地点/导航状态</text>
+<rect x="320" y="35" width="160" height="60" rx="6" fill="rgba(96,165,250,.15)" stroke="#60a5fa"/>
+<text x="400" y="56" fill="#bfdbfe" font-size="10" text-anchor="middle" font-weight="700">多因素融合推理</text><text x="400" y="74" fill="#9fb0c7" font-size="9" text-anchor="middle">概率排序→预测+置信度</text><text x="400" y="88" fill="#9fb0c7" font-size="9" text-anchor="middle">低置信→主动确认</text>
+<rect x="500" y="35" width="150" height="60" rx="6" fill="rgba(251,191,36,.12)" stroke="#fbbf24"/>
+<text x="575" y="56" fill="#e8eef9" font-size="10" text-anchor="middle">输出给Director</text><text x="575" y="74" fill="#9fb0c7" font-size="9" text-anchor="middle">{目的预测,需求分析,建议}</text><text x="575" y="88" fill="#9fb0c7" font-size="9" text-anchor="middle">→路线/缴费/订座/充电</text>
+<rect x="670" y="35" width="140" height="60" rx="6" fill="rgba(52,211,153,.12)" stroke="#34d399"/>
+<text x="740" y="56" fill="#e8eef9" font-size="10" text-anchor="middle">下游执行</text><text x="740" y="74" fill="#9fb0c7" font-size="9" text-anchor="middle">route_planning_qa</text><text x="740" y="88" fill="#9fb0c7" font-size="9" text-anchor="middle">gui_agent(缴费)</text>
+<line x1="130" y1="65" x2="148" y2="65" stroke="#94a3b8" stroke-width="1.1" marker-end="url(#a11)"/>
+<line x1="300" y1="65" x2="318" y2="65" stroke="#94a3b8" stroke-width="1.1" marker-end="url(#a11)"/>
+<line x1="480" y1="65" x2="498" y2="65" stroke="#94a3b8" stroke-width="1.1" marker-end="url(#a11)"/>
+<line x1="650" y1="65" x2="668" y2="65" stroke="#94a3b8" stroke-width="1.1" marker-end="url(#a11)"/>
+</svg>
+
+<h3>11.1 定位</h3>
+<p>"不只是导航助手，而是理解人、理解出行场景、并能主动提供整体解决方案的专家。"覆盖<b>全出行生命周期</b>：行前 → 行中 → 行后。对应知识专家<b>DRV</b>。PRD v0.4。</p>
+
+<h3>11.2 触发机制（按阶段细分）</h3>
+<table>
+<tr><th>阶段</th><th>功能</th><th>触发方式</th></tr>
+<tr><td>行前</td><td>出行目的地+目标预测</td><td>事件：有人上车/下车</td></tr>
+<tr><td>行前</td><td>缴停车费</td><td>事件：车在停车场&起步/驶离；或车机下电</td></tr>
+<tr><td>行中</td><td>目的地服务（资讯）</td><td>事件：导航目的地变更；定时：目的地不变时</td></tr>
+<tr><td>行中</td><td>目的地停车</td><td>事件：导航变更；事件：接近目的地(2km)</td></tr>
+<tr><td>行中</td><td>生态服务(订座/取号/咖啡)</td><td>事件：导航变更；定时</td></tr>
+<tr><td>行中</td><td>路线推荐(堵车绕行)</td><td>事件：堵车</td></tr>
+<tr><td>行中</td><td>充电服务</td><td>事件：能耗不足/接近目的地/导航变更</td></tr>
+<tr><td>行后</td><td>最后一公里指引</td><td>事件：接近目的地(100m)；事件：到达+P档</td></tr>
+</table>
+
+<h3>11.3 核心推理：出行目的预测——怎么"猜"用户要去哪</h3>
+
+<p>出行advisor最独特的能力是<b>在用户还没说去哪之前就猜出目的地</b>。这不是简单的"上次去过的地方"推荐，而是<b>融合 10+ 个数据源做综合推理</b>。每个数据源的作用：</p>
+
+<table>
+<tr><th>数据源</th><th>具体内容</th><th>怎么用</th><th>来源</th></tr>
+<tr><td><b>历史出行偏好</b></td><td>什么时间去什么地方（高频模式）</td><td>"周二早上8:30通常去平金中心"→通勤模式匹配</td><td>记忆</td></tr>
+<tr><td><b>车内人员状态</b></td><td>谁坐在哪个位置干什么</td><td>"依依坐后排"→家庭出行模式（而不是独自通勤）</td><td>context-watcher(VLM)</td></tr>
+<tr><td><b>上车携带物品</b></td><td>书包/公文包/运动装备/购物袋…</td><td>"带了书包"→大概率是上学/补习班</td><td>context-watcher(VLM)</td></tr>
+<tr><td><b>时间上下文</b></td><td>时间点/周几/节假日</td><td>"周二8:30"→工作日通勤时间；"周六10:00"→可能是周末出游</td><td>context-世界信息</td></tr>
+<tr><td><b>当前车辆位置</b></td><td>具体位置（经纬度→地理描述）</td><td>"在长江小区"→家附近，出发态</td><td>context-端信号</td></tr>
+<tr><td><b>常去地点信息</b></td><td>家/公司/学校/健身房/超市等标记地点</td><td>"平金中心=公司""光启小学=孩子学校"</td><td>记忆</td></tr>
+<tr><td><b>导航状态</b></td><td>是否已设导航/目的地是什么</td><td>已设导航→不需要猜了；未设→需要预测</td><td>context-端信号</td></tr>
+<tr><td><b>落座后停留时长</b></td><td>上车后多久才开始说话/操作</td><td>上车后立即说"走吧"→目的地明确；上车后5分钟没动→可能在等人/犹豫</td><td>端侧</td></tr>
+<tr><td><b>日程/日历</b></td><td>手机日历/行程计划</td><td>"今天14:00有牙医预约"→可能需要导航去诊所</td><td>日程同步</td></tr>
+<tr><td><b>交通/订票/外卖通知</b></td><td>手机推送的航班/火车/外卖信息</td><td>"航班CA1234 15:00浦东出发"→可能需要去机场</td><td>通知同步</td></tr>
+<tr><td><b>高德出行预测</b></td><td>第三方出行预测数据</td><td>辅助验证自有预测的置信度</td><td>高德API</td></tr>
+</table>
+
+<p><b>推理模式</b>是一个四步链条：</p>
+<ol>
+<li><b>多因素融合</b>——把上面10+个数据源的信息综合在一起，不是看单一因素。"周二8:30+在家附近+带书包"三个因素叠加后置信度远高于单看任何一个。</li>
+<li><b>概率排序</b>——可能有多个候选目的地。比如"周二8:30在家"可能去公司也可能送孩子上学。出行advisor要给出<b>排序</b>：最可能=送孩子(因为带了书包)+上班(因为工作日)。</li>
+<li><b>输出预测+置信度</b>——每个预测附带一个置信度分数。高置信（如95%确定是通勤）→直接推荐路线不问用户。低置信（如只有60%）→需要确认。</li>
+<li><b>低置信时主动确认</b>——置信度低于阈值时，出行advisor给Director的建议里会包含"建议向用户确认目的地"，Director用一句自然的话问用户："你是要去公司还是送依依上学？"而不是生硬地弹选择框。</li>
+</ol>
+
+<div class="eg"><b>PRD原文完整推理示例</b>：<br>
+<b>输入</b>：12月3日周二8:31 / 益红和依依已上车 / 车在长江小区 / 导航未设置<br>
+<b>推理过程</b>（原文）："根据当前信息（12月3日周二早上8:31），益红和依依已上车，车辆位于长江小区。结合两人的日常安排：<br>
+- 依依应在8:30-8:35出发去光启小学上学，当前时间已接近最晚出发时间，且她<b>带了书包</b>，说明今天需要上学。<br>
+- 益红通常8:45-9:00出发去平金中心上班，当前时间稍早，但两人已上车，很可能计划先送依依上学，再去公司。<br>
+因此，本次出行的目的是：1.送依依上学 2.益红上班"<br>
+<b>置信度</b>：高（多因素一致指向同一结论）→ 直接推荐"先去光启小学再去平金中心"的路线<br>
+<b>注意</b>：这里"带了书包"是VLM（watcher）看到的视觉信息——如果VLM不工作或识别不到"书包"，这条推理就少了一个关键因素，置信度会下降，可能需要问用户确认。</div>
+
+<h3>11.4 输出格式与流向</h3>
+
+<p>出行advisor的输出是<b>结构化字段</b>（不是每个场景都涉及所有字段）：</p>
+
+<table>
+<tr><th>字段</th><th>示例值</th><th>给谁</th><th>什么时候有</th></tr>
+<tr><td><b>出行目的预测</b></td><td>"去上班/车内午休/NA/预测用户等会儿8点钟要去平金中心上班"</td><td>内部（供后续场景推理用）</td><td>有人上车时</td></tr>
+<tr><td><b>当前出行目的</b></td><td>"去接孩子放学"</td><td>内部</td><td>导航已设置时</td></tr>
+<tr><td><b>需求分析</b></td><td>"当前车辆停在万达广场停车场，已停3小时，存在缴费需求；下一个目的地是家但电量只剩15%可能不够"</td><td>Director</td><td>检测到特定场景时</td></tr>
+<tr><td><b>建议</b></td><td>"主动询问是否帮交停车费；建议沿途充电，推荐XX站有优惠"</td><td>Director</td><td>有需求分析时</td></tr>
+</table>
+
+<p><b>和Director的交互方式</b>：出行advisor的建议以 <code>{"advisor":"需求分析+建议文本"}</code> 的格式发给Director。Director收到后按交互管理的规则决定什么时候、以什么方式告诉用户（可能被排队/丢弃/立即执行）。</p>
+
+<h3>11.5 真实case（完整链路）</h3>
+
+<div class="eg"><b>Case 1：停车缴费（行前场景）</b><br>
+<b>触发</b>：事件"车在停车场 & 车辆起步/驶离"或"车机下电"<br>
+<b>输入</b>：端信号"车辆位于万达广场地下停车场，已停放3小时12分钟"<br>
+<b>推理</b>：停车场 + 停放时间>0 → 存在缴费需求<br>
+<b>输出</b>：需求分析="停在万达广场停车场已3小时，存在缴费需求" / 建议="主动询问是否帮缴，用户同意后通过GUIAgent帮缴费"<br>
+<b>Director接收后</b>：Director用自然的话问用户"要不要帮你把停车费交了？" → 用户"好的" → Director调 <code>gui_agent_operation({type:"new_task", query:"帮用户缴纳万达广场停车费"})</code> → GUIAgent操作捷停车小程序完成缴费<br>
+<b>异常处理</b>："如无免密支付，要求用户手动完成支付"（PRD原文）</div>
+
+<div class="eg"><b>Case 2：堵车绕行（行中场景）</b><br>
+<b>触发</b>：事件"堵车"（导航监测到前方拥堵>N分钟）<br>
+<b>输入</b>：历史出行偏好"平时走中环内圈上班" / 实时路况"中环今天严重拥堵" / 替代路线"外环高速顺畅但过路费10元"<br>
+<b>推理</b>：常走路线拥堵 → 需要推荐替代 → 外环顺畅但有费用 → 用户需要知道费用信息再做选择<br>
+<b>输出</b>：建议="今天中环堵了，建议走外环高速，路顺但得付10元高速费，你看要不要切？"<br>
+<b>Director处理</b>：话术包含费用信息让用户选择 → 用户说"走外环吧" → Director调 <code>route_planning_qa</code> 切换路线</div>
+
+<div class="eg"><b>Case 3：充电推荐（行中场景）</b><br>
+<b>触发</b>：事件"能耗不足"（剩余电量不足以到达目的地）或"接近目的地但电量低"<br>
+<b>输入</b>：端信号"剩余电量15%，剩余里程50km，目的地距离80km" / 记忆"用户习惯快充，对费用不敏感"<br>
+<b>推理</b>：50km < 80km → 到不了 → 需要中途充电 → 检索沿途充电站 → 结合用户偏好（习惯快充）推荐<br>
+<b>输出</b>：建议="电量不够到目的地，推荐前方2km处XX快充站，有20-5优惠，预计充30分钟可续航200km"<br>
+<b>扩展</b>：如果充电站排队 → "下一出口2km处有另一个空闲站，节省40分钟等候"</div>
+
+<div class="eg"><b>Case 4：最后一公里指引（行后场景）</b><br>
+<b>触发</b>：事件"接近目的地(100m)" 或 "到达目的地 & P档"<br>
+<b>输入</b>：目的地"安又胖餐厅" / 搜索结果"安又胖在3楼"<br>
+<b>输出</b>：建议="安又胖在三楼，建议找最近的扶梯上楼，排队大概需要20分钟"<br>
+<b>注意</b>：这里用到了SP⑩其他知识里的<b>导航技巧</b>——"人下车的地方和车停的地方要分开想"——先在目的地门口放人下车，再去找停车位。</div>
+
+<h3>11.6 和其他模块的交互</h3>
+<table>
+<tr><th>交互对象</th><th>数据流向</th><th>说明</th></tr>
+<tr><td>触发器</td><td>触发器→出行Advisor</td><td>事件触发入口（上车/导航变更/堵车/接近目的地）</td></tr>
+<tr><td>Director</td><td>出行Advisor→Director</td><td>输出需求分析+建议</td></tr>
+<tr><td>导航服务(高德)</td><td>高德→出行Advisor</td><td>实时路况/路线规划/POI搜索结果</td></tr>
+<tr><td>VLM/OMS</td><td>视觉→context→出行Advisor</td><td>车内人员状态（谁在哪坐什么姿态）、<b>携带物品</b>（书包/公文包）</td></tr>
+<tr><td>记忆模块</td><td>记忆→context→出行Advisor</td><td>历史出行偏好、常去地点、充电习惯</td></tr>
+<tr><td>GUIAgent</td><td>Director→GUIAgent</td><td>缴停车费/订座等操作（出行advisor不直接调GUIAgent，而是建议Director调）</td></tr>
+<tr><td>生态服务(美团等)</td><td>出行Advisor↔美团/高德</td><td>排队时长/订座/门票/咖啡预订</td></tr>
+<tr><td>手机端(豆包)</td><td>出行Advisor→手机</td><td>行前提醒（远程场景，如"明天要出发了，现在帮你开空调预热？"）</td></tr>
+</table>
+
+<h3>11.7 做到什么程度</h3>
+<table>
+<tr><th>功能</th><th>状态</th><th>说明</th></tr>
+<tr><td>出行目的预测</td><td><b>核心场景已定义</b></td><td>多因素融合+置信度+主动确认</td></tr>
+<tr><td>停车缴费(GUIAgent)</td><td>已定义</td><td>依赖GUIAgent捷停车小程序</td></tr>
+<tr><td>堵车绕行推荐</td><td>已定义</td><td>依赖高德实时路况</td></tr>
+<tr><td>充电服务</td><td>部分定义</td><td>基础场景已有，特殊场景（排队/节假日免费高速）标P2</td></tr>
+<tr><td>最后一公里指引</td><td>已定义</td><td>依赖商场内导航数据</td></tr>
+<tr><td>生态服务(订座/取号/买票)</td><td><b>P2未实现</b></td><td>依赖美团等第三方API集成</td></tr>
+<tr><td>个性化POI推荐</td><td><b>P2未实现</b></td><td>"前方2km七宝万象城在开汉堡节"</td></tr>
+<tr><td>输出格式与Director对接</td><td><b>"需要详细沟通"</b></td><td>PRD原文承认未完全定义</td></tr>
+</table>
+
+<h3>11.8 Badcase排查</h3>
+<ul>
+<li><b>目的预测错了</b>：查10+数据源哪个缺了或错了→最常见的是VLM没识别到"携带物品"（如书包），导致少了一个关键因素→或历史出行偏好数据不足（新用户/新地点没积累）</li>
+<li><b>该预测没预测</b>：查触发器有没有产生"有人上车"事件→上车事件的定义是什么（FaceID触发还是座椅压力传感器触发）</li>
+<li><b>缴费失败</b>：查GUIAgent环节→捷停车小程序是否登录→"如无免密支付要求用户手动"的兜底有没有生效</li>
+<li><b>充电推荐不准</b>：查充电站数据是否实时（排队状态/空闲状态是否是实时数据）→用户偏好（习惯快充/慢充/对费用敏感否）是否正确读到</li>
+<li><b>建议合理但Director没执行</b>：和舒适advisor一样——可能被交互管理排队/丢弃了</li>
+</ul>
+
+<hr>
+
+<!-- ==================== 第十二章 内容Advisor ==================== -->
+<h2>第十二章 · 内容 Advisor——"克制比推荐更重要"</h2>
+
+<h3>12.0 内容Advisor L0-L3判定流程图</h3>
+<svg viewBox="0 0 860 160" style="background:#0b1222;border-radius:10px;padding:8px">
+<defs><marker id="a12" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6Z" fill="#94a3b8"/></marker></defs>
+<rect x="10" y="55" width="110" height="50" rx="6" fill="rgba(52,211,153,.12)" stroke="#34d399"/>
+<text x="65" y="76" fill="#e8eef9" font-size="10" text-anchor="middle">Trigger唤醒</text><text x="65" y="92" fill="#9fb0c7" font-size="9" text-anchor="middle">事件/定时/协同信号</text>
+<rect x="140" y="55" width="100" height="50" rx="6" fill="rgba(96,165,250,.12)" stroke="#60a5fa"/>
+<text x="190" y="76" fill="#e8eef9" font-size="10" text-anchor="middle">Context汇聚</text><text x="190" y="92" fill="#9fb0c7" font-size="9" text-anchor="middle">状态快照</text>
+<rect x="260" y="30" width="200" height="100" rx="7" fill="rgba(96,165,250,.15)" stroke="#60a5fa" stroke-width="1.3"/>
+<text x="360" y="50" fill="#bfdbfe" font-size="10" text-anchor="middle" font-weight="700">介入判断(决策核心)</text>
+<text x="360" y="68" fill="#fb7185" font-size="9" text-anchor="middle">L0隐形(0%):愤怒/暴雨→不推</text>
+<text x="360" y="82" fill="#9fb0c7" font-size="9" text-anchor="middle">L1氛围(&lt;5%):疲惫→白噪声</text>
+<text x="360" y="96" fill="#9fb0c7" font-size="9" text-anchor="middle">L2碎片(30%):通勤→笑话新闻</text>
+<text x="360" y="110" fill="#34d399" font-size="9" text-anchor="middle">L3沉浸(&gt;80%):长途→专家讲坛</text>
+<text x="360" y="124" fill="#9fb0c7" font-size="8" text-anchor="middle">输出唯一等级</text>
+<rect x="490" y="22" width="110" height="38" rx="6" fill="rgba(251,113,133,.12)" stroke="#fb7185"/>
+<text x="545" y="38" fill="#e8eef9" font-size="10" text-anchor="middle">L0→回到静默</text><text x="545" y="52" fill="#9fb0c7" font-size="9" text-anchor="middle">一个字都不说</text>
+<rect x="490" y="72" width="110" height="44" rx="6" fill="rgba(251,191,36,.12)" stroke="#fbbf24"/>
+<text x="545" y="90" fill="#e8eef9" font-size="10" text-anchor="middle">L1~L3→策略</text><text x="545" y="106" fill="#9fb0c7" font-size="9" text-anchor="middle">内容形态+风格</text>
+<rect x="620" y="72" width="130" height="44" rx="6" fill="rgba(96,165,250,.12)" stroke="#60a5fa"/>
+<text x="685" y="90" fill="#e8eef9" font-size="10" text-anchor="middle">分发给Director</text><text x="685" y="106" fill="#9fb0c7" font-size="9" text-anchor="middle">话术+指令+等级</text>
+<line x1="120" y1="80" x2="138" y2="80" stroke="#94a3b8" stroke-width="1.1" marker-end="url(#a12)"/>
+<line x1="240" y1="80" x2="258" y2="80" stroke="#94a3b8" stroke-width="1.1" marker-end="url(#a12)"/>
+<path d="M460,55 L488,41" fill="none" stroke="#94a3b8" stroke-width="1.1" marker-end="url(#a12)"/><text x="474" y="42" fill="#fb7185" font-size="8">L0</text>
+<path d="M460,90 L488,92" fill="none" stroke="#94a3b8" stroke-width="1.1" marker-end="url(#a12)"/><text x="474" y="86" fill="#fbbf24" font-size="8">L1+</text>
+<line x1="600" y1="94" x2="618" y2="94" stroke="#94a3b8" stroke-width="1.1" marker-end="url(#a12)"/>
+</svg>
+
+<h3>12.1 定位</h3>
+<p>"成为车内最懂场景、最懂你的首席内容建议官。不做内容搬运工，只专注于生成让你无法拒绝的'下一段时光'内容提案。"成功指标是<b>建议采纳率</b>，不是播放量。对应知识专家<b>ENT</b>。PRD V0.4。</p>
+
+<h3>12.2 核心设计原则</h3>
+<blockquote><b>默认不工作。没有Trigger，就没有内容。</b>保持系统资源与用户注意力的双重零占用。</blockquote>
+
+<h3>12.3 触发机制（三种，含独特的"协同信号"）</h3>
+<ul>
+<li><b>事件触发</b>：场景切换（起步/停车/路况剧变）、用户行为变化（对话结束/打断）</li>
+<li><b>定时Review</b>：长时间静默后的状态复查（如已静默30分钟）</li>
+<li><b>协同信号</b>：<b>情感advisor发出"适合陪伴"的信号</b>——这是4个advisor之间<b>唯一明确的跨advisor协同接口</b></li>
+</ul>
+
+<h3>12.4 核心推理：L0-L3介入等级（状态机）</h3>
+<p>触发后<b>第一件事不是"推什么"而是"该不该推"</b>。输出<b>唯一的介入等级</b>：</p>
+<table>
+<tr><th>等级</th><th>定义</th><th>认知占用</th><th>触发条件（信号源）</th></tr>
+<tr><td><b>L0 隐形</b></td><td>不推荐不打扰</td><td>0%</td><td>愤怒/烦躁/高压力；暴雨冰雪驾驶负荷极高；社交冲突/明确拒绝。信号源：DMS&OMS/语音/ADAS/车身域/交互历史</td></tr>
+<tr><td><b>L1 氛围</b></td><td>白噪声/轻音乐</td><td>&lt;5%</td><td>疲惫/低落/发呆；单调且安全环境。信号源：DMS/座舱/光照/雨量</td></tr>
+<tr><td><b>L2 碎片</b></td><td>笑话/脱口秀/新闻</td><td>30%</td><td>通勤/短途(导航&lt;30min)；正常/轻度焦虑。信号源：导航/用户画像/DMS</td></tr>
+<tr><td><b>L3 沉浸</b></td><td>专家解读/历史讲坛</td><td>&gt;80%</td><td>长途巡航/驻车休息(NOA/充电)；高接收度/好奇。信号源：智驾域/车身域/推荐引擎</td></tr>
+</table>
+
+<blockquote>"要像人一样察言观色——车上夫妻正在吵架，即使满足了Trigger条件，也不要推送。"</blockquote>
+
+<h3>12.5 8步推理Flow</h3>
+<ol>
+<li><b>静默态</b>（默认不工作）</li>
+<li><b>Trigger唤醒</b>（事件/定时/协同信号触发，但Trigger≠必须输出）</li>
+<li><b>Context汇聚</b>（拉取完整状态快照）</li>
+<li><b>介入判断</b>（<b>决策核心</b>，输出L0-L3）</li>
+<li><b>策略参数生成</b>（仅L1+时，生成内容形态+表达风格）</li>
+<li><b>分发给Director</b></li>
+<li><b>反馈感知</b>（持续监听显隐性反馈，负反馈→立即降级）</li>
+<li><b>Review与回收</b>（内容结束后策略校准，回到Step1）</li>
+</ol>
+
+<h3>12.6 反馈闭环</h3>
+<p><b>满意度校准</b>：连续跳过3次→归因分析（针对歌手 or 曲风？）→策略修正。<b>时空/负荷校准</b>：路况从畅通变拥堵且持续>5min→降低认知门槛（L3→L2）。每20分钟后台扫描一次。</p>
+
+<h3>12.7 做到什么程度</h3>
+<p>L0-L3判定逻辑和8步Flow已完整定义。内容源对接（QQ音乐/网易云/喜马拉雅/小宇宙API）是工程依赖。AIGC能力（讲解/串场词/知识胶囊生成）依赖实时生成。Benchmark方案"暂不支持"。</p>
+
+<hr>
+
+<!-- ==================== 第十三章 情感Advisor ==================== -->
+<h2>第十三章 · 情感 Advisor——推理最精细、红线最严格</h2>
+
+<h3>13.0 情感Advisor Event Prompt 4步推理流程图</h3>
+<svg viewBox="0 0 860 150" style="background:#0b1222;border-radius:10px;padding:8px">
+<defs><marker id="a13" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6Z" fill="#94a3b8"/></marker></defs>
+<rect x="10" y="35" width="160" height="80" rx="6" fill="rgba(52,211,153,.12)" stroke="#34d399"/>
+<text x="90" y="55" fill="#e8eef9" font-size="10" text-anchor="middle">Step1 事件解析</text>
+<text x="90" y="72" fill="#9fb0c7" font-size="9" text-anchor="middle">多情感优先级规则:</text>
+<text x="90" y="86" fill="#9fb0c7" font-size="8" text-anchor="middle">安全>节日>人物状态</text>
+<text x="90" y="100" fill="#9fb0c7" font-size="8" text-anchor="middle">>情绪>人物>场景>着装</text>
+<text x="90" y="112" fill="#fb7185" font-size="8" text-anchor="middle">安全类强制执行</text>
+<rect x="190" y="35" width="160" height="80" rx="6" fill="rgba(251,113,133,.12)" stroke="#fb7185"/>
+<text x="270" y="55" fill="#e8eef9" font-size="10" text-anchor="middle">Step2 即时建议</text>
+<text x="270" y="72" fill="#fda4af" font-size="9" text-anchor="middle">6条红线:</text>
+<text x="270" y="86" fill="#9fb0c7" font-size="8" text-anchor="middle">✘不推内容 ✘不控车</text>
+<text x="270" y="100" fill="#9fb0c7" font-size="8" text-anchor="middle">✘不猜测 ✘不预测</text>
+<text x="270" y="112" fill="#9fb0c7" font-size="8" text-anchor="middle">✘不提醒物品 ✘不维持现状</text>
+<rect x="370" y="35" width="190" height="80" rx="6" fill="rgba(167,139,250,.12)" stroke="#a78bfa"/>
+<text x="465" y="55" fill="#e8eef9" font-size="10" text-anchor="middle">Step3 子目标管理</text>
+<text x="465" y="72" fill="#9fb0c7" font-size="9" text-anchor="middle">A目标达成型(安抚到不愤怒)</text>
+<text x="465" y="86" fill="#9fb0c7" font-size="9" text-anchor="middle">B条件响应型(轻柔到睡醒)</text>
+<text x="465" y="100" fill="#9fb0c7" font-size="9" text-anchor="middle">create/update/delete</text>
+<text x="465" y="112" fill="#9fb0c7" font-size="8" text-anchor="middle">上限10个·create需满足5条件</text>
+<rect x="580" y="35" width="150" height="80" rx="6" fill="rgba(251,191,36,.12)" stroke="#fbbf24"/>
+<text x="655" y="55" fill="#e8eef9" font-size="10" text-anchor="middle">Step4 输出整合</text>
+<text x="655" y="72" fill="#9fb0c7" font-size="9" text-anchor="middle">{reason, advice,</text>
+<text x="655" y="86" fill="#9fb0c7" font-size="9" text-anchor="middle"> goal_operations}</text>
+<text x="655" y="100" fill="#9fb0c7" font-size="9" text-anchor="middle">→Director</text>
+<text x="655" y="112" fill="#9fb0c7" font-size="8" text-anchor="middle">冲突检查:即时>子目标</text>
+<line x1="170" y1="75" x2="188" y2="75" stroke="#94a3b8" stroke-width="1.1" marker-end="url(#a13)"/>
+<line x1="350" y1="75" x2="368" y2="75" stroke="#94a3b8" stroke-width="1.1" marker-end="url(#a13)"/>
+<line x1="560" y1="75" x2="578" y2="75" stroke="#94a3b8" stroke-width="1.1" marker-end="url(#a13)"/>
+</svg>
+
+<h3>13.1 定位</h3>
+<p>纯情感层察言观色。<b>不控车、不推内容、不提醒物品</b>——只管"用什么语气说话、要不要主动搭话、该不该关心一下"。对应知识专家<b>EMO</b>。PRD v1.0。有<b>两套完整SP</b>（Event Prompt + Review Prompt）。</p>
+
+<h3>13.2 触发机制</h3>
+<p><b>Event触发</b>（事件列表）：</p>
+<table>
+<tr><th>事件</th><th>优先级</th><th>事件</th><th>优先级</th></tr>
+<tr><td>有人上车/下车</td><td>P0</td><td>检测到睡觉/睡醒</td><td>P0</td></tr>
+<tr><td>到达/驶离堵车路段</td><td>P1</td><td>检测到疲劳驾驶</td><td>P1</td></tr>
+<tr><td>有人打/打完电话</td><td>P1</td><td>有人抽烟</td><td>P2</td></tr>
+</table>
+<p><b>Review触发</b>：模型等待推理时间(Waiting状态) + 有子目标没完成。触发消息："你已经10分钟没有关注用户了，建议查看当前用户状态。"</p>
+
+<h3>13.3 输入：用户建模 + 情境建模</h3>
+
+<h4>用户建模（Per 乘客）</h4>
+<table>
+<tr><th>属性</th><th>参考值</th><th>来源</th></tr>
+<tr><td>位置/姓名/性别/年龄</td><td>前排左/佳杰/男/青年</td><td>FaceID+AlwaysON(PUSH)</td></tr>
+<tr><td>关系</td><td>与乘客2：同事</td><td>PUSH</td></tr>
+<tr><td>行为/衣着/表情</td><td>凝视车机/黑色外套/微笑</td><td>AlwaysON(PUSH)</td></tr>
+<tr><td>长期记忆</td><td>"最近的爱好、烦恼"</td><td>记忆模块(PUSH)</td></tr>
+</table>
+
+<h4>情境建模</h4>
+<p>导航状态(目的地/剩余时长/当前地点) / 媒体状态(播放内容/音量) / 行驶状态(连续行驶时长/15s平均车速/档位/辅助驾驶) / 照明/座椅/车内环境/车门车窗/续航 / <b>舱外视觉</b>(道路类型/景观/车辆环绕)。注意PUSH(感知主动推)vs PULL(advisor按需拉)的区别。</p>
+
+<h3>13.4 Event Prompt 4步推理链</h3>
+
+<p><b>第一步：事件解析+情感影响评估</b></p>
+<p>解析event类型→结合context识别当前可建议的情感方向→明确受影响对象。核心是<b>多情感优先级规则</b>（决策树）：</p>
+<blockquote>启动车辆方式 > <b>安全相关</b> > 节日/特殊日期 > 人物状态 > 情绪 > 人物 > 车内场景状态 > 车外场景状态 > 人物+时间 > 人物着装</blockquote>
+<p><b>安全相关强制执行</b>安全驾驶知识中的建议，不管其他情感目标怎么说。</p>
+
+<p><b>第二步：即时建议生成</b></p>
+<p>格式：「语气/语气+表情+对象+情感表达方向+禁止提示」。<b>6条红线（绝对禁止）</b>：</p>
+<ol>
+<li>只输出情感建议，<b>不输出具体内容</b>（✘"建议播放轻音乐"→越界给内容advisor管）</li>
+<li><b>不控车</b>（✘"建议调低空调"→越界给舒适advisor管）</li>
+<li>不对<b>未发生</b>的事猜测</li>
+<li>不对<b>曾发生</b>的事预测</li>
+<li><b>不提醒物品</b>（✘"别忘了带伞"→越界）</li>
+<li>禁止"维持现状"类建议（✘"建议不做任何事"不算建议）</li>
+</ol>
+
+<p><b>第三步：子目标生命周期管理（完整状态机）</b></p>
+<p>两种子目标类型：</p>
+<ul>
+<li><b>A 目标达成型</b>："一直用温柔的语气，围绕消消气等方向安抚主驾情绪，直到主驾不再愤怒"</li>
+<li><b>B 条件响应型</b>："从现在开始一直用轻柔的语气，直到右后排的乘客睡醒"</li>
+</ul>
+<p>操作：create / update / delete。Create需同时满足5条件（有服务对象+情感可建议+非即时闭环+可判定+语义不重复）。<b>子目标上限10个</b>。</p>
+
+<p><b>第四步：输出整合+冲突检查</b></p>
+<p>即时建议 vs goals冲突→以即时建议为准。新增子目标 vs goals重复→合并。</p>
+
+<h3>13.5 Review Prompt 3步推理链</h3>
+<p>触发："10分钟没关注+有未完成子目标"。三种情况：</p>
+<ul>
+<li><b>A 进行中需调整</b>：重度→轻度疲惫→update goal</li>
+<li><b>B 触发条件消失</b>：乘员已下车→恢复建议+delete goal</li>
+<li><b>C 目标已完成</b>：<b>仅删除，不输出任何建议</b>——克制！完成了就安静离场</li>
+</ul>
+
+<h3>13.6 输出格式</h3>
+<pre>// Event Prompt输出
+{"reason":"所有可进行情感建议事件的描述",
+ "advice":"用温柔关切的语气，询问主驾是否需要休息",
+ "goal_operations":[{"action":"create","fields":{"goal_id":1,"description":"持续关注主驾疲劳","reason":"打哈欠"}}]}
+// Review Prompt输出
+{"current_issue":"当前目标进展","suggestion":"即时建议","goal_operations":[{"action":"delete","fields":{"goal_id":1},"reason":"乘员已下车"}]}</pre>
+<p><b>动作空间</b>：DO_NOTHING / CONVO_STRATEGY(沟通策略→Director) / CONVO_INITIATE(主动搭话) / EMOJI_SUGGESTION(表情建议) / TOOL_CALL(self ReACT：调car_info/cabin_view/outside_view/web_search给自己补信息)。</p>
+
+<h3>13.7 真实case</h3>
+<div class="eg"><b>被超车</b>：用户"卧槽"→判定愤怒/受挫→输出：语气=共情吐槽，方向=先认同再安抚→Director："那个开车也太横了吧。不过你没事就好。"</div>
+<div class="eg"><b>子目标冲突</b>：后排儿童睡着(子目标B"轻柔语气直到睡醒") + 主驾分心(安全事件)→按优先级"安全>人物状态"→<b>安全优先</b>，用严肃语气提醒主驾→后排的轻柔子目标暂被安全覆盖。</div>
+<div class="eg"><b>沟通策略-双人夜间返程</b>：新乘客+关系试探期→"克制、礼貌、偏观察型陪伴"→不抢话不填沉默。</div>
+
+<h3>13.8 做到什么程度</h3>
+<p>v1.0，两套完整SP全文已写（含大量正/反示例）。Event触发和子目标管理P0。打扰预算自适应(P2)未实现。主动搭话默认3次/天。AlwaysON/FaceID依赖重。</p>
+
+<hr>
+
+<!-- ==================== 第十四章 动态Advisor ==================== -->
+<h2>第十四章 · 动态 Advisor——9套Prompt · 4类任务 · 生命周期状态机</h2>
+
+<h3>14.1 为什么需要动态advisor</h3>
+<p>4个静态advisor管固定四维度，但"帮我照顾宝宝""介绍沿途风景""点咖啡送公司"这种<b>临时冒出的持续任务</b>管不了——需要动态创建专属监工，做完就销毁。<b>判断逻辑</b>：靠4个静态目标能闭环的不建动态advisor；只有靠静态无法追踪的持续任务才建。</p>
+
+<h3>14.2 创建流程图</h3>
+<svg viewBox="0 0 860 200" style="background:#0b1222;border-radius:10px;padding:8px">
+<defs><marker id="a14" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6Z" fill="#94a3b8"/></marker></defs>
+<rect x="16" y="75" width="120" height="50" rx="6" fill="rgba(96,165,250,.12)" stroke="#60a5fa"/>
+<text x="76" y="96" fill="#e8eef9" font-size="10" text-anchor="middle">Director</text><text x="76" y="112" fill="#9fb0c7" font-size="9" text-anchor="middle">→CreateGoal</text>
+<rect x="156" y="65" width="140" height="70" rx="6" fill="rgba(96,165,250,.15)" stroke="#60a5fa"/>
+<text x="226" y="84" fill="#bfdbfe" font-size="10" text-anchor="middle" font-weight="700">任务分类(LLM)</text>
+<text x="226" y="100" fill="#9fb0c7" font-size="8" text-anchor="middle">①长程(点单/缴费)→type=2</text>
+<text x="226" y="112" fill="#9fb0c7" font-size="8" text-anchor="middle">②明确时间/周期→type=4</text>
+<text x="226" y="124" fill="#9fb0c7" font-size="8" text-anchor="middle">③条件表达→type=3</text>
+<text x="226" y="136" fill="#9fb0c7" font-size="8" text-anchor="middle">④其他→type=1(长时)</text>
+<rect x="320" y="20" width="130" height="34" rx="5" fill="rgba(167,139,250,.12)" stroke="#a78bfa"/><text x="385" y="36" fill="#e8eef9" font-size="9" text-anchor="middle">type=1 长时→加载Skill(二期)</text><text x="385" y="48" fill="#9fb0c7" font-size="8" text-anchor="middle">+Knowhow+Workflow编排</text>
+<rect x="320" y="62" width="130" height="28" rx="5" fill="rgba(167,139,250,.12)" stroke="#a78bfa"/><text x="385" y="80" fill="#e8eef9" font-size="9" text-anchor="middle">type=2 持续GUI→绑定GUIAgent</text>
+<rect x="320" y="98" width="130" height="28" rx="5" fill="rgba(167,139,250,.12)" stroke="#a78bfa"/><text x="385" y="116" fill="#e8eef9" font-size="9" text-anchor="middle">type=3 条件→注册触发器(5-8s)</text>
+<rect x="320" y="134" width="130" height="34" rx="5" fill="rgba(167,139,250,.12)" stroke="#a78bfa"/><text x="385" y="150" fill="#e8eef9" font-size="9" text-anchor="middle">type=4 定时→APScheduler</text><text x="385" y="162" fill="#9fb0c7" font-size="8" text-anchor="middle">→是否VLM→是→生成VLM提示词</text>
+<rect x="480" y="75" width="140" height="50" rx="6" fill="rgba(52,211,153,.12)" stroke="#34d399"/>
+<text x="550" y="96" fill="#e8eef9" font-size="10" text-anchor="middle">Goal生命周期开始</text><text x="550" y="112" fill="#9fb0c7" font-size="9" text-anchor="middle">任务中心Widget卡片</text>
+<line x1="136" y1="100" x2="154" y2="100" stroke="#94a3b8" stroke-width="1.1" marker-end="url(#a14)"/>
+<path d="M296,85 L318,37" fill="none" stroke="#94a3b8" stroke-width="1" marker-end="url(#a14)"/>
+<path d="M296,92 L318,76" fill="none" stroke="#94a3b8" stroke-width="1" marker-end="url(#a14)"/>
+<path d="M296,105 L318,112" fill="none" stroke="#94a3b8" stroke-width="1" marker-end="url(#a14)"/>
+<path d="M296,118 L318,148" fill="none" stroke="#94a3b8" stroke-width="1" marker-end="url(#a14)"/>
+<line x1="450" y1="100" x2="478" y2="100" stroke="#94a3b8" stroke-width="1.1" marker-end="url(#a14)"/>
+</svg>
+
+<h3>14.3 9套Prompt模板</h3>
+<table>
+<tr><th>#</th><th>Prompt名称</th><th>用途</th><th>输出格式</th></tr>
+<tr><td>1</td><td>任务分类</td><td>query→type 1/2/3/4</td><td><code>{type,vlm_use,cycle,max_execution}</code></td></tr>
+<tr><td>2</td><td>VLM分类+query生成</td><td>目标→视觉可判断的query</td><td><code>{type:"event/state",query:"..."}</code></td></tr>
+<tr><td>3</td><td>通用长时任务(SYS+USER)</td><td>长时任务advisor推理</td><td>含goal/goal_status/progress/need_advice/confidence/exec_state</td></tr>
+<tr><td>4</td><td>持续任务/GUI(SYS+USER)</td><td>GUI Agent服务（5条件全满足才输出）</td><td>同上但冷却120s/最多提醒3次</td></tr>
+<tr><td>5</td><td>视觉感知advisor</td><td>VLM定时触发专用</td><td><code>{needAdvice,reason,advice}</code>（3类策略）</td></tr>
+<tr><td>6</td><td>事件/定时触发advice</td><td>条件/定时触发后生成advice</td><td><code>{advice:"≤20字口语化"}</code></td></tr>
+<tr><td>7</td><td>定时器生成</td><td>自然语言→APScheduler参数</td><td><code>{type:"interval/cron/once/none",args:{...}}</code></td></tr>
+<tr><td>8</td><td>视觉理解</td><td>判断图片中状态是否发生</td><td>一行：<code>true|reason</code>或<code>false|reason</code></td></tr>
+<tr><td>9</td><td>触发器脚本生成</td><td>生成触发器注册条件</td><td><code>{iCanDo,action:"select/create",eventSelect/scriptCreate}</code></td></tr>
+</table>
+
+<h3>14.4 长时任务输出JSON（最完整版本）</h3>
+<pre>{
+  "goal": "照顾二排宝宝",
+  "goal_status": "active | achieved | terminated_by_user | blocked_by_system",
+  "goal_progress": "宝宝安睡中，持续监测",
+  "need_advice": true,
+  "advice_timing_judgement": "距上次建议已120秒且状态变化",
+  "advice_timing_confidence": 0.85,
+  "goal_achieve_advise": "宝宝醒了在揉眼睛，建议放安抚音乐",
+  "completion_rate": 0.3,
+  "exec_state": "normal"
+}</pre>
+
+<h3>14.5 exec_state状态机</h3>
+<table>
+<tr><th>状态</th><th>含义</th><th>行为</th></tr>
+<tr><td><code>normal</code></td><td>正常</td><td>可根据规则输出建议</td></tr>
+<tr><td><code>suppressed</code></td><td>推进抑制态</td><td>强制need_advice=false（如用户刚被打断）</td></tr>
+<tr><td><code>suppressed_attention_shift</code></td><td>用户注意力偏移导致抑制</td><td>同上</td></tr>
+<tr><td><code>recoverable</code></td><td>可解除抑制</td><td>等待恢复条件（如用户重新空闲）</td></tr>
+<tr><td><code>short_circuit</code></td><td>上轮建议已执行且有效</td><td>跳过本轮推理</td></tr>
+</table>
+
+<h3>14.6 销毁规则</h3>
+<p>max_execution达上限→注销触发器/定时器→CloseGoal。用户主动删除。goal_status=terminated/blocked。触发器注册失败→CloseGoal。</p>
+
+<h3>14.7 二期(DNA-616)关键变化</h3>
+<ul>
+<li><b>Skill系统+Workflow编排</b>：长时任务从"特调"变"通用"——创建时load_skill()匹配Skill→加载Knowhow→支持顺序执行/条件分支/循环</li>
+<li><b>端侧定时器</b>：弱网/断网也能触发(AI PUSH不依赖网络)，端侧倒计时展示</li>
+<li><b>策略预生成</b>：条件满足时不再现场推理，提前算好执行策略→"减少一次推理时间"</li>
+<li><b>导航场景感知</b>：新增"距离某POI<指定距离"触发事件</li>
+<li><b>创建交互优化</b>：从肯定性回应改为中性"好的，让我来创建"；卡片展示具体条件+执行内容；成功后主动告知</li>
+<li><b>生态闭环类Advisor</b>：任务推进提醒(2分钟没响应)、任务状态跟踪(标准SOP)、完成后持续服务</li>
+</ul>
+
+<h3>14.8 触发优先级</h3>
+<p><b>订阅事件(最高) > qa结束 > 定时(最低)</b>。高优打断低优，反之不成立。</p>
+
+<hr>
+
+<!-- ==================== 第十五章 感知订阅 ==================== -->
+<h2>第十五章 · 感知订阅——VLM阈值穿越 + 三子模块 + 信息获取类tools</h2>
+
+<h3>15.1 三个子模块 + 信号组装触发</h3>
+<table>
+<tr><th>子模块</th><th>判断什么</th><th>配置什么</th><th>例子</th></tr>
+<tr><td>①动态感知需求推理</td><td>"看什么"</td><td>调VLM sp/attention(让视觉模型关注特定对象)</td><td>二排宝宝/沿途风景/外部特殊车辆</td></tr>
+<tr><td>②条件需求推理</td><td>"什么条件触发"</td><td>注册触发器持续监控</td><td>温度>xx/face id"xx上车"/车速>xx</td></tr>
+<tr><td>③定时需求推理</td><td>"多久一次"</td><td>APScheduler(interval/cron/once/none)</td><td>每5min/每5s/20min后</td></tr>
+<tr><td>④信号组装+触发</td><td>三类配置落地</td><td>条件满足时<b>唤醒advisor并附带最新感知</b></td><td>—</td></tr>
+</table>
+
+<h3>15.2 VLM阈值穿越检测流程图</h3>
+<svg viewBox="0 0 860 130" style="background:#0b1222;border-radius:10px;padding:8px">
+<defs><marker id="a15" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6Z" fill="#94a3b8"/></marker></defs>
+<rect x="16" y="40" width="110" height="50" rx="6" fill="rgba(251,191,36,.12)" stroke="#fbbf24"/>
+<text x="71" y="60" fill="#e8eef9" font-size="10" text-anchor="middle">定时器触发</text><text x="71" y="76" fill="#9fb0c7" font-size="9" text-anchor="middle">演示5s/量产30-60s</text>
+<rect x="146" y="40" width="100" height="50" rx="6" fill="rgba(34,211,238,.12)" stroke="#22d3ee"/>
+<text x="196" y="60" fill="#e8eef9" font-size="10" text-anchor="middle">拍照→URL</text><text x="196" y="76" fill="#9fb0c7" font-size="9" text-anchor="middle">OMS摄像头</text>
+<rect x="266" y="40" width="110" height="50" rx="6" fill="rgba(96,165,250,.12)" stroke="#60a5fa"/>
+<text x="321" y="60" fill="#e8eef9" font-size="10" text-anchor="middle">请求VLM</text><text x="321" y="76" fill="#9fb0c7" font-size="9" text-anchor="middle">→true|reason</text>
+<rect x="396" y="30" width="180" height="70" rx="7" fill="rgba(96,165,250,.15)" stroke="#60a5fa" stroke-width="1.3"/>
+<text x="486" y="50" fill="#bfdbfe" font-size="10" text-anchor="middle" font-weight="700">阈值穿越检测</text>
+<text x="486" y="68" fill="#e8eef9" font-size="9" text-anchor="middle">last==False AND this==True</text>
+<text x="486" y="84" fill="#34d399" font-size="9" text-anchor="middle">→ 触发！(上升沿)</text>
+<text x="486" y="96" fill="#9fb0c7" font-size="8" text-anchor="middle">持续True不重复触发</text>
+<rect x="596" y="40" width="120" height="50" rx="6" fill="rgba(52,211,153,.12)" stroke="#34d399"/>
+<text x="656" y="60" fill="#e8eef9" font-size="10" text-anchor="middle">请求advisor</text><text x="656" y="76" fill="#9fb0c7" font-size="9" text-anchor="middle">→advice→Director</text>
+<line x1="126" y1="65" x2="144" y2="65" stroke="#94a3b8" stroke-width="1.1" marker-end="url(#a15)"/>
+<line x1="246" y1="65" x2="264" y2="65" stroke="#94a3b8" stroke-width="1.1" marker-end="url(#a15)"/>
+<line x1="376" y1="65" x2="394" y2="65" stroke="#94a3b8" stroke-width="1.1" marker-end="url(#a15)"/>
+<line x1="576" y1="65" x2="594" y2="65" stroke="#94a3b8" stroke-width="1.1" marker-end="url(#a15)"/>
+</svg>
+
+<h3>15.3 阈值穿越详解</h3>
+<p>VLM不是"看到宝宝就报告"而是<b>"看到状态变化才报告"</b>。每轮VLM只输出一行<code>true|reason</code>或<code>false|reason</code>，系统对比上次(last)和这次(this)——<b>只有last==False and this==True才触发</b>（状态从"未发生"变"发生"的上升沿）。持续True不重复触发。</p>
+
+<div class="eg">"照顾宝宝"→VLM query:<code>{"type":"state","query":"二排存在宝宝"}</code><br>第1轮:<code>false|宝宝没睡</code>→不触发。第2轮:<code>true|宝宝睡着了</code>→<b>last=F,this=T→触发！</b>第3轮:<code>true|还在睡</code>→不触发(没变化)。</div>
+
+<h3>15.4 event vs state两种VLM判定模式</h3>
+<table>
+<tr><th>类型</th><th>定义</th><th>例子</th></tr>
+<tr><td><b>event</b></td><td>有明确触发动作，瞬时视觉特征，一帧可判</td><td>"用户打哈欠了"</td></tr>
+<tr><td><b>state</b></td><td>无明确触发瞬间，长期持续关注</td><td>"二排存在宝宝"</td></tr>
+</table>
+
+<h3>15.5 视觉感知advisor的3类策略</h3>
+<table>
+<tr><th>类型</th><th>策略</th><th>例子</th></tr>
+<tr><td><b>风险监控</b></td><td>有异常才说，只说一次，同一问题不重复</td><td>照顾宝宝(哭了才报)</td></tr>
+<tr><td><b>信息讲解</b></td><td>必须有新内容，间隔≥60-90秒</td><td>介绍沿途风景(每次讲新景点)</td></tr>
+<tr><td><b>状态陪伴</b></td><td>明显状态信号才触发，冷却≥5分钟</td><td>缓解疲劳(打哈欠才提醒)</td></tr>
+</table>
+
+<h3>15.6 信息获取类tools（advisor专用）</h3>
+<p>动态advisor自己可以调用一组<b>信息获取类工具</b>来给自己补信息（不经过Director），包括：端状态查询 / 用户记忆查询 / 联网信息检索。这就是图4里<b>output4：信息获取[tool call]</b>的具体内容——advisor直接调这些工具拿到信息后用于自己的推理，然后再把建议(output2)给Director。</p>
+
+<hr>
+
+<!-- ==================== 第十六章 VLM ==================== -->
+<h2>第十六章 · VLM / Watcher——让文本大脑"看见"</h2>
+
+<h3>16.0 VLM视觉转语言流程图</h3>
+<svg viewBox="0 0 860 110" style="background:#0b1222;border-radius:10px;padding:8px">
+<defs><marker id="a16" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6Z" fill="#94a3b8"/></marker></defs>
+<rect x="10" y="30" width="120" height="50" rx="6" fill="rgba(34,211,238,.12)" stroke="#22d3ee"/>
+<text x="70" y="50" fill="#e8eef9" font-size="10" text-anchor="middle">OMS摄像头</text><text x="70" y="66" fill="#9fb0c7" font-size="9" text-anchor="middle">video 10-15s</text>
+<rect x="150" y="30" width="130" height="50" rx="6" fill="rgba(96,165,250,.12)" stroke="#60a5fa"/>
+<text x="215" y="50" fill="#e8eef9" font-size="10" text-anchor="middle">小模型(图像→token)</text><text x="215" y="66" fill="#9fb0c7" font-size="9" text-anchor="middle">兜底高优标签</text>
+<rect x="300" y="25" width="170" height="60" rx="6" fill="rgba(96,165,250,.15)" stroke="#60a5fa"/>
+<text x="385" y="46" fill="#bfdbfe" font-size="10" text-anchor="middle" font-weight="700">大模型(按SP看画面)</text><text x="385" y="62" fill="#9fb0c7" font-size="9" text-anchor="middle">SP=识别目标(可动态拼)</text><text x="385" y="76" fill="#9fb0c7" font-size="8" text-anchor="middle">感知订阅调sp/attention切换关注</text>
+<rect x="490" y="30" width="140" height="50" rx="6" fill="rgba(52,211,153,.12)" stroke="#34d399"/>
+<text x="560" y="50" fill="#e8eef9" font-size="10" text-anchor="middle">自然语言描述</text><text x="560" y="66" fill="#9fb0c7" font-size="9" text-anchor="middle">流式写回context</text>
+<rect x="650" y="30" width="160" height="50" rx="6" fill="rgba(167,139,250,.12)" stroke="#a78bfa"/>
+<text x="730" y="50" fill="#e8eef9" font-size="10" text-anchor="middle">事件发现→触发advisor</text><text x="730" y="66" fill="#9fb0c7" font-size="9" text-anchor="middle">哭闹/咳嗽/大货车/手势</text>
+<line x1="130" y1="55" x2="148" y2="55" stroke="#94a3b8" stroke-width="1.1" marker-end="url(#a16)"/>
+<line x1="280" y1="55" x2="298" y2="55" stroke="#94a3b8" stroke-width="1.1" marker-end="url(#a16)"/>
+<line x1="470" y1="55" x2="488" y2="55" stroke="#94a3b8" stroke-width="1.1" marker-end="url(#a16)"/>
+<line x1="630" y1="55" x2="648" y2="55" stroke="#94a3b8" stroke-width="1.1" marker-end="url(#a16)"/>
+</svg>
+
+<h3>16.1 Watcher三大功能</h3>
+<p>端侧部署、自带算力、Always on的观察者。</p>
+<ul>
+<li><b>① 细致理解描述场景</b>：输出结构化流式"情景描述"——人/位置/衣着/动作/物品/精神状态/舱外天气路面</li>
+<li><b>② 全时多模聆听</b>：视觉+声音持续感知</li>
+<li><b>③ 发现值得关注事件</b>：以自然语言注册事件（小孩哭闹/咳嗽/前方大货车/OK手势），发生时触发advisor主动服务。一期纯工程触发，二期多模态+工程混合</li>
+</ul>
+
+<h3>16.2 VLM原理：大小LLM融合</h3>
+<p><b>输入</b>：OMS摄像头(前/后视镜) video 10-15s。</p>
+<p><b>处理</b>：小模型把图像编码成token（兜底识别高优标签）→ 大模型按一段<b>SP(识别目标)</b>看画面输出自然语言。SP是动态的——由感知订阅模块按需拼。</p>
+<p><b>输出</b>：结构化流式的"情景描述"文字写回context的<code>{{舱内视觉感知}}</code>块。</p>
+
+<p><b>"影响感知器sp/attention"</b> = 改VLM大模型的SP。同一VLM拼不同SP切换关注对象：无订阅→既定SP通用观察；收到"关注二排宝宝"→拼新SP重点关注后排婴儿状态。不需要为每个需求各起一个模型。</p>
+
+<p><b>约束</b>：VLM视觉持续任务<b>同时仅1个</b>。演示阶段定时5s/次，量产30-60s。</p>
+
+<hr>
+
+<!-- ==================== 第十七章 收口 ==================== -->
+<h2>第十七章 · 四类任务→架构承接映射 + Badcase排查总表</h2>
+
+<h3>17.1 收口映射</h3>
+<table>
+<tr><th>任务类型</th><th>卡片</th><th>动态advisor</th><th>怎么承接</th></tr>
+<tr><td>简单即时/单步复杂</td><td>无</td><td>❌</td><td>Director当场闭环，不留痕</td></tr>
+<tr><td>多步</td><td>无</td><td>❌</td><td>Director在ReAct里串联tool_feedback完成串行依赖</td></tr>
+<tr><td>条件</td><td>✅</td><td>❌</td><td>条件触发器注册→trigger回灌Director二次推理执行</td></tr>
+<tr><td>长时/持续</td><td>✅</td><td>✅</td><td>建goal+动态advisor+感知订阅持续触发，打断能恢复</td></tr>
+</table>
+
+<div class="key"><b>分配逻辑一句话</b>：能当场做完→Director闭环；要等条件→触发器；要长期盯→goal+advisor+订阅。恢复靠advisor读看板上的"细节和进展"，不靠Director记忆。</div>
+
+<h3>17.2 Badcase排查总表</h3>
+<table>
+<tr><th>现象</th><th>查哪个模块</th><th>具体看什么</th></tr>
+<tr><td>走错模块(该思考却秒回/该秒回却慢)</td><td>三级拒识+仲裁</td><td>reject_ornot？白名单命中/误命中？仲裁简单/复杂分错？情景RAG knowledge注入缺失？</td></tr>
+<tr><td>工具没调/调错</td><td>SP工具定义+前置筛选+动态示例</td><td>26工具描述清不清？3易混点(媒体播控/记忆两类/4导航并行)？相关知识/示例被筛掉？VikingDB检索不到？</td></tr>
+<tr><td>信息缺失推理片面</td><td>Context三维过滤</td><td>按场景/人物把需要的记忆/状态滤掉了？env_info/goal_list直传到位？</td></tr>
+<tr><td>车控幻觉("已打开HUD"但无HUD)</td><td>D6X设备知识(SP⑧)</td><td>后排不可调/按摩仅前排/无HUD/车门不语音——这些边界是否在SP里？被前置筛选裁掉了？</td></tr>
+<tr><td>目标忘事/不闭环</td><td>goal list+advisor</td><td>动态advisor注册了吗？细节进展更新对吗？订阅触发了吗？advisor的exec_state是否suppressed？</td></tr>
+<tr><td>持续视觉任务不生效</td><td>感知订阅+VLM</td><td>超vlm数量上限(仅1)？sp识别目标拼对？VLM阈值穿越检测：last/this状态对吗？定时器频率合理？</td></tr>
+<tr><td>情绪突变/该关切却秒变欢快</td><td>情绪状态机</td><td>不突变/关切惯性规则遵守？assistant_emotional_state输入vs emotional_state_change输出是否匹配？</td></tr>
+<tr><td>话术生硬/打断乱/advisor建议丢失</td><td>交互管理</td><td>首token出没出？合并规则？长程/aigc误入合并？同advisor只保留最新？advisor在用户讲话中被红线丢弃？</td></tr>
+<tr><td>advisor建议越界(情感advisor推了内容/控了车)</td><td>情感advisor 6条红线</td><td>SP里正反例覆盖？是否模型能力问题(信息全但推理错)？</td></tr>
+<tr><td>条件任务到期不执行</td><td>触发器+replan</td><td>触发器注册成功了？条件解析对了？策略预生成(二期)有没有？Director二次推理时env_info已变判断不再执行？</td></tr>
+</table>
+
+<hr>
+
+<p style="text-align:center;color:var(--muted);font-size:14px;margin-top:40px"><b>全文完。第一章到第十七章串讲全部40个模块/子模块：系统全景(三层漏斗+三原则) · 句法RAG/情景RAG(各自的输入输出格式) · 三级拒识(端白名单+云前置+Director内部) · 仲裁模型(Seed1.6判定逻辑+误判三根因) · Director(ReAct完整运行机制+4种终止条件+三输入7字段+五输出含情绪状态机6态+职责P0/P1+关键约束"不更新进展") · SP 13块骨架(KV Cache原理+三套加载体系：静态示例/动态示例VikingDB/动态知识前置筛选+SP优化六措施+实测数据) · 26工具(3易混点) · D6X设备知识(防幻觉红线) · 公共Context(13类+三维过滤+两条注入管线) · goal list(读写权责+自由文本隐患+数量仲裁) · 触发器(离线/在线+条件任务5步时序+合法性校验5条+二期端侧定时/导航感知) · 交互管理(单通路+首token判据+6策略+优先级矩阵+合并3特殊规则+advisor排队红线绿线+replan阻塞+失效兜底) · 执行层(gui/卡片路由+exe_sts+播报归属+HMI三类卡) · 舒适advisor(6+1维度+5条knowhow+5类输入变量+真实case) · 出行advisor(全生命周期+10+数据源+目的预测推理链+置信度确认) · 内容advisor(L0-L3介入等级+8步Flow+协同信号+反馈闭环) · 情感advisor(Event 4步+Review 3步+多情感优先级规则+6红线+子目标状态机A/B型+PUSH/PULL+完整输出JSON+动作空间) · 动态advisor(9套prompt逐个输入输出+4类创建流程+exec_state 5态状态机+销毁规则+触发优先级+二期6项变化) · 感知订阅(3子模块+VLM阈值穿越last/this+event/state双模式+3类视觉策略+APScheduler 4格式) · VLM/Watcher(大小模型融合+sp/attention+Always on事件发现+约束) · 信息获取类tools(advisor专用output4) · 四类任务收口 · Badcase排查总表10项。<br><br>基于 planner 架构/ 全部 13 份 + advisor 架构/ 全部 8 份文档精读。</b></p>
+
+</div>
+</body>
+</html>

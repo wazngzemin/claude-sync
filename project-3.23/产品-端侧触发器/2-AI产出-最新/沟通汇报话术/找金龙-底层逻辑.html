@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>为什么要找金龙 · 底层逻辑</title>
+<style>
+  body{margin:0;background:#f1f5f9;color:#0f172a;font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;line-height:1.7}
+  .wrap{max-width:1080px;margin:0 auto;padding:34px 26px 60px}
+  h1{font-size:27px;margin:0 0 6px;color:#0f172a}
+  .lead{font-size:15px;color:#475569;margin:0 0 22px}
+  h2{font-size:20px;margin:34px 0 14px;padding-left:11px;border-left:5px solid #0891b2;color:#0e7490}
+  /* 链路图 */
+  .diagram{background:#fff;border:1.5px solid #cbd5e1;border-radius:16px;padding:22px 18px 14px;box-shadow:0 6px 20px rgba(15,23,42,.06);overflow-x:auto}
+  .chips{display:flex;gap:7px;justify-content:center;flex-wrap:wrap;margin:6px 0 16px}
+  .chip{font-size:12px;background:#ecfeff;color:#0e7490;border:1px solid #a5f3fc;border-radius:20px;padding:3px 11px;font-weight:600}
+  .keypoint{margin-top:16px;background:#0f172a;color:#fff;border-radius:14px;padding:16px 20px;font-size:15px;line-height:1.8}
+  .keypoint b{color:#7dd3fc}
+  .keypoint .hl{background:#fde68a;color:#713f12;padding:0 5px;border-radius:4px;font-weight:700}
+  /* 卡片 */
+  .cards{display:grid;grid-template-columns:1fr;gap:14px}
+  .card{background:#fff;border:1.5px solid #e2e8f0;border-radius:14px;padding:16px 19px;border-left:6px solid #0891b2}
+  .card .q{font-size:16px;font-weight:bold;color:#0f172a;margin-bottom:9px}
+  .card .q .num{display:inline-flex;width:25px;height:25px;border-radius:50%;background:#0891b2;color:#fff;align-items:center;justify-content:center;font-size:14px;margin-right:9px;vertical-align:middle}
+  .card .row{display:flex;gap:10px;margin:7px 0;align-items:flex-start;font-size:13.6px}
+  .card .tag{flex:none;width:88px;font-weight:bold}
+  .card .logic .tag{color:#b45309}
+  .card .can .tag{color:#15803d}
+  .card .fail{background:#fef2f2;border-radius:8px;padding:7px 11px;font-size:13px;color:#b91c1c;margin:7px 0}
+  .card .can{background:#f0fdf4;border-radius:8px;padding:8px 11px}
+  .card .can .txt{color:#166534;font-weight:600}
+  /* 拍板 */
+  .outcomes{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .oc{background:#fff;border:1.5px solid #e2e8f0;border-radius:14px;padding:16px 18px;text-align:center}
+  .oc .big{font-size:30px}
+  .oc .t{font-size:15px;font-weight:bold;color:#0e7490;margin:6px 0 4px}
+  .oc .d{font-size:12.8px;color:#475569}
+  .foot{margin-top:26px;background:#ecfeff;border:1.5px dashed #0891b2;border-radius:12px;padding:15px 20px;font-size:14.5px;color:#155e63;line-height:1.85}
+  .foot b{color:#0e7490}
+  @media(max-width:720px){.outcomes{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>为什么要找金龙？· 底层逻辑一张图讲清</h1>
+  <p class="lead">你不是去"问几个参数"，是去确认 <b>"我配的规则，能不能和端上报的值对上"</b>。先看这张核心链路图 ——</p>
+
+  <!-- ============ 核心链路图 ============ -->
+  <div class="diagram">
+    <svg viewBox="0 0 1040 300" width="100%" style="min-width:880px">
+      <defs>
+        <marker id="ar" markerWidth="11" markerHeight="11" refX="8" refY="4" orient="auto">
+          <path d="M0,0 L9,4 L0,8 Z" fill="#0891b2"/>
+        </marker>
+      </defs>
+
+      <!-- 节点A 金龙 -->
+      <rect x="24" y="96" width="214" height="96" rx="14" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.6"/>
+      <text x="131" y="128" text-anchor="middle" font-size="17" font-weight="bold" fill="#0f172a">金龙 · 端上</text>
+      <text x="131" y="152" text-anchor="middle" font-size="13" fill="#475569">报「剩余距离 / 时间 / 地址」</text>
+      <text x="131" y="174" text-anchor="middle" font-size="12" fill="#b45309">值是他产的</text>
+      <text x="131" y="232" text-anchor="middle" font-size="12.5" fill="#64748b">单位·格式·来源·刷新</text>
+      <text x="131" y="250" text-anchor="middle" font-size="12.5" fill="#64748b">都他说了算</text>
+
+      <!-- 箭头A→B -->
+      <line x1="240" y1="144" x2="392" y2="144" stroke="#0891b2" stroke-width="2.4" marker-end="url(#ar)"/>
+      <text x="316" y="132" text-anchor="middle" font-size="13" font-weight="bold" fill="#0e7490">报『距离 = ?』</text>
+      <text x="316" y="166" text-anchor="middle" font-size="11.5" fill="#94a3b8">0.5？还是 500？</text>
+
+      <!-- 节点B 触发器(你) -->
+      <rect x="396" y="84" width="250" height="120" rx="14" fill="#ecfeff" stroke="#0891b2" stroke-width="2.8"/>
+      <text x="521" y="116" text-anchor="middle" font-size="17" font-weight="bold" fill="#0e7490">触发器 · 你配的规则</text>
+      <text x="521" y="148" text-anchor="middle" font-size="19" font-weight="bold" fill="#0f172a">距离 ≤ 500 ?</text>
+      <text x="521" y="174" text-anchor="middle" font-size="12.5" fill="#b45309">阈值·规则 你配的</text>
+      <rect x="446" y="210" width="150" height="26" rx="13" fill="#0891b2"/>
+      <text x="521" y="228" text-anchor="middle" font-size="13" font-weight="bold" fill="#fff">👈 你在这里</text>
+
+      <!-- 箭头B→C -->
+      <line x1="648" y1="144" x2="800" y2="144" stroke="#0891b2" stroke-width="2.4" marker-end="url(#ar)"/>
+      <text x="724" y="132" text-anchor="middle" font-size="13" font-weight="bold" fill="#15803d">比中 → 触发</text>
+
+      <!-- 节点C 触发 -->
+      <rect x="804" y="96" width="210" height="96" rx="14" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.6"/>
+      <text x="909" y="132" text-anchor="middle" font-size="17" font-weight="bold" fill="#166534">触发</text>
+      <text x="909" y="156" text-anchor="middle" font-size="13" fill="#15803d">提醒"该拿咖啡啦"</text>
+    </svg>
+
+    <div class="chips">
+      <span class="chip">这条线上"那个值长什么样" = 你要问金龙的 5 样：</span>
+      <span class="chip">① 单位</span>
+      <span class="chip">② 时间格式</span>
+      <span class="chip">③ 地址格式</span>
+      <span class="chip">④ 来源·刷新</span>
+      <span class="chip">⑤ 能否改</span>
+    </div>
+  </div>
+
+  <div class="keypoint">
+    一句话本质：<b>触发器 = 拿「金龙报的值」和「你配的阈值」做一次比较</b>。
+    <span class="hl">两边对不齐 → 永远触发不了</span>（要么一上车就乱触发，要么怎么都不触发）。
+    你卡在中间、只配规则、<b>不生产那个值</b> —— 所以你必须先搞清"他报上来的值到底长什么样"，否则规则一定是瞎配。
+  </div>
+
+  <!-- ============ 5 样 ============ -->
+  <h2>你要问的 5 样 · 每样卡什么逻辑、知道了能干什么</h2>
+  <div class="cards">
+
+    <div class="card">
+      <div class="q"><span class="num">1</span>剩余距离的单位：米，还是千米？</div>
+      <div class="row logic"><span class="tag">卡的逻辑</span><span>比较是「距离 vs 500」，单位不一致结果就全错。</span></div>
+      <div class="fail">❌ 失败例：金龙报 <b>0.5</b>（千米），你配 <b>500</b>（米）→ 0.5&lt;500 永远成立 → <b>一上车就触发</b>；反着配就永远不触发。</div>
+      <div class="can"><span class="txt">✅ 知道了能：</span> 把阈值配对（填 500 还是 0.5），规则才会"真快到时"才触发。这是能否正确触发的命根。</div>
+    </div>
+
+    <div class="card">
+      <div class="q"><span class="num">2</span>时间（剩余时长/到达时间）是数字还是"几小时几分"字符串？</div>
+      <div class="row logic"><span class="tag">卡的逻辑</span><span>触发器只会对<b>数字</b>做 ≤ 比较；对字符串做不了"≤"。</span></div>
+      <div class="fail">❌ 失败例：金龙报 <b>"1小时30分"</b> → 触发器没法判断它 ≤ 600 秒 → <b>这条根本比不了</b>。</div>
+      <div class="can"><span class="txt">✅ 知道了能：</span> <b>当场拍板时间类做不做</b> —— 报干净秒数→能做；报字符串→让端上转、或这期先不做（决定文档 §3.4 去留）。</div>
+    </div>
+
+    <div class="card">
+      <div class="q"><span class="num">3</span>目的地/收藏地址：纯字符串吗？同地点两次报会完全一样吗？</div>
+      <div class="row logic"><span class="tag">卡的逻辑</span><span>"导航回家" = 目的地地址 <b>等于</b> 收藏地址，这是字符串相等比较。</span></div>
+      <div class="fail">❌ 失败例：导航报"上海市XX路1号"、收藏地址存"XX花园"→ 两串不相等 → <b>永远判不出"在回家"</b>。</div>
+      <div class="can"><span class="txt">✅ 知道了能：</span> 拍板<b>"回家/去公司"这类能不能做</b> —— 能稳定相等→能做；不能→得要个唯一 ID/坐标来比，否则做不了。</div>
+    </div>
+
+    <div class="card">
+      <div class="q"><span class="num">4</span>数据从哪来（Navi/商情）？多久刷一次（1秒/5秒）？</div>
+      <div class="row logic"><span class="tag">卡的逻辑</span><span>"接近" = 距离从远到近<b>第一次 ≤ 阈值</b>，靠值不断刷新才判得到。</span></div>
+      <div class="fail">❌ 失败例：5 秒才报一次、车又快 → 上一报 510m、下一报 480m → <b>500m 那一刻被跳过 → 漏触发</b>。</div>
+      <div class="can"><span class="txt">✅ 知道了能：</span> 判断判定逻辑要不要改 —— 刷新够密用"≤某点"；太疏就改成"<b>跨过 500m 这段区间</b>"来判。直接影响你给刘杨那套逻辑怎么写。</div>
+    </div>
+
+    <div class="card">
+      <div class="q"><span class="num">5</span>这些格式/单位是写死的，还是能改？要改找谁？</div>
+      <div class="row logic"><span class="tag">卡的逻辑</span><span>万一上面几样不好用（字符串时间、对不齐地址），你得知道能不能推动改。</span></div>
+      <div class="can"><span class="txt">✅ 知道了能：</span> 决定策略 —— 能改就<b>提需求让端上改成好用的</b>；不能改就<b>迁就现状去设计</b>（绕过去）。</div>
+    </div>
+
+  </div>
+
+  <!-- ============ 拍板 ============ -->
+  <h2>问完这一轮，你能拍板 3 件事（这才是目的）</h2>
+  <div class="outcomes">
+    <div class="oc"><div class="big">✅❌</div><div class="t">哪些场景能做/做不了</div><div class="d">时间类、回家类 当场有答案，不用悬着</div></div>
+    <div class="oc"><div class="big">🎯</div><div class="t">阈值/规则怎么配才对</div><div class="d">单位定了，配置才不会乱触发/不触发</div></div>
+    <div class="oc"><div class="big">🧠</div><div class="t">判定逻辑怎么设计才准</div><div class="d">刷新频率决定"接近"卡点还是卡区间</div></div>
+  </div>
+
+  <div class="foot">
+    <b>所以你不是去"问几个参数"</b> —— 你是去把"<b>我以为的格式</b>"换成"<b>金龙确认过的真实格式</b>"，
+    把一堆"可能做不了"变成"<b>确定能做 / 确定做不了</b>"。<br>
+    然后把这三件事的结论写进<b>给刘杨的信号文档</b> —— 他拿到的就不是你猜的格式，而是"真实格式 + 据此定好的能做范围"，才能正确实现、给你准的工期。
+  </div>
+
+</div>
+</body>
+</html>

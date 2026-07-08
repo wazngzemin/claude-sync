@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>全模块大图 v3 · 需求评审话术稿</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+    background: #0f1117; color: #ddd;
+    line-height: 2; padding: 0;
+  }
+  .header {
+    padding: 40px 40px 28px; border-bottom: 1px solid #2a2e3d; text-align: center;
+  }
+  .header h1 { font-size: 22px; color: #fff; margin-bottom: 4px; }
+  .header .sub { font-size: 13px; color: #7a7e92; }
+
+  .wrap { max-width: 820px; margin: 0 auto; padding: 24px 28px 80px; }
+
+  .ch { margin-top: 40px; }
+  .ch-title {
+    font-size: 17px; font-weight: 700; color: #5b9cf5;
+    padding-bottom: 8px; margin-bottom: 16px;
+    border-bottom: 1px solid #2a2e3d;
+  }
+
+  .talk {
+    font-size: 15px; line-height: 2.1; margin-bottom: 14px;
+    text-indent: 2em;
+  }
+  .talk:first-of-type { margin-top: 0; }
+
+  .stage {
+    display: inline-block; background: rgba(91,156,245,.12); color: #5b9cf5;
+    padding: 0 6px; border-radius: 3px; font-weight: 600; font-size: 14px;
+    text-indent: 0;
+  }
+  .hot {
+    display: inline-block; background: rgba(245,85,93,.12); color: #f5555d;
+    padding: 0 6px; border-radius: 3px; font-weight: 600; font-size: 14px;
+    text-indent: 0;
+  }
+  .who {
+    display: inline-block; background: rgba(245,155,66,.12); color: #f59b42;
+    padding: 0 6px; border-radius: 3px; font-weight: 600; font-size: 14px;
+    text-indent: 0;
+  }
+
+  .quote-block {
+    background: rgba(255,255,255,.03); border-left: 3px solid #5b9cf5;
+    padding: 12px 18px; margin: 12px 0; border-radius: 0 6px 6px 0;
+    font-size: 14.5px; line-height: 1.9; text-indent: 0;
+  }
+  .quote-block.orange { border-left-color: #f59b42; }
+  .quote-block.red { border-left-color: #f5555d; }
+  .quote-block.green { border-left-color: #4ec990; }
+
+  .divider { border: none; border-top: 1px dashed #2a2e3d; margin: 28px 0; }
+
+  .footer { text-align: center; padding: 32px; border-top: 1px solid #2a2e3d; color: #555; font-size: 12px; margin-top: 40px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>全模块大图 v3 · 需求评审话术稿</h1>
+  <div class="sub">逐字讲稿 · 配合「触发器-全模块大图-v3-6.22定版.html」· 6.22定版</div>
+</div>
+
+<div class="wrap">
+
+<!-- ===== 〇 ===== -->
+<div class="ch">
+  <div class="ch-title">〇、先讲整体，这张图在说什么</div>
+
+  <p class="talk">好，大家先看这张图。这张图画的事情其实不复杂：一个请求从用户嘴里说出来，或者车上某个传感器的值变了，它经过哪些模块、在每个模块做了什么判断、数据怎么流的，最后车子做了某个动作，或者豆包开口说了一句话。从左到右就是这个过程。</p>
+
+  <p class="talk">6.22会上定下来了一个关键结论：<span class="hot">三方架构</span>。什么叫三方架构呢？第一方，字节的云端服务器，上面跑的是⑨拒识仲裁、⑬规则配置平台、⑮触发器引擎、⑯⑰两种Advisor、⑲⑳Director，还有㉒工具库。第二方，也是字节的，但跑在车上的AIBox里面，端侧的东西：①②用户语音输入、③④信号库、⑤⑥白名单、㉔端侧触发器、㉕感知器。第三方，赛力斯的CDC底软，管固定闭环功能：起步安全、迎宾、充电大师这些，直接读信号直接执行，不走我们的触发器链路。</p>
+
+  <p class="talk">大家注意看图中间这条虚线，这就是端云分界线。每一条穿过这条虚线的橙色粗线，都意味着要走网络传输，弱网的时候会卡。这个在后面讲弱网兜底的时候还会提到。</p>
+
+  <p class="talk">然后是6.22定下来的<span class="hot">四条铁律</span>，我先念一遍，后面每一条在具体模块里都会再讲到。第一条，动态注册必须经⑮云端触发器中转，不能端侧自己直接注册。第二条，端侧产生的结果先写④信号库，再同步到㉑Context，不能直推，不能跳级。第三条，触发器只读④信号库，不碰③原始信号源。第四条，这条最关键：condition写到㉑Context让Advisor去读，event由⑮负责组装好了push给Advisor。这条是6.22最核心的结论，后面我会展开讲。</p>
+</div>
+
+<hr class="divider">
+
+<!-- ===== 一 ===== -->
+<div class="ch">
+  <div class="ch-title">一、端侧输入层：信号从哪来</div>
+
+  <p class="talk">先说输入层。系统的输入有两种：一种是用户说话，一种是车上的传感器信号。</p>
+
+  <p class="talk"><span class="stage">①②</span> 用户说话这条路很简单。①拿到原始音频，②在端侧做ASR把语音转成文字，然后通过L2这条橙色线把文字送到云端⑨去做意图判断。比如用户说"帮我照看一下后排的宝宝"，ASR转成文字，L2上到云端。</p>
+
+  <p class="talk"><span class="stage">③④</span> 非语音信号这边，车上有6类传感器在持续产生数据。第一类是端状态，四门两盖开关、车速、档位、座椅位置、安全带扣没扣、上下电、充电状态。第二类是视觉VLM的输出，端侧模型识别出来的人物动作、物品位置。第三类是埋点，用户在App上的点击、滑动。第四类是电子围栏，进出某个地理区域。第五类是音频信号，音量、切歌、循环模式。第六类是时间，定时器和日期。另外还有赛力斯CDC那边推过来的事件，比如接续导航、展车模式点击。</p>
+
+  <p class="talk">这些信号全部通过L8写进④端侧信号库。信号库里存的是标准格式的快照：key、value、source、timestamp、ttl，每条信号有个编号，比如SIG-T-012。</p>
+
+  <p class="talk">这里要提一下6.22新加的一条原则：<span class="hot">端模只报客观状态</span>。什么意思呢？端侧VLM输出的时候，只能说"坛子当前在地上"，不能说"坛子掉了"。"掉了"是一个判断，这个判断应该由上层逻辑来做，不是端模的事。</p>
+
+  <p class="talk">④信号库存好了之后有三条出路。第一条路，<span class="stage">L9</span>，橙色粗线，端信号全量同步到⑫云端信号库。第二条路，<span class="stage">L15</span>，给㉔端侧触发器读，做本地判定。第三条路是隐含的，按策略上报到㉑Context，给Advisor和Director做决策用。</p>
+
+  <p class="talk">铁律第三条管的就是这个地方：触发器只能读④信号库里已经存好的数据，不许直接去监听③原始信号源。为什么？因为信号库做了标准化处理，直接监听原始信号会绕过格式统一和去重，容易出问题。</p>
+</div>
+
+<hr class="divider">
+
+<!-- ===== 二 ===== -->
+<div class="ch">
+  <div class="ch-title">二、用户说了句话，⑨ 怎么分流</div>
+
+  <p class="talk">好，现在用户说了一句话，文字到了云端⑨。⑨的工作就是做意图分流，它分四条路。</p>
+
+  <p class="talk"><span class="stage">L3</span>，第一条路，橙色粗线。如果用户说的是明确的车控指令，比如"打开车窗"、"把音量调大"，⑨判断这是车控，通过L3把指令送回端侧⑤离线fc加白名单。</p>
+
+  <p class="talk"><span class="stage">L4</span>，第二条路。如果用户说的是带条件的话，比如"10分钟后关座椅加热"、"到公司了提醒我拿外卖"，⑨判断这是条件任务，送到⑩意图模型去解析。</p>
+
+  <p class="talk"><span class="stage">L5</span>，第三条路。如果用户说的是复杂需求，比如"帮我照看后排宝宝"，⑨判断这个不是简单车控也不是条件任务，直接送到⑲Director汇入口，走完整的大模型推理链路。</p>
+
+  <p class="talk"><span class="stage">L6</span>，第四条路。跟车无关的话，拒识成功，写到㉚日志。</p>
+
+  <p class="talk">现在讲L3回端之后的事。<span class="stage">⑤</span>是端侧的函数映射表，维护了一张白名单，把常见的车控指令直接映射到API。<span class="stage">⑥</span>做命中判断：白名单里有这个指令吗？有的话，L7直接走到⑦执行原子车控，执行完⑧出一张卡片给用户看。全程不过大模型，延迟很低。白名单里没有的话，回到云端⑲走完整推理。</p>
+
+  <p class="talk">举个例子：用户说"把车窗打开"，ASR转成文字，L2上到云端⑨，⑨判断是车控，L3回端，⑤白名单里有这个指令，⑥命中，⑦直接调开窗的API，⑧出卡片。用户说完话窗就开了，全程不走大模型。</p>
+</div>
+
+<hr class="divider">
+
+<!-- ===== 三 ===== -->
+<div class="ch">
+  <div class="ch-title">三、条件任务怎么注册进来：⑩ → ⑬ → ⑮</div>
+
+  <p class="talk">现在讲⑨分出来的第二条路，用户说了一句带条件的话。比如"超25度开空调"、"到公司了提醒我拿外卖"，这些都是条件任务，走⑩→⑬→⑮这条链路。</p>
+
+  <p class="talk"><span class="stage">⑩ 意图模型</span>的工作就是把一句自然语言拆成condition加action。"超25度开空调"拆出来condition是温度大于25度，action是开空调。"到公司了提醒我拿外卖"拆出来condition是位置等于到达公司，action是语音提醒"拿外卖"。拆完之后通过L11送到⑬。</p>
+
+  <p class="talk"><span class="stage">⑬ 火山后台</span>，也叫规则配置平台，是触发器的管理后台。大家可以看图上⑬展开了6个子项。首先是6个API：signals管信号定义、actions管执行动作、scene管场景、update管更新、query管查询、status管状态。然后是一套DSL，五个结构体：Condition定义触发条件、Option定义可选参数、Action定义执行动作、Param定义参数、ExecuteInfo定义执行信息。场景定义里面包含静态条件conditions、动态条件dynamic_conditions、执行动作actions、优先级priority从1到10、作用范围effective_scope、执行策略execute_policy。频控默认值是总共100次、每天100次、每次上电10次、间隔60秒。注册来源有五种：用户通过App设置的、产品预设的、运营后台配置的、静态Advisor注册的、Planner注册的。</p>
+
+  <p class="talk">场景配好之后，L13送到⑮触发器引擎，进入正式的判定流程。</p>
+</div>
+
+<hr class="divider">
+
+<!-- ===== 四 ===== -->
+<div class="ch">
+  <div class="ch-title">四、⑮ 云端触发器引擎——重点讲</div>
+
+  <p class="talk">好，现在讲⑮，这个模块我要讲久一点，因为它是整个触发器系统里最核心的部分。6.22之后它又多了一个身份，叫事件组装中心。</p>
+
+  <p class="talk">⑮内部是一条流水线，从a到j，十个步骤。大家看图上⑮展开的那个大方框。</p>
+
+  <p class="talk"><span class="stage">a. 场景注册</span>，收⑬配过来的场景，排队等扫描。<span class="stage">b. 信号扫描</span>，信号有更新就扫，没更新也每5秒扫一轮，只扫当前这辆车的信号。<span class="stage">c. 规则判定</span>，走死规则：温度大于45度、距离小于100米、播放循环超过10次，这种明确的数值比较。<span class="stage">d. 模型推理</span>，有些条件不是数值型的，比如VLM输出的"明骏上车了"，这种非结构化的信息需要模型来判断。<span class="stage">e. 条件全达成</span>，判断一个场景配的所有条件是不是都满足了。举个例子，一个场景配了三个条件：主驾上车、舱内温度低于10度、舱外温度低于5度。信号扫描回来舱内9度、舱外3度、主驾已上车，三个全中了，触发执行动作：开空调26度风量3。</p>
+
+  <p class="talk"><span class="stage">f. 数值抖动过滤</span>，解决的是反复触发的问题。比如场景条件是车速大于130，车速在125到135之间来回晃，不能一秒触发一次。做法是设一个窗口，30秒内不重复触发。<span class="stage">g. 冲突仲裁</span>，多个场景同时满足条件的时候，按优先级来，1到10，Planner注册的默认最高，同级的随机选一个。<span class="stage">h. 端云分类</span>，判断这个场景应该在端侧执行还是留在云端执行。<span class="stage">i. 场景下发</span>，如果判断要在端侧执行，通过L14这条橙色粗线下发给㉔端侧触发器，支持全量下发、增量下发、灰度下发。</p>
+
+  <p class="talk">前面a到i跟之前差不多，6.22之前就有的。<span class="hot">重点是j</span>，这是6.22最关键的变更。</p>
+
+  <p class="talk"><span class="hot">j. 事件组装加push</span>。先说之前我们的理解是什么样的。之前我们以为Advisor自己去轮询Context，看到某个状态变了，自己判断这算不算一个事件，自己决定要不要采取行动。6.22会上纠正了这个理解：不是这样的。⑮来负责做状态变化检测和事件组装，组装好了push给Advisor。Advisor不轮询，就等着接。</p>
+
+  <p class="talk">具体怎么做的呢？⑮持续监听⑫云端信号库的信号快照。一旦发现某个信号的值发生了阈值穿越，就是上一次是F这一次变成T了，比如档位从R变成了P，⑮把这个变化组装成一个语义化的事件，叫"倒车完成"，然后push给订阅了这个事件的Advisor。</p>
+
+  <p class="talk">⑮组装完事件之后，有四个输出方向。<span class="stage">L17</span>，粗线，push事件给⑯静态Advisor。<span class="stage">L18</span>，粗线，push事件给⑰动态Advisor。<span class="stage">L21</span>，虚线，给⑲Director发一个"条件已触发"的通知。<span class="stage">L14</span>，橙色粗线，把场景下发到㉔端侧触发器执行。</p>
+
+  <div class="quote-block">
+    <span class="who">佳杰在会上的原话：</span>"我不会去轮询你的Context。我注册了事件之后，就等待你的云端触发器给我发这个事件。"
+  </div>
+
+  <p class="talk">然后我讲一下铁律第四条怎么理解。佳杰在会上举了一个很好的例子，我直接用他的例子。</p>
+
+  <div class="quote-block orange">
+    <span class="who">佳杰的例子：</span>"倒完车之后，如果车里有小朋友，就把儿童锁打开。"
+  </div>
+
+  <p class="talk">这句话里有三个成分。"用户倒完车"，这是一个<span class="hot">事件</span>，怎么来的？等⑮检测到档位从R变成P，组装成"倒车完成"事件，push过来。"车里有小朋友"，这是一个<span class="stage">condition</span>，怎么来的？去读㉑Context里面存的乘客信息。"把儿童锁打开"，这是一个action，Advisor综合了事件和condition之后给出的建议。</p>
+
+  <p class="talk">事件是push过来的，condition是自己去读的。这两个东西的获取方式完全不一样。6.22之前我们没有把这两个东西区分清楚，所有信息都混在Context里面让Advisor自己去找，这是不对的。</p>
+</div>
+
+<hr class="divider">
+
+<!-- ===== 五 ===== -->
+<div class="ch">
+  <div class="ch-title">五、Context、Advisor、Director 三个角色</div>
+
+  <p class="talk">好，现在讲决策层。这一层有三个角色：㉑Context提供事实依据，⑯⑰Advisor提供建议，⑲⑳Director做最终决策。</p>
+
+  <p class="talk"><span class="stage">㉑ Context</span>。6.22定下来的规矩：<span class="hot">只存condition，不存event</span>。什么是condition？持续存在的状态描述。"车里有一名儿童"，这个状态会持续一段时间，Context里面存着。"当前车速80公里每小时"，也是持续状态。"坛子当前在地上"，也是。什么是event？状态变化的那一瞬间。"用户刚刚睡醒了"，"车辆刚刚驶出地库"。这些是瞬时的，存在Context里没有意义，因为下一秒这个事件就过去了。这些由⑮检测到了之后push给Advisor，不走Context。L26这条线，是Context注入到⑲Director的，提供情景信息、端状态、用户记忆。</p>
+
+  <p class="talk"><span class="stage">⑯ 静态Advisor</span>，一共4个，常驻的：舒适、出行、情感、内容。这4个一直在跑，不会被创建也不会被删除。6.22之后它们的工作模式是这样的：第一步，从⑮接收push过来的事件，比如"用户上车了"。第二步，去Context读condition，比如"车内温度32度"。第三步，综合这两个信息做判断，给⑲Director发advice。L19这条线就是⑯到⑲的。</p>
+
+  <p class="talk">举个例子。⑮ push了一个事件"用户上车了"，同时Context里面写着"车内温度32度"。舒适Advisor收到事件，读了Context，综合判断：现在用户刚上车，车内32度很热，建议开空调24度加座椅通风。这条advice通过L19发给Director。</p>
+
+  <p class="talk"><span class="stage">⑰ 动态Advisor</span>，跟静态的不一样，它是一个目标建一个实例，目标完成了就删掉。有上限的：长时任务最多2个，持续GUI 1个，条件订阅6个，定时加VLM的6个。创建的时候有个脚本，里面有iCanDo和action两个字段，action可以是select也可以是create。</p>
+
+  <p class="talk">⑰跟触发器之间有一套接口，优先级P0的：订阅、取消、callback回调、事件触发、能力描述、文本转事件类型、优先级、兜底。6.22之后⑰也是一样的逻辑：订阅了事件就等着⑮push，不去轮询Context。</p>
+
+  <p class="talk">⑰的连线有三条。L20，⑰到⑲发advice。L22，⑰到㉕下发感知订阅，就是告诉感知器你帮我盯着什么。L23，㉕到⑰回传感知结果。</p>
+
+  <p class="talk">举个例子来串一下。用户说"帮我照看宝宝"，Director建了一个目标放到⑱GoalList里，⑱给⑰建一个监工实例，这个监工拆解目标：需要持续观测毯子位置。它向⑮注册了一个事件"后排宝宝异常"，⑮判断这个任务需要端侧VLM来跑，通过L14下发给㉔，㉔发指令给㉕感知器，端模开始持续上报"后排蓝色毛毯在座椅上"。某一次变成"在地上"了，⑮检测到穿越，组装事件push给⑰，⑰再调一次VQA确认，确认了就给Director发advice。</p>
+
+  <p class="talk"><span class="stage">⑱ GoalList</span> 是Director和Advisor之间的共享任务板。L24把目标注入⑲，⑳推理完了通过goal_list_update往⑱里建目标或者删目标，⑱给⑰建监工实例。</p>
+
+  <p class="talk"><span class="stage">⑲⑳ Director</span>。⑲是一个汇入口，6路输入在这里汇合。第一路，用户的话。第二路，⑯静态Advisor的建议。第三路，⑰动态Advisor的建议。第四路，㉒工具库执行完返回的tool_feedback。第五路，⑮发过来的条件已触发通知。第六路，⑱GoalList里的目标队列。再加上L26从Context注入的情景信息、端状态、用户记忆。经过前置筛选，按当前的query挑出相关的工具定义、示例、knowhow，打包成prompt通过L25送到⑳。</p>
+
+  <p class="talk">⑳就是大脑了，跑的是Seed 1.8。SP大概30K tokens，里面有什么呢？角色定义、23个工具的定义、69个参考示例——这69个示例占了SP将近50%的token——然后是D6X车辆设备知识、聊天风格设定"温柔高知女生"、再加上动态模板变量：视觉感知status、目标队列goal_list、车辆状态env_info、用户记忆memory。</p>
+
+  <p class="talk">⑳推理完输出三样东西：talk_or_not要不要说话、talk_content说什么、action_list做什么。</p>
+
+  <p class="talk">输出往五个方向走。<span class="stage">L27</span>，action送到㉒工具库，23个下游工具去执行，比如调车控、查天气、搜POI。<span class="stage">L28</span>，条件任务和定时任务送到㉓任务中心，变成用户能看到的Widget卡片。<span class="stage">L29</span>，橙色线，talk_content送到端侧㉖TTS去播报。<span class="stage">L30</span>，橙色线，车控action送到端侧㉗㉘去执行。<span class="stage">L33</span>，虚线，如果对话过程中产生了条件任务，回注册到⑮触发器引擎。</p>
+</div>
+
+<hr class="divider">
+
+<!-- ===== 六 ===== -->
+<div class="ch">
+  <div class="ch-title">六、VLM和VQA，两条视觉链路</div>
+
+  <p class="talk">视觉这块有两条链路，容易搞混，我拆开讲。</p>
+
+  <p class="talk"><span class="stage">链路一，VLM，端侧持续感知</span>。这条链路是一直在跑的。㉔端侧触发器给㉕感知器发运行指令，㉕调度端侧摄像头抓帧，端侧VLM跑在AIBox上面，持续出文本描述。这些描述通过L16回写到④端侧信号库，④再通过L9同步到⑫云端信号库。⑮一直在监听⑫的变化，一旦发现某个信号穿越了阈值，就组装成事件push给Advisor。</p>
+
+  <p class="talk">举个例子。端模每3秒输出一次，"副驾女性，睡眠状态"。一直输出，⑮看到值没变，不管。某一次变成了"副驾女性，清醒状态"，⑮检测到穿越，组装一个事件"副驾醒了"，push给舒适Advisor。舒适Advisor再去Context读当前的环境信息，综合判断要不要做什么。</p>
+
+  <p class="talk"><span class="stage">链路二，VQA，云端按需问答</span>。这条链路不是持续跑的。⑰动态Advisor需要确认某个细节的时候才调一次。⑰生成一个prompt，比如"毯子是否掉地上了？宝宝还盖着吗？"，通过视频通话接口发出去。这个接口做两件事：一件是L_V3下发抓帧指令到端侧摄像头，一件是把prompt发给云端VQA模型。端侧摄像头拍一帧通过L_V4传回云端，云端VQA模型拿图片加prompt做推理，结果通过L_V5回给⑰，同时通过L_V6注入㉑Context。</p>
+
+  <p class="talk">举个例子。⑰收到了⑮ push过来的"毯子位置变化"事件，但⑰不确定具体什么情况，到底是毯子被人拿起来了还是掉地上了，它不知道。所以⑰生成一个prompt"毯子是否掉地上？宝宝还盖着吗？"，调一次VQA。VQA返回："是的，毯子在地板上，宝宝身上没有覆盖物。"⑰拿到这个确认，给Director发advice："毯子掉了，建议提醒用户。"</p>
+</div>
+
+<hr class="divider">
+
+<!-- ===== 七 ===== -->
+<div class="ch">
+  <div class="ch-title">七、㉔ 端侧触发器引擎</div>
+
+  <p class="talk">现在讲端侧触发器。6.22之后这个模块的scope收窄了不少。先说它内部的流水线，也是a到j十个步骤。</p>
+
+  <p class="talk"><span class="stage">a. 场景更新</span>，接收L14从云端下发过来的场景。<span class="stage">b. 信号扫描</span>，读④端侧信号库的快照。<span class="stage">c. 规则判定</span>，在本地做逻辑判定，看条件满不满足。<span class="stage">d. 优先级排序</span>，P0到P4五个级别，P0是最高的：下车安全、VQA请求、遗留物检测。同时有互斥组的概念，VLM_CABIN是舱内的，FRONT是舱外的，同一个互斥组同一时刻只能跑一个任务。</p>
+
+  <p class="talk"><span class="stage">e. 冷却控制</span>，P0级别的不冷却，其他的高频3秒低频5秒，避免反复触发。<span class="stage">f. 下发运行指令</span>，给㉕感知器发指令，指令有7个字段：task_id、task_goal、priority、timeout、mutex_group、trigger_source、expire_at。<span class="stage">g. VLM业务</span>，6.22之后端侧触发器管的VLM业务有这些：VQA请求P0、儿童照看P2、停车寻车P1、Always-on P3、通用视觉通道、动态任务。<span class="stage">h. 终态</span>，任务结束的状态有四种：success成功、empty没结果、timeout超时、failed失败。<span class="stage">i. 回写信号库</span>，VLM的识别结果通过L16回写到④信号库，写进去之后可能又满足了某个场景的条件，形成二次触发，这是一个循环。<span class="stage">j. 动作执行</span>，端侧本地执行车控或者TTS，弱网的时候不依赖云端。</p>
+
+  <p class="talk">6.22最大的变化是<span class="hot">scope收窄</span>。仁杰给了一个判定标准，很清楚：常驻的、固定的、标配的、纯key-value判定的功能，归CDC底软；有生命周期的、动态的、可运营的、临时的功能，留在端侧触发器。</p>
+
+  <p class="talk">具体来说，归CDC底软的：起步安全、上下车安全、睡眠提醒、无感迎宾、充电大师、哨兵模式。留在端侧触发器的：云端下发的定时任务和条件任务、动态视觉感知事件、通用视觉通道（兜底长尾用的）。</p>
+
+  <div class="quote-block orange">
+    <span class="who">仁杰的原话：</span>"像起步安全，你放在触发器里面专门去配一下，反而还要让触发器去接底层信号、考虑稳定性和延时，不如直接在底软就把事做了。"
+  </div>
+
+  <p class="talk">弱网的情况。车进隧道断网了，㉔可以独立执行。比如云端之前通过L14下发了一个场景"到目的地500米提醒我"，㉔在本地跑定时器，到时间了直接走㉖TTS播报"快到目的地啦"，不需要连云端。这是弱网兜底。</p>
+</div>
+
+<hr class="divider">
+
+<!-- ===== 八 ===== -->
+<div class="ch">
+  <div class="ch-title">八、CDC底软做什么</div>
+
+  <p class="talk">6.22之后CDC底软接了一大块功能。起步安全、上下车安全、睡眠提醒、无感迎宾、充电大师、哨兵模式，全部归赛力斯CDC。</p>
+
+  <p class="talk">为什么归CDC？因为这些功能有几个共同特点：所有车标配，不需要运营配置，不需要动态调整，判定逻辑就是key-value的比较，不需要大模型参与。放在触发器里反而多了一层依赖，信号要先进信号库再给触发器读再判定再执行，链路太长，稳定性和延时都不好。直接在底软做，信号来了直接判直接执行，一步到位。</p>
+
+  <p class="talk">数据流很简单：直读④端侧信号库，直接执行㉘车控或㉖TTS。不走触发器引擎，不走Advisor，不走Director。</p>
+
+  <div class="quote-block green">
+    <span class="who">西钺的原话：</span>"不要开发两个触发器，不管从开发工作还是部署资源上都是浪费。端侧触发器只在CDC，VLM在AI Box。"
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ===== 九 ===== -->
+<div class="ch">
+  <div class="ch-title">九、6.22新加的几个支撑模块</div>
+
+  <p class="talk"><span class="stage">任务中心（端侧）</span>，这是佳杰的依赖。端侧需要有一个持久化的任务库。这个任务库要区分两种字段：任务级和感知级。用户在任务中心UI上看到的是"帮我照看宝宝"，这是任务级的，是面向用户的描述。底层在触发器里注册的是"观测毯子位置"，这是感知级的，用户不需要看到。用户在任务中心UI上点了disable，端侧要真的把对应的感知任务关掉，不能只是UI上不显示了底层还在跑。点了删除也一样，要真删。用户把任务删了又加回来，也要能恢复。端侧的任务库要跟㉓云端任务中心做双向同步。</p>
+
+  <p class="talk"><span class="stage">AIBox任务调度</span>。VLM相关的任务优先级排序是在佳杰的AIBox模块里做的，不在触发器引擎里。always-on、VQA请求、其他视觉需求，AIBox按优先级排队，优先级低的等着。</p>
+
+  <p class="talk"><span class="stage">通用视觉事件通道</span>。这个是兜底用的"万能通道"。预设的事件集不够用的时候，可以透传一个动态query给AIBox，让端模去观测。分三类：舱内静态的，性别、年龄这些长时间不变的属性；舱内动态的，动作、表情这些快速变化的；舱外的，只用前摄像头。这里有个要注意的点：prompt是增量追加的，不是覆盖式的。比如之前已经让端模观测"后排有没有小朋友"，现在又加了一个"观测毯子位置"，两个prompt要合并在一起给端模，不能用新的覆盖旧的，否则加了新观测项，原来的感知就丢了。</p>
+</div>
+
+<hr class="divider">
+
+<!-- ===== 十 ===== -->
+<div class="ch">
+  <div class="ch-title">十、串一个完整case：照看后排宝宝</div>
+
+  <p class="talk">好，现在拿"照看宝宝"这个case把图上的主要模块串一遍。这个case基本上把图上所有关键链路都走到了。</p>
+
+  <p class="talk"><span class="stage">第1步</span>，用户说"帮我照看后排宝宝"。①拿到音频，②ASR转成文字，L2送到云端。</p>
+
+  <p class="talk"><span class="stage">第2步</span>，⑨拿到这句话，判断不是简单车控也不是条件任务，是一个复杂需求。L5送到⑲Director汇入口。</p>
+
+  <p class="talk"><span class="stage">第3步</span>，⑲加上Context里的信息，比如用户记忆、当前车况，打包给⑳。⑳推理完之后决定：这是一个持续性的目标，需要一直观测。它往⑱GoalList里建一个目标："监控后排宝宝状态。"</p>
+
+  <p class="talk"><span class="stage">第4步</span>，⑱收到这个目标，给⑰创建一个动态Advisor实例，这个监工专门负责这个目标。</p>
+
+  <p class="talk"><span class="stage">第5步</span>，⑰拆解这个目标。它判断：要监控宝宝状态，需要持续的视觉观测。它向⑮注册一个事件："后排宝宝异常。"</p>
+
+  <p class="talk"><span class="stage">第6步</span>，⑮收到这个事件注册，做端云分类，判断VLM持续感知应该在端侧跑。通过L14把任务下发给㉔端侧触发器。</p>
+
+  <p class="talk"><span class="stage">第7步</span>，㉔收到任务，发运行指令给㉕感知器。㉕调度端侧摄像头，开始对准后排持续抓帧。端侧VLM开始跑。</p>
+
+  <p class="talk"><span class="stage">第8步</span>，端模持续输出描述，"后排蓝色毛毯在座椅上"，"后排蓝色毛毯在座椅上"，一直没变。这些输出通过L16回写到④端侧信号库，④通过L9同步到⑫云端信号库。⑮一直在监听⑫，看到值没变，不管。</p>
+
+  <p class="talk"><span class="stage">第9步</span>，某一次端模输出变了，变成"后排蓝色毛毯在地板上"。⑮监听到⑫里面这个信号从"座椅上"变成了"地上"，阈值穿越了，组装一个事件："毯子位置变化。"</p>
+
+  <p class="talk"><span class="hot">第10步</span>，⑮把这个事件通过L18 push给⑰动态Advisor。注意，这一步就是6.22最核心的那个变更。⑮组装事件，push给Advisor，Advisor不轮询。</p>
+
+  <p class="talk"><span class="stage">第11步</span>，⑰收到"毯子位置变化"事件，但它不确定具体什么情况。它调一次云端VQA，生成prompt"毯子是否掉地上？宝宝还盖着吗？"，抓一帧照片上传，VQA模型返回："是的，毯子在地板上，宝宝身上没有覆盖物。"</p>
+
+  <p class="talk"><span class="stage">第12步</span>，⑰确认了情况，给⑲Director发advice："毯子掉了，宝宝身上没有覆盖物，建议提醒用户。"</p>
+
+  <p class="talk"><span class="stage">第13步</span>，⑲收到advice，加上Context里的信息"后排儿童3岁"，打包给⑳推理。</p>
+
+  <p class="talk"><span class="stage">第14步</span>，⑳输出talk_content，通过L29这条橙色线送到端侧㉖TTS播报："检测到宝宝的毯子掉到地上了哦，要不要在下一个服务区停一下帮宝宝盖好？"</p>
+
+  <p class="talk">整个过程从用户说话到最后TTS播报，串了①②⑨⑲⑳⑱⑰⑮㉔㉕④⑫⑮⑰VQA⑲⑳㉖这些模块。基本上图上每条主要的线都走到了。</p>
+</div>
+
+<hr class="divider">
+
+<!-- ===== 卡点 ===== -->
+<div class="ch">
+  <div class="ch-title">⊕、3个卡点和6条回环</div>
+
+  <p class="talk">最后讲两个东西。先说卡点，有3个，7月中之前必须定下来。</p>
+
+  <p class="talk"><span class="hot">卡点一，SP下发路径</span>。动态视觉任务的prompt，比如"看到毯子就上报"，这个prompt怎么给端模？走触发器的链路下发，还是绕开触发器直接给？现在没定。</p>
+
+  <p class="talk"><span class="hot">卡点二，端模条件式注意力</span>。端模能不能做到"看到X才上报"这种按条件触发的观测？丁彬的说法是通过prompt应该能限制住，但他也说了还没试过。这个得试了才知道。</p>
+
+  <p class="talk"><span class="hot">卡点三，视觉判定放哪</span>。端模自己判断"毯子掉了"，还是只报客观状态"毯子在地上"让上层逻辑来判？目前的结论是端模只报客观状态，但工程链路上怎么实现还没定。</p>
+
+  <p class="talk">然后说图上的6条关键回环，这些回环是系统能形成闭环的原因。</p>
+
+  <p class="talk"><span class="stage">L32</span>，㉒工具执行完把tool_feedback返回给⑲Director，Director拿到反馈可以做二次推理。比如第一次调了查天气的工具，拿到结果之后Director可能会接着调导航。</p>
+
+  <p class="talk"><span class="stage">L33</span>，⑳Director推理过程中如果产生了条件任务，通过L33回注册到⑮触发器引擎。比如用户在对话中说了"到了以后提醒我"，Director把这个条件任务注册给⑮。</p>
+
+  <p class="talk"><span class="stage">L16</span>，㉔端侧VLM的识别结果通过L16回写到④信号库。写进去之后这个新信号可能又满足了某个场景的条件，触发新一轮判定。这是一个二次触发的循环。</p>
+
+  <p class="talk"><span class="stage">L19和L20</span>，⑯静态Advisor和⑰动态Advisor的建议通过L19、L20回到⑲Director。这条回路是主动服务的核心。如果没有这两条线，系统就只能被动响应用户说话，有了这两条线，Advisor可以主动给Director发建议，Director可以主动对用户说话或者做动作。</p>
+
+  <p class="talk"><span class="stage">L9</span>，④端侧信号库同步到⑫云端信号库。这条线保证云端能看到端侧的全量信号。</p>
+
+  <p class="talk"><span class="hot">L17和L18</span>，⑮检测到信号变化，组装成事件，push给⑯⑰Advisor。这条是6.22定下来的，也是这次最关键的回环。之前Advisor自己轮询，现在改成⑮ push。</p>
+
+  <p class="talk">好，以上就是全模块大图v3的全部内容。大家有什么问题可以提。</p>
+</div>
+
+</div>
+
+<div class="footer">
+  全模块大图 v3 · 需求评审话术稿 v3 · 6.22定版<br>
+  配合「触发器-全模块大图-v3-6.22定版.html」使用
+</div>
+
+</body>
+</html>

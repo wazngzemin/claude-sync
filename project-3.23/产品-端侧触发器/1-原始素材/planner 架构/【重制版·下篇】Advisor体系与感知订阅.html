@@ -1,0 +1,384 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>豆包上车架构讲义·下篇：Advisor体系与感知订阅</title>
+<style>
+:root{--bg:#fafbfc;--ink:#1a202c;--muted:#64748b;--line:#e2e8f0;--blue:#2563eb;--cyan:#0891b2;--green:#059669;--amber:#d97706;--rose:#e11d48;}
+*{box-sizing:border-box}
+body{margin:0;color:var(--ink);line-height:1.82;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg)}
+.wrap{max-width:820px;margin:0 auto;padding:40px 28px 120px}
+h1{font-size:28px;margin:0 0 8px;line-height:1.3}
+h2{font-size:22px;margin:48px 0 12px;padding-bottom:8px;border-bottom:2px solid var(--line)}
+h3{font-size:17px;margin:28px 0 8px;color:var(--blue)}
+h4{font-size:15px;margin:20px 0 6px}
+p{margin:10px 0;font-size:15px}
+.lead{color:var(--muted);font-size:15px;margin:0 0 32px}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+th{background:#f1f5f9;font-weight:600}
+code{background:#f1f5f9;border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:13px;color:var(--rose)}
+pre{background:#1e293b;color:#e2e8f0;border-radius:8px;padding:14px 16px;overflow:auto;font-size:13px;margin:12px 0;line-height:1.6}
+blockquote{margin:14px 0;padding:12px 16px;border-left:4px solid var(--blue);background:#eff6ff;border-radius:0 6px 6px 0;color:#1e40af;font-size:14px}
+blockquote::before{content:"📌 ";font-weight:700}
+.warn{margin:14px 0;padding:12px 16px;border-left:4px solid var(--amber);background:#fffbeb;border-radius:0 6px 6px 0;color:#92400e;font-size:14px}
+.warn::before{content:"⚠️ ";}
+.eg{margin:14px 0;padding:12px 16px;border:1px solid #d1fae5;background:#ecfdf5;border-radius:6px;font-size:14px}
+.eg::before{content:"🔍 举例：";font-weight:700;color:var(--green)}
+.why{margin:14px 0;padding:12px 16px;border:1px solid #fef3c7;background:#fffbeb;border-radius:6px;font-size:14px}
+.why::before{content:"💡 为什么：";font-weight:700;color:var(--amber)}
+ul,ol{margin:8px 0;padding-left:22px}li{margin:4px 0}
+hr{border:none;border-top:1px solid var(--line);margin:32px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>豆包上车 Director/Planner 架构讲义 · 下篇</h1>
+<p class="lead">Advisor 体系与感知订阅——4 个静态 advisor 各自怎么"想"、动态 advisor 的 9 套 prompt 和生命周期、感知订阅的 VLM 阈值穿越和触发器。基于 advisor 架构/ 下全部 8 份 PRD 精读。</p>
+
+<!-- ============================================================ -->
+<h2>一、Advisor 体系总览：为什么需要 advisor、它和 Director 是什么关系</h2>
+
+<h3>1.1 旧架构的问题</h3>
+
+<p>旧架构里 Director（Planner）一人包揽所有事——理解意图、拆解任务、执行、跟进进度、主动关怀，全压在一个模型调用里。这带来四个病：</p>
+
+<ol>
+<li><b>过载</b>——要同时兼顾"快速响应"和"深度思考"，性能和质量没法两全</li>
+<li><b>单线程</b>——系统不具备多任务并行的能力</li>
+<li><b>需求不闭环</b>——"我讲一句它应一句，一锤子买卖"</li>
+<li><b>涌现受限</b>——为了稳定加了很多规则，限制了模型能力的发挥</li>
+</ol>
+
+<h3>1.2 新架构的分工</h3>
+
+<p>新架构把 Director 的职责拆开：</p>
+
+<ul>
+<li><b>Director</b>——重时延、快交互、串联中枢。负责快速响应用户、调工具执行、建/删目标。<b>不盯进度、不更新目标进展。</b></li>
+<li><b>4 个静态 advisor</b>——重思考、轻时延、守目标。各管一条线（舒适/出行/情感/内容），<b>永久在岗</b>，负责盯目标是否达成、更新进展、给 Director 主动服务建议。</li>
+<li><b>动态 advisor</b>——临时监工。当静态 advisor 管不了的临时持续任务出现（如"帮我照顾宝宝"），Director 创建一个动态 advisor 实例来专门盯。任务完成后销毁。</li>
+<li><b>goal list</b>——共享看板。Director 和 advisor 共同读写，所有目标的进展都在这里。</li>
+</ul>
+
+<div class="why">核心逻辑用一句话概括：<b>能当场做完的，Director 闭环；做不完的、要持续盯的，升级成 goal + advisor，Director 建完就撒手，advisor 接管盯进度</b>。恢复被打断的任务也不靠 Director 记忆——靠 advisor 读 goal list 上的"细节和进展"重新触发。</div>
+
+<h3>1.3 四个静态 advisor 横向对比</h3>
+
+<table>
+<tr><th></th><th>舒适</th><th>出行</th><th>内容</th><th>情感</th></tr>
+<tr><td><b>管什么</b></td><td>车内身体舒适（温/气/光/声/坐/空间）</td><td>全出行生命周期（行前/行中/行后）</td><td>内容消费推荐</td><td>情感陪伴关怀</td></tr>
+<tr><td><b>触发方式</b></td><td>事件 + 1min 定时 review</td><td>事件 + 定时 review</td><td>事件 + 定时 + <b>协同信号</b>（情感 advisor 发来）</td><td>事件 + 10min 子目标 review</td></tr>
+<tr><td><b>核心推理</b></td><td>6+1 维度 knowhow</td><td>出行目的预测链</td><td><b>L0-L3 介入等级</b></td><td><b>4 步推理 + 子目标状态机</b></td></tr>
+<tr><td><b>输出格式</b></td><td>JSON{问题,建议}</td><td>JSON{预测,需求,建议}</td><td>话术+结构化指令+介入等级</td><td><b>JSON{reason,advice,goal_operations}</b></td></tr>
+<tr><td><b>SP 完整度</b></td><td>角色+knowhow+格式</td><td>引用外部文档</td><td>Flow+等级体系</td><td><b>两套完整 SP 全文</b></td></tr>
+<tr><td><b>红线</b></td><td>不编造</td><td>无明确红线</td><td>克制（L0 优先）</td><td><b>最严格（6 条 + 大量反例）</b></td></tr>
+<tr><td><b>对应知识专家</b></td><td>COM</td><td>DRV</td><td>ENT</td><td>EMO</td></tr>
+<tr><td><b>PRD 版本</b></td><td>v1.0</td><td>v0.4</td><td>V0.4</td><td>v1.0</td></tr>
+</table>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>二、舒适 Advisor——车内的"体感管家"</h2>
+
+<h3>2.1 为什么做</h3>
+<p>车内环境（温度/空气/光线/声音/座椅/空间）时刻在变，影响乘客身体感受。靠用户主动说"我好热"才调空调太被动——好的体验是<b>系统自己发现不舒适，主动建议调整</b>。</p>
+
+<h3>2.2 怎么做的</h3>
+
+<p><b>触发方式</b>：两种——① 事件触发（有人上车、温度变化、VLM 看到有人在阅读→光线可能不够）；② <b>1 分钟内无新事件 + 有未完成的舒适子目标 → 自动触发一次定时 review</b>。</p>
+
+<p><b>输入</b>（5 类模板变量注入 SP）：</p>
+<ul>
+<li><code>{{attention}}</code>——触发本次推理的事件（如"后排有人上车"）</li>
+<li><code>{{watcher}}</code>——VLM 的视觉描述（如"后排有人在看书"）</li>
+<li><code>{{car_condition}}</code>——端信号（空调状态、车窗状态、温度等）</li>
+<li><code>{{web_information}}</code>——世界信息（时间、天气）</li>
+<li><code>{{memory}}</code>——记忆（如"这个用户有鼻炎，怕风直吹"）</li>
+</ul>
+
+<p><b>SP 内置 5 条 knowhow 推理规则</b>（决策树式 if-then）：温度不适 → 快速调温；空气超标 → 恢复空气质量；人员变动 → 检查空间是否够；有人阅读/找东西/睡觉 → 检查光线是否合适；有人睡觉/听歌 → 检查音量是否合适。</p>
+
+<p><b>输出</b>：JSON 给 Director，两个字段——"当前的舒适性问题"（分析）+ "应对建议"（方案）。<b>舒适 advisor 不直接控车</b>，只输出建议，Director 决定执行不执行。</p>
+
+<div class="eg"><b>夏季 38 度上车</b>：VLM 描述"乘客额头有汗" + 端信号"车内 38 度、空调关闭" → 舒适 advisor 判定"温度不舒适" → 输出建议"开空调制冷 20 度 + 座椅通风 3 档 + 车窗先通风 2 分钟再关" → Director 接收执行。1 分钟后定时 review："车内降到 26 度了但风速还在 7 档" → 建议"降到 3 档" → Director 再调一次。这就是<b>持续追踪</b>。</div>
+
+<h3>2.3 做到什么程度</h3>
+<p>PRD v1.0，核心场景（上车高温/低温、多人分区、睡眠中调节）为 P0 已定义。但<b>结合视觉的高感场景</b>（如"观察到后排擤鼻涕→调小风量"）标 TBD，依赖 VLM 能力。反思机制（离线复盘推理质量）标 P1 待讨论。</p>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>三、出行 Advisor——"理解你去哪、为什么去"</h2>
+
+<h3>3.1 为什么做</h3>
+<p>用户上了车，还没说去哪。如果系统能<b>主动猜出目的地、推荐路线、顺手帮缴停车费、提前订座</b>，就从"导航工具"升级成"出行管家"。</p>
+
+<h3>3.2 怎么做的</h3>
+
+<p><b>覆盖全出行生命周期</b>：行前（目的预测/路线推荐/缴停车费）→ 行中（堵车绕行/POI 推荐/充电/订座/目的地服务）→ 行后（最后一公里指引/停车记位）。</p>
+
+<p><b>核心推理 = 出行目的预测</b>。靠 10+ 数据源：历史出行偏好（什么时间去什么地方）、车内人员状态（谁坐哪干什么）、<b>上车携带物品</b>（带了书包→上学）、时间上下文（周二早上→通勤）、当前位置、常去地点、导航状态、日程……</p>
+
+<div class="eg">PRD 给的推理示例："12月3日周二早上8:31，益红和依依已上车，车在长江小区。依依应在8:30出发去光启小学上学，她带了书包；益红通常8:45出发去平金中心上班。因此本次目的是：1.送依依上学 2.益红上班。" → 推理模式：<b>多因素融合 → 概率排序 → 输出预测+置信度 → 低置信时主动确认</b>。</div>
+
+<p><b>输出</b>给 Director：出行目的预测 + 当前出行目的 + 需求分析 + 建议。</p>
+
+<h3>3.3 做到什么程度</h3>
+<p>PRD v0.4，成熟度偏低。行前目的预测和缴停车费为核心场景。但<b>生态服务（美团订座/取号）、个性化 POI 推荐、部分充电场景</b>标 P2 未实现。输出格式和与 Director 的对接"需要详细沟通"，还未完全定义。</p>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>四、内容 Advisor——"首席内容建议官"，克制比推荐更重要</h2>
+
+<h3>4.1 为什么做</h3>
+<p>车里大量时间是沉默的——通勤/巡航/等充电。如果系统能在合适的时机推荐<b>合适的内容</b>（不只是随机放歌，而是根据场景/情绪/偏好精准匹配），就能让车内时光更有价值。但<b>推错了比不推更糟</b>——夫妻吵架时推欢快歌曲、暴雨急弯时推深度播客，都是灾难。所以核心设计哲学是<b>"先判断该不该推，再判断推什么"</b>。</p>
+
+<h3>4.2 怎么做的</h3>
+
+<p><b>默认不工作</b>——没有 Trigger 就没有内容。保持用户注意力和系统资源的双重零占用。</p>
+
+<p>触发后进入<b>8步推理 Flow</b>：静默态 → Trigger唤醒 → Context汇聚 → <b>介入判断（决策核心）</b> → 策略参数生成 → 分发给 Planner → 反馈感知 → Review 回收。</p>
+
+<p><b>介入判断输出唯一的介入等级（L0-L3）</b>，这是核心状态机：</p>
+
+<table>
+<tr><th>等级</th><th>定义</th><th>认知占用</th><th>什么时候</th></tr>
+<tr><td><b>L0 隐形</b></td><td>不推荐不打扰</td><td>0%</td><td>愤怒/烦躁；暴雨冰雪驾驶；社交冲突；明确拒绝</td></tr>
+<tr><td><b>L1 氛围</b></td><td>白噪声/轻音乐</td><td><5%</td><td>疲惫/低落/发呆；单调安全环境</td></tr>
+<tr><td><b>L2 碎片</b></td><td>笑话/脱口秀/新闻</td><td>30%</td><td>通勤/短途(导航<30min)；正常情绪</td></tr>
+<tr><td><b>L3 沉浸</b></td><td>专家解读/历史讲坛</td><td>>80%</td><td>长途巡航/驻车休息(NOA/充电)；好奇/高接收度</td></tr>
+</table>
+
+<blockquote>原文设计哲学："要像人一样察言观色——车上夫妻正在吵架，即使满足了 Trigger 条件，也不要推送。"</blockquote>
+
+<p><b>反馈闭环</b>：连续跳过 3 次 → 归因分析（不喜欢歌手还是曲风？）→ 策略修正。路况从畅通变拥堵持续>5min → 自动降认知门槛（L3→L2）。</p>
+
+<p><b>独特的协同信号</b>：情感 advisor 判断"用户适合陪伴"时，会发信号给内容 advisor 触发推荐。这是 4 个 advisor 之间<b>唯一明确的跨 advisor 协同接口</b>。</p>
+
+<h3>4.3 做到什么程度</h3>
+<p>PRD V0.4。L0-L3 判定逻辑和 8 步 Flow 已完整定义。具体内容源对接（QQ音乐/网易云/喜马拉雅/小宇宙 API）是工程层面的依赖，集成复杂度高。Benchmark 方案"暂不支持"。</p>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>五、情感 Advisor——4 个里推理最精细、红线最严格的</h2>
+
+<h3>5.1 为什么做</h3>
+<p>车是一个封闭的私密空间，人在车里的情绪波动比其他场景更明显（堵车焦虑、深夜疲惫、被超车愤怒、久别重逢欢喜）。如果系统能<b>察言观色、用合适的语气陪伴</b>，就不只是工具，而是有温度的伙伴。但情感领域"做多了"比"做少了"更危险——过度关心、猜测隐私、擅自推荐、控制设备，都会让用户反感。所以情感 advisor 有<b>最严格的红线</b>。</p>
+
+<h3>5.2 怎么做的</h3>
+
+<p>情感 advisor 有<b>两套完整 SP</b>——Event Prompt（事件触发用）和 Review Prompt（定时复查用），各自有独立的推理链。</p>
+
+<h4>Event Prompt 的 4 步推理链</h4>
+
+<p><b>第一步：事件解析 + 情感影响评估</b>——收到事件（如"副驾上车了"），判断有哪些情感影响。核心是<b>多情感优先级规则</b>：启动车辆方式 > 安全相关 > 节日/特殊日期 > 人物状态 > 情绪 > 人物 > 车内场景 > 车外场景 > 人物+时间 > 人物着装。<b>安全类强制执行</b>，不管其他情感目标怎么说。</p>
+
+<p><b>第二步：即时建议生成</b>——格式"语气+表情+对象+情感方向+禁止"。<b>6 条红线（绝对禁止）</b>：</p>
+<ol>
+<li>只输出情感建议，<b>不输出具体内容</b>（如"播放一首轻音乐"→ 越界，该内容 advisor 管）</li>
+<li><b>不控车</b>（如"把空调调低"→ 越界，该舒适 advisor 管）</li>
+<li>不对<b>未发生</b>的事猜测</li>
+<li>不对<b>曾发生</b>的事预测</li>
+<li><b>不提醒物品</b>（如"别忘了带伞"→ 越界）</li>
+<li>禁止"维持现状"类建议（"建议不做任何事"不算建议）</li>
+</ol>
+
+<p><b>第三步：子目标生命周期管理</b>——这是一个完整的状态机。两种子目标类型：A <b>目标达成型</b>（"安抚主驾情绪直到不再愤怒"）和 B <b>条件响应型</b>（"轻柔语气直到右后排睡醒"）。Create/Update/Delete 操作。<b>子目标上限 10 个</b>。</p>
+
+<p><b>第四步：输出整合 + 冲突检查</b>——即时建议 vs 子目标冲突 → 以即时建议为准；新增子目标 vs 已有重复 → 合并。</p>
+
+<h4>Review Prompt 的 3 步推理链</h4>
+
+<p>触发条件："10 分钟没关注用户了 + 有未完成子目标"。三种情况：A 进行中需调整（重度→轻度疲惫）→ 更新 goal；B 触发条件消失 → 恢复建议 + 删除 goal；C 目标已完成 → <b>仅删除，不输出任何建议</b>（克制！完成了就安静离场）。</p>
+
+<h4>输出</h4>
+
+<pre>{
+  "reason": "所有可进行情感建议事件的描述",
+  "advice": "用温柔关切的语气，询问主驾是否需要休息",
+  "goal_operations": [
+    {"action":"create", "fields":{"goal_id":1, "description":"持续关注主驾疲劳状态", "reason":"检测到打哈欠"}}
+  ]
+}</pre>
+
+<p>动作空间：DO_NOTHING / CONVO_STRATEGY（沟通策略给 Planner）/ CONVO_INITIATE（主动搭话）/ EMOJI_SUGGESTION（表情建议）/ TOOL_CALL（self ReACT，如调 car_info 查车况）。</p>
+
+<div class="eg"><b>子目标冲突 case</b>——后排儿童睡着（子目标 B"轻柔语气直到睡醒"）+ 主驾分心驾驶（安全事件）→ 按优先级"安全相关 > 人物状态"→ 安全提醒<b>优先</b>，用严肃语气提醒主驾"注意前方"，后排的轻柔子目标暂被安全覆盖。</div>
+
+<div class="eg"><b>被超车 case</b>——用户"卧槽" → 事件触发 → 情感 advisor 判定"愤怒/受挫" → 输出：语气=共情吐槽，方向=先认同再安抚 → Director："那个开车也太横了吧。不过你没事就好。"</div>
+
+<h3>5.3 做到什么程度</h3>
+<p>PRD v1.0，两套完整 SP 全文已写好（含大量正/反示例）。事件触发和子目标管理为 P0。但打扰预算自适应（P2）、用户反馈分析（P2）、实时表情陪伴（P2）未实现。主动搭话默认 3 次/天，自适应调整依赖正负反馈积累。</p>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>六、动态 Advisor——9 套 Prompt、4 类任务、完整生命周期</h2>
+
+<h3>6.1 为什么做</h3>
+<p>4 个静态 advisor 管的是固定四维度（舒适/出行/情感/内容），但"帮我照顾宝宝""一路介绍风景""帮我点杯咖啡送公司"这种<b>临时冒出来的持续任务</b>，静态 advisor 管不了——它需要一个<b>专属的、临时的、做完就销毁的监工</b>。</p>
+
+<h3>6.2 怎么做的</h3>
+
+<h4>创建流程</h4>
+
+<p><b>Step 1</b>：Director 判断需要创建持续任务，调 <code>goal_list_update</code> 把 GoalText 发给 CreateGoal。</p>
+
+<p><b>Step 2</b>：<b>任务分类模块（LLM 推理）</b>用专门的"任务分类 prompt"把 query 分成 4 类：</p>
+
+<table>
+<tr><th>优先级</th><th>判定</th><th>type</th><th>例子</th></tr>
+<tr><td>1</td><td>是否调用点单/缴费/预订</td><td>2（持续/长程）</td><td>点咖啡送公司</td></tr>
+<tr><td>2</td><td>包含明确时间/周期</td><td>4（定时）</td><td>每5分钟播报NBA</td></tr>
+<tr><td>3</td><td>包含条件表达</td><td>3（条件）</td><td>副驾上车时开玩笑</td></tr>
+<tr><td>4</td><td>其他</td><td>1（长时）</td><td>帮我介绍这台车</td></tr>
+</table>
+
+<p>输出分类参数：<code>{"type":"1~4", "vlm_use":true/false, "cycle":true/false, "max_execution":-1/1/N}</code></p>
+
+<p><b>Step 3</b>：按类型走不同流水线——长时 → 加载 Skill（二期）；持续/GUI → 绑定 GUI Agent；条件 → 解析+注册触发器（5-8s）；定时 → 生成 APScheduler 参数+注册定时器 → 是否需 VLM → 是 → 生成 VLM 提示词。</p>
+
+<h4>9 套 Prompt 模板</h4>
+
+<table>
+<tr><th>#</th><th>Prompt</th><th>用途</th></tr>
+<tr><td>1</td><td>任务分类 prompt</td><td>query → type 1/2/3/4</td></tr>
+<tr><td>2</td><td>VLM 分类+query 生成</td><td>目标 → 视觉可判断的 query（event/state）</td></tr>
+<tr><td>3</td><td>通用长时任务 prompt</td><td>长时任务 advisor 的推理（SYSTEM+USER，含 goal/memory/history/event/exec_state）</td></tr>
+<tr><td>4</td><td>持续任务/GUI prompt</td><td>GUI Agent 服务（5 个条件全满足才输出建议，冷却 120s）</td></tr>
+<tr><td>5</td><td>视觉感知 advisor prompt</td><td>VLM 定时触发专用（3 类策略：风险监控/信息讲解/状态陪伴）</td></tr>
+<tr><td>6</td><td>事件/定时触发 advice prompt</td><td>条件/定时触发后生成 advice（≤20 字口语化）</td></tr>
+<tr><td>7</td><td>定时器生成 prompt</td><td>自然语言 → APScheduler 参数（interval/cron/once/none）</td></tr>
+<tr><td>8</td><td>视觉理解 prompt</td><td>判断图片状态（输出 true|reason 或 false|reason）</td></tr>
+<tr><td>9</td><td>触发器脚本生成 prompt</td><td>生成触发器注册条件（选预设 or 生成脚本）</td></tr>
+</table>
+
+<h4>输出 JSON（长时任务版本，最完整）</h4>
+
+<pre>{
+  "goal": "照顾二排宝宝",
+  "goal_status": "active | achieved | terminated_by_user | blocked_by_system",
+  "goal_progress": "宝宝安睡中",
+  "need_advice": true,
+  "advice_timing_confidence": 0.85,
+  "goal_achieve_advise": "宝宝醒了在揉眼睛，建议放安抚音乐",
+  "completion_rate": 0.3,
+  "exec_state": "normal | suppressed | recoverable | short_circuit"
+}</pre>
+
+<p><b>exec_state 状态机</b>（之前没讲过）：normal（正常可输出）→ suppressed（抑制，强制 need_advice=false）→ suppressed_attention_shift（用户注意力偏移导致抑制）→ recoverable（可解除抑制）→ short_circuit（上轮建议有效，跳过本轮）。</p>
+
+<h4>销毁规则</h4>
+<p>max_execution 达上限 → 注销触发器/定时器 → CloseGoal；用户主动删除（任务中心点"取消"）；goal_status 进入 terminated_by_user 或 blocked_by_system；触发器注册失败 → CloseGoal。</p>
+
+<h4>二期（DNA-616）关键变化</h4>
+<ul>
+<li><b>Skill 系统 + Workflow 编排</b>——长时任务从"特调"变"通用"。创建时 load_skill() 匹配 Skill（如"兜风 Skill"）→ 加载 Knowhow → 组成实例。</li>
+<li><b>端侧定时器</b>——弱网/断网也能触发（AI PUSH 不依赖网络），端侧倒计时展示。</li>
+<li><b>策略预生成</b>——条件满足时不再现场推理，提前算好执行策略放云端。"减少一次推理时间"。</li>
+<li><b>导航场景感知</b>——新增"距离某 POI < 指定距离"触发事件。</li>
+</ul>
+
+<h3>6.3 数量限制</h3>
+
+<table>
+<tr><th>类型</th><th>上限</th><th>说明</th></tr>
+<tr><td>定时任务</td><td>≤6</td><td>循环最大执行 30 次，最小间隔 1 分钟</td></tr>
+<tr><td>条件任务</td><td>≤6</td><td>超限报 error</td></tr>
+<tr><td>长程 GUI</td><td>≤1</td><td>冷却 120s，最多提醒 3 次</td></tr>
+<tr><td>长时（除 vlm）</td><td>≤2</td><td>—</td></tr>
+<tr><td><b>VLM 视觉持续</b></td><td><b>仅 1</b></td><td>"照顾宝宝"和"介绍风景"不能同时跑</td></tr>
+</table>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>七、感知订阅——把"帮我盯着"翻译成可执行的触发器</h2>
+
+<h3>7.1 为什么做</h3>
+<p>动态 advisor 说的是人话（"每 10s 告诉我宝宝状态"），底层的 VLM/触发器/定时器只认配置参数。感知订阅模块就是<b>把人话翻译成机器配置</b>的翻译官。</p>
+
+<h3>7.2 三个子模块</h3>
+
+<p>① <b>动态感知需求推理</b>——"看什么"。如果要看，就调 VLM 的 sp/attention（让视觉模型重点关注特定对象）。不是所有订阅都需视觉——"温度超 20 度"只要条件信号。</p>
+<p>② <b>条件需求推理</b>——"什么条件"。温度>xx / face id "xx 上车" / 车速>xx → 注册触发器持续监控。</p>
+<p>③ <b>定时需求推理</b>——"多久一次"。每 10s / 每 5min / 20min 后（一次性）→ 注册 APScheduler 定时器。</p>
+<p>④ <b>信号组装 + 触发</b>——把三个子模块的输出拼在一起落地，条件/定时满足时<b>唤醒 advisor 并附带最新感知</b>。</p>
+
+<h3>7.3 VLM 阈值穿越检测（触发的真实机制）</h3>
+
+<p>VLM 不是"看到宝宝就报告"，而是<b>"看到状态变化才报告"</b>。具体流程：</p>
+
+<ol>
+<li>定时器触发（演示 5s/次，量产 30-60s）</li>
+<li>调图片接口拍照 → 获取图片 URL</li>
+<li>请求 VLM → 只输出一行：<code>true|reason</code> 或 <code>false|reason</code></li>
+<li><b>阈值穿越检测</b>：对比上一次(last)和这一次(this)。<b>只有 last==False and this==True 才触发</b>——状态从"未发生"变"发生"的那个瞬间。持续为 True 不重复触发。</li>
+<li>触发后 → 请求 advisor 模型给 advice</li>
+</ol>
+
+<div class="eg">"照顾二排宝宝" → VLM query: <code>{"type":"state","query":"二排存在宝宝"}</code><br>
+第 1 轮：<code>false|宝宝没有睡着</code> → 不触发<br>
+第 2 轮：<code>true|宝宝睡着了</code> → <b>last==F, this==T → 触发！</b><br>
+第 3 轮：<code>true|宝宝还在睡</code> → last==T, this==T → <b>不触发</b>（没变化）<br>
+只检测从 False 到 True 的<b>上升沿</b>。</div>
+
+<h3>7.4 VLM 视觉感知的 3 类策略</h3>
+
+<table>
+<tr><th>类型</th><th>策略</th><th>例子</th></tr>
+<tr><td><b>风险监控</b></td><td>有异常才说，只说一次，同一问题不重复</td><td>照顾宝宝（哭了才报）</td></tr>
+<tr><td><b>信息讲解</b></td><td>必须有新内容，间隔≥60-90s</td><td>介绍沿途风景（每次讲新景点）</td></tr>
+<tr><td><b>状态陪伴</b></td><td>明显状态信号才触发，冷却≥5min</td><td>缓解疲劳（打哈欠才提醒）</td></tr>
+</table>
+
+<h3>7.5 触发优先级</h3>
+<p>订阅事件（最高）> qa 结束 > 定时（最低）。高优先级打断低优的，反之不成立。</p>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>八、VLM / Watcher——让文本大脑"看见"车内发生了什么</h2>
+
+<h3>8.1 为什么做</h3>
+<p>Director 是文本模型，它看不见图像。VLM 就是它的"眼睛"——把摄像头画面转成自然语言描述，写进 context 让 Director 读。</p>
+
+<h3>8.2 怎么做的</h3>
+
+<p>承担实体叫 <b>Watcher</b>，端侧部署、自带算力、Always on。三大功能：① 细致理解描述场景 ② 全时多模聆听 ③ 发现值得关注的事件（小孩哭闹/咳嗽/前方大货车/OK 手势）。</p>
+
+<p><b>VLM 原理：大小 LLM 融合</b>。小模型把图像编码成 token（兜底识别高优标签）；大模型按一段 <b>SP（识别目标）</b>看画面输出自然语言。输入：OMS 摄像头 video 10-15s。输出：结构化流式的"情景描述"文字写回 context。</p>
+
+<p><b>"影响感知器 sp/attention"就是改 VLM 的 SP</b>——同一个 VLM，拼不同 SP 切换关注对象。比如无订阅时用"既定 SP"通用观察；收到"关注二排宝宝"后拼上新 SP 重点关注后排婴儿。不需要为每个需求各起一个模型。</p>
+
+<h3>8.3 做到什么程度</h3>
+<p>端侧 Watcher Always on 已设计。VLM 视觉持续任务<b>同时仅 1 个</b>。事件发现一期为纯工程触发（字符串匹配），二期升级为多模态模型+工程混合。量产阶段 VLM 定时频率为 30-60s（演示阶段 5s）。</p>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>九、四类任务 → 架构承接映射（全篇收口）</h2>
+
+<table>
+<tr><th>任务类型</th><th>卡片</th><th>动态 advisor</th><th>架构怎么承接</th></tr>
+<tr><td>简单即时 / 单步复杂</td><td>无</td><td>❌</td><td>Director 当场闭环，不留痕</td></tr>
+<tr><td>多步</td><td>无</td><td>❌</td><td>Director 在 ReAct 里串联 tool_feedback</td></tr>
+<tr><td>条件</td><td>✅</td><td>❌</td><td>条件触发器注册，靠 trigger 回灌 Director</td></tr>
+<tr><td>长时 / 持续</td><td>✅</td><td>✅</td><td>建目标+监工，感知订阅持续触发，打断能恢复</td></tr>
+</table>
+
+<blockquote><b>分配逻辑一句话</b>：能当场做完→Director 闭环；要等条件→丢给触发器；要长期盯→升级 goal+advisor+订阅。恢复靠 advisor 读看板，不靠 Director 记忆。</blockquote>
+
+<hr>
+
+<p style="text-align:center;color:var(--muted);margin-top:48px;font-size:14px"><b>下篇完。上下篇合起来覆盖了 planner 架构/ 和 advisor 架构/ 下全部 21 份文档的核心业务逻辑。<br>每个模块都讲了：为什么做 → 怎么做的（输入/处理/输出）→ 做到什么程度 → 坑点/限制。</b></p>
+
+</div>
+</body>
+</html>

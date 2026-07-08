@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Planner 模型内部机制 - 流程图详解</title>
+<style>
+body{margin:0;padding:20px;background:#f0f2f5;font-family:-apple-system,sans-serif}
+.wrap{max-width:1900px;margin:0 auto;background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.1);padding:24px}
+.svg-box{width:100%;overflow-x:auto}
+.svg-box svg{width:100%;height:auto;min-width:1600px}
+.tip{text-align:center;color:#9ca3af;font-size:12px;margin-top:12px}
+</style>
+</head>
+<body>
+<div class="wrap"><div class="svg-box">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1800 3600">
+<style>
+text{font-family:'PingFang SC','Microsoft YaHei',Arial,sans-serif}
+.th{font-size:22px;font-weight:800;fill:#1e3a5f}
+.h2{font-size:16px;font-weight:700;fill:#1e293b}
+.h3{font-size:13px;font-weight:700;fill:#374151}
+.bd{font-size:11px;fill:#475569}
+.sm{font-size:10px;fill:#6b7280}
+.dt{font-size:10px;fill:#1e3a5f;font-family:Consolas,Monaco,monospace}
+.wh{font-size:11px;fill:#fff}
+.whb{font-size:12px;fill:#fff;font-weight:700}
+.pur{font-size:11px;fill:#7c3aed;font-weight:600}
+.ora{font-size:11px;fill:#ea580c;font-weight:600}
+.grn{font-size:11px;fill:#047857;font-weight:600}
+.red{font-size:11px;fill:#dc2626;font-weight:600}
+.blu{font-size:11px;fill:#2563eb;font-weight:600}
+</style>
+<defs>
+<marker id="a-blue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#2563eb"/></marker>
+<marker id="a-pur" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#7c3aed"/></marker>
+<marker id="a-ora" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#ea580c"/></marker>
+<marker id="a-grn" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#16a34a"/></marker>
+<marker id="a-red" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#dc2626"/></marker>
+<marker id="a-gray" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#9ca3af"/></marker>
+<marker id="a-yel" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#d97706"/></marker>
+<filter id="sh"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.08"/></filter>
+<linearGradient id="gd" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1e40af"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient>
+</defs>
+<rect width="1800" height="3600" fill="#fff"/>
+<text x="900" y="40" text-anchor="middle" class="th">Planner 模型内部机制 - 流程图详解</text>
+<text x="900" y="62" text-anchor="middle" class="sm">知道底层逻辑才能写好 Skill 和动态示例 - 知道哪些 bug 能用 prompt 修</text>
+<rect x="50" y="100" width="1700" height="35" rx="6" fill="#1e3a5f"/>
+<text x="900" y="123" text-anchor="middle" class="whb" style="font-size:14px;">PART 1: 模型处理一次请求的完整内部流程（以"我好热好闷"为例）</text>
+<rect x="300" y="155" width="1200" height="180" rx="12" fill="#eff6ff" stroke="#2563eb" stroke-width="2" filter="url(#sh)"/>
+<text x="900" y="177" text-anchor="middle" class="blu" style="font-size:14px;">Step 1: 输入组装 - 把所有信息拼成一个巨大的 prompt</text>
+<rect x="330" y="195" width="80" height="35" rx="4" fill="#93c5fd" stroke="#2563eb" stroke-width="1"/>
+<text x="370" y="210" text-anchor="middle" class="dt" style="font-size:8px;">1 角色定义</text>
+<text x="370" y="223" text-anchor="middle" class="sm" style="font-size:7px;">~500 tokens</text>
+<rect x="414" y="195" width="120" height="35" rx="4" fill="#93c5fd" stroke="#2563eb" stroke-width="1"/>
+<text x="474" y="210" text-anchor="middle" class="dt" style="font-size:8px;">2 工具定义x23</text>
+<text x="474" y="223" text-anchor="middle" class="sm" style="font-size:7px;">~4000 tokens</text>
+<rect x="538" y="195" width="80" height="35" rx="4" fill="#93c5fd" stroke="#2563eb" stroke-width="1"/>
+<text x="578" y="210" text-anchor="middle" class="dt" style="font-size:8px;">3 输出格式+注意事项</text>
+<text x="578" y="223" text-anchor="middle" class="sm" style="font-size:7px;">~800 tokens</text>
+<rect x="622" y="195" width="100" height="35" rx="4" fill="#fde68a" stroke="#2563eb" stroke-width="1"/>
+<text x="672" y="210" text-anchor="middle" class="dt" style="font-size:8px;">4 静态示例(64条)</text>
+<text x="672" y="223" text-anchor="middle" class="sm" style="font-size:7px;">~16000 tokens = 占50%!</text>
+<rect x="726" y="195" width="80" height="35" rx="4" fill="#93c5fd" stroke="#2563eb" stroke-width="1"/>
+<text x="766" y="210" text-anchor="middle" class="dt" style="font-size:8px;">5 车辆知识+人设</text>
+<text x="766" y="223" text-anchor="middle" class="sm" style="font-size:7px;">~2300 tokens</text>
+<rect x="330" y="240" width="220" height="35" rx="6" fill="#7c3aed" stroke="#5b21b6" stroke-width="2"/>
+<text x="440" y="255" text-anchor="middle" class="wh" style="font-size:9px;">7 动态知识 {{knowledge}}</text>
+<text x="440" y="268" text-anchor="middle" class="wh" style="font-size:7px;">泽民写的Skill ~2000字</text>
+<rect x="560" y="240" width="220" height="35" rx="6" fill="#ea580c" stroke="#c2410c" stroke-width="2"/>
+<text x="670" y="255" text-anchor="middle" class="wh" style="font-size:9px;">8 动态示例 {{examples}}</text>
+<text x="670" y="268" text-anchor="middle" class="wh" style="font-size:7px;">明骏配的few-shot ~1500字</text>
+<rect x="790" y="240" width="140" height="35" rx="6" fill="#16a34a" stroke="#047857" stroke-width="2"/>
+<text x="860" y="255" text-anchor="middle" class="wh" style="font-size:9px;">9 env_info</text>
+<text x="860" y="268" text-anchor="middle" class="wh" style="font-size:7px;">P档/32C/SOC78%</text>
+<rect x="940" y="240" width="140" height="35" rx="6" fill="#16a34a" stroke="#047857" stroke-width="2"/>
+<text x="1010" y="255" text-anchor="middle" class="wh" style="font-size:9px;">10 memory</text>
+<text x="1010" y="268" text-anchor="middle" class="wh" style="font-size:7px;">偏好24C/FaceID</text>
+<rect x="1090" y="240" width="200" height="35" rx="6" fill="#16a34a" stroke="#047857" stroke-width="2"/>
+<text x="1190" y="255" text-anchor="middle" class="wh" style="font-size:9px;">11 对话历史+当前query</text>
+<text x="1190" y="268" text-anchor="middle" class="wh" style="font-size:7px;">"我好热好闷"</text>
+<text x="900" y="292" text-anchor="middle" class="bd">全部拼成一个 ~35K-40K tokens 的超长文本 = 模型的完整输入</text>
+<line x1="900" y1="335" x2="900" y2="365" stroke="#2563eb" stroke-width="2" marker-end="url(#a-blue)"/>
+<rect x="200" y="365" width="1400" height="280" rx="12" fill="#faf5ff" stroke="#7c3aed" stroke-width="2" filter="url(#sh)"/>
+<text x="900" y="387" text-anchor="middle" class="pur" style="font-size:14px;">Step 2: 注意力计算 - 模型决定"关注哪里"（这是一切的关键）</text>
+<text x="230" y="410" class="h3">模型要生成 action_list 的第一个工具调用时，对 35K tokens 的注意力分配：</text>
+<text x="230" y="438" class="dt" style="font-size:9px;">1 角色定义</text>
+<rect x="440" y="425" width="160" height="16" rx="3" fill="#93c5fd" opacity="0.8"/>
+<text x="605" y="437" class="sm" style="font-size:9px;">弱</text>
+<text x="690" y="437" class="sm" style="font-size:8px;fill:#94a3b8;">离太远，语义不直接相关</text>
+<text x="230" y="460" class="dt" style="font-size:9px;">2 工具定义</text>
+<rect x="440" y="447" width="340" height="16" rx="3" fill="#60a5fa" opacity="0.8"/>
+<text x="785" y="459" class="sm" style="font-size:9px;">高!</text>
+<text x="870" y="459" class="sm" style="font-size:8px;fill:#94a3b8;">需要查工具名和参数格式</text>
+<text x="230" y="482" class="dt" style="font-size:9px;">3 注意事项</text>
+<rect x="440" y="469" width="220" height="16" rx="3" fill="#93c5fd" opacity="0.8"/>
+<text x="665" y="481" class="sm" style="font-size:9px;">中</text>
+<text x="750" y="481" class="sm" style="font-size:8px;fill:#94a3b8;">有相关规则但被示例隔开了</text>
+<text x="230" y="504" class="dt" style="font-size:9px;">4 静态示例</text>
+<rect x="440" y="491" width="280" height="16" rx="3" fill="#fde68a" opacity="0.8"/>
+<text x="725" y="503" class="sm" style="font-size:9px;">中高</text>
+<text x="810" y="503" class="sm" style="font-size:8px;fill:#94a3b8;">有类似场景的参考样本</text>
+<text x="230" y="526" class="dt" style="font-size:9px;">5 车辆知识</text>
+<rect x="440" y="513" width="140" height="16" rx="3" fill="#93c5fd" opacity="0.8"/>
+<text x="585" y="525" class="sm" style="font-size:9px;">弱</text>
+<text x="670" y="525" class="sm" style="font-size:8px;fill:#94a3b8;">不直接相关</text>
+<text x="230" y="548" class="dt" style="font-size:9px;">7 Skill知识</text>
+<rect x="440" y="535" width="360" height="16" rx="3" fill="#7c3aed" opacity="0.8"/>
+<text x="805" y="547" class="sm" style="font-size:9px;">最高!</text>
+<text x="890" y="547" class="sm" style="font-size:8px;fill:#94a3b8;">和当前场景直接相关的知识</text>
+<text x="230" y="570" class="dt" style="font-size:9px;">8 动态示例</text>
+<rect x="440" y="557" width="380" height="16" rx="3" fill="#ea580c" opacity="0.8"/>
+<text x="825" y="569" class="sm" style="font-size:9px;">最高!</text>
+<text x="910" y="569" class="sm" style="font-size:8px;fill:#94a3b8;">展示了输出格式的标准答案</text>
+<text x="230" y="592" class="dt" style="font-size:9px;">9 env_info</text>
+<rect x="440" y="579" width="300" height="16" rx="3" fill="#16a34a" opacity="0.8"/>
+<text x="745" y="591" class="sm" style="font-size:9px;">高</text>
+<text x="830" y="591" class="sm" style="font-size:8px;fill:#94a3b8;">需要读取当前温度、档位</text>
+<text x="230" y="614" class="dt" style="font-size:9px;">10 memory</text>
+<rect x="440" y="601" width="260" height="16" rx="3" fill="#16a34a" opacity="0.8"/>
+<text x="705" y="613" class="sm" style="font-size:9px;">中高</text>
+<text x="790" y="613" class="sm" style="font-size:8px;fill:#94a3b8;">读偏好温度</text>
+<text x="230" y="636" class="dt" style="font-size:9px;">11 当前query</text>
+<rect x="440" y="623" width="380" height="16" rx="3" fill="#dc2626" opacity="0.8"/>
+<text x="825" y="635" class="sm" style="font-size:9px;">最高!</text>
+<text x="910" y="635" class="sm" style="font-size:8px;fill:#94a3b8;">用户刚说的话,最近最相关</text>
+<rect x="230" y="655" width="1340" height="50" rx="8" fill="#ede9fe" stroke="#7c3aed" stroke-width="1"/>
+<text x="900" y="673" text-anchor="middle" class="pur" style="font-size:12px;">关键发现：注意力最高的是 当前query + 动态示例 + Skill知识 + 工具定义</text>
+<text x="900" y="690" text-anchor="middle" class="bd" style="font-size:10px;">注意事项(3)被16K的静态示例(4)隔开 = 注意力被稀释 = "禁止XX"的规则容易被忽略</text>
+<line x1="900" y1="645" x2="900" y2="675" stroke="#7c3aed" stroke-width="2" marker-end="url(#a-pur)"/>
+<rect x="200" y="675" width="1400" height="320" rx="12" fill="#fff7ed" stroke="#ea580c" stroke-width="2" filter="url(#sh)"/>
+<text x="900" y="697" text-anchor="middle" class="ora" style="font-size:14px;">Step 3: 逐字生成 - 模型一个token一个token地"写"出回答</text>
+<text x="230" y="715" class="h3">生成 talk_content 时：</text>
+<rect x="230" y="720" width="1340" height="50" rx="6" fill="#fff" stroke="#fed7aa" stroke-width="1"/>
+<rect x="240" y="725" width="60" height="18" rx="3" fill="#ea580c" opacity="0.15"/>
+<text x="270" y="738" text-anchor="middle" class="dt" style="font-size:9px;fill:#ea580c;">生成"好"</text>
+<text x="270" y="755" text-anchor="middle" class="sm" style="font-size:7px;">注意力聚焦→示例里的talk_content风格</text>
+<rect x="325" y="725" width="60" height="18" rx="3" fill="#ea580c" opacity="0.15"/>
+<text x="355" y="738" text-anchor="middle" class="dt" style="font-size:9px;fill:#ea580c;">生成"的"</text>
+<text x="355" y="755" text-anchor="middle" class="sm" style="font-size:7px;">模仿示例的简洁语气</text>
+<rect x="410" y="725" width="76" height="18" rx="3" fill="#ea580c" opacity="0.15"/>
+<text x="448" y="738" text-anchor="middle" class="dt" style="font-size:9px;fill:#ea580c;">生成"我帮你"</text>
+<text x="448" y="755" text-anchor="middle" class="sm" style="font-size:7px;">模仿示例的服务态度</text>
+<rect x="511" y="725" width="84" height="18" rx="3" fill="#dc2626" opacity="0.15"/>
+<text x="553" y="738" text-anchor="middle" class="dt" style="font-size:9px;fill:#dc2626;">生成"降温通风"</text>
+<text x="553" y="755" text-anchor="middle" class="sm" style="font-size:7px;">注意力聚焦→用户query里的关键词</text>
+<text x="230" y="780" class="h3">生成 action_list 时（最关键的部分）：</text>
+<rect x="230" y="788" width="650" height="100" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+<text x="245" y="808" style="font-size:10px;fill:#86efac;font-family:Consolas,monospace;">生成 tool_name: "vehicle_basic_control"</text>
+<text x="620" y="808" style="font-size:8px;fill:#94a3b8;">注意力 → 示例里用的工具名(模仿)</text>
+<text x="245" y="830" style="font-size:10px;fill:#93c5fd;font-family:Consolas,monospace;">生成 param: "空调ON"</text>
+<text x="620" y="830" style="font-size:8px;fill:#94a3b8;">注意力 → Skill里的执行项(查阅)</text>
+<text x="245" y="852" style="font-size:10px;fill:#86efac;font-family:Consolas,monospace;">生成 param: "温度24C"</text>
+<text x="620" y="852" style="font-size:8px;fill:#94a3b8;">注意力 → memory偏好24C(不是Skill的LO!)</text>
+<text x="245" y="874" style="font-size:10px;fill:#86efac;font-family:Consolas,monospace;">生成 param: "风量8"</text>
+<text x="620" y="874" style="font-size:8px;fill:#94a3b8;">注意力 → memory不喜欢太冷(所以不是最大11)</text>
+<rect x="910" y="788" width="650" height="100" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+<text x="925" y="808" style="font-size:10px;fill:#86efac;font-family:Consolas,monospace;">生成 tool_name: "vehicle_basic_control"</text>
+<text x="1300" y="808" style="font-size:8px;fill:#94a3b8;">继续模仿示例的工具名</text>
+<text x="925" y="830" style="font-size:10px;fill:#93c5fd;font-family:Consolas,monospace;">生成 param: "主驾车窗打开50%"</text>
+<text x="1300" y="830" style="font-size:8px;fill:#94a3b8;">注意力 → Skill里的对角线通风策略</text>
+<text x="925" y="852" style="font-size:10px;fill:#64748b;font-family:Consolas,monospace;">...</text>
+<text x="1300" y="852" style="font-size:8px;fill:#94a3b8;"></text>
+<text x="925" y="874" style="font-size:10px;fill:#93c5fd;font-family:Consolas,monospace;">生成 param: "右后车窗打开50%"</text>
+<text x="1300" y="874" style="font-size:8px;fill:#94a3b8;">注意力 → Skill里写的对角线=主驾+右后</text>
+<rect x="230" y="900" width="1340" height="75" rx="8" fill="#fff7ed" stroke="#ea580c" stroke-width="1"/>
+<text x="900" y="916" text-anchor="middle" class="ora" style="font-size:12px;">核心发现：生成每个 token 时，模型的注意力来源不同</text>
+<text x="250" y="935" class="bd" style="font-size:10px;">tool_name 主要模仿 示例(few-shot) 里的工具名 = 示例决定了"调什么工具"</text>
+<text x="250" y="950" class="bd" style="font-size:10px;">param 内容 主要查阅 Skill知识 里的执行项 = 知识决定了"参数填什么"</text>
+<text x="250" y="965" class="bd" style="font-size:10px;">param 个性化 主要参考 memory + env_info = 记忆和端状态决定了"个性化调整"</text>
+<rect x="50" y="1025" width="1700" height="35" rx="6" fill="#1e3a5f"/>
+<text x="900" y="1048" text-anchor="middle" class="whb" style="font-size:14px;">PART 2: 动态知识 vs 动态示例 - 模型内部处理方式对比</text>
+<rect x="100" y="1080" width="780" height="360" rx="12" fill="#faf5ff" stroke="#7c3aed" stroke-width="2" filter="url(#sh)"/>
+<text x="490" y="1102" text-anchor="middle" class="pur" style="font-size:14px;">动态知识 (Skill) = 参考资料</text>
+<text x="490" y="1120" text-anchor="middle" class="sm">模型处理方式：查阅 (Retrieval)</text>
+<rect x="130" y="1140" width="720" height="280" rx="8" fill="#fff" stroke="#e9d5ff" stroke-width="1"/>
+<text x="150" y="1160" class="h3">模型怎么使用 Skill：</text>
+<rect x="150" y="1175" width="24" height="24" rx="12" fill="#7c3aed"/>
+<text x="162" y="1192" text-anchor="middle" style="font-size:10px;fill:#fff;font-weight:700;">1</text>
+<text x="185" y="1187" class="bd" style="font-size:10px;">读到 Skill 里写的执行项列表</text>
+<text x="185" y="1201" class="sm" style="font-size:9px;">信息存入模型的"工作记忆"(注意力缓存)</text>
+<rect x="150" y="1217" width="24" height="24" rx="12" fill="#7c3aed"/>
+<text x="162" y="1234" text-anchor="middle" style="font-size:10px;fill:#fff;font-weight:700;">2</text>
+<text x="185" y="1229" class="bd" style="font-size:10px;">生成 action 时，注意力扫描这些执行项</text>
+<text x="185" y="1243" class="sm" style="font-size:9px;">像翻手册一样查找相关内容</text>
+<rect x="150" y="1259" width="24" height="24" rx="12" fill="#7c3aed"/>
+<text x="162" y="1276" text-anchor="middle" style="font-size:10px;fill:#fff;font-weight:700;">3</text>
+<text x="185" y="1271" class="bd" style="font-size:10px;">命中"空调ON"→ 生成空调相关参数</text>
+<text x="185" y="1285" class="sm" style="font-size:9px;">注意力权重高 = 命中 = 使用</text>
+<rect x="150" y="1301" width="24" height="24" rx="12" fill="#7c3aed"/>
+<text x="162" y="1318" text-anchor="middle" style="font-size:10px;fill:#fff;font-weight:700;">4</text>
+<text x="185" y="1313" class="bd" style="font-size:10px;">但可能漏掉"对角线通风"</text>
+<text x="185" y="1327" class="sm" style="font-size:9px;">注意力权重低 = 没命中 = 遗漏</text>
+<rect x="150" y="1343" width="24" height="24" rx="12" fill="#7c3aed"/>
+<text x="162" y="1360" text-anchor="middle" style="font-size:10px;fill:#fff;font-weight:700;">5</text>
+<text x="185" y="1355" class="bd" style="font-size:10px;">也可能编造 Skill 里没写的操作</text>
+<text x="185" y="1369" class="sm" style="font-size:9px;">用训练知识填补 = 幻觉</text>
+<text x="150" y="1400" class="h3">可靠度：</text>
+<rect x="220" y="1388" width="300" height="16" rx="4" fill="#e2e8f0"/>
+<rect x="220" y="1388" width="210" height="16" rx="4" fill="#7c3aed" opacity="0.7"/>
+<text x="530" y="1401" class="pur">~70% 查阅但不保证完整遵守</text>
+<rect x="920" y="1080" width="780" height="360" rx="12" fill="#fff7ed" stroke="#ea580c" stroke-width="2" filter="url(#sh)"/>
+<text x="1310" y="1102" text-anchor="middle" class="ora" style="font-size:14px;">动态示例 (Few-shot) = 行为模板</text>
+<text x="1310" y="1120" text-anchor="middle" class="sm">模型处理方式：模仿 (Pattern Matching)</text>
+<rect x="950" y="1140" width="720" height="280" rx="8" fill="#fff" stroke="#fed7aa" stroke-width="1"/>
+<text x="970" y="1160" class="h3">模型怎么使用示例：</text>
+<rect x="970" y="1175" width="24" height="24" rx="12" fill="#ea580c"/>
+<text x="982" y="1192" text-anchor="middle" style="font-size:10px;fill:#fff;font-weight:700;">1</text>
+<text x="1005" y="1187" class="bd" style="font-size:10px;">看到示例里 user 说了类似的话</text>
+<text x="1005" y="1201" class="sm" style="font-size:9px;">模式匹配："好热啊"和当前"好热好闷"相似</text>
+<rect x="970" y="1217" width="24" height="24" rx="12" fill="#ea580c"/>
+<text x="982" y="1234" text-anchor="middle" style="font-size:10px;fill:#fff;font-weight:700;">2</text>
+<text x="1005" y="1229" class="bd" style="font-size:10px;">注意力强烈聚焦到这条示例</text>
+<text x="1005" y="1243" class="sm" style="font-size:9px;">相似度越高，注意力权重越大</text>
+<rect x="970" y="1259" width="24" height="24" rx="12" fill="#ea580c"/>
+<text x="982" y="1276" text-anchor="middle" style="font-size:10px;fill:#fff;font-weight:700;">3</text>
+<text x="1005" y="1271" class="bd" style="font-size:10px;">直接模仿示例的 JSON 结构</text>
+<text x="1005" y="1285" class="sm" style="font-size:9px;">tool_name照抄、param格式照抄</text>
+<rect x="970" y="1301" width="24" height="24" rx="12" fill="#ea580c"/>
+<text x="982" y="1318" text-anchor="middle" style="font-size:10px;fill:#fff;font-weight:700;">4</text>
+<text x="1005" y="1313" class="bd" style="font-size:10px;">模仿示例的 talk_content 风格</text>
+<text x="1005" y="1327" class="sm" style="font-size:9px;">语气、长度、用词都模仿</text>
+<rect x="970" y="1343" width="24" height="24" rx="12" fill="#ea580c"/>
+<text x="982" y="1360" text-anchor="middle" style="font-size:10px;fill:#fff;font-weight:700;">5</text>
+<text x="1005" y="1355" class="bd" style="font-size:10px;">极少偏离示例展示的模式</text>
+<text x="1005" y="1369" class="sm" style="font-size:9px;">模仿 = 低风险 = 高可靠</text>
+<text x="970" y="1400" class="h3">可靠度：</text>
+<rect x="1040" y="1388" width="300" height="16" rx="4" fill="#e2e8f0"/>
+<rect x="1040" y="1388" width="270" height="16" rx="4" fill="#ea580c" opacity="0.7"/>
+<text x="1350" y="1401" class="ora">~90% 直接模仿，可靠性最高</text>
+<rect x="50" y="1470" width="1700" height="35" rx="6" fill="#1e3a5f"/>
+<text x="900" y="1493" text-anchor="middle" class="whb" style="font-size:14px;">PART 3: Bug 诊断决策树 - 遇到 badcase 时按这个流程判断用什么修</text>
+<polygon points="400,1525 600,1565 400,1605 200,1565" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+<text x="400" y="1560" text-anchor="middle" class="h3" style="font-size:10px;">Q1: 调了不存在的</text>
+<text x="400" y="1575" text-anchor="middle" class="h3" style="font-size:10px;">工具/指令?</text>
+<line x1="200" y1="1565" x2="100" y2="1565" stroke="#16a34a" stroke-width="2" marker-end="url(#a-grn)"/>
+<text x="150" y="1558" text-anchor="middle" class="grn" style="font-size:9px;">YES</text>
+<rect x="20" y="1540" width="80" height="50" rx="6" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.5"/>
+<text x="60" y="1560" text-anchor="middle" class="grn" style="font-size:9px;">改Skill</text>
+<text x="60" y="1575" text-anchor="middle" class="grn" style="font-size:9px;">+加示例</text>
+<line x1="400" y1="1605" x2="400" y2="1645" stroke="#d97706" stroke-width="2" marker-end="url(#a-yel)"/>
+<text x="415" y="1630" class="sm" style="font-size:9px;">NO</text>
+<polygon points="400,1645 600,1685 400,1725 200,1685" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+<text x="400" y="1680" text-anchor="middle" class="h3" style="font-size:10px;">Q2: JSON格式/</text>
+<text x="400" y="1695" text-anchor="middle" class="h3" style="font-size:10px;">tool名/param格式错?</text>
+<line x1="200" y1="1685" x2="100" y2="1685" stroke="#16a34a" stroke-width="2" marker-end="url(#a-grn)"/>
+<text x="150" y="1678" text-anchor="middle" class="grn" style="font-size:9px;">YES</text>
+<rect x="20" y="1660" width="80" height="50" rx="6" fill="#fff7ed" stroke="#ea580c" stroke-width="1.5"/>
+<text x="60" y="1680" text-anchor="middle" class="ora" style="font-size:9px;">加示例</text>
+<text x="60" y="1695" text-anchor="middle" class="sm" style="font-size:8px;">示例最擅长!</text>
+<line x1="400" y1="1725" x2="400" y2="1765" stroke="#d97706" stroke-width="2" marker-end="url(#a-yel)"/>
+<text x="415" y="1750" class="sm" style="font-size:9px;">NO</text>
+<polygon points="400,1765 600,1805 400,1845 200,1805" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+<text x="400" y="1800" text-anchor="middle" class="h3" style="font-size:10px;">Q3: 漏掉了</text>
+<text x="400" y="1815" text-anchor="middle" class="h3" style="font-size:10px;">某些执行项?</text>
+<line x1="200" y1="1805" x2="100" y2="1805" stroke="#16a34a" stroke-width="2" marker-end="url(#a-grn)"/>
+<text x="150" y="1798" text-anchor="middle" class="grn" style="font-size:9px;">YES</text>
+<rect x="20" y="1770" width="80" height="70" rx="6" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.5"/>
+<text x="60" y="1790" text-anchor="middle" class="sm" style="font-size:8px;">Skill没写?</text>
+<text x="60" y="1803" text-anchor="middle" class="grn" style="font-size:9px;">→补Skill</text>
+<text x="60" y="1817" text-anchor="middle" class="sm" style="font-size:8px;">写了但漏了?</text>
+<text x="60" y="1830" text-anchor="middle" class="ora" style="font-size:9px;">→加示例</text>
+<line x1="400" y1="1845" x2="400" y2="1885" stroke="#d97706" stroke-width="2" marker-end="url(#a-yel)"/>
+<text x="415" y="1870" class="sm" style="font-size:9px;">NO</text>
+<polygon points="400,1885 600,1925 400,1965 200,1925" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+<text x="400" y="1920" text-anchor="middle" class="h3" style="font-size:10px;">Q4: 安全操作</text>
+<text x="400" y="1935" text-anchor="middle" class="h3" style="font-size:10px;">没拦住?</text>
+<line x1="200" y1="1925" x2="100" y2="1925" stroke="#dc2626" stroke-width="2" marker-end="url(#a-red)"/>
+<text x="150" y="1918" text-anchor="middle" class="red" style="font-size:9px;">YES!</text>
+<rect x="5" y="1890" width="95" height="70" rx="6" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+<text x="53" y="1910" text-anchor="middle" class="red" style="font-size:9px;">prompt修不了!</text>
+<text x="53" y="1925" text-anchor="middle" class="sm" style="font-size:8px;">短期:SP+示例</text>
+<text x="53" y="1940" text-anchor="middle" class="red" style="font-size:9px;">必须:车控底</text>
+<text x="53" y="1953" text-anchor="middle" class="red" style="font-size:9px;">层代码兜底</text>
+<line x1="400" y1="1965" x2="400" y2="2005" stroke="#d97706" stroke-width="2" marker-end="url(#a-yel)"/>
+<text x="415" y="1990" class="sm" style="font-size:9px;">NO</text>
+<polygon points="400,2005 600,2045 400,2085 200,2045" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+<text x="400" y="2040" text-anchor="middle" class="h3" style="font-size:10px;">Q5: 话术太长/</text>
+<text x="400" y="2055" text-anchor="middle" class="h3" style="font-size:10px;">反问已知信息?</text>
+<line x1="200" y1="2045" x2="100" y2="2045" stroke="#16a34a" stroke-width="2" marker-end="url(#a-grn)"/>
+<text x="150" y="2038" text-anchor="middle" class="grn" style="font-size:9px;">YES</text>
+<rect x="20" y="2020" width="80" height="50" rx="6" fill="#fff7ed" stroke="#ea580c" stroke-width="1.5"/>
+<text x="60" y="2040" text-anchor="middle" class="ora" style="font-size:9px;">加示例</text>
+<text x="60" y="2055" text-anchor="middle" class="ora" style="font-size:9px;">+SP规则</text>
+<rect x="700" y="1525" width="1050" height="620" rx="12" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1.5" filter="url(#sh)"/>
+<text x="1225" y="1547" text-anchor="middle" class="h2">修复方式总结表</text>
+<rect x="720" y="1560" width="200" height="25" rx="3" fill="#e2e8f0"/>
+<text x="820" y="1577" text-anchor="middle" class="h3" style="font-size:9px;">Bug 表现</text>
+<rect x="920" y="1560" width="260" height="25" rx="3" fill="#e2e8f0"/>
+<text x="1050" y="1577" text-anchor="middle" class="h3" style="font-size:9px;">模型内部发生了什么</text>
+<rect x="1180" y="1560" width="100" height="25" rx="3" fill="#e2e8f0"/>
+<text x="1230" y="1577" text-anchor="middle" class="h3" style="font-size:9px;">用什么修</text>
+<rect x="1280" y="1560" width="250" height="25" rx="3" fill="#e2e8f0"/>
+<text x="1405" y="1577" text-anchor="middle" class="h3" style="font-size:9px;">怎么修</text>
+<rect x="1530" y="1560" width="80" height="25" rx="3" fill="#e2e8f0"/>
+<text x="1570" y="1577" text-anchor="middle" class="h3" style="font-size:9px;">可靠度</text>
+<rect x="720" y="1585" width="200" height="34" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="725" y="1598" style="font-size:9px;fill:#374151;font-weight:400;">调了不存在的指令</text>
+<text x="725" y="1611" style="font-size:9px;fill:#374151;font-weight:400;">如:极速降温模式</text>
+<rect x="920" y="1585" width="260" height="34" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="925" y="1598" style="font-size:9px;fill:#374151;font-weight:400;">训练知识填补了</text>
+<text x="925" y="1611" style="font-size:9px;fill:#374151;font-weight:400;">Skill没覆盖的内容</text>
+<rect x="1180" y="1585" width="100" height="34" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="1185" y="1598" style="font-size:9px;fill:#374151;font-weight:400;">改Skill</text>
+<text x="1185" y="1611" style="font-size:9px;fill:#374151;font-weight:400;">+加示例</text>
+<rect x="1280" y="1585" width="250" height="34" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="1285" y="1598" style="font-size:9px;fill:#374151;font-weight:400;">Skill删错误概念</text>
+<text x="1285" y="1611" style="font-size:9px;fill:#374151;font-weight:400;">示例展示正确工具</text>
+<rect x="1530" y="1585" width="80" height="34" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="1535" y="1598" style="font-size:9px;fill:#374151;font-weight:400;">高</text>
+<rect x="720" y="1619" width="200" height="34" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="725" y="1632" style="font-size:9px;fill:#374151;font-weight:400;">JSON格式错误</text>
+<text x="725" y="1645" style="font-size:9px;fill:#374151;font-weight:400;">tool名/param格式不对</text>
+<rect x="920" y="1619" width="260" height="34" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="925" y="1632" style="font-size:9px;fill:#374151;font-weight:400;">缺少格式参考</text>
+<text x="925" y="1645" style="font-size:9px;fill:#374151;font-weight:400;">只看到抽象的格式定义</text>
+<rect x="1180" y="1619" width="100" height="34" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="1185" y="1632" style="font-size:9px;fill:#374151;font-weight:400;">加示例</text>
+<rect x="1280" y="1619" width="250" height="34" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="1285" y="1632" style="font-size:9px;fill:#374151;font-weight:400;">示例里展示完美JSON</text>
+<text x="1285" y="1645" style="font-size:9px;fill:#374151;font-weight:400;">模型直接模仿</text>
+<rect x="1530" y="1619" width="80" height="34" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="1535" y="1632" style="font-size:9px;fill:#374151;font-weight:600;">最高</text>
+<rect x="720" y="1653" width="200" height="34" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="725" y="1666" style="font-size:9px;fill:#374151;font-weight:400;">漏掉执行项</text>
+<text x="725" y="1679" style="font-size:9px;fill:#374151;font-weight:400;">如:只调空调没开车窗</text>
+<rect x="920" y="1653" width="260" height="34" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="925" y="1666" style="font-size:9px;fill:#374151;font-weight:400;">注意力没覆盖到</text>
+<text x="925" y="1679" style="font-size:9px;fill:#374151;font-weight:400;">Skill里的某条执行项</text>
+<rect x="1180" y="1653" width="100" height="34" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="1185" y="1666" style="font-size:9px;fill:#374151;font-weight:400;">加示例</text>
+<rect x="1280" y="1653" width="250" height="34" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="1285" y="1666" style="font-size:9px;fill:#374151;font-weight:400;">示例里完整列出</text>
+<text x="1285" y="1679" style="font-size:9px;fill:#374151;font-weight:400;">所有执行项</text>
+<rect x="1530" y="1653" width="80" height="34" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="1535" y="1666" style="font-size:9px;fill:#374151;font-weight:400;">高</text>
+<rect x="720" y="1687" width="200" height="34" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="725" y="1700" style="font-size:9px;fill:#374151;font-weight:400;">先说能做后说不行</text>
+<text x="725" y="1713" style="font-size:9px;fill:#374151;font-weight:400;">前后矛盾</text>
+<rect x="920" y="1687" width="260" height="34" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="925" y="1700" style="font-size:9px;fill:#374151;font-weight:400;">talk和action分步</text>
+<text x="925" y="1713" style="font-size:9px;fill:#374151;font-weight:400;">生成,可能矛盾</text>
+<rect x="1180" y="1687" width="100" height="34" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="1185" y="1700" style="font-size:9px;fill:#374151;font-weight:400;">改Skill</text>
+<text x="1185" y="1713" style="font-size:9px;fill:#374151;font-weight:400;">+SP规则</text>
+<rect x="1280" y="1687" width="250" height="34" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="1285" y="1700" style="font-size:9px;fill:#374151;font-weight:400;">Skill删错误概念</text>
+<text x="1285" y="1713" style="font-size:9px;fill:#374151;font-weight:400;">SP加"不确定别承诺"</text>
+<rect x="1530" y="1687" width="80" height="34" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="1535" y="1700" style="font-size:9px;fill:#374151;font-weight:400;">中</text>
+<rect x="720" y="1721" width="200" height="34" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="725" y="1734" style="font-size:9px;fill:#374151;font-weight:400;">反问已知信息</text>
+<text x="725" y="1747" style="font-size:9px;fill:#374151;font-weight:400;">如:问用户是否P档</text>
+<rect x="920" y="1721" width="260" height="34" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="925" y="1734" style="font-size:9px;fill:#374151;font-weight:400;">注意力没关注到</text>
+<text x="925" y="1747" style="font-size:9px;fill:#374151;font-weight:400;">env_info里的值</text>
+<rect x="1180" y="1721" width="100" height="34" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="1185" y="1734" style="font-size:9px;fill:#374151;font-weight:400;">加示例</text>
+<text x="1185" y="1747" style="font-size:9px;fill:#374151;font-weight:400;">+SP规则</text>
+<rect x="1280" y="1721" width="250" height="34" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="1285" y="1734" style="font-size:9px;fill:#374151;font-weight:400;">示例展示读env</text>
+<text x="1285" y="1747" style="font-size:9px;fill:#374151;font-weight:400;">SP加"有env别反问"</text>
+<rect x="1530" y="1721" width="80" height="34" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="1535" y="1734" style="font-size:9px;fill:#374151;font-weight:400;">中高</text>
+<rect x="720" y="1755" width="200" height="34" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="725" y="1768" style="font-size:9px;fill:#374151;font-weight:400;">安全操作没拦住</text>
+<text x="725" y="1781" style="font-size:9px;fill:#374151;font-weight:400;">如:非P档调座椅</text>
+<rect x="920" y="1755" width="260" height="34" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="925" y="1768" style="font-size:9px;fill:#374151;font-weight:400;">SP禁令被35K tokens</text>
+<text x="925" y="1781" style="font-size:9px;fill:#374151;font-weight:400;">稀释,注意力没覆盖到</text>
+<rect x="1180" y="1755" width="100" height="34" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="1185" y="1768" style="font-size:9px;fill:#374151;font-weight:400;">prompt</text>
+<text x="1185" y="1781" style="font-size:9px;fill:#dc2626;font-weight:600;">修不了!</text>
+<rect x="1280" y="1755" width="250" height="34" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="1285" y="1768" style="font-size:9px;fill:#374151;font-weight:400;">必须车控底层</text>
+<text x="1285" y="1781" style="font-size:9px;fill:#374151;font-weight:400;">代码写死兜底</text>
+<rect x="1530" y="1755" width="80" height="34" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="1535" y="1768" style="font-size:9px;fill:#dc2626;font-weight:400;">---</text>
+<rect x="720" y="1789" width="200" height="34" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="725" y="1802" style="font-size:9px;fill:#374151;font-weight:400;">话术太长/太啰嗦</text>
+<text x="725" y="1815" style="font-size:9px;fill:#374151;font-weight:400;">罗列一堆操作</text>
+<rect x="920" y="1789" width="260" height="34" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="925" y="1802" style="font-size:9px;fill:#374151;font-weight:400;">模仿了SP静态示例</text>
+<text x="925" y="1815" style="font-size:9px;fill:#374151;font-weight:400;">里的长回复风格</text>
+<rect x="1180" y="1789" width="100" height="34" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="1185" y="1802" style="font-size:9px;fill:#374151;font-weight:400;">加示例</text>
+<rect x="1280" y="1789" width="250" height="34" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="1285" y="1802" style="font-size:9px;fill:#374151;font-weight:400;">示例里展示简洁的</text>
+<text x="1285" y="1815" style="font-size:9px;fill:#374151;font-weight:400;">talk_content(10字)</text>
+<rect x="1530" y="1789" width="80" height="34" fill="#fff" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="1535" y="1802" style="font-size:9px;fill:#374151;font-weight:600;">最高</text>
+<rect x="720" y="1823" width="200" height="34" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="725" y="1836" style="font-size:9px;fill:#374151;font-weight:400;">10轮后信息丢失</text>
+<text x="725" y="1849" style="font-size:9px;fill:#374151;font-weight:400;">忘了之前说的</text>
+<rect x="920" y="1823" width="260" height="34" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="925" y="1836" style="font-size:9px;fill:#374151;font-weight:400;">注意力距离衰减</text>
+<text x="925" y="1849" style="font-size:9px;fill:#374151;font-weight:400;">超出有效上下文窗口</text>
+<rect x="1180" y="1823" width="100" height="34" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="1185" y="1836" style="font-size:9px;fill:#374151;font-weight:400;">架构层</text>
+<text x="1185" y="1849" style="font-size:9px;fill:#374151;font-weight:400;">面解决</text>
+<rect x="1280" y="1823" width="250" height="34" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="1285" y="1836" style="font-size:9px;fill:#374151;font-weight:400;">需要对话摘要</text>
+<text x="1285" y="1849" style="font-size:9px;fill:#374151;font-weight:400;">或记忆工具持久化</text>
+<rect x="1530" y="1823" width="80" height="34" fill="#f9fafb" stroke="#e2e8f0" stroke-width="0.5"/>
+<text x="1535" y="1836" style="font-size:9px;fill:#dc2626;font-weight:400;">---</text>
+<rect x="50" y="2190" width="1700" height="35" rx="6" fill="#1e3a5f"/>
+<text x="900" y="2213" text-anchor="middle" class="whb" style="font-size:14px;">PART 4: 基于模型机制的 Skill 写作 4 原则 + 示例写作 4 原则</text>
+<rect x="100" y="2245" width="780" height="300" rx="12" fill="#faf5ff" stroke="#7c3aed" stroke-width="2" filter="url(#sh)"/>
+<text x="490" y="2267" text-anchor="middle" class="pur" style="font-size:14px;">Skill 写作 4 原则</text>
+<rect x="120" y="2285" width="740" height="55" rx="6" fill="#fff" stroke="#e9d5ff" stroke-width="1"/>
+<text x="140" y="2301" class="pur" style="font-size:11px;">原则1: 关键信息重复出现</text>
+<text x="140" y="2317" class="bd" style="font-size:9px;">模型注意力有限,一条信息只出现一次容易被忽略。</text>
+<text x="140" y="2331" class="bd" style="font-size:9px;">重要的禁止事项在执行项列表和注意事项里各写一次。</text>
+<rect x="120" y="2350" width="740" height="55" rx="6" fill="#fff" stroke="#e9d5ff" stroke-width="1"/>
+<text x="140" y="2366" class="pur" style="font-size:11px;">原则2: 正面指令优于负面禁令</text>
+<text x="140" y="2382" class="bd" style="font-size:9px;">"必须用vehicle_basic_control" 比 "不要调极速降温模式" 更有效。</text>
+<text x="140" y="2396" class="bd" style="font-size:9px;">因为模型看到"极速降温模式"反而可能被提醒去调它。</text>
+<rect x="120" y="2415" width="740" height="55" rx="6" fill="#fff" stroke="#e9d5ff" stroke-width="1"/>
+<text x="140" y="2431" class="pur" style="font-size:11px;">原则3: 用SOA工具名而不是自然语言</text>
+<text x="140" y="2447" class="bd" style="font-size:9px;">写"vehicle_basic_control: 空调ON" 而不是 "打开空调"。</text>
+<text x="140" y="2461" class="bd" style="font-size:9px;">模型不需要翻译=不会翻错。</text>
+<rect x="120" y="2480" width="740" height="55" rx="6" fill="#fff" stroke="#e9d5ff" stroke-width="1"/>
+<text x="140" y="2496" class="pur" style="font-size:11px;">原则4: 长度1500-2500字</text>
+<text x="140" y="2512" class="bd" style="font-size:9px;">太短=信息不够,模型用训练知识填补(幻觉风险)。</text>
+<text x="140" y="2526" class="bd" style="font-size:9px;">太长=关键信息被稀释,注意力分散。</text>
+<text x="140" y="2540" class="bd" style="font-size:9px;">最重要的放开头,禁止事项放结尾。</text>
+<rect x="920" y="2245" width="780" height="300" rx="12" fill="#fff7ed" stroke="#ea580c" stroke-width="2" filter="url(#sh)"/>
+<text x="1310" y="2267" text-anchor="middle" class="ora" style="font-size:14px;">动态示例写作 4 原则</text>
+<rect x="940" y="2285" width="740" height="55" rx="6" fill="#fff" stroke="#fed7aa" stroke-width="1"/>
+<text x="960" y="2301" class="ora" style="font-size:11px;">原则1: 示例=完美答案</text>
+<text x="960" y="2317" class="bd" style="font-size:9px;">模型会原样模仿示例里的每个细节。</text>
+<text x="960" y="2331" class="bd" style="font-size:9px;">talk_content的长度/语气、action_list的数量/格式</text>
+<text x="960" y="2345" class="bd" style="font-size:9px;">全部会被模仿。示例必须是黄金标准。</text>
+<rect x="940" y="2350" width="740" height="55" rx="6" fill="#fff" stroke="#fed7aa" stroke-width="1"/>
+<text x="960" y="2366" class="ora" style="font-size:11px;">原则2: 每场景2-3条,覆盖变体</text>
+<text x="960" y="2382" class="bd" style="font-size:9px;">标准降温 / 降温+通风复合 / 有记忆偏好时。</text>
+<text x="960" y="2396" class="bd" style="font-size:9px;">不同输入变体的输出都要展示。</text>
+<rect x="940" y="2415" width="740" height="55" rx="6" fill="#fff" stroke="#fed7aa" stroke-width="1"/>
+<text x="960" y="2431" class="ora" style="font-size:11px;">原则3: 示例和Skill执行项数量一致</text>
+<text x="960" y="2447" class="bd" style="font-size:9px;">Skill写了8条执行项,示例action_list也要8条。</text>
+<text x="960" y="2461" class="bd" style="font-size:9px;">示例只写3条,模型就认为3条够了。</text>
+<rect x="940" y="2480" width="740" height="55" rx="6" fill="#fff" stroke="#fed7aa" stroke-width="1"/>
+<text x="960" y="2496" class="ora" style="font-size:11px;">原则4: 展示拒绝执行的反例</text>
+<text x="960" y="2512" class="bd" style="font-size:9px;">非P档+想小憩 → assistant: talk说原因+action为空。</text>
+<text x="960" y="2526" class="bd" style="font-size:9px;">这条示例教会模型:什么情况下应该拒绝。</text>
+<rect x="100" y="2575" width="1600" height="35" rx="6" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1"/>
+<text x="900" y="2589" text-anchor="middle" style="font-size:10px;font-weight:600;fill:#374151;">图例</text>
+<rect x="160" y="2595" width="12" height="8" rx="2" fill="#7c3aed"/>
+<text x="178" y="2603" style="font-size:9px;fill:#374151;">动态知识(Skill)-泽民写</text>
+<rect x="420" y="2595" width="12" height="8" rx="2" fill="#ea580c"/>
+<text x="438" y="2603" style="font-size:9px;fill:#374151;">动态示例(Few-shot)-明骏配</text>
+<rect x="680" y="2595" width="12" height="8" rx="2" fill="#16a34a"/>
+<text x="698" y="2603" style="font-size:9px;fill:#374151;">env/memory-端状态</text>
+<rect x="930" y="2595" width="12" height="8" rx="2" fill="#dc2626"/>
+<text x="948" y="2603" style="font-size:9px;fill:#374151;">当前query-用户输入</text>
+<rect x="1180" y="2595" width="12" height="8" rx="2" fill="#d97706"/>
+<text x="1198" y="2603" style="font-size:9px;fill:#374151;">决策节点</text>
+</svg></div>
+<p class="tip">Ctrl/Cmd + 滚轮缩放 · SVG矢量图无限放大不模糊</p>
+</div>
+</body>
+</html>

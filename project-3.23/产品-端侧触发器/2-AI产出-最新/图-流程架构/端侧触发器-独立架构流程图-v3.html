@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>端侧触发器 · 完整架构流程图 v3 · 五张详细图 · 双通道分离</title>
+<style>
+body{margin:0;background:#f1f5f9;font-family:-apple-system,"PingFang SC",sans-serif;color:#1e293b;line-height:1.7}
+.wrap{max-width:1400px;margin:0 auto;padding:24px 20px 160px}
+h1{font-size:1.6rem;text-align:center;margin:0 0 4px}
+.sub{text-align:center;color:#64748b;font-size:.88rem;margin-bottom:24px}
+h2{font-size:1.2rem;margin:40px 0 8px;padding:14px 0 4px;border-top:3px solid #ea580c;color:#ea580c}
+h3{font-size:1rem;margin:20px 0 6px;color:#334155}
+p{margin:6px 0;font-size:.92rem}
+.mermaid{background:#fff;border-radius:12px;padding:28px 20px;box-shadow:0 2px 12px rgba(0,0,0,.06);margin:14px 0;overflow-x:auto}
+.note{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;font-size:.86rem;margin:10px 0}
+.nb{background:#eff6ff;border:1px solid #bfdbfe}
+.nr{background:#fef2f2;border:1px solid #fecaca}
+.ng{background:#f0fdf4;border:1px solid #bbf7d0}
+.toc{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:14px 20px;margin:16px 0;font-size:.86rem}
+.toc a{color:#334155;text-decoration:none;display:block;padding:2px 0}.toc a:hover{color:#ea580c}
+.toc b{color:#ea580c}
+.legend{display:flex;flex-wrap:wrap;gap:16px;margin:10px 0;font-size:.84rem;align-items:center}
+.legend span{display:flex;align-items:center;gap:6px}
+.legend .bar{width:32px;height:4px;border-radius:2px;flex-shrink:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>端侧触发器 · 完整架构流程图 v3</h1>
+<div class="sub">五张图 · 综合7.6上午+下午双通道定版 · 2026-07-06</div>
+
+<div class="note nr">
+<b>v3 核心变更（7.6下午 VLM链路专项会定版）</b><br/>
+1. AlwaysOn 的 VLM 数据<b>不再经过触发器透传</b>，改为 VLM SDK 直送数据中心（数据通道）<br/>
+2. 触发器只接收 VLM SDK 的<b>状态回调</b>（控制通道），管调度状态不管数据内容<br/>
+3. ㉔-9 更名为「VLM调度+状态管理」，㉔-U 变更为「触发器自身事件上报」<br/>
+4. 新增<b>数据中心（李鑫）</b>节点：订阅VLM SDK topic，整包缓存，按需透传云端<br/>
+5. OneShot 回传路径<b>待后续评审</b>（丁彬原话: "one shot 等需求导入再聊"）
+</div>
+
+<div class="toc">
+<b>图 1</b> <a href="#fig1">总体架构 · 双通道分离（数据通道 + 控制通道）</a>
+<b>图 2</b> <a href="#fig2">AlwaysOn 生命周期 · 上电 → 开关判断 → 三任务启停 → 被打断 → 恢复 → 下电</a>
+<b>图 3</b> <a href="#fig3">条件触发完整链路 · 15步（信号变更 → 条件匹配 → 穿越 → 命中 → 执行 → 续接）</a>
+<b>图 4</b> <a href="#fig4">OneShot 场景示例 · 充电桩识别（数据回传路径待评审）</a>
+<b>图 5</b> <a href="#fig5">AlwaysOn 双通道场景示例 · 舱外天气感知全链路（新增）</a>
+</div>
+
+<!-- ============================================================ -->
+<!--   图 1：总体架构 · 双通道分离                                  -->
+<!-- ============================================================ -->
+<h2 id="fig1">图 1 · 总体架构：双通道分离 — 数据走直通、控制走回调</h2>
+
+<div class="legend">
+<span><span class="bar" style="background:#ea580c"></span>① 触发指令（触发器 → VLM SDK）</span>
+<span><span class="bar" style="background:#2563eb"></span>② 控制通道 · 状态回调（VLM SDK → 触发器）</span>
+<span><span class="bar" style="background:#16a34a"></span>③ 数据通道 · 直送（VLM SDK → 数据中心）</span>
+</div>
+
+<div class="mermaid">
+flowchart TB
+    subgraph SOURCES["信号源"]
+        direction LR
+        S1["车辆端状态"]
+        S2["导航/场景"]
+        S3["环境感知"]
+        S4["用户识别"]
+        S5["OEM/IoT"]
+        S6["用户输入"]
+    end
+
+    subgraph SIGLIB["端侧信号库"]
+        SL[("统一事实源\nkey-value · 带过期")]
+    end
+
+    subgraph TRIGGER["端侧触发器"]
+        M8["㉔-8\nAlwaysOn 点火"]
+        MJ["㉔-J\n硬条件判定"]
+        M7["㉔-7\n本地定时器"]
+        M9["㉔-9\nVLM调度+状态管理"]
+        MU["㉔-U\n触发器事件上报"]
+    end
+
+    subgraph AIBOX["AI Box"]
+        VLMSDK["VLM SDK"]
+    end
+
+    CDC["赛力斯 CDC\n车控执行"]
+
+    subgraph CLOUD["云端"]
+        CT["云端触发器 ⑮\n规则下发"]
+        DC["数据中心（李鑫）\n订阅·缓存·透传"]
+        AIS["Context / Advisor"]
+    end
+
+    S1 & S2 & S3 & S4 & S5 & S6 --> SL
+
+    SL -->|"电源+按钮"| M8
+    SL -->|"信号快照"| MJ
+
+    CT -->|"规则下发"| MJ
+    CT -->|"注册定时"| M7
+    CT -->|"动态VLM任务"| M9
+
+    M7 -->|"到期事件"| SL
+
+    M8 -->|"注册AlwaysOn"| M9
+    MJ -->|"VLM任务命中"| M9
+    MJ -->|"车控命中"| CDC
+
+    M9 -->|"① 触发推理"| VLMSDK
+    VLMSDK -->|"② 状态回调【控制通道】"| M9
+    VLMSDK -->|"③ 数据直送【数据通道】"| DC
+
+    DC -->|"透传分发"| AIS
+    MU -->|"事件上报"| AIS
+
+    VLMSDK -.->|"状态写回"| SL
+
+    classDef src fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#1e3a5f
+    classDef sig fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef trig fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#7c2d12
+    classDef vlm fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#78350f
+    classDef cld fill:#f3e8ff,stroke:#9333ea,stroke-width:2px,color:#581c87
+    classDef exec fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef dc fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#075985
+
+    class S1,S2,S3,S4,S5,S6 src
+    class SL sig
+    class M8,MJ,M7,M9,MU trig
+    class VLMSDK vlm
+    class CT,AIS cld
+    class DC dc
+    class CDC exec
+
+    linkStyle 7 stroke:#ea580c,stroke-width:3px
+    linkStyle 8 stroke:#2563eb,stroke-width:3px
+    linkStyle 9 stroke:#16a34a,stroke-width:3px
+</div>
+
+<div class="note ng">
+<b>v2→v3 对比</b><br/>
+• <b>v2</b>（7.6上午）：VLM → ②"谁调返给谁"回触发器 → ㉔-U整包透传 → AI Service（<b>串行</b>，VLM数据全部经过触发器）<br/>
+• <b>v3</b>（7.6下午定版）：VLM SDK → ③数据直送数据中心 + ②状态回调给触发器（<b>并行双通道</b>，触发器不碰VLM数据）<br/>
+• <b>原因</b>：触发器是信号处理模块，不该承担数据透传职责；VLM数据量大、频率高，经触发器中转增加延迟且触发器无法解析利用
+</div>
+
+<!-- ============================================================ -->
+<!--   图 2：AlwaysOn 生命周期                                     -->
+<!-- ============================================================ -->
+<h2 id="fig2">图 2 · AlwaysOn 生命周期：从上电到下电的完整状态流转</h2>
+
+<div class="mermaid">
+flowchart TB
+    START(("上电"))
+
+    INIT["初始化\n加载规则 · 恢复定时器 · 订阅信号"]
+
+    subgraph CHECK["开关判断"]
+        CO{"power\n= on ?"}
+        CO_Y["开启舱外 AlwaysOn\n前视 · 3s周期"]
+        CO_N["不开启"]
+        CI{"power=on\nAND\nbutton=on ?"}
+        CI_Y["开启舱内 AlwaysOn\n动态5s + 静态5min"]
+        CI_N["舱内不开启\n（隐私保护）"]
+    end
+
+    subgraph RUNNING["运行中 · 持续监听"]
+        R{"检测到\n什么变更?"}
+    end
+
+    CA["下电 → 全部停止\n持久化状态"]
+    CC["Button关 → 仅关舱内\n舱外继续"]
+    OC["Button开 → 开启舱内"]
+
+    subgraph INTERRUPT["被高优打断"]
+        INT1["高优OneShot到达"]
+        INT2["AlwaysOn挂起"]
+        INT3["OneShot完成 → 恢复"]
+    end
+
+    END(("下电"))
+
+    START --> INIT --> CO
+    CO -->|"是"| CO_Y --> CI
+    CO -->|"否"| CO_N --> END
+    CI -->|"是"| CI_Y --> R
+    CI -->|"否"| CI_N --> R
+
+    R -->|"下电"| CA --> END
+    R -->|"Button关"| CC -->|"继续监听"| R
+    R -->|"Button开"| OC -->|"继续监听"| R
+
+    CO_Y -.->|"可能被打断"| INT1
+    CI_Y -.->|"可能被打断"| INT1
+    INT1 --> INT2 --> INT3
+    INT3 -.->|"恢复"| R
+
+    classDef init fill:#e0f2fe,stroke:#0284c7,stroke-width:1.5px
+    classDef check fill:#fff7ed,stroke:#ea580c,stroke-width:2px
+    classDef run fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px
+    classDef close fill:#fef2f2,stroke:#dc2626,stroke-width:2px
+    classDef open fill:#dcfce7,stroke:#16a34a,stroke-width:2px
+    classDef intr fill:#fef3c7,stroke:#d97706,stroke-width:2px
+
+    class INIT init
+    class CO,CO_Y,CO_N,CI,CI_Y,CI_N check
+    class R run
+    class CA,CC close
+    class OC open
+    class INT1,INT2,INT3 intr
+</div>
+
+<div class="note">
+<b>关键逻辑</b>：开 = AND（两条件同时满足才开），关 = OR（任一条件不满足就关）。舱外只看 power，舱内看 power + button。
+</div>
+<div class="note nb">
+<b>v3 补充（7.6下午定版）</b>：AlwaysOn 运行期间，VLM 推理结果通过<b>数据通道</b>直送数据中心（不经触发器），触发器只接收<b>状态回调</b>（控制通道）管调度状态。完整双通道链路详见<a href="#fig5">图5</a>。
+</div>
+
+<!-- ============================================================ -->
+<!--   图 3：条件触发完整链路                                      -->
+<!-- ============================================================ -->
+<h2 id="fig3">图 3 · 条件触发完整链路：从信号变更到任务执行到续接的 15 步</h2>
+
+<div class="mermaid">
+flowchart TB
+    subgraph STEP1["① 信号变更"]
+        A1["信号源产生新值"]
+        A2["写入信号库"]
+    end
+
+    subgraph STEP2["② 获取快照"]
+        B1["㉔-J 收到变更通知"]
+        B2{"信号\n有效?"}
+    end
+
+    subgraph STEP3["③ 条件匹配"]
+        C1["遍历规则 · 运算符比对"]
+        C2{"匹配?"}
+    end
+
+    subgraph STEP4["④ 穿越检测"]
+        D1{"F→T\n穿越?"}
+        D2["穿越成功"]
+        D3["T→T 不重复触发"]
+    end
+
+    subgraph STEP5["⑤ 防抖"]
+        E1{"防抖\n通过?"}
+        E2["正式命中"]
+    end
+
+    subgraph STEP6["⑥ 命中后三关"]
+        F1["优先级 → 互斥组 → 冷却"]
+        F2{"通过?"}
+    end
+
+    subgraph STEP7["⑦ 下发"]
+        G1{"任务类型?"}
+        G2["VLM任务 → VLM SDK"]
+        G3["车控任务 → CDC"]
+    end
+
+    subgraph STEP8["⑧ 执行"]
+        H1["VLM SDK 推理"]
+        H2{"结果?"}
+        H3["success / empty"]
+        H4["timeout / failed"]
+    end
+
+    subgraph STEP9["⑨ 结果处理（双通道）"]
+        I1["数据通道: 直送数据中心\n控制通道: 状态回调→㉔-9"]
+        I2["异常上报 · 不写伪结果"]
+    end
+
+    subgraph STEP10["⑩ 续接"]
+        J1{"任务类型?"}
+        J2["周期 → 回②"]
+        J3["单次 → 完成"]
+        J4["动态 → 检查过期"]
+    end
+
+    A1 --> A2 --> B1 --> B2
+    B2 -->|"有效"| C1 --> C2
+    B2 -->|"过期"| SKIP["跳过"]
+    C2 -->|"True"| D1
+    C2 -->|"False"| WAIT["等下一轮"]
+    D1 -->|"是"| D2 --> E1
+    D1 -->|"否"| D3
+    E1 -->|"通过"| E2 --> F1 --> F2
+    E1 -->|"抖动"| SKIP
+    F2 -->|"通过"| G1
+    F2 -->|"拦住"| SKIP
+    G1 -->|"VLM"| G2 --> H1
+    G1 -->|"车控"| G3
+    H1 --> H2
+    H2 -->|"成功/空"| H3 --> I1
+    H2 -->|"超时/失败"| H4 --> I2
+    I1 --> J1
+    I2 --> J1
+    J1 -->|"周期"| J2
+    J1 -->|"单次"| J3
+    J1 -->|"动态"| J4
+    J2 -->|"循环"| B1
+
+    classDef sig fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px
+    classDef match fill:#fff7ed,stroke:#ea580c,stroke-width:1.5px
+    classDef cross fill:#fef3c7,stroke:#d97706,stroke-width:1.5px
+    classDef hit fill:#f0fdf4,stroke:#16a34a,stroke-width:1.5px
+    classDef exec fill:#f3e8ff,stroke:#9333ea,stroke-width:1.5px
+    classDef result fill:#ecfeff,stroke:#0891b2,stroke-width:1.5px
+    classDef cont fill:#fdf4ff,stroke:#a21caf,stroke-width:1.5px
+    classDef skip fill:#f1f5f9,stroke:#94a3b8,stroke-width:1px
+
+    class A1,A2,B1,B2 sig
+    class C1,C2 match
+    class D1,D2,D3,E1,E2 cross
+    class F1,F2 hit
+    class G1,G2,G3,H1,H2 exec
+    class H3,H4,I1,I2 result
+    class J1,J2,J3,J4 cont
+    class SKIP,WAIT skip
+</div>
+
+<div class="note">
+<b>循环回路</b>：步骤15（续接）→ 回到步骤3（获取信号快照），形成触发器的持续运行循环。触发器在整个车辆运行期间（上电→下电）持续执行这个循环。
+</div>
+<div class="note nb">
+<b>v3 变更（步骤14）</b>：结果处理不再走「谁调返给谁→㉔-U整包透传」的串行路径，改为双通道并行：VLM SDK 直送数据中心（数据通道）+ 状态回调给㉔-9（控制通道）。OneShot 的数据回传路径待后续评审定版。
+</div>
+
+<!-- ============================================================ -->
+<!--   图 4：OneShot 场景示例（充电桩，待评审）                     -->
+<!-- ============================================================ -->
+<h2 id="fig4">图 4 · OneShot 场景示例：充电桩识别（数据回传路径待评审）</h2>
+
+<div class="note nr">
+<b>注意</b>：7.6 下午会上丁彬明确 "one shot 等需求导入再聊"——<b>OneShot 的数据回传路径还没定</b>。<br/>
+下图中 ② 状态回调（控制通道）<b>已确认</b>，③ 数据回传路径<b>待评审</b>（用虚线标注）。<br/>
+AlwaysOn 的双通道模型已确认，详见<a href="#fig5">图5</a>。
+</div>
+
+<p>用充电桩 OneShot 场景走一遍完整链路：</p>
+
+<div class="mermaid">
+flowchart LR
+    subgraph TRIGGER_SIDE["端侧触发器"]
+        direction TB
+        T1["㉔-J 检测到\n挡位 R→P"]
+        T2["㉔-9 组装指令\n检测后方充电桩"]
+        T3["㉔-9 收到回调\nstatus: success"]
+        T4{"结果处理"}
+        T5["调度（已确认）\n更新队列 · 释放互斥\n标记完成 · 恢复AlwaysOn"]
+        T6["数据回传（待评审）\n路径待定"]
+    end
+
+    subgraph VLM_SIDE["AI Box · VLM SDK"]
+        V1["调用后置摄像头"]
+        V2["VLM推理"]
+    end
+
+    subgraph CLOUD_SIDE["云端"]
+        C1["数据中心\n接收VLM输出"]
+        C2["云端触发器⑮\n条件满足"]
+        C3["赛力斯CDC\n打开充电口盖"]
+    end
+
+    T1 -->|"命中"| T2
+    T2 -->|"① 触发推理"| V1
+    V1 --> V2
+    V2 -->|"② 状态回调"| T3
+    T3 --> T4
+    T4 --> T5
+    T4 --> T6
+    T6 -.->|"③ 数据回传\n路径待定"| C1
+    C1 --> C2 --> C3
+
+    classDef trig fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#7c2d12
+    classDef vlm fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#78350f
+    classDef cld fill:#f3e8ff,stroke:#9333ea,stroke-width:2px,color:#581c87
+
+    class T1,T2,T3,T4,T5,T6 trig
+    class V1,V2 vlm
+    class C1,C2,C3 cld
+
+    linkStyle 1 stroke:#ea580c,stroke-width:3px
+    linkStyle 3 stroke:#2563eb,stroke-width:3px
+</div>
+
+<div class="note nr">
+<b>OneShot 待解决问题</b>：<br/>
+• 数据回传路径A（走数据中心直通）：与 AlwaysOn 统一，触发器完全不碰VLM数据，架构一致性好<br/>
+• 数据回传路径B（经触发器中转）：触发器能知道具体结果内容，可做本地决策，但增加耦合<br/>
+• 需等丁彬需求导入后再评审定版，预计7.10后
+</div>
+
+<!-- ============================================================ -->
+<!--   图 5：AlwaysOn 双通道场景示例（新增）                        -->
+<!-- ============================================================ -->
+<h2 id="fig5">图 5 · AlwaysOn 双通道场景示例：舱外天气感知全链路（7.6下午定版）</h2>
+
+<div class="note ng">
+<b>这是 v3 新增的图</b>，展示 7.6 下午定版的双通道分离架构在 AlwaysOn 场景中的完整运作方式。<br/>
+核心要点：VLM 数据走<span style="color:#16a34a;font-weight:bold">数据通道</span>直送数据中心，触发器只走<span style="color:#2563eb;font-weight:bold">控制通道</span>收状态回调。
+</div>
+
+<div class="legend">
+<span><span class="bar" style="background:#ea580c"></span>① 触发指令</span>
+<span><span class="bar" style="background:#2563eb"></span>② 控制通道 · 状态回调</span>
+<span><span class="bar" style="background:#16a34a"></span>③ 数据通道 · 直送数据中心</span>
+<span><span class="bar" style="background:#94a3b8"></span>周期循环</span>
+</div>
+
+<p>用舱外天气感知 AlwaysOn 场景走一遍双通道完整链路：</p>
+
+<div class="mermaid">
+flowchart LR
+    subgraph TRIG["端侧触发器"]
+        direction TB
+        T1["㉔-8 检测 power=on\n注册舱外 AlwaysOn"]
+        T2["㉔-9 组装指令\n前视 · 3s周期"]
+        T3["㉔-9 收到回调\n更新状态 → 下一周期"]
+    end
+
+    subgraph VLM["AI Box · VLM SDK"]
+        V1["调用前视摄像头"]
+        V2["VLM推理\n识别: 大雾+湿滑"]
+    end
+
+    subgraph DC["数据中心（李鑫）"]
+        D1["订阅接收\n整包缓存"]
+    end
+
+    subgraph CLOUD["云端消费"]
+        CU1["透传 → Context注入"]
+        CU2["Advisor建议:\n提醒减速/开雾灯"]
+    end
+
+    T1 --> T2
+    T2 -->|"① 触发推理"| V1
+    V1 --> V2
+    V2 -->|"③ 数据直送"| D1
+    V2 -->|"② 状态回调"| T3
+    T3 -->|"3s后"| T2
+    D1 -->|"按需透传"| CU1
+    CU1 --> CU2
+
+    classDef trig fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#7c2d12
+    classDef vlm fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#78350f
+    classDef dc fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#075985
+    classDef cld fill:#f3e8ff,stroke:#9333ea,stroke-width:2px,color:#581c87
+
+    class T1,T2,T3 trig
+    class V1,V2 vlm
+    class D1 dc
+    class CU1,CU2 cld
+
+    linkStyle 1 stroke:#ea580c,stroke-width:3px
+    linkStyle 3 stroke:#16a34a,stroke-width:3px
+    linkStyle 4 stroke:#2563eb,stroke-width:3px
+</div>
+
+<div class="note">
+<b>双通道运作要点</b>：<br/>
+• <b>数据通道</b>（绿色）：VLM SDK 执行完成后，将原始输出发布到 topic → 数据中心订阅接收 → 整包缓存 → 按需透传云端。<b>触发器全程不经手</b><br/>
+• <b>控制通道</b>（蓝色）：VLM SDK 同时回调触发器 ㉔-9，只传 status（success/empty/timeout/failed）→ ㉔-9 更新任务状态、释放互斥、安排下一周期<br/>
+• <b>职责切割</b>：触发器保证"调用请求发送成功"，VLM SDK 保证"收到后内部执行成功"<br/>
+• <b>异常处理</b>：AlwaysOn 由 VLM SDK 内部轮询保证（闲时常驻）；状态回调丢失时 ㉔-9 超时守卫兜底<br/>
+• <b>与 OneShot 对比</b>：AlwaysOn 双通道已定版（本图），OneShot 回传路径待评审（见<a href="#fig4">图4</a>）
+</div>
+
+<div class="note nb">
+<b>汪帅原话（7.6下午）</b>："端云必须基于同一份规则，否则就是bug"——后续需确保数据中心透传到云端后，云端触发器⑮ 和端侧触发器㉔ 对同一条规则的判定结果一致。
+</div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+mermaid.initialize({
+  startOnLoad: true,
+  theme: 'base',
+  themeVariables: {
+    primaryColor: '#fff7ed',
+    primaryBorderColor: '#ea580c',
+    primaryTextColor: '#1e293b',
+    lineColor: '#64748b',
+    secondaryColor: '#f0fdf4',
+    tertiaryColor: '#dbeafe',
+    fontSize: '13px',
+    fontFamily: '-apple-system, PingFang SC, sans-serif'
+  },
+  flowchart: {
+    htmlLabels: true,
+    curve: 'basis',
+    rankSpacing: 50,
+    nodeSpacing: 30,
+    padding: 10,
+    useMaxWidth: true
+  }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Planner 模型内部机制 · 知道底层逻辑才能写好 Skill</title>
+<style>
+:root{--bg:#f8fafc;--card:#fff;--border:#e2e8f0;--t1:#1e293b;--t2:#475569;--t3:#94a3b8;--blue:#2563eb;--red:#dc2626;--green:#16a34a;--purple:#7c3aed;--orange:#ea580c;--shadow:0 4px 20px rgba(0,0,0,.06)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;color:var(--t1);line-height:1.9;font-size:15px}
+.page{max-width:960px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:1.8rem;font-weight:800;margin-bottom:4px}
+.meta{color:var(--t3);font-size:.85rem;margin-bottom:32px}
+h2{font-size:1.4rem;font-weight:700;margin:48px 0 12px;padding:10px 0 10px 16px;border-left:5px solid var(--blue)}
+h3{font-size:1.1rem;font-weight:700;margin:28px 0 8px}
+h4{font-size:.95rem;font-weight:700;margin:20px 0 6px;color:var(--t2)}
+p{color:var(--t2);margin-bottom:12px}
+ul,ol{padding-left:1.5em;margin:8px 0 16px;color:var(--t2)}
+li{margin-bottom:6px}
+.card{background:var(--card);border-radius:12px;box-shadow:var(--shadow);padding:28px;margin:16px 0;border:1px solid var(--border)}
+.card.red{border-left:5px solid var(--red)}
+.card.green{border-left:5px solid var(--green)}
+.card.blue{border-left:5px solid var(--blue)}
+.card.purple{border-left:5px solid var(--purple)}
+.card.orange{border-left:5px solid var(--orange)}
+pre{background:#1e293b;color:#e2e8f0;padding:16px 20px;border-radius:8px;overflow-x:auto;font-size:.82rem;line-height:1.7;margin:12px 0;white-space:pre-wrap}
+pre .k{color:#93c5fd}pre .s{color:#86efac}pre .c{color:#64748b}pre .w{color:#fca5a5}pre .y{color:#fde68a}
+.hl{padding:14px 18px;border-radius:8px;margin:12px 0;font-size:.92rem}
+.hl-blue{background:#eff6ff;border-left:4px solid var(--blue)}
+.hl-red{background:#fef2f2;border-left:4px solid var(--red)}
+.hl-green{background:#f0fdf4;border-left:4px solid var(--green)}
+.hl-orange{background:#fff7ed;border-left:4px solid var(--orange)}
+.hl-purple{background:#faf5ff;border-left:4px solid var(--purple)}
+table{width:100%;border-collapse:collapse;font-size:.88rem;margin:12px 0}
+th,td{padding:10px 14px;border:1px solid var(--border);text-align:left;vertical-align:top}
+th{background:#f1f5f9;font-weight:600}
+hr{border:none;border-top:2px dashed var(--border);margin:40px 0}
+.quote{padding:10px 16px;background:#fffbeb;border-left:4px solid #f59e0b;border-radius:0 6px 6px 0;margin:8px 0;font-size:.88rem;color:#92400e}
+.quote::before{content:"💬 ";font-weight:600}
+.tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.72rem;font-weight:600}
+.tag-r{background:#fee2e2;color:#991b1b}.tag-g{background:#dcfce7;color:#166534}.tag-b{background:#dbeafe;color:#1e40af}.tag-o{background:#ffedd5;color:#9a3412}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:768px){.two-col{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>Planner 模型内部机制 · 知道底层逻辑才能写好 Skill</h1>
+<p class="meta">写给泽民（场景知识产品经理）· 理解模型怎么处理你写的东西，才知道怎么写才有效</p>
+
+<div class="hl hl-blue">
+<strong>本文解决的问题：</strong>你写了 Skill 知识注入给 Planner，但有时候 Planner 好像"没看到"你写的内容，有时候"看到了但不听"，有时候"听了但做错了"。这些问题的根因在模型内部。理解了底层机制，你才知道：① 什么 bug 能用 Skill 修 ② 什么 bug 要用示例修 ③ 什么 bug 改 prompt 根本修不了。
+</div>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>一、Planner 模型的底层是什么？</h2>
+<!-- ============================================================ -->
+
+<h3>1.1 它不是"理解"你的文字，它在做数学</h3>
+<div class="card blue">
+<p>Planner 的底层模型是<strong>豆包 Seed 1.8</strong>——一个大语言模型（LLM）。它看到你写的 Skill 知识后，并不是像人一样"读懂了"，而是做了一系列数学运算：</p>
+
+<ol>
+<li><strong>分词（Tokenization）：</strong>把你写的所有文字切成"token"——大约每 1.5 个汉字 = 1 个 token。整个 SP 约 35K tokens = 大约 5 万字。</li>
+<li><strong>编码（Embedding）：</strong>每个 token 变成一个高维向量（几千维的数字数组）。</li>
+<li><strong>注意力计算（Attention）：</strong>这是最核心的一步——模型决定"在生成下一个字的时候，前面 35K 个 token 里，每个 token 我该多关注"。这就是<strong>注意力机制</strong>。</li>
+<li><strong>逐字生成（Autoregressive Generation）：</strong>一个字一个字地生成输出。生成每个字时，都要重新计算一次"前面所有 token 的注意力权重"。</li>
+</ol>
+
+<div class="hl hl-orange">
+<strong>关键认知：</strong>模型的注意力是有限的。35K tokens 的 SP 里，模型不可能对每一个 token 都给予同等的关注。它会根据"相关性"分配注意力——和当前要生成的内容最相关的 token 获得更多注意力，不相关的被"淡化"。<br><br>
+<strong>这就是明骏说的：</strong>
+</div>
+<div class="quote">明骏（6/3 晚例会）："上下文类的暂时都没有很好的解法。因为它是模型注意力不够。"</div>
+</div>
+
+<h3>1.2 注意力怎么分配？——三个关键规则</h3>
+<div class="card purple">
+<h4>规则 1：距离衰减——越远越弱</h4>
+<p>在 35K tokens 的 SP 中，模型对<strong>靠近当前生成位置</strong>的内容关注更多，对<strong>很远的内容</strong>关注更少。这就是为什么：</p>
+<ul>
+<li>SP 开头的角色定义（"你是豆包"）——模型记住了，但关注度一般</li>
+<li>SP 中间的工具定义和知识——关注度中等</li>
+<li><strong>用户最新一句话（UP 的最后一条）——关注度最高</strong></li>
+<li>最近 2-3 轮对话历史——关注度很高</li>
+<li>10 轮前的对话——<strong>几乎被遗忘</strong>（这就是"10轮后信息丢失"的根因）</li>
+</ul>
+
+<div class="hl hl-red">
+<strong>实际影响：</strong>你写在 Skill 里的"注意事项/禁止事项"如果位于 SP 的中间偏前位置（被 16K tokens 的静态示例隔开），到模型真正生成回答时，这些注意事项的注意力权重已经很低了——模型"看到了但不太在意"。
+</div>
+
+<h4>规则 2：语义相关性——越相关越强</h4>
+<p>注意力不完全按距离衰减，还会根据<strong>语义相关性</strong>加权。如果用户说"我好热"，模型在 35K tokens 里会特别关注包含"热""温度""空调""降温"这些语义相关的 token，即使它们离得很远。</p>
+<p>这就是为什么<strong>Skill 里的触发词很重要</strong>——如果你在 Skill 里写了"好热/暴晒/快速降温"这些触发词，当用户说"好热"时，模型的注意力会自动聚焦到这些词附近的知识内容。</p>
+
+<h4>规则 3：格式模仿——示例的力量远大于指令</h4>
+<p>这是最关键的规则：<strong>LLM 更擅长模仿示例，而不是遵循文字指令。</strong></p>
+<ul>
+<li><strong>你在 Skill 里写：</strong>"禁止调用极速降温模式一级指令" → 这是一条<strong>文字指令</strong>。模型会"大概率"遵守，但不是 100%。</li>
+<li><strong>你在示例里展示：</strong>用户说"好热"→ assistant 输出 action_list 里调的是 vehicle_basic_control 不是"极速降温模式" → 这是一个<strong>行为模式</strong>。模型会"高概率"模仿这个模式。</li>
+</ul>
+<p><strong>原因：</strong>LLM 的训练方式是"预测下一个 token"，它天然擅长的就是"看到前面的模式，继续生成类似的模式"。示例（few-shot）提供了明确的输入→输出模式让它模仿；而文字指令需要模型"理解规则→内化→在生成时主动遵守"，这比模仿难得多。</p>
+
+<div class="hl hl-green">
+<strong>核心结论：想让 Planner 做对一件事，最有效的方式是给它看"做对的样子"（示例），而不是告诉它"不要做错"（指令）。</strong>
+</div>
+</div>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>二、知识 vs 示例在模型内部的处理方式完全不同</h2>
+<!-- ============================================================ -->
+
+<div class="card">
+<h3>2.1 动态知识（Skill）在模型内部的作用</h3>
+<p>Skill 注入到 SP 的 <code>{{knowledge}}</code> 位置后，对模型来说它是一段<strong>"参考资料"</strong>——模型在生成回答时会"查阅"这段内容，从中提取需要的信息。</p>
+
+<h4>模型怎么使用 Skill？</h4>
+<pre><span class="k">模型内部处理流程：</span>
+用户说："我好热好闷"
+                    ↓
+模型开始生成 action_list
+                    ↓
+<span class="y">生成"空调"这个词时 → 注意力扫描整个SP →</span>
+  <span class="s">命中 Skill 里的 "空调开关: ON" → 生成 "空调ON"</span>
+  <span class="s">命中 Skill 里的 "空调温度: 主驾LO" → 生成 "温度LO"</span>
+  <span class="s">命中 Skill 里的 "空调风量: 11" → 生成 "风量11"</span>
+                    ↓
+<span class="y">生成"车窗"这个词时 → 注意力再次扫描 →</span>
+  <span class="s">命中 Skill 里的 "主驾车窗 打开" → 生成对应内容</span>
+  <span class="s">命中 Skill 里的 "对角线通风" → 生成 "右后车窗打开"</span>
+                    ↓
+<span class="w">但注意：每次生成一个词时，模型不是"读一遍Skill"</span>
+<span class="w">而是通过注意力权重"模糊地感知"Skill里的内容</span>
+<span class="w">所以它可能：</span>
+<span class="w">  - 漏掉Skill里某些执行项（注意力没覆盖到）</span>
+<span class="w">  - 把两个执行项混在一起（注意力模糊）</span>
+<span class="w">  - 编造Skill里没有的内容（用训练时学到的知识填补）</span></pre>
+
+<div class="hl hl-orange">
+<strong>Skill 的本质：</strong>它是"参考资料"——模型会<strong>查阅</strong>它，但不保证<strong>完整遵守</strong>它。就像你给一个实习生一本手册，他会翻翻手册，但不会一字不漏地照做。
+</div>
+
+<h3>2.2 动态示例（Few-shot）在模型内部的作用</h3>
+<p>示例注入到 SP 的 <code>{{examples}}</code> 位置后，对模型来说它是一段<strong>"行为模板"</strong>——模型会直接<strong>模仿</strong>这个模板的输入→输出模式。</p>
+
+<h4>模型怎么使用示例？</h4>
+<pre><span class="k">模型内部处理流程：</span>
+示例里展示了：
+  user: "好热啊赶紧降温"
+  assistant: {
+    "talk_content": "好的，我帮你快速降温~",
+    "action_list": [
+      {"tool":"vehicle_basic_control","param":"空调ON,温度LO,风量11"},
+      {"tool":"vehicle_basic_control","param":"主驾车窗打开50%"},
+      {"tool":"vehicle_basic_control","param":"右后车窗打开50%"}
+    ]
+  }
+                    ↓
+现在用户说："我好热好闷赶紧通通风"
+                    ↓
+<span class="s">模型发现这和示例里的 "好热啊赶紧降温" 高度相似</span>
+<span class="s">→ 注意力强烈聚焦到这个示例</span>
+<span class="s">→ 直接模仿示例的输出格式：</span>
+<span class="s">  1. talk_content 的语气（"好的，我帮你..."）</span>
+<span class="s">  2. action_list 的结构（数组 + 每个元素有 tool 和 param）</span>
+<span class="s">  3. tool 名字（vehicle_basic_control，不是别的）</span>
+<span class="s">  4. param 的写法（"空调ON,温度LO,风量11" 这种格式）</span>
+                    ↓
+<span class="y">模型不是"理解了规则后决定怎么做"</span>
+<span class="y">而是"看到了一个模式，直接生成类似的模式"</span>
+<span class="y">这就是为什么示例的格式必须和期望输出完全一致</span></pre>
+
+<div class="hl hl-green">
+<strong>示例的本质：</strong>它是"行为模板"——模型会直接<strong>模仿</strong>它的模式。就像你给实习生看一份写好的报告范本，他照着格式写就不会错。<strong>示例的可靠性 > 知识的可靠性</strong>——因为模仿比理解规则更容易。
+</div>
+</div>
+
+<h3>2.3 两者协作关系：知识提供"做什么"，示例教会"怎么输出"</h3>
+<div class="card green">
+<pre><span class="k">Planner 生成一条 action_list 时的内部过程：</span>
+
+<span class="y">第一步：决定"要做什么"</span>
+  → 主要从<span class="s">动态知识（Skill）</span>获取
+  → Skill 告诉模型："降温场景需要调空调+开车窗+对角线通风"
+  → 模型：OK，我知道要做这几件事
+
+<span class="y">第二步：决定"输出格式怎么写"</span>
+  → 主要从<span class="s">动态示例（Few-shot）</span>获取
+  → 示例展示了 action_list 的 JSON 格式、tool 名字、param 写法
+  → 模型：OK，我照着这个格式写
+
+<span class="y">第三步：决定"细节参数填什么"</span>
+  → 综合从 Skill（"温度设为LO"） + env_info（"当前32°C"） + memory（"偏好24°C"）获取
+  → 模型：温度填24°C（因为记忆里说用户喜欢24°C）
+
+<span class="w">如果只有知识没有示例：</span>
+  模型知道要调空调+开车窗，但不知道 action_list 怎么写
+  → 可能写成自然语言 "帮你打开空调调到LO" 而不是 JSON
+  → 或者 tool 名字写错（写成 "air_conditioner" 而不是 "vehicle_basic_control"）
+
+<span class="w">如果只有示例没有知识：</span>
+  模型知道 action_list 的格式怎么写
+  → 但不知道降温场景具体要调哪些东西
+  → 可能只调了空调，漏掉了车窗、对角线通风等
+  → 或者编造了 Skill 里没有的操作（幻觉）</pre>
+
+<div class="hl hl-blue">
+<strong>结论：知识和示例缺一不可。知识 = 内容（做什么），示例 = 格式（怎么输出）。</strong>
+</div>
+</div>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>三、哪些 bug 用什么方式修？（实操决策树）</h2>
+<!-- ============================================================ -->
+
+<p>基于上面的模型内部机制，我们可以对每种 bug 做精确判断：</p>
+
+<h3>3.1 Bug 分类 → 修复方式对照表</h3>
+<div class="card">
+<table>
+<tr>
+<th width="180">Bug 表现</th>
+<th width="200">根因（模型内部发生了什么）</th>
+<th width="100">用什么修</th>
+<th>具体怎么修</th>
+</tr>
+<tr>
+<td><strong>调了不存在的工具/指令</strong><br><span style="color:#6b7280;font-size:.8rem">如：下发"极速降温模式"一级指令</span></td>
+<td>模型用<strong>训练时学到的知识</strong>填补了 Skill 没覆盖的内容。模型"知道"有个东西叫"极速降温模式"（训练数据里见过），所以自作主张去调了。</td>
+<td><span class="tag tag-r">改 Skill</span><br>+<br><span class="tag tag-o">加示例</span></td>
+<td>
+① Skill 里加明确禁止："<strong>禁止调用极速降温模式一级指令</strong>"<br>
+② 示例里展示正确做法：action_list 里调的是 vehicle_basic_control 不是"极速降温模式"<br>
+<strong>两者结合最有效——禁令+正确范本</strong>
+</td>
+</tr>
+<tr>
+<td><strong>漏掉执行项</strong><br><span style="color:#6b7280;font-size:.8rem">如：降温只调了空调没开车窗</span></td>
+<td>Skill 里写了车窗，但模型的<strong>注意力没覆盖到</strong>这一条。35K tokens 的 SP 中，一条执行项只有几个 token，很容易被"淡化"。</td>
+<td><span class="tag tag-o">加示例</span></td>
+<td>
+在示例里完整展示所有执行项。模型模仿示例时会"照抄"所有操作，比从 Skill 里"摘抄"更可靠。<br>
+<strong>关键：示例里的 action_list 必须包含完整的执行项列表</strong>
+</td>
+</tr>
+<tr>
+<td><strong>先说能做后说不行</strong><br><span style="color:#6b7280;font-size:.8rem">如："帮你打开宠物模式" → 调用失败 → "不好意思不支持"</span></td>
+<td>模型生成 talk_content 时参考的是 Skill（"宠物模式"），先说了能做；但生成 action_list 时发现没有对应的 function call，转而说不支持。<strong>talk 和 action 是分步生成的</strong>，前后可能矛盾。</td>
+<td><span class="tag tag-r">改 Skill</span><br>+<br><span class="tag tag-b">加 SP 规则</span></td>
+<td>
+① Skill 里删掉"宠物模式"这种不存在的概念，只写原子操作<br>
+② SP 注意事项加规则：<strong>"如果不确定能否执行，先不要承诺"</strong><br>
+③ 如果这个场景本就应该走分子级（宠物模式），那 Skill 标注"不注入 Planner"
+</td>
+</tr>
+<tr>
+<td><strong>反问用户已知信息</strong><br><span style="color:#6b7280;font-size:.8rem">如：Planner 问用户"现在是否P档"</span></td>
+<td>模型在生成时<strong>没有关注到 env_info</strong>里的档位信息。env_info 在 SP 靠后的位置，但如果 Skill 里提到了"P档"触发了反问行为，模型可能选择"问用户"而不是"查 env_info"。</td>
+<td><span class="tag tag-b">加 SP 规则</span><br>+<br><span class="tag tag-o">加示例</span></td>
+<td>
+① SP 注意事项加规则：<strong>"如果 env_info 里有答案，禁止反问用户"</strong><br>
+② 示例里展示：用户说"我想休息" → assistant 直接读 env_info 的档位 → 判断可以/不可以 → 不反问<br>
+<strong>示例比规则更有效——给模型看"不反问的样子"</strong>
+</td>
+</tr>
+<tr>
+<td><strong>参考了错误的上下文</strong><br><span style="color:#6b7280;font-size:.8rem">如：用户1分钟前问了同样的问题，这次直接用上次结果回答</span></td>
+<td>模型的注意力被<strong>对话历史里的相似内容"劫持"</strong>了。上一轮问过同样的问题，模型发现历史回答和当前问题高度匹配，直接"抄"了历史回答而不重新推理。</td>
+<td><span class="tag tag-b">加 SP 规则</span></td>
+<td>
+SP 注意事项加规则：<strong>"对于可能随时间变化的信息（如导航状态、音乐播放），即使历史对话中有答案，也要重新调用工具获取最新信息"</strong><br>
+<span style="color:#dc2626;">⚠ 但这类 bug 很难根治——模型天生就会参考上下文。晓伟说"只能说对于某些错误类型上面可以重试"</span>
+</td>
+</tr>
+<tr>
+<td><strong>输出格式错误</strong><br><span style="color:#6b7280;font-size:.8rem">如：action_list 的 JSON 格式不对、tool 名写错、param 格式不对</span></td>
+<td>模型没有足够的<strong>格式参考</strong>。SP 里虽然有输出格式定义（③输出格式），但定义是抽象的文字描述，不如看一个具体例子来得直观。</td>
+<td><span class="tag tag-o">加示例</span></td>
+<td>
+这是示例最擅长解决的问题！在示例里展示完整、正确的 JSON 格式：<br>
+<strong>tool 名必须和 SP 工具定义里的完全一致、param 的格式必须和工具 description 一致</strong><br>
+模型看到示例后会直接模仿格式，几乎不会再写错。
+</td>
+</tr>
+<tr>
+<td><strong>话术不自然/太啰嗦</strong><br><span style="color:#6b7280;font-size:.8rem">如：TTS 播报太长、罗列了一堆操作</span></td>
+<td>模型参考了 SP 里的<strong>静态示例</strong>的风格。如果静态示例里的 talk_content 写得长，模型也会生成长回复。</td>
+<td><span class="tag tag-o">加示例</span></td>
+<td>
+在动态示例里展示简洁的 talk_content：<br>
+<strong>好的示例：</strong>"好的，我帮你降降温~"（10字）<br>
+<strong>坏的示例：</strong>"好的，我现在帮你把空调打开，温度调到最低，风量调到最大，车窗打开通通风，一分钟后再把车窗关上"（40字）<br>
+<strong>模型会模仿示例的长度和风格</strong>
+</td>
+</tr>
+<tr>
+<td><strong>安全操作没拦住</strong><br><span style="color:#6b7280;font-size:.8rem">如：非P档调了座椅</span></td>
+<td>SP 注意事项里写了禁止，但模型<strong>注意力没覆盖到</strong>这条规则（距离太远、被其他内容稀释）。</td>
+<td><span class="tag tag-r">无法100%用prompt修！</span></td>
+<td>
+<strong>prompt 层面能做的：</strong><br>
+① SP 注意事项加规则（层1）<br>
+② 示例里展示"拒绝执行"的对话<br>
+③ Skill 里强调前置条件<br>
+<strong>但都不能100%保证。</strong><br>
+<span style="color:#dc2626;font-weight:600;">必须依赖车控底层代码写死兜底（层3），这不是 prompt 能解决的问题。</span>
+</td>
+</tr>
+</table>
+</div>
+
+<h3>3.2 决策树（遇到 bug 时怎么判断用什么修）</h3>
+<div class="card blue">
+<pre><span class="k">遇到一个 badcase，按以下顺序判断：</span>
+
+<span class="y">Q1: Planner 调了不存在的工具/指令吗？</span>
+  → 是 → <span class="s">改 Skill：删掉不存在的概念 + 加"禁止调用XX"</span>
+         <span class="s">加示例：展示调正确工具的样子</span>
+  → 不是 → 继续
+
+<span class="y">Q2: Planner 输出的 JSON 格式不对吗？（tool名错/param格式错/结构错）</span>
+  → 是 → <span class="s">加示例：展示完全正确的 JSON 格式</span>
+         <span class="c">（这是示例最擅长解决的问题）</span>
+  → 不是 → 继续
+
+<span class="y">Q3: Planner 漏掉了某些执行项吗？</span>
+  → 是 → <span class="s">先检查 Skill 里有没有写这条执行项</span>
+         → 没写 → <span class="s">补 Skill</span>
+         → 写了但漏了 → <span class="s">加示例：示例里完整列出所有执行项</span>
+                       <span class="c">（模型模仿示例的完整度 > 从Skill摘抄的完整度）</span>
+  → 不是 → 继续
+
+<span class="y">Q4: Planner 做了不该做的事？（如非P档调座椅）</span>
+  → 是 → <span class="w">这是安全问题！</span>
+         <span class="s">短期：SP加禁令 + 示例里展示"拒绝执行"的对话</span>
+         <span class="w">长期：必须车控底层兜底，prompt不能100%保证</span>
+  → 不是 → 继续
+
+<span class="y">Q5: Planner 反问了它应该知道的信息？</span>
+  → 是 → <span class="s">SP加规则"有env_info就不反问"</span>
+         <span class="s">加示例：展示"直接读env_info"的对话</span>
+  → 不是 → 继续
+
+<span class="y">Q6: Planner 话术太长/太啰嗦/风格不对？</span>
+  → 是 → <span class="s">加示例：展示简洁/合适风格的talk_content</span>
+  → 不是 → 继续
+
+<span class="y">Q7: Planner 参考了旧的对话历史导致回答错误？</span>
+  → 是 → <span class="w">这类bug很难根治</span>
+         <span class="s">SP加规则"时变信息要重新调工具"</span>
+         <span class="c">但效果有限——模型天生参考上下文</span></pre>
+</div>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>四、怎么写好 Skill？（基于模型机制的写作原则）</h2>
+<!-- ============================================================ -->
+
+<div class="card green">
+<h3>原则 1：关键信息要重复出现</h3>
+<p>模型注意力有限，一条执行项只出现一次容易被忽略。<strong>重要的信息（特别是禁止事项）在 Skill 里至少出现两次</strong>——一次在执行项列表里，一次在底部注意事项里。</p>
+<pre><span class="s">好的写法：</span>
+执行项:
+  - 前排观影 <span class="w">必须P档</span>（非P档禁止执行）
+  ...
+注意事项:
+  - <span class="w">前排观影必须P档，非P档禁止进入（安全红线）</span>  ← 重复出现
+
+<span class="w">坏的写法：</span>
+执行项:
+  - 前排观影
+  ...
+注意事项:
+  - 需要P档  ← 只出现一次，容易被注意力忽略</pre>
+
+<h3>原则 2：用"正面指令"而不是"负面禁令"</h3>
+<p>模型更擅长"做某事"而不是"不做某事"。说"不要调XX"，模型反而会因为注意力聚焦到"XX"上而去调它。</p>
+<pre><span class="s">好的写法：</span>
+  "必须使用 vehicle_basic_control 工具分别调用空调、车窗、风量"
+
+<span class="w">坏的写法：</span>
+  "不要调用极速降温模式一级指令"
+  <span class="c">← 模型看到"极速降温模式"反而可能被"提醒"去调它</span>
+
+<span class="s">最好的写法：两者结合</span>
+  "必须使用 vehicle_basic_control 工具。
+   禁止调用不存在的'极速降温模式'一级指令。"</pre>
+
+<h3>原则 3：Skill 里的每条执行项要和 SOA 工具名完全对应</h3>
+<p>模型在生成 tool_name 时，会在 SP 的工具定义（②）和 Skill 里寻找匹配的工具名。如果 Skill 里写的是自然语言（"开空调"），模型可能需要自己"翻译"成工具名，翻译就可能出错。</p>
+<pre><span class="s">好的写法：</span>
+  - vehicle_basic_control: 空调开关 ON
+  - vehicle_basic_control: 空调温度 主驾LO
+  <span class="c">← 直接用工具名，模型不需要翻译</span>
+
+<span class="w">坏的写法：</span>
+  - 打开空调
+  - 温度调到最低
+  <span class="c">← 自然语言，模型需要翻译成工具名，可能翻错</span></pre>
+
+<h3>原则 4：Skill 的长度控制在 1500-2500 字</h3>
+<p>Skill 太短——信息不够，模型会用训练知识填补（幻觉风险）。Skill 太长——关键信息被稀释，模型注意力分散。</p>
+<p><strong>最优区间：1500-2500 字。</strong>把最重要的执行项放在 Skill 的开头（利用注意力的位置偏好），注意事项放在末尾（利用注意力的末尾效应）。</p>
+</div>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>五、怎么写好动态示例？（基于模型机制的写作原则）</h2>
+<!-- ============================================================ -->
+
+<div class="card orange">
+<h3>原则 1：示例必须是"完美答案"——模型会原样模仿</h3>
+<p>示例里的每一个字，模型都可能模仿。如果示例里 talk_content 写得啰嗦，模型也会啰嗦；如果示例里 action_list 少了一个操作，模型也可能少。<strong>示例 = 你期望模型输出的黄金标准。</strong></p>
+
+<h3>原则 2：每个场景 2-3 条示例，覆盖不同输入变体</h3>
+<pre><span class="k">以极速降温为例，应该有这3条示例：</span>
+
+<span class="s">示例1: 标准降温</span>
+  user: "好热啊赶紧降温"
+  assistant: {talk:"好的~", action:[空调ON+温度LO+风量11+开窗]}
+
+<span class="s">示例2: 降温+通风复合</span>
+  user: "好热好闷赶紧开窗通风"
+  assistant: {talk:"好的~", action:[空调ON+温度LO+开窗+外循环]}
+  <span class="c">← 展示多场景命中时的处理方式</span>
+
+<span class="s">示例3: 有记忆偏好时</span>
+  user: "太热了"  [env: 32°C, memory: 偏好24°C]
+  assistant: {talk:"好的~", action:[空调ON+温度24°C+风量8]}
+  <span class="c">← 展示结合记忆时温度不填LO而填偏好值</span></pre>
+
+<h3>原则 3：示例和 Skill 的执行项必须一致</h3>
+<p>如果 Skill 里写了 8 条执行项，示例的 action_list 也应该有 8 条。如果示例只写了 3 条，模型就会认为"3 条就够了"，从而漏掉其他 5 条。</p>
+
+<h3>原则 4：示例里要展示"不做什么"的情况</h3>
+<pre><span class="k">反例示例（展示拒绝执行）：</span>
+
+<span class="s">示例: 非P档下拒绝小憩</span>
+  user: "我想打会盹"  [env: D档, 车速60km/h]
+  assistant: {
+    talk: "现在车辆正在行驶中，为了安全不能进入小憩模式哦。
+           等停车后再帮你开启~",
+    action: []   <span class="c">← 空action_list = 不执行任何操作</span>
+  }
+  <span class="c">← 这条示例教会模型：非P档时应该拒绝+解释原因+空action</span></pre>
+</div>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>六、为什么有些 bug 改 prompt 根本修不了？</h2>
+<!-- ============================================================ -->
+
+<div class="card red">
+<h3>场景 1：安全操作（非P档调座椅）</h3>
+<p>即使 SP 里写了禁令、示例里展示了拒绝——LLM 本质上是<strong>概率性的</strong>。它不是执行 if-else 的代码，而是在概率分布上采样下一个 token。99.9% 的情况它会遵守，但 0.1% 的情况它可能不遵守——这个 0.1% 就是"幻觉"。</p>
+<p><strong>所以安全操作必须有车控底层的代码硬兜底，不能依赖 prompt。</strong></p>
+
+<h3>场景 2：10 轮后信息丢失</h3>
+<p>这是 LLM 注意力机制的物理限制。35K tokens 的上下文里，10 轮以前的对话已经离当前位置太远了，注意力权重衰减到接近零。<strong>这不是 prompt 能解决的——需要架构层面的方案</strong>（如对话摘要压缩、记忆工具持久化）。</p>
+<div class="quote">向超然（6/3 晚例会）："十轮以后那个跟晓伟聊了一下，这就是我们的一个缺陷，就是一个空洞，没有任何一个方案去支持这块的信息的总。"</div>
+
+<h3>场景 3：参考错误的上下文</h3>
+<p>用户 1 分钟前问了"附近有什么好吃的"，现在又问同样的话。模型发现对话历史里有一模一样的 query 和 answer，直接"抄"了历史答案而不重新调工具。这是 LLM 的<strong>本能行为</strong>——它训练时就是学的"根据上下文预测下一个 token"，历史上下文里有完美的答案它当然直接用。</p>
+<div class="quote">郝晓伟（6/3 晚例会）："这个确实是比较模糊的，如果说不让模型参考历史对话里面的东西，其实本身也不符合它的直觉。"</div>
+</div>
+
+<hr>
+
+<h2>总结：一张图看清"什么 bug 用什么方式修"</h2>
+
+<div class="card">
+<table>
+<tr><th>修复方式</th><th>适合修什么</th><th>不适合修什么</th><th>有效度</th></tr>
+<tr>
+<td style="background:#faf5ff;"><strong>改 Skill</strong><br><span style="font-size:.8rem;color:#7c3aed;">改知识内容</span></td>
+<td>调了不存在的指令<br>漏了执行项（Skill没写）<br>前后矛盾（Skill引导错误）</td>
+<td>格式问题<br>话术风格<br>安全兜底</td>
+<td>中高（模型会查阅但不保证完整遵守）</td>
+</tr>
+<tr>
+<td style="background:#fff7ed;"><strong>加示例</strong><br><span style="font-size:.8rem;color:#ea580c;">加 few-shot</span></td>
+<td>格式错误<br>漏了执行项（Skill写了但漏了）<br>话术太长/风格不对<br>反问已知信息<br>展示"拒绝执行"的行为</td>
+<td>Skill 本身内容缺失<br>10 轮后信息丢失<br>安全红线 100% 保证</td>
+<td><strong>最高</strong>（模型直接模仿，可靠性最强）</td>
+</tr>
+<tr>
+<td style="background:#eff6ff;"><strong>加 SP 规则</strong><br><span style="font-size:.8rem;color:#2563eb;">改注意事项</span></td>
+<td>安全禁令（层1）<br>"有 env 就不反问"<br>"时变信息要重新调工具"</td>
+<td>格式问题<br>漏执行项<br>风格问题</td>
+<td>中（模型"大概率"遵守，但不是100%）</td>
+</tr>
+<tr>
+<td style="background:#fef2f2;"><strong>不是 prompt 能修的</strong><br><span style="font-size:.8rem;color:#dc2626;">需要工程方案</span></td>
+<td colspan="2">安全操作 100% 保证 → 车控底层代码兜底<br>10 轮后信息丢失 → 对话摘要/记忆工具<br>历史上下文干扰 → 只能部分缓解<br>模型耗时 800ms → 模型优化/SP 压缩</td>
+<td>—</td>
+</tr>
+</table>
+</div>
+
+<div style="text-align:center;padding:40px 0;color:var(--t3);font-size:.85rem;">
+Planner 模型内部机制与 Skill 写作指南 v1.0<br>
+写给王泽民 · 理解模型才能写好 Skill · 2026-06-05
+</div>
+
+</div>
+</body>
+</html>

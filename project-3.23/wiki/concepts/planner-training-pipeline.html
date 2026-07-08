@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Planner 模型训练全流程详解 — Function Call 模式</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background: #f5f6fa; color: #2d3436; line-height: 1.85; padding: 40px 20px;
+  }
+  .container { max-width: 1000px; margin: 0 auto; }
+
+  /* Hero */
+  .hero {
+    background: linear-gradient(135deg, #0984e3, #6c5ce7);
+    color: #fff; padding: 48px 40px; border-radius: 20px;
+    margin-bottom: 40px; text-align: center;
+  }
+  .hero h1 { font-size: 30px; margin-bottom: 10px; }
+  .hero p { font-size: 15px; opacity: 0.9; }
+  .hero .badge {
+    display: inline-block; background: rgba(255,255,255,0.2);
+    padding: 4px 16px; border-radius: 20px; font-size: 13px; margin-top: 12px;
+  }
+
+  /* Section */
+  .section {
+    background: #fff; border-radius: 16px; padding: 36px;
+    margin-bottom: 28px; box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  }
+  .section h2 {
+    font-size: 22px; color: #2d3436; margin-bottom: 20px;
+    padding-bottom: 12px; border-bottom: 3px solid #0984e3;
+  }
+  .section h3 { font-size: 18px; color: #6c5ce7; margin: 24px 0 12px; }
+  .section h4 { font-size: 15px; color: #636e72; margin: 16px 0 8px; }
+  .section p { margin-bottom: 14px; font-size: 15px; }
+
+  /* Boxes */
+  .box-blue {
+    background: linear-gradient(135deg, #dfe6e9, #e3f2fd);
+    border-left: 5px solid #0984e3; padding: 20px 24px;
+    border-radius: 0 12px 12px 0; margin: 20px 0;
+  }
+  .box-purple {
+    background: linear-gradient(135deg, #f3e5f5, #ede7f6);
+    border-left: 5px solid #6c5ce7; padding: 20px 24px;
+    border-radius: 0 12px 12px 0; margin: 20px 0;
+  }
+  .box-green {
+    background: #e8f5e9; border: 1px solid #a5d6a7;
+    border-radius: 12px; padding: 20px 24px; margin: 16px 0;
+  }
+  .box-orange {
+    background: #fff3e0; border-left: 5px solid #e17055;
+    padding: 20px 24px; border-radius: 0 12px 12px 0; margin: 20px 0;
+  }
+  .box-label { font-weight: 700; font-size: 14px; margin-bottom: 8px; }
+  .box-blue .box-label { color: #0984e3; }
+  .box-purple .box-label { color: #6c5ce7; }
+  .box-green .box-label { color: #2e7d32; }
+  .box-orange .box-label { color: #e17055; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; }
+  th { background: #0984e3; color: #fff; padding: 12px 16px; text-align: left; font-weight: 600; }
+  td { padding: 12px 16px; border-bottom: 1px solid #e0e0e0; }
+  tr:nth-child(even) { background: #f5f5ff; }
+
+  /* Pipeline diagram */
+  .pipeline {
+    display: flex; align-items: stretch; justify-content: center;
+    flex-wrap: wrap; gap: 0; margin: 28px 0; padding: 20px;
+    background: #fafafa; border-radius: 16px;
+  }
+  .pipe-step {
+    flex: 1; min-width: 140px; max-width: 180px;
+    padding: 16px 12px; text-align: center; position: relative;
+    border-radius: 12px; margin: 4px;
+  }
+  .pipe-step .num {
+    display: inline-block; width: 32px; height: 32px; line-height: 32px;
+    border-radius: 50%; color: #fff; font-weight: 700; font-size: 14px;
+    margin-bottom: 8px;
+  }
+  .pipe-step .title { font-weight: 700; font-size: 13px; margin-bottom: 4px; }
+  .pipe-step .desc { font-size: 12px; color: #636e72; }
+  .pipe-step.s1 { background: #e3f2fd; } .pipe-step.s1 .num { background: #0984e3; }
+  .pipe-step.s2 { background: #fff3e0; } .pipe-step.s2 .num { background: #e17055; }
+  .pipe-step.s3 { background: #e8f5e9; } .pipe-step.s3 .num { background: #00b894; }
+  .pipe-step.s4 { background: #f3e5f5; } .pipe-step.s4 .num { background: #6c5ce7; }
+  .pipe-step.s5 { background: #ffeaa7; } .pipe-step.s5 .num { background: #fdcb6e; color: #2d3436; }
+  .pipe-arrow {
+    display: flex; align-items: center; font-size: 24px; color: #b2bec3;
+    padding: 0 2px; font-weight: 700;
+  }
+
+  /* Vertical flow */
+  .v-flow { margin: 20px auto; max-width: 700px; }
+  .v-step {
+    padding: 16px 20px; border-radius: 12px; margin-bottom: 4px;
+    color: #fff; font-weight: 600; text-align: center; position: relative;
+  }
+  .v-step .sub { font-weight: 400; font-size: 13px; opacity: 0.9; margin-top: 4px; }
+  .v-arrow { text-align: center; font-size: 24px; color: #b2bec3; margin: 2px 0; }
+
+  /* Code blocks */
+  .code-block {
+    background: #2d3436; color: #dfe6e9; padding: 20px 24px;
+    border-radius: 12px; font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 13px; line-height: 1.7; overflow-x: auto; margin: 16px 0;
+    white-space: pre-wrap; word-break: break-all;
+  }
+  .code-block .comment { color: #636e72; }
+  .code-block .key { color: #74b9ff; }
+  .code-block .str { color: #55efc4; }
+  .code-block .highlight { color: #ffeaa7; font-weight: 700; }
+  .code-block .tool { color: #fd79a8; }
+
+  /* Comparison */
+  .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
+  .compare-card { padding: 20px; border-radius: 12px; }
+  .compare-card.old { background: #ffebee; border: 1px solid #ef9a9a; }
+  .compare-card.new { background: #e8f5e9; border: 1px solid #a5d6a7; }
+  .compare-card .tag { font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+  .compare-card.old .tag { color: #c62828; }
+  .compare-card.new .tag { color: #2e7d32; }
+
+  /* Loop diagram */
+  .loop-container {
+    position: relative; margin: 30px auto; max-width: 650px;
+    min-height: 420px; background: #fafafa; border-radius: 16px; padding: 30px;
+  }
+  .loop-box {
+    padding: 14px 18px; border-radius: 12px; text-align: center;
+    font-size: 13px; font-weight: 600; position: relative;
+    margin: 8px auto; max-width: 500px;
+  }
+
+  /* Timeline */
+  .timeline { position: relative; padding: 20px 0 20px 40px; }
+  .timeline::before {
+    content: ''; position: absolute; left: 16px; top: 0; bottom: 0;
+    width: 3px; background: linear-gradient(to bottom, #0984e3, #6c5ce7);
+    border-radius: 2px;
+  }
+  .timeline-item { position: relative; margin-bottom: 24px; }
+  .timeline-item::before {
+    content: ''; position: absolute; left: -32px; top: 4px;
+    width: 14px; height: 14px; border-radius: 50%;
+    border: 3px solid #0984e3; background: #fff;
+  }
+  .timeline-item .phase {
+    font-weight: 700; color: #0984e3; font-size: 14px; margin-bottom: 4px;
+  }
+  .timeline-item .detail { font-size: 14px; color: #636e72; }
+
+  /* Tag */
+  .tag-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+  .tag {
+    display: inline-block; padding: 4px 12px; border-radius: 20px;
+    font-size: 12px; font-weight: 600;
+  }
+  .tag.blue { background: #e3f2fd; color: #0984e3; }
+  .tag.green { background: #e8f5e9; color: #2e7d32; }
+  .tag.purple { background: #f3e5f5; color: #6c5ce7; }
+  .tag.orange { background: #fff3e0; color: #e17055; }
+
+  /* Data format anatomy */
+  .anatomy { margin: 20px 0; }
+  .anatomy-row {
+    display: flex; align-items: stretch; margin-bottom: 2px;
+    border-radius: 8px; overflow: hidden; font-size: 13px;
+  }
+  .anatomy-label {
+    min-width: 140px; padding: 12px 16px; font-weight: 700;
+    color: #fff; display: flex; align-items: center;
+  }
+  .anatomy-content {
+    flex: 1; padding: 12px 16px; background: #f8f9fa;
+    font-family: 'SF Mono', monospace; font-size: 12px;
+  }
+  .anatomy-note {
+    min-width: 200px; padding: 12px 16px; background: #fafafa;
+    color: #636e72; font-size: 12px; border-left: 1px solid #e0e0e0;
+  }
+
+  @media (max-width: 768px) {
+    .compare-grid { grid-template-columns: 1fr; }
+    .pipeline { flex-direction: column; align-items: center; }
+    .pipe-arrow { transform: rotate(90deg); }
+    .anatomy-row { flex-direction: column; }
+    .anatomy-note { border-left: none; border-top: 1px solid #e0e0e0; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- Hero -->
+<div class="hero">
+  <h1>Planner 模型训练全流程详解</h1>
+  <p>从"为什么需要训练"到"怎么训练" — Function Call 数据范式 + 蒸馏管线 + 迭代闭环</p>
+  <div class="badge">基于：座舱 Planner OnePage 训练方案 + 数据范式构建</div>
+</div>
+
+<!-- ========== S1: 为什么需要训练 ========== -->
+<div class="section">
+  <h2>一、为什么需要训练？— 光靠 Prompt 搞不定</h2>
+
+  <p>最初的方案是<strong>只用 System Prompt（SP）</strong>来指导模型。给模型一份超长的说明书（3万+ tokens），告诉它该怎么做。但即使是最强的模型，纯靠 SP 也有严重问题：</p>
+
+  <table>
+    <tr><th>问题</th><th>严重程度</th><th>具体表现</th></tr>
+    <tr><td>不调用工具</td><td style="color:#c0392b;font-weight:700">严重</td><td>模型直接输出文字"我帮你打开空调"，但实际没有调用任何工具去执行</td></tr>
+    <tr><td>不遵循流程</td><td style="color:#e67e22;font-weight:700">较严重</td><td>跳过"先查车况"直接执行，或跳过"先想清楚"直接拆解</td></tr>
+    <tr><td>上下文捕捉弱</td><td style="color:#e67e22;font-weight:700">较严重</td><td>长对话后"忘记"挂起的任务、失败的任务</td></tr>
+    <tr><td>拆解不稳定</td><td style="color:#e67e22;font-weight:700">较严重</td><td>同一句话，每次拆出的步骤不同</td></tr>
+    <tr><td>幻觉</td><td style="color:#f39c12;font-weight:700">需解决</td><td>回复中总结了模型没做过的事</td></tr>
+  </table>
+
+  <div class="box-orange">
+    <div class="box-label">核心结论</div>
+    <p><strong>SP（提示词工程）能力的天花板很低。</strong>只靠 SP 相当于只给员工发了一份操作手册——手册再详细，员工不经过培训也记不住、做不好。训练 = 让模型"内化"这些能力。</p>
+  </div>
+
+  <h3>模型选型历程</h3>
+  <div class="v-flow">
+    <div class="v-step" style="background:#e74c3c;">
+      DeepSeek Agent — 尝试失败
+      <div class="sub">上述5类问题全部存在，纯靠SP无法解决</div>
+    </div>
+    <div class="v-arrow">↓</div>
+    <div class="v-step" style="background:#f39c12;">
+      Kimi K2 — 过渡方案
+      <div class="sub">Demo阶段够用，但上下文复杂后仍不稳定，且不是自家模型</div>
+    </div>
+    <div class="v-arrow">↓</div>
+    <div class="v-step" style="background:#27ae60;">
+      豆包 Seed 1.6 / 1.8 — 最终方案
+      <div class="sub">自家模型，可训练可定制，通过蒸馏 + SFT + RL 内化能力</div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== S2: 训练的核心思路 ========== -->
+<div class="section">
+  <h2>二、训练的核心思路 — "抄好学生的作业来教自家学生"</h2>
+
+  <div class="box-blue">
+    <div class="box-label">一句话理解</div>
+    <p>让<strong>强模型（Kimi K2）</strong>做大量"标准答案" → 人工/GPT-4o 筛选高质量数据 → 用这些数据训练<strong>自家小模型（豆包 Seed）</strong>。这个过程叫<strong>蒸馏（Distillation）</strong>。</p>
+  </div>
+
+  <h3>蒸馏 = 知识迁移</h3>
+
+  <div class="compare-grid">
+    <div class="compare-card old">
+      <div class="tag">没有蒸馏的情况</div>
+      <p>小模型直接学SP →</p>
+      <p>看不懂复杂指令、不会调工具、拆解不稳定</p>
+      <p><em>就像让小学生直接读博士论文</em></p>
+    </div>
+    <div class="compare-card new">
+      <div class="tag">有蒸馏的情况</div>
+      <p>强模型先"做题"生成标准答案 →</p>
+      <p>小模型跟着标准答案学习 → 学到正确的拆解方式</p>
+      <p><em>就像老师先做例题，学生跟着例题练习</em></p>
+    </div>
+  </div>
+</div>
+
+<!-- ========== S3: 完整训练管线 ========== -->
+<div class="section">
+  <h2>三、完整训练管线 — 5步闭环</h2>
+
+  <div class="pipeline">
+    <div class="pipe-step s1">
+      <div class="num">1</div>
+      <div class="title">蒸馏生成</div>
+      <div class="desc">Kimi K2 生成<br>标准答案数据</div>
+    </div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step s2">
+      <div class="num">2</div>
+      <div class="title">质量打分</div>
+      <div class="desc">GPT-4o 打分<br>筛选高质量数据</div>
+    </div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step s3">
+      <div class="num">3</div>
+      <div class="title">SFT 训练</div>
+      <div class="desc">训练集精调<br>Doubao-Seed 模型</div>
+    </div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step s4">
+      <div class="num">4</div>
+      <div class="title">评测验证</div>
+      <div class="desc">Kimi K2 打分<br>评估模型效果</div>
+    </div>
+    <div class="pipe-arrow">→</div>
+    <div class="pipe-step s5">
+      <div class="num">5</div>
+      <div class="title">迭代优化</div>
+      <div class="desc">Bad case 泛化<br>回到 Step 1</div>
+    </div>
+  </div>
+
+  <h3>每一步的详细拆解</h3>
+
+  <div class="timeline">
+    <div class="timeline-item">
+      <div class="phase">Step 1：蒸馏数据生成</div>
+      <div class="detail">
+        <p>以产品集（真实用户场景）为核心，把各种用户 query 输入给 <strong>Kimi K2</strong>（强模型），让它输出完整的 Function Call 序列。</p>
+        <p>例如：输入"我好困呀" → Kimi K2 输出：先查车况 → 开休憩模式 + 关车窗 + 开空调 → 回复用户</p>
+        <p>然后对数据做<strong>泛化</strong>——把"我好困呀"扩展为"好累啊""有点犯困""眼皮好沉"等变体，制作训练集和开发集。</p>
+      </div>
+    </div>
+    <div class="timeline-item">
+      <div class="phase">Step 2：GPT-4o 质量打分</div>
+      <div class="detail">
+        <p>Step 1 生成的数据不是全都好用的。让 <strong>GPT-4o</strong> 作为评审员，给每条数据打分：</p>
+        <p>✅ 满足质量要求 → 加入训练集</p>
+        <p>❌ 不满足 → 舍弃（工具选择不对、参数错误、流程不合理等）</p>
+      </div>
+    </div>
+    <div class="timeline-item">
+      <div class="phase">Step 3：SFT 精调</div>
+      <div class="detail">
+        <p>用筛选后的高质量数据，对 <strong>Doubao-Seed-1.6</strong> 模型进行 <strong>SFT（Supervised Fine-Tuning，监督微调）</strong>。</p>
+        <p>SFT 的本质：告诉模型"在这种输入下，你应该输出这样的 Function Call"，让模型记住正确的行为模式。</p>
+      </div>
+    </div>
+    <div class="timeline-item">
+      <div class="phase">Step 4：Kimi K2 评测</div>
+      <div class="detail">
+        <p>微调后的模型对开发集做预测，然后让 <strong>Kimi K2 作为裁判</strong>给结果打分。</p>
+        <p>注意：生成数据用 Kimi K2，评测也用 Kimi K2。因为它是当前能力最强的参考标杆。</p>
+      </div>
+    </div>
+    <div class="timeline-item">
+      <div class="phase">Step 5：Bad Case 迭代</div>
+      <div class="detail">
+        <p>如果评测不达标 → 分析哪些 case 做得不好 → 针对 bad case 泛化更多类似数据 → 回到 Step 1 重新走一遍。</p>
+        <p><strong>形成模型迭代闭环</strong>：训练 → 评测 → 找不足 → 补数据 → 再训练 → 再评测…</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="box-purple">
+    <div class="box-label">SFT 之后还有 RL 强化学习</div>
+    <p>SFT 教会模型"正确答案长什么样"，但模型可能只是死记硬背。<strong>RL（Reinforcement Learning，强化学习）</strong>进一步让模型学会：</p>
+    <p>- 在没见过的新场景中也能做出合理决策（泛化能力）</p>
+    <p>- 在多种可行方案中选择最优的那个（决策质量）</p>
+    <p>- 避免已知的错误模式（从惩罚中学习）</p>
+  </div>
+</div>
+
+<!-- ========== S4: Function Call 数据格式 ========== -->
+<div class="section">
+  <h2>四、Function Call 数据格式 — 训练数据长什么样</h2>
+
+  <div class="box-blue">
+    <div class="box-label">核心概念</div>
+    <p>Function Call 训练 = 教模型输出的不是自然语言文字，而是<strong>结构化的"调用哪个函数 + 传什么参数"指令</strong>。这样模型的输出可以直接被工程系统解析执行，不需要二次翻译。</p>
+  </div>
+
+  <h3>4.1 训练数据的完整结构</h3>
+
+  <p>每条训练数据是一个 JSON 对象，包含两个核心部分：</p>
+
+  <div class="anatomy">
+    <div class="anatomy-row">
+      <div class="anatomy-label" style="background:#0984e3;">messages</div>
+      <div class="anatomy-content">对话序列：system → user → assistant → tool → assistant → ...</div>
+      <div class="anatomy-note">模型要学习的完整对话流程</div>
+    </div>
+    <div class="anatomy-row">
+      <div class="anatomy-label" style="background:#6c5ce7;">tools</div>
+      <div class="anatomy-content">可用工具列表：[{name, description, parameters}, ...]</div>
+      <div class="anatomy-note">告诉模型有哪些工具可以调用</div>
+    </div>
+  </div>
+
+  <h3>4.2 messages 中的五种角色</h3>
+
+  <div class="anatomy">
+    <div class="anatomy-row">
+      <div class="anatomy-label" style="background:#636e72;">role: system</div>
+      <div class="anatomy-content">"#火山车载助手Volcano。"</div>
+      <div class="anatomy-note">系统指令，定义模型身份</div>
+    </div>
+    <div class="anatomy-row">
+      <div class="anatomy-label" style="background:#0984e3;">role: user</div>
+      <div class="anatomy-content">"我好困呀"</div>
+      <div class="anatomy-note">用户输入，模拟真实用户说的话</div>
+    </div>
+    <div class="anatomy-row">
+      <div class="anatomy-label" style="background:#27ae60;">role: assistant<br>(纯文字)</div>
+      <div class="anatomy-content">"好呀，我来帮你操作一下"<br>loss_weight: 1</div>
+      <div class="anatomy-note">模型的文字回复<br><strong>loss_weight=1 表示这条要被学习</strong></div>
+    </div>
+    <div class="anatomy-row">
+      <div class="anatomy-label" style="background:#e17055;">role: assistant<br>(tool_calls)</div>
+      <div class="anatomy-content">content: ""<br>tool_calls: [{function: {name: "vehicleAgent", arguments: ...}}]<br>loss_weight: 1</div>
+      <div class="anatomy-note">模型的工具调用输出<br><strong>这就是 Function Call 的核心</strong></div>
+    </div>
+    <div class="anatomy-row">
+      <div class="anatomy-label" style="background:#fdcb6e; color:#2d3436;">role: tool</div>
+      <div class="anatomy-content">"休憩模式已经打开了"</div>
+      <div class="anatomy-note">工具执行返回结果<br>训练时写死，推理时由真实工具返回</div>
+    </div>
+  </div>
+
+  <h3>4.3 关键字段：loss_weight</h3>
+
+  <div class="box-green">
+    <div class="box-label">loss_weight 是什么？</div>
+    <p><strong>loss_weight = 1</strong> 的行 → 模型需要学习"在这个上下文中应该输出这段内容"，会计入训练损失函数。</p>
+    <p><strong>没有 loss_weight</strong> 的行（比如 role:user 和 role:tool）→ 只作为上下文输入，模型不需要学习如何生成这些内容。</p>
+    <p style="margin-top:12px;"><strong>类比：</strong>一道数学应用题，"题目"和"已知条件"不需要学生写出来（loss_weight 缺失），但"解题步骤"和"答案"是学生必须学会的（loss_weight=1）。</p>
+  </div>
+</div>
+
+<!-- ========== S5: 真实数据样例 ========== -->
+<div class="section">
+  <h2>五、真实训练数据样例 — 两种任务模式</h2>
+
+  <h3>5.1 并行任务："我好困呀"</h3>
+
+  <div class="tag-row">
+    <span class="tag blue">并行执行</span>
+    <span class="tag green">3个工具同时调用</span>
+    <span class="tag purple">单步复杂任务</span>
+  </div>
+
+  <p>这个案例教模型：在查到车况后，<strong>一次性输出多个不依赖彼此的工具调用</strong>（并行执行）。</p>
+
+  <div style="overflow-x:auto;">
+  <div style="display:flex; gap:0; min-width:800px; margin:20px 0;">
+
+    <!-- 第一列：对话流 -->
+    <div style="flex:1; padding:12px;">
+      <div style="background:#636e72; color:#fff; padding:8px 14px; border-radius:8px 8px 0 0; font-size:12px; font-weight:700;">对话流程</div>
+
+      <div style="background:#e3f2fd; padding:10px 14px; font-size:13px; border-left:3px solid #0984e3;">
+        <strong>① system</strong><br>"#火山车载助手Volcano。"
+      </div>
+      <div style="background:#dfe6e9; padding:10px 14px; font-size:13px; border-left:3px solid #0984e3;">
+        <strong>② user</strong><br>"我好困呀"
+      </div>
+      <div style="background:#d5f5e3; padding:10px 14px; font-size:13px; border-left:3px solid #27ae60;">
+        <strong>③ assistant</strong> <span class="tag green" style="font-size:10px">loss=1</span><br>
+        "好呀，我来帮你操作一下"
+      </div>
+      <div style="background:#fce4ec; padding:10px 14px; font-size:13px; border-left:3px solid #e17055;">
+        <strong>④ assistant → tool_call</strong> <span class="tag orange" style="font-size:10px">loss=1</span><br>
+        调用：<code>get_extra_info(need_env=true)</code>
+      </div>
+      <div style="background:#fff9c4; padding:10px 14px; font-size:13px; border-left:3px solid #f39c12;">
+        <strong>⑤ tool 返回</strong><br>
+        "车速:0km/h | 车窗:开 | 空调:关"
+      </div>
+      <div style="background:#fce4ec; padding:10px 14px; font-size:13px; border-left:3px solid #e17055;">
+        <strong>⑥ assistant → tool_calls ×3</strong> <span class="tag orange" style="font-size:10px">loss=1</span><br>
+        调用1：<code>vehicleAgent("打开休憩模式")</code><br>
+        调用2：<code>vehicleAgent("关闭车窗")</code><br>
+        调用3：<code>vehicleAgent("打开空调")</code>
+      </div>
+      <div style="background:#fff9c4; padding:10px 14px; font-size:13px; border-left:3px solid #f39c12;">
+        <strong>⑦ tool 返回 ×3</strong><br>
+        "休憩模式已打开" / "车窗关了" / "空调打开了"
+      </div>
+      <div style="background:#d5f5e3; padding:10px 14px; font-size:13px; border-left:3px solid #27ae60; border-radius:0 0 8px 8px;">
+        <strong>⑧ assistant</strong> <span class="tag green" style="font-size:10px">loss=1</span><br>
+        "休憩模式、车窗、空调都调好了"
+      </div>
+    </div>
+
+    <!-- 第二列：解读 -->
+    <div style="flex:1; padding:12px;">
+      <div style="background:#636e72; color:#fff; padding:8px 14px; border-radius:8px 8px 0 0; font-size:12px; font-weight:700;">模型要学到什么</div>
+
+      <div style="background:#fafafa; padding:10px 14px; font-size:13px; border:1px solid #e0e0e0; height:48px;"></div>
+      <div style="background:#fafafa; padding:10px 14px; font-size:13px; border:1px solid #e0e0e0; height:48px;">
+        <em>用户说了模糊的需求</em>
+      </div>
+      <div style="background:#fafafa; padding:10px 14px; font-size:13px; border:1px solid #e0e0e0;">
+        <strong>学习点1：</strong>先回应用户（不要闷头做事）
+      </div>
+      <div style="background:#fafafa; padding:10px 14px; font-size:13px; border:1px solid #e0e0e0;">
+        <strong>学习点2：</strong>遇到模糊需求先查车况，而不是直接猜
+      </div>
+      <div style="background:#fafafa; padding:10px 14px; font-size:13px; border:1px solid #e0e0e0;">
+        <em>这是环境信息，模型不需要生成</em>
+      </div>
+      <div style="background:#fafafa; padding:10px 14px; font-size:13px; border:1px solid #e0e0e0;">
+        <strong>学习点3：</strong>根据车况决定做什么<br>
+        <strong>学习点4：</strong>三个操作互不依赖，<strong>并行输出</strong>
+      </div>
+      <div style="background:#fafafa; padding:10px 14px; font-size:13px; border:1px solid #e0e0e0;">
+        <em>这是工具返回，模型不需要生成</em>
+      </div>
+      <div style="background:#fafafa; padding:10px 14px; font-size:13px; border:1px solid #e0e0e0; border-radius:0 0 8px 8px;">
+        <strong>学习点5：</strong>工具都执行完后，简短总结告知用户
+      </div>
+    </div>
+  </div>
+  </div>
+
+  <h3>5.2 串行任务："做北京出行规划，好的话记录成待办"</h3>
+
+  <div class="tag-row">
+    <span class="tag blue">串行依赖</span>
+    <span class="tag orange">先做完A才能做B</span>
+    <span class="tag purple">多步任务</span>
+  </div>
+
+  <p>这个案例教模型：当后续步骤<strong>依赖前一步的结果</strong>时，<strong>不要一次性全输出</strong>，要等结果回来再决定下一步。</p>
+
+  <div style="overflow-x:auto;">
+  <div style="display:flex; gap:0; min-width:800px; margin:20px 0;">
+
+    <div style="flex:1; padding:12px;">
+      <div style="background:#636e72; color:#fff; padding:8px 14px; border-radius:8px 8px 0 0; font-size:12px; font-weight:700;">对话流程</div>
+
+      <div style="background:#dfe6e9; padding:10px 14px; font-size:13px; border-left:3px solid #0984e3;">
+        <strong>① user</strong><br>
+        "做一个北京的出行规划，有好的结果帮我记录成待办"
+      </div>
+      <div style="background:#d5f5e3; padding:10px 14px; font-size:13px; border-left:3px solid #27ae60;">
+        <strong>② assistant</strong> <span class="tag green" style="font-size:10px">loss=1</span><br>
+        "别急，这就帮你做个北京的出行规划"
+      </div>
+      <div style="background:#fce4ec; padding:10px 14px; font-size:13px; border-left:3px solid #e17055;">
+        <strong>③ assistant → tool_call</strong> <span class="tag orange" style="font-size:10px">loss=1</span><br>
+        调用：<code>travel_agent("做一个北京的出行规划")</code><br>
+        <strong style="color:#e17055;">⚠️ 注意：只调了一个工具！没有同时调 task_agent</strong>
+      </div>
+      <div style="background:#fff9c4; padding:10px 14px; font-size:13px; border-left:3px solid #f39c12;">
+        <strong>④ tool 返回</strong><br>
+        "北京的行程规划xxxxx"
+      </div>
+      <div style="background:#d5f5e3; padding:10px 14px; font-size:13px; border-left:3px solid #27ae60; border-radius:0 0 8px 8px;">
+        <strong>⑤ assistant</strong> <span class="tag green" style="font-size:10px">loss=1</span><br>
+        "搞定啦"
+      </div>
+    </div>
+
+    <div style="flex:1; padding:12px;">
+      <div style="background:#636e72; color:#fff; padding:8px 14px; border-radius:8px 8px 0 0; font-size:12px; font-weight:700;">模型要学到什么</div>
+
+      <div style="background:#fafafa; padding:10px 14px; font-size:13px; border:1px solid #e0e0e0;">
+        <em>用户说了两件事：① 做规划 ② 好的话记成待办</em><br>
+        <em>第②件事依赖第①件事的结果</em>
+      </div>
+      <div style="background:#fafafa; padding:10px 14px; font-size:13px; border:1px solid #e0e0e0;">
+        <strong>学习点1：</strong>先回应，让用户知道在处理
+      </div>
+      <div style="background:#fafafa; padding:10px 14px; font-size:13px; border:1px solid #e0e0e0;">
+        <strong>学习点2（关键）：</strong>虽然用户说了两件事，但<strong>只先调 travel_agent</strong>。<br>
+        因为不知道规划结果好不好，不能直接记待办。<br>
+        <strong>这就是"有串行依赖不一次性输出多个"</strong>
+      </div>
+      <div style="background:#fafafa; padding:10px 14px; font-size:13px; border:1px solid #e0e0e0;">
+        <em>规划结果回来了，模型可以判断是否要记待办</em>
+      </div>
+      <div style="background:#fafafa; padding:10px 14px; font-size:13px; border:1px solid #e0e0e0; border-radius:0 0 8px 8px;">
+        <strong>学习点3：</strong>根据返回结果决定下一步<br>
+        （源数据此处省略了后续的 task_agent 调用）
+      </div>
+    </div>
+  </div>
+  </div>
+
+  <h3>5.3 并行 vs 串行 的核心区别</h3>
+
+  <div class="compare-grid">
+    <div class="compare-card new">
+      <div class="tag">并行：一次输出多个 tool_calls</div>
+      <p><strong>"我好困呀"</strong></p>
+      <p>查完车况后 → 同时调3个工具：开休憩+关窗+开空调</p>
+      <p>因为这3个操作<strong>互不依赖</strong>，谁先完成都行</p>
+      <p style="margin-top:8px;"><code>tool_calls: [{开休憩}, {关窗}, {开空调}]</code></p>
+    </div>
+    <div class="compare-card old" style="background:#fff3e0; border-color:#ffcc80;">
+      <div class="tag" style="color:#e17055;">串行：每次只输出一个 tool_call</div>
+      <p><strong>"做规划+好的话记待办"</strong></p>
+      <p>先调 travel_agent → 等结果 → 看结果好不好 → 才决定是否调 task_agent</p>
+      <p>因为第2步<strong>依赖第1步的结果</strong></p>
+      <p style="margin-top:8px;"><code>第1轮 tool_calls: [{规划}]</code><br><code>第2轮 tool_calls: [{记待办}]</code></p>
+    </div>
+  </div>
+</div>
+
+<!-- ========== S6: tools 定义 ========== -->
+<div class="section">
+  <h2>六、Tools 定义 — 模型的"工具箱说明书"</h2>
+
+  <p>训练数据中的 <code>tools</code> 字段告诉模型有哪些工具可用。每个工具包含三个信息：</p>
+
+  <div class="anatomy">
+    <div class="anatomy-row">
+      <div class="anatomy-label" style="background:#0984e3;">name</div>
+      <div class="anatomy-content">工具名称，如 "vehicleAgent"</div>
+      <div class="anatomy-note">模型在 tool_calls 中引用这个名称</div>
+    </div>
+    <div class="anatomy-row">
+      <div class="anatomy-label" style="background:#6c5ce7;">description</div>
+      <div class="anatomy-content">工具描述，如 "车控agent"</div>
+      <div class="anatomy-note">帮模型判断什么时候该用这个工具</div>
+    </div>
+    <div class="anatomy-row">
+      <div class="anatomy-label" style="background:#27ae60;">parameters</div>
+      <div class="anatomy-content">参数定义：{type, properties, required}</div>
+      <div class="anatomy-note">规定模型传什么参数、格式是什么</div>
+    </div>
+  </div>
+
+  <h3>训练阶段使用的工具集</h3>
+
+  <table>
+    <tr><th>阶段</th><th>工具</th><th>覆盖范围</th></tr>
+    <tr>
+      <td rowspan="3"><strong>第一阶段</strong><br><span class="tag blue">5个典型Agent</span></td>
+      <td>get_extra_info</td><td>记忆或环境信息查询</td>
+    </tr>
+    <tr><td>vehicleAgent</td><td>车辆控制</td></tr>
+    <tr><td>travel_agent / task_agent / ...</td><td>出行、定时任务等</td></tr>
+    <tr>
+      <td><strong>第二阶段</strong><br><span class="tag purple">全覆盖</span></td>
+      <td colspan="2">量产版本全部 Agent + 座舱大模型所需全部工具（23个下游工具 + 4个内部工具）</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ========== S7: 两阶段目标 ========== -->
+<div class="section">
+  <h2>七、两阶段训练目标</h2>
+
+  <div class="compare-grid">
+    <div class="compare-card" style="background:#e3f2fd; border:1px solid #90caf9;">
+      <div class="tag" style="color:#0984e3;">第一阶段 — 跑通全流程</div>
+      <p><strong>目标：</strong></p>
+      <p>• 确定座舱典型 Agent（5个）+ 典型工具（plan_describe, search_info 等）</p>
+      <p>• 搭建数据蒸馏管线，从强基模蒸馏数据，保证数据质量</p>
+      <p>• 外部车企真实线上数据收集</p>
+      <p>• 走通"数据生成 → 模型训练 → 评测迭代"全流程</p>
+      <p style="margin-top:8px;"><strong>交付物：</strong>可跑通的 Planner 模型 + 迭代管线</p>
+    </div>
+    <div class="compare-card" style="background:#e8f5e9; border:1px solid #a5d6a7;">
+      <div class="tag" style="color:#2e7d32;">第二阶段 — 量产上线</div>
+      <p><strong>目标：</strong></p>
+      <p>• 确定量产版本 Agent 全覆盖 + 座舱大模型所需全部工具</p>
+      <p>• 训练可量产上线的 Planner 模型</p>
+      <p>• 模型提优、量化、压缩（适配车载芯片算力限制）</p>
+      <p style="margin-top:8px;"><strong>交付物：</strong>可部署到车端/云端的生产级 Planner 模型</p>
+    </div>
+  </div>
+</div>
+
+<!-- ========== S8: 为什么选FC ========== -->
+<div class="section">
+  <h2>八、为什么选 Function Call 模式而不是纯文本模式</h2>
+
+  <p>文档中明确写了<strong>"Function call 模式（选用该方案）"</strong>。两种模式的对比：</p>
+
+  <div class="compare-grid">
+    <div class="compare-card old">
+      <div class="tag">❌ 纯文本模式</div>
+      <p><strong>模型输出：</strong></p>
+      <p><code>"请帮用户打开休憩模式，同时关闭车窗，并且打开空调"</code></p>
+      <p style="margin-top:10px;"><strong>问题：</strong></p>
+      <p>① 还需要额外的解析器翻译成指令</p>
+      <p>② 格式不稳定，可能漏参数、错格式</p>
+      <p>③ 幻觉风险大（可能说出不存在的功能）</p>
+      <p>④ 不确定调的是哪个工具</p>
+    </div>
+    <div class="compare-card new">
+      <div class="tag">✅ Function Call 模式</div>
+      <p><strong>模型输出：</strong></p>
+      <p><code>tool_calls: [</code></p>
+      <p><code>&nbsp;&nbsp;{name: "vehicleAgent", args: {query: "打开休憩模式"}},</code></p>
+      <p><code>&nbsp;&nbsp;{name: "vehicleAgent", args: {query: "关闭车窗"}},</code></p>
+      <p><code>&nbsp;&nbsp;{name: "vehicleAgent", args: {query: "打开空调"}}</code></p>
+      <p><code>]</code></p>
+      <p style="margin-top:10px;"><strong>优势：</strong></p>
+      <p>① 直接解析 JSON 执行，无需二次翻译</p>
+      <p>② 工具名、参数都是预定义的，格式严格</p>
+      <p>③ 可并行调用，语义清晰</p>
+      <p>④ 可验证、可审计、可回放</p>
+    </div>
+  </div>
+</div>
+
+<!-- ========== S9: 完整知识图谱 ========== -->
+<div class="section">
+  <h2>九、完整知识图谱 — 所有概念的关系</h2>
+
+  <div style="background:#fafafa; border-radius:16px; padding:30px; margin:20px 0; overflow-x:auto;">
+    <div style="min-width:700px;">
+    <pre style="font-family:'SF Mono',monospace; font-size:13px; line-height:2; color:#2d3436;">
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        训练数据生成（蒸馏管线）                           │
+│                                                                         │
+│  产品场景集                     Kimi K2（强模型/教师模型）                 │
+│  "我好困" "带我兜风"  ────→    生成标准的 Function Call 序列               │
+│  "营造浪漫氛围" ...              ├── 并行任务样例                         │
+│                                  └── 串行任务样例                         │
+│                                         │                                │
+│                                         ▼                                │
+│                               GPT-4o 质量打分                            │
+│                               ✅ → 训练集   ❌ → 丢弃                    │
+└──────────────────────────────────┬──────────────────────────────────────┘
+                                   │
+                                   ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                              模型训练                                    │
+│                                                                         │
+│  训练数据格式（Function Call 模式）：                                     │
+│  ┌───────────────────────────────────────────────────────────┐          │
+│  │ messages:                                                  │          │
+│  │   system → user → assistant(文字) → assistant(tool_calls)  │          │
+│  │   → tool(返回) → assistant(tool_calls) → tool → assistant  │          │
+│  │                                                            │          │
+│  │ tools: [{name, description, parameters}, ...]              │          │
+│  └───────────────────────────────────────────────────────────┘          │
+│                                                                         │
+│  训练方法：                                                              │
+│  ┌──────────┐     ┌──────────┐                                          │
+│  │   SFT    │ ──→ │   RL     │                                          │
+│  │ 监督微调  │     │ 强化学习  │                                          │
+│  │ "学标准答 │     │ "学举一反 │                                          │
+│  │  案"     │     │  三"     │                                          │
+│  └──────────┘     └──────────┘                                          │
+│       │                                                                  │
+│       ▼                                                                  │
+│  Doubao-Seed-1.6 / 1.8 微调模型                                          │
+└──────────────────────────────────┬──────────────────────────────────────┘
+                                   │
+                                   ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                            评测与迭代                                    │
+│                                                                         │
+│  微调模型预测开发集 → Kimi K2 打分                                       │
+│                                                                         │
+│  ✅ 达标 → 进入部署（量化/压缩/上线）                                     │
+│  ❌ 不达标 → 分析 bad case → 泛化更多数据 → 回到训练数据生成              │
+│                                                                         │
+│              ╭─────── 迭代闭环 ───────╮                                  │
+│              │  训练 → 评测 → 补数据   │                                  │
+│              ╰────────────────────────╯                                  │
+└─────────────────────────────────────────────────────────────────────────┘
+                                   │
+                                   ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                              部署运行                                    │
+│                                                                         │
+│  云端 Planner（Seed 1.8）          端侧离线 FC 模型                      │
+│  ├── 接收 SP + UP                  ├── 白名单匹配（50ms）                │
+│  ├── 输出 Function Call            ├── 离线 FC 解析（200ms）             │
+│  ├── 调用23个下游工具              └── 拒识模块                          │
+│  └── 处理 tool_feedback                                                 │
+└─────────────────────────────────────────────────────────────────────────┘
+    </pre>
+    </div>
+  </div>
+</div>
+
+<!-- ========== S10: 总结 ========== -->
+<div class="section">
+  <h2>十、一页纸总结</h2>
+
+  <table>
+    <tr><th>问题</th><th>答案</th></tr>
+    <tr><td>为什么要训练？</td><td>纯靠 SP 提示词，模型不调工具、流程跑偏、拆解不稳定</td></tr>
+    <tr><td>训练数据从哪来？</td><td>Kimi K2（强模型）蒸馏生成 → GPT-4o 打分筛选</td></tr>
+    <tr><td>数据格式是什么？</td><td>Function Call 模式：messages（对话流）+ tools（工具定义）</td></tr>
+    <tr><td>模型学什么？</td><td>loss_weight=1 的 assistant 行：什么时候说话、调哪个工具、传什么参数</td></tr>
+    <tr><td>怎么教并行任务？</td><td>一条 assistant 里放多个 tool_calls，模型学会同时调多个不依赖的工具</td></tr>
+    <tr><td>怎么教串行任务？</td><td>每轮只输出一个 tool_call，等结果回来再决定下一步</td></tr>
+    <tr><td>训练方法是什么？</td><td>SFT（学标准答案）+ RL（学举一反三）</td></tr>
+    <tr><td>怎么评测？</td><td>Kimi K2 给微调模型的输出打分</td></tr>
+    <tr><td>不达标怎么办？</td><td>分析 bad case → 泛化更多数据 → 重新训练 → 闭环迭代</td></tr>
+    <tr><td>为什么选 FC 模式？</td><td>输出结构化工具调用，可直接解析执行，比纯文本格式稳定可靠</td></tr>
+  </table>
+</div>
+
+<!-- Footer -->
+<div style="text-align:center; padding:40px 0 20px; color:#999; font-size:13px;">
+  <p>Planner 模型训练全流程详解 — Function Call 模式</p>
+  <p>基于：座舱 Planner OnePage 训练方案章节</p>
+  <p>生成时间：2026-05-21</p>
+</div>
+
+</div>
+</body>
+</html>

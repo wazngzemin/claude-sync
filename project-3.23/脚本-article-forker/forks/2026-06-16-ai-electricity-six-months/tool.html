@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 电力成熟度诊断 — 撞墙·分区·重排</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0f1117;--surface:#1a1d27;--surface2:#232733;--surface3:#2c3040;
+  --border:#333850;--border-active:#5b6abf;
+  --text:#e2e4eb;--text2:#9ea3b5;--text3:#6b7089;
+  --accent:#7c8cf5;--accent2:#5b6abf;--accent-glow:rgba(124,140,245,.15);
+  --green:#4ade80;--green-bg:rgba(74,222,128,.1);
+  --yellow:#fbbf24;--yellow-bg:rgba(251,191,36,.1);
+  --red:#f87171;--red-bg:rgba(248,113,113,.1);
+  --orange:#fb923c;--orange-bg:rgba(251,146,60,.1);
+  --blue:#60a5fa;--blue-bg:rgba(96,165,250,.1);
+  --radius:8px;--radius-lg:12px;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;min-height:100vh;display:flex}
+a{color:var(--accent);text-decoration:none}
+
+/* NAV */
+.nav{width:220px;min-height:100vh;background:var(--surface);border-right:1px solid var(--border);position:fixed;top:0;left:0;overflow-y:auto;z-index:100;padding:20px 0}
+.nav h2{font-size:14px;color:var(--accent);padding:0 16px;margin-bottom:12px;letter-spacing:.5px}
+.nav-item{display:block;padding:8px 16px;font-size:13px;color:var(--text2);cursor:pointer;transition:all .15s;border-left:3px solid transparent}
+.nav-item:hover{color:var(--text);background:var(--surface2)}
+.nav-item.active{color:var(--accent);border-left-color:var(--accent);background:var(--accent-glow)}
+.nav-badge{display:inline-block;font-size:10px;padding:1px 6px;border-radius:10px;margin-left:4px;background:var(--surface3);color:var(--text3)}
+.nav-badge.done{background:var(--green-bg);color:var(--green)}
+.nav-divider{height:1px;background:var(--border);margin:12px 16px}
+
+/* MAIN */
+.main{margin-left:220px;flex:1;max-width:860px;padding:32px 40px 80px}
+.section{display:none}
+.section.active{display:block}
+h1{font-size:24px;font-weight:700;margin-bottom:8px}
+h1 span{color:var(--accent)}
+.subtitle{color:var(--text2);font-size:14px;margin-bottom:32px}
+h2{font-size:18px;font-weight:600;margin:28px 0 12px;color:var(--text)}
+h3{font-size:15px;font-weight:600;margin:20px 0 8px;color:var(--text)}
+p,.desc{color:var(--text2);font-size:14px;margin-bottom:12px}
+
+/* PROGRESS */
+.progress-bar{width:100%;height:6px;background:var(--surface3);border-radius:3px;margin:16px 0 24px;overflow:hidden}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--green));border-radius:3px;transition:width .4s ease}
+
+/* CARDS */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;margin-bottom:16px;transition:border-color .2s}
+.card:hover{border-color:var(--border-active)}
+.card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.card-title{font-size:15px;font-weight:600}
+.card-tag{font-size:11px;padding:2px 8px;border-radius:10px}
+
+/* DIAGNOSTIC */
+.q-group{margin-bottom:24px}
+.q-label{font-size:14px;font-weight:500;margin-bottom:10px;color:var(--text)}
+.q-num{color:var(--accent);margin-right:6px}
+.options{display:flex;flex-direction:column;gap:6px}
+.opt{display:flex;align-items:flex-start;gap:10px;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:all .15s;font-size:13px;color:var(--text2)}
+.opt:hover{border-color:var(--accent);color:var(--text)}
+.opt.selected{border-color:var(--accent);background:var(--accent-glow);color:var(--text)}
+.opt input{display:none}
+.opt-dot{width:16px;height:16px;border-radius:50%;border:2px solid var(--border);flex-shrink:0;margin-top:1px;transition:all .15s;position:relative}
+.opt.selected .opt-dot{border-color:var(--accent);background:var(--accent)}
+.opt.selected .opt-dot::after{content:'';position:absolute;width:6px;height:6px;background:#fff;border-radius:50%;top:50%;left:50%;transform:translate(-50%,-50%)}
+.opt-score{font-size:11px;color:var(--text3);margin-left:auto;flex-shrink:0}
+
+/* RESULTS */
+.score-ring{width:120px;height:120px;margin:0 auto 16px}
+.score-ring svg{width:100%;height:100%}
+.score-label{text-anchor:middle;font-size:28px;font-weight:700;fill:var(--text)}
+.score-sub{text-anchor:middle;font-size:11px;fill:var(--text3)}
+.dim-bar{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.dim-name{width:100px;font-size:13px;color:var(--text2);flex-shrink:0}
+.dim-track{flex:1;height:8px;background:var(--surface3);border-radius:4px;overflow:hidden}
+.dim-fill{height:100%;border-radius:4px;transition:width .5s ease}
+.dim-val{width:40px;font-size:13px;color:var(--text2);text-align:right;flex-shrink:0}
+
+/* WORKSHEET */
+.ws-row{display:grid;grid-template-columns:1fr 120px 120px;gap:8px;margin-bottom:6px;align-items:center}
+.ws-header{font-size:12px;color:var(--text3);font-weight:600;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.ws-input{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;color:var(--text);font-size:13px;width:100%}
+.ws-input:focus{outline:none;border-color:var(--accent)}
+.ws-select{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;color:var(--text);font-size:13px;width:100%;appearance:none;cursor:pointer}
+
+/* PROMPT COPY */
+.prompt-box{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin:12px 0;position:relative;font-size:13px;color:var(--text2);white-space:pre-wrap;line-height:1.7}
+.copy-btn{position:absolute;top:8px;right:8px;background:var(--surface3);border:1px solid var(--border);color:var(--text2);padding:4px 10px;border-radius:var(--radius);font-size:11px;cursor:pointer;transition:all .15s}
+.copy-btn:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+.copy-btn.copied{background:var(--green);color:#000;border-color:var(--green)}
+
+/* TABLE */
+.tbl{width:100%;border-collapse:collapse;font-size:13px;margin:12px 0}
+.tbl th{text-align:left;padding:8px 10px;background:var(--surface2);color:var(--text2);font-weight:600;border-bottom:1px solid var(--border)}
+.tbl td{padding:8px 10px;border-bottom:1px solid var(--border);color:var(--text2)}
+
+/* SVG DIAGRAM */
+.diagram-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;margin:16px 0;overflow-x:auto}
+.diagram-wrap svg{display:block;margin:0 auto}
+
+/* INSIGHTS */
+.insight{padding:12px 16px;border-left:3px solid var(--accent);background:var(--accent-glow);border-radius:0 var(--radius) var(--radius) 0;margin:12px 0;font-size:13px;color:var(--text2)}
+.insight strong{color:var(--text)}
+
+/* ACTIONS */
+.action-item{display:flex;gap:10px;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px;font-size:13px;align-items:flex-start}
+.action-icon{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:11px;margin-top:1px}
+.action-icon.urgent{background:var(--red-bg);color:var(--red)}
+.action-icon.important{background:var(--yellow-bg);color:var(--yellow)}
+.action-icon.explore{background:var(--blue-bg);color:var(--blue)}
+
+/* BUTTONS */
+.btn{padding:8px 20px;border-radius:var(--radius);font-size:13px;font-weight:500;cursor:pointer;border:1px solid;transition:all .15s}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-primary:hover{background:var(--accent2)}
+.btn-outline{background:transparent;color:var(--accent);border-color:var(--border)}
+.btn-outline:hover{border-color:var(--accent)}
+.btn-group{display:flex;gap:8px;margin-top:16px}
+
+/* CHECKLIST */
+.check-item{display:flex;gap:10px;padding:8px 0;font-size:13px;align-items:flex-start;color:var(--text2)}
+.check-box{width:18px;height:18px;border:2px solid var(--border);border-radius:4px;flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;margin-top:1px}
+.check-box.checked{background:var(--accent);border-color:var(--accent)}
+.check-box.checked::after{content:'✓';color:#fff;font-size:11px;font-weight:700}
+.check-item.checked-item{color:var(--text3);text-decoration:line-through}
+
+/* RESPONSIVE */
+@media(max-width:768px){
+  .nav{width:180px}
+  .main{margin-left:180px;padding:24px 20px 60px}
+  .ws-row{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <h2>AI 电力诊断</h2>
+  <div class="nav-item active" data-section="overview">概览</div>
+  <div class="nav-item" data-section="diagnostic">成熟度诊断 <span class="nav-badge" id="badge-diag">0/6</span></div>
+  <div class="nav-item" data-section="results">诊断结果</div>
+  <div class="nav-divider"></div>
+  <div class="nav-item" data-section="freewall">撞墙地图</div>
+  <div class="nav-item" data-section="freeclaw">分区策略</div>
+  <div class="nav-item" data-section="oneperson">一人公司实验</div>
+  <div class="nav-item" data-section="tokenaudit">Token 记账</div>
+  <div class="nav-divider"></div>
+  <div class="nav-item" data-section="prompts">Prompt 模板</div>
+  <div class="nav-item" data-section="checklist">周检查清单</div>
+</nav>
+
+<main class="main">
+
+<!-- OVERVIEW -->
+<div class="section active" id="sec-overview">
+  <h1>AI <span>电力成熟度</span>诊断</h1>
+  <p class="subtitle">基于 Pedro Franceschi (Brex CEO) 在 YC Lightcone 的框架，映射到你的产品/Agent PM 场景</p>
+
+  <div class="diagram-wrap">
+    <svg width="760" height="200" viewBox="0 0 760 200">
+      <defs>
+        <marker id="arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#7c8cf5"/></marker>
+        <linearGradient id="gflow" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#7c8cf5" stop-opacity="0.3"/>
+          <stop offset="100%" stop-color="#4ade80" stop-opacity="0.3"/>
+        </linearGradient>
+      </defs>
+      <rect x="0" y="50" width="760" height="100" rx="12" fill="url(#gflow)" stroke="#333850" stroke-width="1"/>
+      <!-- Nodes -->
+      <rect x="20" y="70" width="110" height="60" rx="8" fill="#1a1d27" stroke="#f87171" stroke-width="1.5"/>
+      <text x="75" y="96" text-anchor="middle" fill="#f87171" font-size="12" font-weight="600">点蜡烛</text>
+      <text x="75" y="114" text-anchor="middle" fill="#6b7089" font-size="10">没用过/偶尔问</text>
+
+      <line x1="135" y1="100" x2="165" y2="100" stroke="#7c8cf5" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+      <rect x="170" y="70" width="110" height="60" rx="8" fill="#1a1d27" stroke="#fb923c" stroke-width="1.5"/>
+      <text x="225" y="96" text-anchor="middle" fill="#fb923c" font-size="12" font-weight="600">装电灯</text>
+      <text x="225" y="114" text-anchor="middle" fill="#6b7089" font-size="10">单点工具使用</text>
+
+      <line x1="285" y1="100" x2="315" y2="100" stroke="#7c8cf5" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+      <rect x="320" y="70" width="110" height="60" rx="8" fill="#1a1d27" stroke="#fbbf24" stroke-width="1.5"/>
+      <text x="375" y="96" text-anchor="middle" fill="#fbbf24" font-size="12" font-weight="600">通电网</text>
+      <text x="375" y="114" text-anchor="middle" fill="#6b7089" font-size="10">工作流级嵌入</text>
+
+      <line x1="435" y1="100" x2="465" y2="100" stroke="#7c8cf5" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+      <rect x="470" y="70" width="110" height="60" rx="8" fill="#1a1d27" stroke="#60a5fa" stroke-width="1.5"/>
+      <text x="525" y="96" text-anchor="middle" fill="#60a5fa" font-size="12" font-weight="600">建电厂</text>
+      <text x="525" y="114" text-anchor="middle" fill="#6b7089" font-size="10">组织级重排</text>
+
+      <line x1="585" y1="100" x2="615" y2="100" stroke="#7c8cf5" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+      <rect x="620" y="70" width="120" height="60" rx="8" fill="#1a1d27" stroke="#4ade80" stroke-width="1.5"/>
+      <text x="680" y="96" text-anchor="middle" fill="#4ade80" font-size="12" font-weight="600">电力文明</text>
+      <text x="680" y="114" text-anchor="middle" fill="#6b7089" font-size="10">世界模型+持续迭代</text>
+
+      <text x="380" y="180" text-anchor="middle" fill="#6b7089" font-size="11">Pedro：地球 84% 的人还在第一格，月付 $20 的只有 0.3%，用 Agent 的约万分之四</text>
+    </svg>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">这个工具做什么</div>
+    </div>
+    <p>从 Pedro 的6个维度诊断你当前的 AI 融入深度，生成个性化的行动建议：</p>
+    <table class="tbl">
+      <tr><th>维度</th><th>Pedro 的原则</th><th>你的映射</th></tr>
+      <tr><td>时间感</td><td>电才发明6个月</td><td>你对技术变化的响应速度</td></tr>
+      <tr><td>管控度</td><td>Free the Claw</td><td>SP/围栏的约束强度</td></tr>
+      <tr><td>角色认知</td><td>CEO = 首席AI官</td><td>PM 是否亲自掌握模型边界</td></tr>
+      <tr><td>撞墙深度</td><td>先烧token找边界</td><td>Badcase 分诊的系统性</td></tr>
+      <tr><td>分工清晰度</td><td>一人公司实验</td><td>人/模型职责的边界清晰度</td></tr>
+      <tr><td>成本意识</td><td>Token ROI记账</td><td>SP token 预算管理</td></tr>
+    </table>
+    <div class="btn-group">
+      <button class="btn btn-primary" onclick="goSection('diagnostic')">开始诊断</button>
+    </div>
+  </div>
+</div>
+
+<!-- DIAGNOSTIC -->
+<div class="section" id="sec-diagnostic">
+  <h1>成熟度<span>诊断</span></h1>
+  <p class="subtitle">6个维度，每个选最符合你当前状态的选项</p>
+  <div class="progress-bar"><div class="progress-fill" id="diag-progress" style="width:0%"></div></div>
+
+  <div id="questions"></div>
+
+  <div class="btn-group">
+    <button class="btn btn-primary" id="btn-results" onclick="goSection('results')" style="display:none">查看诊断结果</button>
+  </div>
+</div>
+
+<!-- RESULTS -->
+<div class="section" id="sec-results">
+  <h1>诊断<span>结果</span></h1>
+  <p class="subtitle" id="result-stage"></p>
+
+  <div style="display:flex;gap:32px;align-items:flex-start;margin:20px 0">
+    <div class="score-ring">
+      <svg viewBox="0 0 120 120">
+        <circle cx="60" cy="60" r="52" fill="none" stroke="#232733" stroke-width="8"/>
+        <circle cx="60" cy="60" r="52" fill="none" stroke-width="8" stroke-linecap="round" id="score-circle"
+          stroke-dasharray="327" stroke-dashoffset="327" transform="rotate(-90 60 60)"/>
+        <text x="60" y="56" class="score-label" id="score-num">0</text>
+        <text x="60" y="72" class="score-sub">/ 30</text>
+      </svg>
+    </div>
+    <div style="flex:1" id="dim-bars"></div>
+  </div>
+
+  <div id="result-insights"></div>
+
+  <h2>个性化行动建议</h2>
+  <div id="result-actions"></div>
+
+  <div class="btn-group">
+    <button class="btn btn-outline" onclick="goSection('diagnostic')">重新诊断</button>
+    <button class="btn btn-primary" onclick="goSection('freewall')">进入工作坊</button>
+  </div>
+</div>
+
+<!-- WALL MAP -->
+<div class="section" id="sec-freewall">
+  <h1>撞墙<span>地图</span></h1>
+  <p class="subtitle">记录你撞过的墙。Pedro：只有亲手撞过墙，才知道哪部分能自动化，哪部分仍只能靠人判断。</p>
+
+  <div class="diagram-wrap">
+    <svg width="700" height="160" viewBox="0 0 700 160">
+      <rect x="10" y="20" width="160" height="50" rx="6" fill="#1a1d27" stroke="#f87171" stroke-width="1"/>
+      <text x="90" y="42" text-anchor="middle" fill="#f87171" font-size="11" font-weight="600">链路问题</text>
+      <text x="90" y="57" text-anchor="middle" fill="#6b7089" font-size="9">走错模块/分流错误</text>
+
+      <line x1="175" y1="45" x2="195" y2="45" stroke="#7c8cf5" stroke-width="1" marker-end="url(#arrow)"/>
+
+      <rect x="200" y="20" width="160" height="50" rx="6" fill="#1a1d27" stroke="#fb923c" stroke-width="1"/>
+      <text x="280" y="42" text-anchor="middle" fill="#fb923c" font-size="11" font-weight="600">工具描述问题</text>
+      <text x="280" y="57" text-anchor="middle" fill="#6b7089" font-size="9">SP工具定义不清</text>
+
+      <line x1="365" y1="45" x2="385" y2="45" stroke="#7c8cf5" stroke-width="1" marker-end="url(#arrow)"/>
+
+      <rect x="390" y="20" width="160" height="50" rx="6" fill="#1a1d27" stroke="#fbbf24" stroke-width="1"/>
+      <text x="470" y="42" text-anchor="middle" fill="#fbbf24" font-size="11" font-weight="600">上下文问题</text>
+      <text x="470" y="57" text-anchor="middle" fill="#6b7089" font-size="9">缺记忆/车况/情景</text>
+
+      <line x1="555" y1="45" x2="575" y2="45" stroke="#7c8cf5" stroke-width="1" marker-end="url(#arrow)"/>
+
+      <rect x="580" y="20" width="110" height="50" rx="6" fill="#1a1d27" stroke="#60a5fa" stroke-width="1"/>
+      <text x="635" y="42" text-anchor="middle" fill="#60a5fa" font-size="11" font-weight="600">模型能力</text>
+      <text x="635" y="57" text-anchor="middle" fill="#6b7089" font-size="9">信息全但推理错</text>
+
+      <text x="350" y="100" text-anchor="middle" fill="#6b7089" font-size="11">每个 badcase 都是一面墙 — 按四层分诊找到它属于哪面</text>
+      <text x="350" y="120" text-anchor="middle" fill="#9ea3b5" font-size="11" font-weight="500">↓ 记录你本周撞到的墙 ↓</text>
+    </svg>
+  </div>
+
+  <div id="wall-entries">
+    <div class="ws-row ws-header">
+      <div>Badcase 描述</div>
+      <div>墙的类型</div>
+      <div>已解决？</div>
+    </div>
+  </div>
+  <button class="btn btn-outline" style="margin-top:8px" onclick="addWallRow()">+ 添加一面墙</button>
+
+  <div class="insight" style="margin-top:20px">
+    <strong>Pedro 的关键洞察：</strong>墙不是失败，是最有信息量的产物。你的 Badcase 分诊框架（六大类 A-F）本质上就是"撞墙后怎么办"的系统化答案。
+  </div>
+</div>
+
+<!-- FREE THE CLAW -->
+<div class="section" id="sec-freeclaw">
+  <h1>分区<span>放手</span>策略</h1>
+  <p class="subtitle">Pedro 说"free the claw"，但安全关键场景不能全放。按错误代价分三区。</p>
+
+  <div class="diagram-wrap">
+    <svg width="700" height="180" viewBox="0 0 700 180">
+      <rect x="20" y="20" width="200" height="140" rx="8" fill="none" stroke="#f87171" stroke-width="1.5" stroke-dasharray="4,3"/>
+      <text x="120" y="45" text-anchor="middle" fill="#f87171" font-size="13" font-weight="600">安全核心区</text>
+      <text x="120" y="65" text-anchor="middle" fill="#6b7089" font-size="10">严格围栏 · 不放手</text>
+      <text x="120" y="85" text-anchor="middle" fill="#9ea3b5" font-size="10">车控指令</text>
+      <text x="120" y="100" text-anchor="middle" fill="#9ea3b5" font-size="10">安全判断</text>
+      <text x="120" y="115" text-anchor="middle" fill="#9ea3b5" font-size="10">导航安全约束</text>
+      <text x="120" y="140" text-anchor="middle" fill="#f87171" font-size="10">错误代价：不可逆</text>
+
+      <rect x="250" y="20" width="200" height="140" rx="8" fill="none" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="4,3"/>
+      <text x="350" y="45" text-anchor="middle" fill="#fbbf24" font-size="13" font-weight="600">体验优化区</text>
+      <text x="350" y="65" text-anchor="middle" fill="#6b7089" font-size="10">适度放手 · 多给上下文</text>
+      <text x="350" y="85" text-anchor="middle" fill="#9ea3b5" font-size="10">话术生成</text>
+      <text x="350" y="100" text-anchor="middle" fill="#9ea3b5" font-size="10">推荐内容</text>
+      <text x="350" y="115" text-anchor="middle" fill="#9ea3b5" font-size="10">情感回应</text>
+      <text x="350" y="140" text-anchor="middle" fill="#fbbf24" font-size="10">错误代价：可修复</text>
+
+      <rect x="480" y="20" width="200" height="140" rx="8" fill="none" stroke="#4ade80" stroke-width="1.5" stroke-dasharray="4,3"/>
+      <text x="580" y="45" text-anchor="middle" fill="#4ade80" font-size="13" font-weight="600">探索实验区</text>
+      <text x="580" y="65" text-anchor="middle" fill="#6b7089" font-size="10">完全放手 · 看模型极限</text>
+      <text x="580" y="85" text-anchor="middle" fill="#9ea3b5" font-size="10">内部测试</text>
+      <text x="580" y="100" text-anchor="middle" fill="#9ea3b5" font-size="10">新功能探索</text>
+      <text x="580" y="115" text-anchor="middle" fill="#9ea3b5" font-size="10">SP消融实验</text>
+      <text x="580" y="140" text-anchor="middle" fill="#4ade80" font-size="10">错误代价：为零</text>
+    </svg>
+  </div>
+
+  <h3>你的 SP 围栏分区工作表</h3>
+  <p>把你的SP中的关键规则/示例归入三个区：</p>
+  <div id="claw-entries">
+    <div class="ws-row ws-header">
+      <div>SP 规则/示例描述</div>
+      <div>所属区域</div>
+      <div>可否放松？</div>
+    </div>
+  </div>
+  <button class="btn btn-outline" style="margin-top:8px" onclick="addClawRow()">+ 添加规则</button>
+
+  <div class="insight" style="margin-top:20px">
+    <strong>审计问题：</strong>你的SP中69个参考示例，有多少属于"安全核心区"（必须保留），多少属于"体验优化区"（可以减少让模型自己判断），多少从未被命中（候选删除）？
+  </div>
+</div>
+
+<!-- ONE PERSON -->
+<div class="section" id="sec-oneperson">
+  <h1>一人公司<span>思想实验</span></h1>
+  <p class="subtitle">Pedro：假设整家公司只有你一个人。不是鼓吹OPC，而是用极端假设暴露不可替代的工作。</p>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">你过去一周做了什么？给每项打标签</div></div>
+    <p>列出你本周的主要工作，标记为 🤖模型可替代 / 🧠需要判断 / 🤝需要关系</p>
+    <div id="task-entries"></div>
+    <button class="btn btn-outline" style="margin-top:8px" onclick="addTaskRow()">+ 添加工作项</button>
+  </div>
+
+  <div id="task-summary" style="display:none">
+    <h3>你的时间分布</h3>
+    <div style="display:flex;gap:16px;margin:12px 0">
+      <div class="card" style="flex:1;text-align:center"><div style="font-size:24px;color:var(--green)" id="pct-robot">0%</div><div style="font-size:12px;color:var(--text3)">🤖 模型可替代</div></div>
+      <div class="card" style="flex:1;text-align:center"><div style="font-size:24px;color:var(--accent)" id="pct-brain">0%</div><div style="font-size:12px;color:var(--text3)">🧠 需要判断</div></div>
+      <div class="card" style="flex:1;text-align:center"><div style="font-size:24px;color:var(--yellow)" id="pct-relation">0%</div><div style="font-size:12px;color:var(--text3)">🤝 需要关系</div></div>
+    </div>
+    <div class="insight">
+      <strong>目标：</strong>🤖 占比持续下降（交给模型），🧠 占比持续上升（你的核心价值），🤝 是组织中不可去除的部分。如果 🤖 > 40%，你可能在做模型能做的事。
+    </div>
+  </div>
+
+  <h3>你的"不可替代三件事"</h3>
+  <p>完成上面的标记后，提炼出只有你能做的三件事：</p>
+  <div style="display:flex;flex-direction:column;gap:8px;margin:12px 0">
+    <input class="ws-input" placeholder="不可替代 #1：例如 — 决定 Planner 和 Advisor 的分工边界" id="irreplaceable-1">
+    <input class="ws-input" placeholder="不可替代 #2：例如 — 安全 vs 体验的取舍判断" id="irreplaceable-2">
+    <input class="ws-input" placeholder="不可替代 #3：例如 — Badcase 归因的终审" id="irreplaceable-3">
+  </div>
+</div>
+
+<!-- TOKEN AUDIT -->
+<div class="section" id="sec-tokenaudit">
+  <h1>Token <span>记账</span></h1>
+  <p class="subtitle">Pedro 的 Magpie 系统追踪每一美元 token。映射到 SP：每个 section 值它消耗的 token 吗？</p>
+
+  <div class="diagram-wrap">
+    <svg width="700" height="160" viewBox="0 0 700 160">
+      <text x="350" y="20" text-anchor="middle" fill="#9ea3b5" font-size="12" font-weight="600">SP Token 预算分布（概念模型 ~30K tokens）</text>
+      <!-- Stacked bar -->
+      <rect x="50" y="40" width="35" height="80" rx="3" fill="#f87171" opacity="0.7"/><text x="67" y="135" text-anchor="middle" fill="#6b7089" font-size="9">角色</text><text x="67" y="147" text-anchor="middle" fill="#6b7089" font-size="9">~3%</text>
+      <rect x="95" y="40" width="35" height="80" rx="3" fill="#fb923c" opacity="0.7"/><text x="112" y="135" text-anchor="middle" fill="#6b7089" font-size="9">输入</text><text x="112" y="147" text-anchor="middle" fill="#6b7089" font-size="9">~3%</text>
+      <rect x="140" y="20" width="55" height="100" rx="3" fill="#fbbf24" opacity="0.7"/><text x="167" y="135" text-anchor="middle" fill="#6b7089" font-size="9">工具定义</text><text x="167" y="147" text-anchor="middle" fill="#6b7089" font-size="9">~15%</text>
+      <rect x="205" y="40" width="35" height="80" rx="3" fill="#60a5fa" opacity="0.7"/><text x="222" y="135" text-anchor="middle" fill="#6b7089" font-size="9">输出</text><text x="222" y="147" text-anchor="middle" fill="#6b7089" font-size="9">~3%</text>
+      <rect x="250" y="30" width="45" height="90" rx="3" fill="#c084fc" opacity="0.7"/><text x="272" y="135" text-anchor="middle" fill="#6b7089" font-size="9">注意</text><text x="272" y="147" text-anchor="middle" fill="#6b7089" font-size="9">~5%</text>
+      <rect x="305" y="0" width="140" height="120" rx="3" fill="#7c8cf5" opacity="0.8"/><text x="375" y="55" text-anchor="middle" fill="#fff" font-size="14" font-weight="700">69个示例</text><text x="375" y="75" text-anchor="middle" fill="rgba(255,255,255,.7)" font-size="11">~50% ← 最大嫌疑</text><text x="375" y="135" text-anchor="middle" fill="#6b7089" font-size="9">参考示例</text><text x="375" y="147" text-anchor="middle" fill="#6b7089" font-size="9">~50%</text>
+      <rect x="455" y="25" width="50" height="95" rx="3" fill="#4ade80" opacity="0.7"/><text x="480" y="135" text-anchor="middle" fill="#6b7089" font-size="9">车辆知识</text><text x="480" y="147" text-anchor="middle" fill="#6b7089" font-size="9">~8%</text>
+      <rect x="515" y="30" width="45" height="90" rx="3" fill="#f472b6" opacity="0.7"/><text x="537" y="135" text-anchor="middle" fill="#6b7089" font-size="9">Tips</text><text x="537" y="147" text-anchor="middle" fill="#6b7089" font-size="9">~5%</text>
+      <rect x="570" y="40" width="35" height="80" rx="3" fill="#a78bfa" opacity="0.7"/><text x="587" y="135" text-anchor="middle" fill="#6b7089" font-size="9">其他</text><text x="587" y="147" text-anchor="middle" fill="#6b7089" font-size="9">~3%</text>
+      <rect x="615" y="40" width="35" height="80" rx="3" fill="#fb923c" opacity="0.7"/><text x="632" y="135" text-anchor="middle" fill="#6b7089" font-size="9">风格</text><text x="632" y="147" text-anchor="middle" fill="#6b7089" font-size="9">~3%</text>
+    </svg>
+  </div>
+
+  <h3>Section 贡献度评估（快速版）</h3>
+  <p>在做完整消融实验之前，先凭经验快速打分：</p>
+  <div id="audit-entries">
+    <div style="display:grid;grid-template-columns:1fr 80px 80px 80px;gap:8px;margin-bottom:6px">
+      <div class="ws-header">SP Section</div>
+      <div class="ws-header">占比</div>
+      <div class="ws-header">贡献感</div>
+      <div class="ws-header">操作</div>
+    </div>
+  </div>
+
+  <div class="insight" style="margin-top:16px">
+    <strong>Pedro 式审计问题：</strong>69个示例占了SP约50%的token。如果其中30个贡献了80%的质量，那另外39个每个只贡献约0.5%——值得为它们支付KV Cache命中率下降的代价吗？
+  </div>
+</div>
+
+<!-- PROMPTS -->
+<div class="section" id="sec-prompts">
+  <h1>Prompt <span>模板</span></h1>
+  <p class="subtitle">可直接复制使用的三个模板</p>
+
+  <h3>模板1：每日撞墙训练</h3>
+  <div class="prompt-box" id="prompt-1">我是 Planner 模块的PM。今天遇到一个badcase：
+
+【场景】：[用户说了什么/什么车况/什么时间]
+【期望行为】：[模型应该做什么]
+【实际行为】：[模型做了什么]
+【已排查】：
+- 链路问题？[走对了模块/走错了]
+- 工具描述？[相关工具定义清楚/不清楚]
+- 上下文？[记忆/车况/情景是否完整注入]
+
+请帮我分析：
+1. 如果上下文全部补齐，模型是否能正确处理？（上下文问题 vs 模型能力问题）
+2. 如果是模型能力问题，需要什么级别的解决方案？（SP调整/示例增加/模型升级）
+3. 这个case暴露的边界，是否意味着还有一类相似badcase？<button class="copy-btn" onclick="copyPrompt(this,'prompt-1')">复制</button></div>
+
+  <h3>模板2：一人公司思想实验（周频）</h3>
+  <div class="prompt-box" id="prompt-2">回顾我过去一周的工作清单：
+[粘贴过去一周的todo/done list]
+
+帮我标记每项工作：
+- 🤖 模型可替代（写文档/跑测试/分类数据/生成报告）
+- 🧠 需要人类判断（分工决策/安全取舍/归因终审/跨团队协调）
+- 🤝 需要人际关系（沟通说服/stakeholder管理/共识建设）
+
+然后回答：
+1. 我花了多少时间在 🤖 上？如果这些交给模型，我能多做多少 🧠？
+2. 有没有 🧠 被我当成 🤖 在做（比如手动分类badcase而非建立分诊框架）？
+3. 有没有 🤖 我以为只有我能做但其实模型已经能做了？<button class="copy-btn" onclick="copyPrompt(this,'prompt-2')">复制</button></div>
+
+  <h3>模板3：SP贡献度审计</h3>
+  <div class="prompt-box" id="prompt-3">我需要对 Planner 的 System Prompt 做一次 section 贡献度审计。
+
+当前SP结构（约30K tokens）：
+①角色定义 ②输入类型 ③工具定义(23个) ④输出格式 ⑤注意事项(10条) ⑥参考示例(69个,占~50%) ⑦车辆知识 ⑧工具tips ⑨其他知识 ⑩聊天风格 ⑪动态变量
+
+请帮我设计消融实验方案：
+1. 哪些section可以安全移除来测试？（保留安全红线section）
+2. 69个示例如何分组（按工具类型？按任务类型？按复杂度？）
+3. 评测指标建议（正确率/安全率/话术自然度/响应时间）
+4. 需要多少条测试case才能得出可靠结论？
+5. 如何避免"低频高风险case被遗漏"的问题？<button class="copy-btn" onclick="copyPrompt(this,'prompt-3')">复制</button></div>
+</div>
+
+<!-- CHECKLIST -->
+<div class="section" id="sec-checklist">
+  <h1>周检查<span>清单</span></h1>
+  <p class="subtitle">每周五花10分钟过一遍</p>
+
+  <h3>撞墙训练</h3>
+  <div id="cl-wall" class="checklist-group"></div>
+
+  <h3>Free the Claw 分区</h3>
+  <div id="cl-claw" class="checklist-group"></div>
+
+  <h3>一人公司实验</h3>
+  <div id="cl-one" class="checklist-group"></div>
+
+  <h3>Token 记账</h3>
+  <div id="cl-token" class="checklist-group"></div>
+
+  <div id="cl-score" style="margin-top:20px"></div>
+</div>
+
+</main>
+
+<script>
+// DATA
+const questions = [
+  {
+    dim:'时间感',
+    q:'你对 AI 能力变化的响应速度？',
+    opts:[
+      {t:'偶尔看看AI新闻，等行业共识形成再跟进',s:1},
+      {t:'每周试用新模型/功能，但主要是个人好奇',s:2},
+      {t:'每月把新模型能力映射到产品路线，评估影响',s:3},
+      {t:'每次模型升级后72小时内跑完核心场景回归测试',s:4},
+      {t:'持续追踪推理/工具/harness三件套的协同变化，主动调整产品架构',s:5}
+    ]
+  },
+  {
+    dim:'管控度',
+    q:'你的 SP/围栏策略更接近哪种？',
+    opts:[
+      {t:'尽可能多加规则和示例，覆盖所有已知场景',s:1},
+      {t:'规则比较多，但知道有些可能冗余，还没时间清理',s:2},
+      {t:'核心安全规则严格，其他规则会根据效果调整',s:3},
+      {t:'按安全/体验/实验分区，不同区域不同管控强度',s:4},
+      {t:'定期做消融实验，每条规则都有数据支撑其存在价值',s:5}
+    ]
+  },
+  {
+    dim:'角色认知',
+    q:'你作为PM对模型能力边界的掌握程度？',
+    opts:[
+      {t:'依赖算法同事告诉我模型能做什么',s:1},
+      {t:'大概知道模型擅长和不擅长什么，但没系统测试过',s:2},
+      {t:'主要通过看badcase来了解模型边界',s:3},
+      {t:'自己会跑实验，能区分SP问题和模型能力问题',s:4},
+      {t:'有一张持续更新的"边界地图"，知道每面墙的位置和类型',s:5}
+    ]
+  },
+  {
+    dim:'撞墙深度',
+    q:'你的badcase分析系统性如何？',
+    opts:[
+      {t:'遇到badcase就加规则或示例来修',s:1},
+      {t:'会做初步归因，但主要凭直觉',s:2},
+      {t:'有分层排查路径（链路→工具→上下文→模型）',s:3},
+      {t:'分层排查+系统记录+定期回顾，能看到趋势',s:4},
+      {t:'有完整的分诊框架，每面墙都标记了类型、频率、解法和优先级',s:5}
+    ]
+  },
+  {
+    dim:'分工清晰度',
+    q:'你对"人做什么/模型做什么"的边界有多清楚？',
+    opts:[
+      {t:'没怎么想过这个问题，有什么做什么',s:1},
+      {t:'知道一些事只有人能做，但清单比较模糊',s:2},
+      {t:'能列出3-5件"只有我能做"的事，但没验证过',s:3},
+      {t:'做过思想实验，有明确的"不可替代工作清单"',s:4},
+      {t:'清单持续更新，每次模型升级后都重新评估分工线',s:5}
+    ]
+  },
+  {
+    dim:'成本意识',
+    q:'你对SP token消耗和ROI的管理？',
+    opts:[
+      {t:'不太关注token消耗，主要关注输出质量',s:1},
+      {t:'知道SP大约多少token，但没细分过',s:2},
+      {t:'知道各section的大致token占比',s:3},
+      {t:'做过至少一次section贡献度评估',s:4},
+      {t:'有完整的token预算表，每个section的贡献度和ROI都有数据',s:5}
+    ]
+  }
+];
+
+const checklistData = {
+  wall:[
+    '本周选了3-5个badcase做逐层拆解',
+    '每个badcase区分了链路/工具描述/上下文/模型能力四层',
+    '发现了至少一个之前不知道的边界',
+    '发现的边界记录到了Planner边界地图'
+  ],
+  claw:[
+    'SP的每条围栏规则标记了属于安全区/体验区/实验区',
+    '体验区的规则做过"去掉它模型是否依然做对"的测试',
+    '检查了有没有安全区规则其实是体验区的（过度保守）'
+  ],
+  one:[
+    '识别出至少一项"我在做但其实模型能做"的工作',
+    '把省下的时间投入到"不可替代三件事"上',
+    '更新了自己的"不可替代工作清单"'
+  ],
+  token:[
+    '知道当前SP的token分布（各section占比）',
+    '做过至少一次section消融实验',
+    '有一个"示例ROI排名"——哪些示例贡献最大'
+  ]
+};
+
+const spSections = [
+  {name:'①角色定义',pct:'~3%'},{name:'②输入类型',pct:'~3%'},{name:'③工具定义(23个)',pct:'~15%'},
+  {name:'④输出格式',pct:'~3%'},{name:'⑤注意事项(10条)',pct:'~5%'},{name:'⑥示例(69个)',pct:'~50%'},
+  {name:'⑦车辆知识',pct:'~8%'},{name:'⑧工具tips',pct:'~5%'},{name:'⑨其他知识',pct:'~3%'},
+  {name:'⑩聊天风格',pct:'~3%'},{name:'⑪动态变量',pct:'~2%'}
+];
+
+// STATE
+let answers = {};
+let wallCount = 0;
+let clawCount = 0;
+let taskCount = 0;
+
+// NAV
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => goSection(item.dataset.section));
+});
+
+function goSection(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('sec-' + id).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => {
+    n.classList.toggle('active', n.dataset.section === id);
+  });
+  if (id === 'results') renderResults();
+  window.scrollTo(0, 0);
+}
+
+// QUESTIONS
+function renderQuestions() {
+  const container = document.getElementById('questions');
+  questions.forEach((q, qi) => {
+    const div = document.createElement('div');
+    div.className = 'q-group';
+    div.innerHTML = `
+      <div class="q-label"><span class="q-num">${qi+1}.</span>${q.q}<span style="color:var(--text3);font-size:12px;margin-left:8px">[${q.dim}]</span></div>
+      <div class="options">${q.opts.map((o, oi) => `
+        <label class="opt" data-qi="${qi}" data-oi="${oi}" data-score="${o.s}">
+          <input type="radio" name="q${qi}" value="${o.s}">
+          <div class="opt-dot"></div>
+          <span>${o.t}</span>
+          <span class="opt-score">${o.s}分</span>
+        </label>
+      `).join('')}</div>
+    `;
+    container.appendChild(div);
+  });
+
+  container.addEventListener('click', e => {
+    const opt = e.target.closest('.opt');
+    if (!opt) return;
+    const qi = parseInt(opt.dataset.qi);
+    const score = parseInt(opt.dataset.score);
+    answers[qi] = score;
+    document.querySelectorAll(`.opt[data-qi="${qi}"]`).forEach(o => o.classList.remove('selected'));
+    opt.classList.add('selected');
+    opt.querySelector('input').checked = true;
+    updateProgress();
+  });
+}
+
+function updateProgress() {
+  const done = Object.keys(answers).length;
+  const pct = (done / questions.length) * 100;
+  document.getElementById('diag-progress').style.width = pct + '%';
+  document.getElementById('badge-diag').textContent = done + '/' + questions.length;
+  if (done === questions.length) {
+    document.getElementById('badge-diag').classList.add('done');
+    document.getElementById('btn-results').style.display = '';
+  }
+}
+
+// RESULTS
+function renderResults() {
+  const total = Object.values(answers).reduce((a, b) => a + b, 0);
+  const maxScore = questions.length * 5;
+  const pct = total / maxScore;
+
+  // Score ring
+  const circle = document.getElementById('score-circle');
+  const circumference = 327;
+  circle.style.strokeDashoffset = circumference - (pct * circumference);
+  circle.style.stroke = pct < 0.4 ? '#f87171' : pct < 0.6 ? '#fbbf24' : pct < 0.8 ? '#60a5fa' : '#4ade80';
+  document.getElementById('score-num').textContent = total;
+
+  // Stage
+  let stage, stageDesc;
+  if (total <= 10) { stage = '点蜡烛'; stageDesc = '你还在用旧世界的节奏做 AI 相关的产品决策。核心问题不是"用不用AI"，而是你还没亲手撞过墙。'; }
+  else if (total <= 16) { stage = '装电灯'; stageDesc = '你已经在用 AI 工具，但还没把它嵌入持续工作流。缺的不是技能，是系统性。'; }
+  else if (total <= 22) { stage = '通电网'; stageDesc = '你的 AI 使用已有体系，但组织层面的重排还没开始。下一步是从个人实践升级到团队/产品级。'; }
+  else if (total <= 27) { stage = '建电厂'; stageDesc = '你在组织层面推动 AI 融入，有数据驱动的决策习惯。关注点应该转向长期ROI和架构演进。'; }
+  else { stage = '电力文明'; stageDesc = '你已经在构建持续进化的系统。保持迭代，关注下一个"墙"的位置。'; }
+  document.getElementById('result-stage').textContent = stage + ' — ' + stageDesc;
+
+  // Dimension bars
+  const dimBars = document.getElementById('dim-bars');
+  dimBars.innerHTML = '';
+  const colors = ['#f87171','#fb923c','#fbbf24','#60a5fa','#c084fc','#4ade80'];
+  questions.forEach((q, i) => {
+    const val = answers[i] || 0;
+    dimBars.innerHTML += `
+      <div class="dim-bar">
+        <div class="dim-name">${q.dim}</div>
+        <div class="dim-track"><div class="dim-fill" style="width:${val*20}%;background:${colors[i]}"></div></div>
+        <div class="dim-val">${val}/5</div>
+      </div>
+    `;
+  });
+
+  // Insights
+  const insights = document.getElementById('result-insights');
+  insights.innerHTML = '<h2>维度洞察</h2>';
+  questions.forEach((q, i) => {
+    const val = answers[i] || 0;
+    if (val <= 2) {
+      const tips = {
+        0: '试试"72小时响应"：每次重要模型更新后，72小时内在核心场景跑一轮测试。不需要全面评估，先建立肌肉记忆。',
+        1: '读 concept.md 的"Free the Claw分区策略"，把SP围栏先分成安全/体验/实验三区，然后对体验区做一次"去掉它会怎样"的快速实验。',
+        2: '用 Prompt 模板 #1（每日撞墙训练）处理本周的一个badcase。不是为了修bug，是为了画出你还没见过的那面墙。',
+        3: '你的badcase排查可能缺少系统性。试试四层分诊路径：链路→工具描述→上下文→模型能力，每个badcase都走一遍。',
+        4: '用 Prompt 模板 #2（一人公司实验）回顾本周工作。找到至少一件"你在做但模型能做"的事，下周交出去。',
+        5: '去 Token 记账 模块，先做一次快速的SP Section贡献度评估。重点关注69个示例——占了50%的token，贡献了多少质量？'
+      };
+      insights.innerHTML += `<div class="insight"><strong>${q.dim}（${val}/5）偏低：</strong>${tips[i]}</div>`;
+    }
+  });
+
+  // Actions
+  const actions = document.getElementById('result-actions');
+  actions.innerHTML = '';
+  const weakest = questions.map((q, i) => ({dim: q.dim, score: answers[i] || 0, idx: i})).sort((a, b) => a.score - b.score);
+
+  weakest.slice(0, 3).forEach(w => {
+    const urgency = w.score <= 1 ? 'urgent' : w.score <= 2 ? 'important' : 'explore';
+    const icon = w.score <= 1 ? '!' : w.score <= 2 ? '→' : '?';
+    const actionMap = {
+      0: '本周：每次重要模型更新后72小时内跑核心场景回归',
+      1: '本周：对SP围栏做安全/体验/实验三区分类',
+      2: '本周：亲手跑3个badcase的逐层分诊，记录模型边界',
+      3: '本周：建立四层分诊路径的标准化模板',
+      4: '本周：完成一人公司思想实验，列出不可替代三件事',
+      5: '本周：做一次SP Section的快速贡献度评估'
+    };
+    actions.innerHTML += `<div class="action-item"><div class="action-icon ${urgency}">${icon}</div><div><strong>${w.dim}</strong>：${actionMap[w.idx]}</div></div>`;
+  });
+}
+
+// WALL MAP
+function addWallRow() {
+  wallCount++;
+  const container = document.getElementById('wall-entries');
+  const row = document.createElement('div');
+  row.className = 'ws-row';
+  row.innerHTML = `
+    <input class="ws-input" placeholder="描述badcase和撞到的墙...">
+    <select class="ws-select"><option>链路问题</option><option>工具描述</option><option>上下文</option><option>模型能力</option><option>待分类</option></select>
+    <select class="ws-select"><option>未解决</option><option>已解决</option><option>等模型升级</option></select>
+  `;
+  container.appendChild(row);
+}
+
+// FREE THE CLAW
+function addClawRow() {
+  clawCount++;
+  const container = document.getElementById('claw-entries');
+  const row = document.createElement('div');
+  row.className = 'ws-row';
+  row.innerHTML = `
+    <input class="ws-input" placeholder="SP中的某条规则或示例...">
+    <select class="ws-select"><option>安全核心区</option><option>体验优化区</option><option>探索实验区</option><option>未分类</option></select>
+    <select class="ws-select"><option>必须保留</option><option>可以放松</option><option>候选删除</option><option>待测试</option></select>
+  `;
+  container.appendChild(row);
+}
+
+// ONE PERSON
+function addTaskRow() {
+  taskCount++;
+  const container = document.getElementById('task-entries');
+  const row = document.createElement('div');
+  row.className = 'ws-row';
+  row.style.gridTemplateColumns = '1fr 120px';
+  row.innerHTML = `
+    <input class="ws-input" placeholder="工作内容..." oninput="updateTaskSummary()">
+    <select class="ws-select" onchange="updateTaskSummary()"><option value="robot">🤖 模型可替代</option><option value="brain">🧠 需要判断</option><option value="relation">🤝 需要关系</option></select>
+  `;
+  container.appendChild(row);
+  document.getElementById('task-summary').style.display = '';
+}
+
+function updateTaskSummary() {
+  const rows = document.querySelectorAll('#task-entries .ws-row');
+  let counts = {robot: 0, brain: 0, relation: 0};
+  let total = 0;
+  rows.forEach(row => {
+    const input = row.querySelector('input');
+    const select = row.querySelector('select');
+    if (input && input.value.trim() && select) {
+      counts[select.value]++;
+      total++;
+    }
+  });
+  if (total === 0) return;
+  document.getElementById('pct-robot').textContent = Math.round(counts.robot / total * 100) + '%';
+  document.getElementById('pct-brain').textContent = Math.round(counts.brain / total * 100) + '%';
+  document.getElementById('pct-relation').textContent = Math.round(counts.relation / total * 100) + '%';
+}
+
+// TOKEN AUDIT
+function renderAuditTable() {
+  const container = document.getElementById('audit-entries');
+  spSections.forEach(s => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:grid;grid-template-columns:1fr 80px 80px 80px;gap:8px;margin-bottom:6px;align-items:center';
+    row.innerHTML = `
+      <div style="font-size:13px;color:var(--text2)">${s.name}</div>
+      <div style="font-size:13px;color:var(--text3);text-align:center">${s.pct}</div>
+      <select class="ws-select" style="font-size:11px;padding:4px 6px"><option>高</option><option>中</option><option>低</option><option>不确定</option></select>
+      <select class="ws-select" style="font-size:11px;padding:4px 6px"><option>保留</option><option>精简</option><option>测试</option><option>删除</option></select>
+    `;
+    container.appendChild(row);
+  });
+}
+
+// CHECKLIST
+function renderChecklist() {
+  const groups = {wall: 'cl-wall', claw: 'cl-claw', one: 'cl-one', token: 'cl-token'};
+  Object.entries(groups).forEach(([key, elId]) => {
+    const container = document.getElementById(elId);
+    checklistData[key].forEach((text, i) => {
+      const item = document.createElement('div');
+      item.className = 'check-item';
+      item.innerHTML = `<div class="check-box" data-group="${key}" data-idx="${i}"></div><span>${text}</span>`;
+      container.appendChild(item);
+    });
+  });
+
+  document.querySelectorAll('.check-box').forEach(box => {
+    box.addEventListener('click', () => {
+      box.classList.toggle('checked');
+      box.closest('.check-item').classList.toggle('checked-item');
+      updateCheckScore();
+    });
+  });
+}
+
+function updateCheckScore() {
+  const total = document.querySelectorAll('.check-box').length;
+  const done = document.querySelectorAll('.check-box.checked').length;
+  const el = document.getElementById('cl-score');
+  const pct = Math.round(done / total * 100);
+  const color = pct < 40 ? 'var(--red)' : pct < 70 ? 'var(--yellow)' : 'var(--green)';
+  el.innerHTML = `<div class="card" style="text-align:center"><div style="font-size:28px;color:${color}">${done}/${total}</div><div style="font-size:13px;color:var(--text3)">本周完成率 ${pct}%</div></div>`;
+}
+
+// COPY
+function copyPrompt(btn, id) {
+  const text = document.getElementById(id).textContent.replace('复制', '').replace('已复制', '').trim();
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = '已复制';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '复制'; btn.classList.remove('copied'); }, 1500);
+  });
+}
+
+// INIT
+renderQuestions();
+renderAuditTable();
+renderChecklist();
+// Seed wall rows
+for (let i = 0; i < 3; i++) addWallRow();
+for (let i = 0; i < 3; i++) addClawRow();
+for (let i = 0; i < 3; i++) addTaskRow();
+updateCheckScore();
+</script>
+</body>
+</html>

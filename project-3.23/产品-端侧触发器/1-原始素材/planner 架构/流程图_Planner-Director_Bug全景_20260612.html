@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Planner / Director Bug 全景流程图</title>
+<style>
+  :root{
+    --bg:#0e1117; --panel:#161b22; --panel2:#1c2230; --border:#2a3242;
+    --ink:#e6edf3; --sub:#9aa7b8; --muted:#6b7686;
+    --blue:#4c9eeb; --green:#3fb950; --amber:#e3a008; --red:#f85149;
+    --purple:#a371f7; --teal:#39c5cf; --pink:#f778ba;
+    --A:#4c9eeb; --B:#a371f7; --C:#e3a008; --D:#6b7686; --E:#39c5cf; --F:#f778ba;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;line-height:1.7;font-size:15px}
+  .wrap{max-width:1240px;margin:0 auto;padding:0 20px 120px}
+  header.hero{padding:46px 20px 30px;background:linear-gradient(160deg,#11202f,#0e1117 72%);border-bottom:1px solid var(--border)}
+  header.hero .wrap{padding-bottom:0}
+  h1{font-size:28px;margin:0 0 8px}
+  .lede{color:var(--sub);max-width:840px}
+  .chip{display:inline-block;background:var(--panel2);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:12.5px;color:var(--sub);margin:4px 6px 0 0}
+  nav.toc{position:sticky;top:0;z-index:20;background:rgba(14,17,23,.93);backdrop-filter:blur(8px);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;gap:6px;flex-wrap:wrap;font-size:13px}
+  nav.toc a{color:var(--sub);text-decoration:none;padding:4px 11px;border-radius:7px}
+  nav.toc a:hover{background:var(--panel2);color:var(--ink)}
+  section{margin-top:46px;scroll-margin-top:58px}
+  h2{font-size:22px;border-left:4px solid var(--blue);padding-left:12px;margin:0 0 4px}
+  h2 .n{color:var(--muted);font-weight:400;margin-right:8px}
+  .howto{color:var(--sub);font-size:14px;margin:6px 0 14px;background:var(--panel2);border:1px solid var(--border);border-left:3px solid var(--teal);padding:9px 14px;border-radius:0 8px 8px 0}
+  .howto b{color:var(--teal)}
+  .board{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:14px;margin:14px 0;overflow-x:auto}
+  svg{display:block;width:100%;height:auto;min-width:760px}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--sub);margin:12px 4px 2px}
+  .legend span{display:flex;align-items:center;gap:6px}
+  .dot{width:12px;height:12px;border-radius:50%;display:inline-block}
+  .sq{width:12px;height:12px;border-radius:3px;display:inline-block}
+  footer{margin-top:54px;padding-top:18px;border-top:1px solid var(--border);color:var(--muted);font-size:12.5px}
+  .kicker{color:var(--blue);font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase}
+  text{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="wrap">
+    <div class="kicker">Driver Agent 2.0 · Planner / Director</div>
+    <h1>Bug 全景流程图</h1>
+    <p class="lede">4 张图看清整件事：① 一句话从说出到执行，<b>在哪几个节点漏水</b> → ② 拿到一个 bug，<b>怎么 6 步判出它属 A–F 哪类</b> → ③ 这些 bug <b>怎么一层层被解掉</b> → ④ 怎么靠评测<b>闭环防复发</b>。配套文字详见同目录《逐例详细分析》。</p>
+    <div>
+      <span class="chip">📅 2026-06-12</span>
+      <span class="chip">图 ×4</span>
+      <span class="chip">六大类 A–F</span>
+      <span class="chip">33 个 case 的全局视图</span>
+    </div>
+  </div>
+</header>
+
+<nav class="toc">
+  <a href="#g1">① 主链路 · 漏水点</a>
+  <a href="#g2">② 分诊决策树</a>
+  <a href="#g3">③ 解法分层漏斗</a>
+  <a href="#g4">④ 评测闭环</a>
+</nav>
+
+<div class="wrap">
+
+<!-- ===================== 图1 主链路 ===================== -->
+<section id="g1">
+  <h2><span class="n">图①</span>系统主链路 —— bug 在哪几个节点注入</h2>
+  <div class="howto">怎么看：<b>中间一行</b>是一句话从语音到执行的流水线；<b>上方</b>是喂给 Planner 大脑的 4 种输入；每个节点<b>下方的彩色小牌</b>=这里会注入哪类 bug。<b>蓝色 Planner 是唯一真该背锅(A/B)的大脑</b>，其余节点的红牌都是"别处的锅"。</div>
+  <div class="board">
+    <svg viewBox="0 0 1200 430" role="img">
+      <defs>
+        <marker id="ar" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#7d8796"/></marker>
+        <marker id="arb" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4c9eeb"/></marker>
+      </defs>
+
+      <!-- input boxes -->
+      <text x="355" y="28" fill="#9aa7b8" font-size="12.5" text-anchor="middle">注入给大脑的 4 种输入（情景）</text>
+      <g font-size="12">
+        <rect x="172" y="40" width="92" height="40" rx="7" fill="#13202c" stroke="#39c5cf"/><text x="218" y="58" fill="#cfeef1" text-anchor="middle">当前 query</text><text x="218" y="72" fill="#6b7686" font-size="10.5" text-anchor="middle">用户这句话</text>
+        <rect x="270" y="40" width="92" height="40" rx="7" fill="#13202c" stroke="#39c5cf"/><text x="316" y="58" fill="#cfeef1" text-anchor="middle">端状态</text><text x="316" y="72" fill="#6b7686" font-size="10.5" text-anchor="middle">车此刻状态</text>
+        <rect x="368" y="40" width="92" height="40" rx="7" fill="#13202c" stroke="#39c5cf"/><text x="414" y="58" fill="#cfeef1" text-anchor="middle">上下文</text><text x="414" y="72" fill="#6b7686" font-size="10.5" text-anchor="middle">对话历史</text>
+        <rect x="466" y="40" width="92" height="40" rx="7" fill="#13202c" stroke="#39c5cf"/><text x="512" y="58" fill="#cfeef1" text-anchor="middle">用户记忆</text><text x="512" y="72" fill="#6b7686" font-size="10.5" text-anchor="middle">长期偏好</text>
+      </g>
+      <!-- arrows from inputs into Planner -->
+      <path d="M218,80 L330,175" stroke="#39c5cf" stroke-width="1.3" fill="none" marker-end="url(#ar)" opacity=".75"/>
+      <path d="M316,80 L348,175" stroke="#39c5cf" stroke-width="1.3" fill="none" marker-end="url(#ar)" opacity=".75"/>
+      <path d="M414,80 L372,175" stroke="#39c5cf" stroke-width="1.3" fill="none" marker-end="url(#ar)" opacity=".75"/>
+      <path d="M512,80 L392,175" stroke="#39c5cf" stroke-width="1.3" fill="none" marker-end="url(#ar)" opacity=".75"/>
+
+      <!-- pipeline nodes -->
+      <g font-size="13">
+        <!-- 用户语音 -->
+        <rect x="15" y="205" width="100" height="64" rx="9" fill="#1c2230" stroke="#2a3242"/><text x="65" y="232" fill="#e6edf3" text-anchor="middle" font-weight="700">用户语音</text><text x="65" y="250" fill="#6b7686" font-size="10.5" text-anchor="middle">说话</text>
+        <!-- ASR -->
+        <rect x="138" y="205" width="92" height="64" rx="9" fill="#1c2230" stroke="#5c2b2b"/><text x="184" y="232" fill="#e6edf3" text-anchor="middle" font-weight="700">ASR</text><text x="184" y="250" fill="#6b7686" font-size="10.5" text-anchor="middle">语音转文字</text>
+        <!-- Planner (big) -->
+        <rect x="255" y="175" width="195" height="124" rx="11" fill="#16263a" stroke="#4c9eeb" stroke-width="2"/>
+        <text x="352" y="205" fill="#bcd9f5" text-anchor="middle" font-weight="800" font-size="15">Planner / Director</text>
+        <text x="352" y="224" fill="#9aa7b8" font-size="11" text-anchor="middle">系统的"大脑"</text>
+        <text x="352" y="252" fill="#cfe3f7" font-size="11.5" text-anchor="middle">理解意图 → 拆任务</text>
+        <text x="352" y="270" fill="#cfe3f7" font-size="11.5" text-anchor="middle">→ 改写 query / 出工具</text>
+        <text x="352" y="288" fill="#6b7686" font-size="10.5" text-anchor="middle">输出结构化 JSON 决策</text>
+        <!-- SFT/FC -->
+        <rect x="475" y="205" width="118" height="64" rx="9" fill="#1c2230" stroke="#5c4a1c"/><text x="534" y="230" fill="#e6edf3" text-anchor="middle" font-weight="700" font-size="12.5">SFT 路由 → FC</text><text x="534" y="248" fill="#6b7686" font-size="10" text-anchor="middle">判走哪个工具·生成调用</text>
+        <!-- 意图/工具 -->
+        <rect x="618" y="205" width="135" height="64" rx="9" fill="#1c2230" stroke="#5c4a1c"/><text x="685" y="230" fill="#e6edf3" text-anchor="middle" font-weight="700" font-size="12.5">意图 / 工具执行</text><text x="685" y="248" fill="#6b7686" font-size="10" text-anchor="middle">导航·车控·媒体…</text>
+        <!-- Chat Model -->
+        <rect x="778" y="205" width="135" height="64" rx="9" fill="#1c2230" stroke="#4b3a6b"/><text x="845" y="230" fill="#e6edf3" text-anchor="middle" font-weight="700" font-size="12.5">Chat Model 播报</text><text x="845" y="248" fill="#6b7686" font-size="10" text-anchor="middle">基于工具结果说话</text>
+        <!-- 用户听到 -->
+        <rect x="938" y="205" width="100" height="64" rx="9" fill="#1c2230" stroke="#2a3242"/><text x="988" y="232" fill="#e6edf3" text-anchor="middle" font-weight="700">用户听到</text><text x="988" y="250" fill="#6b7686" font-size="10.5" text-anchor="middle">执行+播报</text>
+      </g>
+      <!-- 工具返回 feedback arrow back to chat model -->
+      <path d="M685,269 L685,300 L845,300 L845,269" stroke="#7d8796" stroke-width="1.3" fill="none" marker-end="url(#ar)" opacity=".7"/>
+      <text x="765" y="296" fill="#6b7686" font-size="10.5" text-anchor="middle">tool_feedback 返回结果</text>
+
+      <!-- pipeline arrows -->
+      <g stroke="#7d8796" stroke-width="1.6" fill="none">
+        <path d="M115,237 L136,237" marker-end="url(#ar)"/>
+        <path d="M230,237 L253,237" marker-end="url(#ar)"/>
+        <path d="M450,237 L473,237" marker-end="url(#ar)"/>
+        <path d="M593,237 L616,237" marker-end="url(#ar)"/>
+        <path d="M753,237 L776,237" marker-end="url(#ar)"/>
+        <path d="M913,237 L936,237" marker-end="url(#ar)"/>
+      </g>
+
+      <!-- bug injection badges -->
+      <g font-size="11.5" font-weight="700">
+        <!-- ASR: D -->
+        <rect x="170" y="320" width="28" height="20" rx="5" fill="#6b7686"/><text x="184" y="334" fill="#fff" text-anchor="middle">D</text>
+        <text x="184" y="356" fill="#9aa7b8" font-size="10" text-anchor="middle">识别错</text>
+        <!-- Planner: A B -->
+        <rect x="318" y="320" width="28" height="20" rx="5" fill="#4c9eeb"/><text x="332" y="334" fill="#0e1117" text-anchor="middle">A</text>
+        <rect x="352" y="320" width="28" height="20" rx="5" fill="#a371f7"/><text x="366" y="334" fill="#fff" text-anchor="middle">B</text>
+        <text x="352" y="356" fill="#9aa7b8" font-size="10" text-anchor="middle">想错·编造</text>
+        <!-- SFT/FC: C -->
+        <rect x="520" y="320" width="28" height="20" rx="5" fill="#e3a008"/><text x="534" y="334" fill="#0e1117" text-anchor="middle">C</text>
+        <text x="534" y="356" fill="#9aa7b8" font-size="10" text-anchor="middle">接不住·FC错</text>
+        <!-- 意图/工具: C D -->
+        <rect x="671" y="320" width="28" height="20" rx="5" fill="#e3a008"/><text x="685" y="334" fill="#0e1117" text-anchor="middle">C</text>
+        <rect x="639" y="320" width="28" height="20" rx="5" fill="#6b7686"/><text x="653" y="334" fill="#fff" text-anchor="middle">D</text>
+        <text x="669" y="356" fill="#9aa7b8" font-size="10" text-anchor="middle">工具失败·承载</text>
+        <!-- Chat: B -->
+        <rect x="831" y="320" width="28" height="20" rx="5" fill="#a371f7"/><text x="845" y="334" fill="#fff" text-anchor="middle">B</text>
+        <text x="845" y="356" fill="#9aa7b8" font-size="10" text-anchor="middle">播报幻觉</text>
+      </g>
+
+      <!-- bottom note -->
+      <rect x="15" y="382" width="1023" height="34" rx="8" fill="#11202c" stroke="#2a3242"/>
+      <text x="526" y="403" fill="#9aa7b8" font-size="12.5" text-anchor="middle">关键：被分给 Planner 的 bug，真正大脑的锅只有 <tspan fill="#4c9eeb" font-weight="700">A 想错</tspan> 和 <tspan fill="#a371f7" font-weight="700">B 编造</tspan>；<tspan fill="#e3a008" font-weight="700">C</tspan> 是想对了下游接不住，<tspan fill="#6b7686" font-weight="700">D</tspan> 根本是别的节点出错 —— 本次最大发现就是大量被错算到大脑头上</text>
+    </svg>
+    <div class="legend">
+      <span><span class="sq" style="background:var(--A)"></span>A 推理</span>
+      <span><span class="sq" style="background:var(--B)"></span>B 幻觉</span>
+      <span><span class="sq" style="background:var(--C)"></span>C 下游接不住</span>
+      <span><span class="sq" style="background:var(--D)"></span>D 非Planner</span>
+      <span><span class="dot" style="background:var(--teal)"></span>蓝绿=喂给大脑的输入</span>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 图2 决策树 ===================== -->
+<section id="g2">
+  <h2><span class="n">图②</span>分诊决策树 —— 拿到一个 bug，6 步判出它属哪类</h2>
+  <div class="howto">怎么看：从顶上一个 bug 进来，<b>沿中间黄色判断框一路往下</b>；每个框只问一个是非题，命中就<b>向右拐到对应类型</b>（彩色出口），不命中就继续往下。走到底没拐出去的，才是真正归 Planner 大脑的 <b>A 推理</b>。这张图就是把"怎么甩锅/怎么定责"标准化。</div>
+  <div class="board">
+    <svg viewBox="0 0 940 700" role="img">
+      <defs><marker id="ar2" markerWidth="9" markerHeight="9" refX="7.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#7d8796"/></marker></defs>
+
+      <!-- start -->
+      <rect x="290" y="14" width="220" height="40" rx="20" fill="#16263a" stroke="#4c9eeb" stroke-width="1.6"/>
+      <text x="400" y="39" fill="#bcd9f5" font-size="13.5" font-weight="700" text-anchor="middle">一个被分给 Planner 的 bug</text>
+
+      <!-- decision boxes -->
+      <g font-size="13">
+        <!-- D1 -->
+        <rect x="240" y="76" width="320" height="50" rx="9" fill="#1f1c10" stroke="#e3a008"/><text x="400" y="98" fill="#f2dca0" text-anchor="middle" font-weight="700">① 有 log、描述能看懂吗？</text><text x="400" y="116" fill="#9aa7b8" font-size="10.5" text-anchor="middle">不能 → 没法分析</text>
+        <!-- D2 -->
+        <rect x="240" y="166" width="320" height="50" rx="9" fill="#1f1c10" stroke="#e3a008"/><text x="400" y="188" fill="#f2dca0" text-anchor="middle" font-weight="700">② 是 ASR错 / UI界面 / 手动点击 / FC错？</text><text x="400" y="206" fill="#9aa7b8" font-size="10.5" text-anchor="middle">是 → 别的节点的锅</text>
+        <!-- D3 -->
+        <rect x="240" y="256" width="320" height="50" rx="9" fill="#1f1c10" stroke="#e3a008"/><text x="400" y="278" fill="#f2dca0" text-anchor="middle" font-weight="700">③ 这功能有对应工具吗？</text><text x="400" y="296" fill="#9aa7b8" font-size="10.5" text-anchor="middle">没有 → 能力边界外</text>
+        <!-- D4 -->
+        <rect x="240" y="346" width="320" height="50" rx="9" fill="#1f1c10" stroke="#e3a008"/><text x="400" y="368" fill="#f2dca0" text-anchor="middle" font-weight="700">④ 需求其实已闭环、只是体验瑕疵？</text><text x="400" y="386" fill="#9aa7b8" font-size="10.5" text-anchor="middle">是 → 被标高了</text>
+        <!-- D5 -->
+        <rect x="240" y="436" width="320" height="50" rx="9" fill="#1f1c10" stroke="#e3a008"/><text x="400" y="458" fill="#f2dca0" text-anchor="middle" font-weight="700">⑤ 改写合理、是下游接不住？</text><text x="400" y="476" fill="#9aa7b8" font-size="10.5" text-anchor="middle">是 → 大脑没错，下游弱</text>
+        <!-- D6 -->
+        <rect x="240" y="526" width="320" height="50" rx="9" fill="#1f1c10" stroke="#e3a008"/><text x="400" y="548" fill="#f2dca0" text-anchor="middle" font-weight="700">⑥ 播报了工具没返回的信息？</text><text x="400" y="566" fill="#9aa7b8" font-size="10.5" text-anchor="middle">是 → 大脑在编</text>
+      </g>
+
+      <!-- down arrows (continue) -->
+      <g stroke="#7d8796" stroke-width="1.5" fill="none">
+        <path d="M400,54 L400,76" marker-end="url(#ar2)"/>
+        <path d="M400,126 L400,166" marker-end="url(#ar2)"/>
+        <path d="M400,216 L400,256" marker-end="url(#ar2)"/>
+        <path d="M400,306 L400,346" marker-end="url(#ar2)"/>
+        <path d="M400,396 L400,436" marker-end="url(#ar2)"/>
+        <path d="M400,486 L400,526" marker-end="url(#ar2)"/>
+        <path d="M400,576 L400,614" marker-end="url(#ar2)"/>
+      </g>
+      <!-- down labels -->
+      <g font-size="11" fill="#6b7686" font-weight="700">
+        <text x="412" y="146">是↓</text>
+        <text x="412" y="236">否↓</text>
+        <text x="412" y="326">是↓</text>
+        <text x="412" y="416">否↓</text>
+        <text x="412" y="506">否↓</text>
+        <text x="412" y="596">否↓</text>
+      </g>
+
+      <!-- right branch arrows -->
+      <g stroke="#7d8796" stroke-width="1.5" fill="none">
+        <path d="M560,101 L640,101" marker-end="url(#ar2)"/>
+        <path d="M560,191 L640,191" marker-end="url(#ar2)"/>
+        <path d="M560,281 L640,281" marker-end="url(#ar2)"/>
+        <path d="M560,371 L640,371" marker-end="url(#ar2)"/>
+        <path d="M560,461 L640,461" marker-end="url(#ar2)"/>
+        <path d="M560,551 L640,551" marker-end="url(#ar2)"/>
+      </g>
+      <g font-size="11" fill="#9aa7b8" font-weight="700">
+        <text x="600" y="93" text-anchor="middle">否</text>
+        <text x="600" y="183" text-anchor="middle">是</text>
+        <text x="600" y="273" text-anchor="middle">否</text>
+        <text x="600" y="363" text-anchor="middle">是</text>
+        <text x="600" y="453" text-anchor="middle">是</text>
+        <text x="600" y="543" text-anchor="middle">是</text>
+      </g>
+
+      <!-- terminal type boxes (right) -->
+      <g font-size="12.5" font-weight="700">
+        <rect x="640" y="80" width="270" height="42" rx="8" fill="#222a36" stroke="#6b7686"/><text x="652" y="100" fill="#fff" font-size="11">D</text><text x="775" y="100" fill="#cfd6df" text-anchor="middle">无法分析 · 转回/要 log</text><text x="775" y="115" fill="#6b7686" font-size="10" text-anchor="middle">N-01</text>
+        <rect x="640" y="170" width="270" height="42" rx="8" fill="#222a36" stroke="#6b7686"/><text x="652" y="190" fill="#fff" font-size="11">D</text><text x="775" y="190" fill="#cfd6df" text-anchor="middle">非Planner · 转对应模块</text><text x="775" y="205" fill="#6b7686" font-size="10" text-anchor="middle">N-02/03/06 · M-30/31 · 转FC</text>
+        <rect x="640" y="260" width="270" height="42" rx="8" fill="#13242a" stroke="#39c5cf"/><text x="652" y="280" fill="#39c5cf" font-size="11">E</text><text x="775" y="280" fill="#cfeef1" text-anchor="middle">低优 · 走干预 / 补能力</text><text x="775" y="295" fill="#6b7686" font-size="10" text-anchor="middle">演示厅·蓝牙·录音·人脸…</text>
+        <rect x="640" y="350" width="270" height="42" rx="8" fill="#2a1a26" stroke="#f778ba"/><text x="652" y="370" fill="#f778ba" font-size="11">F</text><text x="775" y="370" fill="#f6cfe4" text-anchor="middle">误标 · 降级 P2/非问题</text><text x="775" y="385" fill="#6b7686" font-size="10" text-anchor="middle">钓鱼case·POI联网·V-24/26</text>
+        <rect x="640" y="440" width="270" height="42" rx="8" fill="#251f10" stroke="#e3a008"/><text x="652" y="460" fill="#e3a008" font-size="11">C</text><text x="775" y="460" fill="#f2dca0" text-anchor="middle">下游协商 / 转需求 弋途</text><text x="775" y="475" fill="#6b7686" font-size="10" text-anchor="middle">开始导航到XX · 话术顺序</text>
+        <rect x="640" y="530" width="270" height="42" rx="8" fill="#1d1530" stroke="#a371f7"/><text x="652" y="550" fill="#a371f7" font-size="11">B</text><text x="775" y="550" fill="#dccaf7" text-anchor="middle">幻觉 · 堵缺口/禁填空</text><text x="775" y="565" fill="#6b7686" font-size="10" text-anchor="middle">歌名编造 M-28 · 坚持型 V-27a</text>
+      </g>
+
+      <!-- A terminal (bottom) -->
+      <rect x="250" y="614" width="300" height="44" rx="9" fill="#16263a" stroke="#4c9eeb" stroke-width="1.8"/>
+      <text x="400" y="635" fill="#bcd9f5" font-size="13.5" font-weight="800" text-anchor="middle">A 推理 —— 大脑自己想错了</text>
+      <text x="400" y="651" fill="#9aa7b8" font-size="10" text-anchor="middle">走到底没拐出去 = 真正归 Planner 修</text>
+      <!-- A sub split -->
+      <g stroke="#4c9eeb" stroke-width="1.4" fill="none" opacity=".8">
+        <path d="M300,658 L300,672" marker-end="url(#ar2)"/>
+        <path d="M400,658 L400,672" marker-end="url(#ar2)"/>
+        <path d="M500,658 L500,672" marker-end="url(#ar2)"/>
+      </g>
+      <g font-size="11" font-weight="700">
+        <rect x="232" y="672" width="136" height="24" rx="6" fill="#16263a" stroke="#4c9eeb"/><text x="300" y="688" fill="#cfe3f7" text-anchor="middle">A1 空间关系</text>
+        <rect x="332" y="672" width="136" height="24" rx="6" fill="#16263a" stroke="#4c9eeb"/><text x="400" y="688" fill="#cfe3f7" text-anchor="middle">A2 端状态</text>
+        <rect x="432" y="672" width="136" height="24" rx="6" fill="#16263a" stroke="#4c9eeb"/><text x="500" y="688" fill="#cfe3f7" text-anchor="middle">A3 上下文</text>
+      </g>
+    </svg>
+  </div>
+</section>
+
+<!-- ===================== 图3 漏斗 ===================== -->
+<section id="g3">
+  <h2><span class="n">图③</span>解法分层漏斗 —— bug 怎么一层层被剥掉，只剩真问题给模型</h2>
+  <div class="howto">怎么看：100% 的 bug 从左进，<b>每经过一层处理就剥掉一批</b>（蓝条变矮）；<b>条形下方</b>是这层用的手段，<b>灰色掉落</b>是这层剥走的 bug。核心思想：<b>越靠前用越轻的手段把"不该大脑背的"剥干净，最后只剩 3–4 个顽固问题留给最重的模型训练</b>。</div>
+  <div class="board">
+    <svg viewBox="0 0 1140 400" role="img">
+      <defs><marker id="ar3" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#6b7686"/></marker></defs>
+      <!-- baseline -->
+      <line x1="20" y1="250" x2="1120" y2="250" stroke="#2a3242" stroke-width="1"/>
+      <text x="20" y="40" fill="#9aa7b8" font-size="12">剩余待大脑处理的 bug 体量 ↓ 每层递减</text>
+
+      <!-- bars: x start, width 120, gap 40 -->
+      <!-- heights: 100→65→60→44→38→28→12 (%*1.7) -->
+      <g font-size="12">
+        <!-- L0 -->
+        <rect x="30" y="80" width="120" height="170" fill="#243a52" stroke="#4c9eeb"/><text x="90" y="72" fill="#cfe3f7" font-size="11" text-anchor="middle">100%</text>
+        <text x="90" y="270" fill="#e6edf3" font-weight="700" text-anchor="middle">L0 流程</text><text x="90" y="286" fill="#9aa7b8" font-size="10" text-anchor="middle">要log·去钓鱼</text><text x="90" y="300" fill="#9aa7b8" font-size="10" text-anchor="middle">P0回调·转走</text>
+        <!-- L1 -->
+        <rect x="190" y="140" width="120" height="110" fill="#243a52" stroke="#4c9eeb"/><text x="250" y="132" fill="#cfe3f7" font-size="11" text-anchor="middle">~65%</text>
+        <text x="250" y="270" fill="#e6edf3" font-weight="700" text-anchor="middle">L1 干预</text><text x="250" y="286" fill="#9aa7b8" font-size="10" text-anchor="middle">关键词拦截</text><text x="250" y="300" fill="#9aa7b8" font-size="10" text-anchor="middle">冷门功能兜底</text>
+        <!-- L2/3 -->
+        <rect x="350" y="153" width="120" height="97" fill="#243a52" stroke="#4c9eeb"/><text x="410" y="145" fill="#cfe3f7" font-size="11" text-anchor="middle">~60%</text>
+        <text x="410" y="270" fill="#e6edf3" font-weight="700" text-anchor="middle">L2/L3 提示+知识</text><text x="410" y="286" fill="#9aa7b8" font-size="10" text-anchor="middle">补空间常识</text><text x="410" y="300" fill="#9aa7b8" font-size="10" text-anchor="middle">解 A1 大半 / A3</text>
+        <!-- L4 -->
+        <rect x="510" y="175" width="120" height="75" fill="#1d3b40" stroke="#39c5cf"/><text x="570" y="167" fill="#cfeef1" font-size="11" text-anchor="middle">~44%</text>
+        <text x="570" y="270" fill="#e6edf3" font-weight="700" text-anchor="middle">L4 端状态改造</text><text x="570" y="286" fill="#9aa7b8" font-size="10" text-anchor="middle">表格→自然语言</text><text x="570" y="300" fill="#39c5cf" font-size="10" text-anchor="middle">★治本·解 A2</text>
+        <!-- L5 -->
+        <rect x="670" y="186" width="120" height="64" fill="#3a2f12" stroke="#e3a008"/><text x="730" y="178" fill="#f2dca0" font-size="11" text-anchor="middle">~38%</text>
+        <text x="730" y="270" fill="#e6edf3" font-weight="700" text-anchor="middle">L5 下游/弋途</text><text x="730" y="286" fill="#9aa7b8" font-size="10" text-anchor="middle">SFT适配·转需求</text><text x="730" y="300" fill="#9aa7b8" font-size="10" text-anchor="middle">解 C</text>
+        <!-- L6 -->
+        <rect x="830" y="200" width="120" height="50" fill="#2a1f3d" stroke="#a371f7"/><text x="890" y="192" fill="#dccaf7" font-size="11" text-anchor="middle">~28%</text>
+        <text x="890" y="270" fill="#e6edf3" font-weight="700" text-anchor="middle">L6 模型训练</text><text x="890" y="286" fill="#9aa7b8" font-size="10" text-anchor="middle">SFT/RLHF</text><text x="890" y="300" fill="#9aa7b8" font-size="10" text-anchor="middle">收顽固A/B</text>
+        <!-- remain -->
+        <rect x="990" y="228" width="120" height="22" fill="#3a1f1f" stroke="#f85149"/><text x="1050" y="220" fill="#f5b0ac" font-size="11" text-anchor="middle">~12%</text>
+        <text x="1050" y="270" fill="#f5b0ac" font-weight="700" text-anchor="middle" font-size="12">真·顽固</text><text x="1050" y="286" fill="#9aa7b8" font-size="10" text-anchor="middle">仅 3–4 个</text><text x="1050" y="300" fill="#9aa7b8" font-size="10" text-anchor="middle">方位/温度反/坚持</text>
+      </g>
+
+      <!-- arrows between bars -->
+      <g stroke="#6b7686" stroke-width="1.5" fill="none">
+        <path d="M150,165 L188,165" marker-end="url(#ar3)"/>
+        <path d="M310,200 L348,200" marker-end="url(#ar3)"/>
+        <path d="M470,205 L508,205" marker-end="url(#ar3)"/>
+        <path d="M630,215 L668,215" marker-end="url(#ar3)"/>
+        <path d="M790,220 L828,220" marker-end="url(#ar3)"/>
+        <path d="M950,228 L988,228" marker-end="url(#ar3)"/>
+      </g>
+      <!-- dropped out arrows (down) with labels -->
+      <g stroke="#5a6472" stroke-width="1.2" fill="none" stroke-dasharray="3 3">
+        <path d="M150,235 L168,330" marker-end="url(#ar3)"/>
+        <path d="M310,235 L328,330" marker-end="url(#ar3)"/>
+        <path d="M470,235 L488,330" marker-end="url(#ar3)"/>
+        <path d="M630,235 L648,330" marker-end="url(#ar3)"/>
+        <path d="M790,235 L808,330" marker-end="url(#ar3)"/>
+      </g>
+      <g font-size="10" fill="#6b7686">
+        <text x="175" y="345">剥离 D/F ≈35%</text>
+        <text x="335" y="345">剥离 E</text>
+        <text x="495" y="345">解 A1/A3</text>
+        <text x="655" y="345">解 A2</text>
+        <text x="815" y="345">解 C</text>
+      </g>
+      <rect x="990" y="320" width="130" height="46" rx="7" fill="#2a1f3d" stroke="#a371f7"/>
+      <text x="1055" y="339" fill="#dccaf7" font-size="10.5" text-anchor="middle">交给训练长期收敛</text><text x="1055" y="356" fill="#9aa7b8" font-size="10" text-anchor="middle">V-13/15/27a/27b</text>
+    </svg>
+    <div class="legend">
+      <span><span class="sq" style="background:#4c9eeb"></span>产品/工程可快速做(L0–L3)</span>
+      <span><span class="sq" style="background:#39c5cf"></span>端状态改造(治本)</span>
+      <span><span class="sq" style="background:#e3a008"></span>跨团队·下游</span>
+      <span><span class="sq" style="background:#a371f7"></span>算法训练</span>
+      <span><span class="sq" style="background:#f85149"></span>顽固残留</span>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 图4 闭环 ===================== -->
+<section id="g4">
+  <h2><span class="n">图④</span>评测闭环 —— 为什么"把 bug 分清类"本身就在防复发</h2>
+  <div class="howto">怎么看：顺时针一圈。线上抓到的 badcase，<b>先按图②归到 A–F</b>，再翻译成 Director Rewards 的<b>可量化扣分项</b>，评测/训练时自动打分，<b>模型朝高分收敛</b>，同类 bug 减少 —— 下一轮 badcase 就更少。<b>所以分类不是为了写报告，是在喂训练系统。</b></div>
+  <div class="board">
+    <svg viewBox="0 0 760 440" role="img">
+      <defs><marker id="ar4" markerWidth="11" markerHeight="11" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4c9eeb"/></marker></defs>
+      <!-- center -->
+      <circle cx="380" cy="215" r="62" fill="#11202c" stroke="#2a3242"/>
+      <text x="380" y="208" fill="#9aa7b8" font-size="13" font-weight="700" text-anchor="middle">评测驱动</text>
+      <text x="380" y="228" fill="#9aa7b8" font-size="13" font-weight="700" text-anchor="middle">闭环</text>
+
+      <!-- 5 nodes -->
+      <g font-size="12.5">
+        <!-- 1 top -->
+        <rect x="290" y="20" width="180" height="50" rx="10" fill="#1c2230" stroke="#f85149"/><text x="380" y="41" fill="#f5b0ac" font-weight="700" text-anchor="middle">① 线上 badcase</text><text x="380" y="58" fill="#9aa7b8" font-size="10.5" text-anchor="middle">实车/测试抓到</text>
+        <!-- 2 right -->
+        <rect x="560" y="150" width="190" height="50" rx="10" fill="#1c2230" stroke="#e3a008"/><text x="655" y="171" fill="#f2dca0" font-weight="700" text-anchor="middle">② 归六大类 A–F</text><text x="655" y="188" fill="#9aa7b8" font-size="10.5" text-anchor="middle">用图② 决策树</text>
+        <!-- 3 bottom right -->
+        <rect x="470" y="370" width="200" height="50" rx="10" fill="#1c2230" stroke="#a371f7"/><text x="570" y="391" fill="#dccaf7" font-weight="700" text-anchor="middle">③ 翻译成扣分项</text><text x="570" y="408" fill="#9aa7b8" font-size="10.5" text-anchor="middle">完成度/效率/体验/安全</text>
+        <!-- 4 bottom left -->
+        <rect x="90" y="370" width="200" height="50" rx="10" fill="#1c2230" stroke="#3fb950"/><text x="190" y="391" fill="#a7e3b0" font-weight="700" text-anchor="middle">④ 评测/训练打分</text><text x="190" y="408" fill="#9aa7b8" font-size="10.5" text-anchor="middle">Rubric + LLM Judge</text>
+        <!-- 5 left -->
+        <rect x="10" y="150" width="190" height="50" rx="10" fill="#1c2230" stroke="#4c9eeb"/><text x="105" y="171" fill="#bcd9f5" font-weight="700" text-anchor="middle">⑤ 模型收敛</text><text x="105" y="188" fill="#9aa7b8" font-size="10.5" text-anchor="middle">同类 bug 减少</text>
+      </g>
+
+      <!-- clockwise arrows -->
+      <g stroke="#4c9eeb" stroke-width="2" fill="none">
+        <path d="M470,52 C580,70 640,110 655,148" marker-end="url(#ar4)"/>
+        <path d="M655,202 C660,280 640,330 600,368" marker-end="url(#ar4)"/>
+        <path d="M470,398 L292,398" marker-end="url(#ar4)"/>
+        <path d="M150,368 C110,330 95,270 102,202" marker-end="url(#ar4)"/>
+        <path d="M120,148 C170,90 240,62 288,50" marker-end="url(#ar4)"/>
+      </g>
+      <text x="380" y="300" fill="#6b7686" font-size="11.5" text-anchor="middle">缺口：情绪标签 scope / emoji 时机 / TTS 边界 未定义 → 评测暂兜不住，需产品先给 definition</text>
+    </svg>
+  </div>
+</section>
+
+<footer>
+  <p>Bug 全景流程图 · 配套《全量Bug逐例详细分析》《全量Bug聚合分析报告》同目录 · 由 Planner Bug 排查会 + Director Badcases(177条) + Director Rewards 聚合。</p>
+  <p>图中百分比为"剥离逻辑"的示意量级（基于 33 个逐例 + 官方≈35%非自身），非精确统计；case 编号对应逐例报告（N-导航 / V-车控 / M-媒体系统）。</p>
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,1069 @@
+<!-- ============================================================
+     第3章 · 4个静态Advisor深度拆解
+     ============================================================ -->
+
+<!-- ============================================================
+     3.1 舒适Advisor (Comfort Advisor)
+     ============================================================ -->
+<section id="ch3-comfort">
+  <h2>3.1 舒适Advisor —— 座舱环境AI管家</h2>
+
+  <!-- ── 骨架图 SVG ── -->
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 620" style="width:100%;background:#0f1724;border-radius:12px;margin:16px 0">
+    <defs>
+      <marker id="comfort-arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="#22d3ee"/>
+      </marker>
+      <marker id="comfort-arrow-green" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="#34d399"/>
+      </marker>
+      <marker id="comfort-arrow-yellow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="#fbbf24"/>
+      </marker>
+      <marker id="comfort-arrow-purple" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="#a78bfa"/>
+      </marker>
+    </defs>
+
+    <!-- 标题 -->
+    <text x="410" y="32" text-anchor="middle" fill="#e8eef9" font-size="14" font-weight="bold">舒适Advisor 架构骨架图</text>
+    <text x="410" y="48" text-anchor="middle" fill="#9fb0c7" font-size="10">Comfort Advisor ── 座舱内负责用户舒适性的AI管家 ── 对应 COM 专家</text>
+
+    <!-- 感知层 -->
+    <text x="30" y="82" fill="#34d399" font-size="11" font-weight="bold">感知层 (5类模板变量)</text>
+    <rect x="30" y="92" width="140" height="44" rx="8" fill="none" stroke="#34d399" stroke-width="1.5"/>
+    <text x="100" y="110" text-anchor="middle" fill="#e8eef9" font-size="11">{{attention}}</text>
+    <text x="100" y="126" text-anchor="middle" fill="#9fb0c7" font-size="9">事件信号(上车/温变)</text>
+
+    <rect x="185" y="92" width="140" height="44" rx="8" fill="none" stroke="#34d399" stroke-width="1.5"/>
+    <text x="255" y="110" text-anchor="middle" fill="#e8eef9" font-size="11">{{watcher}}</text>
+    <text x="255" y="126" text-anchor="middle" fill="#9fb0c7" font-size="9">VLM视觉描述</text>
+
+    <rect x="340" y="92" width="140" height="44" rx="8" fill="none" stroke="#34d399" stroke-width="1.5"/>
+    <text x="410" y="110" text-anchor="middle" fill="#e8eef9" font-size="11">{{car_condition}}</text>
+    <text x="410" y="126" text-anchor="middle" fill="#9fb0c7" font-size="9">端侧信号(温/湿/风)</text>
+
+    <rect x="495" y="92" width="140" height="44" rx="8" fill="none" stroke="#34d399" stroke-width="1.5"/>
+    <text x="565" y="110" text-anchor="middle" fill="#e8eef9" font-size="11">{{web_information}}</text>
+    <text x="565" y="126" text-anchor="middle" fill="#9fb0c7" font-size="9">世界信息(天气/AQI)</text>
+
+    <rect x="650" y="92" width="140" height="44" rx="8" fill="none" stroke="#34d399" stroke-width="1.5"/>
+    <text x="720" y="110" text-anchor="middle" fill="#e8eef9" font-size="11">{{memory}}</text>
+    <text x="720" y="126" text-anchor="middle" fill="#9fb0c7" font-size="9">用户记忆(偏好/健康)</text>
+
+    <!-- 连线：感知 → 触发判断 -->
+    <line x1="410" y1="136" x2="410" y2="170" stroke="#34d399" stroke-width="1.2" marker-end="url(#comfort-arrow-green)"/>
+
+    <!-- 触发层 -->
+    <text x="30" y="182" fill="#22d3ee" font-size="11" font-weight="bold">触发层</text>
+    <rect x="140" y="170" width="240" height="50" rx="8" fill="none" stroke="#22d3ee" stroke-width="1.5"/>
+    <text x="260" y="190" text-anchor="middle" fill="#e8eef9" font-size="11">事件触发</text>
+    <text x="260" y="206" text-anchor="middle" fill="#9fb0c7" font-size="9">有人上车 / 温度变化 / VLM看到阅读场景</text>
+
+    <rect x="420" y="170" width="280" height="50" rx="8" fill="none" stroke="#22d3ee" stroke-width="1.5"/>
+    <text x="560" y="190" text-anchor="middle" fill="#e8eef9" font-size="11">定时Review触发</text>
+    <text x="560" y="206" text-anchor="middle" fill="#9fb0c7" font-size="9">1分钟无事件 + 存在舒适子目标 → 定时review</text>
+
+    <!-- 连线：触发 → SP推理 -->
+    <line x1="410" y1="220" x2="410" y2="256" stroke="#22d3ee" stroke-width="1.2" marker-end="url(#comfort-arrow)"/>
+
+    <!-- SP推理核心 -->
+    <text x="30" y="272" fill="#60a5fa" font-size="11" font-weight="bold">推理核心 (SP)</text>
+    <rect x="100" y="260" width="620" height="120" rx="8" fill="rgba(96,165,250,0.08)" stroke="#60a5fa" stroke-width="1.5"/>
+    <text x="410" y="282" text-anchor="middle" fill="#e8eef9" font-size="12" font-weight="bold">舒适Advisor SP</text>
+
+    <!-- 6+1维度 -->
+    <text x="130" y="302" fill="#9fb0c7" font-size="10">6+1 舒适维度:</text>
+    <rect x="130" y="310" width="72" height="26" rx="6" fill="rgba(34,211,238,0.15)" stroke="#22d3ee" stroke-width="1"/>
+    <text x="166" y="327" text-anchor="middle" fill="#e8eef9" font-size="10">体感温度</text>
+    <rect x="210" y="310" width="72" height="26" rx="6" fill="rgba(34,211,238,0.15)" stroke="#22d3ee" stroke-width="1"/>
+    <text x="246" y="327" text-anchor="middle" fill="#e8eef9" font-size="10">空气质量</text>
+    <rect x="290" y="310" width="55" height="26" rx="6" fill="rgba(34,211,238,0.15)" stroke="#22d3ee" stroke-width="1"/>
+    <text x="317" y="327" text-anchor="middle" fill="#e8eef9" font-size="10">光线</text>
+    <rect x="353" y="310" width="55" height="26" rx="6" fill="rgba(34,211,238,0.15)" stroke="#22d3ee" stroke-width="1"/>
+    <text x="380" y="327" text-anchor="middle" fill="#e8eef9" font-size="10">声音</text>
+    <rect x="416" y="310" width="55" height="26" rx="6" fill="rgba(34,211,238,0.15)" stroke="#22d3ee" stroke-width="1"/>
+    <text x="443" y="327" text-anchor="middle" fill="#e8eef9" font-size="10">乘坐</text>
+    <rect x="479" y="310" width="55" height="26" rx="6" fill="rgba(34,211,238,0.15)" stroke="#22d3ee" stroke-width="1"/>
+    <text x="506" y="327" text-anchor="middle" fill="#e8eef9" font-size="10">空间</text>
+    <rect x="542" y="310" width="55" height="26" rx="6" fill="rgba(34,211,238,0.15)" stroke="#22d3ee" stroke-width="1"/>
+    <text x="569" y="327" text-anchor="middle" fill="#e8eef9" font-size="10">其他</text>
+
+    <!-- 5条knowhow -->
+    <text x="130" y="356" fill="#9fb0c7" font-size="10">SP内置5条knowhow:</text>
+    <text x="260" y="356" fill="#fbbf24" font-size="10">温度策略 | 空气策略 | 空间策略 | 光线策略 | 声音策略</text>
+    <text x="130" y="372" fill="#9fb0c7" font-size="9">基于维度+knowhow+上下文 → 推理当前舒适性问题 + 应对建议</text>
+
+    <!-- 连线：推理 → 输出 -->
+    <line x1="410" y1="380" x2="410" y2="416" stroke="#60a5fa" stroke-width="1.2" marker-end="url(#comfort-arrow)"/>
+
+    <!-- 输出层 -->
+    <text x="30" y="432" fill="#fbbf24" font-size="11" font-weight="bold">输出层</text>
+    <rect x="140" y="416" width="540" height="50" rx="8" fill="rgba(251,191,36,0.08)" stroke="#fbbf24" stroke-width="1.5"/>
+    <text x="410" y="437" text-anchor="middle" fill="#e8eef9" font-size="11">JSON Output → Director</text>
+    <text x="410" y="455" text-anchor="middle" fill="#fbbf24" font-size="10">{"当前的舒适性问题": "车内温度38度，闷热", "应对建议": "开启极速制冷+座椅通风+2分钟后关窗"}</text>
+
+    <!-- 连线：输出 → Director & Goal List -->
+    <line x1="320" y1="466" x2="260" y2="510" stroke="#fbbf24" stroke-width="1.2" marker-end="url(#comfort-arrow-yellow)"/>
+    <line x1="500" y1="466" x2="560" y2="510" stroke="#a78bfa" stroke-width="1.2" marker-end="url(#comfort-arrow-purple)"/>
+
+    <!-- Director -->
+    <rect x="160" y="510" width="200" height="44" rx="8" fill="rgba(251,191,36,0.12)" stroke="#fbbf24" stroke-width="1.5"/>
+    <text x="260" y="530" text-anchor="middle" fill="#e8eef9" font-size="11">Director / Planner</text>
+    <text x="260" y="544" text-anchor="middle" fill="#9fb0c7" font-size="9">接收建议 → 调度COM专家执行车控</text>
+
+    <!-- Goal List -->
+    <rect x="460" y="510" width="200" height="44" rx="8" fill="rgba(167,139,250,0.12)" stroke="#a78bfa" stroke-width="1.5"/>
+    <text x="560" y="530" text-anchor="middle" fill="#e8eef9" font-size="11">Goal List (舒适目标)</text>
+    <text x="560" y="544" text-anchor="middle" fill="#9fb0c7" font-size="9">更新子目标细节和进展</text>
+
+    <!-- 反馈回路 -->
+    <path d="M660,532 Q730,532 730,340 Q730,180 700,136" fill="none" stroke="#fb7185" stroke-width="1" stroke-dasharray="4,3"/>
+    <text x="742" y="340" fill="#fb7185" font-size="9" transform="rotate(90,742,340)">tool_feedback 回流</text>
+
+    <!-- 注意标注 -->
+    <rect x="30" y="580" width="760" height="30" rx="6" fill="rgba(251,113,133,0.08)" stroke="#fb7185" stroke-width="1"/>
+    <text x="410" y="599" text-anchor="middle" fill="#fb7185" font-size="10">核心原则：舒适Advisor不直接控车，只输出建议JSON → 由Director决策是否采纳并调度COM专家执行</text>
+  </svg>
+
+  <!-- ── 讲解 ── -->
+  <div class="explain">
+
+    <h3>一、舒适Advisor是什么？</h3>
+
+    <div class="step">
+      <strong>定位：座舱内负责用户舒适性的AI管家。</strong>在整个Driver Agent 2.0的四个静态Advisor里，舒适Advisor是用户"体感"上最直接能感知到的模块。它不负责导航、不负责娱乐、不负责情绪，它只做一件事：<em>让车里的人感觉舒服</em>。它是一个持续运行的后台"监工"，盯着"舒适"这个静态Goal，不断检测车内环境、判断是否需要干预、给出具体的调整建议。
+    </div>
+
+    <h3>二、6+1舒适维度 —— 它"看"什么？</h3>
+
+    <div class="step">
+      舒适Advisor的SP里定义了<strong>6+1个舒适维度</strong>，这些就是它评估舒适度的"体检指标"：
+      <ol>
+        <li><strong>体感温度</strong> —— 车内温度、座椅温度、方向盘温度等综合感受</li>
+        <li><strong>空气质量</strong> —— PM2.5、CO2浓度、车内异味、花粉</li>
+        <li><strong>光线</strong> —— 阳光直射、阅读灯、氛围灯亮度</li>
+        <li><strong>声音</strong> —— 风噪、路噪、音乐音量、后排是否有孩子在睡觉</li>
+        <li><strong>乘坐</strong> —— 座椅角度、按摩、通风、头枕位置</li>
+        <li><strong>空间</strong> —— 后视镜遮阳帘、天窗、车窗状态</li>
+        <li><strong>其他</strong> —— 无法归入上述六类的舒适性问题，兜底维度</li>
+      </ol>
+    </div>
+
+    <div class="why">
+      <strong>为什么要定义维度而不是让模型自由发挥？</strong>因为LLM在开放空间里推理"什么让人不舒服"容易遗漏——它可能想到温度，但忘了光线；想到空气，但忘了声音。维度化本质上是<strong>给模型一份checklist</strong>，确保它每次推理都"过一遍"所有维度，不会漏项。这和Planner的23个工具定义逻辑一样：不是限制模型，而是用结构降低遗漏概率。
+    </div>
+
+    <h3>三、5类输入模板变量 —— 它"读"什么信息？</h3>
+
+    <div class="step">
+      每次触发舒适Advisor推理时，SP中的动态模板变量会被注入5类信息：
+      <ol>
+        <li><strong>{{attention}}</strong> —— 事件信号。谁上车了？温度传感器变化了？有人打喷嚏了？</li>
+        <li><strong>{{watcher}}</strong> —— VLM（视觉语言模型）的描述。"后排小女孩在揉眼睛"、"主驾在翻书"、"副驾在打电话"</li>
+        <li><strong>{{car_condition}}</strong> —— 端侧信号。空调设定温度、实际温度、风量、车窗状态、座椅通风是否开启等</li>
+        <li><strong>{{web_information}}</strong> —— 世界信息。当前城市天气38度、AQI 180重度污染、紫外线指数极强</li>
+        <li><strong>{{memory}}</strong> —— 用户记忆。"张先生怕冷，空调不低于24度"、"后排宝宝3岁，不能直吹"</li>
+      </ol>
+    </div>
+
+    <div class="why">
+      <strong>为什么需要这么多信号源？</strong>因为"舒适"是一个高度<strong>context-dependent</strong>的判断。同样是28度：夏天暴晒后上车觉得酷热难耐，秋天午后觉得刚刚好。你不知道外面天气就没法判断车内温度够不够用；你不知道后排有宝宝就可能把空调开太大。五类信号是五个维度的上下文，缺任何一个，建议都可能"离谱"。
+    </div>
+
+    <h3>四、触发机制 —— 什么时候"醒来"？</h3>
+
+    <div class="step">
+      舒适Advisor有两种触发模式：
+      <ol>
+        <li><strong>事件触发</strong>：有人上车 / 温度传感器跳变 / VLM检测到特定行为（如"用户在阅读"→ 需要调亮阅读灯）。Watcher和工程端侧信号作为事件源。</li>
+        <li><strong>定时Review触发</strong>：当1分钟内没有新事件，且Goal List中存在舒适相关的子目标（比如"正在极速降温"），就定时触发一次review——检查子目标进展，判断是否需要调整。</li>
+      </ol>
+    </div>
+
+    <div class="eg">
+      <strong>真实Case：38度暴晒上车</strong><br/>
+      事件触发：有人上车 + {{car_condition}}车内温度48度 + {{web_information}}室外气温38度<br/>
+      舒适Advisor推理：体感温度维度严重超标 → 应对建议："开启极速制冷模式（空调16度+最大风量）+ 开启座椅通风 + 先开窗换气2分钟后关窗"<br/>
+      2分钟后定时review触发：{{car_condition}}温度已降至32度 → 更新建议："关闭车窗 + 风量调至3档 + 维持制冷"<br/>
+      5分钟后再次review：温度降至26度 → 更新建议："空调调至24度 + 风量调至2档 + 关闭座椅通风"
+    </div>
+
+    <div class="eg">
+      <strong>真实Case：后排擤鼻涕（TBD场景）</strong><br/>
+      事件触发：{{watcher}} VLM描述"后排乘客在擤鼻涕" + {{car_condition}}当前风量4档直吹后排<br/>
+      舒适Advisor推理：后排乘客可能鼻塞/感冒，大风量直吹会加重不适 → 应对建议："后排风量调至1档，出风口调为非直吹模式"<br/>
+      这个case之所以标TBD，是因为需要VLM足够精确识别"擤鼻涕"这个行为，误判率高时会导致频繁误触。
+    </div>
+
+    <div class="eg">
+      <strong>真实Case：个性化午休</strong><br/>
+      事件触发：{{watcher}} VLM描述"主驾座椅放倒，闭眼" + {{memory}} "用户习惯午休，喜欢20度+暗光环境"<br/>
+      舒适Advisor推理：用户进入午休状态 → 应对建议："空调调至20度 + 风量最低 + 关闭阅读灯 + 天窗遮阳帘关闭 + 座椅按摩开启（轻柔模式）"
+    </div>
+
+    <h3>五、SP结构分析</h3>
+
+    <div class="step">
+      舒适Advisor的SP整体结构如下：
+      <ol>
+        <li><strong>角色定义</strong>：你是座舱舒适管家，负责6+1维度的舒适性管理</li>
+        <li><strong>输入说明</strong>：说明5类模板变量的含义和来源</li>
+        <li><strong>5条knowhow</strong>：温度策略（极速降温→渐进降温→维持）、空气策略（开窗换气→内循环过滤）、空间策略（遮阳帘/天窗）、光线策略（阅读灯/氛围灯）、声音策略（降噪/音量适配）</li>
+        <li><strong>输出格式</strong>：必须输出JSON，包含"当前的舒适性问题"和"应对建议"两个字段</li>
+        <li><strong>注意事项</strong>：不直接控车、只建议；尊重用户记忆中的偏好；多人场景优先照顾弱势群体（宝宝/老人）</li>
+      </ol>
+    </div>
+
+    <div class="why">
+      <strong>为什么knowhow要写进SP而不是让模型自己推理？</strong>因为车控的物理约束是模型不知道的。比如"极速降温"策略里有一条：先开窗换气2分钟再关窗——这是因为暴晒后车内空气有害气体浓度高，直接关窗开空调会把有害气体循环在车内。这种knowhow来自汽车工程经验，不是LLM训练数据能覆盖的，必须显式注入。
+    </div>
+
+    <h3>六、输出格式与下游对接</h3>
+
+    <div class="step">
+      舒适Advisor的输出是一个JSON对象：
+      <code>{"当前的舒适性问题": "...", "应对建议": "..."}</code>
+      这个JSON会被传递给Director/Planner，由Planner决定是否采纳，如果采纳则调度<strong>COM专家</strong>（对应vehicle_basic_control等车控工具）执行具体车控操作。
+    </div>
+
+    <div class="why">
+      <strong>为什么舒适Advisor不直接控车？</strong>因为架构上需要一个"仲裁层"。想象一下：舒适Advisor建议开窗，但用户正在高速上（安全约束），或者正在打电话（声音约束），或者后排宝宝刚睡着（声音+温度约束）。这些<strong>跨维度的冲突只有Director能看到全局</strong>，所以Advisor只出建议，Director做最终决策。
+    </div>
+
+    <h3>七、坑点与排查</h3>
+
+    <div class="trap">
+      <strong>坑1：持续追踪 —— 降温后忘记降风量</strong><br/>
+      舒适Advisor的定时review机制就是为了解决这个问题：极速降温后，如果不持续追踪，会出现"车内已经很冷了但空调还在16度最大风量狂吹"的badcase。排查路径：检查Goal List中舒适子目标是否正确更新了细节和进展，review是否被正确触发。
+    </div>
+
+    <div class="trap">
+      <strong>坑2：多人冲突 —— 主驾怕热、后排宝宝怕冷</strong><br/>
+      舒适Advisor的SP里有"优先照顾弱势群体"的规则，但实际推理中模型可能给出"整车开到最低温度"的粗暴建议。排查路径：检查{{memory}}中是否正确注入了每个乘员的偏好，SP中多人冲突规则是否被遵循。理想输出应该是分区空调策略。
+    </div>
+
+    <div class="trap">
+      <strong>坑3：VLM误判导致的误触发</strong><br/>
+      比如VLM把"乘客低头看手机"识别为"阅读"，触发调亮阅读灯。或者把"乘客扭头和后排说话"识别为"不舒服的姿势"。排查路径：检查{{watcher}}的原始VLM描述是否准确，这类问题本质是感知层误差，需要在Watcher侧优化，舒适Advisor侧无法修复。
+    </div>
+
+    <div class="trap">
+      <strong>坑4：knowhow缺失 —— 模型编造物理约束</strong><br/>
+      比如模型不知道D6X的空调温度范围是16-32度，建议"调到10度"。或者不知道后排没有独立空调控制，建议"后排单独调温"。排查路径：检查SP中的knowhow是否覆盖了车型的实际硬件约束。这是车控幻觉的主要来源。
+    </div>
+  </div>
+</section>
+
+
+<!-- ============================================================
+     3.2 出行Advisor (Travel Advisor)
+     ============================================================ -->
+<section id="ch3-travel">
+  <h2>3.2 出行Advisor —— 出行场景全链路管家</h2>
+
+  <!-- ── 骨架图 SVG ── -->
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 700" style="width:100%;background:#0f1724;border-radius:12px;margin:16px 0">
+    <defs>
+      <marker id="travel-arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="#22d3ee"/>
+      </marker>
+      <marker id="travel-arrow-blue" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="#60a5fa"/>
+      </marker>
+      <marker id="travel-arrow-yellow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="#fbbf24"/>
+      </marker>
+      <marker id="travel-arrow-green" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="#34d399"/>
+      </marker>
+    </defs>
+
+    <!-- 标题 -->
+    <text x="410" y="32" text-anchor="middle" fill="#e8eef9" font-size="14" font-weight="bold">出行Advisor 架构骨架图</text>
+    <text x="410" y="48" text-anchor="middle" fill="#9fb0c7" font-size="10">Travel Advisor ── 理解人、理解出行场景、提供整体解决方案 ── 对应 DRV 专家</text>
+
+    <!-- 数据源扇入 -->
+    <text x="30" y="78" fill="#34d399" font-size="11" font-weight="bold">10+数据源 (出行目的预测)</text>
+
+    <rect x="30" y="88" width="100" height="36" rx="8" fill="none" stroke="#34d399" stroke-width="1.2"/>
+    <text x="80" y="109" text-anchor="middle" fill="#e8eef9" font-size="10">历史偏好</text>
+
+    <rect x="140" y="88" width="100" height="36" rx="8" fill="none" stroke="#34d399" stroke-width="1.2"/>
+    <text x="190" y="109" text-anchor="middle" fill="#e8eef9" font-size="10">车内人员</text>
+
+    <rect x="250" y="88" width="100" height="36" rx="8" fill="none" stroke="#34d399" stroke-width="1.2"/>
+    <text x="300" y="109" text-anchor="middle" fill="#e8eef9" font-size="10">携带物品</text>
+
+    <rect x="360" y="88" width="70" height="36" rx="8" fill="none" stroke="#34d399" stroke-width="1.2"/>
+    <text x="395" y="109" text-anchor="middle" fill="#e8eef9" font-size="10">时间</text>
+
+    <rect x="440" y="88" width="70" height="36" rx="8" fill="none" stroke="#34d399" stroke-width="1.2"/>
+    <text x="475" y="109" text-anchor="middle" fill="#e8eef9" font-size="10">位置</text>
+
+    <rect x="520" y="88" width="90" height="36" rx="8" fill="none" stroke="#34d399" stroke-width="1.2"/>
+    <text x="565" y="109" text-anchor="middle" fill="#e8eef9" font-size="10">常去地点</text>
+
+    <rect x="620" y="88" width="80" height="36" rx="8" fill="none" stroke="#34d399" stroke-width="1.2"/>
+    <text x="660" y="109" text-anchor="middle" fill="#e8eef9" font-size="10">导航状态</text>
+
+    <rect x="710" y="88" width="80" height="36" rx="8" fill="none" stroke="#34d399" stroke-width="1.2"/>
+    <text x="750" y="109" text-anchor="middle" fill="#e8eef9" font-size="10">日程信息</text>
+
+    <!-- 汇聚箭头 -->
+    <line x1="410" y1="124" x2="410" y2="158" stroke="#34d399" stroke-width="1.2" marker-end="url(#travel-arrow-green)"/>
+
+    <!-- 核心推理：出行目的预测 -->
+    <rect x="150" y="158" width="520" height="60" rx="8" fill="rgba(96,165,250,0.1)" stroke="#60a5fa" stroke-width="1.5"/>
+    <text x="410" y="180" text-anchor="middle" fill="#e8eef9" font-size="12" font-weight="bold">核心推理：出行目的预测</text>
+    <text x="410" y="206" text-anchor="middle" fill="#fbbf24" font-size="10">"12月3日周二8:31, 益红和依依已上车, 车在长江小区, 依依带书包 → 送上学+上班"</text>
+
+    <!-- 三阶段 -->
+    <line x1="220" y1="218" x2="220" y2="260" stroke="#60a5fa" stroke-width="1.2" marker-end="url(#travel-arrow-blue)"/>
+    <line x1="410" y1="218" x2="410" y2="260" stroke="#60a5fa" stroke-width="1.2" marker-end="url(#travel-arrow-blue)"/>
+    <line x1="600" y1="218" x2="600" y2="260" stroke="#60a5fa" stroke-width="1.2" marker-end="url(#travel-arrow-blue)"/>
+
+    <text x="30" y="280" fill="#22d3ee" font-size="11" font-weight="bold">行前 / 行中 / 行后</text>
+
+    <rect x="100" y="260" width="240" height="90" rx="8" fill="none" stroke="#22d3ee" stroke-width="1.5"/>
+    <text x="220" y="280" text-anchor="middle" fill="#e8eef9" font-size="11" font-weight="bold">行前</text>
+    <text x="220" y="296" text-anchor="middle" fill="#9fb0c7" font-size="9">出行目的预测</text>
+    <text x="220" y="310" text-anchor="middle" fill="#9fb0c7" font-size="9">路线规划建议</text>
+    <text x="220" y="324" text-anchor="middle" fill="#9fb0c7" font-size="9">充电推荐 (电量+路线)</text>
+    <text x="220" y="338" text-anchor="middle" fill="#9fb0c7" font-size="9">POI沿途推荐</text>
+
+    <rect x="360" y="260" width="200" height="90" rx="8" fill="none" stroke="#22d3ee" stroke-width="1.5"/>
+    <text x="460" y="280" text-anchor="middle" fill="#e8eef9" font-size="11" font-weight="bold">行中</text>
+    <text x="460" y="296" text-anchor="middle" fill="#9fb0c7" font-size="9">堵车绕行建议</text>
+    <text x="460" y="310" text-anchor="middle" fill="#9fb0c7" font-size="9">沿途POI提醒</text>
+    <text x="460" y="324" text-anchor="middle" fill="#9fb0c7" font-size="9">接近目的地指引</text>
+    <text x="460" y="338" text-anchor="middle" fill="#9fb0c7" font-size="9">最后一公里导引</text>
+
+    <rect x="580" y="260" width="200" height="90" rx="8" fill="none" stroke="#22d3ee" stroke-width="1.5"/>
+    <text x="680" y="280" text-anchor="middle" fill="#e8eef9" font-size="11" font-weight="bold">行后</text>
+    <text x="680" y="296" text-anchor="middle" fill="#9fb0c7" font-size="9">停车缴费 (GUIAgent)</text>
+    <text x="680" y="310" text-anchor="middle" fill="#9fb0c7" font-size="9">生态服务 (订座/取号)</text>
+    <text x="680" y="324" text-anchor="middle" fill="#9fb0c7" font-size="9">行程总结</text>
+    <text x="680" y="338" text-anchor="middle" fill="#9fb0c7" font-size="9">记忆沉淀 (偏好更新)</text>
+
+    <!-- 触发层 -->
+    <line x1="410" y1="350" x2="410" y2="386" stroke="#22d3ee" stroke-width="1.2" marker-end="url(#travel-arrow)"/>
+    <text x="30" y="404" fill="#fbbf24" font-size="11" font-weight="bold">触发机制</text>
+
+    <rect x="100" y="390" width="160" height="40" rx="8" fill="none" stroke="#fbbf24" stroke-width="1.2"/>
+    <text x="180" y="414" text-anchor="middle" fill="#e8eef9" font-size="10">上车事件</text>
+
+    <rect x="275" y="390" width="160" height="40" rx="8" fill="none" stroke="#fbbf24" stroke-width="1.2"/>
+    <text x="355" y="414" text-anchor="middle" fill="#e8eef9" font-size="10">导航变更/堵车</text>
+
+    <rect x="450" y="390" width="160" height="40" rx="8" fill="none" stroke="#fbbf24" stroke-width="1.2"/>
+    <text x="530" y="414" text-anchor="middle" fill="#e8eef9" font-size="10">接近目的地</text>
+
+    <rect x="625" y="390" width="160" height="40" rx="8" fill="none" stroke="#fbbf24" stroke-width="1.2"/>
+    <text x="705" y="414" text-anchor="middle" fill="#e8eef9" font-size="10">定时Review</text>
+
+    <!-- 输出 → Director -->
+    <line x1="410" y1="430" x2="410" y2="470" stroke="#fbbf24" stroke-width="1.2" marker-end="url(#travel-arrow-yellow)"/>
+
+    <rect x="200" y="470" width="420" height="50" rx="8" fill="rgba(251,191,36,0.1)" stroke="#fbbf24" stroke-width="1.5"/>
+    <text x="410" y="490" text-anchor="middle" fill="#e8eef9" font-size="11">建议输出 → Director / Planner</text>
+    <text x="410" y="508" text-anchor="middle" fill="#9fb0c7" font-size="9">调度 DRV 专家 (route_planning_qa / navi_basic_control / search_poi_qa 等)</text>
+
+    <!-- 场景矩阵 -->
+    <text x="30" y="548" fill="#a78bfa" font-size="11" font-weight="bold">核心场景矩阵</text>
+    <rect x="30" y="558" width="120" height="32" rx="6" fill="rgba(167,139,250,0.12)" stroke="#a78bfa" stroke-width="1"/>
+    <text x="90" y="578" text-anchor="middle" fill="#e8eef9" font-size="10">堵车绕行</text>
+    <rect x="160" y="558" width="120" height="32" rx="6" fill="rgba(167,139,250,0.12)" stroke="#a78bfa" stroke-width="1"/>
+    <text x="220" y="578" text-anchor="middle" fill="#e8eef9" font-size="10">停车缴费</text>
+    <rect x="290" y="558" width="120" height="32" rx="6" fill="rgba(167,139,250,0.12)" stroke="#a78bfa" stroke-width="1"/>
+    <text x="350" y="578" text-anchor="middle" fill="#e8eef9" font-size="10">充电推荐</text>
+    <rect x="420" y="558" width="120" height="32" rx="6" fill="rgba(167,139,250,0.12)" stroke="#a78bfa" stroke-width="1"/>
+    <text x="480" y="578" text-anchor="middle" fill="#e8eef9" font-size="10">最后一公里</text>
+    <rect x="550" y="558" width="120" height="32" rx="6" fill="rgba(167,139,250,0.12)" stroke="#a78bfa" stroke-width="1"/>
+    <text x="610" y="578" text-anchor="middle" fill="#e8eef9" font-size="10">POI推荐</text>
+    <rect x="680" y="558" width="110" height="32" rx="6" fill="rgba(167,139,250,0.12)" stroke="#a78bfa" stroke-width="1"/>
+    <text x="735" y="578" text-anchor="middle" fill="#e8eef9" font-size="10">生态服务</text>
+
+    <!-- 成熟度警告 -->
+    <rect x="30" y="610" width="760" height="30" rx="6" fill="rgba(251,113,133,0.08)" stroke="#fb7185" stroke-width="1"/>
+    <text x="410" y="629" text-anchor="middle" fill="#fb7185" font-size="10">PRD v0.4 成熟度偏低：多数场景为 P2 优先级，堵车绕行和停车缴费为核心 P0 验证场景</text>
+
+    <!-- 成熟度条 -->
+    <text x="30" y="665" fill="#9fb0c7" font-size="10">功能成熟度:</text>
+    <rect x="130" y="652" width="200" height="14" rx="4" fill="rgba(96,165,250,0.15)"/>
+    <rect x="130" y="652" width="60" height="14" rx="4" fill="#60a5fa"/>
+    <text x="340" y="664" fill="#9fb0c7" font-size="9">~30% 已实现 / 70% P2未排期</text>
+  </svg>
+
+  <!-- ── 讲解 ── -->
+  <div class="explain">
+
+    <h3>一、出行Advisor是什么？</h3>
+
+    <div class="step">
+      <strong>定位："理解人、理解出行场景、提供整体解决方案"</strong>。如果说舒适Advisor管的是"车内微环境"，出行Advisor管的就是"从出发到到达"的整个出行链路。它覆盖<strong>行前→行中→行后</strong>三个阶段，核心能力是<strong>出行目的预测</strong>——在你还没说去哪之前，就根据上下文推断你这趟出行要干嘛。
+    </div>
+
+    <h3>二、核心推理：出行目的预测</h3>
+
+    <div class="step">
+      出行Advisor最有技术含量的部分就是<strong>出行目的预测</strong>。它需要综合10+个数据源进行推理：
+      <ol>
+        <li><strong>历史偏好</strong> —— 用户工作日通常8:30出发去公司</li>
+        <li><strong>车内人员</strong> —— FaceID识别到主驾+后排一个孩子</li>
+        <li><strong>携带物品</strong> —— VLM看到孩子背着书包</li>
+        <li><strong>时间</strong> —— 现在是周二早上8:31</li>
+        <li><strong>位置</strong> —— GPS显示在长江小区（家）</li>
+        <li><strong>常去地点</strong> —— 记忆中：长江小区=家，XX小学=孩子学校</li>
+        <li><strong>导航状态</strong> —— 当前无导航</li>
+        <li><strong>日程信息</strong> —— 日历显示9:00有会议</li>
+        <li><strong>天气</strong> —— 今天有雨</li>
+        <li><strong>特殊日期</strong> —— 非节假日</li>
+      </ol>
+    </div>
+
+    <div class="eg">
+      <strong>真实推理Case：</strong><br/>
+      "12月3日周二8:31，益红和依依已上车，车在长江小区，依依带书包 → 推断：先送依依上学（XX小学），再去公司（XX路）"<br/>
+      出行Advisor输出建议：规划路线（先XX小学→再公司），预计行程25分钟，途中经过XX早餐店（用户历史常买豆浆油条）。
+    </div>
+
+    <div class="why">
+      <strong>为什么要做"目的预测"而不是等用户说？</strong>因为车载场景下用户上车后的第一需求往往是明确的（上班/送孩子/回家），但每次都要口头确认很"笨"。一个真正聪明的AI管家应该像老司机一样，看到孩子背着书包、又是周二早上，就知道该先送孩子上学。<strong>主动服务的核心价值就在于减少用户操作</strong>，让AI多想一步。
+    </div>
+
+    <h3>三、行前→行中→行后 三阶段场景</h3>
+
+    <div class="step">
+      <strong>行前场景：</strong>
+      <ul>
+        <li>出行目的预测 + 路线规划建议</li>
+        <li>充电推荐（电量不足时结合路线推荐沿途充电桩）</li>
+        <li>POI沿途预推荐（"路上经过XX咖啡店，要不要点一杯？"）</li>
+      </ul>
+      <strong>行中场景：</strong>
+      <ul>
+        <li>堵车绕行建议（前方拥堵严重，建议绕行XX路，多3分钟但省20分钟）</li>
+        <li>接近目的地指引 + 最后一公里导引（"目的地在右手边第二栋楼，B1有停车位"）</li>
+        <li>沿途POI提醒（"前方500米有个网红打卡点"）</li>
+      </ul>
+      <strong>行后场景：</strong>
+      <ul>
+        <li>停车缴费——通过GUIAgent操作停车APP完成支付</li>
+        <li>生态服务——"到了海底捞，帮你取号，目前排队8桌"</li>
+        <li>行程记忆沉淀——更新用户偏好（这次去了XX餐厅，评价不错）</li>
+      </ul>
+    </div>
+
+    <h3>四、触发机制</h3>
+
+    <div class="step">
+      出行Advisor的触发分为<strong>事件触发</strong>和<strong>定时Review</strong>：
+      <ul>
+        <li><strong>上车事件</strong>：有人上车 → 立即进行出行目的预测</li>
+        <li><strong>导航变更/堵车</strong>：路线偏离或实时拥堵 → 触发绕行建议</li>
+        <li><strong>接近目的地</strong>：距目的地<1km → 触发最后一公里指引</li>
+        <li><strong>定时Review</strong>：行中每隔N分钟review → 检查出行目标进展</li>
+      </ul>
+    </div>
+
+    <h3>五、SP结构与对应专家</h3>
+
+    <div class="step">
+      出行Advisor的建议输出后，由Director调度<strong>DRV专家</strong>执行。DRV专家对应的工具集包括：route_planning_qa（路线规划）、navi_basic_control（导航控制）、search_poi_qa（POI搜索）等。出行Advisor的SP核心是出行目的预测的推理链，需要将10+数据源的信息结构化喂给模型，让模型像老司机一样做"综合研判"。
+    </div>
+
+    <h3>六、坑点与排查</h3>
+
+    <div class="trap">
+      <strong>坑1：出行目的预测误判</strong><br/>
+      比如周末带孩子出门，孩子恰好背了书包（装了零食），模型预测"送上学"。排查路径：检查日期特征（周末vs工作日）、日程信息是否注入。PRD中对推理链的约束不够强，模型容易被单一强特征（书包）误导。
+    </div>
+
+    <div class="trap">
+      <strong>坑2：GUIAgent依赖 —— 停车缴费失败率高</strong><br/>
+      停车缴费需要GUIAgent操控手机APP，这是一个跨Agent协作链路。GUIAgent本身识别UI元素的准确率有限，加上不同停车APP界面差异大，失败率高。排查路径：检查GUIAgent的截图识别日志，通常不是出行Advisor的问题，而是下游执行层的问题。
+    </div>
+
+    <div class="trap">
+      <strong>坑3：PRD成熟度低 —— 很多场景只有描述没有实现</strong><br/>
+      PRD v0.4中出行Advisor的大部分场景还停留在P2优先级，真正在开发的只有堵车绕行和基本的目的预测。排查badcase时要先确认：这个场景是否已经实现了？很多时候不是模型推理错了，而是功能还没开发。
+    </div>
+
+    <div class="trap">
+      <strong>坑4：数据源缺失 —— 推理巧妇难为无米之炊</strong><br/>
+      出行目的预测依赖10+数据源，但实际产品中很多数据源还没接入（比如日程信息需要和手机日历打通，携带物品需要VLM持续识别）。数据源缺失会导致推理退化为简单的"时间+位置"模式匹配，丧失了"多源推理"的核心优势。
+    </div>
+  </div>
+</section>
+
+
+<!-- ============================================================
+     3.3 内容Advisor (Content Advisor)
+     ============================================================ -->
+<section id="ch3-content">
+  <h2>3.3 内容Advisor —— 首席内容建议官</h2>
+
+  <!-- ── 骨架图 SVG ── -->
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 780" style="width:100%;background:#0f1724;border-radius:12px;margin:16px 0">
+    <defs>
+      <marker id="content-arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="#22d3ee"/>
+      </marker>
+      <marker id="content-arrow-blue" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="#60a5fa"/>
+      </marker>
+      <marker id="content-arrow-yellow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="#fbbf24"/>
+      </marker>
+      <marker id="content-arrow-purple" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="#a78bfa"/>
+      </marker>
+      <marker id="content-arrow-red" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="#fb7185"/>
+      </marker>
+    </defs>
+
+    <!-- 标题 -->
+    <text x="410" y="32" text-anchor="middle" fill="#e8eef9" font-size="14" font-weight="bold">内容Advisor 架构骨架图</text>
+    <text x="410" y="48" text-anchor="middle" fill="#9fb0c7" font-size="10">Content Advisor ── 首席内容建议官 ── 核心设计原则：克制优先 ── 对应 ENT 专家</text>
+
+    <!-- 核心原则 -->
+    <rect x="280" y="62" width="260" height="30" rx="8" fill="rgba(251,113,133,0.12)" stroke="#fb7185" stroke-width="1.5"/>
+    <text x="410" y="82" text-anchor="middle" fill="#fb7185" font-size="11" font-weight="bold">默认不工作 —— 没有Trigger就没有内容</text>
+
+    <!-- L0-L3 介入等级状态机 -->
+    <text x="30" y="118" fill="#a78bfa" font-size="11" font-weight="bold">L0-L3 介入等级状态机</text>
+
+    <!-- L0 -->
+    <rect x="30" y="130" width="170" height="80" rx="8" fill="rgba(251,113,133,0.08)" stroke="#fb7185" stroke-width="1.5"/>
+    <text x="115" y="150" text-anchor="middle" fill="#fb7185" font-size="12" font-weight="bold">L0 隐形</text>
+    <text x="115" y="166" text-anchor="middle" fill="#e8eef9" font-size="10">认知占用: 0%</text>
+    <text x="115" y="180" text-anchor="middle" fill="#9fb0c7" font-size="9">触发条件:</text>
+    <text x="115" y="194" text-anchor="middle" fill="#9fb0c7" font-size="9">愤怒/暴雨/争吵/冲突</text>
+
+    <!-- L1 -->
+    <rect x="220" y="130" width="170" height="80" rx="8" fill="rgba(34,211,238,0.08)" stroke="#22d3ee" stroke-width="1.5"/>
+    <text x="305" y="150" text-anchor="middle" fill="#22d3ee" font-size="12" font-weight="bold">L1 氛围</text>
+    <text x="305" y="166" text-anchor="middle" fill="#e8eef9" font-size="10">认知占用: &lt;5%</text>
+    <text x="305" y="180" text-anchor="middle" fill="#9fb0c7" font-size="9">内容类型:</text>
+    <text x="305" y="194" text-anchor="middle" fill="#9fb0c7" font-size="9">白噪声/轻音乐</text>
+
+    <!-- L2 -->
+    <rect x="410" y="130" width="170" height="80" rx="8" fill="rgba(96,165,250,0.08)" stroke="#60a5fa" stroke-width="1.5"/>
+    <text x="495" y="150" text-anchor="middle" fill="#60a5fa" font-size="12" font-weight="bold">L2 碎片</text>
+    <text x="495" y="166" text-anchor="middle" fill="#e8eef9" font-size="10">认知占用: ~30%</text>
+    <text x="495" y="180" text-anchor="middle" fill="#9fb0c7" font-size="9">内容类型:</text>
+    <text x="495" y="194" text-anchor="middle" fill="#9fb0c7" font-size="9">笑话/新闻/短段子</text>
+
+    <!-- L3 -->
+    <rect x="600" y="130" width="170" height="80" rx="8" fill="rgba(167,139,250,0.08)" stroke="#a78bfa" stroke-width="1.5"/>
+    <text x="685" y="150" text-anchor="middle" fill="#a78bfa" font-size="12" font-weight="bold">L3 沉浸</text>
+    <text x="685" y="166" text-anchor="middle" fill="#e8eef9" font-size="10">认知占用: &gt;80%</text>
+    <text x="685" y="180" text-anchor="middle" fill="#9fb0c7" font-size="9">内容类型:</text>
+    <text x="685" y="194" text-anchor="middle" fill="#9fb0c7" font-size="9">专家讲坛/深度播客</text>
+
+    <!-- 状态转移箭头 -->
+    <line x1="200" y1="170" x2="218" y2="170" stroke="#9fb0c7" stroke-width="1" marker-end="url(#content-arrow)"/>
+    <line x1="390" y1="170" x2="408" y2="170" stroke="#9fb0c7" stroke-width="1" marker-end="url(#content-arrow-blue)"/>
+    <line x1="580" y1="170" x2="598" y2="170" stroke="#9fb0c7" stroke-width="1" marker-end="url(#content-arrow-purple)"/>
+
+    <!-- 触发层 -->
+    <text x="30" y="240" fill="#22d3ee" font-size="11" font-weight="bold">三种触发</text>
+    <rect x="100" y="248" width="190" height="40" rx="8" fill="none" stroke="#22d3ee" stroke-width="1.2"/>
+    <text x="195" y="272" text-anchor="middle" fill="#e8eef9" font-size="10">事件触发 (到达/出发等)</text>
+
+    <rect x="310" y="248" width="190" height="40" rx="8" fill="none" stroke="#22d3ee" stroke-width="1.2"/>
+    <text x="405" y="272" text-anchor="middle" fill="#e8eef9" font-size="10">定时触发 (周期review)</text>
+
+    <rect x="520" y="248" width="250" height="40" rx="8" fill="none" stroke="#fbbf24" stroke-width="1.5"/>
+    <text x="645" y="266" text-anchor="middle" fill="#fbbf24" font-size="10" font-weight="bold">协同信号触发</text>
+    <text x="645" y="280" text-anchor="middle" fill="#fbbf24" font-size="9">情感Advisor发送"适合陪伴"信号</text>
+
+    <!-- 8步推理Flow -->
+    <line x1="410" y1="288" x2="410" y2="318" stroke="#22d3ee" stroke-width="1.2" marker-end="url(#content-arrow)"/>
+    <text x="30" y="336" fill="#60a5fa" font-size="11" font-weight="bold">8步推理Flow</text>
+
+    <rect x="30" y="344" width="760" height="120" rx="8" fill="rgba(96,165,250,0.06)" stroke="#60a5fa" stroke-width="1.5"/>
+
+    <!-- 8步 -->
+    <rect x="45" y="360" width="78" height="36" rx="6" fill="rgba(251,113,133,0.1)" stroke="#fb7185" stroke-width="1"/>
+    <text x="84" y="375" text-anchor="middle" fill="#fb7185" font-size="10" font-weight="bold">1.静默</text>
+    <text x="84" y="389" text-anchor="middle" fill="#9fb0c7" font-size="8">默认待机</text>
+
+    <line x1="123" y1="378" x2="135" y2="378" stroke="#9fb0c7" stroke-width="1" marker-end="url(#content-arrow)"/>
+
+    <rect x="137" y="360" width="78" height="36" rx="6" fill="rgba(34,211,238,0.1)" stroke="#22d3ee" stroke-width="1"/>
+    <text x="176" y="375" text-anchor="middle" fill="#22d3ee" font-size="10" font-weight="bold">2.唤醒</text>
+    <text x="176" y="389" text-anchor="middle" fill="#9fb0c7" font-size="8">Trigger激活</text>
+
+    <line x1="215" y1="378" x2="227" y2="378" stroke="#9fb0c7" stroke-width="1" marker-end="url(#content-arrow)"/>
+
+    <rect x="229" y="360" width="78" height="36" rx="6" fill="rgba(34,211,238,0.1)" stroke="#22d3ee" stroke-width="1"/>
+    <text x="268" y="375" text-anchor="middle" fill="#22d3ee" font-size="10" font-weight="bold">3.Context</text>
+    <text x="268" y="389" text-anchor="middle" fill="#9fb0c7" font-size="8">收集上下文</text>
+
+    <line x1="307" y1="378" x2="319" y2="378" stroke="#9fb0c7" stroke-width="1" marker-end="url(#content-arrow)"/>
+
+    <rect x="321" y="360" width="78" height="36" rx="6" fill="rgba(96,165,250,0.1)" stroke="#60a5fa" stroke-width="1"/>
+    <text x="360" y="375" text-anchor="middle" fill="#60a5fa" font-size="10" font-weight="bold">4.介入判断</text>
+    <text x="360" y="389" text-anchor="middle" fill="#9fb0c7" font-size="8">L0/L1/L2/L3</text>
+
+    <line x1="399" y1="378" x2="411" y2="378" stroke="#9fb0c7" stroke-width="1" marker-end="url(#content-arrow)"/>
+
+    <rect x="413" y="360" width="78" height="36" rx="6" fill="rgba(96,165,250,0.1)" stroke="#60a5fa" stroke-width="1"/>
+    <text x="452" y="375" text-anchor="middle" fill="#60a5fa" font-size="10" font-weight="bold">5.策略</text>
+    <text x="452" y="389" text-anchor="middle" fill="#9fb0c7" font-size="8">选内容类型</text>
+
+    <line x1="491" y1="378" x2="503" y2="378" stroke="#9fb0c7" stroke-width="1" marker-end="url(#content-arrow)"/>
+
+    <rect x="505" y="360" width="78" height="36" rx="6" fill="rgba(251,191,36,0.1)" stroke="#fbbf24" stroke-width="1"/>
+    <text x="544" y="375" text-anchor="middle" fill="#fbbf24" font-size="10" font-weight="bold">6.分发</text>
+    <text x="544" y="389" text-anchor="middle" fill="#9fb0c7" font-size="8">推给Director</text>
+
+    <line x1="583" y1="378" x2="595" y2="378" stroke="#9fb0c7" stroke-width="1" marker-end="url(#content-arrow)"/>
+
+    <rect x="597" y="360" width="78" height="36" rx="6" fill="rgba(34,211,238,0.1)" stroke="#22d3ee" stroke-width="1"/>
+    <text x="636" y="375" text-anchor="middle" fill="#22d3ee" font-size="10" font-weight="bold">7.反馈</text>
+    <text x="636" y="389" text-anchor="middle" fill="#9fb0c7" font-size="8">用户响应</text>
+
+    <line x1="675" y1="378" x2="687" y2="378" stroke="#9fb0c7" stroke-width="1" marker-end="url(#content-arrow)"/>
+
+    <rect x="689" y="360" width="78" height="36" rx="6" fill="rgba(167,139,250,0.1)" stroke="#a78bfa" stroke-width="1"/>
+    <text x="728" y="375" text-anchor="middle" fill="#a78bfa" font-size="10" font-weight="bold">8.Review</text>
+    <text x="728" y="389" text-anchor="middle" fill="#9fb0c7" font-size="8">归因调整</text>
+
+    <!-- 介入判断详细 -->
+    <text x="50" y="420" fill="#9fb0c7" font-size="9">介入判断逻辑: 驾驶员注意力 + 情绪状态 + 路况复杂度 + 时间段 + 乘客组成 → 选择L0/L1/L2/L3</text>
+    <text x="50" y="436" fill="#9fb0c7" font-size="9">分发策略: L0=不推送 / L1=无声播放 / L2=简短口播 / L3=深度推荐+界面展示</text>
+    <text x="50" y="452" fill="#9fb0c7" font-size="9">Review逻辑: 用户跳过→降级 / 用户继续→维持或升级 / 连续3次跳过→强制归因→修正策略</text>
+
+    <!-- 反馈闭环 -->
+    <text x="30" y="492" fill="#fb7185" font-size="11" font-weight="bold">反馈闭环机制</text>
+
+    <rect x="100" y="500" width="300" height="60" rx="8" fill="rgba(251,113,133,0.08)" stroke="#fb7185" stroke-width="1.2"/>
+    <text x="250" y="520" text-anchor="middle" fill="#fb7185" font-size="11">连续跳过3次</text>
+    <text x="250" y="538" text-anchor="middle" fill="#9fb0c7" font-size="9">→ 归因分析(内容不对?时机不对?等级不对?) → 修正</text>
+
+    <rect x="430" y="500" width="340" height="60" rx="8" fill="rgba(251,113,133,0.08)" stroke="#fb7185" stroke-width="1.2"/>
+    <text x="600" y="520" text-anchor="middle" fill="#fb7185" font-size="11">路况变拥堵 &gt;5分钟</text>
+    <text x="600" y="538" text-anchor="middle" fill="#9fb0c7" font-size="9">→ 自动降低认知等级(L3→L2或L2→L1) → 保障驾驶安全</text>
+
+    <!-- 协同 -->
+    <text x="30" y="596" fill="#fbbf24" font-size="11" font-weight="bold">与情感Advisor协同</text>
+
+    <rect x="100" y="604" width="620" height="50" rx="8" fill="rgba(251,191,36,0.06)" stroke="#fbbf24" stroke-width="1.2"/>
+    <rect x="120" y="614" width="160" height="30" rx="6" fill="rgba(167,139,250,0.12)" stroke="#a78bfa" stroke-width="1"/>
+    <text x="200" y="633" text-anchor="middle" fill="#a78bfa" font-size="10">情感Advisor</text>
+
+    <line x1="280" y1="629" x2="340" y2="629" stroke="#fbbf24" stroke-width="1.2" marker-end="url(#content-arrow-yellow)"/>
+    <text x="310" y="622" text-anchor="middle" fill="#fbbf24" font-size="8">"适合陪伴"</text>
+
+    <rect x="345" y="614" width="160" height="30" rx="6" fill="rgba(34,211,238,0.12)" stroke="#22d3ee" stroke-width="1"/>
+    <text x="425" y="633" text-anchor="middle" fill="#22d3ee" font-size="10">内容Advisor 唤醒</text>
+
+    <line x1="505" y1="629" x2="560" y2="629" stroke="#22d3ee" stroke-width="1.2" marker-end="url(#content-arrow)"/>
+
+    <rect x="565" y="614" width="140" height="30" rx="6" fill="rgba(251,191,36,0.12)" stroke="#fbbf24" stroke-width="1"/>
+    <text x="635" y="633" text-anchor="middle" fill="#fbbf24" font-size="10">推荐陪伴内容</text>
+
+    <!-- 输出 -->
+    <text x="30" y="690" fill="#fbbf24" font-size="11" font-weight="bold">输出 → ENT专家</text>
+    <rect x="100" y="696" width="620" height="40" rx="8" fill="rgba(251,191,36,0.08)" stroke="#fbbf24" stroke-width="1.5"/>
+    <text x="410" y="720" text-anchor="middle" fill="#e8eef9" font-size="10">建议 → Director → ENT专家 (search_and_control_music / search_and_control_broadcast / ai_broadcast_generate)</text>
+
+    <!-- 底部原则 -->
+    <rect x="30" y="748" width="760" height="26" rx="6" fill="rgba(251,113,133,0.08)" stroke="#fb7185" stroke-width="1"/>
+    <text x="410" y="765" text-anchor="middle" fill="#fb7185" font-size="10">设计红线：宁可不推也不要推错 —— 一次错误推送 = 用户关闭主动服务开关</text>
+  </svg>
+
+  <!-- ── 讲解 ── -->
+  <div class="explain">
+
+    <h3>一、内容Advisor是什么？</h3>
+
+    <div class="step">
+      <strong>定位："首席内容建议官"。</strong>但和一般的"推荐系统"完全不同，内容Advisor的核心设计原则是<strong>"克制优先"</strong>——默认不工作，没有Trigger就没有内容推送。这在四个静态Advisor里是独一无二的：舒适Advisor上车就工作，情感Advisor持续观察，出行Advisor有导航就运转，唯独内容Advisor<strong>默认静默</strong>。
+    </div>
+
+    <div class="why">
+      <strong>为什么内容Advisor要"克制优先"？</strong>因为内容推送是所有主动服务中<strong>用户反感成本最高</strong>的一个。舒适建议（帮你调空调）用户最多觉得多余但不反感；出行建议（前方堵车建议绕行）用户会觉得有用。但内容推送一旦推错——在你专注开车时突然播个笑话、在你心情烦躁时推荐个"振奋人心的播客"——用户会直接关掉主动服务的开关。所以内容Advisor的设计逻辑是：<strong>宁可不推也不要推错</strong>。
+    </div>
+
+    <h3>二、L0-L3介入等级状态机</h3>
+
+    <div class="step">
+      内容Advisor最核心的设计就是这个<strong>四级介入等级状态机</strong>：
+      <ol>
+        <li><strong>L0 隐形（0%认知占用）</strong>：完全不推送任何内容。触发条件：驾驶员愤怒、暴雨/暴雪恶劣天气、车内有争吵冲突。此时任何内容推送都是火上浇油。</li>
+        <li><strong>L1 氛围（&lt;5%认知占用）</strong>：只推极低认知负荷的内容——白噪声、轻音乐、雨声。不需要用户"听"，只是填充背景音。</li>
+        <li><strong>L2 碎片（~30%认知占用）</strong>：推送碎片化、轻量的内容——一个笑话、一条热点新闻、一个短段子。用户听不听都行，不会打断思路。</li>
+        <li><strong>L3 沉浸（&gt;80%认知占用）</strong>：推送深度内容——专家讲坛、深度播客、长篇故事。需要用户投入注意力，只有在"堵车/高速巡航/乘客模式"等注意力可释放的场景才使用。</li>
+      </ol>
+    </div>
+
+    <div class="why">
+      <strong>为什么要做认知占用分级？</strong>因为开车时的注意力是一种<strong>有限资源</strong>。认知心理学里有个概念叫"认知负荷"——人在同一时间能处理的信息量有上限。开车本身就在消耗认知资源（路况判断、操控），如果内容推送占用太多认知资源，就会影响驾驶安全。L0-L3本质上是一个<strong>认知预算管理系统</strong>：根据当前驾驶场景可释放的认知余量，分配对应等级的内容。
+    </div>
+
+    <h3>三、8步推理Flow</h3>
+
+    <div class="step">
+      内容Advisor每次被触发后，走一个<strong>完整的8步推理链</strong>：
+      <ol>
+        <li><strong>静默</strong>：默认待机状态，不消耗资源。</li>
+        <li><strong>唤醒</strong>：Trigger到达（事件/定时/协同信号），Advisor激活。</li>
+        <li><strong>Context收集</strong>：拉取当前场景信息——驾驶状态、情绪、路况、时间、乘客组成。</li>
+        <li><strong>介入判断</strong>：根据Context决定当前应该处于L0/L1/L2/L3哪个等级。如果判断为L0，直接回到静默。</li>
+        <li><strong>策略制定</strong>：确定等级后，选择具体内容类型和内容来源（音乐库/新闻/播客/AI生成等）。</li>
+        <li><strong>分发</strong>：将内容推荐建议发送给Director，由Director调度ENT专家执行播放。</li>
+        <li><strong>反馈收集</strong>：监听用户响应——跳过？继续听？主动要求换？ </li>
+        <li><strong>Review</strong>：基于反馈做归因分析，调整下一次的策略。</li>
+      </ol>
+    </div>
+
+    <h3>四、反馈闭环 —— 内容Advisor的"自我纠错"</h3>
+
+    <div class="step">
+      内容Advisor有两个关键的反馈闭环机制：
+      <ul>
+        <li><strong>连续跳过3次 → 归因 → 修正</strong>：如果用户连续3次跳过推荐的内容，Advisor不会继续推，而是先做归因分析——是内容类型不对（不喜欢新闻？换音乐）？还是时机不对（在打电话？降级到L0）？还是介入等级不对（堵车了但用户在处理工作电话？降级）？归因后修正策略再继续。</li>
+        <li><strong>路况变拥堵 &gt;5分钟 → 降认知等级</strong>：如果正在播L3内容（深度播客），突然前方路况变拥堵，需要用户集中注意力看路，Advisor会自动降级到L2或L1，确保驾驶安全优先。</li>
+      </ul>
+    </div>
+
+    <h3>五、协同信号 —— 和情感Advisor的联动</h3>
+
+    <div class="eg">
+      <strong>真实Case：情感Advisor通知"适合陪伴"</strong><br/>
+      情感Advisor检测到用户情绪低落但已趋稳（不再是愤怒/悲伤高峰期），发出协同信号"适合陪伴" → 内容Advisor收到信号后唤醒 → 判断当前为L1等级（用户情绪刚恢复，不宜高认知负荷）→ 推荐轻柔的治愈系音乐 → Director调度ENT专家播放。
+    </div>
+
+    <div class="why">
+      <strong>为什么需要情感Advisor的协同信号？</strong>因为内容Advisor自己不做情绪判断——它只看场景和认知负荷。但内容推送的时机极度依赖情绪状态：用户开心时推个脱口秀合适，用户悲伤时推个脱口秀就是灾难。情绪判断交给专业的情感Advisor来做，内容Advisor只接收结论（"适合陪伴"/"不宜打扰"），这就是<strong>模块化分工</strong>的好处——每个Advisor做自己最擅长的判断。
+    </div>
+
+    <h3>六、坑点与排查</h3>
+
+    <div class="trap">
+      <strong>坑1：介入等级误判 —— 该静默时推了内容</strong><br/>
+      最常见的badcase：用户在高速超车/变道时（高认知需求），内容Advisor却判断为L2推了条新闻。排查路径：检查Context中的驾驶状态信号是否准确注入，L0的触发条件是否覆盖了"高速变道"这种场景。
+    </div>
+
+    <div class="trap">
+      <strong>坑2：连续跳过归因不准</strong><br/>
+      用户连续3次跳过不是因为内容不好，而是因为在打电话（语音通道被占用）。但归因分析误判为"内容类型不对"，下次换了内容类型还是被跳过。排查路径：检查归因分析时是否纳入了"当前是否有语音通话"这个信号。
+    </div>
+
+    <div class="trap">
+      <strong>坑3：和情感Advisor协同时序错误</strong><br/>
+      情感Advisor发出"适合陪伴"信号时用户情绪刚好转，但等到内容Advisor完成推理+Director调度+ENT专家执行，可能已经过了30秒，用户情绪又变了。排查路径：检查协同信号的时效性，是否在信号失效前完成了内容推送。
+    </div>
+
+    <div class="trap">
+      <strong>坑4：冷启动问题 —— 不了解用户偏好</strong><br/>
+      新用户首次使用时，内容Advisor没有任何用户偏好数据，只能基于场景做泛化推荐（堵车+早上 → 推新闻），命中率低。排查路径：这不是bug而是产品设计问题，需要引导用户建立偏好画像（比如首次使用时询问内容偏好）。
+    </div>
+  </div>
+</section>
+
+
+<!-- ============================================================
+     3.4 情感Advisor (Emotion Advisor)
+     ============================================================ -->
+<section id="ch3-emotion">
+  <h2>3.4 情感Advisor —— 纯情感层察言观色</h2>
+
+  <!-- ── 骨架图 SVG ── -->
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 920" style="width:100%;background:#0f1724;border-radius:12px;margin:16px 0">
+    <defs>
+      <marker id="emotion-arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="#22d3ee"/>
+      </marker>
+      <marker id="emotion-arrow-blue" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="#60a5fa"/>
+      </marker>
+      <marker id="emotion-arrow-yellow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="#fbbf24"/>
+      </marker>
+      <marker id="emotion-arrow-purple" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="#a78bfa"/>
+      </marker>
+      <marker id="emotion-arrow-red" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6" fill="#fb7185"/>
+      </marker>
+    </defs>
+
+    <!-- 标题 -->
+    <text x="410" y="32" text-anchor="middle" fill="#e8eef9" font-size="14" font-weight="bold">情感Advisor 架构骨架图</text>
+    <text x="410" y="48" text-anchor="middle" fill="#9fb0c7" font-size="10">Emotion Advisor ── 纯情感层察言观色 ── 4个Advisor里推理最精细、红线最严格 ── 对应 EMO 专家</text>
+
+    <!-- 双SP架构 -->
+    <text x="30" y="78" fill="#a78bfa" font-size="11" font-weight="bold">两套完整SP</text>
+
+    <!-- Event Prompt -->
+    <rect x="30" y="88" width="370" height="280" rx="8" fill="rgba(96,165,250,0.06)" stroke="#60a5fa" stroke-width="1.5"/>
+    <text x="215" y="110" text-anchor="middle" fill="#60a5fa" font-size="13" font-weight="bold">Event Prompt (事件推理)</text>
+    <text x="215" y="126" text-anchor="middle" fill="#9fb0c7" font-size="9">收到事件时触发 ── 4步推理链</text>
+
+    <!-- 步骤1 -->
+    <rect x="50" y="140" width="330" height="40" rx="6" fill="rgba(34,211,238,0.08)" stroke="#22d3ee" stroke-width="1"/>
+    <text x="65" y="157" fill="#22d3ee" font-size="10" font-weight="bold">Step 1</text>
+    <text x="115" y="157" fill="#e8eef9" font-size="10">事件解析 + 优先级排序</text>
+    <text x="65" y="172" fill="#9fb0c7" font-size="8">启动方式 > 安全 > 节日 > 人物状态 > 情绪 > 人物 > 场景 > 着装</text>
+
+    <!-- 步骤2 -->
+    <rect x="50" y="190" width="330" height="40" rx="6" fill="rgba(96,165,250,0.08)" stroke="#60a5fa" stroke-width="1"/>
+    <text x="65" y="207" fill="#60a5fa" font-size="10" font-weight="bold">Step 2</text>
+    <text x="115" y="207" fill="#e8eef9" font-size="10">即时建议 (含6条红线约束)</text>
+    <text x="65" y="222" fill="#fb7185" font-size="8">红线: 不控车 / 不推内容 / 不提醒物品 / 不给出行建议 / ...</text>
+
+    <!-- 步骤3 -->
+    <rect x="50" y="240" width="330" height="50" rx="6" fill="rgba(167,139,250,0.08)" stroke="#a78bfa" stroke-width="1"/>
+    <text x="65" y="257" fill="#a78bfa" font-size="10" font-weight="bold">Step 3</text>
+    <text x="115" y="257" fill="#e8eef9" font-size="10">子目标管理</text>
+    <text x="65" y="272" fill="#9fb0c7" font-size="8">A目标(达成型): 安慰悲伤 / B目标(条件响应型): 监测情绪变化</text>
+    <text x="65" y="284" fill="#9fb0c7" font-size="8">操作: create / update / delete ── 上限10个子目标</text>
+
+    <!-- 步骤4 -->
+    <rect x="50" y="300" width="330" height="36" rx="6" fill="rgba(251,113,133,0.08)" stroke="#fb7185" stroke-width="1"/>
+    <text x="65" y="317" fill="#fb7185" font-size="10" font-weight="bold">Step 4</text>
+    <text x="115" y="317" fill="#e8eef9" font-size="10">冲突检查</text>
+    <text x="65" y="330" fill="#9fb0c7" font-size="8">多目标冲突 → 安全 > 生理 > 情绪</text>
+
+    <!-- Review Prompt -->
+    <rect x="420" y="88" width="370" height="280" rx="8" fill="rgba(167,139,250,0.06)" stroke="#a78bfa" stroke-width="1.5"/>
+    <text x="605" y="110" text-anchor="middle" fill="#a78bfa" font-size="13" font-weight="bold">Review Prompt (定时复查)</text>
+    <text x="605" y="126" text-anchor="middle" fill="#9fb0c7" font-size="9">定时触发 ── 3步推理链</text>
+
+    <!-- Review步骤1 -->
+    <rect x="440" y="140" width="330" height="48" rx="6" fill="rgba(34,211,238,0.08)" stroke="#22d3ee" stroke-width="1"/>
+    <text x="455" y="157" fill="#22d3ee" font-size="10" font-weight="bold">Step 1</text>
+    <text x="505" y="157" fill="#e8eef9" font-size="10">评估目标进展</text>
+    <text x="455" y="172" fill="#9fb0c7" font-size="8">逐一检查每个子目标的达成情况</text>
+    <text x="455" y="183" fill="#9fb0c7" font-size="8">信号来源: VLM观察 + 对话记录 + tool_feedback</text>
+
+    <!-- Review步骤2 -->
+    <rect x="440" y="198" width="330" height="62" rx="6" fill="rgba(96,165,250,0.08)" stroke="#60a5fa" stroke-width="1"/>
+    <text x="455" y="215" fill="#60a5fa" font-size="10" font-weight="bold">Step 2</text>
+    <text x="505" y="215" fill="#e8eef9" font-size="10">决策</text>
+    <text x="455" y="232" fill="#9fb0c7" font-size="8">调整: 目标未达成但方向变了 → update目标</text>
+    <text x="455" y="245" fill="#9fb0c7" font-size="8">恢复/删除: 外部条件变了 → delete目标 (注意: 仅删除不建议)</text>
+    <text x="455" y="256" fill="#fbbf24" font-size="8">完成: 目标达成 → delete目标 (仅删除不建议)</text>
+
+    <!-- Review步骤3 -->
+    <rect x="440" y="270" width="330" height="40" rx="6" fill="rgba(167,139,250,0.08)" stroke="#a78bfa" stroke-width="1"/>
+    <text x="455" y="287" fill="#a78bfa" font-size="10" font-weight="bold">Step 3</text>
+    <text x="505" y="287" fill="#e8eef9" font-size="10">整理目标列表</text>
+    <text x="455" y="302" fill="#9fb0c7" font-size="8">清理完成/删除的目标，整理优先级排序</text>
+
+    <!-- 动作空间 -->
+    <line x1="215" y1="368" x2="215" y2="400" stroke="#60a5fa" stroke-width="1.2" marker-end="url(#emotion-arrow-blue)"/>
+    <line x1="605" y1="368" x2="605" y2="400" stroke="#a78bfa" stroke-width="1.2" marker-end="url(#emotion-arrow-purple)"/>
+
+    <text x="30" y="418" fill="#fbbf24" font-size="11" font-weight="bold">5种动作空间</text>
+    <rect x="30" y="426" width="760" height="70" rx="8" fill="rgba(251,191,36,0.06)" stroke="#fbbf24" stroke-width="1.5"/>
+
+    <rect x="45" y="440" width="130" height="36" rx="6" fill="rgba(251,113,133,0.1)" stroke="#fb7185" stroke-width="1"/>
+    <text x="110" y="455" text-anchor="middle" fill="#fb7185" font-size="10" font-weight="bold">DO_NOTHING</text>
+    <text x="110" y="469" text-anchor="middle" fill="#9fb0c7" font-size="8">静观其变</text>
+
+    <rect x="185" y="440" width="140" height="36" rx="6" fill="rgba(96,165,250,0.1)" stroke="#60a5fa" stroke-width="1"/>
+    <text x="255" y="455" text-anchor="middle" fill="#60a5fa" font-size="10" font-weight="bold">CONVO_STRATEGY</text>
+    <text x="255" y="469" text-anchor="middle" fill="#9fb0c7" font-size="8">对话策略(暗示)</text>
+
+    <rect x="335" y="440" width="140" height="36" rx="6" fill="rgba(34,211,238,0.1)" stroke="#22d3ee" stroke-width="1"/>
+    <text x="405" y="455" text-anchor="middle" fill="#22d3ee" font-size="10" font-weight="bold">CONVO_INITIATE</text>
+    <text x="405" y="469" text-anchor="middle" fill="#9fb0c7" font-size="8">主动发起对话</text>
+
+    <rect x="485" y="440" width="140" height="36" rx="6" fill="rgba(167,139,250,0.1)" stroke="#a78bfa" stroke-width="1"/>
+    <text x="555" y="455" text-anchor="middle" fill="#a78bfa" font-size="10" font-weight="bold">EMOJI_SUGGESTION</text>
+    <text x="555" y="469" text-anchor="middle" fill="#9fb0c7" font-size="8">表情建议(IOT)</text>
+
+    <rect x="635" y="440" width="140" height="36" rx="6" fill="rgba(251,191,36,0.1)" stroke="#fbbf24" stroke-width="1"/>
+    <text x="705" y="455" text-anchor="middle" fill="#fbbf24" font-size="10" font-weight="bold">TOOL_CALL</text>
+    <text x="705" y="469" text-anchor="middle" fill="#9fb0c7" font-size="8">self ReACT工具</text>
+
+    <!-- 输出格式 -->
+    <text x="30" y="524" fill="#22d3ee" font-size="11" font-weight="bold">输出JSON格式</text>
+    <rect x="30" y="532" width="760" height="60" rx="8" fill="rgba(34,211,238,0.06)" stroke="#22d3ee" stroke-width="1.2"/>
+    <text x="410" y="552" text-anchor="middle" fill="#e8eef9" font-size="10" font-family="monospace">{</text>
+    <text x="410" y="566" text-anchor="middle" fill="#22d3ee" font-size="10" font-family="monospace">"reason": "...", "advice": "...", "goal_operations": [{"action":"create/update/delete", "fields":{...}, "reason":"..."}]</text>
+    <text x="410" y="580" text-anchor="middle" fill="#e8eef9" font-size="10" font-family="monospace">}</text>
+
+    <!-- 6条红线 -->
+    <text x="30" y="618" fill="#fb7185" font-size="11" font-weight="bold">6条红线 (不可逾越)</text>
+    <rect x="30" y="626" width="760" height="80" rx="8" fill="rgba(251,113,133,0.06)" stroke="#fb7185" stroke-width="1.5"/>
+
+    <text x="50" y="646" fill="#fb7185" font-size="10">1. 不控车 —— 情感Advisor绝不输出车控建议</text>
+    <text x="50" y="662" fill="#fb7185" font-size="10">2. 不推内容 —— 内容推荐是内容Advisor的职责</text>
+    <text x="50" y="678" fill="#fb7185" font-size="10">3. 不提醒物品 —— "你忘带钥匙了"不是情感层该做的</text>
+    <text x="420" y="646" fill="#fb7185" font-size="10">4. 不给出行建议 —— 路线/导航是出行Advisor的</text>
+    <text x="420" y="662" fill="#fb7185" font-size="10">5. 不代替用户做决策 —— 只共情，不指导</text>
+    <text x="420" y="678" fill="#fb7185" font-size="10">6. 安全事件优先级 > 一切情感目标</text>
+
+    <!-- 冲突Case -->
+    <text x="30" y="730" fill="#a78bfa" font-size="11" font-weight="bold">子目标冲突示例</text>
+    <rect x="30" y="738" width="360" height="76" rx="8" fill="rgba(167,139,250,0.06)" stroke="#a78bfa" stroke-width="1.2"/>
+    <text x="210" y="758" text-anchor="middle" fill="#a78bfa" font-size="10" font-weight="bold">目标A: 后排儿童刚睡着</text>
+    <text x="210" y="774" text-anchor="middle" fill="#9fb0c7" font-size="9">情感建议: 降低音量+柔和灯光+不打扰</text>
+    <text x="210" y="790" text-anchor="middle" fill="#9fb0c7" font-size="9">保持安静环境呵护睡眠</text>
+
+    <rect x="430" y="738" width="360" height="76" rx="8" fill="rgba(251,113,133,0.06)" stroke="#fb7185" stroke-width="1.2"/>
+    <text x="610" y="758" text-anchor="middle" fill="#fb7185" font-size="10" font-weight="bold">目标B: 主驾注意力分散</text>
+    <text x="610" y="774" text-anchor="middle" fill="#9fb0c7" font-size="9">安全建议: 语音提醒专注驾驶</text>
+    <text x="610" y="790" text-anchor="middle" fill="#9fb0c7" font-size="9">需要发出声音 → 与目标A冲突!</text>
+
+    <line x1="390" y1="776" x2="430" y2="776" stroke="#fb7185" stroke-width="2" stroke-dasharray="4,3"/>
+    <text x="410" y="770" text-anchor="middle" fill="#fb7185" font-size="10" font-weight="bold">VS</text>
+
+    <!-- 冲突解决 -->
+    <line x1="410" y1="814" x2="410" y2="840" stroke="#fb7185" stroke-width="1.2" marker-end="url(#emotion-arrow-red)"/>
+    <rect x="180" y="840" width="460" height="36" rx="8" fill="rgba(251,113,133,0.12)" stroke="#fb7185" stroke-width="1.5"/>
+    <text x="410" y="862" text-anchor="middle" fill="#fb7185" font-size="11" font-weight="bold">冲突裁决: 安全 > 生理 > 情绪 → 安全优先，语音提醒主驾</text>
+
+    <!-- 底部 -->
+    <rect x="30" y="888" width="760" height="26" rx="6" fill="rgba(251,113,133,0.08)" stroke="#fb7185" stroke-width="1"/>
+    <text x="410" y="905" text-anchor="middle" fill="#fb7185" font-size="10">情感Advisor是4个里最精细的模块 ── 两套SP、4步+3步推理链、5种动作空间、6条红线、子目标上限10</text>
+  </svg>
+
+  <!-- ── 讲解 ── -->
+  <div class="explain">
+
+    <h3>一、情感Advisor是什么？</h3>
+
+    <div class="step">
+      <strong>定位："纯情感层察言观色"。</strong>这是四个静态Advisor中推理最精细、红线最严格的一个。它的职责极其纯粹：<strong>只做情感层面的观察和建议</strong>——不控车（那是舒适Advisor的事）、不推内容（那是内容Advisor的事）、不提醒物品（那是出行Advisor的事）。它就像一个极其敏感的"情绪感知器"，察言观色、捕捉微妙的情绪变化，然后给出纯情感层面的应对建议。
+    </div>
+
+    <div class="why">
+      <strong>为什么情感Advisor的边界要画得这么严格？</strong>因为情感推理是所有推理中<strong>最容易"越界"</strong>的。你检测到用户悲伤，本能反应是"帮他放首舒缓的歌"——但这就越界到了内容Advisor的地盘。你检测到用户焦虑在发抖，本能反应是"帮他调高车内温度"——但这就越界到了舒适Advisor的地盘。如果不画严格的红线，情感Advisor会变成一个"什么都管"的万能模块，和其他三个Advisor产生大量冲突。6条红线就是它的"行为围栏"。
+    </div>
+
+    <h3>二、两套完整SP：Event Prompt + Review Prompt</h3>
+
+    <div class="step">
+      情感Advisor是唯一一个有<strong>两套完整SP</strong>的Advisor：
+      <ul>
+        <li><strong>Event Prompt</strong>：事件驱动，收到Watcher发来的事件（有人上车/表情变化/语调变化等）时触发，走4步推理链。</li>
+        <li><strong>Review Prompt</strong>：定时驱动，每隔一段时间（当存在情感子目标时）触发，走3步推理链，检查子目标进展。</li>
+      </ul>
+      两套SP的输入上下文不同、推理逻辑不同、输出侧重点不同——Event重在"发现问题+即时建议"，Review重在"跟踪进展+闭环目标"。
+    </div>
+
+    <h3>三、Event Prompt 4步推理链</h3>
+
+    <div class="step">
+      <strong>Step 1：事件解析 + 优先级排序</strong><br/>
+      收到的事件可能有多个（同一时刻可能"有人上车"+"车内温度高"+"用户表情烦躁"），需要按优先级排序处理。优先级从高到低：<strong>启动方式 > 安全 > 节日 > 人物状态 > 情绪 > 人物 > 场景 > 着装</strong>。
+    </div>
+
+    <div class="eg">
+      <strong>Case：优先级排序实例</strong><br/>
+      同时收到三个事件：1)用户表情烦躁(情绪) 2)今天是用户生日(节日) 3)后排有儿童安全座椅未系(安全)。<br/>
+      排序结果：安全 > 节日 > 情绪。<br/>
+      情感Advisor先处理安全事件（但注意：它不控车，只在情感层面建议"用温和语气提醒系安全带"），再处理节日事件（"创建子目标：今天是生日，找合适时机送上祝福"），最后处理情绪事件（"用户烦躁，创建子目标：持续观察情绪变化"）。
+    </div>
+
+    <div class="step">
+      <strong>Step 2：即时建议（含6条红线约束）</strong><br/>
+      基于事件分析，输出即时的情感建议。但这一步有<strong>6条红线</strong>硬约束：
+      <ol>
+        <li>不控车 —— 不能建议"开空调"、"调座椅"</li>
+        <li>不推内容 —— 不能建议"放首歌"、"讲个笑话"</li>
+        <li>不提醒物品 —— "你忘带手机了"不是情感层该说的</li>
+        <li>不给出行建议 —— "前方堵车"不关情感的事</li>
+        <li>不代替用户做决策 —— 只共情，不指导</li>
+        <li>安全事件优先级 > 一切情感目标</li>
+      </ol>
+    </div>
+
+    <div class="step">
+      <strong>Step 3：子目标管理</strong><br/>
+      情感Advisor维护自己的子目标列表（上限10个），分两种类型：
+      <ul>
+        <li><strong>A目标（达成型）</strong>：有明确达成条件的目标。例如"安慰用户被超车后的烦躁情绪"——当用户情绪恢复后标记达成。</li>
+        <li><strong>B目标（条件响应型）</strong>：持续监测、条件触发的目标。例如"监测后排宝宝情绪，如果哭闹则提醒主驾"。</li>
+      </ul>
+      操作类型有三种：<strong>create</strong>（新建）、<strong>update</strong>（更新进展）、<strong>delete</strong>（删除/完成）。
+    </div>
+
+    <div class="step">
+      <strong>Step 4：冲突检查</strong><br/>
+      多个子目标之间可能冲突，需要做冲突检测和优先级裁决。裁决规则：<strong>安全 > 生理 > 情绪</strong>。
+    </div>
+
+    <h3>四、Review Prompt 3步推理链</h3>
+
+    <div class="step">
+      <ol>
+        <li><strong>评估进展</strong>：逐一检查每个子目标的达成情况，信号来源包括VLM观察（表情变化）、对话记录（用户说了什么）、tool_feedback（执行结果）。</li>
+        <li><strong>决策</strong>：对每个目标做出决策——调整（方向变了）/ 恢复删除（外部条件变了）/ 完成（目标达成）。注意一个关键设计：<strong>完成和恢复删除时只执行delete操作，不输出新的建议</strong>——避免"目标完成了还多嘴"的情况。</li>
+        <li><strong>整理</strong>：清理已完成/已删除的目标，重新排序剩余目标的优先级。</li>
+      </ol>
+    </div>
+
+    <h3>五、5种动作空间</h3>
+
+    <div class="step">
+      情感Advisor的输出不是直接的车控指令，而是5种"软动作"：
+      <ol>
+        <li><strong>DO_NOTHING</strong>：什么都不做。这是最常用的动作——大部分时候情绪是平稳的，不需要干预。</li>
+        <li><strong>CONVO_STRATEGY</strong>：对话策略暗示。不直接说话，而是在Director的对话策略中注入情感暗示（比如"回复时用温柔一点的语气"）。</li>
+        <li><strong>CONVO_INITIATE</strong>：主动发起对话。在合适时机主动开口（比如"你刚才被超车了是不是有点气？没事，那人开得太莽了"）。</li>
+        <li><strong>EMOJI_SUGGESTION</strong>：表情建议。通过IOT驱动豆包的屏幕表情/形象做出对应的情绪响应。</li>
+        <li><strong>TOOL_CALL</strong>：self ReACT工具调用。情感Advisor自己做一轮ReACT推理，调用查询类工具获取更多信息（比如查用户记忆确认"今天是不是纪念日？"）。</li>
+      </ol>
+    </div>
+
+    <h3>六、真实Case深度解析</h3>
+
+    <div class="eg">
+      <strong>Case 1：被超车共情吐槽 → 安抚</strong><br/>
+      事件：{{watcher}} VLM描述"主驾表情紧绷，嘴唇抿紧" + {{attention}} 刚被一辆车别了一下。<br/>
+      Event Prompt推理：<br/>
+      Step 1：事件类型=情绪变化，优先级=情绪层级。<br/>
+      Step 2：即时建议 → 动作=CONVO_INITIATE，内容="嚯，那人开车也太莽了吧，差点蹭到咱们"（共情吐槽，不是说教"别生气"）。<br/>
+      Step 3：创建A目标"安抚主驾被别车后的烦躁情绪"。<br/>
+      Step 4：无冲突。<br/>
+      后续Review：1分钟后review，VLM显示用户表情放松 → 目标达成 → delete。
+    </div>
+
+    <div class="eg">
+      <strong>Case 2：子目标冲突 —— 后排儿童睡着 + 主驾分心</strong><br/>
+      当前子目标：<br/>
+      - 目标A（B型条件响应）："后排宝宝刚睡着，保持安静环境"<br/>
+      - 目标B（A型达成型）："主驾注意力分散，需要提醒专注驾驶"<br/>
+      冲突：目标A需要安静 vs 目标B需要发声提醒。<br/>
+      Step 4冲突裁决：<strong>安全 > 生理 > 情绪</strong>，主驾安全是最高优先级。<br/>
+      输出：CONVO_INITIATE，用<em>最低音量</em>轻声提醒主驾注意路况（折中方案：满足安全需求的同时尽量降低对宝宝的影响）。
+    </div>
+
+    <h3>七、坑点与排查</h3>
+
+    <div class="trap">
+      <strong>坑1：越界 —— 情感Advisor给出了车控/内容建议</strong><br/>
+      最常见的badcase：模型检测到用户冷了（发抖），直接建议"开暖风"——这越界到了舒适Advisor的职责。排查路径：检查SP中6条红线的约束是否足够强，few-shot示例是否有越界的正例。解决方案：在SP中加入更多负例（"以下建议是错误的..."），强化红线约束。
+    </div>
+
+    <div class="trap">
+      <strong>坑2：子目标爆炸 —— 超过10个上限</strong><br/>
+      在复杂场景下（多人同车+特殊日期+复杂情绪），情感Advisor可能创建过多子目标导致溢出。排查路径：检查create操作前是否做了数量检查，以及当达到上限时的降级策略（应该合并低优先级目标或删除最旧的已部分完成的目标）。
+    </div>
+
+    <div class="trap">
+      <strong>坑3：Event Prompt和Review Prompt的状态不一致</strong><br/>
+      Event创建了一个子目标，但下一次Review时因为上下文窗口限制没有带上最新的目标列表，导致Review不知道有这个目标存在。排查路径：检查Goal List的传递机制，确保两套SP共享同一份目标列表的最新快照。
+    </div>
+
+    <div class="trap">
+      <strong>坑4：情绪误判 —— VLM表情识别不准</strong><br/>
+      "用户皱眉"可能是在思考而不是愤怒；"用户沉默"可能是在享受安静而不是情绪低落。情感Advisor高度依赖VLM的表情识别准确率，而车内光线变化大（隧道/逆光）、摄像头角度偏、戴墨镜等场景下VLM准确率会大幅下降。排查路径：检查{{watcher}}的VLM描述置信度，低置信度事件应该被降级处理或直接忽略（DO_NOTHING）。
+    </div>
+
+    <div class="trap">
+      <strong>坑5：CONVO_INITIATE时机不对 —— "多嘴"</strong><br/>
+      情感Advisor决定主动开口安慰用户，但此时用户正在打电话/和副驾说话/专注驾驶。这种"多嘴"比不说话还糟糕。排查路径：检查动作输出前是否做了"当前通道占用"检查——如果语音通道正在被占用（通话/其他Agent播报），CONVO_INITIATE应该被缓存等待或降级为CONVO_STRATEGY（暗示而非直接说话）。
+    </div>
+  </div>
+</section>

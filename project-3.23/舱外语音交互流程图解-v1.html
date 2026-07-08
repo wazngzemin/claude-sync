@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>舱外语音交互 — 全流程图解</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --bg: #0f1117;
+    --card: #1a1d27;
+    --border: #2a2d3a;
+    --accent: #ff9b5e;
+    --accent2: #ff7eb3;
+    --accent3: #7affc7;
+    --accent4: #6c8cff;
+    --text: #e8e8ef;
+    --text-dim: #9a9ab0;
+    --section-bg: #14161f;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.8;
+    padding: 0;
+  }
+
+  .hero {
+    text-align: center;
+    padding: 60px 20px 40px;
+    background: linear-gradient(180deg, #1f1a14 0%, var(--bg) 100%);
+    border-bottom: 1px solid var(--border);
+  }
+  .hero h1 {
+    font-size: 2.4rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 12px;
+  }
+  .hero .subtitle {
+    color: var(--text-dim);
+    font-size: 1.05rem;
+  }
+
+  .toc {
+    max-width: 900px;
+    margin: 40px auto;
+    padding: 0 24px;
+  }
+  .toc h2 {
+    font-size: 1.2rem;
+    color: var(--accent);
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .toc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 10px;
+  }
+  .toc-item {
+    display: block;
+    padding: 10px 16px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    text-decoration: none;
+    font-size: 0.95rem;
+    transition: all 0.2s;
+  }
+  .toc-item:hover {
+    border-color: var(--accent);
+    background: #1e2233;
+  }
+  .toc-item .num {
+    color: var(--accent);
+    font-weight: 700;
+    margin-right: 8px;
+  }
+
+  .section {
+    max-width: 1100px;
+    margin: 48px auto;
+    padding: 0 24px;
+  }
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--accent);
+  }
+  .section-header .badge {
+    background: var(--accent);
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 700;
+    padding: 4px 12px;
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+  .section-header h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+  }
+
+  .desc-block {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin-bottom: 24px;
+  }
+  .desc-block h3 {
+    color: var(--accent2);
+    font-size: 1.1rem;
+    margin-bottom: 10px;
+  }
+  .desc-block p, .desc-block li {
+    color: var(--text-dim);
+    font-size: 0.95rem;
+    margin-bottom: 6px;
+  }
+  .desc-block ul {
+    padding-left: 20px;
+  }
+  .desc-block li::marker {
+    color: var(--accent);
+  }
+
+  .chart-container {
+    background: var(--section-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px 20px;
+    margin-bottom: 24px;
+    overflow-x: auto;
+  }
+  .chart-container .mermaid {
+    display: flex;
+    justify-content: center;
+  }
+
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+    margin-top: 16px;
+  }
+  .kpi-card {
+    background: var(--section-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    text-align: center;
+  }
+  .kpi-card .label {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+  .kpi-card .value {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--accent3);
+  }
+
+  .detail-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 12px;
+    font-size: 0.9rem;
+  }
+  .detail-table th {
+    background: var(--section-bg);
+    color: var(--accent);
+    font-weight: 600;
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 2px solid var(--border);
+  }
+  .detail-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-dim);
+  }
+  .detail-table tr:hover td {
+    background: rgba(255, 155, 94, 0.05);
+  }
+
+  .callout {
+    border-left: 4px solid var(--accent2);
+    background: rgba(255, 126, 179, 0.06);
+    padding: 14px 20px;
+    border-radius: 0 8px 8px 0;
+    margin: 16px 0;
+    font-size: 0.9rem;
+    color: var(--text-dim);
+  }
+
+  .callout-info {
+    border-left: 4px solid var(--accent4);
+    background: rgba(108, 140, 255, 0.06);
+    padding: 14px 20px;
+    border-radius: 0 8px 8px 0;
+    margin: 16px 0;
+    font-size: 0.9rem;
+    color: var(--text-dim);
+  }
+
+  .divider {
+    max-width: 1100px;
+    margin: 0 auto;
+    border: none;
+    border-top: 1px solid var(--border);
+  }
+
+  .car-layout {
+    display: grid;
+    grid-template-columns: 1fr 2fr 1fr;
+    grid-template-rows: auto auto auto;
+    gap: 8px;
+    max-width: 500px;
+    margin: 20px auto;
+  }
+  .car-zone {
+    background: var(--section-bg);
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    text-align: center;
+    font-size: 0.85rem;
+  }
+  .car-zone.active {
+    border-color: var(--accent);
+    background: rgba(255, 155, 94, 0.08);
+  }
+  .car-zone .zone-label {
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+  .car-zone .zone-desc {
+    color: var(--text-dim);
+    font-size: 0.8rem;
+  }
+  .car-body {
+    grid-column: 1 / -1;
+    background: var(--card);
+    border: 2px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    text-align: center;
+    font-weight: 700;
+    color: var(--text-dim);
+    font-size: 1rem;
+  }
+
+  @media (max-width: 768px) {
+    .hero h1 { font-size: 1.6rem; }
+    .section { padding: 0 14px; }
+    .desc-block { padding: 16px; }
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .car-layout { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>舱外语音交互 — 全流程图解</h1>
+  <p class="subtitle">Driver Agent 2.0 | 豆包上车 AI 座舱 — 车外语音 4 大子系统完整链路</p>
+</div>
+
+<!-- ========== 目录 ========== -->
+<div class="toc">
+  <h2>目录导航</h2>
+  <div class="toc-grid">
+    <a class="toc-item" href="#sec1"><span class="num">01</span>麦克风硬件布置</a>
+    <a class="toc-item" href="#sec2"><span class="num">02</span>车外唤醒条件校验</a>
+    <a class="toc-item" href="#sec3"><span class="num">03</span>车外语音交互体验流程</a>
+    <a class="toc-item" href="#sec4"><span class="num">04</span>车外语音控制范围与测试</a>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ============================================================ -->
+<!-- SECTION 1: 麦克风硬件布置 -->
+<!-- ============================================================ -->
+<div class="section" id="sec1">
+  <div class="section-header">
+    <span class="badge">01</span>
+    <h2>麦克风硬件布置</h2>
+  </div>
+
+  <div class="desc-block">
+    <h3>布置方案说明</h3>
+    <p>车外语音交互依赖于在车身四周布置的麦克风阵列。每个交互区域至少配置一个 <strong>双麦阵列</strong>（间距建议 30-60mm，推荐 30mm），有效交互距离 <strong>≤5 米</strong>。</p>
+    <p>根据需要覆盖的交互区域数量，选择对应的麦克风布置数量。车身分为 4 个交互区域：</p>
+    <ul>
+      <li><strong>区域 1 — 左侧</strong>：左后视镜位置，双麦阵列布置在底部或侧面（防尘防水），两个麦克风连线与车身平行。麦克风位置不随后视镜折叠移动</li>
+      <li><strong>区域 2 — 右侧</strong>：右后视镜位置，布置方案同左侧</li>
+      <li><strong>区域 3 — 车头</strong>：车头车牌号附近，双麦阵列，不跟着引擎盖移动</li>
+      <li><strong>区域 4 — 车尾</strong>：车尾车牌号附近，双麦阵列，不跟着车尾门移动</li>
+    </ul>
+  </div>
+
+  <div class="chart-container">
+    <div class="mermaid">
+flowchart TD
+    subgraph 车身四周麦克风布置
+      direction TB
+
+      HEAD["区域3: 车头<br/>车牌号附近<br/>双麦阵列<br/>不随引擎盖移动"]
+      LEFT["区域1: 左侧<br/>左后视镜底部/侧面<br/>双麦阵列 30mm间距<br/>不随后视镜折叠"]
+      RIGHT["区域2: 右侧<br/>右后视镜底部/侧面<br/>双麦阵列 30mm间距<br/>不随后视镜折叠"]
+      TAIL["区域4: 车尾<br/>车牌号附近<br/>双麦阵列<br/>不随尾门移动"]
+    end
+
+    HEAD --> SPEC["硬件规格要求"]
+    LEFT --> SPEC
+    RIGHT --> SPEC
+    TAIL --> SPEC
+
+    SPEC --> S1["双麦间距: 30-60mm<br/>推荐30mm"]
+    SPEC --> S2["交互距离: ≤5米<br/>超过大打折扣"]
+    SPEC --> S3["MIC距扬声器 ≥30cm<br/>需做隔离"]
+    SPEC --> S4["远离噪声源 ≥1米<br/>发动机/电机/空调"]
+
+    subgraph 布置注意事项
+      N1["麦克风孔不易堵<br/>防尘防水处理"]
+      N2["相对使用区域<br/>无遮挡"]
+      N3["远离车辆自身<br/>噪声源"]
+    end
+
+    style HEAD fill:#3d2d1a,stroke:#ff9b5e,color:#ff9b5e
+    style LEFT fill:#3d2d1a,stroke:#ff9b5e,color:#ff9b5e
+    style RIGHT fill:#3d2d1a,stroke:#ff9b5e,color:#ff9b5e
+    style TAIL fill:#3d2d1a,stroke:#ff9b5e,color:#ff9b5e
+    style SPEC fill:#1a2d3d,stroke:#6c8cff,color:#6c8cff
+    </div>
+  </div>
+
+  <div class="desc-block">
+    <h3>四个交互区域可视化</h3>
+    <div class="car-layout">
+      <div class="car-zone" style="grid-column: 2; grid-row: 1;">
+        <div class="zone-label">区域3 — 车头</div>
+        <div class="zone-desc">车牌号附近 | 双麦阵列</div>
+      </div>
+      <div class="car-zone active" style="grid-column: 1; grid-row: 2;">
+        <div class="zone-label">区域1 — 左侧</div>
+        <div class="zone-desc">左后视镜底部</div>
+      </div>
+      <div class="car-body" style="grid-column: 2; grid-row: 2;">
+        车 身<br/><span style="font-size: 0.8rem; font-weight: 400; color: #666;">MIC与扬声器隔离 ≥30cm</span>
+      </div>
+      <div class="car-zone active" style="grid-column: 3; grid-row: 2;">
+        <div class="zone-label">区域2 — 右侧</div>
+        <div class="zone-desc">右后视镜底部</div>
+      </div>
+      <div class="car-zone" style="grid-column: 2; grid-row: 3;">
+        <div class="zone-label">区域4 — 车尾</div>
+        <div class="zone-desc">车牌号附近 | 双麦阵列</div>
+      </div>
+    </div>
+    <p style="text-align:center; color: var(--text-dim); font-size: 0.85rem; margin-top: 8px;">有效交互距离: 每个区域 ≤5 米</p>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ============================================================ -->
+<!-- SECTION 2: 车外唤醒条件校验 -->
+<!-- ============================================================ -->
+<div class="section" id="sec2">
+  <div class="section-header">
+    <span class="badge">02</span>
+    <h2>车外唤醒条件校验</h2>
+  </div>
+
+  <div class="desc-block">
+    <h3>流程说明</h3>
+    <p>车外语音不同于舱内——<strong>不支持免唤醒</strong>，必须说唤醒词。麦克风采集到原始信号后，经降噪和回声消除处理，系统需顺序完成 <strong>5 重条件校验</strong>才能激活车外语音：</p>
+    <ul>
+      <li><strong>条件 1 — 唤醒词检测</strong>：检测到完整唤醒词"豆包豆包"</li>
+      <li><strong>条件 2 — 车辆状态校验</strong>：车辆处于可交互状态（如熄火/驻车/低速等允许状态）</li>
+      <li><strong>条件 3 — 声源定位</strong>：确认声源来自车外（不是车内人的声音泄漏出去）</li>
+      <li><strong>条件 4 — 距离校验</strong>：声源在 5 米有效交互范围内</li>
+      <li><strong>条件 5 — 声纹校验（可选）</strong>：仅当"开启声纹唤醒"且存在至少一个已注册声纹时，才执行此校验。验证说话人是否为车主/已注册用户</li>
+    </ul>
+    <p>前 4 项为必要条件，第 5 项为可选条件。任一必要条件不满足则拒绝唤醒。</p>
+  </div>
+
+  <div class="chart-container">
+    <div class="mermaid">
+flowchart TD
+    RAW["车外麦克风采集<br/>原始音频信号"] --> PREPROCESS["降噪 + 回声消除"]
+
+    PREPROCESS --> C1{"条件1: 唤醒词检测<br/>'豆包豆包'?"}
+
+    C1 -->|"未检测到"| FAIL1["忽略<br/>继续监听"]
+    C1 -->|"检测到唤醒词"| C2{"条件2: 车辆状态<br/>是否允许交互？"}
+
+    C2 -->|"不允许"| FAIL2["拒绝唤醒<br/>车辆状态不支持"]
+    C2 -->|"允许交互"| C3{"条件3: 声源定位<br/>确认来自车外？"}
+
+    C3 -->|"声源在车内"| FAIL3["判定为车内声音<br/>走舱内流程"]
+    C3 -->|"确认车外声源"| C4{"条件4: 距离校验<br/>声源 ≤5米？"}
+
+    C4 -->|"超出5米"| FAIL4["拒绝唤醒<br/>超出有效距离"]
+    C4 -->|"在5米内"| C5{"条件5: 声纹唤醒<br/>是否开启？"}
+
+    C5 -->|"未开启/无注册声纹"| PASS["跳过声纹校验<br/>→ 唤醒成功"]
+    C5 -->|"已开启且有注册声纹"| VF{"声纹匹配？"}
+
+    VF -->|"匹配成功"| PASS
+    VF -->|"不匹配"| FAIL5["拒绝唤醒<br/>非注册用户"]
+
+    PASS --> ACTIVE["车外语音激活<br/>进入单音区对话"]
+    ACTIVE --> TIMER["连续对话计时<br/>(默认时间)"]
+
+    style C1 fill:#2d2848,stroke:#a78bfa,color:#a78bfa
+    style C2 fill:#2d2848,stroke:#a78bfa,color:#a78bfa
+    style C3 fill:#2d2848,stroke:#a78bfa,color:#a78bfa
+    style C4 fill:#2d2848,stroke:#a78bfa,color:#a78bfa
+    style C5 fill:#2d2848,stroke:#a78bfa,color:#a78bfa
+    style PASS fill:#1a3d2a,stroke:#7affc7,color:#7affc7
+    style ACTIVE fill:#1a3d2a,stroke:#7affc7,color:#7affc7
+    style FAIL1 fill:#2d2d2d,stroke:#666,color:#999
+    style FAIL2 fill:#3d1a1a,stroke:#ff7eb3,color:#ff7eb3
+    style FAIL3 fill:#3d2d1a,stroke:#ffa857,color:#ffa857
+    style FAIL4 fill:#3d1a1a,stroke:#ff7eb3,color:#ff7eb3
+    style FAIL5 fill:#3d1a1a,stroke:#ff7eb3,color:#ff7eb3
+    </div>
+  </div>
+
+  <div class="desc-block">
+    <h3>5 重条件校验汇总</h3>
+    <table class="detail-table">
+      <thead>
+        <tr><th>#</th><th>条件</th><th>必要性</th><th>失败行为</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>1</td><td>唤醒词"豆包豆包"检测</td><td>必要</td><td>忽略，继续监听</td></tr>
+        <tr><td>2</td><td>车辆状态允许交互</td><td>必要</td><td>拒绝唤醒</td></tr>
+        <tr><td>3</td><td>声源确认来自车外</td><td>必要</td><td>转舱内流程</td></tr>
+        <tr><td>4</td><td>声源在 5 米有效范围内</td><td>必要</td><td>拒绝唤醒</td></tr>
+        <tr><td>5</td><td>声纹匹配（已注册用户）</td><td>可选</td><td>拒绝唤醒（非注册用户）</td></tr>
+      </tbody>
+    </table>
+    <div class="callout-info">第 5 项声纹校验仅在"开启声纹唤醒"且存在至少一个已注册声纹时才执行。声纹注册能力来自舱内声纹注册模块。</div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ============================================================ -->
+<!-- SECTION 3: 车外语音交互体验流程 -->
+<!-- ============================================================ -->
+<div class="section" id="sec3">
+  <div class="section-header">
+    <span class="badge">03</span>
+    <h2>车外语音交互体验流程</h2>
+  </div>
+
+  <div class="desc-block">
+    <h3>流程说明</h3>
+    <p>车外语音交互与舱内有几个关键差异：</p>
+    <ul>
+      <li><strong>不支持免唤醒</strong>：必须说唤醒词才能激活</li>
+      <li><strong>不支持多音区同时</strong>：只有唤醒的那一个区域可以交互（单音区模式）</li>
+      <li><strong>可设置连续对话时间</strong>：唤醒后一段时间内可持续对话，超时后退出</li>
+      <li><strong>控制范围有限</strong>：仅限车窗、车门、后备箱等外部可操作硬件</li>
+      <li><strong>安全校验更严</strong>：涉及声纹验证（如果开启），防止陌生人远程控车</li>
+    </ul>
+    <p>完整的端到端流程如下图所示，从用户在车外说话开始，经过信号采集 → 降噪 → 5 重校验 → ASR → 意图理解 → 执行 → 反馈的全链路。</p>
+  </div>
+
+  <div class="chart-container">
+    <div class="mermaid">
+flowchart TD
+    USER["用户在车外说话<br/>'豆包豆包,打开后备箱'"] --> MIC["最近区域的<br/>双麦阵列采集"]
+
+    MIC --> DENOISE["降噪处理<br/>风雨/路噪/环境"]
+    DENOISE --> AEC["回声消除<br/>(如车外有扬声器)"]
+
+    AEC --> VERIFY["5重条件校验<br/>(见Section 02)"]
+    VERIFY --> PASS{"校验通过？"}
+
+    PASS -->|"失败"| REJECT["拒绝唤醒<br/>无响应/提示音"]
+    PASS -->|"通过"| ACTIVATE["车外语音激活<br/>单音区对话模式"]
+
+    ACTIVATE --> ASR["语音识别 ASR<br/>转文字"]
+    ASR --> INTENT["意图理解<br/>匹配车外可控指令"]
+
+    INTENT --> SCOPE{"指令是否在<br/>车外控制范围内？"}
+
+    SCOPE -->|"超出范围"| DENY["语音提示:<br/>'该功能暂不支持<br/>车外语音控制'"]
+    SCOPE -->|"在范围内"| SAFE{"是否需要<br/>安全确认？"}
+
+    SAFE -->|"需要确认"| CONFIRM["语音二次确认<br/>'确认要解锁车门吗?'"]
+    SAFE -->|"直接执行"| EXEC["执行指令"]
+
+    CONFIRM --> USER_CONFIRM{"用户确认？"}
+    USER_CONFIRM -->|"确认"| EXEC
+    USER_CONFIRM -->|"取消"| CANCEL["取消操作"]
+
+    EXEC --> FEEDBACK["执行反馈<br/>语音+视觉(灯光闪烁等)"]
+
+    FEEDBACK --> CONT{"连续对话<br/>超时了吗？"}
+    CONT -->|"未超时"| LISTEN["继续监听<br/>等待下一条指令"]
+    LISTEN --> ASR
+    CONT -->|"超时"| EXIT["退出车外语音交互"]
+
+    style ACTIVATE fill:#1a3d2a,stroke:#7affc7,color:#7affc7
+    style REJECT fill:#3d1a1a,stroke:#ff7eb3,color:#ff7eb3
+    style DENY fill:#3d2d1a,stroke:#ffa857,color:#ffa857
+    style EXEC fill:#1a3d2a,stroke:#7affc7,color:#7affc7
+    style CONFIRM fill:#2d2848,stroke:#a78bfa,color:#a78bfa
+    style EXIT fill:#2d2d2d,stroke:#666,color:#999
+    style SCOPE fill:#1a2d3d,stroke:#6c8cff,color:#6c8cff
+    </div>
+  </div>
+
+  <div class="desc-block">
+    <h3>舱内 vs 舱外 对比</h3>
+    <table class="detail-table">
+      <thead>
+        <tr><th>能力</th><th>舱内</th><th>舱外</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>免唤醒</td><td>支持全时免唤醒（所有音区）</td><td>不支持，必须唤醒词</td></tr>
+        <tr><td>多音区</td><td>4音区同时/并发</td><td>仅单音区</td></tr>
+        <tr><td>连续对话</td><td>30秒超时(免唤醒模式)</td><td>可设置默认连续对话时间</td></tr>
+        <tr><td>控制范围</td><td>全部23个下游工具</td><td>车窗/车门/后备箱等外部硬件</td></tr>
+        <tr><td>声纹校验</td><td>用于识人/个性化</td><td>用于安全校验（防陌生人控车）</td></tr>
+        <tr><td>交互距离</td><td>舱内空间</td><td>≤5米</td></tr>
+        <tr><td>上下文继承</td><td>话题分类+总结继承</td><td>无（每次独立交互）</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ============================================================ -->
+<!-- SECTION 4: 车外语音控制范围与测试 -->
+<!-- ============================================================ -->
+<div class="section" id="sec4">
+  <div class="section-header">
+    <span class="badge">04</span>
+    <h2>车外语音控制范围与测试</h2>
+  </div>
+
+  <div class="desc-block">
+    <h3>控制范围</h3>
+    <p>车外语音控制的功能范围远小于舱内，仅限车辆外部可操作的物理硬件：</p>
+    <ul>
+      <li><strong>车窗控制</strong>：打开/关闭各车窗</li>
+      <li><strong>车门控制</strong>：解锁/锁定车门</li>
+      <li><strong>后备箱</strong>：打开/关闭后备箱</li>
+      <li><strong>其他待补充</strong>：灯光控制、空调预开启等（PRD 施工中）</li>
+    </ul>
+    <div class="callout">车外语音 PRD 仍在施工中，控制范围的完整清单待补充。</div>
+  </div>
+
+  <div class="chart-container">
+    <div class="mermaid">
+flowchart LR
+    subgraph 车外可控功能
+      WINDOW["车窗控制<br/>打开/关闭"]
+      DOOR["车门控制<br/>解锁/锁定"]
+      TRUNK["后备箱<br/>打开/关闭"]
+      OTHER["其他待补充<br/>灯光/空调预开等"]
+    end
+
+    USER["车外用户指令"] --> PARSE["意图解析"]
+    PARSE --> CHECK{"在车外<br/>控制范围内？"}
+
+    CHECK -->|"是"| SAFE{"需要安全确认？<br/>(车门解锁等)"}
+    CHECK -->|"否"| REJECT["拒绝:<br/>'该功能不支持<br/>车外语音控制'"]
+
+    SAFE -->|"需要"| CONFIRM["声纹+语音<br/>二次确认"]
+    SAFE -->|"不需要"| EXEC["直接执行"]
+
+    CONFIRM --> EXEC
+
+    EXEC --> WINDOW
+    EXEC --> DOOR
+    EXEC --> TRUNK
+    EXEC --> OTHER
+
+    style USER fill:#3d2d1a,stroke:#ff9b5e,color:#ff9b5e
+    style EXEC fill:#1a3d2a,stroke:#7affc7,color:#7affc7
+    style REJECT fill:#3d1a1a,stroke:#ff7eb3,color:#ff7eb3
+    style CONFIRM fill:#2d2848,stroke:#a78bfa,color:#a78bfa
+    </div>
+  </div>
+
+  <div class="desc-block">
+    <h3>测试场景与要求</h3>
+    <p>车外语音功能需在多种真实场景下测试：</p>
+    <table class="detail-table">
+      <thead>
+        <tr><th>测试场景</th><th>具体条件</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>室内停车场</strong></td>
+          <td>小区地下 / 商场地下停车场。选择不靠墙车位，相邻车位可有车</td>
+        </tr>
+        <tr>
+          <td><strong>室外停车场</strong></td>
+          <td>小区露天 / 大型露天停车场。相邻车位可有车或无车</td>
+        </tr>
+        <tr>
+          <td><strong>路边停车位</strong></td>
+          <td>路边随机停车位</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top: 20px;">测试约束条件</h3>
+    <table class="detail-table">
+      <thead>
+        <tr><th>约束</th><th>要求</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>测试人位置</td><td>保持不动，面向车辆</td></tr>
+        <tr><td>信噪比</td><td>> 5dB</td></tr>
+        <tr><td>本机信回比</td><td>> -15dB（如车外有扬声器）</td></tr>
+        <tr><td>人声干扰</td><td>同侧无近距离人声干扰</td></tr>
+        <tr><td>遮挡</td><td>测试人与车辆之间无遮挡</td></tr>
+        <tr><td>最远测试距离</td><td>5 米（根据麦克布局区域划定）</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="chart-container">
+    <div class="mermaid">
+flowchart TD
+    subgraph 测试流程
+      T1["选择测试场景<br/>室内/室外/路边"] --> T2["测试人面向车辆<br/>保持不动"]
+      T2 --> T3["确认环境条件<br/>信噪比>5dB<br/>同侧无近距人声"]
+      T3 --> T4["从1米开始<br/>逐步增大距离"]
+      T4 --> T5["每个距离测试<br/>唤醒+指令"]
+      T5 --> T6{"距离 ≤5米？"}
+      T6 -->|"是"| T7["记录结果<br/>唤醒率/识别率/响应时间"]
+      T7 --> T8["增加距离<br/>继续测试"]
+      T8 --> T5
+      T6 -->|"超过5米"| T9["结束该区域测试<br/>输出报告"]
+    end
+
+    subgraph 验收标准
+      A1["唤醒成功率<br/>各距离段达标"]
+      A2["ASR识别准确率<br/>车载场景句准"]
+      A3["指令执行成功率<br/>车外控制功能"]
+      A4["响应延迟<br/>从唤醒到执行完成"]
+    end
+
+    T9 --> A1
+    T9 --> A2
+    T9 --> A3
+    T9 --> A4
+
+    style T1 fill:#3d2d1a,stroke:#ff9b5e,color:#ff9b5e
+    style T9 fill:#1a3d2a,stroke:#7affc7,color:#7affc7
+    style A1 fill:#1a2d3d,stroke:#6c8cff,color:#6c8cff
+    style A2 fill:#1a2d3d,stroke:#6c8cff,color:#6c8cff
+    style A3 fill:#1a2d3d,stroke:#6c8cff,color:#6c8cff
+    style A4 fill:#1a2d3d,stroke:#6c8cff,color:#6c8cff
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<div style="text-align:center; padding: 40px 20px; color: var(--text-dim); font-size: 0.85rem;">
+  Driver Agent 2.0 — 舱外语音交互全流程图解 v1 | 2026-07-08
+</div>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    themeVariables: {
+      primaryColor: '#2d3148',
+      primaryTextColor: '#e8e8ef',
+      primaryBorderColor: '#ff9b5e',
+      lineColor: '#ff9b5e',
+      secondaryColor: '#1a1d27',
+      tertiaryColor: '#14161f',
+      fontFamily: '-apple-system, PingFang SC, Microsoft YaHei, sans-serif',
+      fontSize: '14px'
+    },
+    flowchart: {
+      useMaxWidth: true,
+      htmlLabels: true,
+      curve: 'basis'
+    }
+  });
+</script>
+</body>
+</html>

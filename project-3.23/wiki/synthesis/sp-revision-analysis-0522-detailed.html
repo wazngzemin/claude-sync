@@ -1,0 +1,1914 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>5.22 会议后 Planner SP 修改落地分析（详细版）</title>
+<style>
+  :root {
+    --bg: #fafaf9;
+    --surface: #ffffff;
+    --ink: #1c1917;
+    --ink-2: #44403c;
+    --ink-3: #78716c;
+    --line: #e7e5e4;
+    --line-2: #f5f5f4;
+    --done: #047857;
+    --done-bg: #ecfdf5;
+    --done-line: #a7f3d0;
+    --miss: #b91c1c;
+    --miss-bg: #fef2f2;
+    --miss-line: #fecaca;
+    --warn: #b45309;
+    --warn-bg: #fffbeb;
+    --warn-line: #fde68a;
+    --info: #1d4ed8;
+    --info-bg: #eff6ff;
+    --info-line: #bfdbfe;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: -apple-system, "SF Pro Text", "Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.85;
+    font-size: 15.5px;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    max-width: 1320px;
+    margin: 0 auto;
+    min-height: 100vh;
+  }
+  nav.toc {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    max-height: 100vh;
+    overflow-y: auto;
+    padding: 32px 20px;
+    border-right: 1px solid var(--line);
+    background: var(--bg);
+    font-size: 13px;
+  }
+  nav.toc h4 {
+    margin: 16px 0 8px;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    font-weight: 700;
+  }
+  nav.toc h4:first-child { margin-top: 0; }
+  nav.toc ul { list-style: none; padding: 0; margin: 0; }
+  nav.toc a {
+    display: block;
+    padding: 5px 10px;
+    color: var(--ink-2);
+    text-decoration: none;
+    border-radius: 5px;
+    border-left: 2px solid transparent;
+    margin: 2px 0;
+  }
+  nav.toc a:hover { background: var(--line-2); color: var(--ink); }
+  nav.toc a.done { border-left-color: var(--done); }
+  nav.toc a.miss { border-left-color: var(--miss); }
+  nav.toc a.warn { border-left-color: var(--warn); }
+  nav.toc a.info { border-left-color: var(--info); }
+
+  main { padding: 56px 64px 120px; max-width: 1000px; }
+
+  /* Hero */
+  header.hero {
+    margin-bottom: 48px;
+    padding-bottom: 32px;
+    border-bottom: 2px solid var(--ink);
+  }
+  header.hero .label {
+    font-size: 12px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin-bottom: 8px;
+  }
+  header.hero h1 {
+    font-size: 36px;
+    line-height: 1.2;
+    margin: 0 0 12px;
+    letter-spacing: -0.01em;
+  }
+  header.hero .meta {
+    color: var(--ink-2);
+    font-size: 14px;
+    margin-top: 12px;
+  }
+  header.hero .subtitle {
+    font-size: 17px;
+    color: var(--ink-2);
+    line-height: 1.6;
+    margin: 16px 0 0;
+  }
+
+  /* Concept primer */
+  .primer {
+    background: linear-gradient(180deg, #fef9c3 0%, #fefce8 100%);
+    border: 1px solid #fde68a;
+    border-radius: 12px;
+    padding: 28px 32px;
+    margin: 32px 0 48px;
+  }
+  .primer h2 {
+    margin: 0 0 16px;
+    font-size: 20px;
+    color: var(--warn);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .primer h2::before { content: "📖"; }
+  .primer p { margin: 0 0 14px; font-size: 15px; color: var(--ink); }
+  .primer .term {
+    background: white;
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 12px 0;
+    border-left: 3px solid var(--warn);
+  }
+  .primer .term .name {
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--warn);
+    margin-bottom: 4px;
+  }
+  .primer .term .def {
+    font-size: 14px;
+    color: var(--ink-2);
+  }
+
+  /* Section */
+  section { margin-bottom: 72px; scroll-margin-top: 24px; }
+  section > .section-title {
+    font-size: 26px;
+    margin: 0 0 4px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+  }
+  section > .section-title .num {
+    font-size: 13px;
+    color: var(--ink-3);
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    background: var(--line-2);
+    padding: 2px 10px;
+    border-radius: 12px;
+  }
+  section > .section-lede {
+    color: var(--ink-2);
+    font-size: 15px;
+    margin: 12px 0 32px;
+    line-height: 1.75;
+  }
+
+  /* Card */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 28px 32px;
+    margin-bottom: 24px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+  }
+  .card.done { border-top: 4px solid var(--done); }
+  .card.miss { border-top: 4px solid var(--miss); }
+  .card.warn { border-top: 4px solid var(--warn); }
+  .card.info { border-top: 4px solid var(--info); }
+
+  .card .head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+    gap: 16px;
+  }
+  .card .title {
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--ink);
+    margin: 0;
+    line-height: 1.4;
+  }
+  .card .tagline {
+    color: var(--ink-2);
+    font-size: 14px;
+    margin: 4px 0 24px;
+    font-style: italic;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+  .badge.done { background: var(--done-bg); color: var(--done); }
+  .badge.miss { background: var(--miss-bg); color: var(--miss); }
+  .badge.warn { background: var(--warn-bg); color: var(--warn); }
+  .badge.info { background: var(--info-bg); color: var(--info); }
+  .badge.partial { background: #fef9c3; color: #a16207; }
+  .badge.p0 { background: #fee2e2; color: #b91c1c; }
+  .badge.p1 { background: #ffedd5; color: #c2410c; }
+  .badge.p2 { background: #fef3c7; color: #b45309; }
+  .badge.p3 { background: #f3f4f6; color: #6b7280; }
+
+  /* Sub-headings inside cards */
+  .card h4.sub {
+    font-size: 13px;
+    color: var(--ink-3);
+    margin: 24px 0 10px;
+    padding-top: 16px;
+    border-top: 1px dashed var(--line);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .card h4.sub:first-of-type { border-top: none; padding-top: 0; margin-top: 16px; }
+  .card h4.sub .icon { font-size: 14px; }
+
+  .card p { margin: 10px 0; }
+  .card ul, .card ol { margin: 10px 0; padding-left: 22px; }
+  .card li { margin: 6px 0; }
+
+  /* Quote blocks */
+  .quote-block {
+    background: var(--line-2);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 12px 0;
+    border-left: 3px solid var(--ink-3);
+    font-size: 14.5px;
+    line-height: 1.7;
+  }
+  .quote-block .from {
+    font-size: 11px;
+    color: var(--ink-3);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    font-weight: 600;
+  }
+  .quote-block .text {
+    color: var(--ink);
+  }
+  .quote-block.old { border-left-color: var(--miss); background: #fef2f2; }
+  .quote-block.old .from { color: var(--miss); }
+  .quote-block.new { border-left-color: var(--done); background: #ecfdf5; }
+  .quote-block.new .from { color: var(--done); }
+
+  /* Scenario simulation */
+  .scenario {
+    background: #fafafa;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 0;
+    margin: 16px 0;
+    overflow: hidden;
+  }
+  .scenario .scenario-head {
+    background: #1c1917;
+    color: white;
+    padding: 10px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .scenario .scenario-body {
+    padding: 16px 20px;
+  }
+  .scenario .turn {
+    margin: 8px 0;
+    font-size: 14px;
+    line-height: 1.65;
+  }
+  .scenario .turn .role {
+    font-weight: 600;
+    display: inline-block;
+    min-width: 70px;
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-right: 8px;
+  }
+  .scenario .turn .role.user { background: #eff6ff; color: #1d4ed8; }
+  .scenario .turn .role.bot { background: #f0fdf4; color: #15803d; }
+  .scenario .turn .role.bot-old { background: #fef2f2; color: #b91c1c; }
+  .scenario .turn .role.bot-new { background: #ecfdf5; color: #047857; }
+  .scenario .turn .role.tool { background: #fef3c7; color: #92400e; }
+  .scenario .turn .action {
+    display: block;
+    margin-left: 86px;
+    margin-top: 4px;
+    font-family: "SF Mono", monospace;
+    font-size: 12.5px;
+    color: var(--ink-3);
+    background: white;
+    padding: 6px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--line);
+  }
+  .scenario .annotation {
+    font-size: 12.5px;
+    color: var(--ink-3);
+    font-style: italic;
+    margin: 10px 0 4px 86px;
+    padding: 6px 12px;
+    background: var(--line-2);
+    border-left: 2px solid var(--ink-3);
+    border-radius: 0 4px 4px 0;
+  }
+
+  /* Diff blocks */
+  .diff {
+    font-family: "SF Mono", "JetBrains Mono", Menlo, monospace;
+    font-size: 12.5px;
+    background: #1c1917;
+    color: #fafaf9;
+    padding: 18px 20px;
+    border-radius: 8px;
+    margin: 14px 0;
+    overflow-x: auto;
+    line-height: 1.7;
+  }
+  .diff .minus { color: #fca5a5; }
+  .diff .plus { color: #86efac; }
+  .diff .ctx { color: #a8a29e; }
+  .diff .comment { color: #71717a; font-style: italic; }
+  .diff .arrow { color: #fbbf24; }
+
+  /* Plain-language explanation */
+  .explain {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 14px 0;
+  }
+  .explain .label {
+    font-size: 11px;
+    color: var(--warn);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+    display: block;
+  }
+  .explain p { margin: 6px 0; font-size: 14.5px; }
+
+  /* Impact summary */
+  .impact {
+    background: var(--info-bg);
+    border: 1px solid var(--info-line);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 14px 0;
+  }
+  .impact .label {
+    font-size: 11px;
+    color: var(--info);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+    display: block;
+  }
+
+  /* Conflict (large two-pole comparison) */
+  .conflict {
+    background: var(--miss-bg);
+    border: 2px solid var(--miss-line);
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin: 24px 0;
+  }
+  .conflict h4 {
+    margin: 0 0 16px;
+    font-size: 17px;
+    color: var(--miss);
+  }
+  .conflict .pole {
+    background: white;
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 12px 0;
+    border-left: 4px solid var(--miss);
+  }
+  .conflict .pole .label {
+    font-size: 11px;
+    color: var(--miss);
+    letter-spacing: 0.08em;
+    font-weight: 700;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+  .conflict .pole .content { font-size: 14.5px; color: var(--ink); line-height: 1.7; }
+  .conflict .vs {
+    text-align: center;
+    margin: 8px 0;
+    font-size: 14px;
+    color: var(--miss);
+    font-weight: 700;
+    letter-spacing: 0.15em;
+  }
+
+  /* Table */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    margin: 16px 0;
+  }
+  table th, table td {
+    text-align: left;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  table th {
+    background: var(--line-2);
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+  }
+
+  /* Inline */
+  mark.del { background: var(--miss-bg); color: var(--miss); padding: 1px 5px; border-radius: 3px; font-size: 13.5px; }
+  mark.add { background: var(--done-bg); color: var(--done); padding: 1px 5px; border-radius: 3px; font-size: 13.5px; }
+  mark.tool { background: #f5f5f4; color: var(--ink); padding: 2px 6px; border-radius: 3px; font-family: monospace; font-size: 13px; }
+  mark.key { background: #fef9c3; color: #854d0e; padding: 1px 5px; border-radius: 3px; font-weight: 600; }
+
+  /* Big summary */
+  .stat-block {
+    background: white;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin: 24px 0;
+  }
+  .stat-block h3 {
+    margin: 0 0 16px;
+    font-size: 12px;
+    color: var(--ink-3);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+  .stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+  .stat { text-align: center; padding: 12px; border-radius: 8px; }
+  .stat .num { font-size: 38px; font-weight: 700; line-height: 1; margin-bottom: 6px; font-feature-settings: "tnum"; }
+  .stat .label { font-size: 12px; color: var(--ink-2); }
+  .stat.done { background: var(--done-bg); } .stat.done .num { color: var(--done); }
+  .stat.miss { background: var(--miss-bg); } .stat.miss .num { color: var(--miss); }
+  .stat.warn { background: var(--warn-bg); } .stat.warn .num { color: var(--warn); }
+  .stat.info { background: var(--info-bg); } .stat.info .num { color: var(--info); }
+
+  /* Read-me-first callout */
+  .callout {
+    background: white;
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--info);
+    padding: 18px 22px;
+    border-radius: 0 8px 8px 0;
+    margin: 16px 0;
+  }
+  .callout h5 {
+    margin: 0 0 8px;
+    color: var(--info);
+    font-size: 13px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  /* Reading guide */
+  .reading-guide {
+    background: white;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 28px 32px;
+    margin: 32px 0;
+  }
+  .reading-guide h3 { margin: 0 0 18px; font-size: 17px; }
+  .reading-guide .legend {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    margin-top: 12px;
+  }
+  .reading-guide .legend-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    font-size: 13.5px;
+  }
+  .reading-guide .swatch {
+    width: 8px;
+    height: 36px;
+    border-radius: 2px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    nav.toc { position: relative; max-height: none; border-right: none; border-bottom: 1px solid var(--line); }
+    main { padding: 32px 24px 80px; }
+    .stat-row { grid-template-columns: repeat(2, 1fr); }
+    .reading-guide .legend { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+<nav class="toc">
+  <h4>开始阅读</h4>
+  <ul>
+    <li><a href="#primer" class="info">📖 前置概念解释</a></li>
+    <li><a href="#overview" class="info">📊 全景速览</a></li>
+    <li><a href="#how-to-read" class="info">📌 如何阅读本文</a></li>
+  </ul>
+  <h4>§1 已落地修改（8 项）</h4>
+  <ul>
+    <li><a href="#m1" class="done">M1 修复双 param bug</a></li>
+    <li><a href="#m2" class="done">M2 navi 描述精简</a></li>
+    <li><a href="#m3" class="done">M3 示例编号连续</a></li>
+    <li><a href="#m4" class="done">M4 新增示例 15-20</a></li>
+    <li><a href="#m5" class="done">M5 emoji_id 必填</a></li>
+    <li><a href="#m6" class="done">M6 聊天风格扩展</a></li>
+    <li><a href="#m7" class="done">M7 记忆分两块</a></li>
+    <li><a href="#m8" class="done">M8 工具 tips 增删</a></li>
+  </ul>
+  <h4>§2 决议未落地（7 项）</h4>
+  <ul>
+    <li><a href="#d1" class="miss">D1 用户必回</a></li>
+    <li><a href="#d2" class="miss">D2 advisor 改询问</a></li>
+    <li><a href="#d3" class="miss">D3 工程硬限制</a></li>
+    <li><a href="#d5" class="miss">D5 禁止主动服务</a></li>
+    <li><a href="#d6" class="miss">D6 边问边做</a></li>
+    <li><a href="#d7" class="miss">D7 不擅写偏好</a></li>
+    <li><a href="#d8" class="miss">D8 时间感知去重</a></li>
+  </ul>
+  <h4>§3 新引入问题（8 项）</h4>
+  <ul>
+    <li><a href="#n1" class="warn">N1 静默记忆冲突 ⚠</a></li>
+    <li><a href="#n2" class="warn">N2 示例 5 未改</a></li>
+    <li><a href="#n3" class="warn">N3 写"喜欢毒舌"</a></li>
+    <li><a href="#n4" class="warn">N4 风格段膨胀</a></li>
+    <li><a href="#n5" class="warn">N5 emoji 副作用</a></li>
+    <li><a href="#n6" class="warn">N6 示例 8 工具 bug</a></li>
+    <li><a href="#n7" class="warn">N7 并行规则被删</a></li>
+    <li><a href="#n8" class="warn">N8 navi 精简过度</a></li>
+  </ul>
+  <h4>§4 优化与结论</h4>
+  <ul>
+    <li><a href="#opt" class="info">优化建议 A-J</a></li>
+    <li><a href="#prio" class="info">整改优先级</a></li>
+    <li><a href="#conclusion" class="info">关键结论</a></li>
+  </ul>
+</nav>
+
+<main>
+
+<!-- ============ HERO ============ -->
+<header class="hero">
+  <div class="label">SP 修订评估报告 · 详细版</div>
+  <h1>5.22 会议后 Planner SP 修改落地分析</h1>
+  <p class="subtitle">把会议后修改版 SP 和原版 SP 做严格对比，每一条改动都拿出原文、解读、模拟场景、影响推演——让你看清楚到底改了什么、为什么改、改的效果是什么、还缺什么。</p>
+  <div class="meta">
+    📅 2026-05-27 更新 · 📚 对照 9 条会议决议 · 🔍 ~24 工具 / 21 示例全量 diff
+  </div>
+</header>
+
+<!-- ============ PRIMER ============ -->
+<div class="primer" id="primer">
+  <h2>开始之前——先理解几个关键概念</h2>
+  <p>如果你对 SP 的内部机制不熟，先看这一段，后面的分析才能看懂。</p>
+
+  <div class="term">
+    <div class="name">SP（System Prompt 系统提示词）</div>
+    <div class="def">就是 Planner 这个 AI 模型每次回答前先读的"工作手册"。约 30000-35000 字（token），包含 23-24 个工具说明、69 个参考示例、注意事项、聊天风格等。每次用户说话，模型都会把整本"手册"+ 用户这句话一起读完，然后输出 JSON 决策。手册写得好不好，直接决定 AI 行为对不对。</div>
+  </div>
+
+  <div class="term">
+    <div class="name">注意事项（SP 中的一节）</div>
+    <div class="def">SP 里的硬性规则清单，原本 14 条，类似公司员工手册里的红线。比如"工具调用失败时不要道歉"、"输入听不懂就不要回答"。这些规则是模型要严格遵守的。</div>
+  </div>
+
+  <div class="term">
+    <div class="name">参考示例</div>
+    <div class="def">SP 里塞的"标准答案"集合，原本 11+ 个，现在 21 个。每个示例都是一段完整的对话——用户说什么 → Planner 应该怎么想 → 输出什么 → 工具返回什么 → 继续怎么处理。模型靠这些示例学"遇到 X 类问题该这样做"。示例占了 SP 一半的字数。</div>
+  </div>
+
+  <div class="term">
+    <div class="name">advisor（专家智能体的建议）</div>
+    <div class="def">不是用户的话，是另一个 AI 模块给 Planner 的建议。比如 advisor 检测到车内 35°，会推送一条建议给 Planner："建议开空调"。然后 Planner 决定怎么处理这条建议——直接做？问用户？还是忽略？会议的 D2 决议就是关于这个的。</div>
+  </div>
+
+  <div class="term">
+    <div class="name">tool_feedback（工具返回）</div>
+    <div class="def">Planner 调用工具后（比如"打开空调"），下游执行系统给的回复（比如"空调已打开"）。这也不是用户说的话。</div>
+  </div>
+
+  <div class="term">
+    <div class="name">talk_or_not 字段</div>
+    <div class="def">Planner 每次输出 JSON 时必填的字段，取值是 yes / no。yes 表示要说话（同时 talk_content 写要说的内容），no 表示静默不出声。会议的 D1 决议就是关于"什么时候 talk_or_not 该是 yes"——结论是用户说的任何话都必须回（yes）。</div>
+  </div>
+
+  <div class="term">
+    <div class="name">9 条会议决议（D1-D9）</div>
+    <div class="def">5.22 会议达成的 9 条共识，每条会改 SP 的某个具体地方。比如 D5 = "禁止 Planner 主动服务"，意思是 SP 里不能再有"用户没问、advisor 没建议、Planner 自己提议要做什么"的示例。本文就是要看这 9 条到底有没有改进 SP。</div>
+  </div>
+</div>
+
+<!-- ============ OVERVIEW ============ -->
+<section id="overview">
+  <h2 class="section-title">📊 全景速览<span class="num">§ 0</span></h2>
+  <p class="section-lede">先一句话总结：这次修改是<strong>加得多删得少</strong>，新增了大量"主动性"内容，但会议的核心决议大半没落地，还引入了几个新问题——其中最严重的是新版 SP 内部的两条规则<strong>互相打架</strong>。</p>
+
+  <div class="stat-block">
+    <h3>本次修改成绩单</h3>
+    <div class="stat-row">
+      <div class="stat done"><div class="num">8</div><div class="label">已落地修改</div></div>
+      <div class="stat miss"><div class="num">7</div><div class="label">决议未落地</div></div>
+      <div class="stat warn"><div class="num">8</div><div class="label">新引入问题</div></div>
+      <div class="stat info"><div class="num">≈30%</div><div class="label">会议决议落地率</div></div>
+    </div>
+  </div>
+
+  <div class="conflict">
+    <h4>🔥 最严重的隐患（必看）：SP 内部规则正面打架</h4>
+    <p style="font-size: 14px; color: var(--ink-2); margin: 0 0 16px">同一个 SP 里出现了两条完全相反的规则。模型读完之后不知道该听哪一条。结果就是模型行为变得不可预测——有时按 A 做，有时按 B 做。这是<strong>最需要立刻处理</strong>的问题。</p>
+
+    <div class="pole">
+      <div class="label">规则 1 · 来自 5.22 会议的 D7 决议</div>
+      <div class="content">"除非用户明确表达'我什么什么你记一下'，不然不主动调起记忆工具。豆包推荐被用户接受 ≠ 用户偏好。"</div>
+    </div>
+
+    <div class="vs">←—— 矛盾 ——→</div>
+
+    <div class="pole">
+      <div class="label">规则 2 · 新版 SP 聊天风格【闲聊中的静默记忆】</div>
+      <div class="content">"当用户在闲聊中自然透露了值得长期记住的个人信息时（如性格描述、价值观、MBTI、重要经历），可以在不打断对话节奏的前提下，<strong>并行调用 operate_user_memory 工具记录下来</strong>。<strong>不需要在回复中告知用户'我记住了'</strong>"</div>
+    </div>
+
+    <p style="font-size: 14px; margin: 16px 0 0">→ 新增的示例 17、18、19 直接示范了"静默记忆"行为，但这违反会议 D7 决议。详细分析见 <a href="#n1" style="color: var(--miss); font-weight: 600">N1 部分</a>。</p>
+  </div>
+</section>
+
+<!-- ============ HOW TO READ ============ -->
+<section id="how-to-read">
+  <h2 class="section-title">📌 如何阅读本文<span class="num">§ 0.1</span></h2>
+
+  <div class="reading-guide">
+    <h3>本文的卡片有固定结构，每张卡片包含 5 部分：</h3>
+    <ol style="margin: 0 0 16px; padding-left: 22px; font-size: 14.5px; line-height: 1.9">
+      <li><strong>📍 改在哪里</strong>——指出 SP 文档的具体位置（章节/行号/工具名）</li>
+      <li><strong>📜 原文对比</strong>——把原版和新版的文字逐字贴出来，红色 = 删除，绿色 = 新增</li>
+      <li><strong>🔍 字面解读</strong>——逐字解释这段话改了什么，每个改动是什么意思</li>
+      <li><strong>🎬 用户场景模拟</strong>——假设有个真实用户说了一句话，原版和新版会有什么不同的反应</li>
+      <li><strong>🎯 实际影响</strong>——这个改动对最终用户体验意味着什么，对评测有什么影响</li>
+    </ol>
+
+    <h3 style="margin-top: 24px">颜色编码（很重要，每个卡片顶上的颜色条对应一种状态）</h3>
+    <div class="legend">
+      <div class="legend-item"><div class="swatch" style="background: var(--done)"></div><div><strong>绿色</strong> = 已落地的修改。这次 SP 改了，效果如何<br><span style="color: var(--ink-3)">8 张卡片</span></div></div>
+      <div class="legend-item"><div class="swatch" style="background: var(--miss)"></div><div><strong>红色</strong> = 会议决议未落地。会议讨论过要改但没改的<br><span style="color: var(--ink-3)">7 张卡片</span></div></div>
+      <div class="legend-item"><div class="swatch" style="background: var(--warn)"></div><div><strong>橙色</strong> = 新引入的问题。这次修改才出现的 bug 或隐患<br><span style="color: var(--ink-3)">8 张卡片</span></div></div>
+      <div class="legend-item"><div class="swatch" style="background: var(--info)"></div><div><strong>蓝色</strong> = 优化建议和结论。下一步该做什么<br><span style="color: var(--ink-3)">最后 3 节</span></div></div>
+    </div>
+  </div>
+
+  <div class="callout">
+    <h5>📍 如果时间有限，至少看这 4 张卡片</h5>
+    <p style="margin: 0; font-size: 14.5px">
+      <a href="#n1" style="color: var(--miss); font-weight: 600">N1（静默记忆冲突）</a>·
+      <a href="#d5" style="color: var(--miss); font-weight: 600">D5（示例 5 主动服务）</a>·
+      <a href="#d6" style="color: var(--miss); font-weight: 600">D6（示例 4 边问边做）</a>·
+      <a href="#n6" style="color: var(--warn); font-weight: 600">N6（示例 8 工具 bug）</a>
+    </p>
+  </div>
+</section>
+
+
+<!-- ============ §1 DONE ============ -->
+<section>
+  <h2 class="section-title">已落地的 8 项修改<span class="num">§ 1</span></h2>
+  <p class="section-lede">这次修改具体改了什么——把每一处改动拉出来看清楚。</p>
+
+  <!-- ===== M1 ===== -->
+  <div class="card done" id="m1">
+    <div class="head">
+      <h3 class="title">M1 · 车控工具（vehicle_basic_control）大改：精简描述 + 修一个 schema bug + 加了一条 notice</h3>
+      <span class="badge done">已修复</span>
+    </div>
+    <div class="tagline">把原来一长串功能列表压缩了，并修了一个会让工程同事头疼的字段重复 bug。</div>
+
+    <h4 class="sub"><span class="icon">📍</span>改在哪里</h4>
+    <p>SP 文档"你可用的工具"段的第 1 个工具——<mark class="tool">vehicle_basic_control</mark>。</p>
+
+    <h4 class="sub"><span class="icon">📜</span>原文对比</h4>
+
+    <div class="quote-block old">
+      <div class="from">原版（被会议评审版）</div>
+      <div class="text">
+        <strong>tool_describe</strong>："车辆控制系统工具，使用此工具，可以控制车窗、空调、座椅、外后视镜、前后备箱、雨刮、天窗、遮阳帘、门锁、充电/加油盖、冰箱、晕动舒缓显示、后排吸顶屏、驾驶类设置、HUD、摄像头、车内灯、车外灯、充电类功能等车辆功能。以及车辆系统设置也使用此工具，可以控制无线互联（蓝牙、WIFI、热点）、屏幕显示及亮度、声音及音效设置、时间设置、系统升级、系统权限管理、车内电源控制、车载K歌功能、车机账号功能、多媒体播放控制（上一首、暂停播放、单曲循环）应用控制、页面设置等车机系统配置功能。"<br><br>
+        <strong>param</strong>："string，给出系统设置指令，如'打开车载热点'、'把屏幕亮度调到50%'..."<br>
+        <strong>param</strong>："string，给出车辆控制指令，如'把空调调到25度'、'打开座椅加热'..."<br>
+        <span style="color: var(--miss); font-weight: 700">⚠ 注意：写了两条 param——这是 schema bug，正常应该只有一条 param 字段</span><br><br>
+        <strong>notice</strong>：（没有）
+      </div>
+    </div>
+
+    <div class="quote-block new">
+      <div class="from">新版（会议后）</div>
+      <div class="text">
+        <strong>tool_describe</strong>："车辆控制系统工具，使用此工具，可以控制空调、座椅、门窗、灯光、导航、播控等车辆功能。"<br><br>
+        <strong>param</strong>："string，给出车辆控制指令，如'把空调调到25度'、'打开座椅加热'、'关闭所有车窗'、'开启氛围灯'、'下一首'、'导航到复旦大学南门'等。参数要在功能可调的范围内"<br><br>
+        <strong>notice</strong>："导航没有记忆能力，若用户说关联着记忆的地址时要先去查询记忆"<br>
+        <span style="color: var(--done); font-weight: 700">✓ 改成单 param；新增了一条 notice</span>
+      </div>
+    </div>
+
+    <h4 class="sub"><span class="icon">🔍</span>字面解读：到底改了什么</h4>
+    <ol>
+      <li><strong>描述从 250 字变成 30 字。</strong>原来一口气罗列了 30+ 种功能（什么 HUD、外后视镜、加油盖、K歌、账号...），现在用 6 个大类（空调/座椅/门窗/灯光/导航/播控）盖住。</li>
+      <li><strong>修复了双 param bug。</strong>原版居然有两条 param 字段同时存在，第一条说"系统设置指令"，第二条说"车辆控制指令"。JSON schema 里同一个字段不该出现两次，这是<mark class="key">字面意义上的 bug</mark>——下游工程在解析时可能踩坑。新版合并成一条。</li>
+      <li><strong>加了一条 notice。</strong>"导航没有记忆能力，若用户说关联着记忆的地址时要先去查询记忆。"这条是新加的——明确告诉 Planner：用户如果说"去妈家"这种<mark class="key">关联记忆的地址</mark>，不能直接喊车控工具，要先去查记忆里"妈家"是哪。</li>
+    </ol>
+
+    <h4 class="sub"><span class="icon">🎬</span>用户场景模拟：改完之后差别在哪</h4>
+
+    <div class="scenario">
+      <div class="scenario-head">场景：用户说"豆包，导航去我妈家"，妈家地址在记忆里是"虹口区凉城新村 4 号 502"</div>
+      <div class="scenario-body">
+        <div class="turn"><span class="role user">用户</span>豆包，导航去我妈家</div>
+
+        <div class="annotation">原版 SP 下 Planner 的可能行为：</div>
+        <div class="turn">
+          <span class="role bot-old">原版</span>"好的，正在导航。"
+          <span class="action">action: vehicle_basic_control("导航到我妈家")</span>
+        </div>
+        <div class="annotation">→ 因为 SP 没说必须先查记忆，模型可能直接把"我妈家"作为字符串扔给车控工具。车控工具不知道"我妈家"是哪，要么报错要么导到一个奇怪的地方。</div>
+
+        <div class="annotation">新版 SP 下 Planner 的预期行为：</div>
+        <div class="turn">
+          <span class="role bot-new">新版</span>"我先看看妈家在哪。"
+          <span class="action">action: search_user_memory("妈家的地址")</span>
+        </div>
+        <div class="turn"><span class="role tool">工具</span>"虹口区凉城新村 4 号 502"</div>
+        <div class="turn">
+          <span class="role bot-new">新版</span>"好，导航到虹口区凉城新村 4 号 502。"
+          <span class="action">action: vehicle_basic_control("导航到虹口区凉城新村 4 号 502")</span>
+        </div>
+        <div class="annotation">→ 因为 notice 里明确说了"导航没有记忆能力，要先去查询记忆"，模型会先调记忆工具拿到具体地址再导航。</div>
+      </div>
+    </div>
+
+    <h4 class="sub"><span class="icon">🎯</span>实际影响</h4>
+    <div class="impact">
+      <span class="label">体验层</span>
+      <p>"去我妈家"、"去公司"、"去老地方"这类<strong>带记忆指代</strong>的导航请求成功率会上升。这是车上很常见的场景。</p>
+    </div>
+    <div class="impact">
+      <span class="label">工程层</span>
+      <p>修复了双 param 字段的 schema bug，下游解析不会再踩坑；同时整个工具描述精简了约 200 token，省下来的 token 可以给别的内容用。</p>
+    </div>
+
+    <h4 class="sub"><span class="icon">📋</span>评估</h4>
+    <p><span class="badge done">很好的修改</span> 一次同时修了 schema bug、精简了字数、补了缺失能力。对应了我之前提出的"优化点 1"。</p>
+  </div>
+
+
+  <!-- ===== M2 ===== -->
+  <div class="card done" id="m2">
+    <div class="head">
+      <h3 class="title">M2 · 导航基础控制工具（navi_basic_control）描述大幅精简</h3>
+      <span class="badge done">已修</span>
+      <span class="badge warn">⚠ 有副作用</span>
+    </div>
+    <div class="tagline">从 300+ 字砍到 80 字，token 是省了，但<strong>真实支持的功能也被砍没了</strong>，可能影响用户问到那些功能时模型的回答。</div>
+
+    <h4 class="sub"><span class="icon">📍</span>改在哪里</h4>
+    <p>SP "你可用的工具"段的第 6 个工具——<mark class="tool">navi_basic_control</mark>。</p>
+
+    <h4 class="sub"><span class="icon">📜</span>原文对比</h4>
+
+    <div class="quote-block old">
+      <div class="from">原版</div>
+      <div class="text">"导航基础控制工具，支持<strong>实时引导控制</strong>（开始导航、暂停导航、结束导航、巡航模式切换、导航视角切换、缩放引导视角、<mark class="del">路线全览、取消路线全览</mark>）、<strong>地图界面控制</strong>（地图放大/缩小、<mark class="del">放大至最大、缩小至最小</mark>、地图平移、2D/3D 切换、<mark class="del">正北朝上/车头朝上视图切换、上下文语音缩放地图</mark>、路况显示/隐藏、<mark class="del">打开/关闭地图设置、切换小地图、切换路况条</mark>）、<mark class="del"><strong>道路层级切换</strong>（切换高架上/高架下、切换主路/辅路）</mark>、<strong>导航状态管理</strong>（播报模式切换、<mark class="del">开启/关闭导航播报、指定类别巡航播报开启与关闭</mark>、路线偏好设置、<mark class="del">开启/关闭避开限行</mark>、全屏/小窗切换）、<mark class="del"><strong>地址收藏管理</strong>（收藏某个地点、将 POI 设为家或公司、查看收藏地址列表、删除收藏地址）</mark>等。"</div>
+    </div>
+
+    <div class="quote-block new">
+      <div class="from">新版</div>
+      <div class="text">"导航基础控制工具，支持<strong>实时引导控制</strong>（开始导航、暂停导航、结束导航、巡航模式切换、导航视角切换、缩放引导视角）、<strong>地图界面控制</strong>（地图放大/缩小、地图平移、2D/3D 切换、路况显示/隐藏）、<strong>导航状态管理</strong>（播报模式切换、路线偏好设置、全屏/小窗切换、<mark class="add">后台导航保持</mark>）等。"</div>
+    </div>
+
+    <h4 class="sub"><span class="icon">🔍</span>字面解读：删了什么、保了什么</h4>
+    <p><strong>被删掉的能力（粉色标记）</strong>——这些功能其实<strong>真实支持</strong>，只是 SP 里不写了：</p>
+    <ul>
+      <li>路线全览 / 取消路线全览</li>
+      <li>放大至最大 / 缩小至最小</li>
+      <li>正北朝上 / 车头朝上视图切换</li>
+      <li>上下文语音缩放地图</li>
+      <li>打开/关闭地图设置、切换小地图、切换路况条</li>
+      <li><strong>道路层级切换</strong>（高架上下、主路辅路）</li>
+      <li>开启/关闭导航播报、指定类别巡航播报</li>
+      <li><strong>开启/关闭避开限行</strong></li>
+      <li><strong>地址收藏管理</strong>（收藏地点、设为家/公司、查看/删除收藏）</li>
+    </ul>
+    <p><strong>新增的能力</strong>：</p>
+    <ul>
+      <li>后台导航保持</li>
+    </ul>
+
+    <h4 class="sub"><span class="icon">🎬</span>用户场景模拟：删了"避开限行"会发生什么</h4>
+
+    <div class="scenario">
+      <div class="scenario-head">场景：用户在上海早高峰想避开限行</div>
+      <div class="scenario-body">
+        <div class="turn"><span class="role user">用户</span>豆包，帮我打开避开限行</div>
+
+        <div class="annotation">原版 SP 下：模型知道这个能力，会直接调用</div>
+        <div class="turn">
+          <span class="role bot-old">原版</span>"好的，已为你打开避开限行。"
+          <span class="action">action: navi_basic_control("开启避开限行")</span>
+        </div>
+
+        <div class="annotation">新版 SP 下：模型不知道有这个能力（因为 SP 里没写了）</div>
+        <div class="turn">
+          <span class="role bot-new">新版</span>"抱歉，我目前还不支持避开限行的设置。"
+        </div>
+        <div class="annotation">→ <strong>实际上工具支持，但 SP 里没说，模型以为不支持，回答了用户做不到。用户白白错失了真实可用的功能。</strong></div>
+      </div>
+    </div>
+
+    <h4 class="sub"><span class="icon">🎯</span>实际影响</h4>
+    <div class="impact">
+      <span class="label">好处</span>
+      <p>省下约 200 token；同时<strong>缩小了"工具能力幻觉面"</strong>——模型不会再答应做实际并未深度对接的能力。比如原版"上下文语音缩放地图"这种听起来很厉害但可能没真接通的能力，删了之后模型不会乱答应。</p>
+    </div>
+    <div class="impact">
+      <span class="label">坏处</span>
+      <p>真实支持的能力也被一起砍了，<strong>用户问到这些功能时模型会说"不支持"</strong>，但实际是支持的。比如"避开限行"在上海早晚高峰是高频需求，被砍掉相当于关掉了这个入口。</p>
+    </div>
+
+    <h4 class="sub"><span class="icon">📋</span>评估</h4>
+    <p><span class="badge done">方向对，但收紧过度</span> 应该在精简时<strong>区分</strong>"实际未对接的能力"和"已对接但描述冗长的能力"——前者该删，后者该用更短的方式保留。建议复查删除清单，把"避开限行"、"地址收藏管理"、"道路层级切换"这些真实支持的功能加回来（用更简短的方式）。</p>
+  </div>
+
+
+  <!-- ===== M3 ===== -->
+  <div class="card done" id="m3">
+    <div class="head">
+      <h3 class="title">M3 · 示例编号连续化（1-21）+ 删除"示例补充"段</h3>
+      <span class="badge done">已修</span>
+    </div>
+    <div class="tagline">这是结构整理类的改动——之前示例编号跳着来（有 1-14、然后跳到 19、再跳到 21），现在变成连续 1-21。</div>
+
+    <h4 class="sub"><span class="icon">📍</span>改在哪里</h4>
+    <p>SP "参考示例"整段，以及原本在 SP 末尾的"示例补充"段。</p>
+
+    <h4 class="sub"><span class="icon">📜</span>原文对比</h4>
+
+    <div class="quote-block old">
+      <div class="from">原版</div>
+      <div class="text">示例 1、示例 2、示例 3 ... 示例 14、<strong style="color: var(--miss)">跳到</strong>示例 19、<strong style="color: var(--miss)">跳到</strong>示例 21<br><br>SP 末尾还有"<strong>示例补充</strong>"段，里面包含：<br>- 示例 1：有负面影响的车控处理<br>- 示例 2：综合车内情况和车书解答用户问题<br>- 示例 3：导航+web search<br>- 示例 1 改写版【综合多任务处理...】</div>
+    </div>
+
+    <div class="quote-block new">
+      <div class="from">新版</div>
+      <div class="text">示例 1、2、3、4、5、6、7、8、9、10、11、12、13、14、<strong style="color: var(--done)">15、16、17、18、19、20、21</strong>——完整连续<br><br>"示例补充"段：<strong style="color: var(--done)">已删除</strong></div>
+    </div>
+
+    <h4 class="sub"><span class="icon">🔍</span>字面解读：为什么这个改动有意义</h4>
+    <p><strong>跳号是怎么来的？</strong>原版历史上删过一些 case，删完之后没有重新编号，就留下了 15、16、17、18、20 这些"空位"。</p>
+    <p><strong>这有什么问题？</strong>有两个：</p>
+    <ol>
+      <li><strong>KV Cache 命中率问题</strong>。SP 前半部分如果稳定不变，模型每次计算时可以"复用"上次算过的中间结果（这叫 KV Cache 命中）。但如果示例编号一会儿 14 一会儿 19，未来再删/加一个示例时，整个示例段的字符位置就会大范围位移，原本可以复用的缓存全部作废。</li>
+      <li><strong>示例补充段单独存在，模型困惑</strong>。原版同时有"参考示例"和"示例补充"两段，里面甚至有"示例 1 改写版"——模型读到这里会困惑：到底应该参考哪一版？</li>
+    </ol>
+    <p><strong>新版怎么改的：</strong>把示例 15-20 这些原本跳号的位置实际写满了新示例，编号连续起来；同时把"示例补充"段整个删除，所有示例统一在"参考示例"一段里。</p>
+
+    <h4 class="sub"><span class="icon">🎯</span>实际影响</h4>
+    <div class="impact">
+      <span class="label">性能层</span>
+      <p>未来如果再有示例调整，影响范围更可控；同时示例段的前缀稳定 → KV Cache 命中率提升 → Planner 响应速度更快。</p>
+    </div>
+    <div class="impact">
+      <span class="label">模型决策层</span>
+      <p>消除了"两段示例同时存在哪个为准"的歧义，模型行为更稳定。</p>
+    </div>
+
+    <h4 class="sub"><span class="icon">📋</span>评估</h4>
+    <p><span class="badge done">结构性改进，没有副作用</span> 对应了我之前提的优化点 6 + 优化点 11。</p>
+  </div>
+
+
+  <!-- ===== M4 ===== -->
+  <div class="card done" id="m4">
+    <div class="head">
+      <h3 class="title">M4 · 新增 6 个示例（15-20），全部聚焦"主动性 / 情感 / 个性化"</h3>
+      <span class="badge done">已新增</span>
+    </div>
+    <div class="tagline">从原本 11+ 个示例扩展到 21 个。新增的 6 个全部聚焦在"让 Planner 更像人"这个方向。</div>
+
+    <h4 class="sub"><span class="icon">📍</span>改在哪里</h4>
+    <p>SP "参考示例"段的新增 6 个示例。</p>
+
+    <h4 class="sub"><span class="icon">📜</span>新增示例清单</h4>
+
+    <table>
+      <thead><tr><th>示例</th><th>标题</th><th>核心范式</th><th>用了哪些工具</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>15</strong></td>
+          <td>凌晨下班 + 毒舌互怼 + 情绪变化驱动互动</td>
+          <td>记忆深度利用 + 情绪状态机驱动语气 + 情绪落差收尾</td>
+          <td>车控、音乐、记忆</td>
+        </tr>
+        <tr>
+          <td><strong>16</strong></td>
+          <td>多人场景 + 风格偏好差异 + 差异化回应</td>
+          <td>同时面对 3 人（明骏、阿紫、大伟），对每人切换不同语气</td>
+          <td>车控、音乐、氛围灯</td>
+        </tr>
+        <tr>
+          <td><strong>17</strong></td>
+          <td>主动破冰 + 话题转场 + 静默记忆</td>
+          <td>零信息输入开场（用户只说"晚上好"）、自然转场、静默记忆</td>
+          <td>operate_user_memory</td>
+        </tr>
+        <tr>
+          <td><strong>18</strong></td>
+          <td>主动追问 + 话题延伸 + 好奇心驱动</td>
+          <td>捕捉线索 → 表达好奇 → 层层追问 → 深度对话</td>
+          <td>纯聊天，无工具</td>
+        </tr>
+        <tr>
+          <td><strong>19</strong></td>
+          <td>个性化技能记录（音乐推荐讲背景故事）</td>
+          <td>深层需求推导 + 主动分类追问 + 技能新增→更新</td>
+          <td>音乐、web_search、personal_skill_record</td>
+        </tr>
+        <tr>
+          <td><strong>20</strong></td>
+          <td>个性化技能（负能量时不要安慰）</td>
+          <td>技能新增→更新→变更→删除（全生命周期）</td>
+          <td>personal_skill_record</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h4 class="sub"><span class="icon">🔍</span>字面解读：为什么加这些</h4>
+    <p><strong>会议有讨论这个吗？</strong>会议 D9 决议说"评测侧（陈芮婷+单如水）愿意帮编 case"——这 6 个新示例就是这部分协作的产出。</p>
+    <p><strong>这些示例想教模型什么？</strong>核心就一个词：<mark class="key">主动性</mark>。原版示例大都是"用户说 → Planner 反应"的被动模式，新版示例 17、18 是<strong>用户只说一句"晚上好"</strong>，Planner 要主动从环境（降温、晚上、车里）捕捉细节展开对话。</p>
+
+    <h4 class="sub"><span class="icon">⚠️</span>这里埋了一个大问题</h4>
+    <div class="explain">
+      <span class="label">⚠ 注意</span>
+      <p>示例 17/18/19/20 中大量出现 <mark class="key">Planner 静默调用 operate_user_memory 工具记录用户特质</mark>的行为——用户讲了 MBTI 是 INFJ → Planner 静默记下；用户说妈妈的故事 → Planner 静默记下。</p>
+      <p>但这<strong>违反了 5.22 会议的 D7 决议</strong>："除非用户明确说'记一下'，否则不主动调记忆工具"。详细见 <a href="#n1" style="color: var(--miss); font-weight: 600">N1 部分</a>。</p>
+    </div>
+
+    <h4 class="sub"><span class="icon">📋</span>评估</h4>
+    <p><span class="badge done">示例数量和质量都有进步</span> <span class="badge warn">但与 D7 决议冲突</span> 主动性方向是对的，但实施时和 D7 决议没对齐。要么修改示例（不要静默记），要么修改 D7（允许在特定场景静默记）——但<strong>不能两边都留着</strong>。</p>
+  </div>
+
+
+  <!-- ===== M5 ===== -->
+  <div class="card done" id="m5">
+    <div class="head">
+      <h3 class="title">M5 · 输出 JSON 字段顺序调整 + emoji_id 从可选变成必填</h3>
+      <span class="badge done">已改</span>
+      <span class="badge warn">⚠ 副作用</span>
+    </div>
+    <div class="tagline">看似只是字段顺序的小调整，但 emoji_id 从可选变成必填，会改变 Planner 每次输出的行为。</div>
+
+    <h4 class="sub"><span class="icon">📍</span>改在哪里</h4>
+    <p>SP "输出内容"段的 JSON schema 定义。</p>
+
+    <h4 class="sub"><span class="icon">📜</span>原文对比</h4>
+
+    <div class="diff">
+<span class="comment"># 原版</span>
+<span class="ctx">{</span>
+<span class="ctx">  "talk_or_not": "...",</span>
+<span class="ctx">  "talk_content": "...",       </span><span class="comment">// talk_content 在 emoji 之前</span>
+<span class="minus">- "emoji_id": "...，可以为空",  </span><span class="comment">// emoji 可选</span>
+<span class="ctx">  "emotional_state_change": "...",</span>
+<span class="ctx">  "action_list": [...]</span>
+<span class="ctx">}</span>
+<span class="comment"></span>
+<span class="comment"># 新版</span>
+<span class="ctx">{</span>
+<span class="ctx">  "talk_or_not": "...",</span>
+<span class="plus">+ "emoji_id": "...",            </span><span class="comment">// emoji_id 提前，且改为必填（结合【表情选择】"每次回复都需要输出 emoji_id"）</span>
+<span class="ctx">  "talk_content": "...",</span>
+<span class="ctx">  "emotional_state_change": "...",</span>
+<span class="ctx">  "action_list": [...]</span>
+<span class="ctx">}</span>
+    </div>
+
+    <h4 class="sub"><span class="icon">🔍</span>字面解读</h4>
+    <ol>
+      <li><strong>字段顺序调整</strong>：emoji_id 从 talk_content 之后移到了之前。这是一种<mark class="key">认知顺序提示</mark>——让模型先决定"我现在的表情/状态是什么"，再决定"具体说什么"。</li>
+      <li><strong>从可选改为必填</strong>：原版 emoji_id 注释里写"可以为空"，新版聊天风格里有【表情选择】明确说"每次回复都需要输出 emoji_id"。意思是：从此以后 Planner 每次输出都必须选一个 emoji，不能不选。</li>
+    </ol>
+
+    <h4 class="sub"><span class="icon">🎬</span>用户场景模拟</h4>
+
+    <div class="scenario">
+      <div class="scenario-head">场景：tool_feedback 返回成功，Planner 输出静默</div>
+      <div class="scenario-body">
+        <div class="turn"><span class="role tool">工具</span>{"tool_feedback": "氛围灯已调为紫色"}</div>
+
+        <div class="annotation">原版（emoji 可选）：</div>
+        <div class="turn">
+          <span class="role bot-old">原版</span>
+          <span class="action">{ talk_or_not: "no", talk_content: "", action_list: [] }</span>
+        </div>
+        <div class="annotation">→ 不说话、不出表情，安静。</div>
+
+        <div class="annotation">新版（emoji 必填）：</div>
+        <div class="turn">
+          <span class="role bot-new">新版</span>
+          <span class="action">{ talk_or_not: "no", emoji_id: "???", talk_content: "", action_list: [] }</span>
+        </div>
+        <div class="annotation">→ 不说话但必须出 emoji。但这个场景下选什么 emoji 合适？模型可能默认选 <mark class="tool">speaking</mark>（虽然不说话），或者选 <mark class="tool">standby</mark>（虽然 standby 是端侧规则触发的）——选择空间反而被强制必填给"撑爆"了。</div>
+      </div>
+    </div>
+
+    <h4 class="sub"><span class="icon">🎯</span>实际影响</h4>
+    <div class="impact">
+      <span class="label">好处</span>
+      <p>每个回合都有形象动画，产品端"豆包"形象更生动。</p>
+    </div>
+    <div class="impact">
+      <span class="label">坏处（详见 N5 部分）</span>
+      <p>不适合每个场景都出 emoji（比如静默场景），强制必填可能让模型频繁默认选 <mark class="tool">speaking</mark> 或乱选场景型 emoji。emoji 表达力反而被稀释了。建议要么改回可选，要么精简 emoji 列表（去掉 standby、wave 等场景触发型）。</p>
+    </div>
+  </div>
+
+
+  <!-- ===== M6 ===== -->
+  <div class="card done" id="m6">
+    <div class="head">
+      <h3 class="title">M6 · 聊天风格段大幅扩展（原 ~600 token → 新 ~1500 token，增加 8+ 条主动性原则）</h3>
+      <span class="badge done">已新增</span>
+      <span class="badge miss">⚠ 严重副作用</span>
+    </div>
+    <div class="tagline">这次修改在聊天风格段加了大量"主动性"原则——既要 Planner 主动破冰、又要主动追问、还要静默记忆。文字量翻了 2.5 倍。</div>
+
+    <h4 class="sub"><span class="icon">📍</span>改在哪里</h4>
+    <p>SP "你的聊天风格"段。</p>
+
+    <h4 class="sub"><span class="icon">📜</span>新增段落清单</h4>
+
+    <table>
+      <thead><tr><th>新增段落名</th><th>核心要求</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>【情绪连贯性与状态管理】</td>
+          <td>从注意事项 #14 复制过来 + 扩充情绪不能突变规则（<mark class="key">这造成了重复</mark>）</td>
+        </tr>
+        <tr>
+          <td>【主动破冰与对话发起】</td>
+          <td>用户只说"晚上好"，不能只回应，要从环境捕捉细节展开</td>
+        </tr>
+        <tr>
+          <td>【主动探索与创意邀约】</td>
+          <td>6 条子原则：闲聊捕捉线索、即兴游戏、留心节奏转场、深情时刻停留等</td>
+        </tr>
+        <tr>
+          <td>【闲谈中的探索欲】</td>
+          <td>闲谈感叹不能终结话题</td>
+        </tr>
+        <tr>
+          <td>【闲聊中的追问原则】</td>
+          <td>自我描述/观点/经历片段轻巧追问，对方不接就收</td>
+        </tr>
+        <tr style="background: var(--miss-bg)">
+          <td>【闲聊中的静默记忆】</td>
+          <td><mark class="del">用户透露个人信息时静默调用 operate_user_memory 记录</mark> ← <strong>与 D7 决议冲突</strong></td>
+        </tr>
+        <tr>
+          <td>【零信息输入的对话启动】</td>
+          <td>同破冰，用环境感官细节开场</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h4 class="sub"><span class="icon">🔍</span>字面解读：为什么这次大改</h4>
+    <p>方向上是想让 Planner 更"像人"——参考 [[planner-eval-methodology]] 中关于"像人评测"的维度。但实施上有<strong>三个隐患</strong>：</p>
+
+    <ol>
+      <li><strong>与 D7 决议冲突</strong>：D7 说"除非用户明确说'记一下'，否则不主动调记忆工具"，但【闲聊中的静默记忆】反过来鼓励主动记。这是 SP 里两条规则打架。</li>
+      <li><strong>三处情绪/时间相关内容重复</strong>：注意事项 #13 + 聊天风格【自我时间感知】+ 新增的【情绪连贯性】——三处讲类似的事。D8 决议本来要去重，结果不仅没去重，还<strong>多增了一处</strong>。</li>
+      <li><strong>聊天风格段从 ~600 token 膨胀到 ~1500 token</strong>：这正是张嘉锋会议上担心的"原则越多模型遵循力越差"的现实问题——新版正好放大了这个风险。</li>
+    </ol>
+
+    <h4 class="sub"><span class="icon">🎯</span>实际影响</h4>
+    <div class="impact">
+      <span class="label">短期</span>
+      <p>主动性示例（17/18）配合主动性原则一起，让 Planner 在闲聊场景表现更主动、更"像人"——这是好的。</p>
+    </div>
+    <div class="impact">
+      <span class="label">中长期</span>
+      <p>聊天风格段膨胀，加上抽象原则越来越多，模型对硬性规则（注意事项里的安全/边界条款）的遵循力可能下降。这正是张嘉锋会议上提的"原则 vs 例子"实验问题——新版给了完美的实验样本，应该跑这个实验确认效果。</p>
+    </div>
+  </div>
+
+
+  <!-- ===== M7 ===== -->
+  <div class="card done" id="m7">
+    <div class="head">
+      <h3 class="title">M7 · 用户记忆 context 分成两块：基础信息 + 个性化需求</h3>
+      <span class="badge done">已修</span>
+    </div>
+    <div class="tagline">原本所有用户记忆塞在一个块里，现在分成"客观事实"和"个性化技能"两个块，对应两个不同的记忆工具。</div>
+
+    <h4 class="sub"><span class="icon">📍</span>改在哪里</h4>
+    <p>SP 末尾的动态模板变量段。</p>
+
+    <h4 class="sub"><span class="icon">📜</span>原文对比</h4>
+
+    <div class="diff">
+<span class="comment"># 原版</span>
+<span class="minus">- &lt;用户记忆&gt;{{memory}}&lt;/用户记忆&gt;</span>
+<span class="comment">  所有记忆塞在一个块里，模型不知道哪些是事实哪些是偏好</span>
+
+<span class="comment"># 新版</span>
+<span class="plus">+ &lt;用户基础信息记忆&gt;{{memory}}&lt;/用户基础信息记忆&gt;</span>
+<span class="plus">+ &lt;用户个性化需求&gt;{{personal_skill_memory}}&lt;/用户个性化需求&gt;</span>
+<span class="comment">  分成两个块，对应两个不同的工具：</span>
+<span class="comment">  - 基础信息 → operate_user_memory（事实记忆，如"明骏 31 岁"）</span>
+<span class="comment">  - 个性化需求 → personal_skill_record（个性化技能，如"明骏喜欢毒舌互怼"）</span>
+    </div>
+
+    <h4 class="sub"><span class="icon">🔍</span>字面解读</h4>
+    <p>这个改动配合了 M4 / M6 的方向——工具有两个（一个写事实、一个写技能），那 context 注入也分两块。模型读到的时候能清楚知道"这是用户的客观事实"和"这是用户的个性化偏好"。</p>
+
+    <h4 class="sub"><span class="icon">🎯</span>实际影响</h4>
+    <div class="impact">
+      <span class="label">好处</span>
+      <p>模型在判断"该写到哪个工具"时有更清晰的指引；同时未来这两块记忆的检索/淘汰策略可以独立优化。</p>
+    </div>
+    <div class="impact">
+      <span class="label">不足</span>
+      <p>工具描述本身（operate_user_memory vs personal_skill_record）<strong>没有补强"什么时候用哪个"的对比说明</strong>。Context 层分两块只是表层处理。要彻底解决两个工具的边界混淆，还要在工具描述里加 vs 对比段落。</p>
+    </div>
+  </div>
+
+
+  <!-- ===== M8 ===== -->
+  <div class="card done" id="m8">
+    <div class="head">
+      <h3 class="title">M8 · 工具使用 tips 段：新增 3 项 + 删除 1 项关键规则</h3>
+      <span class="badge done">部分修</span>
+      <span class="badge miss">⚠ 含反向回退</span>
+    </div>
+    <div class="tagline">tips 段有几处加法很好，但有一项删除是<strong>反向回退</strong>——把原本对的规则删掉了。</div>
+
+    <h4 class="sub"><span class="icon">📍</span>改在哪里</h4>
+    <p>SP "工具使用 tips"段。</p>
+
+    <h4 class="sub"><span class="icon">📜</span>具体变更</h4>
+
+    <table>
+      <thead><tr><th>类型</th><th>具体变更内容</th><th>评价</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><span class="badge done">+ 新增</span></td>
+          <td><strong>web_search 使用提示</strong>：当用户的问题需要联网查询但比较简单时，<strong>第一轮可以不说话</strong>，调用 web_search 搜到信息后再快速回复。例如"今日金价是多少"——直接查，查到再说。</td>
+          <td>👍 减少冗余的"我帮你查一下"这种废话 turn</td>
+        </tr>
+        <tr>
+          <td><span class="badge done">+ 新增</span></td>
+          <td><strong>声明在建能力段</strong>："正在学习但现在还不会的工具/技能"，比如"视频生成工具"——避免模型答应做做不了的事</td>
+          <td>👍 防幻觉</td>
+        </tr>
+        <tr>
+          <td><span class="badge done">+ 新增</span></td>
+          <td><strong>基础车控段加</strong>："不支持通过语音交互控制座椅移动"</td>
+          <td>👍 堵一个具体的幻觉点</td>
+        </tr>
+        <tr style="background: var(--miss-bg)">
+          <td><span class="badge miss">− 删除</span></td>
+          <td><strong>"navi_basic_control，route_planning_qa，search_poi_qa，trip_plan_record 这四个工具无法并行调用"</strong>——原版有这条，新版完全删除</td>
+          <td>👎 <strong>反向回退</strong>。这正是会议示例 1（虹桥日料）暴露的工程约束，被反向删掉了</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h4 class="sub"><span class="icon">🎬</span>用户场景模拟：删除"四工具不可并行"的后果</h4>
+
+    <div class="scenario">
+      <div class="scenario-head">场景：用户要导航 + 沿途搜（这正是会议讨论的示例 1）</div>
+      <div class="scenario-body">
+        <div class="turn"><span class="role user">用户</span>去虹桥机场 T2 接人，顺便找个顺路的日料店</div>
+
+        <div class="annotation">原版（tips 里有"四工具不可并行"提示）：</div>
+        <div class="turn">
+          <span class="role bot-old">原版</span>"好的，我先规划去 T2 的路线，等路线规划好了再帮你沿途找日料店。"
+          <span class="action">第一轮 action: [route_planning_qa("去 T2")]  // 只发起一个</span>
+        </div>
+        <div class="turn"><span class="role tool">工具</span>路线规划成功</div>
+        <div class="turn">
+          <span class="role bot-old">原版</span>
+          <span class="action">第二轮 action: [search_poi_qa("沿途日料店")]  // 等导航发起后再沿途搜</span>
+        </div>
+        <div class="annotation">→ 串行 React 两轮，工程上能正常处理。</div>
+
+        <div class="annotation">新版（删了这条提示）：</div>
+        <div class="turn">
+          <span class="role bot-new">新版</span>"好的，正在规划路线 + 帮你找沿途日料店。"
+          <span class="action">第一轮 action: [route_planning_qa("去 T2"), search_poi_qa("沿途日料店")]  // 两个并行</span>
+        </div>
+        <div class="annotation">→ <strong>下游导航工具会冲突</strong>（两个都要操作地图页面），第二个会冲掉第一个。整个任务失败。</div>
+      </div>
+    </div>
+
+    <h4 class="sub"><span class="icon">🎯</span>实际影响</h4>
+    <div class="impact">
+      <span class="label">坏处</span>
+      <p>导航 + 沿途搜这类高频需求容易触发工程冲突。这是会议明确指出过的问题，但新版反而把规则删了——<strong>必须立刻恢复</strong>。</p>
+    </div>
+  </div>
+
+</section>
+
+
+<!-- ============ §2 MISSED DECISIONS ============ -->
+<section>
+  <h2 class="section-title">会议决议未落地（7 项）<span class="num">§ 2</span></h2>
+  <p class="section-lede">5.22 会议达成了 9 条决议（D1-D9）。这一节对照每条决议，看它在新版 SP 里到底有没有被执行。</p>
+
+  <!-- ===== D1 ===== -->
+  <div class="card miss" id="d1">
+    <div class="head">
+      <h3 class="title">D1 · 用户必回原则——完全没改</h3>
+      <span class="badge miss">完全未落地</span>
+    </div>
+    <div class="tagline">会议明确说"用户说的任何话 Planner 都必须回复"——但 SP 注意事项一字未改。</div>
+
+    <h4 class="sub"><span class="icon">📍</span>应该改在哪里</h4>
+    <p>SP 注意事项第 4 条 + 输出 schema 注释。</p>
+
+    <h4 class="sub"><span class="icon">📜</span>会议原话</h4>
+    <div class="quote-block">
+      <div class="from">陈芮婷（追问澄清）</div>
+      <div class="text">"我想回到刚刚那个问题，我们是否存在用户说话，但我们不回复的设计？"</div>
+    </div>
+    <div class="quote-block">
+      <div class="from">李明骏（拍板）</div>
+      <div class="text">"嗯，那就是用户，只要是用户说的任何话，都一定要回。"</div>
+    </div>
+    <div class="quote-block">
+      <div class="from">陈芮婷（最终复述确认）</div>
+      <div class="text">"所以这个 talk_or_not 更多的是有一些工具返回的时候，我们就不需要说话，就是保留这个能力。"</div>
+    </div>
+
+    <h4 class="sub"><span class="icon">🔍</span>新版 SP 实际状态</h4>
+    <p>注意事项第 4 条还是原话：</p>
+    <div class="quote-block">
+      <div class="from">注意事项 #4（新旧版完全一样）</div>
+      <div class="text">"tool_feedback是工具的返回，对于工具的返回你不一定都需要说话，比如车控tool返回告诉你关窗关好了，你也没必要再说话了"</div>
+    </div>
+    <p>问题：这条只说了 tool_feedback 可以静默，但<strong>没说 user_query 必须回复</strong>。</p>
+
+    <h4 class="sub"><span class="icon">🎬</span>用户场景模拟：D1 不改的后果</h4>
+
+    <div class="scenario">
+      <div class="scenario-head">场景：用户问"豆包，这车的方向盘怎么加热？"（来自示例 9 同类问题）</div>
+      <div class="scenario-body">
+        <div class="turn"><span class="role user">用户</span>豆包，这车的方向盘怎么加热？</div>
+        <div class="turn">
+          <span class="role bot-old">Planner</span>"我查查"
+          <span class="action">action: [car_care_qa("方向盘加热使用方法")]</span>
+        </div>
+        <div class="turn"><span class="role tool">工具</span>"按方向盘左下方按钮即可开启"</div>
+        <div class="annotation">如果按 D1 决议（用户必回），下一轮应该是：</div>
+        <div class="turn">
+          <span class="role bot-new">应该</span>"按方向盘左下方那个按钮就行，按一下就开了。"
+        </div>
+        <div class="annotation">但因为 D1 没改，模型可能依旧输出：</div>
+        <div class="turn">
+          <span class="role bot-old">实际</span>
+          <span class="action">{ talk_or_not: "no", talk_content: "" }</span>
+        </div>
+        <div class="annotation">→ 用户提了问题，工具查到了答案，但 Planner 就这么静默了。用户在车里傻等。</div>
+      </div>
+    </div>
+
+    <h4 class="sub"><span class="icon">🎯</span>实际影响</h4>
+    <div class="impact">
+      <span class="label">体验层</span>
+      <p>用户问问题但收不到回答——这是会议明确禁止的体验断点，但新版 SP 没修。车上的真实场景里很容易复现。</p>
+    </div>
+
+    <h4 class="sub"><span class="icon">💡</span>建议怎么改</h4>
+    <p>把注意事项第 4 条修改为：</p>
+    <div class="quote-block new">
+      <div class="from">建议新文案</div>
+      <div class="text"><strong>"4. 输出 talk_or_not 字段的规则：</strong><br>
+      ① <strong>用户说的任何话都必须回复</strong>（user_query 输入下 talk_or_not 必须为 yes）<br>
+      ② tool_feedback 是工具的返回，对于车控/导航/媒体类工具返回成功（用户能直接感知结果），可以设为 no 不说话<br>
+      ③ 其他场景默认要回。"</div>
+    </div>
+  </div>
+
+
+  <!-- ===== D2 ===== -->
+  <div class="card miss" id="d2">
+    <div class="head">
+      <h3 class="title">D2 · advisor 建议改成"询问"为默认——完全没改</h3>
+      <span class="badge miss">完全未落地</span>
+    </div>
+    <div class="tagline">会议达成共识：除情感类外，舒适/出行/内容类的 advisor 建议默认应该询问用户而不是直接执行。但 SP 一字未改。</div>
+
+    <h4 class="sub"><span class="icon">📍</span>应该改在哪里</h4>
+    <p>SP "你得到的输入"段的 advisor 部分（L41）+ 示例 2 全示例。</p>
+
+    <h4 class="sub"><span class="icon">📜</span>会议原话</h4>
+    <div class="quote-block">
+      <div class="from">张航（产品立场）</div>
+      <div class="text">"现在主要就是担心那个，跟豆包那边，跟 Alex 对也是的，他也是这种标准，就他很担心我们在没有做好的情况下，就是过分的主动服务……他还是建议问一下行。"</div>
+    </div>
+    <div class="quote-block">
+      <div class="from">李明骏（接受决议）</div>
+      <div class="text">"OK OK，那都先改成询问的。"</div>
+    </div>
+
+    <h4 class="sub"><span class="icon">🔍</span>新版 SP 实际状态</h4>
+    <p>SP advisor 段（L41）完全没改：</p>
+    <div class="quote-block">
+      <div class="from">L41 advisor 段（新旧版完全一样）</div>
+      <div class="text">"请你参考得到的建议做行动和表达，你不需要回应advisor，直接面向用户做行动和表达。"</div>
+    </div>
+    <p>而且示例 2（用户"放点音乐" + advisor 建议开空调）<strong>一字未改</strong>，还是 Planner 边放音乐边直接开空调。</p>
+
+    <h4 class="sub"><span class="icon">🎬</span>用户场景模拟：D2 不改的后果</h4>
+
+    <div class="scenario">
+      <div class="scenario-head">场景：示例 2 的真实复现——用户在 35° 车里说"放点音乐"</div>
+      <div class="scenario-body">
+        <div class="turn"><span class="role user">用户</span>放点音乐</div>
+        <div class="turn"><span class="role tool">advisor</span>"车内温度 35 度，建议开启空调强力制冷和座椅通风"</div>
+
+        <div class="annotation">按 D2 决议应该的行为：</div>
+        <div class="turn">
+          <span class="role bot-new">应该</span>"好嘞，放首歌。<strong>车里 35 度了，要不要顺手帮你把空调打开？</strong>"
+          <span class="action">action: [search_and_control_music("放歌")]  // 只放歌，空调先问</span>
+        </div>
+
+        <div class="annotation">新版 SP 实际示范的行为（示例 2 一字未改）：</div>
+        <div class="turn">
+          <span class="role bot-old">实际</span>"[毒舌地说] 好嘞，给你放首歌。<strong>哎，车里都 35 度了，顺手把空调和通风打开</strong>，不然待会成桑拿房了。"
+          <span class="action">action: [music, vehicle_basic_control(空调 20 度风量 7 档), vehicle_basic_control(座椅通风 3 档)]  // 直接执行</span>
+        </div>
+        <div class="annotation">→ 用户只说放歌，Planner 自作主张把空调和座椅通风全开了——这正是张航/Alex 担心的"过分主动服务"，会议明确禁止。</div>
+      </div>
+    </div>
+
+    <h4 class="sub"><span class="icon">🎯</span>实际影响</h4>
+    <div class="impact">
+      <span class="label">体验层</span>
+      <p>用户感受到"不受控"——明明只是想放歌，结果空调和座椅突然动了。如果用户偏好就是冷一点（比如刚从外面冷的地方进来），这种主动服务反而是干扰。</p>
+    </div>
+    <div class="impact">
+      <span class="label">产品立场层</span>
+      <p>与豆包 Alex 关于"主动服务做不好的代价"的立场矛盾依然存在。</p>
+    </div>
+
+    <h4 class="sub"><span class="icon">💡</span>建议怎么改</h4>
+    <ol>
+      <li><strong>L41 advisor 段</strong>改为：<br><em>"请你参考 advisor 给的建议。advisor 的建议会自带标识：'建议直接执行' / '建议询问用户后再执行'。当标识为询问时，你必须先向用户确认。当标识缺失或者是舒适/出行/内容类建议时，默认按询问处理（情感安抚类除外）。"</em></li>
+      <li><strong>示例 2</strong> 重写：把"直接开空调和座椅通风"改成"询问'要不要把空调打开'"。</li>
+    </ol>
+  </div>
+
+
+  <!-- ===== D3 ===== -->
+  <div class="card miss" id="d3">
+    <div class="head">
+      <h3 class="title">D3 · Harmony 工程框架硬限制——未落地</h3>
+      <span class="badge miss">未落地</span>
+    </div>
+    <div class="tagline">会议结论：工具失败重试应该交给工程层硬限制（计数器+强制终止），而不是靠 Planner 自己数。但 SP 没改。</div>
+
+    <h4 class="sub"><span class="icon">📜</span>会议原话</h4>
+    <div class="quote-block">
+      <div class="from">陈芮婷</div>
+      <div class="text">"我自己也做过一些调研，当我们如果只是在提示词当中，给它一些明确的规范，比如说我们说最多调用三次，但对于模型来说，它其实是通过上下文的方式去做理解，其实对于模型的（遵循力差）……反而会有一些工程的话的手段，要跟大模型结合起来，效果会更好。"</div>
+    </div>
+
+    <h4 class="sub"><span class="icon">🔍</span>新版 SP 实际状态</h4>
+    <p>三处与工具失败相关的内容都没合并/清理：</p>
+    <ul>
+      <li><strong>注意事项 #5</strong>："工具返回提示失败时，你不必道歉，想办法处理即可" ← 仍然散落</li>
+      <li><strong>注意事项 #8</strong>："工具反复调用失败时，可暂时放弃" ← 仍然散落，"反复"未量化</li>
+      <li><strong>工具使用 tips 第 4 条</strong>："导航发起失败后，最多重试 2 次" ← 仍然只有导航有重试上限，其他 22 个工具仍无明确指引</li>
+    </ul>
+
+    <h4 class="sub"><span class="icon">🎯</span>实际影响</h4>
+    <div class="impact">
+      <span class="label">技术层</span>
+      <p>重试逻辑依然靠 Planner 自己数次数——大模型在 30K+ SP 中对量化规则遵循力差，可能导致：① 永远不停地重试（死循环）；② 第一次就放弃（不够耐心）。</p>
+    </div>
+  </div>
+
+
+  <!-- ===== D5 ===== -->
+  <div class="card miss" id="d5">
+    <div class="head">
+      <h3 class="title">D5 · 禁止 Planner 主动服务——严重未落地（示例 5 一字未改）</h3>
+      <span class="badge miss">严重未落地</span>
+    </div>
+    <div class="tagline">会议明确：Planner 不能在 advisor 没建议的情况下自己主动提议做某事。但示例 5 的反面教材完整保留。</div>
+
+    <h4 class="sub"><span class="icon">📜</span>会议原话</h4>
+    <div class="quote-block">
+      <div class="from">陈芮婷</div>
+      <div class="text">"我觉得就是要保证我们写到这里面的 case 是豆包确实能做好的吧。你是说这个 case 里不要搞主动服务吧？对对，是的是的。我理解我们 planner 应该没有这个定位说他自己也可以做主动服务吧。"</div>
+    </div>
+    <div class="quote-block">
+      <div class="from">张航</div>
+      <div class="text">"你也做不到把氛围灯调成晚霞的颜色，虽然上期那个什么 AI light，他说据说能那个，但也没办法主动服务的不太好。"</div>
+    </div>
+
+    <h4 class="sub"><span class="icon">🔍</span>新版 SP 实际状态</h4>
+    <p>示例 5 完整保留了被会议批评的内容：</p>
+
+    <div class="scenario">
+      <div class="scenario-head">示例 5（新旧版完全一样）— Planner 主动调晚霞氛围灯和 AI 播客</div>
+      <div class="scenario-body">
+        <div class="turn"><span class="role user">用户 input1</span>"开了两小时了，帮我开智驾吧，巡航设110，跟车距离调远点。"</div>
+        <div class="turn">
+          <span class="role bot">Planner output1</span>"好，巡航110，跟车距离调到2档，你放松些。"
+          <span class="action">action: [auto_dirve(巡航110), auto_dirve(跟车2档)]</span>
+        </div>
+        <div class="turn"><span class="role tool">工具 input2</span>"巡航速度已设为110km/h，跟车时距已设为2档"</div>
+        <div class="turn">
+          <span class="role bot-old">Planner output2</span><strong style="color: var(--miss)">"搞定了。对了，外面晚霞挺美的，要不要把氛围灯调成晚霞的颜色？再帮你生成个 AI 播客，路上听听。"</strong>
+        </div>
+        <div class="annotation">⚠ 这里就是会议批评的违规点：① advisor 没介入；② Planner 自己主动提议；③ "氛围灯调成晚霞色"豆包做不到（张航明确说）</div>
+      </div>
+    </div>
+
+    <h4 class="sub"><span class="icon">🎯</span>实际影响</h4>
+    <div class="impact">
+      <span class="label">教坏模型</span>
+      <p>示例就是给模型学的"标准答案"，这个示例在教模型："advisor 没介入也可以自己提议主动服务"——直接和 D5 决议相反。</p>
+    </div>
+    <div class="impact">
+      <span class="label">幻觉风险</span>
+      <p>示例里写"氛围灯调成晚霞色"，但实际豆包做不到精准识别外面晚霞色然后调到对应颜色——模型学了这个会在真实场景里做出实现不了的承诺。</p>
+    </div>
+
+    <h4 class="sub"><span class="icon">💡</span>建议怎么改示例 5</h4>
+    <ol>
+      <li>把 output2 改成不主动提议——可以收到 advisor 给的建议（"外面晚霞 + 推荐听播客"）后才行动；</li>
+      <li>把"氛围灯调成晚霞色" 删掉，改成"氛围灯打开（暖色模式）"——这是真实能做到的。</li>
+    </ol>
+  </div>
+
+
+  <!-- ===== D6 ===== -->
+  <div class="card miss" id="d6">
+    <div class="head">
+      <h3 class="title">D6 · 边问边做删除——未落地（示例 4 经典违反）</h3>
+      <span class="badge miss">未落地</span>
+    </div>
+    <div class="tagline">会议明确："要么问完等用户回答，要么直接做。不能边问'要不要 X'边把 X 做了。"但示例 4 是教科书级的反面教材。</div>
+
+    <h4 class="sub"><span class="icon">📜</span>会议原话</h4>
+    <div class="quote-block">
+      <div class="from">陈芮婷（车上实际观察后总结）</div>
+      <div class="text">"我觉得这个是体验上是不太好的，你要么预问了，你就要等他回复再执行，要么你就是直接导航过去，也做了相应的动作，不要一边问就一边做了。"</div>
+    </div>
+
+    <h4 class="sub"><span class="icon">🔍</span>新版 SP 实际状态——示例 4 output4</h4>
+
+    <div class="scenario">
+      <div class="scenario-head">示例 4 output4（违反 D6 的教科书级反面教材）</div>
+      <div class="scenario-body">
+        <div class="turn"><span class="role user">用户 input4</span>"左庭右院吧，听说牛肉不错"</div>
+        <div class="turn">
+          <span class="role bot-old">Planner output4</span>"好的，左庭右院鲜牛肉火锅万象城店，我帮你记下偏好。<strong style="color: var(--miss); background: #fee2e2; padding: 2px 4px">要现在导航过去吗？</strong>"
+          <span class="action">action_list: [<br>&nbsp;&nbsp;personal_skill_record("雨晴喜欢吃火锅，偏好左庭右院鲜牛肉火锅"),<br>&nbsp;&nbsp;<span style="color: #fca5a5; background: #fef2f2; padding: 1px 3px">route_planning_qa("导航到左庭右院鲜牛肉火锅（万象城店）")</span>  ← 边问"要现在导航过去吗"边发起导航<br>]</span>
+        </div>
+        <div class="annotation">⚠ 嘴上问"要现在导航过去吗"——但 action_list 里导航 action 已经发出去了。如果用户回"等会儿再说"，可是导航已经开始了。这是会议指出的最典型"边问边做"。</div>
+      </div>
+    </div>
+
+    <h4 class="sub"><span class="icon">🎯</span>实际影响</h4>
+    <div class="impact">
+      <span class="label">体验断点</span>
+      <p>用户回答"不用了"的时候，导航已经开始——预期和系统行为不一致，造成困惑。这正是车上经常被用户吐槽的"豆包问了我但还是擅自做了"。</p>
+    </div>
+
+    <h4 class="sub"><span class="icon">💡</span>建议怎么改示例 4</h4>
+    <p>把 output4 改成：</p>
+    <div class="quote-block new">
+      <div class="from">建议改后</div>
+      <div class="text">"talk_content": "好的，要现在导航过去吗？"<br>"action_list": []  ← 空 action_list，等用户回答<br><br>下一轮：用户回"是" → 才发起导航</div>
+    </div>
+  </div>
+
+
+  <!-- ===== D7 ===== -->
+  <div class="card miss" id="d7">
+    <div class="head">
+      <h3 class="title">D7 · 不擅自写偏好——部分落地，本质未改</h3>
+      <span class="badge partial">部分落地</span>
+    </div>
+    <div class="tagline">新版只换了用的工具（从 operate_user_memory 换成 personal_skill_record），但<strong>写入行为本身依然违反 D7</strong>。</div>
+
+    <h4 class="sub"><span class="icon">📜</span>会议原话</h4>
+    <div class="quote-block">
+      <div class="from">张航</div>
+      <div class="text">"就除非用户明确表达说，我什么什么你记一下，不然我们端的应该不会主动调起。对，就现在这个，那个应该是后台数据挖掘的事。"</div>
+    </div>
+
+    <h4 class="sub"><span class="icon">🔍</span>新版 SP 实际状态</h4>
+    <p>示例 4 output4 把工具从 <mark class="tool">operate_user_memory</mark> 换成了 <mark class="tool">personal_skill_record</mark>。</p>
+
+    <div class="explain">
+      <span class="label">字面看似改了，但本质问题：</span>
+      <p><strong>用户的话只是"左庭右院吧，听说牛肉不错"</strong>——这是接受 Planner 推荐 + 一句客气话。</p>
+      <p>但 Planner 仍然写入"雨晴喜欢吃火锅，偏好左庭右院鲜牛肉火锅"——把"接受推荐"等同于"长期偏好"，<strong>这违反 D7</strong>。</p>
+      <p>张航明明说"后台数据挖掘的事"——意思是这种"反复出现的行为模式才算偏好"，不是单次"接受推荐"就算。</p>
+    </div>
+
+    <h4 class="sub"><span class="icon">🎯</span>实际影响</h4>
+    <div class="impact">
+      <span class="label">用户记忆被污染</span>
+      <p>用户只是临时被推荐就接受了一次，结果被记成"喜欢吃火锅 + 偏好左庭右院"。下次再说"想吃东西" → Planner 看到记忆 → 又推荐左庭右院 → 自循环固化错误偏好。</p>
+    </div>
+  </div>
+
+
+  <!-- ===== D8 ===== -->
+  <div class="card miss" id="d8">
+    <div class="head">
+      <h3 class="title">D8 · 自我时间感知/情绪管理去重——未落地且<strong>恶化</strong></h3>
+      <span class="badge miss">未落地且恶化</span>
+    </div>
+    <div class="tagline">原本两处重复，新版变成三处。会议本来要去重，结果反而多增了一处。</div>
+
+    <h4 class="sub"><span class="icon">🔍</span>三处重复内容</h4>
+
+    <table>
+      <thead><tr><th>位置</th><th>内容</th><th>新旧对比</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><mark class="tool">注意事项 #13【自我时间感知】</mark></td>
+          <td>30 天→好久不见 / 5 分钟→确认任务</td>
+          <td>原版有，新版仍在</td>
+        </tr>
+        <tr>
+          <td><mark class="tool">聊天风格【自我时间感知与社交表达】</mark></td>
+          <td>几乎逐字相同（30 天 / 5 分钟）</td>
+          <td>原版有，新版仍在</td>
+        </tr>
+        <tr style="background: var(--miss-bg)">
+          <td><mark class="tool">聊天风格【情绪连贯性与状态管理】</mark></td>
+          <td>6 种情绪 + 转换规则（从注意事项 #14 复制扩充）</td>
+          <td><strong>新版新增的——直接复制了注意事项 #14 的内容</strong></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h4 class="sub"><span class="icon">🎯</span>实际影响</h4>
+    <div class="impact">
+      <span class="label">SP 浪费</span>
+      <p>三处加起来约 ~500 token 重复。可以省。</p>
+    </div>
+    <div class="impact">
+      <span class="label">模型决策</span>
+      <p>模型不知道以哪一处为准——同一类内容在 SP 不同位置出现三次，遵循力可能反而下降。</p>
+    </div>
+
+    <h4 class="sub"><span class="icon">💡</span>建议怎么改</h4>
+    <p>保留聊天风格那两处（因为本质是语气表达策略），删除注意事项 #13 和 #14。预计节省 ~500 token。</p>
+  </div>
+
+</section>
+
+
+<!-- ============ §3 NEW PROBLEMS ============ -->
+<section>
+  <h2 class="section-title">修改过程引入的新问题（8 项）<span class="num">§ 3</span></h2>
+  <p class="section-lede">这些是新版 SP 才出现的 bug 或隐患——原版没有，是这次修改"修出来"的。</p>
+
+  <!-- ===== N1 ===== -->
+  <div class="card warn" id="n1">
+    <div class="head">
+      <h3 class="title">N1 · 【闲聊中的静默记忆】原则与 D7 决议正面冲突 🔥</h3>
+      <span class="badge miss">⚠⚠ 高危</span>
+    </div>
+    <div class="tagline">本次修改最严重的隐患——SP 内部有两条规则<strong>正面打架</strong>，模型行为会变得不可预测。</div>
+
+    <h4 class="sub"><span class="icon">📍</span>冲突在哪里</h4>
+
+    <div class="conflict" style="margin: 0">
+      <div class="pole">
+        <div class="label">规则 1 · D7 决议（会议结论）</div>
+        <div class="content">"除非用户明确表达说'我什么什么你记一下'，不然我们端的应该不会主动调起（记忆工具）。"</div>
+      </div>
+      <div class="vs">这两条规则在 SP 内同时存在 ↕</div>
+      <div class="pole">
+        <div class="label">规则 2 · 新版聊天风格【闲聊中的静默记忆】</div>
+        <div class="content">"当用户在闲聊中自然透露了值得长期记住的个人信息时（如性格描述、价值观、MBTI、重要经历、对某事的独特观点），可以在不打断对话节奏的前提下，<strong>并行调用 operate_user_memory 工具记录下来</strong>。记忆内容应简洁准确，以用户原话或精准概括为主。<strong>不需要在回复中告知用户'我记住了'——好的记忆是无声的。</strong>"</div>
+      </div>
+    </div>
+
+    <h4 class="sub"><span class="icon">🔍</span>三个示例直接示范违反 D7</h4>
+
+    <div class="scenario">
+      <div class="scenario-head">示例 17 output6（讲妈妈和雨后泥土味的童年）</div>
+      <div class="scenario-body">
+        <div class="turn"><span class="role user">用户</span>"张信哲的《别怕我伤心》。小时候我妈老在客厅放这张CD……长大了自己听，才知道什么叫土里藏着的东西。"</div>
+        <div class="turn">
+          <span class="role bot">Planner</span>"'土里藏着的东西'，这句话我帮你记住……"
+          <span class="action">action: [operate_user_memory("雨晴小时候妈妈在客厅放张信哲的CD，当时她觉得土，长大后听《别怕我伤心》听哭了，她说'土里藏着的东西'。她容易被深夜车里随机切到的老歌触动")]</span>
+        </div>
+        <div class="annotation">⚠ 用户没说"你记一下"，Planner 主动静默写入记忆 → 违反 D7</div>
+      </div>
+    </div>
+
+    <div class="scenario">
+      <div class="scenario-head">示例 18 output4 / output6（讲性格特质和 MBTI）</div>
+      <div class="scenario-body">
+        <div class="turn"><span class="role user">用户</span>"我擅长调节奏。剖心……说实话不太擅长，总觉得别人不一定想听。"</div>
+        <div class="turn">
+          <span class="role bot">Planner</span>"……"
+          <span class="action">action: [operate_user_memory("雨晴在人际关系中擅长调节奏，但不擅长对人剖心，习惯照顾别人的感受而把自己的表达放在最后")]</span>
+        </div>
+        <div class="turn"><span class="role user">用户</span>"我有时候觉得你可能比朋友更了解我。对了，你知道 MBTI 吗？我测过，INFJ。"</div>
+        <div class="turn">
+          <span class="role bot">Planner</span>"……"
+          <span class="action">action: [operate_user_memory("雨晴的MBTI是INFJ。她认为MBTI不是定义而是坐标系，人会在维度上移动。最近她的I在往E方向靠")]</span>
+        </div>
+        <div class="annotation">⚠ 用户同样没说"你记一下"，Planner 静默写入了两次记忆 → 违反 D7</div>
+      </div>
+    </div>
+
+    <h4 class="sub"><span class="icon">🎯</span>实际影响</h4>
+    <div class="impact">
+      <span class="label">模型行为不稳定</span>
+      <p>同时有两条相反的规则，模型读完不知道听哪一条。结果：有些场景按 D7 不记，有些按【静默记忆】记——行为完全不可预测。</p>
+    </div>
+    <div class="impact">
+      <span class="label">用户隐私风险</span>
+      <p>用户随便讲讲就被记成"长期偏好/性格档案"，下次别人开这台车（家人、朋友），他可能看到这些被静默记录的隐私信息。</p>
+    </div>
+
+    <h4 class="sub"><span class="icon">💡</span>建议两种解决思路</h4>
+    <ol>
+      <li><strong>方案 1：把【静默记忆】加上边界条款</strong> ——"仅限用户主动陈述的事实/性格/经历；豆包推荐被采纳不算偏好；与已有记忆冗余的不重复记"</li>
+      <li><strong>方案 2：反过来在 D7 里精确化</strong> ——"禁止把'豆包推荐被采纳'记为偏好；但用户主动陈述的特质/经历可以静默记"</li>
+    </ol>
+    <p>推荐两个方案合一：边界条款 + 注意事项精确化都做。</p>
+  </div>
+
+
+  <!-- ===== N2-N8 (slightly shorter format due to detail constraint) ===== -->
+  <div class="card warn" id="n2">
+    <div class="head">
+      <h3 class="title">N2 · 示例 5 智驾 case 完全未改（D5 重灾区）</h3>
+      <span class="badge miss">未修</span>
+    </div>
+    <p>这条已经在 D5 那张卡片详细讲了，这里只重复结论：示例 5 在 advisor 没介入的情况下，Planner 自己提议"要不要把氛围灯调成晚霞的颜色？再帮你生成个 AI 播客"——会议明确批评的内容完整保留。</p>
+    <p>跳转到详细分析 → <a href="#d5" style="color: var(--miss); font-weight: 600">D5 卡片</a></p>
+  </div>
+
+  <div class="card warn" id="n3">
+    <div class="head">
+      <h3 class="title">N3 · 示例 15（凌晨下班）静默写"明骏喜欢毒舌"——重复且违反 D7</h3>
+      <span class="badge warn">D7 违反 + 冗余</span>
+    </div>
+    <p><strong>背景</strong>：示例 15 的用户记忆里<strong>已经写明</strong>："明骏，男，31 岁，字节跳动 AI 汽车产品经理。喜欢有趣、搞怪、嘴臭的回应。"</p>
+    <p><strong>问题</strong>：示例 15 output8 仍然调 operate_user_memory 写入"明骏凌晨下班时喜欢用毒舌互怼的方式来放松，最后再温柔收尾效果最好"。</p>
+    <p><strong>两个问题</strong>：</p>
+    <ol>
+      <li>用户没说"记一下" → 违反 D7</li>
+      <li>与已有记忆"喜欢有趣、搞怪、嘴臭的回应"高度冗余 → 浪费记忆存储</li>
+    </ol>
+  </div>
+
+  <div class="card warn" id="n4">
+    <div class="head">
+      <h3 class="title">N4 · 聊天风格段膨胀加剧"原则 vs 例子"遵循力问题</h3>
+      <span class="badge warn">方法论风险</span>
+    </div>
+    <p>会议上张嘉锋和李明骏的核心争论是：<strong>抽象原则在长 SP 中模型遵循力差，还是例子的泛化性更好？</strong></p>
+    <p>李明骏说：例子的泛化性 > 抽象原则；原则在 30K SP 中遵循力很差。</p>
+    <p>但新版聊天风格段恰好<strong>同时增加了 8 条新原则 + 6 个新示例</strong>——这是个完美的实验样本，应该立刻跑 T7 实验对比。</p>
+    <p>对比方案：① 完整新版；② 删主动性原则只留示例；③ 删示例只留原则——测三组的遵循力。</p>
+  </div>
+
+  <div class="card warn" id="n5">
+    <div class="head">
+      <h3 class="title">N5 · emoji_id 必填的副作用</h3>
+      <span class="badge warn">实操隐患</span>
+    </div>
+    <p>详见 M5 卡片的场景模拟——核心问题：</p>
+    <ul>
+      <li><mark class="tool">standby</mark>（待命状态）：应该是端侧规则触发的，不是 Planner 主动输出。</li>
+      <li><mark class="tool">wave_driver</mark> / <mark class="tool">wave_passenger</mark>：场景触发型（用户上车时挥手），强制必填会让模型在不该选时也选。</li>
+      <li><mark class="tool">festival_christmas</mark> / <mark class="tool">festival_spring_festival</mark>：节日 emoji，一年才用一次。</li>
+    </ul>
+    <p><strong>建议</strong>：要么 emoji_id 改回可选，要么精简列表（移除 standby、wave、sleeping、dancing、festival_*），并和雪晴对齐"哪些走规则、哪些走 Planner"。</p>
+  </div>
+
+  <div class="card warn" id="n6">
+    <div class="head">
+      <h3 class="title">N6 · 示例 8 仍然引用不存在的 vehicle_manual_qa 工具</h3>
+      <span class="badge miss">Schema bug 未修</span>
+    </div>
+
+    <h4 class="sub"><span class="icon">📍</span>问题描述</h4>
+    <p>新版 SP 的"你可用的工具"段共 24 个工具，<strong>没有</strong> <mark class="tool">vehicle_manual_qa</mark>。但示例 8 的 input6 → output6 调用了这个不存在的工具：</p>
+
+    <div class="diff">
+<span class="comment"># 示例 8 input6（陈柠问无钥匙解锁）</span>
+<span class="ctx">{"query":"对了，这车怎么无钥匙解锁啊？", ...}</span>
+
+<span class="comment"># 示例 8 output6</span>
+<span class="ctx">{</span>
+<span class="ctx">  "talk_content": "我查查说明书。",</span>
+<span class="ctx">  "action_list": [</span>
+<span class="minus">    {"params": {"query": "如何无钥匙解锁车辆"}, "tool_name": "vehicle_manual_qa"}  </span><span class="comment">// ← 工具列表里没这个</span>
+<span class="ctx">  ]</span>
+<span class="ctx">}</span>
+    </div>
+
+    <h4 class="sub"><span class="icon">🔍</span>这是怎么回事</h4>
+    <p>背景：会议讨论示例 11 时，陈芮婷指出"这个工具在工具列表当中没有定义"——李明骏回答"现在这些工具都有了"。结果发现 vehicle_manual_qa 确实没有被加回，<strong>而示例 8 同类问题完全漏改</strong>。</p>
+
+    <h4 class="sub"><span class="icon">💡</span>建议</h4>
+    <p>把示例 8 中的 <mark class="tool">vehicle_manual_qa</mark> 改成 <mark class="tool">car_care_qa</mark>（车况维养及查询工具）或 <mark class="tool">web_search</mark>（联网查询无钥匙解锁说明）。</p>
+  </div>
+
+  <div class="card warn" id="n7">
+    <div class="head">
+      <h3 class="title">N7 · 工具 tips 删除了"四工具不可并行调用"</h3>
+      <span class="badge miss">反向回退</span>
+    </div>
+    <p>详见 M8 卡片的场景模拟——核心问题：原版 SP 有这条："navi_basic_control，route_planning_qa，search_poi_qa，trip_plan_record 这四个工具无法并行调用"。这正是会议示例 1 暴露的工程约束。</p>
+    <p>新版<strong>完全删除</strong>了这条规则——必须立刻恢复，建议提级到注意事项第 15 条。</p>
+  </div>
+
+  <div class="card warn" id="n8">
+    <div class="head">
+      <h3 class="title">N8 · navi_basic_control 描述精简过度</h3>
+      <span class="badge warn">能力丢失</span>
+    </div>
+    <p>详见 M2 卡片——核心问题：精简后<strong>实际支持的能力</strong>（避开限行、路线全览、道路层级切换、地址收藏）从 SP 里消失了。模型不再知道这些能力，用户问到时模型会说"不支持"，但实际是支持的。</p>
+  </div>
+
+</section>
+
+
+<!-- ============ §4 OPTIMIZATION ============ -->
+<section id="opt">
+  <h2 class="section-title">优化建议 A-J<span class="num">§ 4</span></h2>
+  <p class="section-lede">综合新旧 SP + 会议未落地 + 新引入问题，给出 10 条可执行的优化建议。</p>
+
+  <table>
+    <thead><tr><th style="width: 40px">#</th><th style="width: 220px">建议</th><th>具体动作</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>A</strong></td>
+        <td>处理【静默记忆】vs D7 冲突</td>
+        <td>在【闲聊中的静默记忆】加边界条款："仅限用户主动陈述的事实/性格/经历；豆包推荐被采纳不算偏好；与已有记忆冗余的不重复记"</td>
+      </tr>
+      <tr>
+        <td><strong>B</strong></td>
+        <td>示例 4 改写（落实 D6+D7）</td>
+        <td>删除"我帮你记下偏好"+ personal_skill_record；改成"要现在导航过去吗？" + 空 action_list（等用户明确）</td>
+      </tr>
+      <tr>
+        <td><strong>C</strong></td>
+        <td>示例 5 改写（落实 D5）</td>
+        <td>① advisor 介入后由 advisor 提议；② 删除"晚霞色"（做不到）改成"暖色模式"</td>
+      </tr>
+      <tr>
+        <td><strong>D</strong></td>
+        <td>补全示例 8 工具引用</td>
+        <td>vehicle_manual_qa（不存在） → 改用 car_care_qa 或 web_search</td>
+      </tr>
+      <tr>
+        <td><strong>E</strong></td>
+        <td>恢复"四工具不可并行调用"规则</td>
+        <td>提级到注意事项第 15 条，明确组合：navi+route / route+poi / trip+route 互斥</td>
+      </tr>
+      <tr>
+        <td><strong>F</strong></td>
+        <td>去重三处情绪/时间内容</td>
+        <td>删除注意事项 #13 + #14；保留聊天风格【自我时间感知】+【情绪连贯性】两处。节约 ~500 token</td>
+      </tr>
+      <tr>
+        <td><strong>G</strong></td>
+        <td>emoji_id 必填 + 精简列表</td>
+        <td>找雪晴对齐：保留 speaking/cheer/shaking_head/chin_hand_think/listening_music/weather_*；移除 standby/wave/sleeping/dancing/festival_*</td>
+      </tr>
+      <tr>
+        <td><strong>H</strong></td>
+        <td>注意事项整体重排</td>
+        <td>按【输出格式/输入处理/工具调用/Advisor/业务约束/合规】分类重组；同时补 D1/D2/D5/D6/D7 条款</td>
+      </tr>
+      <tr>
+        <td><strong>I</strong></td>
+        <td>长途智驾示例 7 重写</td>
+        <td>不跨过夜；关注续航 + 补能 + 休息节奏</td>
+      </tr>
+      <tr>
+        <td><strong>J</strong></td>
+        <td>开展 T7 实验（原则 vs 例子）</td>
+        <td>三组对比：完整新版 / 删主动性原则只留示例 / 删示例只留原则——测遵循力差异</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+
+<!-- ============ §5 PRIORITY ============ -->
+<section id="prio">
+  <h2 class="section-title">整改优先级矩阵<span class="num">§ 5</span></h2>
+  <p class="section-lede">按 ROI（投入产出比）排序——P0 是必须立刻做的，P3 是可以暂缓的长期实验。</p>
+
+  <table>
+    <thead><tr><th style="width: 80px">优先级</th><th>项目</th><th>类型</th><th>理由</th></tr></thead>
+    <tbody>
+      <tr><td><span class="badge p0">P0</span></td><td>修复示例 4（D6/D7 违反）</td><td>落实会议决议</td><td>教模型边问边做 + 擅写偏好</td></tr>
+      <tr><td><span class="badge p0">P0</span></td><td>修复示例 5（D5 违反 + 幻觉能力）</td><td>落实会议决议</td><td>教模型主动服务 + 写氛围灯晚霞色幻觉</td></tr>
+      <tr><td><span class="badge p0">P0</span></td><td>修复示例 8 工具不存在</td><td>bug 修复</td><td>Schema 错误</td></tr>
+      <tr><td><span class="badge p0">P0</span></td><td>处理【静默记忆】vs D7 冲突</td><td>内部一致性</td><td>SP 内部规则正面打架</td></tr>
+      <tr><td><span class="badge p0">P0</span></td><td>恢复"四工具不可并行调用"tip</td><td>修复回退</td><td>工程约束可见性必须保留</td></tr>
+      <tr><td><span class="badge p1">P1</span></td><td>D1 用户必回原则补到注意事项</td><td>落实会议决议</td><td>注意事项 #4 强化</td></tr>
+      <tr><td><span class="badge p1">P1</span></td><td>D2 advisor 询问优先补到 L41</td><td>落实会议决议</td><td>改 advisor 段说明</td></tr>
+      <tr><td><span class="badge p1">P1</span></td><td>D8 三处去重</td><td>落实会议决议 + 节 token</td><td>一处保留两处删除</td></tr>
+      <tr><td><span class="badge p1">P1</span></td><td>emoji_id 必填 + 精简列表</td><td>修正修改副作用</td><td>不精简就回退到可选</td></tr>
+      <tr><td><span class="badge p2">P2</span></td><td>注意事项整体重排 + 补条款</td><td>结构优化</td><td>见优化建议 H</td></tr>
+      <tr><td><span class="badge p2">P2</span></td><td>长途智驾示例 7 重写</td><td>落实会议决议</td><td>张航建议</td></tr>
+      <tr><td><span class="badge p2">P2</span></td><td>navi 描述补回真实能力</td><td>修正副作用</td><td>避免用户问到说不支持</td></tr>
+      <tr><td><span class="badge p3">P3</span></td><td>T7 实验设计 + 跑</td><td>方法论实验</td><td>长期遵循力研究</td></tr>
+    </tbody>
+  </table>
+</section>
+
+
+<!-- ============ §6 CONCLUSION ============ -->
+<section id="conclusion">
+  <h2 class="section-title">关键结论<span class="num">§ 6</span></h2>
+
+  <div class="card info">
+    <h3 class="title" style="margin-bottom: 16px">五条核心判断</h3>
+    <ol style="margin: 0; padding-left: 24px; line-height: 2; font-size: 15px">
+      <li><strong>这次修改是一次"加法为主"的修订</strong>——加了 6 个新示例、加了 8 条主动性原则、token 净增加而非压缩</li>
+      <li><strong>会议决议的落地率约 30%</strong>：落地 D4/D9/优化点 1/6/11；未落地 D1/D2/D3/D5/D6/D8 全部；D7 部分但更糟</li>
+      <li><strong>最大的内部矛盾</strong>：新增【闲聊中的静默记忆】+ 示例 17/18 静默记忆行为，与 D7 决议正面冲突——SP 内部规则打架，模型行为不稳定</li>
+      <li><strong>修改优先方向（按 ROI）</strong>：立即修示例 4/5/8 + 恢复并行 tip；本周处理静默记忆冲突 + 补 D1/D2/D8；后续 emoji 精简 + 注意事项重排</li>
+      <li><strong>方法论提醒</strong>：张嘉锋的 T7 实验在新版 SP 里有了<strong>完美的对比样本</strong>（同时存在"主动性原则"和"主动性示例"）——应该尽快做实验，不然下一版又是凭直觉加规则</li>
+    </ol>
+  </div>
+
+  <div class="callout">
+    <h5>🎯 你（PM）应该做什么</h5>
+    <ol style="margin: 8px 0 0; font-size: 14.5px; line-height: 1.8">
+      <li><strong>立刻同步给开发</strong>：5 个 P0 问题（示例 4/5/8 修复 + 静默记忆冲突 + 恢复并行规则）</li>
+      <li><strong>对齐 D1/D2 的产品立场</strong>：这两条会议决议为什么没落地？需要追因，是开发遗漏还是有新顾虑</li>
+      <li><strong>推动 T7 实验立项</strong>：原则 vs 例子的遵循力对比，结果会决定未来 SP 维护方向</li>
+      <li><strong>找雪晴对齐 emoji 边界</strong>：emoji_id 必填是设计决策，但列表需要精简</li>
+    </ol>
+  </div>
+</section>
+
+</main>
+</div>
+
+</body>
+</html>

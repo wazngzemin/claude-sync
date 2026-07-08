@@ -20,6 +20,7 @@ RSYNC_EX = ["--exclude=.git/", "--exclude=node_modules/", "--exclude=.venv/",
             "--exclude=video-panel/output/", "--exclude=video-panel/bin/",
             "--exclude=Recordly/.tmp/", "--exclude=.whiteboard-build/",
             "--exclude=claude-code-sync/"]
+MIRROR = True   # 镜像模式：删除也同步（推送带 --delete，拉取按 git 精确删除）
 
 SCOPES = {
     "project": {"local": PROJECT_DIR, "repo": os.path.join(SYNC_REPO, "project-3.23")},
@@ -212,7 +213,8 @@ def sync_item(scope, rel, direction):
     dst = os.path.join(dst_base, rel) if rel else dst_base
     if os.path.isdir(src):
         os.makedirs(dst, exist_ok=True)
-        subprocess.run(["rsync", "-a"] + RSYNC_EX + [src + "/", dst + "/"], check=True, timeout=600)
+        extra = ["--delete"] if (MIRROR and direction == "push") else []
+        subprocess.run(["rsync", "-a"] + extra + RSYNC_EX + [src + "/", dst + "/"], check=True, timeout=600)
         return "已同步文件夹"
     elif os.path.isfile(src):
         os.makedirs(os.path.dirname(dst), exist_ok=True)
@@ -260,6 +262,38 @@ def _git_push_result(results):
             results.append({"item": "云端", "status": "fail", "msg": f"推送失败: {err[:150]}"})
 
 
+def repo_to_local(repo_path):
+    if repo_path.startswith("project-3.23/"):
+        return os.path.join(PROJECT_DIR, repo_path[len("project-3.23/"):])
+    if repo_path.startswith("claude-config/skills/"):
+        return os.path.join(CLAUDE_DIR, "skills", repo_path[len("claude-config/skills/"):])
+    if repo_path.startswith("claude-config/plugins/"):
+        return os.path.join(CLAUDE_DIR, "plugins", repo_path[len("claude-config/plugins/"):])
+    if repo_path == "claude-config/CLAUDE.md":
+        return os.path.join(CLAUDE_DIR, "CLAUDE.md")
+    if repo_path == "claude-config/settings.json":
+        return os.path.join(CLAUDE_DIR, "settings.json")
+    return None
+
+
+def apply_repo_deletions(before, after):
+    """把云端本次新删掉的文件，同步删本机对应文件；本机独有(未推送)的文件不受影响。"""
+    r = subprocess.run(["git", "diff", "--name-status", before, after],
+                       capture_output=True, text=True, cwd=SYNC_REPO, timeout=30)
+    n = 0
+    for line in r.stdout.splitlines():
+        parts = line.split("\t")
+        if len(parts) >= 2 and parts[0].startswith("D"):
+            local = repo_to_local(parts[1])
+            if local and os.path.exists(local):
+                try:
+                    shutil.rmtree(local) if os.path.isdir(local) else os.remove(local)
+                    n += 1
+                except Exception:
+                    pass
+    return n
+
+
 def run_sync(items, direction):
     results = []
     if not os.path.isdir(os.path.join(SYNC_REPO, ".git")):
@@ -279,6 +313,11 @@ def run_sync(items, direction):
         except Exception as e:
             results.append({"item": "云端", "status": "fail", "msg": f"Git: {e}"})
     else:
+        before = ""
+        try:
+            before = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, cwd=SYNC_REPO, timeout=5).stdout.strip()
+        except Exception:
+            pass
         try:
             pull = subprocess.run(["git", "pull", "origin", "main"], capture_output=True, text=True, cwd=SYNC_REPO, timeout=600)
             if pull.returncode == 0:
@@ -287,6 +326,15 @@ def run_sync(items, direction):
                 results.append({"item": "云端", "status": "fail", "msg": f"拉取失败: {(pull.stderr or pull.stdout).strip()[:150]}"})
         except Exception as e:
             results.append({"item": "云端", "status": "fail", "msg": f"Git pull: {e}"})
+        if MIRROR and before:
+            try:
+                after = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, cwd=SYNC_REPO, timeout=5).stdout.strip()
+                if after and after != before:
+                    dn = apply_repo_deletions(before, after)
+                    if dn:
+                        results.append({"item": "删除同步", "status": "ok", "msg": f"跟随云端删除了 {dn} 项"})
+            except Exception:
+                pass
         for it in items:
             label = it.get("label") or it.get("rel") or it["scope"]
             try:

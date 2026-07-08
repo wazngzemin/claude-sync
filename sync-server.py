@@ -223,6 +223,33 @@ def sync_item(scope, rel, direction):
     return "源不存在"
 
 
+def delete_item(scope, rel):
+    """删除本机 + 仓库里的该文件/文件夹（之后提交推送，另一台拉取时跟随删除）。"""
+    if scope == "file":
+        f = FILES.get(rel)
+        if not f:
+            return "未知文件"
+        for p in (f["local"], f["repo"]):
+            if os.path.exists(p):
+                os.remove(p)
+        return "已删除"
+    if scope == "memories":
+        return "记忆不支持在此删除"
+    sc = SCOPES.get(scope)
+    if not sc:
+        return "未知范围"
+    rel = safe_rel(rel)
+    if not rel:
+        return "不能删除整个根目录（请选具体文件/文件夹）"
+    for base in (sc.get("local"), sc.get("repo")):
+        if not base:
+            continue
+        p = os.path.join(base, rel)
+        if os.path.exists(p):
+            shutil.rmtree(p) if os.path.isdir(p) else os.remove(p)
+    return "已删除"
+
+
 def dedupe_items(items):
     """若已选中某文件夹，则其子项无需重复同步。"""
     sel = set((it["scope"], safe_rel(it.get("rel", "")) or "") for it in items if it["scope"] in SCOPES)
@@ -310,6 +337,17 @@ def run_sync(items, direction):
                 results.append({"item": label, "status": "fail", "msg": str(e)})
         try:
             _git_push_result(results)
+        except Exception as e:
+            results.append({"item": "云端", "status": "fail", "msg": f"Git: {e}"})
+    elif direction == "delete":
+        for it in items:
+            label = it.get("label") or it.get("rel") or it["scope"]
+            try:
+                results.append({"item": label, "status": "ok", "msg": delete_item(it["scope"], it.get("rel", ""))})
+            except Exception as e:
+                results.append({"item": label, "status": "fail", "msg": str(e)})
+        try:
+            _git_push_result(results)   # 提交删除并推送到云
         except Exception as e:
             results.append({"item": "云端", "status": "fail", "msg": f"Git: {e}"})
     else:

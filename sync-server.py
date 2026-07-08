@@ -204,20 +204,17 @@ def run_sync(module_ids, direction):
     if not os.path.isdir(os.path.join(SYNC_REPO, ".git")):
         return [{"module": "error", "status": "fail", "msg": "同步仓库未初始化，请先运行 init"}]
 
-    for mid in module_ids:
-        try:
-            if direction == "push":
-                msg = sync_push_module(mid)
-            else:
-                msg = sync_pull_module(mid)
-            results.append({"module": mid, "status": "ok", "msg": msg})
-        except Exception as e:
-            results.append({"module": mid, "status": "fail", "msg": str(e)})
-
-    # git commit + push/pull
     if direction == "push":
+        # ① 先把选中的模块收集进仓库
+        for mid in module_ids:
+            try:
+                msg = sync_push_module(mid)
+                results.append({"module": mid, "status": "ok", "msg": msg})
+            except Exception as e:
+                results.append({"module": mid, "status": "fail", "msg": str(e)})
+        # ② 提交 + 推送到 GitHub（诚实报告结果）
         try:
-            subprocess.run(["git", "add", "-A"], cwd=SYNC_REPO, timeout=30)
+            subprocess.run(["git", "add", "-A"], cwd=SYNC_REPO, timeout=120)
             diff = subprocess.run(
                 ["git", "diff", "--cached", "--stat"],
                 capture_output=True, text=True, cwd=SYNC_REPO, timeout=10
@@ -228,18 +225,44 @@ def run_sync(module_ids, direction):
                     ["git", "commit", "-m", f"sync {names} ({timestamp})"],
                     cwd=SYNC_REPO, timeout=30
                 )
-                subprocess.run(["git", "push"], cwd=SYNC_REPO, timeout=120)
-                results.append({"module": "git", "status": "ok", "msg": "已推送到远程"})
+                remote = subprocess.run(["git", "remote"], capture_output=True, text=True, cwd=SYNC_REPO, timeout=5)
+                if not remote.stdout.strip():
+                    results.append({"module": "git", "status": "fail", "msg": "已本地提交，但没配 GitHub 远程，没上云"})
+                else:
+                    push = subprocess.run(["git", "push", "origin", "main"],
+                                          capture_output=True, text=True, cwd=SYNC_REPO, timeout=600)
+                    if push.returncode == 0:
+                        results.append({"module": "git", "status": "ok", "msg": "✅ 已推送到 GitHub 云端"})
+                    else:
+                        err = (push.stderr or push.stdout).strip()
+                        if "GH013" in err or "secret" in err.lower() or "push protection" in err.lower():
+                            results.append({"module": "git", "status": "fail", "msg": "⚠️ 推送被拦：内容含密钥(如.env)。已本地提交，清理密钥后重推"})
+                        else:
+                            results.append({"module": "git", "status": "fail", "msg": f"推送失败: {err[:160]}"})
             else:
-                results.append({"module": "git", "status": "ok", "msg": "无变更需要推送"})
+                results.append({"module": "git", "status": "ok", "msg": "本地已是最新，无需推送"})
         except Exception as e:
             results.append({"module": "git", "status": "fail", "msg": f"Git 操作失败: {e}"})
     else:
+        # ① 先从 GitHub 拉最新到仓库
+        pull_ok = False
         try:
-            subprocess.run(["git", "pull"], cwd=SYNC_REPO, timeout=120)
-            results.append({"module": "git", "status": "ok", "msg": "已从远程拉取"})
+            pull = subprocess.run(["git", "pull", "origin", "main"],
+                                  capture_output=True, text=True, cwd=SYNC_REPO, timeout=600)
+            if pull.returncode == 0:
+                pull_ok = True
+                results.append({"module": "git", "status": "ok", "msg": "✅ 已从 GitHub 拉取最新"})
+            else:
+                results.append({"module": "git", "status": "fail", "msg": f"拉取失败: {(pull.stderr or pull.stdout).strip()[:160]}"})
         except Exception as e:
             results.append({"module": "git", "status": "fail", "msg": f"Git pull 失败: {e}"})
+        # ② 再把选中的模块分发到本机
+        for mid in module_ids:
+            try:
+                msg = sync_pull_module(mid)
+                results.append({"module": mid, "status": "ok", "msg": msg})
+            except Exception as e:
+                results.append({"module": mid, "status": "fail", "msg": str(e)})
 
     sync_log.append({"time": timestamp, "direction": direction, "modules": module_ids, "results": results})
     return results
@@ -269,7 +292,8 @@ def sync_push_module(mid):
         os.makedirs(dst, exist_ok=True)
         subprocess.run([
             "rsync", "-a", "--delete",
-            "--exclude=.git/", "--exclude=node_modules/",
+            "--exclude=.git/", "--exclude=node_modules/", "--exclude=.venv/",
+            "--exclude=.env", "--exclude=*.env",
             src, dst
         ], check=True, timeout=120)
         return "已同步"
@@ -280,7 +304,8 @@ def sync_push_module(mid):
         os.makedirs(dst, exist_ok=True)
         subprocess.run([
             "rsync", "-a", "--delete",
-            "--exclude=.git/", "--exclude=node_modules/",
+            "--exclude=.git/", "--exclude=node_modules/", "--exclude=.venv/",
+            "--exclude=.env", "--exclude=*.env",
             src, dst
         ], check=True, timeout=60)
         return "已同步"
@@ -349,7 +374,8 @@ def sync_push_project_group(group_name):
             os.makedirs(dst_path, exist_ok=True)
             subprocess.run([
                 "rsync", "-a", "--delete",
-                "--exclude=node_modules/", "--exclude=.git/",
+                "--exclude=node_modules/", "--exclude=.git/", "--exclude=.venv/",
+                "--exclude=.env", "--exclude=*.env", "--exclude=__pycache__/",
                 "--exclude=*.mp4", "--exclude=*.mp3", "--exclude=*.wav",
                 src_path + "/", dst_path + "/"
             ], check=True, timeout=120)

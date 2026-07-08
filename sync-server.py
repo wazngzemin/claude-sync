@@ -278,6 +278,11 @@ def _git_push_result(results):
         results.append({"item": "云端", "status": "fail", "msg": "已本地提交，但没配 GitHub 远程"})
         return
     push = subprocess.run(["git", "push", "origin", "main"], capture_output=True, text=True, cwd=SYNC_REPO, timeout=600)
+    both = (push.stderr or "") + (push.stdout or "")
+    if push.returncode != 0 and ("non-fast-forward" in both or "fetch first" in both or "rejected" in both):
+        # 别的机器先推了 → 自动合并(冲突以本机为准)后重推
+        subprocess.run(["git", "pull", "--no-rebase", "-X", "ours", "--no-edit", "origin", "main"], cwd=SYNC_REPO, timeout=300)
+        push = subprocess.run(["git", "push", "origin", "main"], capture_output=True, text=True, cwd=SYNC_REPO, timeout=600)
     if push.returncode == 0:
         results.append({"item": "云端", "status": "ok", "msg": "✅ 已推送到 GitHub"})
     else:
@@ -355,7 +360,7 @@ def run_sync(items, direction):
             results.append({"item": "云端", "status": "fail", "msg": f"Git: {e}"})
     else:
         try:
-            pull = subprocess.run(["git", "pull", "origin", "main"], capture_output=True, text=True, cwd=SYNC_REPO, timeout=600)
+            pull = subprocess.run(["git", "pull", "--no-rebase", "-X", "theirs", "--no-edit", "origin", "main"], capture_output=True, text=True, cwd=SYNC_REPO, timeout=600)
             if pull.returncode == 0:
                 results.append({"item": "云端", "status": "ok", "msg": "✅ 已从 GitHub 拉取"})
             else:

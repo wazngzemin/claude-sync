@@ -5,669 +5,243 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Claude Code 同步管理</title>
 <style>
-  :root {
-    --bg: #0d1117;
-    --surface: #161b22;
-    --surface-hover: #1c2129;
-    --border: #30363d;
-    --text: #e6edf3;
-    --text-dim: #8b949e;
-    --accent: #58a6ff;
-    --accent-dim: #1f6feb;
-    --green: #3fb950;
-    --green-dim: #238636;
-    --red: #f85149;
-    --orange: #d29922;
-    --purple: #bc8cff;
-  }
+  :root{--bg:#0d1117;--surface:#161b22;--sf:#1c2129;--border:#30363d;
+    --text:#e6edf3;--dim:#8b949e;--accent:#58a6ff;--accentd:#1f6feb;--green:#3fb950;--greend:#238636;
+    --red:#f85149;--orange:#d29922;--purple:#bc8cff;}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",sans-serif;
+    background:var(--bg);color:var(--text);min-height:100vh;padding:22px 26px}
+  .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;
+    padding-bottom:16px;border-bottom:1px solid var(--border)}
+  .header h1{font-size:22px;font-weight:600;display:flex;align-items:center;gap:11px}
+  .header h1 .logo{width:34px;height:34px;background:linear-gradient(160deg,#3684f5,#a870ff);
+    border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:18px}
+  .status{display:flex;align-items:center;gap:14px;font-size:13px;color:var(--dim)}
+  .dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px}
+  .dot.ok{background:var(--green)}.dot.warn{background:var(--orange)}.dot.off{background:var(--red)}
 
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+  .hint{background:rgba(88,166,255,.08);border:1px solid rgba(88,166,255,.25);border-radius:9px;
+    padding:11px 14px;font-size:13px;color:#c9d7e6;margin-bottom:16px;line-height:1.6}
+  .hint b{color:var(--accent)} .hint .g{color:var(--green)}
 
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    padding: 24px;
-  }
+  .toolbar{display:flex;gap:9px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+  .btn{padding:9px 16px;border:1px solid var(--border);border-radius:8px;background:var(--surface);
+    color:var(--text);font-size:13.5px;cursor:pointer;transition:.13s;display:flex;align-items:center;gap:7px;user-select:none}
+  .btn:hover{background:var(--sf);border-color:var(--dim)} .btn:active{transform:scale(.97)}
+  .btn:disabled{opacity:.4;cursor:not-allowed;transform:none!important}
+  .btn-push{background:var(--accentd);border-color:var(--accent);font-weight:600}
+  .btn-push:hover{background:var(--accent);color:#fff}
+  .btn-pull{background:var(--greend);border-color:var(--green);font-weight:600}
+  .btn-pull:hover{background:var(--green);color:#fff}
+  .btn-sm{padding:7px 11px;font-size:12.5px}
+  .sep{width:1px;height:22px;background:var(--border);margin:0 3px}
+  .count{margin-left:auto;font-size:13px;color:var(--dim)}
+  .count b{color:var(--accent);font-size:15px}
 
-  .header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 32px;
-    padding-bottom: 20px;
-    border-bottom: 1px solid var(--border);
-  }
+  .tree{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+  .sec{padding:9px 16px;font-size:12px;font-weight:600;letter-spacing:.5px;color:var(--dim);
+    background:rgba(255,255,255,.02);border-bottom:1px solid var(--border);text-transform:uppercase}
+  .row{display:flex;align-items:center;gap:9px;padding:8px 16px;cursor:pointer;
+    border-bottom:1px solid rgba(48,54,61,.4);transition:background .1s}
+  .row:hover{background:var(--sf)}
+  .caret{width:16px;text-align:center;color:var(--dim);font-size:11px;flex-shrink:0;transition:transform .12s}
+  .caret.open{transform:rotate(90deg)}
+  .caret.leaf{visibility:hidden}
+  .cbox{width:19px;height:19px;border:2px solid var(--border);border-radius:5px;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;transition:.12s}
+  .row.sel>.cbox{background:var(--accent);border-color:var(--accent)}
+  .row.sel>.cbox::after{content:"✓";color:#fff;font-size:12px;font-weight:700}
+  .row.covered>.cbox{background:rgba(88,166,255,.35);border-color:rgba(88,166,255,.4)}
+  .row.covered>.cbox::after{content:"✓";color:rgba(255,255,255,.7);font-size:12px}
+  .ico{font-size:16px;flex-shrink:0}
+  .nm{flex:1;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .row.dir .nm{font-weight:500}
+  .dsc{font-size:11.5px;color:var(--dim);margin-left:6px}
+  .sz{font-size:11.5px;color:var(--dim);background:rgba(255,255,255,.05);padding:2px 8px;border-radius:4px;flex-shrink:0}
+  .kids{overflow:hidden}
 
-  .header h1 {
-    font-size: 24px;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-
-  .header h1 .icon {
-    width: 36px;
-    height: 36px;
-    background: linear-gradient(135deg, var(--accent), var(--purple));
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 20px;
-  }
-
-  .status-bar {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    font-size: 13px;
-    color: var(--text-dim);
-  }
-
-  .status-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    display: inline-block;
-    margin-right: 6px;
-  }
-
-  .status-dot.ok { background: var(--green); }
-  .status-dot.warn { background: var(--orange); }
-  .status-dot.off { background: var(--red); }
-
-  .controls {
-    display: flex;
-    gap: 12px;
-    margin-bottom: 24px;
-    align-items: center;
-    flex-wrap: wrap;
-  }
-
-  .btn {
-    padding: 10px 20px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--surface);
-    color: var(--text);
-    font-size: 14px;
-    cursor: pointer;
-    transition: all 0.15s;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    user-select: none;
-  }
-
-  .btn:hover { background: var(--surface-hover); border-color: var(--text-dim); }
-  .btn:active { transform: scale(0.97); }
-
-  .btn-push {
-    background: var(--accent-dim);
-    border-color: var(--accent);
-    font-weight: 600;
-  }
-  .btn-push:hover { background: var(--accent); color: #fff; }
-
-  .btn-pull {
-    background: var(--green-dim);
-    border-color: var(--green);
-    font-weight: 600;
-  }
-  .btn-pull:hover { background: var(--green); color: #fff; }
-
-  .btn:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-    transform: none !important;
-  }
-
-  .btn-sm {
-    padding: 6px 12px;
-    font-size: 12px;
-  }
-
-  .select-controls {
-    margin-left: auto;
-    display: flex;
-    gap: 8px;
-  }
-
-  .section-title {
-    font-size: 13px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--text-dim);
-    margin: 24px 0 12px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .section-title::after {
-    content: "";
-    flex: 1;
-    height: 1px;
-    background: var(--border);
-  }
-
-  .modules-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 12px;
-  }
-
-  .module-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 16px;
-    cursor: pointer;
-    transition: all 0.15s;
-    position: relative;
-  }
-
-  .module-card:hover {
-    border-color: var(--accent);
-    background: var(--surface-hover);
-  }
-
-  .module-card.selected {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 1px var(--accent);
-  }
-
-  .module-card .top {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 8px;
-  }
-
-  .module-card .icon {
-    font-size: 24px;
-    width: 40px;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(255,255,255,0.05);
-    border-radius: 8px;
-    flex-shrink: 0;
-  }
-
-  .module-card .info { flex: 1; min-width: 0; }
-
-  .module-card .name {
-    font-weight: 600;
-    font-size: 15px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .module-card .size {
-    font-size: 12px;
-    color: var(--text-dim);
-    background: rgba(255,255,255,0.05);
-    padding: 2px 8px;
-    border-radius: 4px;
-    flex-shrink: 0;
-  }
-
-  .module-card .desc {
-    font-size: 12px;
-    color: var(--text-dim);
-    line-height: 1.5;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .checkbox {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    width: 22px;
-    height: 22px;
-    border: 2px solid var(--border);
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.15s;
-  }
-
-  .module-card.selected .checkbox {
-    background: var(--accent);
-    border-color: var(--accent);
-  }
-
-  .module-card.selected .checkbox::after {
-    content: "✓";
-    color: #fff;
-    font-size: 14px;
-    font-weight: 700;
-  }
-
-  .toast-container {
-    position: fixed;
-    top: 24px;
-    right: 24px;
-    z-index: 999;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .toast {
-    padding: 14px 20px;
-    border-radius: 10px;
-    font-size: 14px;
-    animation: slideIn 0.3s ease;
-    max-width: 400px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-  }
-
-  .toast.ok { background: var(--green-dim); border: 1px solid var(--green); }
-  .toast.fail { background: #5c1a1a; border: 1px solid var(--red); }
-  .toast.info { background: var(--surface); border: 1px solid var(--border); }
-
-  @keyframes slideIn {
-    from { transform: translateX(100px); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
-  }
-
-  .progress-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.6);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 998;
-    backdrop-filter: blur(4px);
-  }
-
-  .progress-box {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 32px 40px;
-    text-align: center;
-    min-width: 320px;
-  }
-
-  .spinner {
-    width: 48px;
-    height: 48px;
-    border: 3px solid var(--border);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-    margin: 0 auto 20px;
-  }
-
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  .progress-text {
-    font-size: 16px;
-    font-weight: 500;
-    margin-bottom: 8px;
-  }
-
-  .progress-sub {
-    font-size: 13px;
-    color: var(--text-dim);
-  }
-
-  .log-section {
-    margin-top: 40px;
-    padding-top: 24px;
-    border-top: 1px solid var(--border);
-  }
-
-  .log-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-  }
-
-  .log-table th {
-    text-align: left;
-    padding: 8px 12px;
-    color: var(--text-dim);
-    font-weight: 500;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .log-table td {
-    padding: 8px 12px;
-    border-bottom: 1px solid rgba(48, 54, 61, 0.5);
-  }
-
-  .tag {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-size: 11px;
-    font-weight: 600;
-  }
-
-  .tag-push { background: var(--accent-dim); color: var(--accent); }
-  .tag-pull { background: var(--green-dim); color: var(--green); }
-
-  .result-ok { color: var(--green); }
-  .result-fail { color: var(--red); }
-
-  .init-banner {
-    background: linear-gradient(135deg, rgba(31,111,235,0.15), rgba(188,140,255,0.15));
-    border: 1px solid var(--accent-dim);
-    border-radius: 12px;
-    padding: 24px;
-    margin-bottom: 24px;
-    text-align: center;
-  }
-
-  .init-banner h2 { margin-bottom: 12px; font-size: 18px; }
-  .init-banner p { color: var(--text-dim); margin-bottom: 16px; font-size: 14px; }
-
-  @media (max-width: 700px) {
-    body { padding: 16px; }
-    .modules-grid { grid-template-columns: 1fr; }
-    .controls { flex-direction: column; align-items: stretch; }
-    .select-controls { margin-left: 0; }
-  }
+  .toasts{position:fixed;top:20px;right:20px;z-index:999;display:flex;flex-direction:column;gap:8px}
+  .toast{padding:13px 18px;border-radius:10px;font-size:13.5px;max-width:420px;box-shadow:0 8px 24px rgba(0,0,0,.4);white-space:pre-line;animation:sl .3s}
+  .toast.ok{background:var(--greend);border:1px solid var(--green)}
+  .toast.fail{background:#5c1a1a;border:1px solid var(--red)}
+  .toast.info{background:var(--surface);border:1px solid var(--border)}
+  @keyframes sl{from{transform:translateX(100px);opacity:0}to{transform:translateX(0);opacity:1}}
+  .ov{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:998;backdrop-filter:blur(4px)}
+  .box{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:30px 40px;text-align:center;min-width:300px}
+  .spin{width:46px;height:46px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:sp .8s linear infinite;margin:0 auto 18px}
+  @keyframes sp{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
-
 <div class="header">
-  <h1>
-    <span class="icon">⚡</span>
-    Claude Code 同步管理
-  </h1>
-  <div class="status-bar" id="statusBar">
-    <span><span class="status-dot off" id="statusDot"></span><span id="statusText">加载中...</span></span>
-    <span id="lastSync"></span>
-  </div>
+  <h1><span class="logo">⇅</span> Claude Code 同步管理</h1>
+  <div class="status"><span><span class="dot off" id="dot"></span><span id="stxt">加载中…</span></span><span id="last"></span></div>
 </div>
 
-<div id="initBanner" class="init-banner" style="display:none">
-  <h2>首次使用？先初始化同步仓库</h2>
-  <p>这会在 ~/.claude-sync/ 创建一个 Git 仓库来存放你的配置</p>
-  <button class="btn btn-push" onclick="doInit()">初始化仓库</button>
+<div class="hint">
+  勾选想同步的文件/文件夹 → <b>「推送选中」</b>上传到云,<span class="g">「拉取选中」</span>从云下载。
+  勾<b>文件夹</b>=整个一起同步;想只传一个文件,就点开三角 ▶ 展开,单独勾那一个。
 </div>
 
-<div class="controls">
-  <button class="btn btn-push" id="btnPush" onclick="doSync('push')" disabled>
-    <span>📤</span> 推送选中
-  </button>
-  <button class="btn btn-pull" id="btnPull" onclick="doSync('pull')" disabled>
-    <span>📥</span> 拉取选中
-  </button>
-  <button class="btn" onclick="doSync('push', true)">
-    <span>🔄</span> 全部推送
-  </button>
-  <div class="select-controls">
-    <button class="btn btn-sm" onclick="selectAll()">全选</button>
-    <button class="btn btn-sm" onclick="selectNone()">取消全选</button>
-    <button class="btn btn-sm" onclick="loadModules()">🔄 刷新</button>
-  </div>
+<div class="toolbar">
+  <button class="btn btn-push" id="bPush" onclick="doSync('push')" disabled><span>📤</span>推送选中</button>
+  <button class="btn btn-pull" id="bPull" onclick="doSync('pull')" disabled><span>📥</span>拉取选中</button>
+  <div class="sep"></div>
+  <button class="btn btn-sm" onclick="doAll('push')">全部推送</button>
+  <button class="btn btn-sm" onclick="doAll('pull')">全部拉取</button>
+  <div class="sep"></div>
+  <button class="btn btn-sm" onclick="collapseAll()">折叠全部</button>
+  <button class="btn btn-sm" onclick="clearSel()">清空勾选</button>
+  <button class="btn btn-sm" onclick="loadRoots()">🔄 刷新</button>
+  <div class="count">已选 <b id="cnt">0</b> 项</div>
 </div>
 
-<div id="modulesContainer"></div>
+<div class="tree" id="tree"></div>
 
-<div class="log-section" id="logSection" style="display:none">
-  <div class="section-title">同步记录</div>
-  <table class="log-table">
-    <thead><tr><th>时间</th><th>方向</th><th>模块</th><th>结果</th></tr></thead>
-    <tbody id="logBody"></tbody>
-  </table>
-</div>
-
-<div class="toast-container" id="toasts"></div>
-<div class="progress-overlay" id="progress" style="display:none">
-  <div class="progress-box">
-    <div class="spinner"></div>
-    <div class="progress-text" id="progressText">同步中...</div>
-    <div class="progress-sub" id="progressSub">正在收集文件</div>
-  </div>
-</div>
+<div class="toasts" id="toasts"></div>
+<div class="ov" id="ov" style="display:none"><div class="box"><div class="spin"></div>
+  <div id="ovt" style="font-size:16px;font-weight:500">同步中…</div>
+  <div id="ovs" style="font-size:13px;color:var(--dim);margin-top:6px"></div></div></div>
 
 <script>
-const API = `http://localhost:${location.port || 9527}`;
-let modules = [];
-let selected = new Set();
+const API = location.origin;
+let forest = [];
+const byKey = {};
+const selected = new Set();
 
-async function loadModules() {
-  try {
-    const [mods, status] = await Promise.all([
-      fetch(`${API}/api/modules`).then(r => r.json()),
-      fetch(`${API}/api/status`).then(r => r.json()),
+function mkNode(n, level, parentKey){
+  const node = Object.assign({}, n, {level, parentKey, expanded:false, loaded:!n.expandable, children:[]});
+  byKey[node.key] = node;
+  return node;
+}
+
+async function loadRoots(){
+  try{
+    const [secs, st] = await Promise.all([
+      fetch(API+'/api/roots').then(r=>r.json()),
+      fetch(API+'/api/status').then(r=>r.json())
     ]);
+    for(const k in byKey) delete byKey[k];
+    forest = secs.map(s=>({section:s.section, nodes:s.nodes.map(n=>mkNode(n,0,null))}));
+    renderStatus(st); render();
+  }catch(e){ toast('连不上同步服务，请重开 App','fail'); }
+}
 
-    modules = mods;
+function renderStatus(st){
+  const dot=document.getElementById('dot'), t=document.getElementById('stxt'), last=document.getElementById('last');
+  if(!st.initialized){dot.className='dot off';t.textContent='未初始化';}
+  else if(!st.has_remote){dot.className='dot warn';t.textContent='未连 GitHub';}
+  else{dot.className='dot ok';t.textContent='已就绪';}
+  last.textContent = st.last_sync? '上次同步: '+st.last_sync.time : '';
+}
 
-    // status bar
-    const dot = document.getElementById('statusDot');
-    const text = document.getElementById('statusText');
-    const last = document.getElementById('lastSync');
-
-    if (!status.initialized) {
-      dot.className = 'status-dot off';
-      text.textContent = '未初始化';
-      document.getElementById('initBanner').style.display = 'block';
-    } else if (!status.has_remote) {
-      dot.className = 'status-dot warn';
-      text.textContent = '未配置远程仓库';
-      document.getElementById('initBanner').style.display = 'none';
-    } else {
-      dot.className = 'status-dot ok';
-      text.textContent = '已就绪';
-      document.getElementById('initBanner').style.display = 'none';
-    }
-
-    if (status.last_sync) {
-      last.textContent = `上次同步: ${status.last_sync.time}`;
-    }
-
-    // render log
-    if (status.log && status.log.length > 0) {
-      document.getElementById('logSection').style.display = 'block';
-      const tbody = document.getElementById('logBody');
-      tbody.innerHTML = status.log.slice().reverse().map(entry => {
-        const tagClass = entry.direction === 'push' ? 'tag-push' : 'tag-pull';
-        const tagText = entry.direction === 'push' ? '推送' : '拉取';
-        const results = entry.results.map(r => {
-          const cls = r.status === 'ok' ? 'result-ok' : 'result-fail';
-          return `<span class="${cls}">${r.module}: ${r.msg}</span>`;
-        }).join('<br>');
-        return `<tr>
-          <td>${entry.time}</td>
-          <td><span class="tag ${tagClass}">${tagText}</span></td>
-          <td>${entry.modules.join(', ')}</td>
-          <td>${results}</td>
-        </tr>`;
-      }).join('');
-    }
-
-    renderModules();
-  } catch (e) {
-    showToast('无法连接同步服务器', 'fail');
+async function toggleExpand(node){
+  if(!node.expandable) return;
+  if(!node.loaded){
+    const kids = await fetch(`${API}/api/tree?scope=${encodeURIComponent(node.scope)}&rel=${encodeURIComponent(node.rel)}`).then(r=>r.json());
+    node.children = kids.map(k=>mkNode(k, node.level+1, node.key));
+    node.loaded = true;
   }
+  node.expanded = !node.expanded;
+  render();
 }
 
-function renderModules() {
-  const container = document.getElementById('modulesContainer');
+function isCovered(node){
+  let p = node.parentKey;
+  while(p){ if(selected.has(p)) return true; p = byKey[p] ? byKey[p].parentKey : null; }
+  return false;
+}
 
-  const claudeModules = modules.filter(m => m.category === 'claude-config');
-  const projectModules = modules.filter(m => m.category === 'project');
-
-  let html = '';
-
-  if (claudeModules.length) {
-    html += `<div class="section-title">Claude Code 配置</div>`;
-    html += `<div class="modules-grid">`;
-    html += claudeModules.map(renderCard).join('');
-    html += `</div>`;
+function toggleSel(node){
+  if(isCovered(node)) return;
+  if(selected.has(node.key)) selected.delete(node.key);
+  else {
+    selected.add(node.key);
+    [...selected].forEach(k=>{ if(k!==node.key){ let p=byKey[k]&&byKey[k].parentKey; while(p){ if(p===node.key){selected.delete(k);break;} p=byKey[p]?byKey[p].parentKey:null; } } });
   }
+  render();
+}
 
-  if (projectModules.length) {
-    html += `<div class="section-title">3.23 项目文件</div>`;
-    html += `<div class="modules-grid">`;
-    html += projectModules.map(renderCard).join('');
-    html += `</div>`;
+function render(){
+  const el = document.getElementById('tree');
+  let html='';
+  for(const sec of forest){
+    html += `<div class="sec">${sec.section}</div>`;
+    for(const n of sec.nodes) html += rowHTML(n);
   }
-
-  container.innerHTML = html;
-
-  container.querySelectorAll('.module-card').forEach(card => {
-    card.addEventListener('click', () => toggleModule(card.dataset.id));
-  });
-
-  updateButtons();
+  el.innerHTML = html;
+  document.getElementById('cnt').textContent = selected.size;
+  const has = selected.size>0;
+  document.getElementById('bPush').disabled=!has;
+  document.getElementById('bPull').disabled=!has;
 }
 
-function renderCard(m) {
-  const sel = selected.has(m.id) ? 'selected' : '';
-  const childrenHtml = m.children
-    ? `<div class="desc" title="${m.children.join(', ')}">${m.desc}</div>`
-    : `<div class="desc">${m.desc}</div>`;
-
-  return `
-    <div class="module-card ${sel}" data-id="${m.id}">
-      <div class="checkbox"></div>
-      <div class="top">
-        <div class="icon">${m.icon}</div>
-        <div class="info">
-          <div class="name">${m.name}</div>
-        </div>
-        <div class="size">${m.size}</div>
-      </div>
-      ${childrenHtml}
-    </div>
-  `;
-}
-
-function toggleModule(id) {
-  if (selected.has(id)) {
-    selected.delete(id);
-  } else {
-    selected.add(id);
+function rowHTML(n){
+  const covered = isCovered(n);
+  const sel = selected.has(n.key);
+  const cls = 'row '+(n.type==='dir'?'dir ':'')+(sel?'sel ':'')+(covered?'covered ':'');
+  const caret = n.expandable ? `<span class="caret ${n.expanded?'open':''}" onclick="event.stopPropagation();expandKey('${esc(n.key)}')">▶</span>`
+                             : `<span class="caret leaf">▶</span>`;
+  const desc = n.desc ? `<span class="dsc">${escHtml(n.desc)}</span>` : '';
+  const pad = 16 + n.level*22;
+  let h = `<div class="${cls}" style="padding-left:${pad}px" onclick="selKey('${esc(n.key)}')">
+    ${caret}<div class="cbox"></div><span class="ico">${n.icon||'📄'}</span>
+    <span class="nm">${escHtml(n.label||n.name)}${desc}</span><span class="sz">${n.size||''}</span></div>`;
+  if(n.expandable && n.expanded){
+    h += `<div class="kids">`;
+    for(const c of n.children) h += rowHTML(c);
+    h += `</div>`;
   }
-  renderModules();
+  return h;
 }
 
-function selectAll() {
-  modules.forEach(m => selected.add(m.id));
-  renderModules();
+function esc(s){return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");}
+function escHtml(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+window.expandKey = k => toggleExpand(byKey[k]);
+window.selKey = k => toggleSel(byKey[k]);
+
+function collectSelected(){
+  return [...selected].map(k=>{const n=byKey[k];return n?{scope:n.scope,rel:n.rel,label:n.label||n.name}:null;}).filter(Boolean);
+}
+function allRootItems(){
+  // 固定的"全部"集合，保证真的全（含未显示的隐藏项）
+  return [
+    {scope:'file', rel:'claude-md', label:'CLAUDE.md'},
+    {scope:'file', rel:'settings', label:'settings.json'},
+    {scope:'skills', rel:'', label:'技能'},
+    {scope:'plugins', rel:'', label:'插件'},
+    {scope:'memories', rel:'', label:'记忆'},
+    {scope:'project', rel:'', label:'3.23 全部'},
+  ];
 }
 
-function selectNone() {
-  selected.clear();
-  renderModules();
+async function doSync(direction){ await sync(collectSelected(), direction); }
+async function doAll(direction){ await sync(allRootItems(), direction); }
+
+async function sync(items, direction){
+  if(!items.length){ toast('先勾选要同步的文件/文件夹','info'); return; }
+  const dt = direction==='push'?'推送':'拉取';
+  showOv(`正在${dt}…`, `${items.length} 项`);
+  try{
+    const data = await fetch(API+'/api/sync',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({items,direction})}).then(r=>r.json());
+    hideOv();
+    if(data.error){ toast(data.error,'fail'); return; }
+    const fails = data.results.filter(r=>r.status==='fail');
+    if(fails.length){ toast(`${dt}有问题：\n`+fails.map(r=>r.item+': '+r.msg).join('\n'),'fail'); }
+    else { const cloud=data.results.find(r=>r.item==='云端'); toast(`${dt}成功！`+(cloud?'\n'+cloud.msg:''),'ok'); }
+    loadRoots();
+  }catch(e){ hideOv(); toast(`${dt}失败: ${e.message}`,'fail'); }
 }
 
-function updateButtons() {
-  const hasSelection = selected.size > 0;
-  document.getElementById('btnPush').disabled = !hasSelection;
-  document.getElementById('btnPull').disabled = !hasSelection;
-}
+function collapseAll(){ for(const k in byKey) byKey[k].expanded=false; render(); }
+function clearSel(){ selected.clear(); render(); }
 
-async function doSync(direction, all = false) {
-  const ids = all ? modules.map(m => m.id) : Array.from(selected);
-  if (ids.length === 0) {
-    showToast('请先选择要同步的模块', 'info');
-    return;
-  }
+function toast(m,t='info'){const c=document.getElementById('toasts');const d=document.createElement('div');d.className='toast '+t;d.textContent=m;c.appendChild(d);setTimeout(()=>d.remove(),6000);}
+function showOv(t,s){document.getElementById('ovt').textContent=t;document.getElementById('ovs').textContent=s;document.getElementById('ov').style.display='flex';}
+function hideOv(){document.getElementById('ov').style.display='none';}
 
-  const dirText = direction === 'push' ? '推送' : '拉取';
-  showProgress(`正在${dirText}...`, `${ids.length} 个模块`);
-
-  try {
-    const res = await fetch(`${API}/api/sync`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ modules: ids, direction }),
-    });
-
-    const data = await res.json();
-    hideProgress();
-
-    if (data.error) {
-      showToast(data.error, 'fail');
-      return;
-    }
-
-    const ok = data.results.filter(r => r.status === 'ok').length;
-    const fail = data.results.filter(r => r.status === 'fail').length;
-
-    if (fail > 0) {
-      const failMsgs = data.results.filter(r => r.status === 'fail').map(r => `${r.module}: ${r.msg}`).join('\n');
-      showToast(`${dirText}完成: ${ok} 成功, ${fail} 失败\n${failMsgs}`, 'fail');
-    } else {
-      showToast(`${dirText}完成: ${ok} 个模块全部成功`, 'ok');
-    }
-
-    loadModules();
-  } catch (e) {
-    hideProgress();
-    showToast(`${dirText}失败: ${e.message}`, 'fail');
-  }
-}
-
-async function doInit() {
-  showProgress('初始化中...', '创建同步仓库');
-  try {
-    const res = await fetch(`${API}/api/init`, { method: 'POST' });
-    const data = await res.json();
-    hideProgress();
-
-    if (data.error) {
-      showToast(`初始化失败: ${data.error}`, 'fail');
-    } else {
-      showToast(`仓库已创建: ${data.path}`, 'ok');
-      loadModules();
-    }
-  } catch (e) {
-    hideProgress();
-    showToast(`初始化失败: ${e.message}`, 'fail');
-  }
-}
-
-function showToast(msg, type = 'info') {
-  const container = document.getElementById('toasts');
-  const toast = document.createElement('div');
-  toast.className = `toast ${type}`;
-  toast.textContent = msg;
-  container.appendChild(toast);
-  setTimeout(() => toast.remove(), 5000);
-}
-
-function showProgress(text, sub) {
-  document.getElementById('progressText').textContent = text;
-  document.getElementById('progressSub').textContent = sub;
-  document.getElementById('progress').style.display = 'flex';
-}
-
-function hideProgress() {
-  document.getElementById('progress').style.display = 'none';
-}
-
-// keyboard shortcut
-document.addEventListener('keydown', (e) => {
-  if (e.metaKey && e.key === 'a') {
-    e.preventDefault();
-    selectAll();
-  }
-});
-
-loadModules();
+loadRoots();
 </script>
 </body>
 </html>

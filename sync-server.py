@@ -213,8 +213,7 @@ def sync_item(scope, rel, direction):
     dst = os.path.join(dst_base, rel) if rel else dst_base
     if os.path.isdir(src):
         os.makedirs(dst, exist_ok=True)
-        extra = ["--delete"] if (MIRROR and direction == "push") else []
-        subprocess.run(["rsync", "-a"] + extra + RSYNC_EX + [src + "/", dst + "/"], check=True, timeout=600)
+        subprocess.run(["rsync", "-a"] + RSYNC_EX + [src + "/", dst + "/"], check=True, timeout=600)
         return "已同步文件夹"
     elif os.path.isfile(src):
         os.makedirs(os.path.dirname(dst), exist_ok=True)
@@ -303,21 +302,25 @@ def repo_to_local(repo_path):
     return None
 
 
-def apply_repo_deletions(before, after):
-    """把云端本次新删掉的文件，同步删本机对应文件；本机独有(未推送)的文件不受影响。"""
-    r = subprocess.run(["git", "diff", "--name-status", before, after],
-                       capture_output=True, text=True, cwd=SYNC_REPO, timeout=30)
+def apply_repo_deletions():
+    """凡是'git 历史里被删过、且当前仓库已无'的文件，就从本机工作区删掉。
+    本机自己新建、从未推送过的文件不在 git 历史里，绝不会被误删。"""
+    deleted = subprocess.run(
+        ["git", "-c", "core.quotepath=false", "log", "--diff-filter=D", "--name-only", "--format="],
+        capture_output=True, text=True, cwd=SYNC_REPO, timeout=60).stdout
+    current = subprocess.run(
+        ["git", "-c", "core.quotepath=false", "ls-files"],
+        capture_output=True, text=True, cwd=SYNC_REPO, timeout=60).stdout
+    gone = set(p for p in deleted.splitlines() if p.strip()) - set(current.splitlines())
     n = 0
-    for line in r.stdout.splitlines():
-        parts = line.split("\t")
-        if len(parts) >= 2 and parts[0].startswith("D"):
-            local = repo_to_local(parts[1])
-            if local and os.path.exists(local):
-                try:
-                    shutil.rmtree(local) if os.path.isdir(local) else os.remove(local)
-                    n += 1
-                except Exception:
-                    pass
+    for repo_path in gone:
+        local = repo_to_local(repo_path)
+        if local and os.path.exists(local):
+            try:
+                shutil.rmtree(local) if os.path.isdir(local) else os.remove(local)
+                n += 1
+            except Exception:
+                pass
     return n
 
 
@@ -351,11 +354,6 @@ def run_sync(items, direction):
         except Exception as e:
             results.append({"item": "云端", "status": "fail", "msg": f"Git: {e}"})
     else:
-        before = ""
-        try:
-            before = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, cwd=SYNC_REPO, timeout=5).stdout.strip()
-        except Exception:
-            pass
         try:
             pull = subprocess.run(["git", "pull", "origin", "main"], capture_output=True, text=True, cwd=SYNC_REPO, timeout=600)
             if pull.returncode == 0:
@@ -364,13 +362,11 @@ def run_sync(items, direction):
                 results.append({"item": "云端", "status": "fail", "msg": f"拉取失败: {(pull.stderr or pull.stdout).strip()[:150]}"})
         except Exception as e:
             results.append({"item": "云端", "status": "fail", "msg": f"Git pull: {e}"})
-        if MIRROR and before:
+        if MIRROR:
             try:
-                after = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, cwd=SYNC_REPO, timeout=5).stdout.strip()
-                if after and after != before:
-                    dn = apply_repo_deletions(before, after)
-                    if dn:
-                        results.append({"item": "删除同步", "status": "ok", "msg": f"跟随云端删除了 {dn} 项"})
+                dn = apply_repo_deletions()
+                if dn:
+                    results.append({"item": "删除同步", "status": "ok", "msg": f"已删除 {dn} 个云端移除的文件"})
             except Exception:
                 pass
         for it in items:

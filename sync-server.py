@@ -213,7 +213,7 @@ def sync_item(scope, rel, direction):
     dst = os.path.join(dst_base, rel) if rel else dst_base
     if os.path.isdir(src):
         os.makedirs(dst, exist_ok=True)
-        extra = ["--delete"] if (MIRROR and direction == "push") else []
+        extra = ["--delete"] if MIRROR else []
         subprocess.run(["rsync", "-a"] + extra + RSYNC_EX + [src + "/", dst + "/"], check=True, timeout=600)
         return "已同步文件夹"
     elif os.path.isfile(src):

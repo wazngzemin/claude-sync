@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>6.24 会议整理 · 与v4方案差异分析 · 你要做什么</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; line-height: 1.85; color: #1f2937; max-width: 1100px; margin: 0 auto; padding: 32px 24px 80px; background: #fafaf9; }
+  h1 { font-size: 1.6rem; border-bottom: 3px solid #dc2626; padding-bottom: 12px; color: #b91c1c; }
+  h2 { font-size: 1.25rem; margin-top: 44px; padding: 10px 14px; background: #1f2937; color: #fff; border-radius: 8px; }
+  h3 { font-size: 1.05rem; margin-top: 24px; color: #b91c1c; border-left: 4px solid #dc2626; padding-left: 10px; }
+  p { margin: 10px 0; }
+  ul, ol { margin: 8px 0; padding-left: 26px; }
+  li { margin: 5px 0; }
+  code { background: #fef3c7; padding: 1px 6px; border-radius: 4px; font-size: 0.92em; color: #92400e; }
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 0.92rem; background: #fff; }
+  th { background: #1f2937; color: #fff; padding: 9px 10px; text-align: left; }
+  td { border: 1px solid #e5e7eb; padding: 9px 10px; vertical-align: top; }
+  tr:nth-child(even) { background: #f9fafb; }
+  .box { padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+  .red { background: #fef2f2; border-left: 4px solid #dc2626; }
+  .blue { background: #eff6ff; border-left: 4px solid #2563eb; }
+  .orange { background: #fff7ed; border-left: 4px solid #ea580c; }
+  .green { background: #f0fdf4; border-left: 4px solid #16a34a; }
+  .gray { background: #f3f4f6; border-left: 4px solid #6b7280; }
+  .purple { background: #faf5ff; border-left: 4px solid #7c3aed; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.82rem; font-weight: 700; margin-right: 6px; }
+  .tag-new { background: #dcfce7; color: #16a34a; }
+  .tag-changed { background: #fef3c7; color: #92400e; }
+  .tag-conflict { background: #fef2f2; color: #dc2626; }
+  .tag-confirmed { background: #eff6ff; color: #2563eb; }
+  .quote { border-left: 3px solid #bbb; padding: 8px 16px; margin: 12px 0; color: #555; font-size: 0.94em; background: #fafafa; border-radius: 0 6px 6px 0; }
+  .quote b { color: #333; }
+  .action { background: #fff; border: 2px solid #dc2626; border-radius: 10px; padding: 18px 22px; margin: 18px 0; }
+  .action-title { font-weight: 700; font-size: 1.05rem; color: #dc2626; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 2px solid #fecaca; }
+  .en { color: #6b7280; font-size: 0.88em; }
+  .lead { font-size: 1.02rem; background: #fff; border: 1px solid #fecaca; padding: 16px 20px; border-radius: 10px; }
+</style>
+</head>
+<body>
+
+<h1>6.24 会议整理 · 与 v4 方案差异分析 · 你要做什么</h1>
+<p class="en">参会人：丁彬（AIBOX/端侧）、泽民（PM/触发器）、佳杰（常识任务/Advisor）· 约30分钟</p>
+
+<div class="lead">
+<b>一句话概括这次会：</b>丁彬想搞清楚端侧信号怎么经过触发器给到上层。三人用「充电桩开盖」「副驾打电话调音量」「看毯子」三个case走了一遍链路。<b>走完后暴露出一个关键未决问题：哪些场景走你的触发器、哪些走赛力斯自己的应用——还没拉齐。</b>佳杰催你今晚周会拉仁杰+家峰一起定。
+</div>
+
+
+<!-- ============ §1 会议详细还原 ============ -->
+<h2>一、会议详细还原（按讨论顺序）</h2>
+
+<h3>1.1 丁彬开场问题：端侧信号怎么给到上层？</h3>
+<p>丁彬的核心问题：<b>"我们AIBOX这边有很多信号（VLM输出的、AlwaysOn输出的），这些信号怎么给到Director/Planner那边去？链路是什么？"</b></p>
+<p>丁彬提了两个具体case来推演：</p>
+<ol>
+<li>P档时看到后面有充电桩 → 把充电口盖打开</li>
+<li>帮我看后排宝宝，毯子掉了就提醒</li>
+</ol>
+
+<h3>1.2 佳杰用「副驾打电话→调音量」走链路</h3>
+<p>佳杰把第二个例子换成了"副驾打电话时把音量调小"，因为这个case更清楚地展示了<b>事件驱动</b>的逻辑：</p>
+
+<table>
+<tr><th>#</th><th>步骤</th><th>谁干的</th><th>说明</th></tr>
+<tr><td>1</td><td>AlwaysOn持续观测舱内</td><td>AIBOX/VLM</td><td>AlwaysOn一直在看→<b>这是前提</b>，打电话信号已经在持续产出了</td></tr>
+<tr><td>2</td><td>常识任务（Advisor实例）提前向触发器<b>订阅</b>了两个事件："拿起电话"、"放下电话"</td><td>佳杰的常识任务模块</td><td>这些事件是<b>提前定义好的清单</b>，不是用户说出来的</td></tr>
+<tr><td>3</td><td>VLM检测到副驾拿起电话 → 信号写入信号库 → 触发器扫描到变化 → 组装event"拿起电话" → <b>push给Advisor</b></td><td>触发器⑮</td><td>佳杰原话："拿起电话的时候对我来说是个事件"</td></tr>
+<tr><td>4</td><td>Advisor收到event → 给Director说"你要执行车控：音量调小，因为副驾在打电话"</td><td>Advisor → Director</td><td>Advisor不直接执行，通过Director发指令</td></tr>
+<tr><td>5</td><td>副驾放下电话 → 触发器push"结束事件"给Advisor → Advisor告诉Director"可以把音量调回来了"</td><td>触发器 → Advisor → Director</td><td>两个事件配对：开始+结束</td></tr>
+</table>
+
+<div class="box blue">
+<b>关键确认——这是「周期性」信号，不需要触发器去启动VLM：</b><br/>
+丁彬指出："打电话这其实是一个周期性的任务，它一直在跑，所以就不需要触发器来触发VLM。触发器只要去看有没有这个信号就行了。"<br/>
+佳杰确认："对我来说你这边是封装好的东西，我只在乎开始和结束这两个事件。你从哪拿数据是你封装的。"
+</div>
+
+<h3>1.3 充电桩case的链路推演——核心讨论</h3>
+<p>丁彬指出充电桩和打电话<b>本质不同</b>——"它不是周期性的，它得有人来触发一下才能调AIBOX做一个看充电桩的任务"。</p>
+
+<table>
+<tr><th>#</th><th>步骤</th><th>谁干的</th><th>和"打电话"case的区别</th></tr>
+<tr><td>1</td><td>充电桩场景<b>提前配置在配置平台⑬</b>上（系统预设条件任务，不是用户说出来的）</td><td>产品/运营在火山后台配</td><td><b>区别点①：</b>打电话的事件是Advisor运行时订阅的；充电桩是提前配好的固定场景</td></tr>
+<tr><td>2</td><td>端侧㉔<b>轮询信号库④</b>，监听gear_current信号</td><td>端侧触发器</td><td>和打电话一样，都是轮询信号库</td></tr>
+<tr><td>3</td><td>检测到P档 → <b>触发器主动调VLM任务</b>："看后面有没有充电桩"</td><td>端侧触发器 → AIBOX</td><td><b>区别点②：</b>打电话不需要调VLM（AlwaysOn已经在看了）；充电桩需要<b>主动发起</b>一次VLM任务</td></tr>
+<tr><td>4</td><td>VLM看后面 → 结果写回信号库④</td><td>AIBOX → 信号库</td><td>VLM结果和AlwaysOn一样都写信号库</td></tr>
+<tr><td>5</td><td>触发器重新扫描信号库 → P档✓ + 充电桩在后面✓ → 条件满足</td><td>触发器</td><td><b>区别点③：</b>充电桩需要"两个条件同时满足"（P档+看到充电桩），打电话只需要一个事件</td></tr>
+<tr><td>6</td><td>push给Advisor/Director → Director发指令开充电口盖</td><td>触发器 → Director</td><td>—</td></tr>
+</table>
+
+<div class="box red">
+<b>三人确认的关键结论——断网=做不了：</b><br/>
+丁彬问："如果没有云端怎么办？"<br/>
+佳杰："这个任务就做不了，就不开盖了。"<br/>
+丁彬确认："端上没有去拆解任务的能力。"<br/><br/>
+<b>这比v4的说法更精确：</b>v4强调"端侧触发器的价值=断网能跑"，但6.24明确了——<b>只有简单场景（倒计时、白名单车控）断网能跑。复杂场景（需要VLM+云端推理的）断网就是做不了。</b>
+</div>
+
+<h3>1.4 两种触发器场景来源——明确区分</h3>
+<p>佳杰和丁彬帮你理清了触发器的<b>两种场景来源</b>：</p>
+<table>
+<tr><th>类型</th><th>来源</th><th>谁定义</th><th>举例</th><th>触发器怎么处理</th></tr>
+<tr><td><b>①系统预设条件任务</b><br/>（固定场景）</td><td>配置平台⑬提前配好</td><td>产品/运营</td><td>P档+充电桩→开盖<br/>进地库→关舱外AlwaysOn<br/>（刘多提的需求）</td><td>触发器直接按配置执行。下游可配置：可以配给Director也可以配给Advisor</td></tr>
+<tr><td><b>②用户语音生成的动态任务</b><br/>（临时场景）</td><td>用户说话 → Director → 动态Advisor</td><td>用户+AI</td><td>"副驾打电话调音量"<br/>"帮我看后排宝宝"</td><td>Advisor向触发器订阅事件 → 触发器push event → Advisor给Director出建议</td></tr>
+</table>
+
+<div class="box green">
+<b>佳杰确认的新细节——下游可配置：</b><br/>
+"你的下游是可配置的，你可以配置给Director也可以配置给Advisor，在你们的配置平台里面。"<br/>
+<b>这在v4里没写清楚。</b>v4的15-12/15-13只写了push给Advisor，没有说也能直接给Director。实际上配置平台可以选下游是谁。
+</div>
+
+<h3>1.5 两种信号消费模式——周期性 vs 触发式</h3>
+<p>丁彬当场帮你理清了——触发器和AIBOX之间<b>只有两种通信方式</b>：</p>
+<table>
+<tr><th>模式</th><th>含义</th><th>触发器怎么做</th><th>典型case</th><th>和v4的关系</th></tr>
+<tr><td><b>①周期性</b><br/>（Periodic）</td><td>AlwaysOn已经在持续输出信号了，触发器只需要<b>轮询信号库</b>看有没有变化</td><td>不需要调VLM任务，只需要扫描④信号库中已有的AlwaysOn输出</td><td>副驾打电话（AlwaysOn已经在看舱内动作）、车内有小狗（AlwaysOn已覆盖舱内物品检测）</td><td>v4的15-3扫描、15-10穿越检测覆盖了这种模式</td></tr>
+<tr><td><b>②触发式</b><br/>（On-demand）</td><td>AlwaysOn不覆盖这个观测目标，需要触发器<b>主动发起一次VLM任务</b></td><td>条件A满足（如P档）→ 触发器调AIBOX执行一次VLM任务 → VLM结果写回信号库 → 再扫描条件B</td><td>P档看充电桩（不在AlwaysOn范围内，需要专门看后方）</td><td><b>v4没有明确区分这两种。</b>24-6 VLM调度写的是"云端下发的视觉观测任务"，但没有说"端侧触发器自己也能主动发起VLM任务"</td></tr>
+</table>
+
+<div class="quote"><b>丁彬原话：</b>"你那边给我注册的信号就两种，一种是周期的我就直接往上报。另外一种是你要触发一下调用我一次我返回一个结果。这些咱们都提前约定好就行了，分好类就行了。比如打电话就是周期类的，看后面充电桩就属于你要来调用我的。"</div>
+
+<h3>1.6 毯子case——丁彬有疑虑</h3>
+<p>讨论到"后排宝宝毯子掉了提醒我"时：</p>
+<div class="quote"><b>丁彬：</b>"这个得聊一下看有没有这个能力。就是你到我这订阅这个事了，你知道我AlwaysOn是看毯子掉没掉这件事情，<b>这个就属于VLM能不能提供这个能力的问题。这个要拉下来细聊一下，现在还不一定能做下来。</b>"</div>
+
+<div class="box orange">
+<b>对v4的影响：</b>v4的§7（VLM 18步walkthrough）用的就是毯子case，写了完整的从用户说话到TTS播报的18步链路。但<b>丁彬6.24明确说端模能力还不确定</b>——v4的假设可能过于乐观。这个链路的前提是VLM能提供"毯子掉没掉"的观测能力，而这个前提还没验证。
+</div>
+
+<h3>1.7 佳杰已有事件清单表格</h3>
+<div class="quote"><b>佳杰：</b>"我有一个表格已经整理出来了这些东西了。回头我们建个群，我发到里头。就是当下可以支持订阅的视觉事件清单。"</div>
+<p><b>这就是6.22说的"周内给泽民"的那个清单——已经好了，佳杰要分享。</b>你需要建群或找到群，让佳杰发出来。</p>
+
+<h3>1.8 AlwaysOn舱外 vs 室内巡车——互斥问题（全新议题）</h3>
+<p>丁彬提了一个v4完全没覆盖的问题：</p>
+<ul>
+<li><b>舱外AlwaysOn</b>（天气/路况/前方障碍物等）在行驶中<b>默认开启</b>，持续占用前摄</li>
+<li><b>室内巡车</b>（找停车位的应用）也需要用前摄 → 两者<b>互斥</b></li>
+<li>谁来做这个互斥排队？</li>
+</ul>
+
+<table>
+<tr><th>方案</th><th>谁做</th><th>怎么做</th><th>状态</th></tr>
+<tr><td><b>优先级排序</b></td><td>AIBOX的<b>意图模块</b>（任务调度器）</td><td>所有任务统一排队，高优先级先跑。意图能感知到"有人调我了"→做排队</td><td>丁彬确认意图能做</td></tr>
+<tr><td><b>互斥逻辑</b></td><td>需要工程层面实现</td><td>进地下停车场 → 停掉舱外AlwaysOn → 启动巡车。出停车场 → 停巡车 → 恢复AlwaysOn。这是<b>确定性策略（工程层面的，不是模型的）</b></td><td>丁彬说"可以做"，但具体返回什么（暂不可用？重试？）需要和赛力斯对</td></tr>
+<tr><td><b>保底机制</b></td><td>赛力斯端 + 我们</td><td>AlwaysOn被停了 → 给巡车应用返回"暂不可用" → 超过N次 → 需要用户重新触发唤醒</td><td>佳杰提议，未定</td></tr>
+</table>
+
+<div class="box blue">
+<b>和v4的关系：</b>v4的§12写了"AlwaysOn调度归属——在AIBOX意图模块，不在触发器"。但6.24暴露了<b>互斥的具体细节</b>是v4没有的：谁触发停止、怎么恢复、给对方返回什么。而且这不是仅仅"排队"的问题——舱外AlwaysOn是周期性持续跑的（不会主动释放资源），巡车也是周期性持续跑的，两个周期任务互斥需要<b>显式的切换策略</b>，不是简单排队能解决的。
+</div>
+
+<h3>1.9 核心未决问题——什么走触发器、什么走赛力斯自己的应用</h3>
+<p>这是整场会最关键的一个点：</p>
+<div class="quote"><b>丁彬：</b>"我识别到一个重点事情——我今天可能要把这件事情弄清楚：<b>什么是走你触发器的，什么是由赛力斯里面的应用来调的。</b>这个是很关键的。因为我们现在在把链路打通，如果是由你这儿调的话，赛力斯就不用去管这件事情了。"</div>
+
+<p>当前的困境：</p>
+<ul>
+<li>赛力斯有一堆业务场景（哨兵、巡车、充电大师等），它们各自直接调AIBOX接口</li>
+<li>你的触发器也要调AIBOX接口</li>
+<li><b>谁调谁还没定</b>——充电桩场景，佳杰觉得应该放触发器（"它应该是可配置的"），但你觉得可能放CDC更好</li>
+<li>赛力斯那边的需求<b>还没给你</b>（你让他们提，他们没提）</li>
+</ul>
+
+<div class="box red">
+<b>佳杰的催促：</b>"你就抓紧把他这些需求收集起来。先把他们提的需求我们先过完。"<br/>
+<b>佳杰的建议：</b>"你找家峰，拉着仁杰也决策一下。今晚正好有周会，一块儿聊。"
+</div>
+
+<h3>1.10 通用视觉事件——再次提及</h3>
+<p>佳杰重申：</p>
+<ul>
+<li>第一期：先把已经定义好的有限集事件做完（佳杰有清单）</li>
+<li>第二期：开一个"通用视觉类事件"通道，处理"我也不知道是什么"的长尾需求——<b>"但它的处理方式可能又是一种新的链路"</b></li>
+</ul>
+
+
+<!-- ============ §2 差异分析 ============ -->
+<h2>二、6.24 vs v4方案——9项差异逐条分析</h2>
+
+<table>
+<tr><th>#</th><th>议题</th><th>v4（6.22版）怎么写的</th><th>6.24 新结论 / 变化</th><th>影响等级</th><th>你需要改什么</th></tr>
+
+<tr><td>1</td><td><b>触发器场景来源</b><br/>两类场景区分</td>
+<td>v4写了3个注册入口（⑬配置平台、⑰动态Advisor、⑳Director），但没有明确区分"系统预设"和"用户语音生成"这两大类</td>
+<td><span class="tag tag-changed">细化</span> 佳杰+丁彬明确分成：<br/>①<b>系统预设条件任务</b>（产品配好的固定场景）<br/>②<b>用户语音生成的动态任务</b>（对话产生的）<br/>两类走不同链路、不同下游</td>
+<td style="background:#fef3c7"><b>中</b></td>
+<td>v4的§6 ⑮上游说明需要补充这个二分法。PRD补"系统预设"一节</td></tr>
+
+<tr><td>2</td><td><b>信号消费模式</b><br/>周期性 vs 触发式</td>
+<td>v4没有区分。统一写的是"触发器订阅/扫描信号库"</td>
+<td><span class="tag tag-new">新增</span> 丁彬明确区分：<br/>①<b>周期性</b>：AlwaysOn已有信号，触发器只轮询信号库<br/>②<b>触发式</b>：触发器主动调AIBOX发起VLM任务<br/>"这些咱们都提前约定好就行了，分好类"</td>
+<td style="background:#fef2f2"><b>高</b></td>
+<td>这是v4没覆盖的架构细节。需要：<br/>①和丁彬定清楚哪些是周期性、哪些是触发式<br/>②PRD补"两种信号消费模式"一节<br/>③v4的24-6和15-3需要补触发式模式</td></tr>
+
+<tr><td>3</td><td><b>下游可配置</b><br/>触发器结果给谁</td>
+<td>v4写的是"push给Advisor"（15-11/15-13），没提能直接给Director</td>
+<td><span class="tag tag-changed">扩展</span> 佳杰确认："你的下游是可配置的，可以配置给Director也可以配置给Advisor"</td>
+<td style="background:#fef3c7"><b>中</b></td>
+<td>v4的15-12需要补：下游可配——系统预设场景可配给Director直接执行，动态场景通常给Advisor</td></tr>
+
+<tr><td>4</td><td><b>断网能力边界</b></td>
+<td>v4强调"断网能跑=端侧触发器的全部理由"，整体tone偏乐观</td>
+<td><span class="tag tag-changed">收窄</span> 三人确认：<b>复杂场景（需要VLM+云端推理的）断网=做不了</b>。只有简单倒计时、白名单车控才断网能跑</td>
+<td style="background:#fef3c7"><b>中</b></td>
+<td>v4的§1 "断网能跑"说法要加限定条件，明确"只限简单条件"</td></tr>
+
+<tr><td>5</td><td><b>充电桩场景归属</b></td>
+<td>v4按6.22仁杰的"三问判定"→不变/不需AI/不需用户创建→暗示应归CDC</td>
+<td><span class="tag tag-conflict">冲突</span> 佳杰认为应放触发器（"它应该是可配置的"），你觉得放CDC也行。<b>未定</b>——需要拉仁杰+家峰决策</td>
+<td style="background:#fef2f2"><b>高</b></td>
+<td>今晚周会必须定。这个决策直接影响"系统预设条件任务"的scope有多大</td></tr>
+
+<tr><td>6</td><td><b>毯子case可行性</b></td>
+<td>v4的§7写了完整18步链路，假设VLM能提供"毯子位置"观测</td>
+<td><span class="tag tag-conflict">存疑</span> 丁彬："这个要拉下来细聊一下，<b>现在还不一定能做下来</b>"</td>
+<td style="background:#fef2f2"><b>高</b></td>
+<td>v4的18步链路前提不稳。需尽快约丁彬验证VLM能力。在PRD中标注"依赖丁彬验证VLM能力"</td></tr>
+
+<tr><td>7</td><td><b>AlwaysOn舱外 vs 巡车互斥</b></td>
+<td>v4的§12只写了"AlwaysOn调度归AIBOX意图模块"，没有细节</td>
+<td><span class="tag tag-new">新增</span> 6.24暴露了具体互斥问题：两个周期任务抢前摄 → 需要显式切换策略（进停车场停AlwaysOn，出来恢复）+ 意图排队 + 给赛力斯返回"暂不可用"</td>
+<td style="background:#fef3c7"><b>中</b></td>
+<td>PRD补"资源互斥策略"一节。要和丁彬+赛力斯定接口（停止/恢复/暂不可用）</td></tr>
+
+<tr><td>8</td><td><b>调用方身份</b><br/>什么走触发器、什么走赛力斯</td>
+<td>v4按6.22 scope收窄：固定闭环→CDC，剩下的→触发器。暗示已经清楚了</td>
+<td><span class="tag tag-conflict">未定</span> 丁彬当场指出<b>"这个是很关键"</b>但<b>还没拉齐</b>。充电桩、哨兵、巡车、充电大师谁走谁还有分歧</td>
+<td style="background:#fef2f2"><b>最高</b></td>
+<td>今晚周会第一优先级。不定这个，所有后续工作（PRD、接口、排期）全是建在沙上的</td></tr>
+
+<tr><td>9</td><td><b>佳杰事件清单</b></td>
+<td>6.22说"周内给"；v4的Open Items里列了"待定项1"</td>
+<td><span class="tag tag-confirmed">已完成</span> 佳杰说"我有一个表格已经整理出来了"，等泽民建群/发群分享</td>
+<td style="background:#dcfce7"><b>低</b></td>
+<td>建群 → 让佳杰发 → 你拿到后对着分"周期性/触发式"</td></tr>
+</table>
+
+
+<!-- ============ §3 你要做什么 ============ -->
+<h2>三、你要做什么 · 怎么做 · 做到什么程度</h2>
+
+<!-- Action 1 -->
+<div class="action">
+<div class="action-title">行动① 【今晚】周会上定"调用方身份"——最高优先级</div>
+<p><b>为什么紧急：</b>丁彬当场说"这是很关键的"。不定这个，后面所有接口设计、PRD范围、和赛力斯的对接全没法做。6.22定了"固定闭环→CDC"的大原则，但6.24发现<b>充电桩这类"固定但可配置"的场景</b>到底归谁还有分歧。</p>
+<p><b>怎么做：</b></p>
+<ol>
+<li>今晚周会拉<b>仁杰+家峰（佳杰）+丁彬</b>（佳杰原话："你拉着仁杰也决策一下"）</li>
+<li>拿一张表，把当前已知的所有端侧场景列出来，逐条过"归谁"：</li>
+</ol>
+<table>
+<tr><th>场景</th><th>6.22结论</th><th>6.24争议</th><th>待定</th></tr>
+<tr><td>起步安全（系安全带才能走）</td><td>归CDC</td><td>无争议</td><td>—</td></tr>
+<tr><td>上下车安全提醒</td><td>归CDC</td><td>无争议</td><td>—</td></tr>
+<tr><td>五感迎宾（人靠近车开灯）</td><td>归CDC</td><td>无争议</td><td>—</td></tr>
+<tr><td>哨兵模式</td><td>归赛力斯自有应用</td><td>丁彬确认"哨兵是他们自己调的"</td><td>—</td></tr>
+<tr><td>巡车/找停车位</td><td>未讨论</td><td>赛力斯自己的应用，直接调AIBOX</td><td>—</td></tr>
+<tr><td>充电大师/充电桩开盖</td><td>6.22暗示归CDC</td><td><b>佳杰说归触发器（可配置）</b></td><td><b>⚡ 必须定</b></td></tr>
+<tr><td>用户条件任务（"10分钟后关加热"）</td><td>归触发器</td><td>无争议</td><td>—</td></tr>
+<tr><td>动态视觉监控（"看毯子"）</td><td>归触发器</td><td>无争议（但VLM能力待验证）</td><td>—</td></tr>
+<tr><td>赛力斯其他运营配置场景</td><td>未讨论</td><td>佳杰说"有些和视觉有关有些没有，都是在你这处理的"</td><td><b>⚡ 需要赛力斯的清单才能过</b></td></tr>
+</table>
+<p><b>做到什么程度：</b>出一张<b>定了归属的清单</b>（就上面这个表填完），仁杰+家峰+丁彬签字画押。充电桩这条必须有结论。</p>
+</div>
+
+<!-- Action 2 -->
+<div class="action">
+<div class="action-title">行动② 【本周】催赛力斯提需求清单</div>
+<p><b>为什么紧急：</b>6.22你让赛力斯拉了十几人进群但没给结果。6.24佳杰直接催你"抓紧把他这些需求收集起来"。没有赛力斯的清单，"系统预设条件任务"的范围就定不了。</p>
+<p><b>怎么做：</b></p>
+<ol>
+<li>找赛力斯对口人（上次拉的群），<b>给一个模板</b>让他们填——不要让他们自由发挥，格式要统一：</li>
+</ol>
+<table>
+<tr><th>列名</th><th>填什么</th></tr>
+<tr><td>场景名称</td><td>如"充电桩靠近开盖"</td></tr>
+<tr><td>触发条件</td><td>如"P档+后方检测到充电桩"</td></tr>
+<tr><td>执行动作</td><td>如"打开充电口盖"</td></tr>
+<tr><td>当前实现方</td><td>CDC底软 / 赛力斯应用 / 未实现</td></tr>
+<tr><td>是否需要AI能力</td><td>是/否</td></tr>
+<tr><td>是否需要可配置</td><td>是/否（对应仁杰三问中的"会不会变"）</td></tr>
+</table>
+<p><b>做到什么程度：</b>拿到<b>赛力斯的全量场景清单</b>（至少20+条），逐条标"归谁"（触发器/CDC/赛力斯应用），然后拉仁杰+家峰过一轮。</p>
+</div>
+
+<!-- Action 3 -->
+<div class="action">
+<div class="action-title">行动③ 【今天】建群 + 拿佳杰的视觉事件清单</div>
+<p><b>为什么：</b>佳杰说"我有一个表格已经整理出来了，回头我们建个群我发到里头"。这就是6.22 Open Items里的"动态视觉感知event清单"——拖了两天了。</p>
+<p><b>怎么做：</b></p>
+<ol>
+<li>建群（你+佳杰+丁彬+益红），或找到已有群</li>
+<li>让佳杰把表格发出来</li>
+<li>拿到后，对着每个事件标注：<b>"周期性"（AlwaysOn已覆盖）还是"触发式"（需要主动调VLM）</b>——这就是丁彬说的"分好类就行了"</li>
+</ol>
+<p><b>做到什么程度：</b>一张标好类的表格 → 和丁彬对一轮确认"我能不能提供"。</p>
+</div>
+
+<!-- Action 4 -->
+<div class="action">
+<div class="action-title">行动④ 【本周】约丁彬专题——验证VLM能力边界</div>
+<p><b>为什么：</b>丁彬对毯子case的态度是"还不一定能做下来"。你v4的18步链路建立在VLM能提供"毯子位置"观测的前提上。前提不稳，链路就是空中楼阁。</p>
+<p><b>怎么做：</b></p>
+<ol>
+<li>拿佳杰的事件清单（行动③拿到的），和丁彬逐条过</li>
+<li>每个事件问丁彬三件事：
+  <ul>
+    <li>AlwaysOn现在能不能输出这个信号？（能→周期性，不需要额外开发）</li>
+    <li>VLM能不能通过追加prompt做到？（能→触发式，需要开发下发通道）</li>
+    <li>完全做不了？（做不了→这个事件先砍或走VQA降级方案）</li>
+  </ul>
+</li>
+<li>特别要验证的重点case：毯子掉落检测、充电桩识别（如果归触发器的话）</li>
+</ol>
+<p><b>做到什么程度：</b>每个事件有三选一的结论（AlwaysOn已有/VLM可做/做不了），标在清单上。</p>
+</div>
+
+<!-- Action 5 -->
+<div class="action">
+<div class="action-title">行动⑤ 【定了调用方身份后】更新PRD，补3块新内容</div>
+<p><b>为什么：</b>6.24暴露了v4/现有PRD缺少的3块内容。但要<b>等行动①的结论</b>再写——scope不定，PRD写了也白写。</p>
+<p><b>补什么：</b></p>
+<table>
+<tr><th>补充内容</th><th>具体写什么</th><th>依赖哪个行动的结论</th></tr>
+<tr><td><b>①两种信号消费模式</b><br/>（周期性 vs 触发式）</td><td>定义两种模式 + 每种模式的数据流 + 分类标准 + 典型case列表</td><td>行动③（佳杰清单）+ 行动④（丁彬验证）</td></tr>
+<tr><td><b>②系统预设条件任务</b><br/>（和动态任务的区分）</td><td>什么是系统预设 / 从哪配 / 下游可配（Director or Advisor）/ 和CDC闭环的边界</td><td>行动①（调用方定了后）+ 行动②（赛力斯清单）</td></tr>
+<tr><td><b>③资源互斥策略</b><br/>（AlwaysOn vs 巡车等）</td><td>互斥场景列表 / 切换策略（进停车场停舱外AlwaysOn）/ 意图排队逻辑 / 给对方返回什么</td><td>和丁彬+赛力斯对接口</td></tr>
+</table>
+<p><b>做到什么程度：</b>PRD补完这3节 → 拉丁彬+佳杰+仁杰review。</p>
+</div>
+
+<!-- Action 6 -->
+<div class="action">
+<div class="action-title">行动⑥ 【视情况】讲解稿v4更新——等前面结论都定了再改</div>
+<p><b>为什么不急：</b>v4的讲解稿是给别人讲方案用的。在调用方身份、VLM能力、信号消费模式这些关键问题定了之前，改了也白改。</p>
+<p><b>要改哪几处（等结论定了后）：</b></p>
+<ol>
+<li>§1 "断网能跑"的说法 → 加限定条件"只限简单条件任务"</li>
+<li>§5 24-6 → 补充"触发式"模式：端侧触发器可主动发起VLM任务（不只是接收云端下发的）</li>
+<li>§6 15-12/15-13 → 补充"下游可配置"（Director or Advisor）</li>
+<li>§6 ⑮上游 → 明确"系统预设"和"动态"两类来源</li>
+<li>§7 毯子case → 如果丁彬验证VLM做不了，需要改case或加disclaimer</li>
+<li>§12 AlwaysOn → 补充互斥策略细节</li>
+</ol>
+</div>
+
+
+<!-- ============ §4 优先级排序 ============ -->
+<h2>四、行动优先级排序——先做什么</h2>
+
+<table>
+<tr><th>优先级</th><th>行动</th><th>时间</th><th>依赖</th><th>为什么这个顺序</th></tr>
+<tr style="background:#fef2f2"><td><b>P0</b></td><td><b>①今晚周会定调用方身份</b></td><td>今晚</td><td>无</td><td>其他所有行动都依赖这个结论。不定scope，PRD/接口/排期全悬空</td></tr>
+<tr style="background:#fef2f2"><td><b>P0</b></td><td><b>③建群拿佳杰的事件清单</b></td><td>今天</td><td>无</td><td>佳杰说好了要发，你不建群他发不出来。而且行动④要用这个清单</td></tr>
+<tr style="background:#fef3c7"><td><b>P1</b></td><td><b>②催赛力斯需求清单</b></td><td>本周</td><td>无</td><td>已拖两次了。佳杰催了。但可以异步催，不block其他事</td></tr>
+<tr style="background:#fef3c7"><td><b>P1</b></td><td><b>④约丁彬验证VLM能力</b></td><td>本周</td><td>③佳杰清单到手</td><td>有了清单才能和丁彬逐条过</td></tr>
+<tr style="background:#eff6ff"><td><b>P2</b></td><td><b>⑤更新PRD</b></td><td>①②④都定了后</td><td>①②④</td><td>结论出来才能写</td></tr>
+<tr style="background:#f3f4f6"><td><b>P3</b></td><td><b>⑥更新讲解稿v4</b></td><td>⑤之后</td><td>⑤</td><td>PRD定了，讲解稿跟着改</td></tr>
+</table>
+
+<hr style="margin-top:40px;border:none;border-top:2px dashed #cbd5e1"/>
+<p class="en">6.24会议整理 · 2026-06-24 · 基于ASR转写原文（约30分钟，3人）· 与v4方案差异分析 · 6项行动建议</p>
+
+</body>
+</html>

@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>记忆宫殿单词卡</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: #0a0a0f;
+  color: #e8e8ed;
+  min-height: 100vh;
+  padding: 40px 20px;
+}
+
+.container {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+h1 {
+  font-size: 28px;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 8px;
+  background: linear-gradient(135deg, #7c5cfc, #c084fc);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.subtitle {
+  text-align: center;
+  color: #666;
+  font-size: 14px;
+  margin-bottom: 40px;
+}
+
+.input-area {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 32px;
+}
+
+.input-area input {
+  flex: 1;
+  padding: 14px 20px;
+  border-radius: 12px;
+  border: 1px solid #2a2a35;
+  background: #14141c;
+  color: #e8e8ed;
+  font-size: 16px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.input-area input:focus {
+  border-color: #7c5cfc;
+}
+
+.input-area input::placeholder {
+  color: #555;
+}
+
+.input-area button {
+  padding: 14px 28px;
+  border-radius: 12px;
+  border: none;
+  background: linear-gradient(135deg, #7c5cfc, #6341e0);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.1s, opacity 0.2s;
+  white-space: nowrap;
+}
+
+.input-area button:hover {
+  opacity: 0.9;
+}
+
+.input-area button:active {
+  transform: scale(0.97);
+}
+
+.cards-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.card {
+  background: #16161f;
+  border: 1px solid #2a2a35;
+  border-radius: 16px;
+  padding: 24px 28px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #7c5cfc, #c084fc);
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+
+.card:hover {
+  border-color: #3a3a4a;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(124, 92, 252, 0.08);
+}
+
+.card:hover::before {
+  opacity: 1;
+}
+
+.card-header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.card-word {
+  font-size: 22px;
+  font-weight: 700;
+  color: #c084fc;
+}
+
+.card-meaning {
+  font-size: 16px;
+  color: #b0b0c0;
+}
+
+.card-phonetic {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #222230;
+}
+
+.card-phonetic .homophone {
+  color: #9a8afc;
+  margin-right: 8px;
+}
+
+.card-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.4s ease, opacity 0.3s ease;
+  opacity: 0;
+}
+
+.card.expanded .card-body {
+  max-height: 300px;
+  opacity: 1;
+}
+
+.card-scene {
+  font-size: 15px;
+  line-height: 1.8;
+  color: #d0d0dc;
+  margin-bottom: 12px;
+}
+
+.card-scene .chunk {
+  color: #7c5cfc;
+  font-weight: 600;
+}
+
+.card-anchor {
+  font-size: 14px;
+  color: #888;
+  padding-left: 16px;
+  border-left: 3px solid #7c5cfc;
+}
+
+.card-expand-hint {
+  position: absolute;
+  bottom: 12px;
+  right: 20px;
+  font-size: 12px;
+  color: #444;
+  transition: opacity 0.2s;
+}
+
+.card.expanded .card-expand-hint {
+  opacity: 0;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #444;
+}
+
+.empty-state .icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.empty-state p {
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.tag-compound { background: #1a2a1a; color: #6fcf6f; }
+.tag-root { background: #2a1a2a; color: #cf6fcf; }
+.tag-homophone { background: #1a1a2a; color: #6f9fcf; }
+
+.section-label {
+  font-size: 12px;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 12px;
+  margin-top: 24px;
+}
+
+.keyboard-hint {
+  text-align: center;
+  margin-top: 24px;
+  font-size: 12px;
+  color: #333;
+}
+
+.keyboard-hint kbd {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #1a1a22;
+  border: 1px solid #2a2a35;
+  font-family: inherit;
+  font-size: 11px;
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>记忆宫殿单词卡</h1>
+  <p class="subtitle">互联网人的英语记忆工具 — 点击卡片展开画面</p>
+
+  <div class="input-area">
+    <input type="text" id="wordInput" placeholder="输入单词，按 Enter 生成卡片..." autocomplete="off">
+    <button id="addBtn">生成卡片</button>
+  </div>
+
+  <div class="cards-container" id="cardsContainer"></div>
+
+  <div class="keyboard-hint">
+    <kbd>Enter</kbd> 生成 &nbsp;&middot;&nbsp; 点击卡片展开/收起画面
+  </div>
+</div>
+
+<script>
+const presetCards = [
+  {
+    word: "adapt",
+    meaning: "适应",
+    homophone: "额-戴普特",
+    ipa: "/əˈdæpt/",
+    method: "homophone",
+    scene: '一<span class="chunk">（a）</span>个人打<span class="chunk">（da）</span>喷嚏扑通<span class="chunk">（pt）</span>栽倒，新环境水土不服',
+    anchor: "需要慢慢适应"
+  },
+  {
+    word: "bottleneck",
+    meaning: "瓶颈",
+    homophone: "鲍头-耐克",
+    ipa: "/ˈbɒtlnek/",
+    method: "compound",
+    scene: '瓶子<span class="chunk">（bottle）</span>的脖子<span class="chunk">（neck）</span>最细，水流到这里全堵住了',
+    anchor: "系统性能卡住的地方就是瓶颈"
+  },
+  {
+    word: "sympathy",
+    meaning: "同情",
+    homophone: "辛帕思",
+    ipa: "/ˈsɪmpəθi/",
+    method: "root",
+    scene: '帅爷们<span class="chunk">（sym）</span>感觉<span class="chunk">（path）</span>到了，歪着头叹气<span class="chunk">（y）</span>',
+    anchor: "他对别人的处境产生了同情"
+  },
+  {
+    word: "threshold",
+    meaning: "阈值",
+    homophone: "斯瑞什-后德",
+    ipa: "/ˈθreʃhoʊld/",
+    method: "homophone",
+    scene: '三<span class="chunk">（thre）</span>个报警<span class="chunk">（sh）</span>指标hold住<span class="chunk">（hold）</span>不动，数据看板纹丝不动',
+    anchor: "只有突破这条线——阈值——才会触发报警"
+  },
+  {
+    word: "latency",
+    meaning: "延迟",
+    homophone: "雷腾-C",
+    ipa: "/ˈleɪtənsi/",
+    method: "homophone",
+    scene: '用户点了按钮，迟<span class="chunk">（late）</span>迟等不到<span class="chunk">（n）</span>响应，盯着转圈<span class="chunk">（cy）</span>的loading',
+    anchor: "接口响应太慢——这就是延迟"
+  },
+  {
+    word: "deploy",
+    meaning: "部署",
+    homophone: "迪-普洛伊",
+    ipa: "/dɪˈplɔɪ/",
+    method: "homophone",
+    scene: '深夜<span class="chunk">（de）</span>值班，一行命令<span class="chunk">（ploy）</span>敲下去，代码从本地飞到线上',
+    anchor: "服务上线——部署完成"
+  }
+];
+
+function getMethodTag(method) {
+  const tags = {
+    compound: '<span class="tag tag-compound">复合词</span>',
+    root: '<span class="tag tag-root">词根</span>',
+    homophone: '<span class="tag tag-homophone">谐音</span>'
+  };
+  return tags[method] || '';
+}
+
+function createCardHTML(card) {
+  return `
+    <div class="card" onclick="this.classList.toggle('expanded')">
+      <div class="card-header">
+        <span class="card-word">（${card.word}）</span>
+        <span class="card-meaning">${card.meaning}</span>
+        ${getMethodTag(card.method)}
+      </div>
+      <div class="card-phonetic">
+        <span class="homophone">${card.homophone}</span> ${card.ipa}
+      </div>
+      <div class="card-body">
+        <div class="card-scene">${card.scene}</div>
+        <div class="card-anchor">—— ${card.anchor}</div>
+      </div>
+      <span class="card-expand-hint">click to expand</span>
+    </div>
+  `;
+}
+
+function renderCards() {
+  const container = document.getElementById('cardsContainer');
+  container.innerHTML = presetCards.map(createCardHTML).join('');
+}
+
+function addCustomCard() {
+  const input = document.getElementById('wordInput');
+  const word = input.value.trim().toLowerCase();
+  if (!word) return;
+
+  const card = {
+    word: word,
+    meaning: "—",
+    homophone: "—",
+    ipa: "/—/",
+    method: "homophone",
+    scene: `<span style="color:#666">在 Claude 对话中输入该单词，获取完整记忆卡片后，点击编辑填入</span>`,
+    anchor: "点击编辑补充词义落点"
+  };
+
+  presetCards.unshift(card);
+  renderCards();
+  input.value = '';
+}
+
+document.getElementById('wordInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') addCustomCard();
+});
+document.getElementById('addBtn').addEventListener('click', addCustomCard);
+
+renderCards();
+</script>
+</body>
+</html>

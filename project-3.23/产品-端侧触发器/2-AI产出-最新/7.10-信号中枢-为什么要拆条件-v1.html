@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>7.10 信号中枢：为什么要把条件拆成"触发事件 + 条件"</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #232733;
+    --border: #2e3345;
+    --text: #e2e4ea;
+    --text-dim: #8b8fa3;
+    --accent: #6c7cff;
+    --accent-light: #8b98ff;
+    --orange: #ff8c42;
+    --orange-dim: rgba(255,140,66,0.12);
+    --green: #4ade80;
+    --green-dim: rgba(74,222,128,0.10);
+    --red: #f87171;
+    --red-dim: rgba(248,113,113,0.10);
+    --yellow: #facc15;
+    --yellow-dim: rgba(250,204,21,0.10);
+    --cyan: #22d3ee;
+    --cyan-dim: rgba(34,211,238,0.10);
+    --purple: #a78bfa;
+    --purple-dim: rgba(167,139,250,0.10);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; line-height:1.7; }
+
+  .container { max-width:960px; margin:0 auto; padding:40px 24px 80px; }
+
+  /* Header */
+  .header { text-align:center; margin-bottom:48px; padding-bottom:32px; border-bottom:1px solid var(--border); }
+  .header .tag { display:inline-block; background:var(--accent); color:#fff; font-size:12px; font-weight:600; padding:4px 12px; border-radius:20px; margin-bottom:16px; letter-spacing:1px; }
+  .header h1 { font-size:28px; font-weight:700; margin-bottom:8px; line-height:1.4; }
+  .header .sub { color:var(--text-dim); font-size:14px; }
+  .header .sub strong { color:var(--orange); }
+
+  /* Section */
+  .section { margin-bottom:48px; }
+  .section-label { display:inline-block; font-size:11px; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:var(--accent-light); margin-bottom:8px; }
+  .section h2 { font-size:22px; font-weight:700; margin-bottom:20px; }
+  .section h3 { font-size:17px; font-weight:600; margin-bottom:12px; color:var(--text); }
+
+  /* Mapping card */
+  .mapping-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:28px; margin-bottom:24px; }
+  .mapping-row { display:grid; grid-template-columns:1fr 48px 1fr; align-items:center; gap:12px; margin-bottom:16px; }
+  .mapping-row:last-child { margin-bottom:0; }
+  .mapping-box { padding:16px; border-radius:8px; text-align:center; }
+  .mapping-box .label { font-size:11px; color:var(--text-dim); margin-bottom:4px; letter-spacing:1px; }
+  .mapping-box .value { font-size:16px; font-weight:600; }
+  .mapping-box.old { background:var(--red-dim); border:1px solid rgba(248,113,113,0.25); }
+  .mapping-box.old .value { color:var(--red); }
+  .mapping-box.new { background:var(--green-dim); border:1px solid rgba(74,222,128,0.25); }
+  .mapping-box.new .value { color:var(--green); }
+  .mapping-arrow { text-align:center; font-size:20px; color:var(--text-dim); }
+  .mapping-note { margin-top:16px; padding:12px 16px; background:var(--surface2); border-radius:8px; font-size:13px; color:var(--text-dim); line-height:1.6; }
+  .mapping-note strong { color:var(--yellow); }
+
+  /* Quote */
+  .quote-block { background:var(--surface); border-left:3px solid var(--accent); padding:16px 20px; border-radius:0 8px 8px 0; margin:16px 0; }
+  .quote-block .speaker { font-size:12px; color:var(--accent-light); font-weight:600; margin-bottom:4px; }
+  .quote-block .text { font-size:14px; color:var(--text); font-style:italic; }
+
+  /* Q&A Chain */
+  .qa-chain { position:relative; padding-left:32px; }
+  .qa-chain::before { content:''; position:absolute; left:11px; top:24px; bottom:24px; width:2px; background:var(--border); }
+  .qa-item { position:relative; margin-bottom:32px; }
+  .qa-item:last-child { margin-bottom:0; }
+  .qa-dot { position:absolute; left:-32px; top:6px; width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:#fff; }
+  .qa-dot.q { background:var(--orange); }
+  .qa-dot.a { background:var(--accent); }
+  .qa-question { font-size:16px; font-weight:600; color:var(--orange); margin-bottom:12px; }
+  .qa-answer { font-size:14px; color:var(--text); line-height:1.8; }
+  .qa-answer p { margin-bottom:10px; }
+
+  /* Scenario */
+  .scenario { background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; margin:20px 0; }
+  .scenario-header { padding:14px 20px; font-size:14px; font-weight:600; border-bottom:1px solid var(--border); }
+  .scenario-header.old-way { background:var(--red-dim); color:var(--red); }
+  .scenario-header.new-way { background:var(--green-dim); color:var(--green); }
+  .scenario-body { padding:20px; }
+  .scenario-body .step { display:flex; align-items:flex-start; gap:10px; margin-bottom:10px; font-size:14px; }
+  .scenario-body .step:last-child { margin-bottom:0; }
+  .scenario-body .step .num { flex-shrink:0; width:22px; height:22px; border-radius:50%; background:var(--surface2); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:var(--text-dim); }
+  .scenario-body .result { margin-top:14px; padding:12px 16px; border-radius:8px; font-size:13px; font-weight:600; }
+  .scenario-body .result.fail { background:var(--red-dim); color:var(--red); }
+  .scenario-body .result.pass { background:var(--green-dim); color:var(--green); }
+
+  /* Comparison table */
+  .cmp-table { width:100%; border-collapse:collapse; margin:20px 0; font-size:14px; }
+  .cmp-table th { padding:12px 16px; text-align:left; font-weight:600; font-size:12px; letter-spacing:1px; color:var(--text-dim); background:var(--surface); border-bottom:2px solid var(--border); }
+  .cmp-table td { padding:14px 16px; border-bottom:1px solid var(--border); vertical-align:top; line-height:1.6; }
+  .cmp-table tr:last-child td { border-bottom:none; }
+  .cmp-table .cap-label { font-weight:600; color:var(--text); }
+  .cmp-table .old-val { color:var(--red); }
+  .cmp-table .new-val { color:var(--green); }
+  .cmp-table .reason { color:var(--text-dim); font-size:13px; }
+
+  /* Flow diagram */
+  .flow-diagram { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:32px 24px; margin:20px 0; }
+  .flow-title { text-align:center; font-size:13px; color:var(--text-dim); margin-bottom:20px; font-weight:600; letter-spacing:1px; }
+
+  .flow-old { display:flex; align-items:center; justify-content:center; gap:0; flex-wrap:wrap; margin-bottom:32px; }
+  .flow-old .cond-group { display:flex; align-items:center; gap:8px; }
+  .flow-old .cond-box { padding:10px 14px; border-radius:8px; font-size:13px; font-weight:500; background:var(--red-dim); border:1px solid rgba(248,113,113,0.25); color:var(--red); }
+  .flow-old .and-label { font-size:12px; color:var(--text-dim); font-weight:700; }
+  .flow-old .arrow { margin:0 10px; color:var(--text-dim); font-size:16px; }
+  .flow-old .action-box { padding:10px 14px; border-radius:8px; font-size:13px; font-weight:600; background:var(--purple-dim); border:1px solid rgba(167,139,250,0.25); color:var(--purple); }
+
+  .flow-vs { text-align:center; font-size:12px; color:var(--text-dim); margin-bottom:24px; font-weight:700; letter-spacing:3px; }
+
+  .flow-new { display:flex; align-items:center; justify-content:center; gap:0; flex-wrap:wrap; }
+  .flow-new .node { padding:12px 16px; border-radius:10px; font-size:13px; text-align:center; }
+  .flow-new .node .type { font-size:10px; font-weight:700; letter-spacing:1px; margin-bottom:2px; }
+  .flow-new .node .name { font-weight:600; }
+  .flow-new .node.trigger { background:var(--orange-dim); border:1.5px solid rgba(255,140,66,0.35); }
+  .flow-new .node.trigger .type { color:var(--orange); }
+  .flow-new .node.trigger .name { color:var(--orange); }
+  .flow-new .node.condition { background:var(--yellow-dim); border:1.5px solid rgba(250,204,21,0.30); }
+  .flow-new .node.condition .type { color:var(--yellow); }
+  .flow-new .node.condition .name { color:var(--yellow); }
+  .flow-new .node.action { background:var(--green-dim); border:1.5px solid rgba(74,222,128,0.30); }
+  .flow-new .node.action .type { color:var(--green); }
+  .flow-new .node.action .name { color:var(--green); }
+  .flow-new .flow-arrow { margin:0 8px; color:var(--text-dim); font-size:18px; }
+
+  /* Unlock cards */
+  .unlock-grid { display:grid; grid-template-columns:1fr; gap:16px; margin:20px 0; }
+  .unlock-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:24px; }
+  .unlock-card .icon-row { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+  .unlock-card .icon { width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:18px; }
+  .unlock-card .icon.i1 { background:var(--cyan-dim); }
+  .unlock-card .icon.i2 { background:var(--orange-dim); }
+  .unlock-card .icon.i3 { background:var(--purple-dim); }
+  .unlock-card .card-title { font-size:16px; font-weight:600; }
+  .unlock-card .blocked { padding:10px 14px; border-radius:8px; background:var(--red-dim); margin-bottom:10px; font-size:13px; color:var(--red); line-height:1.6; }
+  .unlock-card .blocked strong { color:var(--red); }
+  .unlock-card .unlocked { padding:10px 14px; border-radius:8px; background:var(--green-dim); font-size:13px; color:var(--green); line-height:1.6; }
+  .unlock-card .unlocked strong { color:var(--green); }
+  .unlock-card .example { margin-top:12px; padding:10px 14px; background:var(--surface2); border-radius:8px; font-size:13px; color:var(--text-dim); line-height:1.6; }
+  .unlock-card .example strong { color:var(--text); }
+
+  /* Position shift */
+  .position-shift { background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; margin:20px 0; }
+  .pos-row { display:grid; grid-template-columns:1fr 1fr; }
+  .pos-col { padding:24px; }
+  .pos-col.old { border-right:1px solid var(--border); }
+  .pos-col .pos-tag { display:inline-block; font-size:11px; font-weight:700; padding:3px 10px; border-radius:12px; margin-bottom:12px; letter-spacing:1px; }
+  .pos-col.old .pos-tag { background:var(--red-dim); color:var(--red); }
+  .pos-col.new .pos-tag { background:var(--green-dim); color:var(--green); }
+  .pos-col h4 { font-size:16px; font-weight:700; margin-bottom:8px; }
+  .pos-col.old h4 { color:var(--red); }
+  .pos-col.new h4 { color:var(--green); }
+  .pos-col .desc { font-size:14px; color:var(--text-dim); line-height:1.7; margin-bottom:12px; }
+  .pos-col .attrs { list-style:none; }
+  .pos-col .attrs li { font-size:13px; padding:4px 0; color:var(--text-dim); }
+  .pos-col .attrs li::before { content:'·'; margin-right:8px; font-weight:700; }
+  .pos-col.old .attrs li::before { color:var(--red); }
+  .pos-col.new .attrs li::before { color:var(--green); }
+
+  /* Highlight box */
+  .highlight-box { background: linear-gradient(135deg, rgba(108,124,255,0.08), rgba(167,139,250,0.08)); border:1px solid rgba(108,124,255,0.25); border-radius:12px; padding:24px; margin:24px 0; text-align:center; }
+  .highlight-box .big { font-size:18px; font-weight:700; color:var(--accent-light); line-height:1.6; margin-bottom:8px; }
+  .highlight-box .small { font-size:13px; color:var(--text-dim); }
+
+  /* Impact for you */
+  .impact-list { margin:16px 0; }
+  .impact-item { display:flex; gap:14px; padding:16px; background:var(--surface); border:1px solid var(--border); border-radius:10px; margin-bottom:10px; }
+  .impact-item .impact-num { flex-shrink:0; width:28px; height:28px; border-radius:50%; background:var(--accent); color:#fff; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; }
+  .impact-item .impact-text { font-size:14px; line-height:1.7; }
+  .impact-item .impact-text strong { color:var(--orange); }
+
+  /* Footer */
+  .footer { margin-top:48px; padding-top:24px; border-top:1px solid var(--border); text-align:center; font-size:12px; color:var(--text-dim); }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="tag">7.10 会议解读</div>
+    <h1>韩杰为什么要把条件拆成<br>"触发事件 + 条件"？</h1>
+    <div class="sub">基于 <strong>7月10日 SLS端状态接入评审会</strong> · 产品经理视角 · 第一性原理追问</div>
+  </div>
+
+  <!-- Part 0: 先搞清楚映射关系 -->
+  <div class="section">
+    <div class="section-label">PART 0</div>
+    <h2>先搞清楚：改了什么名？</h2>
+
+    <div class="mapping-card">
+      <div class="mapping-row">
+        <div class="mapping-box old">
+          <div class="label">配置平台原名</div>
+          <div class="value">动态条件</div>
+        </div>
+        <div class="mapping-arrow">→</div>
+        <div class="mapping-box new">
+          <div class="label">韩杰新名</div>
+          <div class="value">触发事件</div>
+        </div>
+      </div>
+      <div class="mapping-row">
+        <div class="mapping-box old">
+          <div class="label">配置平台原名</div>
+          <div class="value">静态条件</div>
+        </div>
+        <div class="mapping-arrow">→</div>
+        <div class="mapping-box new">
+          <div class="label">韩杰新名</div>
+          <div class="value">条件</div>
+        </div>
+      </div>
+      <div class="mapping-note">
+        <strong>会议原话确认 ——</strong><br>
+        刘杨（12:52）："你其实是把触发器的动态条件叫成了触发事件，静态条件叫成了条件" → 韩杰："对，是的"<br>
+        于庆磊（43:16）："动态是不是就理解成状态从A到B，静态就是当前的状况是B" → 韩杰："对，是的"
+      </div>
+    </div>
+
+    <p style="font-size:14px; color:var(--text-dim);">数据没变，逻辑从"并列判断"改成了"串行漏斗"。向超然在会上确认："本质上没有区别……只是改了一下信号的范围。"</p>
+  </div>
+
+  <!-- Part 1: 结构变化可视化 -->
+  <div class="section">
+    <div class="section-label">PART 1</div>
+    <h2>结构到底怎么变了？</h2>
+
+    <div class="flow-diagram">
+      <div class="flow-title">老配置平台：五个条件并列 → 全满足就执行</div>
+      <div class="flow-old">
+        <div class="cond-group">
+          <div class="cond-box">条件①</div>
+          <div class="and-label">AND</div>
+          <div class="cond-box">条件②</div>
+          <div class="and-label">AND</div>
+          <div class="cond-box">条件③</div>
+        </div>
+        <div class="arrow">→</div>
+        <div class="action-box">执行动作</div>
+      </div>
+
+      <div class="flow-vs">▼ 拆 开 后 ▼</div>
+
+      <div class="flow-title">新信号中枢：触发事件 → 条件过滤 → 多种动作</div>
+      <div class="flow-new">
+        <div class="node trigger">
+          <div class="type">触发事件</div>
+          <div class="name">档位 P→D</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="node condition">
+          <div class="type">条件</div>
+          <div class="name">车窗未关？</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="node condition">
+          <div class="type">条件</div>
+          <div class="name">车速=0？</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="node action">
+          <div class="type">动作</div>
+          <div class="name">Advisor / 事件日志 / TTS</div>
+        </div>
+      </div>
+    </div>
+
+    <p style="font-size:14px; color:var(--text-dim);">关键变化：① 第一个节点从"条件"变成了"触发事件"（有事件描述能力）；② 执行顺序从并列变串行；③ 动作从只能调Advisor变成可以同时做多件事。</p>
+  </div>
+
+  <!-- Part 2: 为什么要拆 — Q&A追问链 -->
+  <div class="section">
+    <div class="section-label">PART 2</div>
+    <h2>为什么要拆？— 产品视角追问链</h2>
+
+    <div class="qa-chain">
+      <!-- Q1 -->
+      <div class="qa-item">
+        <div class="qa-dot q">Q</div>
+        <div class="qa-question">老的并列条件用了这么久，为什么现在突然要拆？</div>
+        <div class="qa-answer">
+          <p>因为<strong>触发器这个产品的职责扩大了</strong>。</p>
+          <p>老触发器只做一件事：条件满足 → 调Advisor。五个条件并列判断完全够用。</p>
+          <p>但韩杰把触发器升级成了"信号中枢"，现在不止调Advisor，还要<strong>生成事件日志给Director</strong>，未来还要支撑<strong>规则引擎画布</strong>。产品职责变了，数据结构必须跟着变。</p>
+        </div>
+      </div>
+
+      <!-- Q2 -->
+      <div class="qa-item">
+        <div class="qa-dot q">Q</div>
+        <div class="qa-question">职责扩大了，跟拆不拆有什么关系？不拆也能新增功能啊？</div>
+        <div class="qa-answer">
+          <p>不能。问题出在<strong>事件日志</strong>。</p>
+          <p>事件日志要给Director一句人话："<strong>14:03 主驾切入D档</strong>"。这需要系统知道"到底发生了什么事"。</p>
+          <p>但老的并列条件里，五个条件地位平等——档位P→D、车窗未关、车速=0 都叫"条件"。系统不知道哪个是<strong>起因</strong>（发生了什么事），哪个是<strong>背景</strong>（当时什么情况）。写事件日志的时候，该写谁？</p>
+        </div>
+      </div>
+
+      <!-- Scenario comparison -->
+      <div class="qa-item" style="padding-left:0;">
+        <div class="scenario">
+          <div class="scenario-header old-way">老架构尝试写事件日志</div>
+          <div class="scenario-body">
+            <div class="step"><div class="num">1</div>条件①：档位 P→D ✅</div>
+            <div class="step"><div class="num">2</div>条件②：车窗未关 ✅</div>
+            <div class="step"><div class="num">3</div>条件③：车速=0 ✅</div>
+            <div class="step"><div class="num">4</div>三个条件同时满足 → 触发</div>
+            <div class="result fail">❌ 事件日志写什么？"档位P→D + 车窗未关 + 车速=0"？——这不是"发生了什么事"，这是一堆状态。Director没法用。</div>
+          </div>
+        </div>
+        <div class="scenario">
+          <div class="scenario-header new-way">新架构写事件日志</div>
+          <div class="scenario-body">
+            <div class="step"><div class="num">1</div><strong style="color:var(--orange);">触发事件</strong>：档位 P→D（自带事件描述："档位切入D档"）</div>
+            <div class="step"><div class="num">2</div><strong style="color:var(--yellow);">条件</strong>：车窗未关？ ✅ → 继续</div>
+            <div class="step"><div class="num">3</div><strong style="color:var(--green);">动作</strong>：① TTS播报 ② 写事件日志</div>
+            <div class="result pass">✅ 事件日志："14:03 档位切入D档" ——触发事件天然就是事件描述，Director直接可用。</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Q3 -->
+      <div class="qa-item">
+        <div class="qa-dot q">Q</div>
+        <div class="qa-question">所以拆开的本质是什么？</div>
+        <div class="qa-answer">
+          <p><strong>给每条规则定义一个"主角"。</strong></p>
+          <p>老平台五个条件都是群演，没有主次之分。拆开之后，触发事件是"主角"（这条规则为什么被激活），条件是"配角"（激活之后还要不要继续走）。</p>
+          <p>有了主角，事件日志就有了主语；有了先后，复杂流程就能编排了。</p>
+        </div>
+      </div>
+
+      <!-- Q4 -->
+      <div class="qa-item">
+        <div class="qa-dot q">Q</div>
+        <div class="qa-question">就为了事件日志，值得把产品架构改了？</div>
+        <div class="qa-answer">
+          <p>不止事件日志。拆开同时解锁了<strong>三个老架构做不了的产品能力</strong>——见下一节。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Part 3: 拆开解锁了什么 -->
+  <div class="section">
+    <div class="section-label">PART 3</div>
+    <h2>拆开解锁了三个产品能力</h2>
+
+    <div class="unlock-grid">
+      <!-- Capability 1 -->
+      <div class="unlock-card">
+        <div class="icon-row">
+          <div class="icon i1">📋</div>
+          <div class="card-title">能力一：事件日志 — 让模型知道"发生了什么"</div>
+        </div>
+        <div class="blocked">
+          <strong>老架构被卡住：</strong>五个并列条件同时满足就触发，但系统不知道谁是"原因"谁是"背景"，没法生成一句话的事件描述。
+        </div>
+        <div class="unlocked">
+          <strong>拆开后解锁：</strong>触发事件自带拼接规则（"档位 + 切入/切出 + D档"），自动生成事件描述，喂给Director的事件日志。
+        </div>
+        <div class="example">
+          <strong>韩杰原话（08:06）：</strong>"信号的变化而导致我们有一些突变值，而突变值我们把它叫做一个触发的事件，而这些触发事件会生成对应的事件日志。"
+        </div>
+      </div>
+
+      <!-- Capability 2 -->
+      <div class="unlock-card">
+        <div class="icon-row">
+          <div class="icon i2">🔗</div>
+          <div class="card-title">能力二：复杂场景编排 — 有先后、有时延、有分支</div>
+        </div>
+        <div class="blocked">
+          <strong>老架构被卡住：</strong>只能做"A 且 B 且 C → 执行"。做不了"先等A发生，延时3秒，再查B，满足走分支1、不满足走分支2"这种有顺序的流程。
+        </div>
+        <div class="unlocked">
+          <strong>拆开后解锁：</strong>触发事件是起点，后面可以串行接多个条件、支持时延和分支。从"并行AND"变成了"流程图"。
+        </div>
+        <div class="example">
+          <strong>韩杰原话（14:39）：</strong>"原来是并行条件判断，现在改成了复合条件判断……对于车载场景，我们会涉及到一些时延，串行改并行、同时并发。"
+        </div>
+      </div>
+
+      <!-- Capability 3 -->
+      <div class="unlock-card">
+        <div class="icon-row">
+          <div class="icon i3">🎨</div>
+          <div class="card-title">能力三：运营画布 — 非技术人员拖拽配规则</div>
+        </div>
+        <div class="blocked">
+          <strong>老架构被卡住：</strong>画布需要不同类型的节点（触发/判断/执行）来拖拽连线。老平台五个条件都是同一种节点，画不出流程图。
+        </div>
+        <div class="unlocked">
+          <strong>拆开后解锁：</strong>三种节点类型（🔶触发事件 → 🟡条件 → 🟢动作），运营拖拽即可编排workflow，作为火山座舱标准化产品对外输出。
+        </div>
+        <div class="example">
+          <strong>韩杰原话（15:51）：</strong>"拖拽一个触发事件，它是档位切入D档，再拖几个条件，串行或并行，再拖一个动作……快速通过画布的方式把能力建设起来。"
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Part 4: 产品定位变化 -->
+  <div class="section">
+    <div class="section-label">PART 4</div>
+    <h2>对你的触发器产品意味着什么？</h2>
+
+    <div class="position-shift">
+      <div class="pos-row">
+        <div class="pos-col old">
+          <div class="pos-tag">老定位</div>
+          <h4>触发器 = 条件判断器</h4>
+          <div class="desc">我监控一堆条件，都满足了我就调Advisor。</div>
+          <ul class="attrs">
+            <li>被动响应（轮询等结果）</li>
+            <li>逻辑简单（只有AND）</li>
+            <li>输出单一（只能调Advisor）</li>
+            <li>名字：触发器</li>
+          </ul>
+        </div>
+        <div class="pos-col new">
+          <div class="pos-tag">新定位</div>
+          <h4>信号中枢 = 事件驱动流程引擎</h4>
+          <div class="desc">车上发生了一件事 → 我判断当时情况 → 我执行一系列动作。</div>
+          <ul class="attrs">
+            <li>主动感知（事件驱动）</li>
+            <li>逻辑可编排（串行/并行/时延/分支）</li>
+            <li>输出多元（Advisor + 事件日志 + TTS + 规则引擎）</li>
+            <li>名字：信号中枢</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="highlight-box">
+      <div class="big">拆条件不是技术优化，是产品升级。<br>从"条件满不满足"升级到"发生了什么 → 情况如何 → 该做什么"。</div>
+      <div class="small">韩杰不叫"触发器"了，叫"信号中枢"——因为产品定位变了，名字跟着变。</div>
+    </div>
+  </div>
+
+  <!-- Part 5: 对你（泽民）的影响 -->
+  <div class="section">
+    <div class="section-label">PART 5</div>
+    <h2>这件事对你（触发器PM）的三个影响</h2>
+
+    <div class="impact-list">
+      <div class="impact-item">
+        <div class="impact-num">1</div>
+        <div class="impact-text">
+          <strong>配置平台要改版。</strong>韩杰明确说第二阶段要"基于触发事件、条件、动作把平台做重构，包含前端和后端"。你的配置平台产品需求要跟着改——老的"动态条件/静态条件"表单要拆成三段式workflow配置。
+        </div>
+      </div>
+      <div class="impact-item">
+        <div class="impact-num">2</div>
+        <div class="impact-text">
+          <strong>你的信号清单要和韩杰的三张表对齐。</strong>韩杰把端状态拆成了"状态查询 / 触发事件 / 条件"三张表。你之前梳理的端侧信号格式、触发器条件表，都要映射到这三张表里。向超然在会上说"这个表可能后面还得再重新拉齐review"。
+        </div>
+      </div>
+      <div class="impact-item">
+        <div class="impact-num">3</div>
+        <div class="impact-text">
+          <strong>"触发器"这个产品名可能要淡化。</strong>韩杰在会上明确说"没有触发器的概念了，整个系统里面就是触发事件和条件"。你需要判断：你的产品叙事是继续叫"端侧触发器"，还是融入"信号中枢"的框架？这影响你在评审里怎么讲故事。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    基于 7月10日 SLS端状态接入context/触发器需求评审会议 · 产品经理视角解读 · 2026-07-13
+  </div>
+
+</div>
+</body>
+</html>

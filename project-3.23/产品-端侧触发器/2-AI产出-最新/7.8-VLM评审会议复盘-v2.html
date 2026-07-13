@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>7.8 VLM评审会议复盘 v2 · Y模型 + 5W2H 深度分析</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #232733;
+    --border: #2e3345;
+    --text: #e2e4eb;
+    --text2: #9ba1b5;
+    --accent: #6c8cff;
+    --accent2: #4a6adf;
+    --red: #ff6b6b;
+    --red-bg: rgba(255,107,107,0.08);
+    --red-border: rgba(255,107,107,0.25);
+    --orange: #ffa94d;
+    --orange-bg: rgba(255,169,77,0.08);
+    --orange-border: rgba(255,169,77,0.25);
+    --green: #69db7c;
+    --green-bg: rgba(105,219,124,0.08);
+    --green-border: rgba(105,219,124,0.25);
+    --yellow: #ffd43b;
+    --yellow-bg: rgba(255,212,59,0.08);
+    --yellow-border: rgba(255,212,59,0.25);
+    --purple: #b197fc;
+    --purple-bg: rgba(177,151,252,0.08);
+    --purple-border: rgba(177,151,252,0.25);
+    --cyan: #66d9e8;
+    --cyan-bg: rgba(102,217,232,0.08);
+    --cyan-border: rgba(102,217,232,0.25);
+    --pink: #f783ac;
+    --pink-bg: rgba(247,131,172,0.08);
+    --pink-border: rgba(247,131,172,0.25);
+    --blue: #74c0fc;
+    --blue-bg: rgba(116,192,252,0.08);
+    --blue-border: rgba(116,192,252,0.25);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "SF Pro Text", "Helvetica Neue", "PingFang SC", sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.7; padding: 0;
+  }
+
+  /* ---- Header ---- */
+  .header {
+    background: linear-gradient(135deg, #1a1d27 0%, #232733 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 48px 24px 40px; text-align: center;
+  }
+  .header h1 { font-size: 26px; font-weight: 700; letter-spacing: 1px; margin-bottom: 8px; }
+  .header .sub { font-size: 15px; color: var(--text2); margin-bottom: 16px; }
+  .header .tags { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .htag {
+    display: inline-block; padding: 4px 14px; border-radius: 16px;
+    font-size: 12px; font-weight: 600; border: 1px solid;
+  }
+
+  /* ---- Layout ---- */
+  .content { max-width: 920px; margin: 0 auto; padding: 0 24px 80px; }
+
+  /* ---- TOC ---- */
+  .toc { margin: 32px 0; }
+  .toc-label { font-size: 12px; color: var(--text2); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 12px; }
+  .toc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px,1fr)); gap: 8px; }
+  .toc-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; font-size: 13px; text-decoration: none; color: var(--text);
+    transition: border-color .2s;
+  }
+  .toc-item:hover { border-color: var(--accent); }
+  .toc-n {
+    width: 26px; height: 26px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 800; flex-shrink: 0; color: var(--bg);
+  }
+
+  /* ---- Section ---- */
+  .sec { margin-top: 48px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--surface); }
+  .sec-hd {
+    padding: 20px 24px; display: flex; align-items: flex-start; gap: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sec-n {
+    width: 36px; height: 36px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 800; flex-shrink: 0; color: var(--bg);
+  }
+  .sec-title { font-size: 18px; font-weight: 700; }
+  .sec-sub { font-size: 13px; color: var(--text2); margin-top: 2px; }
+  .sec-body { padding: 24px; }
+
+  /* ---- Headings ---- */
+  h3 { font-size: 15px; font-weight: 700; margin: 28px 0 12px; padding-left: 12px; border-left: 3px solid var(--accent); }
+  h3:first-child { margin-top: 0; }
+  h4 { font-size: 14px; font-weight: 700; margin: 20px 0 8px; color: var(--text2); }
+
+  /* ---- Tables ---- */
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 20px; font-size: 13px; }
+  th { background: var(--surface2); padding: 10px 14px; text-align: left; font-weight: 600; color: var(--text2); border-bottom: 1px solid var(--border); }
+  td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+
+  /* ---- Callout ---- */
+  .co { padding: 16px 18px; border-radius: 8px; margin: 16px 0; font-size: 13px; line-height: 1.7; }
+  .co-red { background: var(--red-bg); border: 1px solid var(--red-border); }
+  .co-green { background: var(--green-bg); border: 1px solid var(--green-border); }
+  .co-yellow { background: var(--yellow-bg); border: 1px solid var(--yellow-border); }
+  .co-blue { background: var(--blue-bg); border: 1px solid var(--blue-border); }
+  .co-purple { background: var(--purple-bg); border: 1px solid var(--purple-border); }
+  .co-t { font-weight: 700; margin-bottom: 6px; font-size: 13px; }
+  .co-red .co-t { color: var(--red); }
+  .co-green .co-t { color: var(--green); }
+  .co-yellow .co-t { color: var(--yellow); }
+  .co-blue .co-t { color: var(--blue); }
+  .co-purple .co-t { color: var(--purple); }
+
+  /* ---- Compare ---- */
+  .cmp { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 12px 0 20px; }
+  .cmp-bad, .cmp-good { padding: 14px 16px; border-radius: 8px; font-size: 13px; }
+  .cmp-bad { background: var(--red-bg); border: 1px solid var(--red-border); }
+  .cmp-good { background: var(--green-bg); border: 1px solid var(--green-border); }
+  .cmp-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  .cmp-bad .cmp-label { color: var(--red); }
+  .cmp-good .cmp-label { color: var(--green); }
+
+  /* ---- Speech bubble ---- */
+  .sp { background: var(--surface2); border-left: 3px solid var(--accent); padding: 12px 16px; margin: 10px 0; border-radius: 0 8px 8px 0; font-size: 13px; color: var(--text2); }
+  .sp b { color: var(--accent); font-weight: 600; }
+
+  /* ---- Y-model visual ---- */
+  .y-model {
+    display: flex; flex-direction: column; gap: 0; margin: 20px 0;
+  }
+  .y-layer {
+    padding: 18px 20px; border: 1px solid; border-radius: 10px; position: relative;
+  }
+  .y-layer + .y-layer { margin-top: -1px; }
+  .y-label {
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px;
+    margin-bottom: 6px;
+  }
+  .y-content { font-size: 14px; font-weight: 600; }
+  .y-detail { font-size: 12px; color: var(--text2); margin-top: 4px; }
+  .y-arrow {
+    text-align: center; font-size: 18px; color: var(--text2); margin: 4px 0; line-height: 1;
+  }
+  .y-surface { background: var(--red-bg); border-color: var(--red-border); }
+  .y-surface .y-label { color: var(--red); }
+  .y-goal { background: var(--yellow-bg); border-color: var(--yellow-border); }
+  .y-goal .y-label { color: var(--yellow); }
+  .y-human { background: var(--green-bg); border-color: var(--green-border); }
+  .y-human .y-label { color: var(--green); }
+  .y-solution { background: var(--blue-bg); border-color: var(--blue-border); }
+  .y-solution .y-label { color: var(--blue); }
+
+  /* ---- 5W2H card ---- */
+  .wh-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); gap: 10px; margin: 16px 0; }
+  .wh-card {
+    padding: 16px; border-radius: 10px; background: var(--surface2); border: 1px solid var(--border);
+  }
+  .wh-letter { font-size: 20px; font-weight: 800; margin-bottom: 4px; }
+  .wh-q { font-size: 12px; color: var(--text2); margin-bottom: 8px; }
+  .wh-a { font-size: 13px; }
+
+  /* ---- Severity ---- */
+  .sev { display: flex; align-items: center; gap: 6px; margin: 8px 0 16px; font-size: 12px; color: var(--text2); }
+  .sev-dots { display: flex; gap: 3px; }
+  .sev-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); }
+  .sev-dot.a-r { background: var(--red); }
+  .sev-dot.a-o { background: var(--orange); }
+  .sev-dot.a-y { background: var(--yellow); }
+
+  /* ---- Flow diagram ---- */
+  .flow { display: flex; align-items: center; gap: 0; margin: 16px 0; flex-wrap: wrap; }
+  .flow-box {
+    padding: 8px 14px; border-radius: 8px; font-size: 12px; font-weight: 600;
+    border: 1px solid var(--border); background: var(--surface2);
+  }
+  .flow-arr { color: var(--text2); font-size: 16px; padding: 0 6px; }
+  .flow-highlight { border-color: var(--accent); background: rgba(108,140,255,0.1); color: var(--accent); }
+  .flow-wrong { border-color: var(--red-border); background: var(--red-bg); color: var(--red); text-decoration: line-through; }
+  .flow-right { border-color: var(--green-border); background: var(--green-bg); color: var(--green); }
+
+  /* ---- Misc ---- */
+  p { margin: 8px 0; font-size: 14px; }
+  .tr { color: var(--red); }
+  .tg { color: var(--green); }
+  .to { color: var(--orange); }
+  .ty { color: var(--yellow); }
+  .tb { color: var(--blue); }
+  .tm { color: var(--text2); font-size: 13px; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .tag-r { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
+  .tag-g { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+  .tag-o { background: var(--orange-bg); color: var(--orange); border: 1px solid var(--orange-border); }
+  .tag-b { background: var(--blue-bg); color: var(--blue); border: 1px solid var(--blue-border); }
+  .version { text-align: center; padding: 32px 0; font-size: 12px; color: var(--text2); opacity: .5; }
+
+  @media (max-width: 640px) {
+    .cmp { grid-template-columns: 1fr; }
+    .wh-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>7.8 VLM 评审会议 · 深度复盘</h1>
+  <div class="sub">Y 模型需求拆解 + 5W2H 全维度分析 + 会议映射</div>
+  <div class="tags">
+    <span class="htag" style="color:var(--red);border-color:var(--red-border);background:var(--red-bg);">核心问题：你不知道自己的需求"为什么要做"</span>
+    <span class="htag" style="color:var(--blue);border-color:var(--blue-border);background:var(--blue-bg);">v2 · 2026-07-10</span>
+  </div>
+</div>
+
+<div class="content">
+
+<!-- ==================== TOC ==================== -->
+<div class="toc">
+  <div class="toc-label">目录</div>
+  <div class="toc-grid">
+    <a class="toc-item" href="#y"><div class="toc-n" style="background:var(--yellow);">Y</div><div>Y 模型：你的需求到底是什么</div></a>
+    <a class="toc-item" href="#w"><div class="toc-n" style="background:var(--blue);">5W</div><div>5W2H：你应该能回答的 7 个问题</div></a>
+    <a class="toc-item" href="#map"><div class="toc-n" style="background:var(--red);">M</div><div>映射：5W2H 对照你的会议表现</div></a>
+    <a class="toc-item" href="#redo"><div class="toc-n" style="background:var(--green);">R</div><div>重来：如果用了这套框架，会议该怎么开</div></a>
+  </div>
+</div>
+
+<!-- ================================================================== -->
+<!-- PART 1: Y-MODEL -->
+<!-- ================================================================== -->
+<div class="sec" id="y" style="border-color: var(--yellow-border);">
+  <div class="sec-hd" style="background: var(--yellow-bg);">
+    <div class="sec-n" style="background: var(--yellow);">Y</div>
+    <div>
+      <div class="sec-title">Y 模型：你的需求到底是什么</div>
+      <div class="sec-sub">你在会上讲的是"方案"，不是"需求"。先搞清楚需求的三层。</div>
+    </div>
+  </div>
+  <div class="sec-body">
+
+    <div class="co co-red">
+      <div class="co-t">你犯的根本错误</div>
+      你把<strong>"触发器管 AlwaysOn 开关"</strong>当成了需求来讲。但这不是需求——这是一个<strong>实现方案</strong>。<br>
+      需求是"AlwaysOn 三个任务需要生命周期管理"。触发器只是管理它的一种方式。<br><br>
+      你在会上一开口就说"触发器主要两块事情"——你在卖方案，但你连方案要解决的需求都没先交代。别人当然会问"为什么需要触发器"——因为你没给他们看到触发器要解决的问题。
+    </div>
+
+    <h3>Y 模型四层拆解</h3>
+
+    <div class="y-model">
+      <div class="y-layer y-human">
+        <div class="y-label">底层 · 人性需求（Why it matters）</div>
+        <div class="y-content">车主对舱内摄像头的安全感 + 车企的法务合规 + 无感体验</div>
+        <div class="y-detail">
+          <strong>隐私安全感：</strong>用户坐在车里，知道舱内有摄像头在拍自己。如果他没有"随时能关掉"的控制权，就会不安。这就是 Button 存在的根本原因——不是技术需要，是心理需要。<br>
+          <strong>法务合规：</strong>舱内摄像头涉及人脸数据采集，法律要求必须有用户可控的关闭机制。丁彬在会上也说了"只有舱内才涉及到控制"。舱外不拍人脸，没有这个约束。<br>
+          <strong>无感体验：</strong>好的产品是用户上车就能用，不需要手动开启。AlwaysOn 的"Always"就是这个意思——默认跑，用户无感知。
+        </div>
+      </div>
+      <div class="y-arrow">&#8595;</div>
+      <div class="y-layer y-goal">
+        <div class="y-label">中层 · 真实目标（What to solve）</div>
+        <div class="y-content">三个常驻 VLM 任务需要"生命周期管理"</div>
+        <div class="y-detail">
+          三个 AlwaysOn 任务（舱外 3s / 舱内动态 5s / 舱内静态 5min）不能"永远开着不管"，原因有四个：<br>
+          <strong>① 隐私控制：</strong>舱内摄像头必须给用户一个 Button 可以关——这是法务红线<br>
+          <strong>② 电源约束：</strong>AIBox 下电 / 蓄电池耗尽时任务必须停——不能空跑<br>
+          <strong>③ 资源竞争：</strong>高优任务（如 VQA 用户问答）来了要能抢占 AlwaysOn——VLM 算力有限<br>
+          <strong>④ 异常恢复：</strong>AIBox 崩溃重启后任务状态要能恢复——不能静默丢失<br><br>
+          <strong>所以真实目标 = 给这三个任务一套"什么时候开、什么时候关、异常怎么办"的管理机制。</strong>
+        </div>
+      </div>
+      <div class="y-arrow">&#8595;</div>
+      <div class="y-layer y-surface">
+        <div class="y-label">表层 · 你在会上说的（What you pitched）</div>
+        <div class="y-content" style="text-decoration: line-through; opacity:.7;">触发器管 AlwaysOn 的开关</div>
+        <div class="y-detail" style="color:var(--red);">
+          你把实现方案当成了需求来讲。开口就说"触发器主要两块事情"——没人知道你在解决什么问题，只看到你在推销你的模块。<br>
+          所以韩杰问"为什么需要触发器"，汪帅问"能不能 AIBox 自己做"——他们不是在刁难你，是在问"你到底要解决什么问题"。
+        </div>
+      </div>
+      <div class="y-arrow">&#8595;</div>
+      <div class="y-layer y-solution">
+        <div class="y-label">方案层 · 应该展示的（How to solve — 3 个候选方案）</div>
+        <div class="y-content">方案 A：VLM SDK 自管 &nbsp;|&nbsp; 方案 B：AI Service 管 &nbsp;|&nbsp; 方案 C：触发器管</div>
+        <div class="y-detail">
+          先讲需求（中层），再展示方案（这一层），让评审方选。而不是只拿方案 C 进会场。<br>
+          详细对比见下面 5W2H 的 Where/How 部分。
+        </div>
+      </div>
+    </div>
+
+    <div class="co co-yellow">
+      <div class="co-t">Y 模型的核心教训</div>
+      <strong>你在会上跳过了"中层"（真实目标），直接从"表层"（方案）开始讲。</strong><br>
+      结果所有人都在问你"为什么"——因为你没有给他们看到"需要解决的问题"。<br><br>
+      正确的顺序是：<strong>底层（为什么 care）→ 中层（要解决什么问题）→ 方案层（怎么解决 + 推荐哪个）</strong>。<br>
+      你只讲了"怎么解决"，而且只讲了一个方案。
+    </div>
+
+    <h3>你跳过了什么</h3>
+    <table>
+      <tr><th>Y 层级</th><th>你在会上说了吗</th><th>你应该说的（15 秒就够）</th></tr>
+      <tr>
+        <td>底层：隐私安全感 + 合规</td>
+        <td class="tr">完全没提</td>
+        <td>"舱内 AlwaysOn 涉及摄像头，法务要求必须有用户可控的关闭机制"</td>
+      </tr>
+      <tr>
+        <td>中层：生命周期管理</td>
+        <td class="tr">没有直接说</td>
+        <td>"三个 AlwaysOn 任务需要一套启停管理——上电开、下电关、Button 关、异常恢复"</td>
+      </tr>
+      <tr>
+        <td>表层：触发器做开关</td>
+        <td class="tg">说了（22:40 开始讲）</td>
+        <td>（你只说了这层）</td>
+      </tr>
+      <tr>
+        <td>方案层：对比候选方案</td>
+        <td class="tr">没有对比</td>
+        <td>"有三种实现方式：VLM SDK 自管 / AI Service 管 / 触发器管。我推荐触发器管，原因是 X"</td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+<!-- ================================================================== -->
+<!-- PART 2: 5W2H -->
+<!-- ================================================================== -->
+<div class="sec" id="w" style="border-color: var(--blue-border);">
+  <div class="sec-hd" style="background: var(--blue-bg);">
+    <div class="sec-n" style="background: var(--blue);">5W</div>
+    <div>
+      <div class="sec-title">5W2H：你应该能回答的 7 个问题</div>
+      <div class="sec-sub">每个问题你在会上回答了什么、应该回答什么、为什么回答不了</div>
+    </div>
+  </div>
+  <div class="sec-body">
+
+    <!-- ---- WHY ---- -->
+    <h3>1. WHY — 为什么要做这个需求？</h3>
+
+    <div class="co co-red">
+      <div class="co-t">这是你最大的盲区</div>
+      你在会上从头到尾没有回答过"为什么 AlwaysOn 需要开关管理"。你直接跳到了"开关怎么做"。<br>
+      当张荣 40:40 问"需求来源于哪里？找源头吧"——这个问题就是在问 Why——你沉默了，丁彬替你答了。
+    </div>
+
+    <table>
+      <tr><th>Why 的四个层次</th><th>具体原因</th><th>你在会上提了吗</th></tr>
+      <tr>
+        <td><strong>法务合规（硬约束）</strong></td>
+        <td>舱内摄像头采集人脸数据，法律要求用户必须有关闭控制权。没有 Button = 过不了法务审查。</td>
+        <td class="tr">没提。丁彬在 49:28 才一句带过："只有舱内才涉及到控制"</td>
+      </tr>
+      <tr>
+        <td><strong>用户体验（软需求）</strong></td>
+        <td>AlwaysOn = 用户上车就能用、不需要手动开启。这是"无感体验"的产品目标。</td>
+        <td class="tr">没提。丁彬在 40:49 说了："我们希望一上车就把功能打开"</td>
+      </tr>
+      <tr>
+        <td><strong>电源约束（物理限制）</strong></td>
+        <td>AIBox 下电 / 蓄电池耗尽时任务必须停。不能在没电的情况下空跑摄像头。</td>
+        <td class="tr">没提。左晓杰替你追问了这个问题</td>
+      </tr>
+      <tr>
+        <td><strong>资源竞争（系统约束）</strong></td>
+        <td>VLM 算力有限，高优任务来了要能抢占 AlwaysOn。需要一个优先级管理。</td>
+        <td class="to">没有你提的。蒋文 33:47 和董均 35:11 替你讨论了这个</td>
+      </tr>
+    </table>
+
+    <div class="cmp">
+      <div class="cmp-bad">
+        <div class="cmp-label">你在会上讲 Why 的方式</div>
+        （完全没有讲 Why。直接从 How 开始："触发器主要两块事情"）
+      </div>
+      <div class="cmp-good">
+        <div class="cmp-label">应该怎么讲 Why（30 秒）</div>
+        "AlwaysOn 三个任务为什么需要开关管理？四个原因：第一，舱内摄像头有法务合规要求，用户必须能关；第二，下电时任务必须停；第三，高优任务来了要能抢占；第四，异常崩溃后要能恢复。所以需要一套启停机制。"
+      </div>
+    </div>
+
+    <!-- ---- WHAT ---- -->
+    <h3>2. WHAT — 具体要做什么？</h3>
+
+    <table>
+      <tr><th>要做的事</th><th>拆解</th><th>你在会上说清了吗</th></tr>
+      <tr>
+        <td><strong>开的逻辑</strong></td>
+        <td>舱外：AIBox 启动 → 自动开<br>舱内：AIBox 启动 AND Button ON → 开</td>
+        <td class="tg">说清了（22:40-29:38）——AND/OR 逻辑讲了</td>
+      </tr>
+      <tr>
+        <td><strong>关的逻辑</strong></td>
+        <td>舱外：AIBox 关闭 → 关<br>舱内：Button OFF 或 AIBox 关闭 → 关（OR）</td>
+        <td class="tg">说清了（情况枚举 A~E）</td>
+      </tr>
+      <tr>
+        <td><strong>Button 状态监听</strong></td>
+        <td>实时监听 Button 变更 → 触发开/关</td>
+        <td class="to">提了"需要 CDC 通知"但来源搞错了</td>
+      </tr>
+      <tr>
+        <td><strong>异常恢复</strong></td>
+        <td>AIBox 崩溃重启 → 恢复之前的任务状态</td>
+        <td class="tr">没提。丁彬 27:30 替你问了，汪帅解释了 VLM SDK 内部恢复</td>
+      </tr>
+      <tr>
+        <td><strong>优先级管理</strong></td>
+        <td>高优任务抢占 AlwaysOn → AlwaysOn 被缓存 → 高优完成后恢复</td>
+        <td class="tg">34:13 划了边界："任务管理不在我这块"</td>
+      </tr>
+    </table>
+
+    <div class="co co-green">
+      <div class="co-t">What 这一块你做得最好</div>
+      开/关逻辑的 AND/OR 拆解是你讲得最清晰的部分。5 种情况枚举也是系统性思维的体现。但 What 只是"做什么"，没有 Why 来撑，技术会觉得"逻辑是对的但我不知道为什么要做"。
+    </div>
+
+    <!-- ---- WHO ---- -->
+    <h3>3. WHO — 谁相关？</h3>
+
+    <table>
+      <tr><th>角色</th><th>是谁</th><th>你在会前跟他对过吗</th><th>会上的后果</th></tr>
+      <tr>
+        <td><strong>需求定义者</strong></td>
+        <td>你（泽民）+ 丁彬</td>
+        <td>跟丁彬对了</td>
+        <td>你俩的方案一致，但跟其他人没对过</td>
+      </tr>
+      <tr>
+        <td><strong>实现决策者</strong></td>
+        <td>汪帅（端侧 owner）</td>
+        <td class="tr">没对</td>
+        <td>汪帅当场否掉了"走触发器"的方案</td>
+      </tr>
+      <tr>
+        <td><strong>VLM SDK 实现方</strong></td>
+        <td>Walter / 斯华</td>
+        <td class="tr">没对</td>
+        <td>Walter 当场指出"上电没意义"</td>
+      </tr>
+      <tr>
+        <td><strong>信号提供方</strong></td>
+        <td>赛力斯（Button HMI + SDK）</td>
+        <td class="tr">没对</td>
+        <td>你假设的 Button 来源（CDC）是错的</td>
+      </tr>
+      <tr>
+        <td><strong>端状态 owner</strong></td>
+        <td>韩杰 / 李鑫</td>
+        <td class="tr">没对</td>
+        <td>韩杰第一个质疑"为什么需要触发器"</td>
+      </tr>
+      <tr>
+        <td><strong>PM lead（会议决策者）</strong></td>
+        <td>张荣</td>
+        <td>?</td>
+        <td>张荣最终替你宣布结论</td>
+      </tr>
+    </table>
+
+    <div class="co co-red">
+      <div class="co-t">Who 的教训</div>
+      你只跟丁彬（同一立场的人）对了方案，没跟任何一个会挑战你的人对过。<br>
+      <strong>预对齐的对象不是支持你的人，而是会反对你的人。</strong>跟汪帅和斯华对一次，你就会知道方案走不通，可以在会前调整。
+    </div>
+
+    <!-- ---- WHEN ---- -->
+    <h3>4. WHEN — 什么时候？两个维度</h3>
+
+    <h4>4a. 运行时 When：什么时候触发开关？</h4>
+    <table>
+      <tr><th>触发时机</th><th>你在会上说了什么</th><th>问题</th></tr>
+      <tr>
+        <td>上电时</td>
+        <td>"判断它是否是上下电"</td>
+        <td class="tr">"上电"没有定义成具体信号。ACC ON？IG ON？AIBox 进程启动？你说不清。</td>
+      </tr>
+      <tr>
+        <td>Button 变更时</td>
+        <td>"行驶中 Button 状态变更需要 CDC 通知"</td>
+        <td class="to">Button 来源假设错了（不走 CDC，走赛力斯 SDK）</td>
+      </tr>
+      <tr>
+        <td>下电时</td>
+        <td>"下电不管按钮状态全部停掉"</td>
+        <td class="tg">逻辑没问题</td>
+      </tr>
+      <tr>
+        <td>VLM 进程就绪时</td>
+        <td>被汪帅追问后才想到："可以分两条判断吗？"</td>
+        <td class="tr">你没提前想过这个时序问题</td>
+      </tr>
+      <tr>
+        <td>AIBox 崩溃重启时</td>
+        <td>没提</td>
+        <td class="tr">丁彬和汪帅替你讨论了恢复机制</td>
+      </tr>
+    </table>
+
+    <h4>4b. 项目 When：什么版本做？</h4>
+    <table>
+      <tr><th>版本</th><th>内容</th><th>你说清了吗</th></tr>
+      <tr>
+        <td>0804（P0）</td>
+        <td>AlwaysOn 三任务的开关</td>
+        <td class="tg">说了"0804 只做开关"（丁彬 14:17 确认过）</td>
+      </tr>
+      <tr>
+        <td>0818（P1）</td>
+        <td>动态任务切换（停+换prompt+重启）</td>
+        <td class="to">丁彬提了，你没主动说。但这是走触发器的最强理由——你应该主动亮出来</td>
+      </tr>
+    </table>
+
+    <div class="co co-yellow">
+      <div class="co-t">When 的关键遗漏</div>
+      <strong>0818 的动态任务切换是触发器存在的最强理由。</strong>丁彬在 16:51 替你说了这个理由（"后面还有动态任务，要停+换prompt+重启"）。<br>
+      但这应该是你的第一颗子弹，不是丁彬被追急了才拿出来的后备。如果你开场就说"0804 做开关是为 0818 的动态任务切换铺底，提前统一管理入口"，汪帅可能就不会那么快否掉你。
+    </div>
+
+    <!-- ---- WHERE ---- -->
+    <h3>5. WHERE — 在架构的哪个位置实现？</h3>
+
+    <p>这是你会议中<strong>最该展开但完全没展开的问题</strong>。</p>
+
+    <table>
+      <tr><th></th><th>方案 A：VLM SDK 自管</th><th>方案 B：AI Service 管</th><th>方案 C：触发器管</th></tr>
+      <tr>
+        <td><strong>怎么做</strong></td>
+        <td>VLM SDK 内部监听 Button 状态 + 自主启停任务</td>
+        <td>AI Service（汪帅团队）接听 Button SDK → 传给 VLM SDK</td>
+        <td>触发器监听上电+Button → 下发 start/stop 给 VLM SDK</td>
+      </tr>
+      <tr>
+        <td><strong>优势</strong></td>
+        <td>最简单，零依赖</td>
+        <td>轻量 + 汪帅团队可控</td>
+        <td>统一管理 + 为 0818 动态任务预留</td>
+      </tr>
+      <tr>
+        <td><strong>劣势</strong></td>
+        <td>VLM SDK 是硬件层，不适合放业务逻辑</td>
+        <td>新增模块/接口，但工作量不大</td>
+        <td>多一层调用 + 触发器拿不到上电信号 + Button 也不需要绕触发器</td>
+      </tr>
+      <tr>
+        <td><strong>适合场景</strong></td>
+        <td>仅 AlwaysOn，无后续需求</td>
+        <td>AlwaysOn + 简单信号转发</td>
+        <td>AlwaysOn + 动态任务 + OneShot 预设任务（全量生命周期管理）</td>
+      </tr>
+      <tr>
+        <td><strong>会议结论</strong></td>
+        <td>—</td>
+        <td class="tg"><strong>被选中</strong>（舱内）<br>舱外更简单：VLM agent 自行默认打开</td>
+        <td class="tr"><strong>被否掉</strong></td>
+      </tr>
+    </table>
+
+    <div class="co co-red">
+      <div class="co-t">Where 的致命问题</div>
+      <strong>你只带了方案 C 进会场，没有展示 A 和 B，更没有对比三者的 trade-off。</strong><br><br>
+      当你只带一个方案时：<br>
+      - 如果方案被接受 → 没问题<br>
+      - 如果方案被质疑 → 你没有退路，只能被动挨打<br><br>
+      如果你带了三个方案，开场就说"我评估了三种方式，推荐 C 是因为 0818 的预留"——即使 C 被否，你也不会哑。你可以说"那 B 也可以，舱外走 A，舱内走 B，触发器的 scope 收到 0818 的动态任务"。<strong>你还是 owner，因为是你在给选项。</strong>
+    </div>
+
+    <!-- ---- HOW ---- -->
+    <h3>6. HOW — 怎么实现？</h3>
+
+    <p>How 分两层：<strong>开关逻辑（你讲了）</strong> 和 <strong>技术接口（你没讲）</strong>。</p>
+
+    <h4>6a. 开关逻辑（你讲了，而且讲得还行）</h4>
+    <table>
+      <tr><th>场景</th><th>逻辑</th><th>你讲清了吗</th></tr>
+      <tr><td>舱外开</td><td>上电 → 开</td><td class="tg">讲了</td></tr>
+      <tr><td>舱外关</td><td>下电 → 关</td><td class="tg">讲了</td></tr>
+      <tr><td>舱内开</td><td>上电 AND Button ON → 开</td><td class="tg">讲了，AND 逻辑清晰</td></tr>
+      <tr><td>舱内关</td><td>Button OFF 或 下电 → 关（OR）</td><td class="tg">讲了</td></tr>
+      <tr><td>行驶中 Button 变更</td><td>开→关 / 关→开</td><td class="tg">讲了</td></tr>
+    </table>
+
+    <h4>6b. 技术接口（你完全没讲）</h4>
+    <table>
+      <tr><th>要讲清的</th><th>你说了什么</th><th>该说什么</th></tr>
+      <tr>
+        <td>"上电"信号叫什么</td>
+        <td>"车机上电，整车上电"（同义反复）</td>
+        <td>"对应 ACC ON 信号" 或 "对应 AIBox 进程启动事件" 或 "待确认 @赛力斯"</td>
+      </tr>
+      <tr>
+        <td>"上电"信号谁上报</td>
+        <td>没说</td>
+        <td>"赛力斯 CDC 上报" 或 "AIBox 自身可感知" 或 "需要赛力斯提供 SDK"</td>
+      </tr>
+      <tr>
+        <td>Button 状态信号来源</td>
+        <td>"可能需要 CDC 通知"（错误假设）</td>
+        <td>"Button 在赛力斯 HMI 上，需要赛力斯提供 SDK 让端侧接听"</td>
+      </tr>
+      <tr>
+        <td>触发器 → VLM 的接口</td>
+        <td>没说</td>
+        <td>"调用 VLM SDK 的 start(task_id, camera, 周期) / stop(task_id) 接口"</td>
+      </tr>
+      <tr>
+        <td>状态回调接口</td>
+        <td>"接收 VLM SDK 回调"（一句带过）</td>
+        <td>"同步返回 send 成功/失败 + 异步返回执行结果（成功/空/超时/失败）"</td>
+      </tr>
+    </table>
+
+    <div class="co co-yellow">
+      <div class="co-t">How 的教训</div>
+      你的开关逻辑（6a）讲得没问题，AND/OR、5 种情况都是对的。<br>
+      但技术评审关心的是 6b——<strong>接口定义</strong>。你图上画的每个箭头，对应的是什么接口、什么参数、谁提供？你一个都回答不了。<br><br>
+      <strong>PM 不需要写代码，但你必须能说清接口的名字和方向。</strong>分不清 ACC 和 IG ON 可以，但不能连"这个信号谁提供"都说不出来。
+    </div>
+
+    <!-- ---- HOW MUCH ---- -->
+    <h3>7. HOW MUCH — 代价多大？</h3>
+
+    <table>
+      <tr><th></th><th>方案 C（触发器管）</th><th>方案 B（AI Service 管）</th><th>差距</th></tr>
+      <tr>
+        <td><strong>开发量</strong></td>
+        <td>触发器模块需开发 AlwaysOn 开关逻辑 + 上电信号监听 + Button 监听 + start/stop 调用</td>
+        <td>AI Service 接听一个 Button SDK → 传给 VLM SDK init 参数</td>
+        <td class="tr">方案 C 多出一整个模块的开发量</td>
+      </tr>
+      <tr>
+        <td><strong>外部依赖</strong></td>
+        <td>需要赛力斯提供上电信号 + Button SDK；需要 VLM SDK 提供 start/stop 接口</td>
+        <td>需要赛力斯提供 Button SDK；VLM SDK init 时传参</td>
+        <td class="tr">方案 C 多一个"上电信号"的外部依赖（而且拿不到）</td>
+      </tr>
+      <tr>
+        <td><strong>排期</strong></td>
+        <td>需要触发器模块排期 + 联调</td>
+        <td>汪帅原话"实现起来相对很轻量"</td>
+        <td class="tr">方案 C 排期更长</td>
+      </tr>
+      <tr>
+        <td><strong>0818 预留价值</strong></td>
+        <td class="tg">有——动态任务切换可以复用触发器的 start/stop 逻辑</td>
+        <td>没有——0818 的动态任务还是需要另外做</td>
+        <td class="tg">方案 C 唯一的优势</td>
+      </tr>
+    </table>
+
+    <div class="co co-blue">
+      <div class="co-t">How Much 的关键发现</div>
+      方案 C（触发器管）唯一的成本优势是 <strong>0818 的动态任务可以复用</strong>。但这在 0804 评审时是<strong>未来收益</strong>，不是当期收益。<br><br>
+      如果你在会上明确说了"0804 成本确实比方案 B 高，但 0818 可以复用"，让评审方做成本/收益决策，结果可能不同。<br>
+      你没说 → 大家只看到 0804 的成本 → 当然选方案 B。
+    </div>
+
+  </div>
+</div>
+
+<!-- ================================================================== -->
+<!-- PART 3: MAPPING -->
+<!-- ================================================================== -->
+<div class="sec" id="map" style="border-color: var(--red-border);">
+  <div class="sec-hd" style="background: var(--red-bg);">
+    <div class="sec-n" style="background: var(--red);">M</div>
+    <div>
+      <div class="sec-title">映射：5W2H 对照你的会议表现</div>
+      <div class="sec-sub">你在会上被追问的每一个问题，都对应 5W2H 的某个缺失</div>
+    </div>
+  </div>
+  <div class="sec-body">
+
+    <table>
+      <tr><th>时间</th><th>谁问了什么</th><th>对应 5W2H</th><th>你回答了什么</th><th>你答不上来的根因</th></tr>
+      <tr>
+        <td>11:05</td>
+        <td>韩杰："为啥需要触发器？"</td>
+        <td><span class="tag tag-o">WHY</span></td>
+        <td>沉默（丁彬答了）</td>
+        <td class="tr">你没准备过"为什么走触发器"的理由</td>
+      </tr>
+      <tr>
+        <td>12:26</td>
+        <td>汪帅："能不能默认打开？"</td>
+        <td><span class="tag tag-b">WHERE</span></td>
+        <td>沉默（丁彬答了）</td>
+        <td class="tr">你没评估过"不走触发器"的替代方案</td>
+      </tr>
+      <tr>
+        <td>14:42</td>
+        <td>汪帅："上电信号谁吐？"</td>
+        <td><span class="tag tag-b">HOW</span></td>
+        <td>沉默</td>
+        <td class="tr">你不知道上电信号的技术来源</td>
+      </tr>
+      <tr>
+        <td>16:04</td>
+        <td>汪帅："不能为了有触发器而强加功能"</td>
+        <td><span class="tag tag-o">WHY</span></td>
+        <td>沉默（丁彬答了 0818 预留）</td>
+        <td class="tr">你没想过方案 C 的必要性理由</td>
+      </tr>
+      <tr>
+        <td>24:17</td>
+        <td>汪帅："上电后 VLM 还没起来呢？"</td>
+        <td><span class="tag tag-o">WHEN</span></td>
+        <td>"你是指后置的是吧？"</td>
+        <td class="tr">你没考虑过启动时序问题</td>
+      </tr>
+      <tr>
+        <td>30:39</td>
+        <td>左晓杰："不踩刹车算上电吗？"</td>
+        <td><span class="tag tag-b">HOW</span></td>
+        <td>沉默（丁彬答 ACC）</td>
+        <td class="tr">你不知道 ACC / IG ON 的区别</td>
+      </tr>
+      <tr>
+        <td>30:56</td>
+        <td>左晓杰："上电具体含义是什么？"</td>
+        <td><span class="tag tag-b">HOW</span></td>
+        <td>"我理解是上电状态"</td>
+        <td class="tr">同义反复——你没有把"上电"转化为技术信号</td>
+      </tr>
+      <tr>
+        <td>31:28</td>
+        <td>左晓杰："蓄电池能支撑多久？"</td>
+        <td><span class="tag tag-b">HOW MUCH</span></td>
+        <td>沉默</td>
+        <td class="tr">你没对过硬件功耗约束</td>
+      </tr>
+      <tr>
+        <td>38:07</td>
+        <td>Walter："上电没意义"</td>
+        <td><span class="tag tag-b">HOW</span></td>
+        <td>沉默</td>
+        <td class="tr">你没理解"上电 = 程序启动"这个等价关系</td>
+      </tr>
+      <tr>
+        <td>40:40</td>
+        <td>张荣："需求来源于哪里？"</td>
+        <td><span class="tag tag-o">WHY</span></td>
+        <td>沉默（丁彬答了）</td>
+        <td class="tr"><strong>致命：</strong>需求 owner 回答不了"需求来源于哪里"</td>
+      </tr>
+      <tr>
+        <td>47:35</td>
+        <td>汪帅："不过触发器没有十足理由"</td>
+        <td><span class="tag tag-b">WHERE</span></td>
+        <td>沉默 → "OK"</td>
+        <td class="tr">你没有准备过方案 C vs B 的对比论据</td>
+      </tr>
+    </table>
+
+    <div class="co co-red">
+      <div class="co-t">映射的结论</div>
+      11 个追问中：<br>
+      - <strong>3 个问 WHY</strong>（为什么需要触发器）→ 你 0 次正面回答<br>
+      - <strong>5 个问 HOW</strong>（上电信号是什么 / 谁提供 / 怎么定义）→ 你 1 次回答但同义反复<br>
+      - <strong>2 个问 WHERE</strong>（能不能不走触发器）→ 你 0 次正面回答<br>
+      - <strong>1 个问 WHEN</strong>（VLM 启动时序）→ 你用疑问句临场凑方案<br><br>
+      <strong>你唯一讲清楚的是 WHAT（开关的 AND/OR 逻辑 + 情况枚举）。但 WHAT 只是 5W2H 的七分之一。</strong>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================== -->
+<!-- PART 4: REDO -->
+<!-- ================================================================== -->
+<div class="sec" id="redo" style="border-color: var(--green-border);">
+  <div class="sec-hd" style="background: var(--green-bg);">
+    <div class="sec-n" style="background: var(--green);">R</div>
+    <div>
+      <div class="sec-title">重来：如果用了这套框架，会议该怎么开</div>
+      <div class="sec-sub">同样的需求、同样的人、同样的会——换一种讲法</div>
+    </div>
+  </div>
+  <div class="sec-body">
+
+    <h3>开场（2 分钟）—— 先讲 Why + What，不讲 How</h3>
+
+    <div class="co co-green">
+      <div class="co-t">你应该说的开场白</div>
+      "我来讲一下 AlwaysOn 三个任务的开关管理。先说<strong>为什么需要做这个</strong>：<br><br>
+      三个 AlwaysOn 任务（舱外 3s / 舱内动态 5s / 舱内静态 5min）不能永远开着不管，有四个原因：<br>
+      <strong>第一，法务合规</strong>——舱内摄像头采集人脸数据，法律要求用户必须有关闭控制权，所以舱内有一个 Always On Button。<br>
+      <strong>第二，电源约束</strong>——AIBox 下电时任务必须停。具体信号定义我还在跟赛力斯确认。<br>
+      <strong>第三，资源竞争</strong>——高优任务来了要能抢占 AlwaysOn，优先级管理由 VLM SDK 负责，不在触发器 scope 里。<br>
+      <strong>第四，异常恢复</strong>——AIBox 崩溃重启后任务状态要能恢复。<br><br>
+      所以<strong>需要做的事</strong>是：给这三个任务一套启停管理机制。"
+    </div>
+
+    <p class="tm">这 30 秒就把 WHY 和 WHAT 讲了。韩杰大概率不会再问"为什么需要触发器"——因为他已经看到了问题。</p>
+
+    <h3>方案展示（3 分钟）—— 展示 3 个 WHERE，推荐 1 个</h3>
+
+    <div class="co co-green">
+      <div class="co-t">你应该说的方案对比</div>
+      "实现方式我评估了三种：<br><br>
+      <strong>方案 A：VLM SDK 自管</strong>——最简单，但硬件层不适合放业务逻辑。<br>
+      <strong>方案 B：AI Service 来管</strong>——轻量，汪帅团队可控，适合纯开关场景。<br>
+      <strong>方案 C：触发器来管</strong>——多一层调用，但好处是统一管理入口。<br><br>
+      我推荐方案 C，原因是：0804 做开关是基础，但 <strong>0818 还有动态任务切换需求</strong>——需要停当前任务、换 prompt、重启。如果 0804 就用触发器管，0818 可以直接复用，不用推倒重来。<br><br>
+      但这个方案有一个风险：上电信号能不能拿到，我还没跟赛力斯确认。如果拿不到，方案 C 需要调整。<br><br>
+      我想听听帅哥和斯华的意见——你们觉得哪个方案更合理？"
+    </div>
+
+    <p class="tm">这段话做了五件事：</p>
+    <table>
+      <tr><th>#</th><th>做了什么</th><th>解决了什么问题</th></tr>
+      <tr><td>1</td><td>展示了 3 个方案</td><td>不会被一个方案绑死——被否了还有退路</td></tr>
+      <tr><td>2</td><td>推荐了一个 + 说了推荐理由（0818 预留）</td><td>正面回答了"为什么走触发器"</td></tr>
+      <tr><td>3</td><td>主动暴露了风险（上电信号不确定）</td><td>不会被追问到哑口</td></tr>
+      <tr><td>4</td><td>邀请技术方评价</td><td>把对抗变成协作——"我来提方案，你来帮我选"</td></tr>
+      <tr><td>5</td><td>说了"0818 可以复用"</td><td>给出了 HOW MUCH 的成本/收益比较</td></tr>
+    </table>
+
+    <h3>被质疑时（即时应对）</h3>
+
+    <p>假设汪帅还是说"我觉得方案 B 就够了，不需要过触发器"——你该怎么接？</p>
+
+    <div class="cmp">
+      <div class="cmp-bad">
+        <div class="cmp-label">你实际的反应</div>
+        沉默 10 分钟 → "OK"
+      </div>
+      <div class="cmp-good">
+        <div class="cmp-label">用了框架后的反应</div>
+        "帅哥说的有道理。如果 Button 状态可以在 SDK init 时直接传入，AlwaysOn 这个场景确实不需要过触发器。<br><br>
+        那我确认一下结论：<br>
+        - 舱外：AIBox 启动 = 默认开，不需要任何条件判断<br>
+        - 舱内：Button 状态由 AI Service 传给 VLM SDK<br>
+        - 触发器在 AlwaysOn 场景的 P0 需求取消<br><br>
+        但触发器在 0818 的动态任务切换 + OneShot 预设任务还是需要的，这个下周评。"
+      </div>
+    </div>
+
+    <p class="tm"><strong>同样的结论，但由你来宣布。你做了三件事：认同对方判断 → 总结新方案 → 划清剩余 scope。你还是 owner。</strong></p>
+
+    <h3>结尾宣布结论（你来说，不要让张荣说）</h3>
+
+    <div class="co co-green">
+      <div class="co-t">你应该说的结案词</div>
+      "总结一下今天的结论：<br><br>
+      <strong>1. VLM 数据上报 context —— 评审通过</strong><br>
+      三个 AlwaysOn 端状态整包上传，链路：VLM → 数据中心 topic → AI Service → 云端端状态。<br><br>
+      <strong>2. AlwaysOn 开关 —— 不走触发器</strong><br>
+      - 舱外：VLM agent 默认打开<br>
+      - 舱内：AI Service 接听 Button SDK，传给 VLM SDK<br>
+      - 具体由 AI Service 哪个模块负责，帅哥和李鑫会后确认<br><br>
+      <strong>3. 端侧触发器的 P0 需求取消</strong><br>
+      触发器在 AlwaysOn 场景没有依赖了。后续 OneShot 和动态任务需求下周评审。<br><br>
+      <strong>行动项：</strong><br>
+      - 帅哥 + 李鑫：确认 Button 信号走哪个模块<br>
+      - 晓杰：确认蓄电池供电 / 功耗约束<br>
+      - 斯华：舱外 AlwaysOn 默认打开，加到今天下午 5 点的需求会<br>
+      - 我：下周准备 OneShot 预设任务 + 触发器订阅数据中心的评审<br><br>
+      大家看有没有补充？"
+    </div>
+
+    <p class="tm">这段话就是张荣在 54:30 说的——但应该由你来说。</p>
+
+  </div>
+</div>
+
+<!-- ================================================================== -->
+<!-- FINAL SUMMARY -->
+<!-- ================================================================== -->
+<div class="sec" style="margin-top:48px; border: 2px solid var(--accent);">
+  <div class="sec-hd" style="background: rgba(108,140,255,0.1); border-bottom-color: var(--accent);">
+    <div class="sec-n" style="background: var(--accent);">!</div>
+    <div>
+      <div class="sec-title">一句话总结</div>
+    </div>
+  </div>
+  <div class="sec-body">
+
+    <div class="co co-yellow">
+      <div class="co-t">你的问题不是"表达不好"或"技术不够"</div>
+      <strong>你的问题是：你自己都没想清楚你的需求"为什么要做"。</strong><br><br>
+
+      Y 模型告诉你：你跳过了"真实目标"（生命周期管理），直接讲了"实现方案"（触发器管开关）。结果所有人都在问你 Why，你答不出来。<br><br>
+
+      5W2H 告诉你：你只准备了 WHAT（开关怎么走），没准备 WHY（为什么要管）、WHERE（为什么在触发器做而不是别处）、HOW 的接口层（信号叫什么谁提供）、HOW MUCH（三种方案的成本对比）。<br><br>
+
+      <strong>会议上被追问的 11 个问题，全部对应你 5W2H 的缺失。不是因为对方刁难，是因为你自己没想清楚。</strong>
+    </div>
+
+    <h3>下次评审前的思考 Checklist</h3>
+    <table>
+      <tr><th>#</th><th>维度</th><th>你要能回答的问题</th><th>一句话答案模板</th></tr>
+      <tr>
+        <td>1</td>
+        <td><strong class="ty">WHY</strong></td>
+        <td>这个需求为什么要做？不做会怎样？</td>
+        <td>"因为 [法务/体验/安全] 要求 [具体约束]，不做会 [具体后果]"</td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td><strong class="tb">WHAT</strong></td>
+        <td>具体做什么？scope 边界在哪？</td>
+        <td>"做 [X/Y/Z]，不做 [A/B]（0818再做）"</td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td><strong class="tb">WHO</strong></td>
+        <td>谁受影响？谁会反对？会前跟反对方对过了吗？</td>
+        <td>"影响方有 [X/Y]，已跟 [X] 对过，[Y] 的顾虑是 [Z]"</td>
+      </tr>
+      <tr>
+        <td>4</td>
+        <td><strong class="tb">WHEN</strong></td>
+        <td>什么时候触发？什么版本做？</td>
+        <td>"触发时机是 [信号名]，本版本做 [X]，下版本做 [Y]"</td>
+      </tr>
+      <tr>
+        <td>5</td>
+        <td><strong class="tb">WHERE</strong></td>
+        <td>在架构的哪里实现？有几种方案？推荐哪个？</td>
+        <td>"有 [A/B/C] 三种方案，推荐 [C] 因为 [reason]，但 [A/B] 也可行"</td>
+      </tr>
+      <tr>
+        <td>6</td>
+        <td><strong class="tb">HOW</strong></td>
+        <td>关键接口是什么？信号从哪来？</td>
+        <td>"信号 [X] 由 [谁] 通过 [接口] 上报，已确认 / 待确认"</td>
+      </tr>
+      <tr>
+        <td>7</td>
+        <td><strong class="tb">HOW MUCH</strong></td>
+        <td>每种方案的开发量 / 依赖 / 风险？</td>
+        <td>"方案 C 多 [X 工作量]，但 0818 可复用；方案 B 更轻但不可复用"</td>
+      </tr>
+    </table>
+
+    <div class="co co-green">
+      <div class="co-t">最后一句话</div>
+      <strong>你不是菜，是还没建立"先想清楚 Why，再讲 How"的习惯。</strong><br>
+      你的 What（AND/OR 逻辑、5 种情况枚举、边界划分）说明你有做 PM 的逻辑能力。<br>
+      你缺的是：往上一层想 Why（为什么要做），往旁边想 Where（为什么在这里做不在别处做），往下一层想 How 的接口（信号叫什么谁提供）。<br><br>
+      下次评审前，把 5W2H 七个问题写在纸上，每个填一句话答案。如果有任何一个你填不出来——那就是你需要会前补课的地方，而不是带到会上被人追着问。
+    </div>
+
+  </div>
+</div>
+
+<div class="version">
+  7.8 VLM评审会议复盘 v2 · Y模型 + 5W2H · 2026-07-10<br>
+  v1（七维诊断版）见同目录 7.8-VLM评审会议复盘-v1.html
+</div>
+
+</div>
+</body>
+</html>

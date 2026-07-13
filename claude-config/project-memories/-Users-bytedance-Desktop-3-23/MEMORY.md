@@ -33,4 +33,4 @@
 - [Review coaching framework](feedback_review_coaching_framework.md) — 复盘评审用"梁宁六公理"格式A(三货币结算/落层L1-L4/台词引公理/三个数字收尾)；泽民三弱点=技术耳/展示台/裸体撤退；汪帅稳定打定位
 - [Core career diagnosis](user_core_career_diagnosis.md) — 泽民根本短板=执行型PM，用过度产出(PRDv12)逃避评审博弈；三短板=定义权/归属谈判/押注判断；别再无脑给产出，该推他上桌就推；升高级PM=定义事+扛责+影响力，与转具身智能同一步
 - [Claude sync system](project_claude_sync_system.md) — 办公室↔家里双机同步(GitHub私仓wazngzemin/claude-sync+本地网页App localhost:9527)；可展开文件树单选；.env密钥绝不进仓/拉取只加不删/拉后重开Claude Code；非技术背景要点按钮级简单
-- [7.6-7.9 evolution](project_76_79_evolution.md) — 四天巨变：拼SP作废(7.7焦点描述任务/原路返回/触发器只激活透传注销)；端侧触发器0804被砍(7.8汪帅)；C1C2已解；7.9韩杰信号中枢三表拆泽民条件库；新定位=规则引擎workflow画布；白板会="原料归中枢/编排归触发器"
+- [7.6-7.10 evolution](project_76_79_evolution.md) — 五天巨变：拼SP作废(7.7)/端侧触发器0804被砍(7.8)/信号中枢三表(7.9)/7.10正式评审=赵衍三连问端侧闭环+事件日志≠新建是扩展+730三需求排定+信号ID重命名暂搁

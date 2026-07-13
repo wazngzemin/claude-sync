@@ -23,7 +23,7 @@ status: active
 | [[advisor]] | 主动服务模块：基于Always On事件发现主动发起交互推荐 |
 | [[always-on]] | 全时监听模块：端侧持续多模态聆听、情景理解、事件发现 |
 | [[seres]] | 赛力斯：AI Car核心OEM合作伙伴，联合用户调研和产品共创 |
-| [[trigger-engine]] | 触发器引擎：条件任务执行底座，云端注册仲裁+端侧判断触发，13条需求覆盖条件清单/端云分工/地理围栏等 |
+| [[trigger-engine]] | 触发器引擎：条件任务执行底座，7.10后纳入信号中枢统一框架，触发事件+条件串行漏斗+多动作类型(Advisor/事件日志/TTS) |
 
 ## 概念页 (concepts/)
 
@@ -41,7 +41,8 @@ status: active
 | [[task-replan]] | 任务重规划Replan：下游agent失败或任务打断后重新生成执行计划 |
 | [[funnel-principle]] | 漏斗原则：句法RAG→情景RAG→复杂Planner的三层分层处理架构 |
 | [[emotional-value]] | 情绪价值：用户对车载语音助手情感陪伴 vs 工具理性的期望与平衡 |
-| [[trigger-condition-taxonomy]] | 触发器条件分类体系：三种取值判断（布尔/数值阈值/变更为）、条件类型维度、清单标准字段、条件组合规则 |
+| [[trigger-condition-taxonomy]] | 触发器条件分类体系：7.10后扩展为触发事件+条件二分法，三种取值判断、条件类型维度(含VLM)、串行/并行/延时复合组合 |
+| [[signal-hub]] | 信号中枢：韩杰7.10提出的统一框架，端状态/触发事件/条件三表统管，配置平台→workflow画布运营平台演进路线 |
 | [[meeting-communication-strategy]] | 会议表达改进策略：语速控制、句子逻辑训练、被质疑时的反应训练、会前准备清单 |
 | [[planner-system-deep-dive]] | Planner 系统全景深度拆解：三层漏斗、SP/UP结构、缓存机制、上下文优化、四种任务类型、Goal List + Advisor |
 | [[planner-training-pipeline]] | Planner 模型训练全流程：Function Call 数据范式、蒸馏管线（Kimi K2→GPT-4o→SFT→RL）、并行/串行任务训练样例 |
@@ -101,6 +102,7 @@ status: active
 | [[meeting-0531-seres-requirement-alignment]] | 文字记录：赛力斯需求梳理对齐 2026年5月31日.md | 5.31 赛力斯 6h 需求对齐会：15 评审组逐场景纪要 + 四大需求类型分工 + 双方责任边界总表 + 6 条决议(D5 一方应用/D4 always-on≠主动服务) + 与上汽差异汇总 + T1-T20 |
 | [[trigger-requirements-full-chain-detail]] | trigger-requirements-full-chain-detail.html | 触发器 13 条需求全链路拆解：每条 5 环节（输入→交付→分发→运转→验收）+ 术语词典 + 交付物字段级规格 + 依赖链 |
 | [[anthropic-data-governance-ai-first]] | anthropic-data-governance-ai-first-hanniman.md | 黄钊解读 Anthropic 自助分析：模型是最后一层接口、数据治理才是瓶颈、21/95/65 曲线、人是污染源、AI First 重设计；含与场景知识 Skill 质量的镜像分析 |
+| [[meeting-0710-sls-signal-context-trigger-review]] | 7月10日sls端状态接入context,接入触发器需求评审.md | 7.10 SLS端状态接入+触发器评审：信号中枢三表统一、触发事件/条件拆分、事件日志新链路、端侧触发器定位争议、730三需求、信号协议改动 |
 
 ## 综合分析 (synthesis/)
 

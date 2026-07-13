@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>记忆宫殿单词卡</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: #0a0a0f;
+  color: #e8e8ed;
+  min-height: 100vh;
+  padding: 40px 20px 80px;
+}
+
+.container { max-width: 760px; margin: 0 auto; }
+
+h1 {
+  font-size: 32px;
+  font-weight: 800;
+  text-align: center;
+  margin-bottom: 6px;
+  background: linear-gradient(135deg, #7c5cfc, #c084fc, #e879f9);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.subtitle {
+  text-align: center;
+  color: #555;
+  font-size: 14px;
+  margin-bottom: 36px;
+}
+
+.search-bar {
+  position: relative;
+  margin-bottom: 28px;
+}
+
+.search-bar input {
+  width: 100%;
+  padding: 14px 20px 14px 48px;
+  border-radius: 14px;
+  border: 1px solid #2a2a35;
+  background: #14141c;
+  color: #e8e8ed;
+  font-size: 16px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.search-bar input:focus { border-color: #7c5cfc; }
+.search-bar input::placeholder { color: #555; }
+
+.search-bar .search-icon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #555;
+  font-size: 18px;
+  pointer-events: none;
+}
+
+.stats {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  margin-bottom: 28px;
+}
+
+.stat {
+  text-align: center;
+}
+
+.stat-num {
+  font-size: 28px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #7c5cfc, #c084fc);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #555;
+  margin-top: 2px;
+}
+
+.cards { display: flex; flex-direction: column; gap: 20px; }
+
+.card {
+  background: #14141e;
+  border: 1px solid #222230;
+  border-radius: 16px;
+  overflow: hidden;
+  transition: all 0.25s ease;
+}
+
+.card:hover {
+  border-color: #3a3a4a;
+  box-shadow: 0 4px 24px rgba(124, 92, 252, 0.06);
+}
+
+.card-top {
+  padding: 20px 24px 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card-top-left {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.card-word {
+  font-size: 24px;
+  font-weight: 800;
+  color: #c084fc;
+  letter-spacing: 0.5px;
+}
+
+.card-meaning {
+  font-size: 17px;
+  color: #b0b0c0;
+  font-weight: 600;
+}
+
+.card-chevron {
+  font-size: 14px;
+  color: #444;
+  transition: transform 0.3s ease;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+}
+
+.card.open .card-chevron { transform: rotate(180deg); }
+
+.card-detail {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.4s ease;
+}
+
+.card.open .card-detail { max-height: 500px; }
+
+.card-detail-inner {
+  padding: 0 24px 24px;
+}
+
+.card-phonetic-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.card-homophone {
+  font-size: 15px;
+  color: #9a8afc;
+  font-weight: 600;
+}
+
+.card-ipa {
+  font-size: 14px;
+  color: #666;
+  font-family: 'Lucida Grande', serif;
+}
+
+.tag {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.tag-compound { background: #12261a; color: #4ade80; }
+.tag-root { background: #261228; color: #e879f9; }
+.tag-homophone { background: #121826; color: #60a5fa; }
+
+.card-scene-box {
+  background: #1a1a26;
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin-bottom: 0;
+}
+
+.card-scene {
+  font-size: 15px;
+  line-height: 2;
+  color: #d0d0dc;
+}
+
+.card-scene .ck {
+  color: #a78bfa;
+  font-weight: 700;
+  background: rgba(124, 92, 252, 0.1);
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+
+.card-divider {
+  height: 1px;
+  background: #2a2a38;
+  margin: 14px 0;
+}
+
+.card-anchor {
+  font-size: 14px;
+  color: #c084fc;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-anchor::before {
+  content: '';
+  width: 4px;
+  height: 16px;
+  background: linear-gradient(180deg, #7c5cfc, #c084fc);
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.no-results {
+  text-align: center;
+  padding: 60px 20px;
+  color: #444;
+  font-size: 15px;
+  display: none;
+}
+
+.footer {
+  text-align: center;
+  margin-top: 40px;
+  padding-top: 24px;
+  border-top: 1px solid #1a1a24;
+  color: #333;
+  font-size: 12px;
+  line-height: 1.8;
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>记忆宫殿单词卡</h1>
+  <p class="subtitle">为互联网 / AI 从业者设计 &mdash; 点击卡片展开记忆画面</p>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="search-bar">
+    <span class="search-icon">&#x1F50D;</span>
+    <input type="text" id="searchInput" placeholder="搜索单词或中文释义..." autocomplete="off">
+  </div>
+
+  <div class="cards" id="cards"></div>
+  <div class="no-results" id="noResults">没有匹配的卡片</div>
+
+  <div class="footer">
+    发音准确 &gt; 逻辑连贯 &gt; 落到词义 &gt; 互联网场景<br>
+    记忆宫殿法 &middot; 代替法 + 锁链法
+  </div>
+</div>
+
+<script>
+const DB = [
+  {
+    word: "adapt",
+    meaning: "适应",
+    homophone: "额-戴普特",
+    ipa: "/əˈdæpt/",
+    method: "homophone",
+    scene: '一<span class="ck">（a）</span>个人打<span class="ck">（da）</span>喷嚏扑通<span class="ck">（pt）</span>栽倒，新环境水土不服',
+    anchor: "需要慢慢适应"
+  },
+  {
+    word: "adopt",
+    meaning: "采用",
+    homophone: "额-道普特",
+    ipa: "/əˈdɒpt/",
+    method: "homophone",
+    scene: '打喷嚏之后采用药物治疗，药丸是圆<span class="ck">（o）</span>形的',
+    anchor: "用圆形 o 记住和 adapt 的差别字母"
+  },
+  {
+    word: "bottleneck",
+    meaning: "瓶颈",
+    homophone: "鲍头-耐克",
+    ipa: "/ˈbɒtlnek/",
+    method: "compound",
+    scene: '瓶子<span class="ck">（bottle）</span>的脖子<span class="ck">（neck）</span>最细，水流到这里全堵住了',
+    anchor: "系统性能卡住的地方就是瓶颈"
+  },
+  {
+    word: "sympathy",
+    meaning: "同情",
+    homophone: "辛帕思",
+    ipa: "/ˈsɪmpəθi/",
+    method: "root",
+    scene: '帅爷们<span class="ck">（sym）</span>感觉<span class="ck">（path）</span>到了，歪着头叹气<span class="ck">（y）</span>',
+    anchor: "他对别人的处境产生了同情"
+  },
+  {
+    word: "empathy",
+    meaning: "共情",
+    homophone: "恩帕思",
+    ipa: "/ˈempəθi/",
+    method: "root",
+    scene: '走进去<span class="ck">（em-）</span>感觉<span class="ck">（path）</span>到了——不是旁观者的同情，是钻进对方身体里去感受',
+    anchor: "em- 是"进入"，进入对方的感觉 = 共情"
+  },
+  {
+    word: "threshold",
+    meaning: "阈值",
+    homophone: "斯瑞什-后德",
+    ipa: "/ˈθreʃhoʊld/",
+    method: "homophone",
+    scene: '三<span class="ck">（thre）</span>道报警线闪<span class="ck">（sh）</span>烁，hold住<span class="ck">（hold）</span>不许越过',
+    anchor: "只有突破这条线——阈值——才会触发报警"
+  },
+  {
+    word: "latency",
+    meaning: "延迟",
+    homophone: "雷腾-C",
+    ipa: "/ˈleɪtənsi/",
+    method: "homophone",
+    scene: '用户点了按钮，迟<span class="ck">（late）</span>迟等不到响应，盯着<span class="ck">（n）</span>转圈<span class="ck">（cy）</span>的 loading',
+    anchor: "接口响应太慢——这就是延迟"
+  },
+  {
+    word: "deploy",
+    meaning: "部署",
+    homophone: "迪-普洛伊",
+    ipa: "/dɪˈplɔɪ/",
+    method: "homophone",
+    scene: '深夜<span class="ck">（de）</span>值班，一行命令<span class="ck">（ploy）</span>敲下去，代码从本地飞到线上',
+    anchor: "服务上线——部署完成"
+  },
+  {
+    word: "throughput",
+    meaning: "吞吐量",
+    homophone: "斯鲁-普特",
+    ipa: "/ˈθruːpʊt/",
+    method: "compound",
+    scene: '数据流穿过<span class="ck">（through）</span>管道被推出来<span class="ck">（put）</span>，一秒过了多少条',
+    anchor: "管道每秒能推出多少——吞吐量"
+  },
+  {
+    word: "rollback",
+    meaning: "回滚",
+    homophone: "柔-拜克",
+    ipa: "/ˈroʊlbæk/",
+    method: "compound",
+    scene: '上线出 bug，赶紧把代码卷<span class="ck">（roll）</span>回<span class="ck">（back）</span>去，版本倒退一格',
+    anchor: "紧急撤回——回滚"
+  },
+  {
+    word: "iterate",
+    meaning: "迭代",
+    homophone: "伊特-瑞特",
+    ipa: "/ˈɪtəreɪt/",
+    method: "root",
+    scene: '一<span class="ck">（i）</span>条路<span class="ck">（ter）</span>走不通，再走<span class="ck">（ate）</span>一条——每次走出新路线',
+    anchor: "反复走新路线 = 迭代"
+  },
+  {
+    word: "deprecate",
+    meaning: "弃用",
+    homophone: "戴普-瑞凯特",
+    ipa: "/ˈdeprəkeɪt/",
+    method: "root",
+    scene: '老接口额头上贴了一张<span class="ck">（de）</span>便签：「求<span class="ck">（prec）</span>你们别<span class="ck">（ate）</span>再调我了」',
+    anchor: "标记为不推荐使用——弃用"
+  },
+  {
+    word: "resilient",
+    meaning: "有弹性的/高可用",
+    homophone: "瑞-兹利恩特",
+    ipa: "/rɪˈzɪliənt/",
+    method: "homophone",
+    scene: '服务器被瑞<span class="ck">（re）</span>兹<span class="ck">（zil）</span>一拳打倒，弹<span class="ck">（lient）</span>了回来继续跑',
+    anchor: "打不死的服务——高可用"
+  },
+  {
+    word: "idempotent",
+    meaning: "幂等的",
+    homophone: "爱登-剖腾特",
+    ipa: "/aɪˈdempətənt/",
+    method: "root",
+    scene: '同一个按钮<span class="ck">（idem）</span>按一次和按十次<span class="ck">（potent）</span>，系统状态一模一样',
+    anchor: "重复操作结果不变——幂等"
+  },
+  {
+    word: "paradigm",
+    meaning: "范式",
+    homophone: "派拉-代姆",
+    ipa: "/ˈpærədaɪm/",
+    method: "root",
+    scene: '一对<span class="ck">（para）</span>标杆模型<span class="ck">（digm）</span>竖在那里，所有后来者照着它的样子做',
+    anchor: "大家照着做的标准模型——范式"
+  },
+  {
+    word: "quite",
+    meaning: "相当",
+    homophone: "夸特",
+    ipa: "/kwaɪt/",
+    method: "homophone",
+    scene: '取<span class="ck">（qu）</span>出一根相当大的蜡烛<span class="ck">（i 象形蜡烛）</span>，很特<span class="ck">（te）</span>别',
+    anchor: "相当特别"
+  },
+  {
+    word: "quiet",
+    meaning: "安静的",
+    homophone: "夸爱特",
+    ipa: "/ˈkwaɪət/",
+    method: "homophone",
+    scene: '和 quite 结尾的 <span class="ck">et</span> 和 <span class="ck">te</span> 顺序刚好相反',
+    anchor: "字母一调换，从"相当"变成"安静""
+  },
+  {
+    word: "mutex",
+    meaning: "互斥锁",
+    homophone: "谬-泰克斯",
+    ipa: "/ˈmjuːteks/",
+    method: "compound",
+    scene: '互相<span class="ck">（mut-ual）</span>排斥<span class="ck">（ex-clusive）</span>，两个线程抢同一把锁，只有一个能进门',
+    anchor: "同一时刻只允许一个通过——互斥锁"
+  },
+  {
+    word: "cache",
+    meaning: "缓存",
+    homophone: "凯什",
+    ipa: "/kæʃ/",
+    method: "homophone",
+    scene: '收银台旁的快<span class="ck">（ca）</span>取架<span class="ck">（che）</span>，最常买的东西放在伸手就够到的地方',
+    anchor: "把高频数据放在最近的地方——缓存"
+  },
+  {
+    word: "scaffold",
+    meaning: "脚手架",
+    homophone: "思凯-佛德",
+    ipa: "/ˈskæfəld/",
+    method: "homophone",
+    scene: '新项目刚起步，先搭<span class="ck">（sca）</span>一层<span class="ck">（ff）</span>骨架<span class="ck">（old）</span>，代码模板自动生成目录结构',
+    anchor: "项目初始化的骨架——脚手架"
+  }
+];
+
+const methodLabels = {
+  compound: ['复合词', 'tag-compound'],
+  root: ['词根', 'tag-root'],
+  homophone: ['谐音', 'tag-homophone']
+};
+
+function renderCard(c, i) {
+  const [label, cls] = methodLabels[c.method] || ['谐音', 'tag-homophone'];
+  return `
+  <div class="card open" data-idx="${i}" data-word="${c.word}" data-meaning="${c.meaning}">
+    <div class="card-top" onclick="toggleCard(this)">
+      <div class="card-top-left">
+        <span class="card-word">（${c.word}）</span>
+        <span class="card-meaning">${c.meaning}</span>
+        <span class="tag ${cls}">${label}</span>
+      </div>
+      <span class="card-chevron">▼</span>
+    </div>
+    <div class="card-detail">
+      <div class="card-detail-inner">
+        <div class="card-phonetic-row">
+          <span class="card-homophone">${c.homophone}</span>
+          <span class="card-ipa">${c.ipa}</span>
+        </div>
+        <div class="card-scene-box">
+          <div class="card-scene">${c.scene}</div>
+          <div class="card-divider"></div>
+          <div class="card-anchor">${c.anchor}</div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderAll(list) {
+  const container = document.getElementById('cards');
+  const noRes = document.getElementById('noResults');
+  if (list.length === 0) {
+    container.innerHTML = '';
+    noRes.style.display = 'block';
+    return;
+  }
+  noRes.style.display = 'none';
+  container.innerHTML = list.map((c, i) => renderCard(c, i)).join('');
+}
+
+function renderStats(count) {
+  document.getElementById('stats').innerHTML = `
+    <div class="stat"><div class="stat-num">${count}</div><div class="stat-label">张卡片</div></div>
+    <div class="stat"><div class="stat-num">${new Set(DB.map(c=>c.method)).size}</div><div class="stat-label">种记法</div></div>
+  `;
+}
+
+function toggleCard(el) {
+  el.closest('.card').classList.toggle('open');
+}
+
+document.getElementById('searchInput').addEventListener('input', function() {
+  const q = this.value.trim().toLowerCase();
+  if (!q) { renderAll(DB); return; }
+  const filtered = DB.filter(c =>
+    c.word.toLowerCase().includes(q) ||
+    c.meaning.includes(q) ||
+    c.homophone.includes(q)
+  );
+  renderAll(filtered);
+});
+
+// 强制清空搜索框（防止浏览器自动填充缓存值）
+const searchEl = document.getElementById('searchInput');
+searchEl.value = '';
+window.addEventListener('pageshow', function() {
+  searchEl.value = '';
+  renderAll(DB);
+});
+
+renderAll(DB);
+renderStats(DB.length);
+</script>
+</body>
+</html>

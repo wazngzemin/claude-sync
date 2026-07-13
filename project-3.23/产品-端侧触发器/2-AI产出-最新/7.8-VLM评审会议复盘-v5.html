@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>7.8 VLM评审 · 产品分析</title>
+<style>
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --surface2: #232733;
+    --border: #2e3345; --text: #e2e4eb; --text2: #9ba1b5;
+    --accent: #6c8cff; --red: #ff6b6b; --red-bg: rgba(255,107,107,0.08);
+    --red-border: rgba(255,107,107,0.25); --orange: #ffa94d;
+    --orange-bg: rgba(255,169,77,0.08); --orange-border: rgba(255,169,77,0.25);
+    --green: #69db7c; --green-bg: rgba(105,219,124,0.08);
+    --green-border: rgba(105,219,124,0.25); --yellow: #ffd43b;
+    --yellow-bg: rgba(255,212,59,0.08); --yellow-border: rgba(255,212,59,0.25);
+    --purple: #b197fc; --purple-bg: rgba(177,151,252,0.08);
+    --purple-border: rgba(177,151,252,0.25); --blue: #74c0fc;
+    --blue-bg: rgba(116,192,252,0.08); --blue-border: rgba(116,192,252,0.25);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: -apple-system, "SF Pro Text", "Helvetica Neue", "PingFang SC", sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.8; padding: 0;
+  }
+  .header {
+    background: linear-gradient(135deg, #1a1d27 0%, #232733 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 40px 24px 32px; text-align: center;
+  }
+  .header h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .header .sub { font-size: 13px; color: var(--text2); }
+  .content { max-width: 880px; margin: 0 auto; padding: 24px 24px 80px; }
+
+  h2 {
+    font-size: 17px; font-weight: 700; margin: 40px 0 16px;
+    padding-bottom: 8px; border-bottom: 1px solid var(--border);
+  }
+  h2:first-child { margin-top: 16px; }
+  h3 { font-size: 14px; font-weight: 700; margin: 24px 0 10px; color: var(--accent); }
+
+  p { margin: 8px 0; font-size: 13px; }
+
+  table { width: 100%; border-collapse: collapse; margin: 10px 0 16px; font-size: 13px; }
+  th { background: var(--surface2); padding: 9px 12px; text-align: left; font-weight: 600; color: var(--text2); border-bottom: 1px solid var(--border); }
+  td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+
+  .quote {
+    background: var(--surface); border-left: 3px solid var(--border);
+    padding: 10px 14px; margin: 8px 0; border-radius: 0 6px 6px 0;
+    font-size: 12px; color: var(--text2);
+  }
+  .quote b { color: var(--accent); font-weight: 600; }
+
+  .box { padding: 14px 16px; border-radius: 8px; margin: 12px 0; font-size: 13px; line-height: 1.8; }
+  .box-r { background: var(--red-bg); border: 1px solid var(--red-border); }
+  .box-g { background: var(--green-bg); border: 1px solid var(--green-border); }
+  .box-y { background: var(--yellow-bg); border: 1px solid var(--yellow-border); }
+  .box-b { background: var(--blue-bg); border: 1px solid var(--blue-border); }
+  .box-p { background: var(--purple-bg); border: 1px solid var(--purple-border); }
+
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .tag-pass { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+  .tag-fail { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
+  .tag-pend { background: var(--yellow-bg); color: var(--yellow); border: 1px solid var(--yellow-border); }
+  .tag-info { background: var(--blue-bg); color: var(--blue); border: 1px solid var(--blue-border); }
+
+  .flow { display: flex; align-items: center; gap: 0; margin: 12px 0; flex-wrap: wrap; }
+  .flow-box {
+    padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600;
+    border: 1px solid var(--border); background: var(--surface2); white-space: nowrap;
+  }
+  .flow-arr { color: var(--text2); font-size: 14px; padding: 0 4px; }
+  .flow-hi { border-color: var(--accent); background: rgba(108,140,255,0.1); color: var(--accent); }
+  .flow-del { border-color: var(--red-border); background: var(--red-bg); color: var(--red); text-decoration: line-through; }
+  .flow-new { border-color: var(--green-border); background: var(--green-bg); color: var(--green); }
+
+  strong { color: var(--text); }
+  .version { text-align: center; padding: 32px 0; font-size: 12px; color: var(--text2); opacity:.5; }
+
+  @media (max-width: 640px) { table { font-size: 12px; } th, td { padding: 7px 8px; } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>7.8 VLM 需求评审 · 产品分析</h1>
+  <div class="sub">2026-07-08 14:00 · 55分钟 · 参会：张荣/丁彬/泽民/汪帅/韩杰/Walter(斯华)/左晓杰/向超然/吴仁杰/蒋文/董均/刘杨</div>
+</div>
+
+<div class="content">
+
+<!-- ============================== -->
+<h2>一、会议范围（张荣 09:04 定义）</h2>
+
+<p>本次评审两条需求线，对应链路图上两组颜色：</p>
+
+<table>
+  <tr>
+    <th style="width:60px;">编号</th>
+    <th style="width:100px;">需求线</th>
+    <th>内容</th>
+    <th style="width:90px;">链路颜色</th>
+    <th style="width:80px;">评审结果</th>
+  </tr>
+  <tr>
+    <td>需求1</td>
+    <td><strong>VLM数据上报context</strong></td>
+    <td>三个AlwaysOn任务的推理结果整包上传到云端端状态，供Director消费</td>
+    <td>紫色线</td>
+    <td><span class="tag tag-pass">通过</span></td>
+  </tr>
+  <tr>
+    <td>需求2</td>
+    <td><strong>端侧触发器P0</strong></td>
+    <td>触发器负责AlwaysOn三任务的启停（开关逻辑）</td>
+    <td>绿色线 + 黑色线</td>
+    <td><span class="tag tag-fail">取消</span></td>
+  </tr>
+</table>
+
+
+<!-- ============================== -->
+<h2>二、需求1：VLM数据上报context <span class="tag tag-pass">评审通过</span></h2>
+
+<h3>2.1 上报什么</h3>
+
+<table>
+  <tr>
+    <th>端状态名称</th>
+    <th>摄像头方向</th>
+    <th>推理频率</th>
+    <th>上报内容（整包）</th>
+    <th>云端解析后子类</th>
+  </tr>
+  <tr>
+    <td>舱外AlwaysOn</td>
+    <td>舱外</td>
+    <td>每3秒</td>
+    <td>一大坨整包（丁彬04:18原话）</td>
+    <td>天气情况 + 路面描述</td>
+  </tr>
+  <tr>
+    <td>舱内动态AlwaysOn</td>
+    <td>舱内</td>
+    <td>每5秒</td>
+    <td>整包上传</td>
+    <td>云端二次组织</td>
+  </tr>
+  <tr>
+    <td>舱内静态AlwaysOn</td>
+    <td>舱内</td>
+    <td>每5分钟</td>
+    <td>整包上传</td>
+    <td>云端二次组织</td>
+  </tr>
+</table>
+
+<h3>2.2 数据怎么走</h3>
+
+<div class="flow">
+  <div class="flow-box">VLM推理</div>
+  <div class="flow-arr">→</div>
+  <div class="flow-box">数据中心 topic</div>
+  <div class="flow-arr">→</div>
+  <div class="flow-box">AI Service订阅</div>
+  <div class="flow-arr">→</div>
+  <div class="flow-box flow-hi">云端端状态</div>
+  <div class="flow-arr">→</div>
+  <div class="flow-box">二次组织（拆子类）</div>
+  <div class="flow-arr">→</div>
+  <div class="flow-box">Director / Planner 消费</div>
+</div>
+
+<h3>2.3 关键约定</h3>
+
+<table>
+  <tr><th style="width:160px;">约定项</th><th>内容</th><th style="width:140px;">依据（谁说的）</th></tr>
+  <tr>
+    <td>上传格式</td>
+    <td>整包上传，端侧不做解析。到云端后由次级链路做二次组织再给消费方</td>
+    <td>丁彬 06:15 + 上次约定</td>
+  </tr>
+  <tr>
+    <td>验收标准</td>
+    <td>数据到达云端端状态即完成。怎么消费是消费方（Director/Planner）的事</td>
+    <td>丁彬 08:25，向超然 08:32 确认</td>
+  </tr>
+  <tr>
+    <td>消费方排期</td>
+    <td>消费方（仁杰）等端状态协议定了再做，没有强制deadline，正排即可</td>
+    <td>仁杰 10:20，向超然 10:36 确认</td>
+  </tr>
+  <tr>
+    <td>0804交付范围</td>
+    <td>仅上述三个周期类任务的端状态上传。后续变更走P1（0816/0818）评审</td>
+    <td>丁彬 06:15</td>
+  </tr>
+  <tr>
+    <td>Meego拆分</td>
+    <td>拆两个Meego：①上报链路（0804）②消费方接入（看端状态协议进度）</td>
+    <td>向超然 08:32 建议</td>
+  </tr>
+</table>
+
+<h3>2.4 链路变更点</h3>
+
+<p>本次链路图相比上次只增加了一条：VLM → 端侧触发器的<strong>状态回调</strong>（触发成功/执行成功）。其他通路不变。</p>
+<p>但因为需求2结论触发器P0取消，这条新增的状态回调链路也跟着取消了。最终链路图删除所有触发器相关的绿色线。</p>
+
+
+<!-- ============================== -->
+<h2>三、需求2：端侧触发器P0 <span class="tag tag-fail">评审取消</span></h2>
+
+<h3>3.1 原始方案（泽民22:40提出）</h3>
+
+<p>触发器负责三件事：①判断AlwaysOn开关条件 → ②给VLM下发启停指令 → ③接收VLM状态回调。</p>
+
+<table>
+  <tr><th>场景</th><th>触发条件</th><th>动作</th></tr>
+  <tr><td>舱外·开</td><td>上电</td><td>下发start</td></tr>
+  <tr><td>舱外·关</td><td>下电</td><td>下发stop</td></tr>
+  <tr><td>舱内·开</td><td>上电 AND button=ON</td><td>下发start（动态+静态两条任务）</td></tr>
+  <tr><td>舱内·关</td><td>下电 OR button=OFF</td><td>下发stop</td></tr>
+  <tr><td>行驶中button变更</td><td>button ON→OFF 或 OFF→ON</td><td>相应stop或start</td></tr>
+</table>
+
+<h3>3.2 被否掉的过程和原因</h3>
+
+<p>按时间线整理，这个方案被否有四个关键节点：</p>
+
+<table>
+  <tr><th style="width:55px;">时间</th><th style="width:65px;">谁</th><th>提出了什么问题/观点</th><th>产品含义</th></tr>
+  <tr>
+    <td>11:05</td>
+    <td>韩杰</td>
+    <td>"为啥需要触发器？AIBox自己可以获取上电，拍完给AI Service不就OK了？"</td>
+    <td>质疑触发器作为中间层的必要性。AIBox如果能自己启动任务，触发器就是多余的一环。</td>
+  </tr>
+  <tr>
+    <td>15:03</td>
+    <td>汪帅</td>
+    <td>"车机人家车厂能告诉我们信号，AIBox可没人能告诉我们上电事件。"</td>
+    <td><strong>技术硬约束暴露：</strong>赛力斯无法提供AIBox上电信号。原方案的核心前提"上电"不成立。上汽有这个信号，赛力斯没有（汪帅19:08确认）。</td>
+  </tr>
+  <tr>
+    <td>38:07</td>
+    <td>Walter</td>
+    <td>"上电没什么意义吧，你的程序能跑起来，车子肯定上电了呀。"</td>
+    <td><strong>"上电"概念被重新定义：</strong>程序启动 = 上电。不需要额外信号去观测"是否上电"，因为你能运行的时候车一定是上电的。原方案里"判断是否上电"这个环节本身就不需要。</td>
+  </tr>
+  <tr>
+    <td>47:35</td>
+    <td>汪帅</td>
+    <td>"单纯一个按钮的状态，我没觉得它过触发器能有十足的理由"</td>
+    <td>去掉了"上电判断"之后，触发器只剩下传递button状态这一件事。仅转发一个button状态不值得独立一个模块，AI Service在init VLM SDK时直接传入enable字段即可。</td>
+  </tr>
+</table>
+
+<h3>3.3 最终方案（取代原方案）</h3>
+
+<table>
+  <tr><th>场景</th><th>方案</th><th>谁负责</th><th>技术方式</th><th>依据</th></tr>
+  <tr>
+    <td><strong>舱外AlwaysOn</strong></td>
+    <td>VLM agent默认打开</td>
+    <td>斯华(VLM SDK)</td>
+    <td>agent-service启动后VLM自行默认运行AlwaysOn，不需要外部指令</td>
+    <td>Walter 41:27 + 汪帅 38:07</td>
+  </tr>
+  <tr>
+    <td><strong>舱内AlwaysOn·初始化</strong></td>
+    <td>AI Service传入button状态</td>
+    <td>汪帅/李鑫（AI Service某模块，待定）</td>
+    <td>初始化VLM SDK时传入enable字段，告诉SDK当前button是开还是关</td>
+    <td>汪帅 43:07</td>
+  </tr>
+  <tr>
+    <td><strong>舱内AlwaysOn·运行中button变更</strong></td>
+    <td>AI Service接听赛力斯Button SDK → 转发给VLM SDK</td>
+    <td>汪帅/李鑫（待确认模块）</td>
+    <td>赛力斯提供Button SDK，AI Service接听后调VLM SDK接口更新enable状态</td>
+    <td>汪帅 45:40</td>
+  </tr>
+  <tr>
+    <td><strong>异常恢复（AIBox崩溃重启）</strong></td>
+    <td>VLM SDK内部恢复</td>
+    <td>斯华(VLM SDK)</td>
+    <td>SDK集成在豆包进程中，崩溃重启后SDK内部同步最新状态到AIBox</td>
+    <td>汪帅 28:13</td>
+  </tr>
+  <tr>
+    <td><strong>高优任务抢占</strong></td>
+    <td>VLM SDK内部调度</td>
+    <td>斯华/董均</td>
+    <td>外部事件的优先级决定执行顺序，AlwaysOn被高优抢占时缓存帧，高优完成后恢复</td>
+    <td>董均 35:11</td>
+  </tr>
+</table>
+
+<h3>3.4 链路变更：会前 vs 会后</h3>
+
+<p><strong>会前链路（含触发器）：</strong></p>
+<div class="flow">
+  <div class="flow-box flow-del">端侧触发器</div>
+  <div class="flow-arr">→</div>
+  <div class="flow-box">VLM SDK</div>
+  <div class="flow-arr">→</div>
+  <div class="flow-box">AIBox VLM推理</div>
+  <div class="flow-arr">→</div>
+  <div class="flow-box">数据中心</div>
+  <div class="flow-arr">→</div>
+  <div class="flow-box">云端端状态</div>
+</div>
+
+<p><strong>会后链路（触发器移除）：</strong></p>
+<div class="flow">
+  <div class="flow-box flow-new">AI Service (待定模块)</div>
+  <div class="flow-arr">→ button enable →</div>
+  <div class="flow-box">VLM SDK</div>
+  <div class="flow-arr">→</div>
+  <div class="flow-box">AIBox VLM推理</div>
+  <div class="flow-arr">→</div>
+  <div class="flow-box">数据中心</div>
+  <div class="flow-arr">→</div>
+  <div class="flow-box">云端端状态</div>
+</div>
+
+<p>区别：触发器被替换为AI Service的一个待定模块，负责接听赛力斯Button SDK → 传入VLM SDK。舱外完全不需要触发链路，默认运行。</p>
+
+
+<!-- ============================== -->
+<h2>四、对触发器产品的影响</h2>
+
+<h3>4.1 Scope 变化</h3>
+
+<table>
+  <tr>
+    <th>触发器功能点</th>
+    <th>会前状态</th>
+    <th>会后状态</th>
+    <th>原因</th>
+  </tr>
+  <tr>
+    <td>AlwaysOn开关（舱外）</td>
+    <td>0804 P0</td>
+    <td style="color:var(--red);">取消 → 归VLM agent默认打开</td>
+    <td>程序启动=上电，不需要额外触发</td>
+  </tr>
+  <tr>
+    <td>AlwaysOn开关（舱内button）</td>
+    <td>0804 P0</td>
+    <td style="color:var(--red);">取消 → 归AI Service传入enable</td>
+    <td>只转发一个button状态，不需要独立模块</td>
+  </tr>
+  <tr>
+    <td>VLM状态回调</td>
+    <td>0804 P0</td>
+    <td style="color:var(--red);">取消（跟着触发器一起移除）</td>
+    <td>触发器不再触发，也不需要接收回调</td>
+  </tr>
+  <tr>
+    <td>动态任务切换（停+换prompt+重启）</td>
+    <td>0818 P1</td>
+    <td style="color:var(--yellow);">仍在0818，但未评审</td>
+    <td>丁彬16:51提到，张荣13:50确认"产品方案还在探讨中"</td>
+  </tr>
+  <tr>
+    <td>预设任务（OneShot）</td>
+    <td>0818 P1</td>
+    <td style="color:var(--yellow);">仍在0818，泽民48:14提到"下周评"</td>
+    <td>未在本次评审范围内</td>
+  </tr>
+  <tr>
+    <td>订阅数据中心</td>
+    <td>0818</td>
+    <td style="color:var(--yellow);">泽民48:14提到，未确认排期</td>
+    <td>触发器需要订阅VLM数据做条件判断</td>
+  </tr>
+  <tr>
+    <td>场景切换（进停车场关舱外、开另一个任务）</td>
+    <td>规划中</td>
+    <td style="color:var(--yellow);">蒋文17:18提到，汪帅17:48说"后面再聊"</td>
+    <td>未排期</td>
+  </tr>
+</table>
+
+<h3>4.2 利益相关方地图（会后状态）</h3>
+
+<table>
+  <tr>
+    <th>模块/功能</th>
+    <th>Owner</th>
+    <th>状态</th>
+  </tr>
+  <tr>
+    <td>VLM SDK（模型推理+任务调度+异常恢复）</td>
+    <td>斯华 / 董均</td>
+    <td>明确</td>
+  </tr>
+  <tr>
+    <td>AI Service · 数据中心（topic订阅上报）</td>
+    <td>韩杰 / 李鑫</td>
+    <td>明确</td>
+  </tr>
+  <tr>
+    <td>AI Service · Button信号接听转发</td>
+    <td>汪帅 / 李鑫（待确认具体模块）</td>
+    <td style="color:var(--yellow);">待定</td>
+  </tr>
+  <tr>
+    <td>云端端状态 · 二次组织</td>
+    <td>（未在本次会议讨论）</td>
+    <td>已有</td>
+  </tr>
+  <tr>
+    <td>消费方 · Director/Planner context接入</td>
+    <td>仁杰 / 向超然</td>
+    <td>等端状态协议定了再排</td>
+  </tr>
+  <tr>
+    <td><strong>端侧触发器</strong></td>
+    <td><strong>泽民</strong></td>
+    <td style="color:var(--red);"><strong>0804无P0需求，下一个接入点在0818</strong></td>
+  </tr>
+</table>
+
+
+<!-- ============================== -->
+<h2>五、会议中确认的技术事实</h2>
+
+<p>以下是会上各方确认的技术约束，后续做产品方案需要基于这些事实：</p>
+
+<table>
+  <tr><th style="width:180px;">技术事实</th><th>详细内容</th><th style="width:120px;">谁确认的</th></tr>
+  <tr>
+    <td>赛力斯无上电信号</td>
+    <td>赛力斯目前没有向AIBox提供"上电事件"的SDK。上汽有（之前王成对接过），赛力斯没有。</td>
+    <td>汪帅 18:27, 19:08</td>
+  </tr>
+  <tr>
+    <td>"上电"=程序启动</td>
+    <td>你的程序能跑起来，车子就是上电的。不需要额外信号去观测上电状态。</td>
+    <td>Walter 38:07</td>
+  </tr>
+  <tr>
+    <td>AIBox = 被动式任务</td>
+    <td>AIBox不会主动感知外界信号（上电/button等），所有任务都是被调用方触发的。调用方有两个：赛力斯应用 + 豆包侧（原定触发器，现改为AI Service）。</td>
+    <td>丁彬 11:25</td>
+  </tr>
+  <tr>
+    <td>VLM SDK集成在豆包进程</td>
+    <td>VLM SDK不是独立进程，集成在豆包（agent-service）进程中。AIBox崩溃重启后，VLM SDK能通过重连同步最新状态。</td>
+    <td>汪帅 28:13</td>
+  </tr>
+  <tr>
+    <td>Button在赛力斯HMI上</td>
+    <td>AlwaysOn Button做在赛力斯的设置页面上。赛力斯需提供Button SDK让端侧接听状态变更。</td>
+    <td>汪帅 45:40, Walter 42:50</td>
+  </tr>
+  <tr>
+    <td>VLM SDK init可传入enable</td>
+    <td>初始化VLM SDK时可以传入一个enable字段，告诉SDK舱内AlwaysOn是否开启。运行中button变更也可以通过接口更新。</td>
+    <td>汪帅 43:07</td>
+  </tr>
+  <tr>
+    <td>高优任务抢占机制</td>
+    <td>VLM内部有优先级调度。高优任务（如VQA）插入时缓存当前AlwaysOn帧，高优完成后恢复。同优先级先来先到。</td>
+    <td>董均 35:11</td>
+  </tr>
+  <tr>
+    <td>推理频率0804固定</td>
+    <td>3s/5s/5min的频率在0804是固定的，不做动态调整。后续可考虑触发器云端下发频率参数。</td>
+    <td>丁彬 36:23, 董均 36:33</td>
+  </tr>
+  <tr>
+    <td>VLM正式模型0804不可用</td>
+    <td>正式版模型无法提供给0804。需通过mock方式在火山内部联调，不会给到赛力斯。</td>
+    <td>张荣 52:08</td>
+  </tr>
+  <tr>
+    <td>蓄电池供电约束待确认</td>
+    <td>ACC状态下（未踩刹车）靠蓄电池供电，是否有功耗约束未确认。左晓杰提出需有人确认。</td>
+    <td>左晓杰 38:34</td>
+  </tr>
+  <tr>
+    <td>舱外不涉及隐私/法务</td>
+    <td>只有舱内摄像头涉及用户隐私控制（需要button让用户可关），舱外不受控制约束。</td>
+    <td>丁彬 49:28</td>
+  </tr>
+</table>
+
+
+<!-- ============================== -->
+<h2>六、Action Items</h2>
+
+<table>
+  <tr>
+    <th style="width:45px;">#</th>
+    <th style="width:100px;">负责人</th>
+    <th>内容</th>
+    <th style="width:80px;">来源</th>
+    <th style="width:80px;">状态</th>
+  </tr>
+  <tr>
+    <td>1</td>
+    <td>汪帅 + 李鑫</td>
+    <td>确认Button信号接听做在AI Service的哪个模块（是数据中心还是其他）</td>
+    <td>张荣 52:08</td>
+    <td><span class="tag tag-pend">待确认</span></td>
+  </tr>
+  <tr>
+    <td>2</td>
+    <td>左晓杰</td>
+    <td>确认蓄电池供电/功耗约束：ACC状态下AIBox能跑多久，赛力斯是否有功耗要求</td>
+    <td>张荣 52:08</td>
+    <td><span class="tag tag-pend">待确认</span></td>
+  </tr>
+  <tr>
+    <td>3</td>
+    <td>斯华</td>
+    <td>舱外AlwaysOn默认打开，加到今天下午5点的需求会</td>
+    <td>张荣 53:30</td>
+    <td><span class="tag tag-info">当日</span></td>
+  </tr>
+  <tr>
+    <td>4</td>
+    <td>丁彬</td>
+    <td>VLM模型不具备情况下的联调测试方案（mock方式）</td>
+    <td>张荣 53:30</td>
+    <td><span class="tag tag-pend">待排</span></td>
+  </tr>
+  <tr>
+    <td>5</td>
+    <td>张荣</td>
+    <td>拉各方排期（提Meego、串链路）</td>
+    <td>张荣 55:28</td>
+    <td><span class="tag tag-info">进行中</span></td>
+  </tr>
+  <tr>
+    <td>6</td>
+    <td>丁彬</td>
+    <td>更新链路图：删除触发器相关线，端侧触发器改为AI Service（待定模块）</td>
+    <td>会议共识</td>
+    <td><span class="tag tag-pend">待更新</span></td>
+  </tr>
+  <tr>
+    <td>7</td>
+    <td><strong>泽民</strong></td>
+    <td>准备0818触发器需求评审（预设任务 + 订阅数据中心 + 动态任务切换）</td>
+    <td>泽民 48:14</td>
+    <td style="color:var(--red);"><strong>时间未锁，需要主动排</strong></td>
+  </tr>
+</table>
+
+
+<!-- ============================== -->
+<h2>七、遗留问题 &amp; 风险</h2>
+
+<table>
+  <tr><th style="width:45px;">#</th><th>问题</th><th>风险</th><th style="width:100px;">谁需要跟进</th></tr>
+  <tr>
+    <td>1</td>
+    <td><strong>Button信号归属未定：</strong>汪帅说"可能是李鑫做，不过触发器，就是接听一个东西转发"（47:00）。具体做在AI Service哪个子模块，会后汪帅和李鑫自己商量。</td>
+    <td>如果最终做在一个新模块里而不是现有的数据中心/触发器，会增加一个依赖节点</td>
+    <td>汪帅/李鑫</td>
+  </tr>
+  <tr>
+    <td>2</td>
+    <td><strong>0818触发器排期没人确认：</strong>泽民48:14说"下周评预设任务"，但没有在会上锁定时间、参会人、评审内容。</td>
+    <td>0818的动态任务切换（停+换prompt+重启）是触发器最硬的需求。如果不主动推排期，这个需求会一直停在"下周再说"的状态</td>
+    <td><strong>泽民</strong></td>
+  </tr>
+  <tr>
+    <td>3</td>
+    <td><strong>Button状态变更事件触发器没有订阅：</strong>会后Button信号全走AI Service → VLM SDK，触发器完全不在链路上。</td>
+    <td>如果后续0818动态任务切换需要基于button状态做条件判断（比如button关了要停动态任务），触发器需要重新获得button事件的订阅权。这个诉求在会上没提。</td>
+    <td><strong>泽民</strong></td>
+  </tr>
+  <tr>
+    <td>4</td>
+    <td><strong>蓄电池功耗约束未确认：</strong>左晓杰38:34提出ACC状态下蓄电池是否能支撑AlwaysOn运行。丁彬说能cover，但左晓杰不确定（"需要有人来看一下"）。</td>
+    <td>如果赛力斯对AIBox有功耗约束，可能需要增加"低电量停止AlwaysOn"的逻辑，这个逻辑放在哪里？</td>
+    <td>左晓杰</td>
+  </tr>
+  <tr>
+    <td>5</td>
+    <td><strong>舱内AlwaysOn算法需求未评审：</strong>张荣52:08提到"今天晚上才会评审"，可能影响0804是否能做舱内场景。</td>
+    <td>如果算法评审不通过或延期，舱内AlwaysOn可能退出0804 scope</td>
+    <td>丁彬/产品</td>
+  </tr>
+  <tr>
+    <td>6</td>
+    <td><strong>频率下发能力未排期：</strong>董均36:33提到"后面可以考虑触发器云端下发频率参数"，但0804固定频率不做。</td>
+    <td>如果后续需要根据场景动态调频（比如停车场降低舱外频率），需要触发器提供云端→端侧的参数下发通道。这是触发器在VLM链路上的另一个潜在接入点。</td>
+    <td><strong>泽民</strong></td>
+  </tr>
+</table>
+
+
+<!-- ============================== -->
+<h2>八、触发器下一步：0818 需要推什么</h2>
+
+<p>0804触发器P0清零之后，触发器的下一个排期窗口是0818。基于这场会的信息，0818触发器需要评审的需求有：</p>
+
+<table>
+  <tr>
+    <th style="width:45px;">#</th>
+    <th style="width:170px;">需求</th>
+    <th>内容</th>
+    <th style="width:120px;">会上谁提到的</th>
+    <th style="width:80px;">技术依赖</th>
+  </tr>
+  <tr>
+    <td>1</td>
+    <td><strong>动态任务切换</strong></td>
+    <td>停当前AlwaysOn任务 → 更新prompt → 重启任务。这是丁彬在16:51替触发器存在性辩护时抛出的最硬需求。</td>
+    <td>丁彬 16:51</td>
+    <td>VLM SDK的stop/updatePrompt/start接口</td>
+  </tr>
+  <tr>
+    <td>2</td>
+    <td><strong>预设任务（OneShot）</strong></td>
+    <td>系统预设的一次性触发任务。泽民48:14明确说"下周评预设任务"。</td>
+    <td>泽民 48:14</td>
+    <td>触发条件定义 + VLM调用接口</td>
+  </tr>
+  <tr>
+    <td>3</td>
+    <td><strong>订阅数据中心</strong></td>
+    <td>触发器需要订阅VLM推理结果（端状态数据），作为条件判断的输入源。</td>
+    <td>泽民 48:14</td>
+    <td>数据中心topic订阅权限</td>
+  </tr>
+  <tr>
+    <td>4</td>
+    <td><strong>场景切换（进停车场等）</strong></td>
+    <td>进停车场 → 关舱外AlwaysOn → 开另一个任务。蒋文提到，汪帅说"后面再聊"。</td>
+    <td>蒋文 17:18</td>
+    <td>导航/地理围栏信号</td>
+  </tr>
+  <tr>
+    <td>5</td>
+    <td><strong>频率动态调整（潜在）</strong></td>
+    <td>云端下发频率参数给端侧VLM，根据场景调整推理频率。董均提出可考虑。</td>
+    <td>董均 36:33</td>
+    <td>触发器云端→端侧下发通道</td>
+  </tr>
+</table>
+
+<div class="box box-y">
+<strong>需要立刻做的事：</strong>上面5个需求中，#1和#2是最明确的（会上有人提到过具体场景）。泽民需要在下周之前，把#1和#2写成可评审的产品方案，然后主动找张荣排0818的评审时间。不能等别人来排，这个事已经没有自动驱动力了——0804触发器被砍意味着没有人在催触发器的排期。
+</div>
+
+<div class="box box-b">
+<strong>值得争取的事：</strong>#3（订阅数据中心）看起来是技术实现细节，但它决定了触发器在0818能不能拿到VLM数据做条件判断。如果数据中心的topic订阅权限不给触发器，0818的动态任务切换就没有数据输入。建议在0818评审之前，先跟韩杰/李鑫确认触发器能否订阅VLM数据topic。
+</div>
+
+
+<!-- ============================== -->
+<h2>九、会议结论（张荣 54:30 原文）</h2>
+
+<div class="quote">
+<b>张荣 54:30</b><br>
+"今天的结论就是端侧触发器的需求取消，VLM上报到context的需求评审通过，舱内AlwaysOn由AI Service来触发，舱外AlwaysOn由端侧的VLM agent自行处，默认打开。"
+</div>
+
+<table>
+  <tr><th style="width:50px;">#</th><th>结论</th><th style="width:80px;">状态</th></tr>
+  <tr><td>1</td><td>VLM数据上报context（紫色线）：评审通过，链路确认</td><td><span class="tag tag-pass">通过</span></td></tr>
+  <tr><td>2</td><td>端侧触发器P0需求：取消</td><td><span class="tag tag-fail">取消</span></td></tr>
+  <tr><td>3</td><td>舱外AlwaysOn：VLM agent默认打开</td><td><span class="tag tag-pass">确认</span></td></tr>
+  <tr><td>4</td><td>舱内AlwaysOn：AI Service传入button状态给VLM SDK</td><td><span class="tag tag-pass">确认</span></td></tr>
+  <tr><td>5</td><td>Button信号接听做在AI Service哪个模块：汪帅+李鑫会后确认</td><td><span class="tag tag-pend">待定</span></td></tr>
+  <tr><td>6</td><td>蓄电池功耗约束：左晓杰确认</td><td><span class="tag tag-pend">待定</span></td></tr>
+</table>
+
+
+<div class="version">
+  7.8 VLM评审 · 产品分析 v5 · 2026-07-13<br>
+  v4(人话版) | v3(梁宁格式A) | v2(Y模型+5W2H) | v1(七维诊断) 见同目录
+</div>
+
+</div>
+</body>
+</html>

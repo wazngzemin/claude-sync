@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>动态示例管理后台 PRD v1</title>
+<style>
+  :root{
+    --ink:#1f2329; --sub:#646a73; --line:#e5e6eb; --bg:#f7f8fa;
+    --brand:#3370ff; --brand-bg:#eef2ff;
+    --v1:#00875a; --v1bg:#e3f5ec;
+    --v2:#8a5cff; --v2bg:#f0eafe;
+    --todo:#d4380d; --todobg:#fff1e8;
+    --tip:#0958d9; --tipbg:#e8f3ff;
+    --warn:#ad6800; --warnbg:#fffbe6;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+    line-height:1.75;font-size:15px;}
+  .wrap{max-width:960px;margin:0 auto;padding:40px 28px 120px;}
+  /* header */
+  .doc-head{background:linear-gradient(135deg,#3370ff,#5b8cff);color:#fff;border-radius:16px;
+    padding:32px 36px;margin-bottom:28px;box-shadow:0 8px 24px rgba(51,112,255,.18);}
+  .doc-head h1{margin:0 0 6px;font-size:28px;letter-spacing:.5px;}
+  .doc-head .subtitle{opacity:.92;font-size:15px;margin-bottom:20px;}
+  .meta-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px 24px;font-size:13px;}
+  .meta-grid .k{opacity:.75;}
+  .meta-grid .v{font-weight:600;font-size:14px;margin-top:2px;}
+  /* toc */
+  .toc{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 24px;margin-bottom:28px;}
+  .toc h3{margin:0 0 10px;font-size:14px;color:var(--sub);font-weight:600;letter-spacing:1px;}
+  .toc ol{margin:0;padding-left:20px;columns:2;column-gap:36px;}
+  .toc a{color:var(--ink);text-decoration:none;font-size:14px;line-height:2;}
+  .toc a:hover{color:var(--brand);}
+  /* section */
+  section{background:#fff;border:1px solid var(--line);border-radius:12px;padding:26px 30px;margin-bottom:22px;}
+  h2{font-size:20px;margin:0 0 16px;padding-bottom:12px;border-bottom:2px solid var(--brand-bg);
+    display:flex;align-items:center;gap:10px;}
+  h2 .num{background:var(--brand);color:#fff;width:28px;height:28px;border-radius:8px;
+    display:inline-flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
+  h3{font-size:16px;margin:24px 0 10px;color:var(--ink);}
+  h4{font-size:14px;margin:16px 0 8px;color:var(--sub);}
+  p{margin:8px 0;}
+  ul,ol{margin:8px 0;padding-left:22px;}
+  li{margin:5px 0;}
+  code{background:#f2f3f5;padding:1px 6px;border-radius:4px;font-size:13px;
+    font-family:"SF Mono",Menlo,Consolas,monospace;color:#d4380d;}
+  /* badges */
+  .badge{display:inline-block;font-size:12px;padding:1px 9px;border-radius:20px;font-weight:600;
+    vertical-align:middle;margin-left:6px;}
+  .b-v1{background:var(--v1bg);color:var(--v1);}
+  .b-v2{background:var(--v2bg);color:var(--v2);}
+  .b-todo{background:var(--todobg);color:var(--todo);}
+  .b-tip{background:var(--tipbg);color:var(--tip);}
+  /* tables */
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px;}
+  th,td{border:1px solid var(--line);padding:9px 12px;text-align:left;vertical-align:top;}
+  th{background:var(--bg);font-weight:600;color:var(--sub);white-space:nowrap;}
+  tr:hover td{background:#fafbfc;}
+  .req td:first-child{font-weight:600;white-space:nowrap;color:var(--brand);}
+  /* callouts */
+  .callout{border-radius:10px;padding:14px 18px;margin:16px 0;font-size:14px;border-left:4px solid;}
+  .c-tip{background:var(--tipbg);border-color:var(--tip);}
+  .c-warn{background:var(--warnbg);border-color:var(--warn);}
+  .c-todo{background:var(--todobg);border-color:var(--todo);}
+  .callout .c-title{font-weight:700;margin-bottom:4px;}
+  /* wireframe */
+  .wf{background:#fbfcfd;border:1.5px solid #d0d5dd;border-radius:10px;padding:0;margin:18px 0;overflow:hidden;}
+  .wf-bar{background:#eef0f3;padding:8px 14px;font-size:12px;color:var(--sub);border-bottom:1px solid #d0d5dd;
+    display:flex;align-items:center;gap:8px;}
+  .wf-dot{width:10px;height:10px;border-radius:50%;background:#ccc;display:inline-block;}
+  .wf-body{padding:18px;}
+  .ui-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;}
+  .ui-input{border:1px solid #ccd0d9;border-radius:6px;padding:6px 12px;background:#fff;font-size:13px;color:var(--sub);flex:1;min-width:120px;}
+  .ui-btn{background:var(--brand);color:#fff;border:none;border-radius:6px;padding:6px 16px;font-size:13px;font-weight:600;}
+  .ui-btn.ghost{background:#fff;color:var(--brand);border:1px solid var(--brand);}
+  .ui-btn.danger{background:#fff;color:var(--todo);border:1px solid #ffb8a3;}
+  .ui-btn.sm{padding:3px 10px;font-size:12px;}
+  .ui-table{width:100%;border-collapse:collapse;font-size:12.5px;background:#fff;}
+  .ui-table th{background:#f4f5f7;padding:7px 10px;border:1px solid #e5e6eb;color:var(--sub);font-weight:600;}
+  .ui-table td{padding:7px 10px;border:1px solid #eef0f2;color:#4a4f57;}
+  .pill{display:inline-block;padding:1px 8px;border-radius:20px;font-size:11px;font-weight:600;}
+  .pill.on{background:var(--v1bg);color:var(--v1);}
+  .pill.off{background:#f2f3f5;color:#a0a4ab;}
+  .form-field{margin-bottom:14px;}
+  .form-field label{display:block;font-size:13px;color:var(--sub);margin-bottom:4px;font-weight:600;}
+  .form-field label .star{color:var(--todo);}
+  .form-box{border:1px solid #ccd0d9;border-radius:6px;padding:8px 12px;background:#fff;font-size:13px;color:#8a8f99;}
+  .form-box.ta{min-height:64px;}
+  .sim-hint{background:#fffbe6;border:1px dashed #ffd666;border-radius:6px;padding:8px 12px;font-size:12.5px;color:#8c6d00;margin-top:6px;}
+  .flow{display:flex;align-items:center;gap:0;flex-wrap:wrap;margin:16px 0;}
+  .flow .step{background:var(--brand-bg);color:var(--brand);border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;text-align:center;}
+  .flow .arr{color:#bcc2cc;padding:0 8px;font-size:18px;}
+  .footnote{color:var(--sub);font-size:13px;}
+  .kbd{background:#fff;border:1px solid #d0d5dd;border-bottom-width:2px;border-radius:4px;padding:0 6px;font-size:12px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="doc-head">
+    <h1>动态示例管理后台 · PRD</h1>
+    <div class="subtitle">Dynamic Examples Management Console — Planner Badcase 修复配置工具</div>
+    <div class="meta-grid">
+      <div><div class="k">版本</div><div class="v">v1.0</div></div>
+      <div><div class="k">负责产品</div><div class="v">王泽民</div></div>
+      <div><div class="k">开发</div><div class="v">文涛</div></div>
+      <div><div class="k">日期</div><div class="v">2026-07-10</div></div>
+      <div><div class="k">需求来源</div><div class="v">李强 / 侯继高</div></div>
+      <div><div class="k">使用方</div><div class="v">CQC 同学</div></div>
+      <div><div class="k">提交方式</div><div class="v">Meego → 文涛</div></div>
+      <div><div class="k">状态</div><div class="v">待评审</div></div>
+    </div>
+  </div>
+
+  <div class="toc">
+    <h3>目录</h3>
+    <ol>
+      <li><a href="#s1">背景与目标</a></li>
+      <li><a href="#s2">名词解释</a></li>
+      <li><a href="#s3">需求范围</a></li>
+      <li><a href="#s4">功能需求</a></li>
+      <li><a href="#s5">字段定义</a></li>
+      <li><a href="#s6">页面原型</a></li>
+      <li><a href="#s7">生效机制（开发向）</a></li>
+      <li><a href="#s8">权限与操作日志</a></li>
+      <li><a href="#s9">存量数据迁移</a></li>
+      <li><a href="#s10">版本规划</a></li>
+      <li><a href="#s11">验收标准</a></li>
+      <li><a href="#s12">待决策项</a></li>
+    </ol>
+  </div>
+
+  <!-- 1 -->
+  <section id="s1">
+    <h2><span class="num">1</span>背景与目标</h2>
+    <h3>1.1 背景</h3>
+    <p>动态示例是修复 Planner Badcase 的核心手段：一条「用户 Query → 决策分析」的示例对，在推理时按相似度检索、注入到 SP 的 <code>{{scenario_sample}}</code> 槽位，引导模型对同类 Query 做出正确决策。</p>
+    <p>目前动态示例以 <b>Excel 手工维护</b>，存在以下问题：</p>
+    <table>
+      <tr><th style="width:180px">当前痛点</th><th>说明</th></tr>
+      <tr><td>无校验</td><td>工具名写错、Query 空、决策分析格式不统一，靠人工肉眼检查，历史表里已出现工具名混乱、张冠李戴。</td></tr>
+      <tr><td>易冲突/重复</td><td>相似 Query 被重复录入、且决策不一致，污染检索结果，无查重手段。</td></tr>
+      <tr><td>交付链路长</td><td>产品改 Excel → 人工同步进系统，中间环节多、易出错、无法追溯谁改了什么。</td></tr>
+      <tr><td>无环境隔离</td><td>不同模型环境（SFT 版本）需要不同示例集，Excel 无法区分。</td></tr>
+    </table>
+    <h3>1.2 目标</h3>
+    <ul>
+      <li>提供一个 Web 配置后台，CQC 同学可直接完成动态示例的<b>查找 / 新增 / 修改 / 删除</b>，替代 Excel。</li>
+      <li>入库前做<b>基础校验</b>，堵住工具名写错、Query 查重等低级问题。</li>
+      <li>支持<b>按环境配置</b>，先落地 SFT 版本，后续可扩展多环境。<span class="badge b-v2">V2</span></li>
+      <li>形态对齐现有<b>干预工具</b>，降低配置复杂度。</li>
+    </ul>
+    <div class="callout c-tip">
+      <div class="c-title">一句话定位</div>
+      把动态示例从「Excel 手工台账」升级为「带校验、可追溯、CQC 自助 CRUD 的配置后台」，形态类比干预工具。
+    </div>
+  </section>
+
+  <!-- 2 -->
+  <section id="s2">
+    <h2><span class="num">2</span>名词解释</h2>
+    <table>
+      <tr><th style="width:160px">名词</th><th>说明</th></tr>
+      <tr><td>动态示例</td><td>「Query → 决策分析」示例对，注入 SP <code>{{scenario_sample}}</code> 槽位以修复 Badcase。</td></tr>
+      <tr><td>决策分析</td><td>针对该类 Query，Planner 应如何决策的一句话说明（调用哪个工具、如何改写 Query、结合哪些状态）。</td></tr>
+      <tr><td>检索索引</td><td>动态示例按 Query 建立的检索索引；推理时用当前 Query 命中 Top-K 示例注入。</td></tr>
+      <tr><td>环境</td><td>一套模型运行环境（如不同 SFT 版本 / 测试 / 线上），不同环境可挂不同示例集。</td></tr>
+      <tr><td>CQC</td><td>本后台的主要使用方，负责逐条录入与维护动态示例。</td></tr>
+    </table>
+  </section>
+
+  <!-- 3 -->
+  <section id="s3">
+    <h2><span class="num">3</span>需求范围</h2>
+    <h3>3.1 V1 范围（SFT 版本）<span class="badge b-v1">本期</span></h3>
+    <table class="req">
+      <tr><th style="width:150px">功能</th><th>说明</th></tr>
+      <tr><td>列表 / 查找</td><td>展示全部动态示例，支持按 Query 关键词搜索、按状态筛选、分页。</td></tr>
+      <tr><td>新增</td><td>表单录入一条动态示例，提交前校验 + 相似示例提示。</td></tr>
+      <tr><td>修改</td><td>编辑已有示例并保存。</td></tr>
+      <tr><td>删除</td><td>删除单条示例（二次确认）。</td></tr>
+      <tr><td>基础校验</td><td>非空、长度、工具名合法性、Query 查重。</td></tr>
+      <tr><td>操作日志</td><td>记录增删改操作人与时间，可追溯。<span class="badge b-tip">建议</span></td></tr>
+    </table>
+    <h3>3.2 V2 范围（后续）<span class="badge b-v2">下期</span></h3>
+    <ul>
+      <li><b>环境配置</b>：每条示例可归属到指定环境，支持环境切换、跨环境复制。</li>
+      <li><b>检索测试</b>：输入一个测试 Query，预览会命中哪些示例，便于 CQC 验证示例是否生效。<span class="badge b-tip">建议</span></li>
+    </ul>
+    <h3>3.3 不做（Out of Scope）</h3>
+    <table>
+      <tr><th style="width:180px">不做项</th><th>原因</th></tr>
+      <tr><td>批量导入 / 导出</td><td>会议明确：CQC 逐条录入即可，不做批量。（存量迁移见 §9，为一次性开发动作，非用户功能）</td></tr>
+      <tr><td>审批流</td><td>会议明确：不走评审，保存即入库。</td></tr>
+      <tr><td>示例效果自动评测</td><td>不在本工具范围，由测试链路负责。</td></tr>
+    </table>
+  </section>
+
+  <!-- 4 -->
+  <section id="s4">
+    <h2><span class="num">4</span>功能需求</h2>
+
+    <h3>4.1 列表与查找 <span class="badge b-v1">V1</span></h3>
+    <ul>
+      <li>默认以表格展示全部动态示例，列：Query、决策分析（超长截断，悬浮/展开看全文）、状态、创建人、更新时间、操作。</li>
+      <li>顶部搜索框：按 <b>Query 关键词</b>模糊搜索；<span class="badge b-tip">建议</span>同时支持<b>相似度检索</b>（输入一句话，找语义相近的已有示例）。</li>
+      <li>筛选：按状态（生效 / 停用）、按环境<span class="badge b-v2">V2</span>。</li>
+      <li>排序：按更新时间倒序默认；支持点列头排序。</li>
+      <li>分页：每页 20/50/100 可选。</li>
+    </ul>
+
+    <h3>4.2 新增 <span class="badge b-v1">V1</span></h3>
+    <div class="flow">
+      <span class="step">点「新增」</span><span class="arr">→</span>
+      <span class="step">填写表单</span><span class="arr">→</span>
+      <span class="step">相似示例提示</span><span class="arr">→</span>
+      <span class="step">提交校验</span><span class="arr">→</span>
+      <span class="step">入库 + 建索引</span>
+    </div>
+    <ul>
+      <li>表单字段见 <a href="#s5">§5 字段定义</a>。</li>
+      <li><b>相似示例提示</b><span class="badge b-tip">建议</span>：填完 Query 后，实时检索已有相似示例并展示，避免录入冲突/重复条目。若存在高度相似示例，给出提醒但不强制阻止。</li>
+      <li>提交时执行 <a href="#s45">§4.5 校验规则</a>；通过后写库并更新检索索引。</li>
+    </ul>
+
+    <h3>4.3 修改 <span class="badge b-v1">V1</span></h3>
+    <ul>
+      <li>列表点「编辑」，表单预填当前值。</li>
+      <li>保存时同样走校验。</li>
+      <li>若 Query 发生变化，需重建该条检索索引（见 <a href="#s7">§7</a>）。</li>
+    </ul>
+
+    <h3>4.4 删除 <span class="badge b-v1">V1</span></h3>
+    <ul>
+      <li>列表点「删除」，二次确认弹窗后删除，并从检索索引移除。</li>
+      <li><span class="badge b-tip">建议</span>采用<b>软删除</b>（标记删除、保留记录），避免误删不可恢复；或提供「停用」状态作为删除前的缓冲。</li>
+    </ul>
+
+    <h3 id="s45">4.5 校验规则 <span class="badge b-v1">V1</span></h3>
+    <table>
+      <tr><th style="width:150px">校验项</th><th>规则</th><th style="width:90px">不通过</th></tr>
+      <tr><td>Query 非空</td><td>不可为空、去除首尾空格后长度 ≥ 1</td><td>阻止提交</td></tr>
+      <tr><td>决策分析非空</td><td>不可为空</td><td>阻止提交</td></tr>
+      <tr><td>长度限制</td><td>Query ≤ 200 字；决策分析 ≤ 1000 字（阈值可调）</td><td>阻止提交</td></tr>
+      <tr><td><b>工具名合法性</b></td><td>决策分析中提及的工具名，须在合法工具清单内（<code>vehicle_basic_control</code> 等 26 个）。检测到不在清单内的疑似工具名 → 提示。</td><td>警告</td></tr>
+      <tr><td><b>Query 查重</b></td><td>完全重复 → 阻止；高度相似 → 警告并展示相似条目</td><td>阻止/警告</td></tr>
+      <tr><td>缺陷链接格式</td><td>若填写，校验为合法 Meego 链接格式</td><td>警告</td></tr>
+    </table>
+    <div class="callout c-tip">
+      <div class="c-title">工具名校验的价值</div>
+      历史 Excel 出现过工具名写错、录音类工具张冠李戴。将合法工具清单内置为校验字典，可在录入环节直接拦截，是本后台相对 Excel 最大的质量增量。
+    </div>
+
+    <h3>4.6 环境配置 <span class="badge b-v2">V2</span></h3>
+    <ul>
+      <li>顶部提供<b>环境切换器</b>，切换后列表/编辑均作用于该环境。</li>
+      <li>每条示例归属一个或多个环境；支持将示例<b>复制到其他环境</b>。</li>
+      <li>先落地单一 SFT 环境（V1），V2 再放开多环境。</li>
+    </ul>
+
+    <h3>4.7 操作日志 <span class="badge b-tip">建议</span></h3>
+    <ul>
+      <li>记录每次新增/修改/删除的：操作人、时间、动作类型、变更前后内容。</li>
+      <li>因动态示例直接影响线上 Planner 决策，保留审计可追溯问题来源。</li>
+    </ul>
+  </section>
+
+  <!-- 5 -->
+  <section id="s5">
+    <h2><span class="num">5</span>字段定义</h2>
+    <table>
+      <tr><th style="width:130px">字段</th><th style="width:80px">类型</th><th style="width:70px">必填</th><th>说明</th></tr>
+      <tr><td>ID</td><td>系统</td><td>自动</td><td>唯一标识，系统生成</td></tr>
+      <tr><td>Query</td><td>文本</td><td>是</td><td>触发该示例的用户 Query</td></tr>
+      <tr><td>决策分析</td><td>长文本</td><td>是</td><td>Planner 应如何决策的一句话说明</td></tr>
+      <tr><td>其他说明</td><td>长文本</td><td>否</td><td>备注、补充上下文</td></tr>
+      <tr><td>缺陷链接</td><td>链接</td><td>否</td><td>对应 Meego 缺陷单链接</td></tr>
+      <tr><td>Logid</td><td>文本</td><td>否</td><td>关联的 trace_id / log_id，便于回溯原始 case</td></tr>
+      <tr><td>状态</td><td>枚举</td><td>是</td><td>生效 / 停用（默认生效）</td></tr>
+      <tr><td>环境</td><td>枚举</td><td>是<span class="badge b-v2">V2</span></td><td>所属环境；V1 默认单一 SFT 环境</td></tr>
+      <tr><td>创建人 / 创建时间</td><td>系统</td><td>自动</td><td>录入者与时间</td></tr>
+      <tr><td>更新人 / 更新时间</td><td>系统</td><td>自动</td><td>最后修改者与时间</td></tr>
+    </table>
+    <p class="footnote">字段对齐现有 Excel 结构（Query / 决策分析 / 其他说明 / 缺陷链接 / Logid），并补充状态、环境、审计字段。</p>
+  </section>
+
+  <!-- 6 -->
+  <section id="s6">
+    <h2><span class="num">6</span>页面原型</h2>
+
+    <h3>6.1 列表页</h3>
+    <div class="wf">
+      <div class="wf-bar"><span class="wf-dot"></span><span class="wf-dot"></span><span class="wf-dot"></span>&nbsp;动态示例管理 / 列表</div>
+      <div class="wf-body">
+        <div class="ui-row">
+          <span class="form-box" style="color:#4a4f57">环境：SFT-v1 ▾</span>
+          <span class="ui-input">🔍 搜索 Query 关键词 / 相似语义…</span>
+          <span class="form-box">状态：全部 ▾</span>
+          <button class="ui-btn">+ 新增示例</button>
+        </div>
+        <table class="ui-table">
+          <tr><th>Query</th><th>决策分析</th><th style="width:64px">状态</th><th style="width:70px">创建人</th><th style="width:96px">更新时间</th><th style="width:110px">操作</th></tr>
+          <tr><td>把氛围灯调成治愈的氛围</td><td>"治愈"=淡绿/薄荷色柔和渐变，调用 ambient_light_control…</td><td><span class="pill on">生效</span></td><td>CQC-A</td><td>07-10 15:20</td><td><button class="ui-btn ghost sm">编辑</button> <button class="ui-btn danger sm">删</button></td></tr>
+          <tr><td>播放一下音乐热销榜上的曲目</td><td>音乐榜单非播客，调用 search_and_control_music…</td><td><span class="pill on">生效</span></td><td>CQC-A</td><td>07-10 14:02</td><td><button class="ui-btn ghost sm">编辑</button> <button class="ui-btn danger sm">删</button></td></tr>
+          <tr><td>导航去天钥桥路214号哈尼美食广场3楼</td><td>destination_name 只传核心 POI 名，不拼完整地址…</td><td><span class="pill off">停用</span></td><td>CQC-B</td><td>07-09 19:41</td><td><button class="ui-btn ghost sm">编辑</button> <button class="ui-btn danger sm">删</button></td></tr>
+        </table>
+        <div class="ui-row" style="justify-content:flex-end;margin-top:12px;">
+          <span class="footnote">共 517 条　　&lt; 1 2 3 … 26 &gt;　每页 20 ▾</span>
+        </div>
+      </div>
+    </div>
+
+    <h3>6.2 新增 / 编辑</h3>
+    <div class="wf">
+      <div class="wf-bar"><span class="wf-dot"></span><span class="wf-dot"></span><span class="wf-dot"></span>&nbsp;新增动态示例</div>
+      <div class="wf-body">
+        <div class="form-field">
+          <label>Query <span class="star">*</span></label>
+          <div class="form-box">把氛围灯调成治愈的氛围</div>
+          <div class="sim-hint">⚠ 发现 2 条相似示例：「氛围灯调整成适合休息的效果」「氛围灯调成放松的样子」— 请确认不冲突</div>
+        </div>
+        <div class="form-field">
+          <label>决策分析 <span class="star">*</span></label>
+          <div class="form-box ta">"治愈"=淡绿色/薄荷色柔和渐变效果，调用 ambient_light_control 设置对应颜色和模式。</div>
+        </div>
+        <div class="ui-row">
+          <div class="form-field" style="flex:1"><label>缺陷链接</label><div class="form-box">https://meego…</div></div>
+          <div class="form-field" style="flex:1"><label>Logid</label><div class="form-box">2026070418…</div></div>
+        </div>
+        <div class="form-field"><label>其他说明</label><div class="form-box">—</div></div>
+        <div class="ui-row">
+          <div class="form-field" style="width:160px"><label>状态</label><div class="form-box">生效 ▾</div></div>
+          <div class="form-field" style="width:160px"><label>环境 <span class="badge b-v2">V2</span></label><div class="form-box">SFT-v1 ▾</div></div>
+        </div>
+        <div class="ui-row" style="justify-content:flex-end">
+          <button class="ui-btn ghost">取消</button>
+          <button class="ui-btn">保存并生效</button>
+        </div>
+      </div>
+    </div>
+    <p class="footnote">编辑页与新增页共用同一表单，编辑时预填当前值。</p>
+  </section>
+
+  <!-- 7 -->
+  <section id="s7">
+    <h2><span class="num">7</span>生效机制（开发向）</h2>
+    <p>动态示例按 Query 检索注入，因此增删改需同步维护<b>检索索引</b>：</p>
+    <table>
+      <tr><th style="width:120px">操作</th><th>索引处理</th></tr>
+      <tr><td>新增</td><td>对 Query 建立检索向量/索引项，加入索引</td></tr>
+      <tr><td>修改 Query</td><td>重建该条索引</td></tr>
+      <tr><td>仅改决策分析</td><td>无需重建索引，更新内容即可</td></tr>
+      <tr><td>删除 / 停用</td><td>从索引移除（停用=不参与检索）</td></tr>
+    </table>
+    <div class="callout c-todo">
+      <div class="c-title">待与开发确认：同步时机</div>
+      推荐<b>保存即近实时同步</b>到检索索引（秒级）。若架构上索引重建成本高，可退化为<b>定时同步</b>（如每 N 分钟）或<b>手动「发布」按钮</b>触发。此项影响 CQC 改完多久生效，需 文涛 评估。
+    </div>
+    <div class="callout c-warn">
+      <div class="c-title">生效范围</div>
+      「状态=停用」的示例不参与检索注入，作为删除前的安全缓冲；「生效」即进入 Top-K 候选。是否即时影响线上、还是随下次发版生效，需明确。
+    </div>
+  </section>
+
+  <!-- 8 -->
+  <section id="s8">
+    <h2><span class="num">8</span>权限与操作日志</h2>
+    <table>
+      <tr><th style="width:140px">角色</th><th>权限</th></tr>
+      <tr><td>CQC</td><td>增 / 删 / 改 / 查（主要使用方）</td></tr>
+      <tr><td>产品（晓伟/泽民）</td><td>查看 + 审计日志；可编辑</td></tr>
+      <tr><td>其他</td><td>按需只读</td></tr>
+    </table>
+    <p><span class="badge b-tip">建议</span>保留操作日志：操作人 / 时间 / 动作 / 变更前后内容，支持按人和时间检索。动态示例影响线上决策，出问题时可快速定位是哪条、谁改的。</p>
+  </section>
+
+  <!-- 9 -->
+  <section id="s9">
+    <h2><span class="num">9</span>存量数据迁移</h2>
+    <ul>
+      <li>现有 Excel 动态示例（约 <b>517 条</b>）需一次性导入后台，作为初始数据。</li>
+      <li>此为<b>开发侧一次性脚本动作</b>，非面向用户的批量导入功能。</li>
+      <li>迁移映射：Excel 的 Query / 决策分析 / 其他说明 / 缺陷链接 / Logid → 对应字段；状态默认「生效」。</li>
+      <li>迁移后建议跑一次工具名校验，输出异常清单供人工修正。</li>
+    </ul>
+  </section>
+
+  <!-- 10 -->
+  <section id="s10">
+    <h2><span class="num">10</span>版本规划</h2>
+    <table>
+      <tr><th style="width:100px">版本</th><th>内容</th><th style="width:120px">目标</th></tr>
+      <tr><td><span class="badge b-v1">V1</span></td><td>列表/查找、增删改、基础校验（含工具名校验、查重）、操作日志、存量迁移；单一 SFT 环境</td><td>替代 Excel，CQC 自助维护</td></tr>
+      <tr><td><span class="badge b-v2">V2</span></td><td>多环境配置与切换、跨环境复制、检索测试预览</td><td>多环境/多版本并行</td></tr>
+    </table>
+  </section>
+
+  <!-- 11 -->
+  <section id="s11">
+    <h2><span class="num">11</span>验收标准</h2>
+    <ul>
+      <li>CQC 可在后台完成一条动态示例的新增、检索、修改、删除全流程，无需接触 Excel。</li>
+      <li>录入空 Query / 空决策分析被拦截；写错工具名有提示；重复 Query 有查重提醒。</li>
+      <li>新增/修改后，检索链路能按约定时机命中该示例（配合 §7 生效机制验证）。</li>
+      <li>存量 517 条完成迁移，列表可正常检索展示。</li>
+      <li>每次增删改在操作日志中可查。</li>
+    </ul>
+  </section>
+
+  <!-- 12 -->
+  <section id="s12">
+    <h2><span class="num">12</span>待决策项</h2>
+    <table>
+      <tr><th style="width:40px">#</th><th>待决策</th><th>建议方案</th></tr>
+      <tr><td>1</td><td>生效时机：保存即时 vs 定时 vs 手动发布</td><td>保存即近实时同步（秒级），待 文涛 评估索引成本</td></tr>
+      <tr><td>2</td><td>删除方式：硬删除 vs 软删除/停用</td><td>软删除 + 停用状态，防误删</td></tr>
+      <tr><td>3</td><td>相似示例提示是否 V1 就做</td><td>V1 做，直接防冲突污染检索（可先关键词查重，相似度检索作增强）</td></tr>
+      <tr><td>4</td><td>工具名校验字典的维护方</td><td>内置 26 工具清单，随工具增减更新</td></tr>
+      <tr><td>5</td><td>操作日志是否纳入 V1</td><td>建议纳入，影响线上需可追溯</td></tr>
+    </table>
+    <div class="callout c-tip">
+      <div class="c-title">给评审的一句话</div>
+      核心就是 CRUD + 校验，形态对齐干预工具；争议点主要在「改完多久生效」和「删除是否可恢复」，其余按最简实现。
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

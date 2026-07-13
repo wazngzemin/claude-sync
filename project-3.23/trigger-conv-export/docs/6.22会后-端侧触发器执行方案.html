@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>6.22会后 · 端侧触发器执行方案</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:1100px;margin:0 auto;padding:32px 24px;color:#1e293b;line-height:1.7;background:#fafaf9}
+h1{font-size:1.6em;margin-bottom:6px;color:#0f172a}
+h2{font-size:1.25em;margin:32px 0 12px;padding:8px 14px;background:#f1f5f9;border-radius:8px;border-left:4px solid #3b82f6;color:#1e40af}
+h3{font-size:1.08em;margin:20px 0 8px;color:#334155}
+.meta{color:#64748b;font-size:.9em;margin-bottom:24px;border-bottom:1px solid #e2e8f0;padding-bottom:12px}
+table{width:100%;border-collapse:collapse;margin:10px 0 16px;font-size:.92em}
+th{background:#f8fafc;text-align:left;padding:8px 10px;border:1px solid #e2e8f0;font-weight:600;color:#475569}
+td{padding:8px 10px;border:1px solid #e2e8f0;vertical-align:top}
+.tag{display:inline-block;padding:1px 8px;border-radius:10px;font-size:.8em;font-weight:600}
+.del{background:#fee2e2;color:#991b1b}.keep{background:#dcfce7;color:#166534}.new{background:#dbeafe;color:#1e40af}.todo{background:#fef3c7;color:#92400e}
+.box{padding:12px 16px;border-radius:8px;margin:10px 0 16px;font-size:.93em}
+.box-blue{background:#eff6ff;border-left:4px solid #3b82f6}
+.box-red{background:#fef2f2;border-left:4px solid #ef4444}
+.box-green{background:#f0fdf4;border-left:4px solid #22c55e}
+.box-amber{background:#fffbeb;border-left:4px solid #f59e0b}
+.quote{background:#f8fafc;border-left:3px solid #94a3b8;padding:8px 14px;margin:8px 0;font-size:.9em;color:#475569;font-style:italic}
+ul,ol{margin:6px 0 10px 24px}
+li{margin:3px 0}
+b{color:#0f172a}
+.action-row td:first-child{font-weight:700;white-space:nowrap}
+.action-row tr:nth-child(odd){background:#fafafa}
+.red{color:#dc2626;font-weight:700}
+.highlight{background:#fef08a;padding:1px 4px;border-radius:3px}
+svg text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+</style>
+</head>
+<body>
+
+<h1>6.22会后 · 端侧触发器执行方案</h1>
+<div class="meta">
+  产品经理：王泽民 | 基于2026-06-22端侧触发器评审会议 | 参会：丁彬、陈西钺、施佳杰、吴仁杰、赵益红、王泽民<br/>
+  文档定位：<b>PM行动方案</b>——6.22改了什么、现在该怎么做、谁给谁什么、什么时候交付
+</div>
+
+<!-- ========== 第一章：一句话总结 ========== -->
+<h2>一、6.22改了什么——一句话</h2>
+
+<div class="box box-blue">
+  <b>端侧触发器的scope大幅收窄：</b>固定/标配的端侧闭环场景全部回赛力斯CDC底软，触发器只做动态/可变/用户临时设的场景。事件链路从"轮询Context"改成"云端触发器push给Advisor"。新增"动态视觉感知事件"和"任务中心打通"两块需求。
+</div>
+
+<!-- ========== 第二章：scope变更 ========== -->
+<h2>二、Scope变更：什么回CDC，什么留触发器</h2>
+
+<h3>判断标准（仁杰13:14原话）</h3>
+<div class="quote">
+  "比如像那种车辆安全、上车安全、下车安全，它很有可能都会在车辆设置里，是一个常驻的设置项，是所有车标配的功能，不会变，不涉及条件变化或用户改配置——这种直接底软做掉，不需要走触发器去绕。那种有生命周期的，用户只在这个时候创建了一下，消费完就没了，或者说条件是可能变化的、动态生成的——这类才走触发器。"
+</div>
+
+<table>
+  <tr>
+    <th style="width:30%">场景</th>
+    <th style="width:12%">归属</th>
+    <th style="width:18%">谁说的</th>
+    <th>理由</th>
+  </tr>
+  <tr>
+    <td>哨兵模式</td>
+    <td><span class="tag del">回CDC</span></td>
+    <td>西钺09:24 + 丁彬16:17</td>
+    <td>固定功能，赛力斯自己做的逻辑，不耦合触发器</td>
+  </tr>
+  <tr>
+    <td>上下车安全</td>
+    <td><span class="tag del">回CDC</span></td>
+    <td>仁杰13:14</td>
+    <td>"起步安全是所有车标配，固定功能，不需要动态配置"</td>
+  </tr>
+  <tr>
+    <td>起步安全</td>
+    <td><span class="tag del">回CDC</span></td>
+    <td>仁杰14:07</td>
+    <td>"整个生命周期里这东西不会变化，就是一个固定功能"</td>
+  </tr>
+  <tr>
+    <td>无感迎宾 / 无感开车门</td>
+    <td><span class="tag del">回CDC</span></td>
+    <td>佳杰10:29</td>
+    <td>"更适合做成系统feature，不涉及语音交互，多端信号打通，赛力斯自己就做就行了"</td>
+  </tr>
+  <tr>
+    <td>充电桩开盖</td>
+    <td><span class="tag del">回CDC</span></td>
+    <td>丁彬08:07 + 西钺09:58</td>
+    <td>赛力斯CDC已有"充电大师"业务逻辑，两套会打架</td>
+  </tr>
+  <tr>
+    <td>睡眠检测/提醒（固定型）</td>
+    <td><span class="tag del">回CDC</span></td>
+    <td>仁杰16:01</td>
+    <td>"它就是一个常驻的固定功能，没必要走触发器"</td>
+  </tr>
+  <tr style="background:#f0fdf4">
+    <td>用户口头设的条件任务<br/><small>"10分钟后关座椅加热"</small></td>
+    <td><span class="tag keep">留触发器</span></td>
+    <td>共识</td>
+    <td>有生命周期，用户临时创建，消费完就没了</td>
+  </tr>
+  <tr style="background:#f0fdf4">
+    <td>运营可配的动态场景<br/><small>"圣诞播放圣诞音乐"</small></td>
+    <td><span class="tag keep">留触发器</span></td>
+    <td>仁杰15:32</td>
+    <td>"可运营的，临时的，动态的，会变化的"</td>
+  </tr>
+  <tr style="background:#f0fdf4">
+    <td>Advisor注册的感知订阅<br/><small>"照看后排宝宝"</small></td>
+    <td><span class="tag keep">留触发器</span></td>
+    <td>丁彬14:07</td>
+    <td>"很开放式的规则，没法写死，需要触发器来产生"</td>
+  </tr>
+  <tr style="background:#eff6ff">
+    <td>动态视觉感知事件<br/><small>"用户睡醒了""驶出地库"</small></td>
+    <td><span class="tag new">新增</span></td>
+    <td>佳杰28:07 + 西钺01:01:29</td>
+    <td>Advisor需要消费的视觉类事件，需新建一类能力</td>
+  </tr>
+</table>
+
+<div class="box box-red">
+  <b>对讲解稿的影响：</b>原文的"端侧任务②简单条件判定""端侧任务③白名单车控直执"以及DMS安全监控、儿童遗留、乘客状态监控、手势控制的详细case表——这些描述的都是6.22之后回CDC的固定场景，不再是触发器的scope。
+</div>
+
+<!-- ========== 第三章：事件链路 ========== -->
+<h2>三、事件链路改了：push，不是轮询</h2>
+
+<h3>佳杰的原话（26:35）</h3>
+<div class="quote">
+  "我不会去轮询你的context，我是注册了这个事件之后，我就等待你的云端触发器给我发这个事件。"
+</div>
+
+<h3>佳杰对Context vs 事件的区分（29:34）</h3>
+<div class="quote">
+  "context拿的是另外一部分信息，它是作为condition存在的。比如'用户在倒完车之后，如果车里有小朋友，就做什么'——倒车是事件，车里有小朋友是condition。context解决condition，触发器解决事件。第一趴（事件），我不可能24小时轮询，这就产生了触发器的需求。"
+</div>
+
+<h3>新链路 vs 旧链路</h3>
+<table>
+  <tr><th style="width:12%">环节</th><th style="width:44%">旧链路（讲解稿写的）</th><th style="width:44%">新链路（6.22确认的）</th></tr>
+  <tr>
+    <td><b>Advisor怎么拿到事件</b></td>
+    <td>端侧检测 → 写④ → ⑫同步 → ㉑Context → <span class="red">Advisor轮询Context消费</span></td>
+    <td>端侧检测 → 写④ → ⑫同步 → <b>⑮云端触发器做阈值穿越+事件组装 → push给Advisor</b></td>
+  </tr>
+  <tr>
+    <td><b>Context的角色</b></td>
+    <td>Context是事件的载体，Advisor从中消费事件</td>
+    <td>Context只存<b>condition/状态</b>（比如"车内有小朋友=true"），不是事件通道</td>
+  </tr>
+  <tr>
+    <td><b>谁判断"发生了变化"</b></td>
+    <td>端侧㉔的24-10做阈值穿越</td>
+    <td><b>⑮云端触发器</b>做阈值穿越(15-10) + 事件组装(15-11)后push</td>
+  </tr>
+</table>
+
+<div class="box box-green">
+  <b>对你的意义：</b>这个改动说明触发器的"事件组装"能力是核心价值——不是简单转发状态，而是把原始信号变成Advisor能消费的语义事件。这是佳杰明确需要你提供的东西。
+</div>
+
+<!-- ========== 第四章：新增需求 ========== -->
+<h2>四、新增需求①：动态视觉感知事件</h2>
+
+<h3>需求来源</h3>
+<p>佳杰+益红有一批和视觉强相关的事件需求：</p>
+<div class="quote">
+  佳杰（21:06）："它属于一个视觉类的状态变更事件，不是静态的。比如用户什么时候驶出了地库，什么时候在打电话、结束打电话，它更多是这种持续类的视觉，要检测到一个变化过程。"
+</div>
+<div class="quote">
+  佳杰（22:29）："大概就是睡着睡醒、驶出地库、打手机结束打手机、某个位置出现了某一个物品或被移除了。"
+</div>
+
+<h3>链路怎么走（会上讨论收敛到的方案）</h3>
+<table>
+  <tr><th style="width:5%">#</th><th style="width:20%">谁</th><th>做什么</th></tr>
+  <tr><td>1</td><td><b>动态Advisor⑰</b></td><td>拆解出"需要一个视觉类条件" → 调触发器注册</td></tr>
+  <tr><td>2</td><td><b>⑮ 云端触发器</b></td><td>把语义目标编译成端模能理解的SP/注意力 → 下发端侧</td></tr>
+  <tr><td>3</td><td><b>端模（AIBox）</b></td><td>按SP观测，<b>只做客观状态输出</b>（"毯子在地上"），不做业务判断（"毯子掉了"）</td></tr>
+  <tr><td>4</td><td><b>信号库④</b></td><td>存储端模输出的观测结果</td></tr>
+  <tr><td>5</td><td><b>⑮ 云端触发器</b></td><td>从信号做阈值穿越/事件组装 → push给Advisor</td></tr>
+</table>
+
+<h3>三个待定问题（会上没收敛）</h3>
+<table>
+  <tr><th>问题</th><th>谁提的</th><th>当前状态</th></tr>
+  <tr>
+    <td><b>端模能不能做动态注意力？</b><br/>即：能不能通过动态下发prompt，让端模观测之前没训练过的东西？</td>
+    <td>仁杰42:01 + 丁彬42:38</td>
+    <td><span class="tag todo">待验证</span> 丁彬说"用prompt限制，如果指令遵循好，应该可以，但没试过"。有限集（预训练过的）可以，发散的不确定</td>
+  </tr>
+  <tr>
+    <td><b>下发链路走谁？</b><br/>动态SP是走触发器→端模，还是走AIBox任务调度→端模？</td>
+    <td>仁杰34:59 + 西钺59:21</td>
+    <td><span class="tag todo">待定</span> 西钺问"是走触发器的云到端链路，还是走佳杰的任务调度？"——没有明确结论</td>
+  </tr>
+  <tr>
+    <td><b>通用视觉事件通道怎么设计？</b><br/>预置事件之外，需要一个泛化的backup通道</td>
+    <td>佳杰01:01:02 + 西钺01:01:29</td>
+    <td><span class="tag todo">需另约会</span> 佳杰说"触发器需要支持配置一个通用视觉事件的能力"，西钺说"保留链路，但实际可能用不上"</td>
+  </tr>
+</table>
+
+<div class="box box-amber">
+  <b>时间约束：</b>仁杰说"需求的话，7月中基本这一块就都得定下来"（42:34）。佳杰+益红的事件清单"周内提供给泽民"（49:25）。
+</div>
+
+<!-- ========== 第五章：任务中心 ========== -->
+<h2>五、新增需求②：任务中心打通</h2>
+
+<h3>佳杰的需求（51:07-55:08）</h3>
+<table>
+  <tr><th style="width:25%">能力</th><th>佳杰原话</th></tr>
+  <tr>
+    <td><b>端云任务同步</b></td>
+    <td>"你必须第一个需要建设的能力就是端云的任务同步机制。比如定时任务、预设条件任务，它能够在端上有一个模块做持久化。"</td>
+  </tr>
+  <tr>
+    <td><b>区分任务级 vs 感知级</b></td>
+    <td>"你可能额外会有一些字段来区分它是任务级数据还是感知级数据。我在端侧做显示，不可能把所有触发器里很原始的场景都拿来显示——只有对用户有价值的'任务'才在任务中心显示。"</td>
+  </tr>
+  <tr>
+    <td><b>enable/disable接口</b></td>
+    <td>"我对你的操作：启用/不启用、删除/添加回来。你的数据库要支持我去写入，或者提供接口给我。"</td>
+  </tr>
+</table>
+
+<!-- ========== 第六章：AlwaysOn ========== -->
+<h2>六、澄清：AlwaysOn调度不归触发器</h2>
+<div class="quote">
+  西钺（57:25）："调度always on是触发器来做吗？这个我记得佳杰他们有一个专门的AIBox上有一个模型调度的模块在做。"<br/>
+  佳杰（57:47）："AIBox的模块里面，有一个模块专门对所有请求做优先级排序。"
+</div>
+<p>触发器可以<b>请求开启/关闭</b>AlwaysOn（比如"出地库→开always-on"），但<b>调度中枢是AIBox任务调度</b>，不是触发器。</p>
+
+<!-- ========== 第七章：行动清单 ========== -->
+<h2>七、泽民的行动清单</h2>
+
+<table class="action-row">
+  <tr>
+    <th style="width:5%">#</th>
+    <th style="width:28%">Action</th>
+    <th style="width:15%">找谁</th>
+    <th style="width:12%">Deadline</th>
+    <th style="width:40%">具体要拿到什么</th>
+  </tr>
+  <tr>
+    <td>1</td>
+    <td><b>接收视觉事件需求清单</b></td>
+    <td>佳杰 + 益红</td>
+    <td>本周内</td>
+    <td>佳杰+益红梳理的视觉感知事件表（睡着/醒、驶出地库、打手机等），<b>每条事件：触发条件是什么、对应什么信号、走端侧还是云端</b></td>
+  </tr>
+  <tr>
+    <td>2</td>
+    <td><b>确认赛力斯CDC枚举清单</b></td>
+    <td>赛力斯侧<br/><small>（上周已要求梳理）</small></td>
+    <td>催一下</td>
+    <td>赛力斯CDC已做/将做的固定场景完整清单。<b>目的：划清触发器和CDC的边界，不两头做</b></td>
+  </tr>
+  <tr>
+    <td>3</td>
+    <td><b>约视觉感知事件专项会</b></td>
+    <td>佳杰 + 西钺 + 丁彬</td>
+    <td>收到清单后</td>
+    <td>拿佳杰的case过链路：①端模能不能做动态注意力？②下发链路走触发器还是AIBox？③通用视觉事件通道怎么设计？</td>
+  </tr>
+  <tr>
+    <td>4</td>
+    <td><b>出"场景→是否显示在任务中心"标注表</b></td>
+    <td>佳杰 review</td>
+    <td>对接前</td>
+    <td>列出所有走触发器的场景，逐条标注：是否在任务中心显示、用户可否开关。佳杰说"你先标一轮，大家看看"</td>
+  </tr>
+  <tr>
+    <td>5</td>
+    <td><b>和佳杰对任务中心接口</b></td>
+    <td>佳杰</td>
+    <td>—</td>
+    <td>端云任务同步机制 + enable/disable写入接口 + 任务级vs感知级字段定义</td>
+  </tr>
+  <tr>
+    <td>6</td>
+    <td><b>更新PRD</b></td>
+    <td>—</td>
+    <td>上述输入到齐后</td>
+    <td>把scope变更、链路变更、新增能力写进PRD。删除CDC场景，补上视觉事件+任务中心</td>
+  </tr>
+</table>
+
+<!-- ========== 第八章：依赖矩阵 ========== -->
+<h2>八、谁给谁什么</h2>
+
+<table>
+  <tr>
+    <th style="width:18%">从 ↓ 到 →</th>
+    <th>泽民（触发器PM）</th>
+    <th>佳杰（AIBox/任务中心）</th>
+    <th>西钺/丁彬（端模）</th>
+    <th>益红（Advisor）</th>
+  </tr>
+  <tr>
+    <td><b>佳杰+益红</b></td>
+    <td>视觉事件需求清单（本周内）</td>
+    <td>—</td>
+    <td>—</td>
+    <td>—</td>
+  </tr>
+  <tr>
+    <td><b>泽民</b></td>
+    <td>—</td>
+    <td>①"场景→任务中心"标注表<br/>②端云同步+写入接口</td>
+    <td>视觉事件专项会议题</td>
+    <td>事件push接口/格式定义</td>
+  </tr>
+  <tr>
+    <td><b>赛力斯</b></td>
+    <td>CDC已做场景枚举清单</td>
+    <td>—</td>
+    <td>—</td>
+    <td>—</td>
+  </tr>
+  <tr>
+    <td><b>仁杰</b></td>
+    <td>信号标准化（端侧信号库）</td>
+    <td>—</td>
+    <td>—</td>
+    <td>—</td>
+  </tr>
+</table>
+
+<!-- ========== 第九章：风险 ========== -->
+<h2>九、风险点</h2>
+
+<table>
+  <tr><th style="width:35%">风险</th><th style="width:20%">来源</th><th>应对</th></tr>
+  <tr>
+    <td><b>赛力斯各业务内部协同问题</b>——同一时机多个业务提醒，没有仲裁</td>
+    <td>西钺17:14</td>
+    <td>推赛力斯自己梳理业务优先级。这不是触发器的事，但会影响整体体验</td>
+  </tr>
+  <tr>
+    <td><b>端模动态注意力能力不确定</b>——可能做不到真正的泛化观测</td>
+    <td>丁彬40:58 + 西钺43:43</td>
+    <td>先用有限集（预训练过的）cover主要场景，通用视觉事件通道作为backup但可能实际用不上</td>
+  </tr>
+  <tr>
+    <td><b>AIBox SOP已满，新增信号可能排不进去</b></td>
+    <td>丁彬49:32</td>
+    <td>"如果你梳理出来可能跟我们有重叠的话SOP可以提供，如果没有可能就要排期"。尽早给丁彬输入</td>
+  </tr>
+</table>
+
+<div style="margin-top:40px;padding:16px;background:#f1f5f9;border-radius:8px;text-align:center;color:#64748b;font-size:.88em">
+  基于6.22会议纪要原文整理 · 所有引用均为参会人原话 · 2026-06-22
+</div>
+
+</body>
+</html>

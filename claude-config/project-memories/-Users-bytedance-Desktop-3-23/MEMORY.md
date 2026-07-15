@@ -1,5 +1,6 @@
 # Memory Index
 
+- [BaoCut setup](project_baocut_setup.md) — 字幕skill装全但被Metal4/macOS26卡死跑不了；本机CorpLink限速+封app篡改；下HF大模型唯一路=hf-mirror 2MB/s
 - [7.15 task management + trigger](project_715_task_management_trigger.md) — 动态adv技评把触发器抬成任务系统承重墙；6类触发+模型能力扩张；三个定义权/归属/押注决策待泽民拍板；二技评前攥协议草案+scope主张+归属结论
 - [User profile](user_profile.md) — ByteDance AI PM on Doubao in-car cockpit (Driver Agent 2.0 Planner), wants systematic/detailed outputs
 - [Fork workflow preferences](feedback_fork_workflow.md) — timestamp every fork, update INDEX.md, systematic not fragmented

@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>7.8 VLM评审 · 带温度的逐句复盘</title>
+<style>
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --surface2: #232733;
+    --border: #2e3345; --text: #e2e4eb; --text2: #9ba1b5;
+    --accent: #6c8cff; --red: #ff6b6b; --red-bg: rgba(255,107,107,0.06);
+    --red-border: rgba(255,107,107,0.2); --green: #69db7c;
+    --green-bg: rgba(105,219,124,0.06); --green-border: rgba(105,219,124,0.2);
+    --yellow: #ffd43b; --yellow-bg: rgba(255,212,59,0.06);
+    --yellow-border: rgba(255,212,59,0.2); --orange: #ffa94d;
+    --orange-bg: rgba(255,169,77,0.06); --orange-border: rgba(255,169,77,0.2);
+    --purple: #b197fc; --purple-bg: rgba(177,151,252,0.06);
+    --purple-border: rgba(177,151,252,0.2); --cyan: #66d9e8;
+    --cyan-bg: rgba(102,217,232,0.06); --cyan-border: rgba(102,217,232,0.2);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: -apple-system, "SF Pro Text", "Helvetica Neue", "PingFang SC", sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.85; padding: 0;
+  }
+  .header {
+    background: linear-gradient(135deg, #1a1d27 0%, #232733 100%);
+    border-bottom: 1px solid var(--border); padding: 40px 24px 32px; text-align: center;
+  }
+  .header h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .header .sub { font-size: 13px; color: var(--text2); }
+  .content { max-width: 920px; margin: 0 auto; padding: 24px 24px 80px; }
+  h2 { font-size: 17px; font-weight: 700; margin: 44px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+  h2:first-child { margin-top: 16px; }
+  p { margin: 8px 0; font-size: 13px; }
+
+  /* 场景卡片 */
+  .scene {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; margin: 24px 0; overflow: hidden;
+  }
+  .scene-head {
+    padding: 14px 18px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .scene-time { font-size: 12px; color: var(--accent); font-weight: 700; white-space: nowrap; }
+  .scene-title { font-size: 14px; font-weight: 700; }
+  .scene-body { padding: 16px 18px; }
+
+  .label { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px; margin-bottom: 6px; margin-top: 14px; }
+  .label:first-child { margin-top: 0; }
+  .label-room { background: var(--cyan-bg); color: var(--cyan); border: 1px solid var(--cyan-border); }
+  .label-mind { background: var(--purple-bg); color: var(--purple); border: 1px solid var(--purple-border); }
+  .label-you { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
+  .label-std { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+  .label-prep { background: var(--yellow-bg); color: var(--yellow); border: 1px solid var(--yellow-border); }
+  .label-miss { background: var(--orange-bg); color: var(--orange); border: 1px solid var(--orange-border); }
+
+  .block { padding: 12px 14px; border-radius: 6px; margin: 8px 0; font-size: 13px; line-height: 1.85; }
+  .block-room { background: var(--cyan-bg); border: 1px solid var(--cyan-border); }
+  .block-mind { background: var(--purple-bg); border: 1px solid var(--purple-border); }
+  .block-you { background: var(--red-bg); border: 1px solid var(--red-border); }
+  .block-std { background: var(--green-bg); border: 1px solid var(--green-border); }
+  .block-prep { background: var(--yellow-bg); border: 1px solid var(--yellow-border); }
+  .block-miss { background: var(--orange-bg); border: 1px solid var(--orange-border); }
+
+  .dim { color: var(--text2); }
+  .heat { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 11px; font-weight: 700; }
+  .heat-1 { background: rgba(105,219,124,0.15); color: var(--green); }
+  .heat-2 { background: rgba(255,212,59,0.15); color: var(--yellow); }
+  .heat-3 { background: rgba(255,169,77,0.15); color: var(--orange); }
+  .heat-4 { background: rgba(255,107,107,0.15); color: var(--red); }
+
+  table { width: 100%; border-collapse: collapse; margin: 10px 0 16px; font-size: 13px; }
+  th { background: var(--surface2); padding: 9px 12px; text-align: left; font-weight: 600; color: var(--text2); border-bottom: 1px solid var(--border); }
+  td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+
+  strong { color: var(--text); }
+  .version { text-align: center; padding: 32px 0; font-size: 12px; color: var(--text2); opacity:.5; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>7.8 VLM评审 · 带温度的逐句复盘</h1>
+  <div class="sub">每个场景 = 会场在吵什么 + 你当时什么处境 + 你说了什么 + 标准话术 + 为什么说不出来以及怎么准备</div>
+</div>
+
+<div class="content">
+
+
+<!-- ============================================================ -->
+<!-- 场景 1 -->
+<!-- ============================================================ -->
+<div class="scene">
+  <div class="scene-head">
+    <div class="scene-time">11:05 – 16:52</div>
+    <div class="scene-title">韩杰开第一枪 → 汪帅连续追击 → 丁彬被打穿 → 张荣点你名 <span class="heat heat-4">火力最猛</span></div>
+  </div>
+  <div class="scene-body">
+
+    <div class="label label-room">会场在吵什么</div>
+    <div class="block block-room">
+      <strong>11:05 韩杰开枪：</strong>"这为啥需要触发器呢？AIBox自己可以获取上电，拍完给AI Service不就OK吗？"——第一枪，直接质疑触发器存在的必要性。语气不算重，但问题很重。<br><br>
+      <strong>11:47 韩杰追问：</strong>"不是，就是还是没有回答我的"——丁彬的回答没让他满意，语气已经有点不耐烦了。<br><br>
+      <strong>12:26 汪帅加入：</strong>"我有一个疑问，AI Box上电之后能不能默认就打开？"——第二个人开始质疑。<br><br>
+      <strong>14:42 汪帅升级：</strong>"系统上电谁吐出？AI Box上电能吐出对外的事件吗？谁能决定？"——三个连续反问，语气从"疑问"变成了"质问"。<br><br>
+      <strong>14:56 刘杨也加入：</strong>"本质就是触发器怎么知道我自己该关了该开了？"——第三个人在问同一个问题了。<br><br>
+      <strong>15:03 汪帅放杀手锏：</strong>"因为这个东西<strong>可不是</strong>车机啊，车机<strong>人家</strong>车厂能告诉我们信号，AIBox<strong>可没人</strong>能告诉我们。"——注意语气词：<strong>"可不是""人家""可没人"</strong>——不是在讨论了，是在教训。潜台词：你们提方案之前连信号能不能拿到都没确认过？<br><br>
+      <strong>15:27 汪帅直接给替代方案：</strong>"也不需要过触发器，我初始化的时候我就可以告诉它。"<br><br>
+      <strong>16:04 汪帅下定性：</strong>"我们不能为了说是有一个触发器，而就把一个功能<strong>强加</strong>在它里面。"——<strong>"强加"</strong>这两个字是最重的。意思是：这个产品是为了存在而存在，你们在往别人身上硬塞活。<br><br>
+      <strong>16:36 丁彬被逼到底：</strong>"我这边其实<strong>还是希望</strong>能由端侧触发器来做。"——"还是希望"说明他已经没有技术论据了，只剩意愿。他在替你扛，但扛法已经是裸扛。<br><br>
+      <strong>16:52 张荣点名你：</strong>"泽泽民，你那边也看看这一块吧，泽民。"——连叫两遍你的名字。意思是：你是触发器PM，你该说话了。<br><br>
+      <span class="dim">整个5分47秒的攻防：韩杰、汪帅、刘杨三个人从三个角度质疑同一件事——触发器为什么要存在。丁彬一个人扛，越扛越弱。张荣已经在催你出来了。你全程没说话。</span>
+    </div>
+
+    <div class="label label-mind">你当时大概什么处境</div>
+    <div class="block block-mind">
+      汪帅15:03那句话应该是把你打懵的那一下。你整个P0方案的核心前提是"上电 → 触发"，而这个"上电信号"你之前没有跟汪帅确认过赛力斯到底能不能给——你可能以为这个信号理所当然地存在（上汽有，赛力斯应该也有），现在被当场告知：不存在。<br><br>
+      这意味着你准备的整个方案的第一步就是错的。这个认知上来的一瞬间，人的正常反应是：先消化，再想怎么办。但会场不等你消化——韩杰在追问，汪帅在给替代方案，丁彬在被打。你的脑子可能同时在处理两件事：①我的方案前提塌了，②我该说什么？这两件事互相打架，结果是都没处理好——你选择了先不说话。<br><br>
+      到16:04汪帅说"强加"的时候，你可能已经开始觉得：说什么都是错的。承认上电信号不存在 = 承认我方案没做好功课；坚持触发器必要性 = 丁彬刚被否了我也会被否。两条路看起来都通向丢脸。所以你继续不说话。<br><br>
+      张荣16:52点名你，但蒋文17:18插了一个停车场的问题，打断了。你可能心里松了一口气——暂时不用回答了。<br><br>
+      <strong>这个心理状态是正常的。</strong>核心前提被当场击穿，而且是在十几个人的评审会上，任何人都会懵几分钟。问题不在于你懵了，在于你懵了5分47秒都没有开口，导致丁彬一个人扛到弹尽粮绝。
+    </div>
+
+    <div class="label label-std">标准话术</div>
+    <div class="block block-std">
+      在汪帅15:03说完"可没人能告诉我们"之后，最晚不超过丁彬15:18回答之前，你应该接话：<br><br>
+      <strong>"帅哥说的对，赛力斯有没有上电事件这个信号，是我这边方案前提没确认清楚。那实际情况就是拿不到上电，OK，那我调一下方案——舱外的话，如果VLM程序启动就能默认跑AlwaysOn，那不需要触发器来开；舱内的话，触发条件就只剩button了。这块我听一下帅哥你们的判断：button状态传入VLM SDK这个事，过不过触发器，你觉得有没有必要？"</strong><br><br>
+      <span class="dim">这句话做了四件事：①认了（前提没确认是我的问题）——这比硬扛或沉默都好，因为对面三个人攻的就是这个点，你认了他们就没什么好攻的了；②不在认错上多停留，直接转到"那怎么办"；③把讨论从"触发器该不该存在"拉到"button走哪个模块"——从存亡之问变成实施细节；④"你觉得有没有必要"是把球还给汪帅，让他从攻击者变成顾问。</span>
+    </div>
+
+    <div class="label label-prep">为什么这句话当时说不出来 · 怎么下次能说出来</div>
+    <div class="block block-prep">
+      <strong>说不出来的原因：</strong>你不确定"认错"之后会发生什么。会不会大家觉得我不靠谱？张荣会不会追问"你为什么之前没确认这个信号"？汪帅会不会借机把整个触发器都否了？在不确定后果的情况下，人会选择沉默——沉默至少不会主动把事情变得更糟。<br><br>
+      <strong>但实际上，认错 = 止血。</strong>这场会的实际走向证明了：你不认，别人也会帮你否——最后张荣直接说"删了吧"。区别是：你自己认，你掌握节奏，可以把话题引到你想去的方向（比如0818）；别人帮你否，你就只能被动接受。早认5分钟，你能少被动30分钟。<br><br>
+      <strong>下次怎么准备：</strong>评审会之前，把方案里的每一个<strong>前提假设</strong>列出来（这个case里是"赛力斯能提供上电事件"），然后逐个跟对应的技术同学确认。如果有任何一个前提没确认到位，评审会上就要准备好B方案——"如果X不成立，那我的方案是Y"。上会之前在脑子里过一遍：如果汪帅/韩杰问到这个前提怎么办？提前想过一遍，被问到的时候就不会懵。
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ============================================================ -->
+<!-- 场景 2 -->
+<!-- ============================================================ -->
+<div class="scene">
+  <div class="scene-head">
+    <div class="scene-time">18:18 – 18:37</div>
+    <div class="scene-title">你终于开口了 <span class="heat heat-2">低温·确认信息</span></div>
+  </div>
+  <div class="scene-body">
+
+    <div class="label label-room">会场在吵什么</div>
+    <div class="block block-room">
+      汪帅说完"我觉得这个意义不大"（18:11）之后，有几秒钟的安静。战场已经从激烈交火变成了单方面结论——汪帅觉得没意义，丁彬在消化，其他人等着看。你在这个缝隙里开口了。
+    </div>
+
+    <div class="label label-mind">你当时大概什么处境</div>
+    <div class="block block-mind">
+      你已经沉默了7分钟（11:05→18:18）。这么长的沉默之后，第一句话的门槛会变得特别高——你会觉得"我都安静了这么久了，现在说的第一句话必须有分量"。但越这么想越开不了口，最后选了一个最安全的方式：问一个确认性问题。<br><br>
+      "帅哥可以听到吗？"——这个开场暴露了你之前不在讨论节奏里。它等于在说"我刚进来，之前的内容我可能没完全跟上"。汪帅3分钟前刚说过的结论你又问了一遍（"上电状态我们是拿不到的是吗？"），在场的人会觉得你没在听。<br><br>
+      但你确实需要那几秒来确认自己理解对了——这不是假装不知道，是你在高压下需要一个anchor point，一个"至少这个事实我确认了"的落脚点，然后才能想下一步。这个心理需求是真实的，只是在评审会上，用"我再确认一下"来表达这个需求，代价比较高。
+    </div>
+
+    <div class="label label-you">你实际说的</div>
+    <div class="block block-you">
+      18:18 "我先问一下，帅哥可以听到吗？帅哥你是指现在的系统上电的状态，我们是端侧触发器是拿不到的，是吗？"<br><br>
+      18:37 "那如果系统上电拿不到的话，可能仓内的话就只可能去判断一个Always on的button了。"
+    </div>
+
+    <div class="label label-std">标准话术</div>
+    <div class="block block-std">
+      不需要确认了。直接拿结论往前走：<br><br>
+      <strong>"OK，赛力斯这边拿不到上电事件，这个我方案里的前提有问题，我来调。舱外的结论很清楚——VLM启动就默认打开，触发器不参与。舱内现在只有一个外部条件就是button状态。帅哥，button从哪来、怎么传给VLM SDK，这个你能给个方向吗？我好知道我的方案往哪个方向改。"</strong><br><br>
+      <span class="dim">你18:37说的"可能就只能判断一个button了"——方向是对的。区别在于：你说的是一个被动的推测（"可能""只能"），标准话术是一个主动的决策（"我来调""结论很清楚"）。内容几乎一样，姿态完全不同。</span>
+    </div>
+
+    <div class="label label-prep">为什么当时说不出来</div>
+    <div class="block block-prep">
+      沉默7分钟后的第一句话，你没有底气直接做决策。你需要先确认事实，站稳了，才敢往前走。这是人在高压下的正常反应：先找一个确定的东西抓住。<br><br>
+      <strong>下次怎么办：</strong>如果你需要确认，可以把确认和决策放在同一句话里——"帅哥确认一下，赛力斯拿不到上电事件对吧？（不等回答）那我方案里上电这个前提就不成立了，我调整一下——"。这样你拿到了确认，但没有停下来等确认，节奏在你手里。
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ============================================================ -->
+<!-- 场景 3 -->
+<!-- ============================================================ -->
+<div class="scene">
+  <div class="scene-head">
+    <div class="scene-time">22:40 – 30:25</div>
+    <div class="scene-title">你被点名讲方案 · 在压力下讲了10分钟旧稿 <span class="heat heat-3">中温·你在台上</span></div>
+  </div>
+  <div class="scene-body">
+
+    <div class="label label-room">会场在吵什么</div>
+    <div class="block block-room">
+      张荣22:28："泽民，你看看你要不直接串着讲一下？"——中间穿插了上报链路的讨论（20:19-22:24），气氛缓和了一些。现在回到触发器议题，张荣把麦交给你了。这是给你一个正式陈述的机会。<br><br>
+      但会场的底色已经变了：之前韩杰+汪帅+刘杨质疑了5分钟，汪帅给了替代方案，丁彬扛到"还是希望"。在座的人心里已经有了一个倾向——触发器可能不需要做。你上来讲的时候，不是在介绍方案，是在给一个被质疑过的产品做辩护。
+    </div>
+
+    <div class="label label-mind">你当时大概什么处境</div>
+    <div class="block block-mind">
+      你的PPT/文档是按原方案准备的——"上电→触发→VLM"。上电信号在15分钟已经被否了，但你没有新方案可以讲。你面临一个选择：<br><br>
+      <strong>A. 当场改稿</strong>——把"上电"从方案里去掉，只讲button。但你不确定改完的方案站不站得住，怕改错了被追问更难堪。<br>
+      <strong>B. 讲旧稿</strong>——把准备好的内容讲完，至少逻辑是完整的。被问到"上电"的时候再临场处理。<br><br>
+      你选了B。这是在压力下的本能选择——<strong>照稿子讲至少不会讲乱，临场改稿有可能讲砸</strong>。但代价是：在座的人会觉得"他刚才那段讨论听了吗？怎么还在讲上电？"<br><br>
+      22:40你的开场："我理解端侧触发器<strong>可能</strong>它主要现在，在目前这个阶段，<strong>可能</strong>它主要是两块事情吧。"——一句话里两个"可能"，一个"吧"。这些语气词是你信心状态的直接映射：你不确定自己讲的东西还对不对。<br><br>
+      到24:45，汪帅问VLM启动时序问题，你说"我们可以分两条进行判断"——这是压力下的应激反应。你的本能是：别人提问题，我就加逻辑来堵。但你加的逻辑方向是错的（VLM启动时序是SDK内部的事，不该触发器管），汪帅24:52直接否："建议在VLM SDK内部去做。"<br><br>
+      <strong>被否之后你可能的感受：</strong>又说错了。我还是少说为妙。所以接下来25:22到28:34，汪帅/丁彬/Walter讨论SDK内部实现，你完全没插话——不是不想插，是觉得自己插了可能又会被否。
+    </div>
+
+    <div class="label label-you">你实际说的（关键节点）</div>
+    <div class="block block-you">
+      22:40 — "端侧触发器可能主要是两块事情，一块是判断舱内舱外AlwaysOn的开关...舱内的话，我只需要判断它是否是上下电就可以了。"<br><br>
+      24:45 — "我们可以分两条进行判断吗？第一个判断是否上电，第二个判断VLM是否有开启状态。"<br><br>
+      28:56 — "好，那我们继续吧。"<br><br>
+      29:38 — （继续讲button变更的场景）<br><br>
+      30:25 — "帅哥这边有什么问题吗？"
+    </div>
+
+    <div class="label label-std">标准话术 · 开场</div>
+    <div class="block block-std">
+      22:40 被张荣点名后，开场第一句就应该把方案变更说清楚：<br><br>
+      <strong>"好，我来讲触发器这块。先说一个更新——刚才讨论里确认了赛力斯没有上电事件的SDK，所以我方案里'上电触发'这个前提不成立了。我直接讲更新后的版本。</strong><br><br>
+      <strong>舱外：不需要触发器参与。VLM agent启动就默认打开AlwaysOn，这块删掉。</strong><br><br>
+      <strong>舱内：触发条件只剩button。button开→下发舱内动态+静态两条任务；button关→停掉。行驶中button状态变更→CDC通知到我们，相应开关。</strong><br><br>
+      <strong>所以0804触发器的scope实际上变成了：只有舱内button这一个条件。这个条件值不值得过触发器，我想听帅哥的判断。"</strong><br><br>
+      <span class="dim">开场先说"方案有更新"，所有人立刻知道你跟上了。然后只讲更新后的版本，不讲已经被否掉的。最后主动把"要不要过触发器"抛出来——与其等汪帅来否你，不如你自己开这个口。</span>
+    </div>
+
+    <div class="label label-std">标准话术 · 24:45被追问VLM时序时</div>
+    <div class="block block-std">
+      汪帅问"上电之后VLM还没起来怎么办"，你不该在别人的技术领域里提方案。应该说：<br><br>
+      <strong>"VLM进程启动时序这个是SDK内部的事，帅哥和斯华你们判断怎么处理合适。我这边只关心一个问题：触发器发出开启指令之后，是不是只要确认SDK收到了就算完成？后面SDK内部怎么调度是你们的事。"</strong><br><br>
+      <span class="dim">边界清晰：产品管"要不要开"和"谁来开"，不管"SDK内部怎么启动进程"。这样说你不会被追问技术细节——因为你已经明确说了这不是你管的范围。</span>
+    </div>
+
+    <div class="label label-prep">为什么当时说不出来</div>
+    <div class="block block-prep">
+      <strong>讲旧稿的原因：</strong>你没有提前准备B方案。如果会前你脑子里过过"万一上电信号不可用呢"这个场景，你就有一个备选版本可以切换。但你没想过这个可能性，所以被否的那一刻你只有A方案，而A方案已经废了。人在没有替代方案的时候，会本能地抓住旧方案不放——不是因为你觉得旧方案对，是因为你手上只有这一个。<br><br>
+      <strong>"分两条判断"的原因：</strong>被问到答不上来的技术问题时，你的本能是"想办法给个答案"——因为不回答 = 显得我不懂。但在评审会上，"这块归SDK内部处理，不在我的scope"比一个错误的技术方案好100倍。说"我不管这块"不丢脸，说错了才丢脸。<br><br>
+      <strong>下次怎么准备：</strong>方案里每一个外部依赖（上电信号、button SDK、VLM SDK接口等），列出来之后，对每一个问自己：如果这个依赖不成立呢？准备一句话版本的fallback。上会之前，脑子里至少过两个"如果被否了我说什么"的剧本。
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ============================================================ -->
+<!-- 场景 4 -->
+<!-- ============================================================ -->
+<div class="scene">
+  <div class="scene-head">
+    <div class="scene-time">33:30 – 37:42</div>
+    <div class="scene-title">你总结scope · 然后把收口权交给荣姐 <span class="heat heat-2">低温·你试图收场</span></div>
+  </div>
+  <div class="scene-body">
+
+    <div class="label label-room">会场在吵什么</div>
+    <div class="block block-room">
+      你刚讲完button变更的几种场景。蒋文33:47问了高优任务抢占的问题，董均35:11解释了VLM内部优先级，丁彬36:23说频率是固定的。这段讨论基本没有争议，气氛是平和的。你觉得终于可以收了。
+    </div>
+
+    <div class="label label-mind">你当时大概什么处境</div>
+    <div class="block block-mind">
+      你刚经历了22:40到30:25将近8分钟的台上时间，被汪帅追问、被否了一次，中间有5分钟技术讨论完全插不上话。现在台下在聊频率和任务调度——跟触发器直接关系不大，你松了一口气。<br><br>
+      你的心理：<strong>赶紧收掉。</strong>讲完了，让荣姐定就行了。你不想在触发器这个话题上多待一秒——因为每多待一秒，就多一个被追问的可能。所以你说了"大家还有什么问题吗？"然后"荣姐看一下呢？"——两句都是在往外推。<br><br>
+      但你没意识到的是：你的总结（33:30）里还有"上电状态"这个词。到33分钟了，全场已经多次确认上电不可用，你总结的时候还在说"判断上电状态以及button按钮开关状态"。你可能是无意识的——嘴上说的是准备好的说法，脑子还没完全更新过来。但在别人耳朵里，这个词每出现一次都在提醒他们：这个PM的认知没跟上。
+    </div>
+
+    <div class="label label-you">你实际说的</div>
+    <div class="block block-you">
+      33:30 — "我们今天就是端侧触发器总共就两块事情嘛，一块说白了就两块，一块是判断它的上电状态以及它的button按钮开关状态嘛，第二块就是接收VLM的SDK的回调嘛。"<br><br>
+      37:26 — "那我们大家还有什么问题吗？关于触发器的，场内和场外的。"<br><br>
+      37:42 — "如果没有的话，荣姐看一下呢？"
+    </div>
+
+    <div class="label label-std">标准话术</div>
+    <div class="block block-std">
+      33:30 总结应该是更新后的版本。37:42 不该把收口权交出去，应该自己收：<br><br>
+      <strong>33:30 — "我总结一下：0804触发器这块，根据刚才的讨论，舱外不经过触发器，VLM默认打开；舱内只有一个button条件，帅哥说可以由AI Service在init SDK时传入。实际上0804触发器已经没有P0需求了。"</strong><br><br>
+      <strong>37:42 — "如果大家没有异议，0804触发器P0我这边撤掉。0818触发器有三个需求——动态任务切换、预设任务、订阅数据中心——我下周出方案。荣姐，0818评审的时间帮我排一下。"</strong><br><br>
+      <span class="dim">两个区别：①总结里不出现"上电"；②你自己宣布"我这边撤掉"，同时把0818放上桌。不等别人来砍你。</span>
+    </div>
+
+    <div class="label label-prep">为什么当时说不出来</div>
+    <div class="block block-prep">
+      你当时的心理是"赶紧过去"。一个被质疑了20多分钟的话题，你只想收掉。主动说"我撤掉"需要的不是能力，是心理余量——你得在心理上已经接受了"0804没了"这个事实，才能从容地自己宣布。但当时你可能还没完全接受，或者心里还有一丝"也许不用撤"的幻想。<br><br>
+      <strong>下次怎么办：</strong>评审会上，如果讨论到某个点所有人的意见都指向同一个方向（你的需求不成立），不要等到最后被宣判。在第三个人表达同一观点的时候，就可以自己做结论了。<strong>越早自己说出来，越主动。</strong>拖到被别人说出来，就是被动。
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ============================================================ -->
+<!-- 场景 5 -->
+<!-- ============================================================ -->
+<div class="scene">
+  <div class="scene-head">
+    <div class="scene-time">37:49 – 48:06</div>
+    <div class="scene-title">10分钟沉默 · 你的产品在你面前被别人重新设计 <span class="heat heat-4">最痛的10分钟</span></div>
+  </div>
+  <div class="scene-body">
+
+    <div class="label label-room">会场在吵什么</div>
+    <div class="block block-room">
+      <strong>37:49 Walter 轻描淡写：</strong>"这个上电，其实我个人觉得没什么意义吧，你的程序能跑起来，车子肯定上电了呀。"——语气是"这不是很明显的事吗"。不是在攻击，是在陈述一个他觉得显而易见的事实。这可能比被攻击更难受——因为对方甚至不觉得需要说服你。<br><br>
+      <strong>38:07 汪帅接力：</strong>"我刚才就这意思啊，就默认开机就跑起来呗。这其实实现起来相对很轻量。"——<strong>"很轻量"</strong>——你的触发器方案被归结为一个"不值得单独做的事"。<br><br>
+      <strong>38:34 – 39:30 左晓杰和Walter讨论功耗：</strong>这段跟触发器无关，但它给了你一个喘息窗口。<br><br>
+      <strong>39:59 张荣出来划线：</strong>"触发条件是没有形成共识的，是吗？"<br><br>
+      <strong>40:40 张荣追溯源头：</strong>"泽民和丁彬，现在提出来上电去触发的，这是需求来源于哪里啊？找源头吧。"——张荣在问：<strong>这个不靠谱的前提是谁定的？</strong>丁彬接了话，但这个问题本来是给你的。<br><br>
+      <strong>41:27 Walter定性：</strong>"如果是这样子的话，甚至可能都不需要到触发器了。"——<strong>"甚至"</strong>——连保留余地都懒得留了。<br><br>
+      <strong>42:50 – 47:00 Walter和汪帅开始设计新方案：</strong>button由赛力斯SDK提供 → AI Service接听 → 传给VLM SDK。丁彬在旁边改文档表述。<strong>你的产品被重新设计了，而设计的人不是你。</strong><br><br>
+      <strong>45:40 汪帅：</strong>"这个不是个触发器。"——他连续第二次明确说不走触发器。<br><br>
+      <strong>46:16 汪帅：</strong>"不，它不一定是触发器，你就留端侧提供就行了。对，我不一定会把它做触发器里。"<br><br>
+      <strong>47:26 张荣要结论：</strong>"帅哥，今天可以商量一个结论吗？因为这涉及到端侧触发器。如果不存在的话，那就不需要把他需求再提到804了。"——张荣已经准备盖棺了。<br><br>
+      <strong>47:35 汪帅终判：</strong>"你单纯这个按钮，我觉得我现在就可以给你结论，我觉得单纯一个按钮的状态，我可以不过触发器，<strong>我没觉得它过触发器能有十足的理由来说服我自己</strong>。"——最后一句"来说服我自己"，汪帅在说：不是方案不好，是<strong>你们没人能给我一个理由</strong>。<br><br>
+      <strong>48:06 张荣宣判：</strong>"泽民，我们就把触发器的P0的需求给他<strong>删了</strong>吧。"
+    </div>
+
+    <div class="label label-mind">你当时大概什么处境</div>
+    <div class="block block-mind">
+      这10分钟是整场会里你最难受的10分钟。你在看着自己的产品被其他人重新设计和分配——Walter在说"不需要触发器了"、汪帅在说"我来做button传入"、丁彬在改文档把"端侧触发器"改成"AI Service"。你坐在那里，你的名字挂在触发器PM的位置上，但这个产品正在被别人肢解。<br><br>
+      <strong>你可能在想的事情：</strong><br>
+      - "我应该说点什么，但说什么？技术上反驳不了——上电确实没意义，button确实不需要过触发器。"<br>
+      - "丁彬都在配合改了，我如果还坚持就显得不合群。"<br>
+      - "汪帅47:35说'没有理由来说服我自己'——我确实给不出理由。"<br>
+      - "算了，0804这块认了吧，我还有0818的东西。"<br><br>
+      <strong>沉默螺旋：</strong>你安静的时间越长，开口的门槛越高。1分钟不说话，随便插一句还很自然。3分钟不说话，你需要一个"由头"才能插话。5分钟以上不说话，你的第一句话需要"值得等这么久"——这个心理负担让你继续沉默，继续沉默让负担更重。这是一个自我强化的循环。<br><br>
+      到48:06张荣直接跟你说"删了吧"的时候，这不是商量——是通知。你的反应窗口只有几秒。
+    </div>
+
+    <div class="label label-miss">你应该在以下三个节点开口</div>
+    <div class="block block-miss">
+      <strong>节点A · 38:07 汪帅说"默认开机就跑起来"时：</strong><br>
+      <strong>"对，舱外就这么定了——VLM默认打开。舱内的button传入，帅哥你说可以在init SDK时给enable字段。这两条如果大家没意见，那0804触发器我这边没有P0了。但我要提醒一下，0818还有动态任务切换——停当前任务、换prompt、重启——这个场景只能触发器做，不是init时传个字段能解决的。"</strong><br>
+      <span class="dim">→ 在别人给结论之前，你先给。同时把0818的价值提出来，让所有人知道触发器后面还有硬需求。</span><br><br>
+      <strong>节点B · 43:07 汪帅说"我给你传入一个enable字段"时：</strong><br>
+      <strong>"好，舱内方案就这样了：帅哥这边init时传入enable，运行中button变更也由AI Service转发。这块的归属帅哥和李鑫你们定。触发器在这条链路上我撤了。"</strong><br>
+      <span class="dim">→ 方案成型的瞬间你确认并放手。比等到48:06被通知好得多。</span><br><br>
+      <strong>节点C · 47:35 汪帅说"没有理由来说服我自己"之后、48:06张荣说"删了吧"之前：</strong><br>
+      <strong>"帅哥说得清楚了。0804触发器P0我这边撤掉，不给各方增加依赖。下一步我这边做两件事：第一，0818触发器的方案我下周一出好，动态任务切换是核心，我需要帅哥、丁彬、韩杰参加评审；第二，触发器订阅数据中心的接口我跟李鑫/韩杰单独对。荣姐，0818评审时间我这周跟你约。"</strong><br>
+      <span class="dim">→ 你自己宣布撤掉。然后在同一口气里把0818的具体计划说出来——什么需求、什么时间、谁参加。这样所有人走出会议室时记住的不是"触发器被砍了"，而是"0804没了但0818有明确计划"。</span>
+    </div>
+
+    <div class="label label-prep">为什么10分钟都没开口</div>
+    <div class="block block-prep">
+      <strong>根本原因：你没有东西可以说。</strong><br><br>
+      技术上你反驳不了汪帅和Walter——他们说的都对。产品上你也给不出"触发器必须参与"的理由——确实只有一个button状态，确实不需要单独一个模块。你没有武器，所以你选择不上战场。<br><br>
+      但其实你有一个武器，只是你当时没意识到——<strong>0818</strong>。0818的动态任务切换（停+换prompt+重启）不是"传入一个enable字段"能解决的，它需要一个独立的调度逻辑。这是触发器存在的真正理由。丁彬16:51替你提了一嘴，但被汪帅17:48一句"后面再聊"压回去了。<br><br>
+      如果你在38:07接话的时候把0818的动态任务切换说出来——不是为了保住0804，而是为了让大家知道"0804我认了，但0818触发器有不可替代的需求"——你就不是在被砍，而是在做战略收缩。<br><br>
+      <strong>下次怎么准备：</strong>上评审会之前，除了准备本次的方案，还要准备一个"如果本次方案被否了，我的退路是什么"。这个退路不是保住这次的需求，而是<strong>确保下一个排期的需求在会上被所有人听到</strong>。0804被否不可怕，可怕的是0804被否之后0818也没有人记得。
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ============================================================ -->
+<!-- 场景 6 -->
+<!-- ============================================================ -->
+<div class="scene">
+  <div class="scene-head">
+    <div class="scene-time">48:14</div>
+    <div class="scene-title">被宣判后 · 你的回应 <span class="heat heat-3">余震</span></div>
+  </div>
+  <div class="scene-body">
+
+    <div class="label label-room">会场在吵什么</div>
+    <div class="block block-room">
+      张荣刚说完"删了吧"，丁彬紧接着说"那你看现在对触发器就没有依赖了"——丁彬在帮忙确认：结论落地了。你需要回应。
+    </div>
+
+    <div class="label label-mind">你当时大概什么处境</div>
+    <div class="block block-mind">
+      张荣那句话落下来的那一刻，可能有一种"靴子终于落地了"的感觉。你其实从38分钟就知道这个结果了，但一直没有自己说出来。现在被别人说出来了，反而有一种奇怪的轻松——至少不确定性没了。<br><br>
+      但你脑子里同时在转另一件事："触发器还有别的活啊——0818还有预设任务、动态切换、订阅数据中心。"你想把这些说出来，但你的组织能力在刚才的压力下已经消耗得差不多了。你说出来的话断断续续："OK，那下边但是在订阅这一块，我们还是需要，在下周吧，下周评预设任务的时候，在订阅数据中心可能需要。"<br><br>
+      这句话有四个"模糊点"：<strong>"下边""在下周吧""的时候""可能需要"</strong>——每一个都在给自己留退路，结果整句话没有传递出任何一个确定的信息。在座的人听完这句话，能提取的行动项是零。
+    </div>
+
+    <div class="label label-you">你实际说的</div>
+    <div class="block block-you">
+      "OK，那下边但是在订阅这一块，我们还是需要，在下周吧，下周评预设任务的时候，在订阅数据中心可能需要。"
+    </div>
+
+    <div class="label label-std">标准话术</div>
+    <div class="block block-std">
+      <strong>"好，0804触发器P0撤掉，会议记录我来补。</strong><br><br>
+      <strong>同步一下0818：触发器下一个排期窗口是0818，需要评三个需求——第一，动态任务切换，就是丁彬16:51提到的'停当前任务、换prompt、重启'；第二，预设任务的触发；第三，触发器订阅数据中心的topic做条件判断。</strong><br><br>
+      <strong>我的计划是下周一之前出方案文档，荣姐帮我约下周二或周三评审。帅哥、丁彬、韩杰需要参加。"</strong><br><br>
+      <span class="dim">把三个0818需求具体说出来、给自己设deadline、当场约评审时间和参会人。会上约的事落实率是会后约的5倍。</span>
+    </div>
+
+    <div class="label label-prep">为什么当时说不出来</div>
+    <div class="block block-prep">
+      你刚被砍了需求，心理上正在消化这个冲击。人在"刚被否"的那几秒里，脑子的优先级是"别让局面更糟"，不是"抢占下一个议题"。所以你的回应是防御性的——含糊、不确定、不具体。你不敢说太具体的东西，因为怕又被否。<br><br>
+      <strong>但这恰恰是你最应该说具体话的时刻。</strong>张荣刚砍完你的0804，在座所有人的注意力都在你身上——大家在等你的反应。这是一个窗口：你此刻说出来的任何确定信息，会被所有人记住。如果你含糊地说"下周吧"，大家走出去就忘了。如果你说"下周一出文档、周二评审、帅哥丁彬韩杰参加"——这些信息会钉在大家脑子里。<br><br>
+      <strong>下次怎么办：</strong>上评审会之前，除了准备"我要评的东西"，还要准备一张卡片：<strong>"如果本次需求被否了，我要当场说出来的三句话"</strong>。这三句话提前写好、背下来：①我撤掉（姿态）；②下一个排期是什么（方向）；③什么时间找谁评审（行动项）。这样即使你当时情绪受冲击，嘴上还能把这三句话说出来——因为是背过的，不需要现场组织语言。
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ============================================================ -->
+<!-- 场景 7 -->
+<!-- ============================================================ -->
+<div class="scene">
+  <div class="scene-head">
+    <div class="scene-time">49:38</div>
+    <div class="scene-title">你的最后一句话 <span class="heat heat-1">低温·散场前</span></div>
+  </div>
+  <div class="scene-body">
+
+    <div class="label label-room">会场在吵什么</div>
+    <div class="block block-room">
+      张荣在确认舱外隐私和舱内功耗的遗留问题，丁彬在改文档。会议在收尾。
+    </div>
+
+    <div class="label label-mind">你当时大概什么处境</div>
+    <div class="block block-mind">
+      0804被砍了，你在想"我还能做什么"。脑子里飘过了停车场景——蒋文17:18提过进停车场关舱外AlwaysOn的需求，你想抓住这个证明触发器还有用。但你又不确定这个需求是不是该现在提，所以说出来的话带了三个"是不是"。<br><br>
+      你的心理可能是：至少得说点什么，不能让大家觉得触发器从今天开始就死了。但你说出来的是一个试探，不是一个主张。
+    </div>
+
+    <div class="label label-you">你实际说的</div>
+    <div class="block block-you">
+      "诶，那我理解是不是关于停车驻车，看AI，always on AI box这一块的需求的话，是不是如果说需要放在触发器去做的话，是不是需要早点提出来？"
+    </div>
+
+    <div class="label label-std">标准话术</div>
+    <div class="block block-std">
+      这个时间点（49:38）不应该开新话题了。会议在收尾，张荣在做最后确认，你开新话题会显得散。停车场景该放在0818评审里讲，不是现在。<br><br>
+      这个位置你应该说的是<strong>今天这场会的结论确认</strong>：<br><br>
+      <strong>"荣姐，我确认一下今天的结论和action：<br>
+      一，触发器P0撤掉，0804没有触发器的需求。<br>
+      二，舱外AlwaysOn由VLM默认打开，斯华今天5点需求会上加进去。<br>
+      三，舱内AlwaysOn由AI Service传入button enable，帅哥和李鑫会后确认走哪个模块。<br>
+      四，左晓杰确认蓄电池功耗约束。<br>
+      五，我的action是出0818触发器方案，下周一之前完成。<br>
+      有漏的吗？"</strong><br><br>
+      <span class="dim">会议的最后一句话是有特权的——所有人都在听，而且会带着这句话离开会议室。你拿最后一句话做结论确认，比提一个新的模糊问题有用太多了。</span>
+    </div>
+
+    <div class="label label-prep">为什么当时说不出来</div>
+    <div class="block block-prep">
+      你心里想的是"证明触发器还活着"，但嘴上说的是一个模糊的问题。这是因为你还没有接受"0804结束了，战场转到0818了"这个事实——你还在0804的残局里找抓手。<br><br>
+      <strong>下次怎么办：</strong>需求被否的那一刻，立刻在心理上做一个切换——<strong>0804已经过去了，我现在的任务变成两件事：①确认今天的结论不出错；②把0818的计划钉住。</strong>不要在已经结束的战场上做无效挣扎。
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ============================================================ -->
+<h2>整场情绪弧线</h2>
+
+<table>
+  <tr>
+    <th style="width:80px;">时间段</th>
+    <th style="width:120px;">会场温度</th>
+    <th style="width:120px;">你的状态</th>
+    <th>发生了什么</th>
+    <th style="width:120px;">你说了/没说</th>
+  </tr>
+  <tr>
+    <td>11:05–16:52</td>
+    <td><span class="heat heat-4">火力最猛</span></td>
+    <td>被震住了，在消化</td>
+    <td>韩杰+汪帅+刘杨三面质疑，汪帅说"强加"，丁彬独自扛到弹尽粮绝</td>
+    <td style="color:var(--red);">全程沉默5分47秒</td>
+  </tr>
+  <tr>
+    <td>18:18–18:37</td>
+    <td><span class="heat heat-2">低温</span></td>
+    <td>试探性开口</td>
+    <td>你确认"上电拿不到"，推导"只剩button"</td>
+    <td>方向对，姿态被动</td>
+  </tr>
+  <tr>
+    <td>22:40–30:25</td>
+    <td><span class="heat heat-3">你在台上</span></td>
+    <td>紧张，讲旧稿</td>
+    <td>讲了原方案（含上电），被追问VLM时序，回答被否</td>
+    <td>讲了10分钟，核心信息过时</td>
+  </tr>
+  <tr>
+    <td>33:30–37:42</td>
+    <td><span class="heat heat-2">缓和</span></td>
+    <td>想赶紧收场</td>
+    <td>总结scope（还有"上电"）然后把收口权交荣姐</td>
+    <td>把决策权交出去了</td>
+  </tr>
+  <tr>
+    <td>37:49–48:06</td>
+    <td><span class="heat heat-4">最痛的10分钟</span></td>
+    <td>冻住了，看着产品被肢解</td>
+    <td>Walter和汪帅设计新方案，张荣宣判"删了吧"</td>
+    <td style="color:var(--red);">全程沉默10分钟</td>
+  </tr>
+  <tr>
+    <td>48:14</td>
+    <td><span class="heat heat-3">余震</span></td>
+    <td>消化冲击中</td>
+    <td>被通知"删了"后试图提0818</td>
+    <td>含糊，无行动项</td>
+  </tr>
+  <tr>
+    <td>49:38</td>
+    <td><span class="heat heat-1">散场</span></td>
+    <td>找抓手</td>
+    <td>提停车场场景</td>
+    <td>开新话题，浪费收口机会</td>
+  </tr>
+</table>
+
+
+<!-- ============================================================ -->
+<h2>下一场评审之前要准备的三件事</h2>
+
+<table>
+  <tr>
+    <th style="width:45px;">#</th>
+    <th style="width:140px;">准备什么</th>
+    <th>具体做法</th>
+    <th style="width:180px;">这次会上哪个瞬间需要它</th>
+  </tr>
+  <tr>
+    <td>1</td>
+    <td><strong>前提假设清单 + 逐个确认</strong></td>
+    <td>方案里每一个外部依赖（信号、接口、模块归属），列出来，提前跟对应的人确认。没确认的标红，上会前准备"如果这个不成立，我说什么"。</td>
+    <td>15:03 汪帅说"赛力斯没有上电事件"——如果你提前跟他确认过，你的方案根本不会包含"上电触发"这个条件。</td>
+  </tr>
+  <tr>
+    <td>2</td>
+    <td><strong>"如果被否了"的三句话</strong></td>
+    <td>提前写好背下来：<br>①"OK，我这边撤掉/调整"（姿态）<br>②"下一个排期是X，核心需求是Y"（方向）<br>③"方案X月X日出，评审找荣姐约"（行动项）<br>不管会上发生什么，这三句话你都能直接说出来。</td>
+    <td>48:06 张荣说"删了吧"——如果你有这三句话，你的回应不会是"下周吧...可能需要..."</td>
+  </tr>
+  <tr>
+    <td>3</td>
+    <td><strong>每段讨论结束时主动做结论</strong></td>
+    <td>别人讨论完一个点，你用一句话复述结论："OK，刚才的结论是X归Y做，触发器不管这块，大家确认？"然后继续。养成这个习惯。</td>
+    <td>28:56 "好那我们继续吧"——如果你说"结论：VLM SDK内部管崩溃恢复，触发器不管"，后面所有人都更清楚你的scope。</td>
+  </tr>
+</table>
+
+
+<div class="version">
+  7.8 VLM评审 · 带温度的逐句复盘 v7 · 2026-07-13<br>
+  v6(话术版) | v5(产品分析) | v4-v1 见同目录
+</div>
+
+</div>
+</body>
+</html>

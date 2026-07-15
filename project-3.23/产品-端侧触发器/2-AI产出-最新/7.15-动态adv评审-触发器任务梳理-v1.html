@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>7.15 动态adv评审 · 触发器任务梳理</title>
+<style>
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --surface2: #232733;
+    --border: #2e3345; --text: #e2e4eb; --text2: #9ba1b5;
+    --accent: #6c8cff; --red: #ff6b6b; --red-bg: rgba(255,107,107,0.07);
+    --red-border: rgba(255,107,107,0.22); --green: #69db7c;
+    --green-bg: rgba(105,219,124,0.07); --green-border: rgba(105,219,124,0.22);
+    --yellow: #ffd43b; --yellow-bg: rgba(255,212,59,0.07);
+    --yellow-border: rgba(255,212,59,0.22); --orange: #ffa94d;
+    --orange-bg: rgba(255,169,77,0.07); --orange-border: rgba(255,169,77,0.22);
+    --purple: #b197fc; --purple-bg: rgba(177,151,252,0.07);
+    --purple-border: rgba(177,151,252,0.22); --cyan: #66d9e8;
+    --cyan-bg: rgba(102,217,232,0.07); --cyan-border: rgba(102,217,232,0.22);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: -apple-system, "SF Pro Text", "Helvetica Neue", "PingFang SC", sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.85;
+  }
+  .header {
+    background: linear-gradient(135deg, #1a1d27 0%, #232733 100%);
+    border-bottom: 1px solid var(--border); padding: 40px 24px 30px; text-align: center;
+  }
+  .header h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .header .sub { font-size: 13px; color: var(--text2); }
+  .content { max-width: 940px; margin: 0 auto; padding: 24px 24px 80px; }
+
+  h2 { font-size: 18px; font-weight: 700; margin: 44px 0 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+  h2:first-child { margin-top: 12px; }
+  h3 { font-size: 14px; font-weight: 700; margin: 24px 0 8px; color: var(--accent); }
+  p { margin: 8px 0; font-size: 13px; }
+
+  table { width: 100%; border-collapse: collapse; margin: 10px 0 16px; font-size: 12.5px; }
+  th { background: var(--surface2); padding: 9px 11px; text-align: left; font-weight: 600; color: var(--text2); border-bottom: 1px solid var(--border); vertical-align: top; }
+  td { padding: 9px 11px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  .src { font-size: 11px; color: var(--accent); white-space: nowrap; }
+
+  .box { padding: 14px 16px; border-radius: 8px; margin: 12px 0; font-size: 13px; line-height: 1.85; }
+  .box-r { background: var(--red-bg); border: 1px solid var(--red-border); }
+  .box-g { background: var(--green-bg); border: 1px solid var(--green-border); }
+  .box-y { background: var(--yellow-bg); border: 1px solid var(--yellow-border); }
+  .box-b { background: var(--cyan-bg); border: 1px solid var(--cyan-border); }
+  .box-p { background: var(--purple-bg); border: 1px solid var(--purple-border); }
+
+  .tag { display: inline-block; padding: 1px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+  .t-new { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+  .t-chg { background: var(--yellow-bg); color: var(--yellow); border: 1px solid var(--yellow-border); }
+  .t-keep { background: var(--cyan-bg); color: var(--cyan); border: 1px solid var(--cyan-border); }
+  .t-todo { background: var(--orange-bg); color: var(--orange); border: 1px solid var(--orange-border); }
+  .t-out { background: var(--surface2); color: var(--text2); border: 1px solid var(--border); }
+
+  .quote { background: var(--surface); border-left: 3px solid var(--border); padding: 9px 13px; margin: 8px 0; border-radius: 0 6px 6px 0; font-size: 12px; color: var(--text2); }
+  .quote b { color: var(--accent); font-weight: 600; }
+
+  strong { color: var(--text); }
+  .dim { color: var(--text2); }
+  .num { display:inline-block; width:22px; height:22px; line-height:22px; text-align:center; background:var(--accent); color:#fff; border-radius:50%; font-size:12px; font-weight:700; margin-right:6px; }
+  .version { text-align: center; padding: 32px 0; font-size: 12px; color: var(--text2); opacity:.5; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>7.15 动态adv技术方案评审 · 触发器任务梳理</h1>
+  <div class="sub">主讲 于庆磊（服务端）· 1小时26分 · 第一次技评（共两次）· 主题：任务管理架构</div>
+</div>
+
+<div class="content">
+
+
+<!-- ===================== 0 ===================== -->
+<h2>一句话结论</h2>
+
+<div class="box box-r">
+<strong>7.8触发器P0被砍，7.15它变成了整个任务系统的承重墙。</strong><br><br>
+这一期把"动态Advisor"这个概念整个消解掉了——庆磊原话"后面就不会再有单独的动态advisor这个概念了，它作为任务的一个子集存在"（05:25）。取而代之的是一个新的顶层抽象：<strong>任务（Task）</strong>。而<strong>每一个任务都要挂一个Trigger</strong>——创建任务时同步创建trigger，由trigger决定它是条件的、定时的、还是周期的（38:52）。<br><br>
+更关键：庆磊把VLM语义匹配、泛化任务推理这些最难的活，都明确划给了触发器。"这肯定是触发器模块，从职责划分上我觉得也更是触发器的能力"（50:04）。<br><br>
+<strong>这是好事，也是陷阱。</strong>好在触发器从边缘变成了核心；陷阱在于——它裹着三个需要你拍板的决策（不是执行题，是判断题），而这三个正好是你最容易绕过去的。往下看第三节。
+</div>
+
+
+<!-- ===================== 1 ===================== -->
+<h2>一、这场会到底定了什么（触发器视角）</h2>
+
+<table>
+  <tr><th style="width:150px;">变化</th><th>内容</th><th style="width:70px;">来源</th></tr>
+  <tr>
+    <td><strong>动态Advisor消失</strong></td>
+    <td>不再有独立的"动态advisor"模块概念，全部融进"任务管理"。之前弋途的"动态weather角色"（模型做推理给建议）→ 现在映射成触发器的模型能力。</td>
+    <td class="src">05:25<br>57:53</td>
+  </tr>
+  <tr>
+    <td><strong>Task成为顶层抽象</strong></td>
+    <td>异步/周期/条件/GUI/多步 这些统一装进"任务"。Task Service 把原来设想的 weather、动态感知模块全部包住。</td>
+    <td class="src">04:00<br>1:12:48</td>
+  </tr>
+  <tr>
+    <td><strong>每个任务挂一个Trigger</strong></td>
+    <td>创建任务时同步创建trigger，trigger决定触发类型（条件/定时/周期）。触发器从"7.8没需求"变成"任务系统的激活入口"。</td>
+    <td class="src">38:52</td>
+  </tr>
+  <tr>
+    <td><strong>复用刘杨那版trigger</strong></td>
+    <td>大概率复用刘杨做的那一版，但能力有缺失，要补。当前trigger分两部分：①条件驱动（已有）②定时（在意图那边做的，<strong>要拿回来</strong>）。</td>
+    <td class="src">12:42</td>
+  </tr>
+  <tr>
+    <td><strong>这只是第一次技评</strong></td>
+    <td>第一次=确认能不能覆盖场景。第二次才聊具体技术细节、接口交互、字段、人力排期。<strong>你还有一个完整的窗口期去把触发器的scope和协议谈定。</strong></td>
+    <td class="src">01:58</td>
+  </tr>
+</table>
+
+
+<!-- ===================== 2 ===================== -->
+<h2>二、触发相关的任务全清单</h2>
+
+<p>会上一共提到<strong>6种触发类型</strong> + <strong>7个能力改造点</strong> + <strong>6个未决项</strong>。这是你这一期要覆盖的全部触发面。</p>
+
+<h3>2.1 六种触发类型</h3>
+
+<table>
+  <tr>
+    <th style="width:30px;">#</th>
+    <th style="width:110px;">类型</th>
+    <th style="width:150px;">典型case</th>
+    <th>触发器要做什么</th>
+    <th style="width:60px;">状态</th>
+    <th style="width:55px;">来源</th>
+  </tr>
+  <tr>
+    <td>1</td>
+    <td><strong>定时触发</strong></td>
+    <td>10分钟后打开车窗</td>
+    <td>到点激活。<strong>定时能力现在在"意图"那边，要拿回来、新写一份。</strong></td>
+    <td><span class="tag t-chg">要拿回</span></td>
+    <td class="src">12:42<br>1:15:24</td>
+  </tr>
+  <tr>
+    <td>2</td>
+    <td><strong>条件触发</strong></td>
+    <td>温度高于28度打开空调</td>
+    <td>条件满足则触发。复用你现有的条件驱动能力，<strong>但庆磊问"你要不要改？"</strong></td>
+    <td><span class="tag t-keep">复用/待定</span></td>
+    <td class="src">05:49<br>1:15:24</td>
+  </tr>
+  <tr>
+    <td>3</td>
+    <td><strong>周期触发</strong></td>
+    <td>每小时开一次座椅按摩</td>
+    <td>注册频率（每小时一次）+ 收下电信号旁路关闭任务 + 结束条件是否注册进trigger（和刘杨看）。</td>
+    <td><span class="tag t-new">新增频率</span></td>
+    <td class="src">20:43</td>
+  </tr>
+  <tr>
+    <td>4</td>
+    <td><strong>生态/GUI触发</strong></td>
+    <td>用瑞幸点一杯冰美式</td>
+    <td>客户端自己HTTP调用，<strong>不注册触发器、不过你这块</strong>。GUI端云原来就闭环，复用。</td>
+    <td><span class="tag t-out">不归你</span></td>
+    <td class="src">34:32</td>
+  </tr>
+  <tr>
+    <td>5</td>
+    <td><strong>VLM条件触发</strong> ⭐</td>
+    <td>后排宝宝哭了告诉我</td>
+    <td><strong>触发器里加一个模型</strong>：VLM每5秒上报客观描述（"宝宝有泪珠"），触发器的模型判断它和任务目标（"宝宝哭了"）是否匹配，匹配才触发。多条链：匹配+是否到触发节点。</td>
+    <td><span class="tag t-new">新增模型</span></td>
+    <td class="src">39:45<br>43:00</td>
+  </tr>
+  <tr>
+    <td>6</td>
+    <td><strong>泛化/模糊触发</strong> ⭐</td>
+    <td>照顾二排老人/介绍沿途风景</td>
+    <td>没法编码成规则的条件。端状态旁路给触发器，触发器用模型理解"现在该不该做、做什么"。庆磊承认<strong>效果大概率不好</strong>，可能走React模式，<span class="tag t-todo">TODO</span>没定。</td>
+    <td><span class="tag t-todo">未定</span></td>
+    <td class="src">55:32<br>1:00:16</td>
+  </tr>
+</table>
+
+<h3>2.2 七个能力改造点</h3>
+
+<table>
+  <tr><th style="width:30px;">#</th><th style="width:160px;">改造点</th><th>说明</th><th style="width:70px;">改动量</th><th style="width:55px;">来源</th></tr>
+  <tr>
+    <td>1</td>
+    <td><strong>模型能力（新增）</strong></td>
+    <td>匹配VLM caption vs 任务目标。庆磊："你那要有一个模型的能力嘛。"这是触发器最大的新增，也是scope扩张的核心。</td>
+    <td style="color:var(--red);">大</td>
+    <td class="src">1:15:24</td>
+  </tr>
+  <tr>
+    <td>2</td>
+    <td><strong>定时能力（新写）</strong></td>
+    <td>从意图那边拿回来，"新写一份"。</td>
+    <td style="color:var(--red);">大</td>
+    <td class="src">1:15:24</td>
+  </tr>
+  <tr>
+    <td>3</td>
+    <td><strong>条件能力（复用/改）</strong></td>
+    <td>你原来的条件驱动，庆磊问要不要改——需要你判断。</td>
+    <td style="color:var(--yellow);">待定</td>
+    <td class="src">1:15:24</td>
+  </tr>
+  <tr>
+    <td>4</td>
+    <td><strong>上报监听接口</strong></td>
+    <td>监听VLM每5秒上报。端状态之前说不收，所以大概率单独开一个接口。</td>
+    <td style="color:var(--yellow);">中</td>
+    <td class="src">43:00</td>
+  </tr>
+  <tr>
+    <td>5</td>
+    <td><strong>下电信号旁路</strong></td>
+    <td>周期任务收到下电信号，直接关闭+标记task完成。</td>
+    <td style="color:var(--green);">小</td>
+    <td class="src">21:34</td>
+  </tr>
+  <tr>
+    <td>6</td>
+    <td><strong>task↔trigger交互协议</strong></td>
+    <td>庆磊："可能还要再定一下。"<strong>这是你和庆磊之间的边界线，谁定协议谁划边界。</strong></td>
+    <td style="color:var(--red);">大</td>
+    <td class="src">1:15:24</td>
+  </tr>
+  <tr>
+    <td>7</td>
+    <td><strong>trigger adapter</strong></td>
+    <td>在task manager里，做trigger的注册/更新。这块是庆磊的task service在调你。</td>
+    <td style="color:var(--yellow);">中</td>
+    <td class="src">1:07:08</td>
+  </tr>
+</table>
+
+<h3>2.3 六个未决项（会上明确挂起的TODO）</h3>
+
+<table>
+  <tr><th style="width:30px;">#</th><th style="width:200px;">未决项</th><th>谁挂的 / 现状</th><th style="width:55px;">来源</th></tr>
+  <tr>
+    <td>1</td>
+    <td><strong>泛化任务放trigger还是task额外模型？</strong></td>
+    <td>庆磊担心"放trigger里trigger是不是特别重"，让刘杨记todo下来聊。<span class="tag t-todo">影响你scope边界</span></td>
+    <td class="src">1:00:16</td>
+  </tr>
+  <tr>
+    <td>2</td>
+    <td><strong>前置取消条件是否直接注册进trigger</strong></td>
+    <td>庆磊说和刘杨具体看，是注册进trigger还是走另一条链路。</td>
+    <td class="src">20:43</td>
+  </tr>
+  <tr>
+    <td>3</td>
+    <td><strong>端侧触发器 vs 云端触发器分工</strong></td>
+    <td>你自己补充：一期端侧做自闭环任务，还没到端云协同。你说"和嘉锋、韩杰聊完专家级任务再聊"。庆磊追问"自闭环会不会跟云端任务冲突，要不要拉开聊"——<strong>你把它推后了。</strong></td>
+    <td class="src">1:19:03</td>
+  </tr>
+  <tr>
+    <td>4</td>
+    <td><strong>VLM数据怎么交互</strong></td>
+    <td>还没定，二次技评定。庆磊预期VLM通过端某个SDK到云，不直连。</td>
+    <td class="src">1:14:26</td>
+  </tr>
+  <tr>
+    <td>5</td>
+    <td><strong>trigger engine平台化</strong></td>
+    <td>庆磊："产品同学韩杰之前有一些想法，可能做成平台化/低代码。"<span class="tag t-todo">韩杰在你的地盘上有规划</span></td>
+    <td class="src">1:17:31</td>
+  </tr>
+  <tr>
+    <td>6</td>
+    <td><strong>多任务优先级/打断/冲突</strong></td>
+    <td>向超然提的，庆磊说和Input Manager重合，todo后续理。触发器是不是要管冲突，没定。</td>
+    <td class="src">1:19:31</td>
+  </tr>
+</table>
+
+
+<!-- ===================== 3 ===================== -->
+<h2>三、三个必须由你拍板的决策（不是执行题）</h2>
+
+<p>下面这三个不是"我去做"，是"我要先想清楚要不要、往哪走"。你的习惯是跳过它们直接去做执行——这次别跳。</p>
+
+<div class="box box-p">
+<span class="num">1</span><strong>押注题：触发器要不要变成"带模型的推理引擎"？</strong><br><br>
+会上你的第一反应是<strong>抵抗</strong>——50:32你说"做语义解析不是在触发器这块做吧？<strong>我的触发器只需要拿枚举值</strong>"。但庆磊和刘杨把模型硬推进了触发器（"触发器最开始就是希望支持推理能力的，当时没场景现在有了"51:04），你最后接受了（"对的，就是我们需要去解析"51:23）。<br><br>
+<strong>但你是被推着接受的，不是想清楚了才接受的。</strong>这两条路差别巨大：<br>
+· <strong>路A（拿模型）：</strong>触发器变成任务系统里最不可替代的部件，但也变成泛化任务失败时第一个被问责的地方——庆磊已经说了效果大概率不好。<br>
+· <strong>路B（拿枚举值）：</strong>触发器保持干净的规则引擎，稳、可辩护，但"有意思的那部分"（模型推理）会被task service或韩杰的平台化吸走，触发器沦为边缘管道。<br><br>
+<strong>你要在二次技评前主动给出你的选择，而不是继续被推着走。</strong>我的判断：拿模型，但把边界划死——触发器只做"caption↔目标"的匹配判断（有界的、可测的），泛化任务的开放推理（照顾老人那种）明确推回task的模型，不进触发器。理由在行动清单里。
+</div>
+
+<div class="box box-p">
+<span class="num">2</span><strong>归属题：trigger engine的产品规划，是你的还是韩杰的？</strong><br><br>
+庆磊1:17:31点名"trigger engine平台化是<strong>产品同学韩杰</strong>之前有的想法"。这是触发器的长期形态（收敛触发类型/低代码编排平台）——本该是你这个触发器PM的规划，现在挂在韩杰名下。<br><br>
+<strong>这是7.8同一个病：你的东西挂在别人名下，而你没在场把它接回来。</strong>触发器一期你在做，但触发器的"未来叙事"在韩杰手里。如果不谈，二期三期规划评审的时候，主导的是韩杰，你是执行的。<br><br>
+<strong>要做的不是抢，是对齐分工：</strong>找韩杰把"触发器产品规划"这件事的边界谈清楚——是你主内（触发引擎能力/协议/端云）、他主外（平台化/运营编排），还是别的分法。谈定了写下来。
+</div>
+
+<div class="box box-p">
+<span class="num">3</span><strong>定义权题：task↔trigger的交互协议，谁来定？</strong><br><br>
+庆磊说协议"可能还要再定一下"（1:15:24）。<strong>这条协议就是你和庆磊之间的产品边界线</strong>——它规定了task service把什么样的东西丢给触发器、触发器回什么。谁起草这个协议，谁就划定了触发器的职责范围。<br><br>
+如果你不主动起草，庆磊会从task service的角度定义它，触发器只能接受"剩下的"。<strong>你应该在二次技评前，主动出一版触发器侧的协议草案</strong>（触发器接受什么输入、支持哪几类触发、回调什么、不做什么），拿着草案去和庆磊对——这样边界是你先画的。
+</div>
+
+
+<!-- ===================== 4 ===================== -->
+<h2>四、你的行动清单（做什么 · 怎么做 · 找谁 · 排序）</h2>
+
+<table>
+  <tr>
+    <th style="width:30px;">#</th>
+    <th style="width:150px;">动作</th>
+    <th>怎么做</th>
+    <th style="width:120px;">找谁</th>
+    <th style="width:70px;">时机</th>
+  </tr>
+  <tr>
+    <td>1</td>
+    <td><strong>拉齐触发器变更范围会</strong></td>
+    <td>会上刘杨明确要求"跟触发器有关的变更，聊的时候带上我们一起"（1:21:25）。你牵头拉一个会，把2.1/2.2/2.3这三张表过一遍，逐项确认归属。<strong>你来组织=你掌握议程。</strong></td>
+    <td>刘杨（触发器研发owner）、庆磊（task架构）、触发器研发（庆磊点名"廖那边"改动大）</td>
+    <td>本周</td>
+  </tr>
+  <tr>
+    <td>2</td>
+    <td><strong>出触发器侧协议草案</strong></td>
+    <td>见决策3。写一版：触发器接受什么输入、支持6类触发中的哪几类、每类的注册/回调/关闭协议、明确不做什么。拿草案去对庆磊。</td>
+    <td>先自己出 → 对庆磊</td>
+    <td>二技评前</td>
+  </tr>
+  <tr>
+    <td>3</td>
+    <td><strong>定VLM caption匹配方案</strong></td>
+    <td>这是type5的核心。和丁彬定：VLM上报什么格式的caption、你的模型拿什么去匹配。你会上已经说"拉着丁彬聊"（52:37）——把它落成一次具体的会，不要停在"到时候聊"。改写在云还是端，问陈西钺（1:13:31）。</td>
+    <td>丁彬（VLM端）、陈西钺（VLM调用）、于晓朝（task模型侧，赵磊休假替班）</td>
+    <td>本周</td>
+  </tr>
+  <tr>
+    <td>4</td>
+    <td><strong>给"泛化任务"划边界</strong></td>
+    <td>决策1的落地。明确主张：触发器只做有界匹配，开放推理（照顾老人那种）推回task模型。这个todo庆磊已让刘杨记（1:00:16），<strong>你要在那次讨论里先给出主张，而不是等结论。</strong></td>
+    <td>庆磊、刘杨、李明骏（提React模式的人）</td>
+    <td>二技评前</td>
+  </tr>
+  <tr>
+    <td>5</td>
+    <td><strong>和韩杰谈trigger engine归属</strong></td>
+    <td>决策2的落地。约韩杰，把"触发器产品规划"的分工谈清楚、写下来。别拖到评审会上才发现规划挂他名下。</td>
+    <td>韩杰</td>
+    <td>本周</td>
+  </tr>
+  <tr>
+    <td>6</td>
+    <td><strong>定端侧vs云端触发器分工</strong></td>
+    <td>你会上说"和嘉锋、韩杰聊完专家级任务再聊"（1:19:22）——这个你自己推后了，庆磊还追问过会不会冲突。把这次"专家级任务"的会尽快约上，顺带把端云触发器边界定了。</td>
+    <td>嘉锋、韩杰</td>
+    <td>本周内约</td>
+  </tr>
+  <tr>
+    <td>7</td>
+    <td><strong>定时能力"拿回来"的方案</strong></td>
+    <td>定时现在在意图那边，要拿回触发器新写。搞清楚意图那边现在怎么做的、拿回来的接口成本、新写的工作量。</td>
+    <td>意图团队、刘杨</td>
+    <td>二技评前</td>
+  </tr>
+</table>
+
+
+<!-- ===================== 5 ===================== -->
+<h2>五、利益相关方地图</h2>
+
+<table>
+  <tr><th style="width:110px;">人</th><th style="width:130px;">角色</th><th>和触发器的关系 / 你要跟他谈什么</th></tr>
+  <tr>
+    <td><strong>刘杨</strong></td>
+    <td>触发器研发owner</td>
+    <td>现有trigger（条件驱动）是他做的。<strong>所有触发器变更必须带上他</strong>——他会上明确提了。你最紧的搭档。</td>
+  </tr>
+  <tr>
+    <td><strong>于庆磊</strong></td>
+    <td>服务端/task架构主讲</td>
+    <td>他定义整个task体系，把最难的活划给了触发器。task↔trigger协议要和他对。他是把触发器抬上核心位置的人，也是给触发器压最多活的人。</td>
+  </tr>
+  <tr>
+    <td><strong>丁彬</strong></td>
+    <td>VLM端</td>
+    <td>type5/type6的VLM上报格式、感知周期、下发指令都要和他定。你会上已说拉他聊。</td>
+  </tr>
+  <tr>
+    <td><strong>陈西钺</strong></td>
+    <td>VLM角度</td>
+    <td>VLM怎么被调、原始query改写在云还是端。他明确说"需要关心"。</td>
+  </tr>
+  <tr>
+    <td><strong>韩杰</strong></td>
+    <td>产品（触发/成本）</td>
+    <td>①trigger engine平台化想法挂他名下——归属要谈；②专家级任务；③他一直关注planner调用成本，触发器二次推理会增加成本，他会盯。</td>
+  </tr>
+  <tr>
+    <td><strong>嘉锋</strong></td>
+    <td>专家级任务</td>
+    <td>端侧触发器端云分工，你说要和他+韩杰聊完专家级任务再定。</td>
+  </tr>
+  <tr>
+    <td><strong>郝晓伟</strong></td>
+    <td>产品lead</td>
+    <td>推场景的人。庆磊说泛化场景的抽象"要产品同学主导"（58:07）——这活会落到产品身上，晓伟是你的上游。他会上两次点名让你关注触发器变更。</td>
+  </tr>
+  <tr>
+    <td><strong>李明骏</strong></td>
+    <td>研发（架构）</td>
+    <td>提了"很多任务定义不了trigger、要走React模式"——他是泛化任务这条线上和你观点最接近的人，可以拉成同盟。</td>
+  </tr>
+  <tr>
+    <td><strong>刘正伟 / 左晓杰</strong></td>
+    <td>人力排期</td>
+    <td>庆磊说会和他们聊触发器改造的人力和排期。二技评会出排期。</td>
+  </tr>
+</table>
+
+
+<!-- ===================== 6 ===================== -->
+<h2>六、下一步：二次技评前你要交出什么</h2>
+
+<div class="box box-b">
+这场是第一次技评，只确认"能不能覆盖场景"。第二次技评会定<strong>具体接口、字段、人力、排期</strong>（01:58）。这中间的窗口，是你把触发器scope和边界谈定的唯一机会。二技评一旦排了人力，边界就固化了。<br><br>
+<strong>二技评前，你手上应该攥着三样东西：</strong><br>
+① <strong>一版触发器侧协议草案</strong>（决策3 / 行动2）——你先画边界。<br>
+② <strong>触发器scope主张</strong>（决策1 / 行动4）——拿模型，但泛化推理推回task，边界划死。<br>
+③ <strong>两个归属结论</strong>（决策2 / 行动5、6）——trigger engine和端云分工，和韩杰、嘉锋谈定并写下来。<br><br>
+这三样都不是产出题，是判断题+谈判题。<strong>你要是又把时间花在画一张漂亮的触发器全景图上，而这三件没谈，那二技评你还是被动接活的那个。</strong>
+</div>
+
+<div class="quote">
+<b>会议结论（庆磊 1:26:00）</b>："那我们就结束吧……后面的节奏辛苦浩然再帮忙驱动一下。" —— 会议驱动权在浩然手里，触发器的边界谈判驱动权，得你自己攥。
+</div>
+
+
+<div class="version">
+  7.15 动态adv评审 · 触发器任务梳理 v1 · 2026-07-15<br>
+  素材：产品-端侧触发器/1-原始素材/会议纪要/7.15动态adv技术方案评审.md
+</div>
+
+</div>
+</body>
+</html>

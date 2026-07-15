@@ -1,5 +1,6 @@
 # Memory Index
 
+- [7.15 task management + trigger](project_715_task_management_trigger.md) — 动态adv技评把触发器抬成任务系统承重墙；6类触发+模型能力扩张；三个定义权/归属/押注决策待泽民拍板；二技评前攥协议草案+scope主张+归属结论
 - [User profile](user_profile.md) — ByteDance AI PM on Doubao in-car cockpit (Driver Agent 2.0 Planner), wants systematic/detailed outputs
 - [Fork workflow preferences](feedback_fork_workflow.md) — timestamp every fork, update INDEX.md, systematic not fragmented
 - [Feishu wiki node tokens](reference_feishu_wiki.md) — space_id, node tokens, doc IDs for the ai-car wiki
@@ -34,3 +35,7 @@
 - [Core career diagnosis](user_core_career_diagnosis.md) — 泽民根本短板=执行型PM，用过度产出(PRDv12)逃避评审博弈；三短板=定义权/归属谈判/押注判断；别再无脑给产出，该推他上桌就推；升高级PM=定义事+扛责+影响力，与转具身智能同一步
 - [Claude sync system](project_claude_sync_system.md) — 办公室↔家里双机同步(GitHub私仓wazngzemin/claude-sync+本地网页App localhost:9527)；可展开文件树单选；.env密钥绝不进仓/拉取只加不删/拉后重开Claude Code；非技术背景要点按钮级简单
 - [7.6-7.10 evolution](project_76_79_evolution.md) — 五天巨变：拼SP作废(7.7)/端侧触发器0804被砍(7.8)/信号中枢三表(7.9)/7.10正式评审=赵衍三连问端侧闭环+事件日志≠新建是扩展+730三需求排定+信号ID重命名暂搁
+- [7.10 signal-hub review](project_710_signal_hub_review.md) — 泽民复盘视角：条件表被韩杰端走+转错(刘杨抓运算符/切入切出)；赵衍10分钟递授权"端侧触发器场景必须产品定"被韩杰"和泽民对齐过了"替他让掉；全场只说两句；四动作=抢端侧场景清单/复核转换/找韩杰钉边界/会前先懂概念
+- ["不够详细"=真实信号穷举](feedback_detail_means_real_signals.md) — 泽民说不够详细≠再加长/更抽象；概念类要用他真实车态信号(档位/车速/车窗…)逐条讲+每类穷举例子；连说不够就AskUserQuestion问清方向别猜
+- [触发器运算符真实清单](reference_trigger_operators.md) — 配置平台就10个运算符：条件8个(等于/不等于/大于/大于等于/小于/小于等于/包含/不包含)+事件2个(变更为/有变更)；没有"切入切出"(韩杰口头说法/刘杨反对)；数值阈值用大于小于+引擎抓边沿
+- [JIRA 一键流转面板](project_jira_panel.md) — 上汽零束JIRA(8.20.14/内网/JSESSIONID登录)按JQL捞bug+自建流转面板jira_panel.py(:8770守护模式启动)；三步链analyze/repair/fix字段与默认值；大坑=隐藏必填(原因分析cf10792+RootCause分类cf11145)填完一个才暴下一个

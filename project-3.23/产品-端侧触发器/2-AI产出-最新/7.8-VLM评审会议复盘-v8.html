@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>触发器两场会 · 从被拆到重生 · v8</title>
+<style>
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --surface2: #232733; --surface3: #2a2f3d;
+    --border: #2e3345; --text: #e2e4eb; --text2: #9ba1b5; --text3: #6b7183;
+    --accent: #6c8cff; --accent2:#8ba3ff;
+    --red: #ff6b6b; --red-bg: rgba(255,107,107,0.07); --red-border: rgba(255,107,107,0.22);
+    --green: #69db7c; --green-bg: rgba(105,219,124,0.07); --green-border: rgba(105,219,124,0.22);
+    --yellow: #ffd43b; --yellow-bg: rgba(255,212,59,0.07); --yellow-border: rgba(255,212,59,0.22);
+    --orange: #ffa94d; --orange-bg: rgba(255,169,77,0.07); --orange-border: rgba(255,169,77,0.22);
+    --purple: #b197fc; --purple-bg: rgba(177,151,252,0.07); --purple-border: rgba(177,151,252,0.22);
+    --cyan: #66d9e8; --cyan-bg: rgba(102,217,232,0.07); --cyan-border: rgba(102,217,232,0.22);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:-apple-system,"SF Pro Text","PingFang SC",sans-serif; background:var(--bg); color:var(--text); line-height:1.85; }
+  .header { background:linear-gradient(135deg,#1a1d27,#232733); border-bottom:1px solid var(--border); padding:44px 24px 34px; text-align:center; }
+  .header .kicker { font-size:12px; color:var(--accent2); letter-spacing:2px; font-weight:700; margin-bottom:10px; }
+  .header h1 { font-size:24px; font-weight:800; margin-bottom:8px; letter-spacing:.5px; }
+  .header .sub { font-size:13px; color:var(--text2); max-width:640px; margin:0 auto; }
+  .content { max-width:940px; margin:0 auto; padding:8px 24px 80px; }
+
+  .part { margin-top:52px; }
+  .part-tag { display:inline-block; font-size:11px; font-weight:800; letter-spacing:2px; color:var(--accent2); margin-bottom:6px; }
+  .part h2 { font-size:20px; font-weight:800; margin-bottom:6px; }
+  .part .lead { font-size:13px; color:var(--text2); margin-bottom:18px; }
+
+  /* two-meeting split */
+  .twins { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:18px 0; }
+  .twin { border-radius:12px; overflow:hidden; border:1px solid var(--border); background:var(--surface); }
+  .twin-head { padding:14px 18px; border-bottom:1px solid var(--border); }
+  .twin-head .date { font-size:12px; font-weight:700; letter-spacing:1px; }
+  .twin-head .name { font-size:16px; font-weight:800; margin-top:2px; }
+  .twin-head .tag { font-size:11px; font-weight:700; padding:2px 8px; border-radius:4px; display:inline-block; margin-top:8px; }
+  .twin.loud .twin-head { background:var(--red-bg); }
+  .twin.loud .date { color:var(--red); }
+  .twin.loud .tag { background:rgba(255,107,107,.15); color:var(--red); }
+  .twin.quiet .twin-head { background:var(--purple-bg); }
+  .twin.quiet .date { color:var(--purple); }
+  .twin.quiet .tag { background:rgba(177,151,252,.15); color:var(--purple); }
+  .twin-body { padding:16px 18px; font-size:13px; }
+  .twin-body ul { list-style:none; }
+  .twin-body li { padding:6px 0 6px 18px; position:relative; }
+  .twin-body li::before { content:'›'; position:absolute; left:2px; color:var(--text3); font-weight:700; }
+  .twin-body .punch { margin-top:12px; padding:10px 12px; border-radius:6px; font-weight:700; font-size:13px; }
+  .twin.loud .punch { background:var(--red-bg); border:1px solid var(--red-border); color:var(--red); }
+  .twin.quiet .punch { background:var(--purple-bg); border:1px solid var(--purple-border); color:var(--purple); }
+
+  .oneline { text-align:center; font-size:15px; font-weight:700; padding:16px; margin:18px 0; background:var(--surface2); border-radius:10px; border:1px solid var(--border); }
+  .oneline .hot { color:var(--red); }
+  .oneline .cool { color:var(--purple); }
+
+  /* mood blocks */
+  .mood { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:18px 20px; margin:14px 0; }
+  .mood .mtitle { font-size:14px; font-weight:800; margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+  .mood .mtitle .pill { font-size:11px; font-weight:700; padding:2px 8px; border-radius:10px; }
+  .mood.m78 .pill { background:var(--red-bg); color:var(--red); border:1px solid var(--red-border); }
+  .mood.m710 .pill { background:var(--purple-bg); color:var(--purple); border:1px solid var(--purple-border); }
+  .flow { display:flex; align-items:stretch; gap:0; flex-wrap:wrap; margin:6px 0 4px; }
+  .flow .stage { flex:1; min-width:120px; padding:10px 12px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; margin:4px; }
+  .flow .stage .emo { font-size:12px; font-weight:800; color:var(--orange); margin-bottom:3px; }
+  .flow .stage .desc { font-size:12px; color:var(--text2); line-height:1.6; }
+  .flow .arr { align-self:center; color:var(--text3); font-size:16px; padding:0 2px; }
+
+  .truthbox { margin-top:14px; padding:14px 16px; border-radius:8px; background:var(--yellow-bg); border:1px solid var(--yellow-border); font-size:13px; }
+  .truthbox b { color:var(--yellow); }
+
+  /* diagnosis: 3 weaknesses */
+  .diag { background:var(--surface); border:1px solid var(--border); border-radius:12px; margin:14px 0; overflow:hidden; }
+  .diag-head { padding:14px 18px; display:flex; align-items:center; gap:12px; border-bottom:1px solid var(--border); background:var(--red-bg); }
+  .diag-head .num { width:30px; height:30px; border-radius:50%; background:var(--red); color:#160b0b; font-weight:800; display:flex; align-items:center; justify-content:center; font-size:13px; flex-shrink:0; }
+  .diag-head .h { font-size:15px; font-weight:800; }
+  .diag-head .h small { display:block; font-size:12px; font-weight:600; color:var(--text2); }
+  .diag-body { padding:14px 18px; }
+  .diag-row { display:grid; grid-template-columns:88px 1fr; gap:10px; padding:7px 0; font-size:13px; align-items:start; border-bottom:1px dashed var(--border); }
+  .diag-row:last-child { border-bottom:none; }
+  .diag-row .k { color:var(--text3); font-weight:700; }
+  .diag-row .attack { color:var(--red); }
+  .diag-row .you { color:var(--orange); }
+  .diag-row .fix { color:var(--green); }
+
+  /* strategy: squeeze + escape */
+  .squeeze { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:14px; margin:18px 0; }
+  .squeeze .side { background:var(--red-bg); border:1px solid var(--red-border); border-radius:10px; padding:14px; text-align:center; }
+  .squeeze .side .from { font-size:12px; color:var(--red); font-weight:700; }
+  .squeeze .side .what { font-size:13px; margin-top:4px; }
+  .squeeze .core { text-align:center; }
+  .squeeze .core .mod { width:78px; height:78px; border-radius:50%; background:var(--surface2); border:2px solid var(--orange); display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:800; color:var(--orange); margin:0 auto; text-align:center; line-height:1.3; }
+  .squeeze .press { color:var(--red); font-size:22px; font-weight:800; }
+
+  .escape { background:linear-gradient(135deg, rgba(105,219,124,.10), rgba(102,217,232,.06)); border:1px solid var(--green-border); border-radius:12px; padding:20px; margin:16px 0; text-align:center; }
+  .escape .lbl { font-size:12px; color:var(--green); font-weight:800; letter-spacing:1px; }
+  .escape .big { font-size:18px; font-weight:800; margin:8px 0; }
+  .escape .pivot { display:flex; align-items:center; justify-content:center; gap:14px; flex-wrap:wrap; margin-top:10px; }
+  .escape .old2 { padding:8px 14px; border-radius:8px; background:var(--red-bg); color:var(--red); font-weight:700; font-size:13px; border:1px solid var(--red-border); }
+  .escape .new2 { padding:8px 14px; border-radius:8px; background:var(--green-bg); color:var(--green); font-weight:700; font-size:13px; border:1px solid var(--green-border); }
+  .escape .arr2 { font-size:20px; color:var(--text3); }
+  .escape .warn { margin-top:12px; font-size:12px; color:var(--orange); }
+
+  /* action cards */
+  .act { background:var(--surface); border:1px solid var(--border); border-radius:12px; margin:12px 0; overflow:hidden; }
+  .act-head { padding:14px 18px; display:flex; align-items:center; gap:12px; border-bottom:1px solid var(--border); }
+  .act-head .n { width:30px; height:30px; border-radius:8px; background:var(--accent); color:#0b1024; font-weight:800; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .act-head .t { font-size:15px; font-weight:800; }
+  .act-head .pri { margin-left:auto; font-size:11px; font-weight:800; padding:3px 9px; border-radius:12px; white-space:nowrap; }
+  .act-head .pri.p0 { background:var(--red-bg); color:var(--red); border:1px solid var(--red-border); }
+  .act-head .pri.p1 { background:var(--yellow-bg); color:var(--yellow); border:1px solid var(--yellow-border); }
+  .act-body { padding:6px 18px 16px; }
+  .act-body .seg { padding:10px 0; border-bottom:1px dashed var(--border); }
+  .act-body .seg:last-child { border-bottom:none; }
+  .act-body .seg .k { font-size:11px; font-weight:800; letter-spacing:1px; margin-bottom:3px; }
+  .act-body .seg.do .k { color:var(--cyan); }
+  .act-body .seg.why .k { color:var(--orange); }
+  .act-body .seg.when .k { color:var(--green); }
+  .act-body .seg .v { font-size:13px; }
+  .act-body .seg .v .say { display:block; margin-top:6px; padding:8px 12px; background:var(--surface2); border-left:2px solid var(--accent); border-radius:0 6px 6px 0; color:var(--text); font-style:italic; }
+
+  /* scope table */
+  table { width:100%; border-collapse:collapse; margin:12px 0; font-size:12.5px; }
+  th { background:var(--surface2); padding:10px 11px; text-align:left; font-weight:700; color:var(--text2); border-bottom:1px solid var(--border); font-size:11.5px; }
+  td { padding:10px 11px; border-bottom:1px solid var(--border); vertical-align:top; }
+  tr:last-child td { border-bottom:none; }
+  .badge { display:inline-block; font-size:10.5px; font-weight:800; padding:2px 7px; border-radius:4px; white-space:nowrap; }
+  .b-cut { background:var(--red-bg); color:var(--red); border:1px solid var(--red-border); }
+  .b-big { background:var(--orange-bg); color:var(--orange); border:1px solid var(--orange-border); }
+  .b-mid { background:var(--yellow-bg); color:var(--yellow); border:1px solid var(--yellow-border); }
+  .b-life { background:linear-gradient(90deg,var(--red),var(--orange)); color:#160b0b; }
+  .b-p0 { background:var(--red); color:#160b0b; }
+  .b-p1 { background:var(--yellow); color:#161200; }
+  .b-na { background:var(--surface3); color:var(--text3); }
+  strong { color:var(--text); }
+
+  .final { margin-top:44px; background:linear-gradient(135deg,#20242f,#181b24); border:1px solid var(--border); border-radius:14px; padding:26px; text-align:center; }
+  .final .big { font-size:17px; font-weight:800; line-height:1.7; }
+  .final .hot { color:var(--red); } .final .cool { color:var(--purple); } .final .go { color:var(--green); }
+  .final .sub { margin-top:10px; font-size:13px; color:var(--text2); }
+
+  .callout { background:var(--surface); border-left:3px solid var(--accent); border-radius:0 8px 8px 0; padding:12px 16px; margin:12px 0; font-size:12.5px; color:var(--text2); }
+  .callout b { color:var(--text); }
+  .version { text-align:center; padding:34px 0 0; font-size:12px; color:var(--text3); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="kicker">复盘 · 心情 · 接下来怎么做 · 模块改造范围</div>
+  <h1>你的触发器，被拆了两次</h1>
+  <div class="sub">7.8 当面砍掉 AlwaysOn，7.10 隔空吞进信号中枢。这份文档讲清楚：会场有多吵、你当时什么心情、你为什么输、以及接下来做什么、模块要改到什么程度。</div>
+</div>
+
+<div class="content">
+
+<!-- ==================== PART 1 ==================== -->
+<div class="part">
+  <div class="part-tag">PART 1 · 发生了什么</div>
+  <h2>两场会，两种死法</h2>
+  <div class="lead">同一个模块，7.8 被当面处决，7.10 被隔空吞并。你在两场会里，一次被打懵、一次是幽灵。</div>
+
+  <div class="twins">
+    <div class="twin loud">
+      <div class="twin-head">
+        <div class="date">7.8 VLM评审</div>
+        <div class="name">大声的处决</div>
+        <div class="tag">火力最猛 · 你被点名</div>
+      </div>
+      <div class="twin-body">
+        <ul>
+          <li>韩杰开第一枪（11:05）：<strong>"这为啥需要触发器？"</strong></li>
+          <li>汪帅连续追击：<strong>"不能为了有触发器就强加功能"</strong></li>
+          <li>斯华拆掉你的地基（37:49）：<strong>"上电没意义，程序跑起来车子肯定上电了"</strong></li>
+          <li>汪帅终判（47:35）：<strong>"没觉得它过触发器能有十足理由说服我自己"</strong></li>
+          <li>张荣宣判（48:06）：<strong>"泽民，把触发器P0删了吧"</strong></li>
+        </ul>
+        <div class="punch">结果：AlwaysOn（VLM生命周期）被整块拿走。舱外VLM默认开、舱内AI Service传button，都不过触发器。</div>
+      </div>
+    </div>
+
+    <div class="twin quiet">
+      <div class="twin-head">
+        <div class="date">7.10 端状态评审</div>
+        <div class="name">无声的吞并</div>
+        <div class="tag">你是幽灵 · 全程失声</div>
+      </div>
+      <div class="twin-body">
+        <ul>
+          <li>韩杰宣布（10:17）：<strong>"现在没有触发器的概念了，整个系统就是触发事件和条件"</strong></li>
+          <li>你的条件库被拆成两张表：触发事件表 + 条件表，并进他的信号中枢</li>
+          <li>韩杰在讲 workflow 画布——<strong>那本该是你的东西</strong></li>
+          <li>你被叫了 4 次："泽民在吗？泽民在吗？泽民在吗？"→ 你："在的在的"</li>
+          <li>然后被支去叫明骏。<strong>整场没讲一句关于触发器定位的话。</strong></li>
+        </ul>
+        <div class="punch">结果：触发器这个"名字"被消解，条件库被并表。你的产品在你眼前被重新定义，你没在桌上。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="oneline">7.8 是<span class="hot">当面一刀</span>，7.10 是<span class="cool">隔空一口</span>。一次砍掉了你的<span class="hot">功能</span>，一次动摇了你的<span class="cool">定义</span>。</div>
+
+  <div class="callout"><b>注</b>：7.8 的逐句带温度复盘（7个场景 × 会场在吵什么/你的处境/标准话术）在 <b>v7</b> 里已经做完了。这份 v8 不重复，聚焦你还没得到的三件事：<b>心情的完整还原、你为什么输、以及接下来做什么 + 模块改到什么程度。</b></div>
+</div>
+
+<!-- ==================== PART 2 ==================== -->
+<div class="part">
+  <div class="part-tag">PART 2 · 你当时的心情</div>
+  <h2>"我很菜"这三个字，来自哪里</h2>
+  <div class="lead">我按你的行为还原你的情绪弧线——你来纠正。两场会的心情，是两种不同的痛。</div>
+
+  <div class="mood m78">
+    <div class="mtitle"><span class="pill">7.8 · 被打懵的痛</span></div>
+    <div class="flow">
+      <div class="stage"><div class="emo">期待</div><div class="desc">22:40 你"抢屏"讲方案——你是准备好的，想证明自己</div></div>
+      <div class="arr">→</div>
+      <div class="stage"><div class="emo">发慌</div><div class="desc">15:03 汪帅说"上电信号拿不到"，你方案的地基当场塌了</div></div>
+      <div class="arr">→</div>
+      <div class="stage"><div class="emo">冻住</div><div class="desc">37:49–48:06 十分钟，你看着斯华和汪帅把你的产品重新设计，插不上话</div></div>
+      <div class="arr">→</div>
+      <div class="stage"><div class="emo">认命</div><div class="desc">48:14 被宣判后一句"OK"，然后含糊地"下周吧…可能需要…"</div></div>
+    </div>
+  </div>
+
+  <div class="mood m710">
+    <div class="mtitle"><span class="pill">7.10 · 听不懂的痛</span></div>
+    <div class="flow">
+      <div class="stage"><div class="emo">困惑</div><div class="desc">韩杰讲"触发事件/条件"，你没跟上——这就是你这几天一直追着我问"为什么要拆"的原因</div></div>
+      <div class="arr">→</div>
+      <div class="stage"><div class="emo">尴尬</div><div class="desc">被点名4次才"在的在的"，暴露你不在讨论节奏里</div></div>
+      <div class="arr">→</div>
+      <div class="stage"><div class="emo">无力</div><div class="desc">你的模块被并表、被改名，而你被支去叫人，没能为"触发器"说一句话</div></div>
+    </div>
+  </div>
+
+  <div class="truthbox">
+    <b>"我很菜"的真相 —</b> 你不是不努力。7.8 你抢屏、讲了10分钟、回答了每一个技术问题（"帅哥这边有什么问题吗？"你问了好几次）。你把你会的都使出来了。<br>
+    问题是：<b>你打的仗，根本不是那场会真正在打的仗。</b>别人在打"触发器凭什么存在"（定义权），你在打"触发器怎么判断上电和button"（实现细节）。你在错误的战场上，把子弹全打光了——所以你觉得"我明明很努力，怎么还是输了"。这不是能力菜，是<b>选错了战场</b>。
+  </div>
+</div>
+
+<!-- ==================== PART 3 ==================== -->
+<div class="part">
+  <div class="part-tag">PART 3 · 你为什么输</div>
+  <h2>三个动作，暴露三个短板</h2>
+  <div class="lead">不看情绪，只看动作。你在这两场会里的失分，精确对应你的三个老短板。</div>
+
+  <div class="diag">
+    <div class="diag-head">
+      <div class="num">1</div>
+      <div class="h">技术耳<small>把"定义权攻击"听成了"技术问题"</small></div>
+    </div>
+    <div class="diag-body">
+      <div class="diag-row"><div class="k">对方打的</div><div class="attack">韩杰 11:05："这<strong>为啥需要</strong>触发器？"——这是在问"你这个产品凭什么存在"，是<strong>定义权</strong>的攻击。</div></div>
+      <div class="diag-row"><div class="k">你/丁彬答</div><div class="you">"AI Box是被动式任务，需要一个调用方来开关"——你回答的是"触发器<strong>怎么</strong>工作"，是实现细节。</div></div>
+      <div class="diag-row"><div class="k">差在哪</div><div class="fix">韩杰11:47直接说"<strong>还是没有回答我的</strong>"。他问的是 WHY（存在理由），你答的是 HOW（实现方式）。存亡之问，被你当成了技术答疑。</div></div>
+    </div>
+  </div>
+
+  <div class="diag">
+    <div class="diag-head">
+      <div class="num">2</div>
+      <div class="h">展示台<small>用"讲方案"代替"赢定义"</small></div>
+    </div>
+    <div class="diag-body">
+      <div class="diag-row"><div class="k">你做的</div><div class="you">22:40 抢屏，把舱内舱外、上电下电、button 各种情况<strong>讲了个遍</strong>（10分钟）。</div></div>
+      <div class="diag-row"><div class="k">问题</div><div class="attack">你讲得越细，越是在证明"我的实现方案很完整"——但没有一句在回答"触发器为什么必须存在"。你在<strong>展示</strong>，不在<strong>说服</strong>。</div></div>
+      <div class="diag-row"><div class="k">代价</div><div class="fix">到33:30你总结时还在说"判断上电状态"——那时全场早已确认上电不可用。<strong>你的嘴在讲准备好的稿，脑子没更新</strong>，别人听到的是"这PM没跟上"。</div></div>
+    </div>
+  </div>
+
+  <div class="diag">
+    <div class="diag-head">
+      <div class="num">3</div>
+      <div class="h">裸体撤退<small>被砍时，没有一句话保住阵地</small></div>
+    </div>
+    <div class="diag-body">
+      <div class="diag-row"><div class="k">被砍瞬间</div><div class="attack">48:06 张荣："把触发器P0删了吧。"</div></div>
+      <div class="diag-row"><div class="k">你的回应</div><div class="you">"OK，那下边但是在订阅这一块，我们还是需要，在下周吧……可能需要……"——四个模糊词，零个行动项。</div></div>
+      <div class="diag-row"><div class="k">你手里其实有牌</div><div class="fix">丁彬16:51替你提过：<strong>0818的动态任务切换（停任务→换prompt→重启）</strong>——这个"传个enable字段"根本做不了，是触发器不可替代的理由。你没接住这张牌，让它被"后面再聊"压回去了。</div></div>
+    </div>
+  </div>
+
+  <div class="callout">这三个短板，在 7.10 又重演了一次——只不过这次你连"展示台"都没上，直接是<b>缺席</b>。技术耳让你听不懂"触发事件/条件"是在动你的定义；没上桌，让韩杰的"没有触发器概念了"无人反驳。</div>
+</div>
+
+<!-- ==================== PART 4 ==================== -->
+<div class="part">
+  <div class="part-tag">PART 4 · 战略真相</div>
+  <h2>你的模块在换血，不是在死</h2>
+  <div class="lead">先看清楚你被挤压的两面——再看清楚那条别人还没堵死的活路。</div>
+
+  <div class="squeeze">
+    <div class="side">
+      <div class="from">7.8 · 汪帅</div>
+      <div class="what">拿走 <strong>VLM 生命周期</strong><br>（AlwaysOn 开关）</div>
+    </div>
+    <div class="core">
+      <div class="press">→</div>
+      <div class="mod">触发器<br>模块</div>
+      <div class="press">←</div>
+    </div>
+    <div class="side">
+      <div class="from">7.10 · 韩杰</div>
+      <div class="what">拆走 <strong>条件库</strong><br>（并进信号中枢三表）</div>
+    </div>
+  </div>
+
+  <p style="font-size:13px; text-align:center; color:var(--text2);">功能被拿走一块，数据被拆走一块。如果只看这两下，你的触发器确实在被掏空。<strong>但还有一条活路——</strong></p>
+
+  <div class="escape">
+    <div class="lbl">白板会已经定过的一条线</div>
+    <div class="big">原料归中枢 · 编排归触发器</div>
+    <div class="pivot">
+      <div class="old2">开关 VLM 的条件判断器</div>
+      <div class="arr2">→</div>
+      <div class="new2">workflow 编排画布的 Owner</div>
+    </div>
+    <p style="font-size:12.5px; color:var(--text2); margin-top:12px;">信号、状态这些"原料"归韩杰的信号中枢没问题——那本来就不该你扛。但把触发事件→条件→动作<strong>拖拽编排成一条规则</strong>的那块画布（规则引擎 / workflow），才是触发器真正的产品。这块没被砍，它是你的重生点。</p>
+    <div class="warn">⚠ 但危险的是：7.10 韩杰正在讲这块 workflow 画布，而你缺席。编排这块正在往他那边滑——你再不上桌抢，第三场会它就不姓"触发器"了。</div>
+  </div>
+</div>
+
+<!-- ==================== PART 5 ==================== -->
+<div class="part">
+  <div class="part-tag">PART 5 · 接下来怎么做</div>
+  <h2>四个动作 · 做什么 / 为什么 / 什么时候</h2>
+  <div class="lead">注意：这四件事没有一件是"再写一版 PRD"。你的短板从来不是产出不够，是不上桌谈定义和归属。这四件都是上桌的动作。</div>
+
+  <div class="act">
+    <div class="act-head"><div class="n">1</div><div class="t">抢回"编排归触发器"的定义</div><div class="pri p0">最紧急 · 本周</div></div>
+    <div class="act-body">
+      <div class="seg do"><div class="k">做什么</div><div class="v">别在大会上争。单独约韩杰半小时，把话挑明：信号原料归你的中枢，但 <strong>workflow 编排画布的 owner 是触发器</strong>。让他和你一起认这条线，把"编排归触发器"写进你俩都认的一页纸。<span class="say">"韩杰，中枢管信号我完全支持。但触发事件→条件→动作怎么编排成一条规则、那块画布，是触发器的产品。咱俩先把这条边界对齐，别到评审会上让研发替我们分。"</span></div></div>
+      <div class="seg why"><div class="k">为什么</div><div class="v">这是触发器唯一没被砍的活路。7.10 你缺席时它在往韩杰那边滑，<strong>定义权是抢的，不是等分的</strong>。你不主动认领，下一场会它就默认归中枢了。</div></div>
+      <div class="seg when"><div class="k">什么时候</div><div class="v">这周内。越晚，韩杰的 workflow 方案越成型，你越难插回去。</div></div>
+    </div>
+  </div>
+
+  <div class="act">
+    <div class="act-head"><div class="n">2</div><div class="t">主动交出条件库的映射，而不是被动被拆</div><div class="pri p0">P0 · 配合 7.30</div></div>
+    <div class="act-body">
+      <div class="seg do"><div class="k">做什么</div><div class="v">把你现有的每一条触发器条件，自己动手逐条标成"触发事件"（状态变化）还是"条件"（状态判断），做成一张映射表，主动发给韩杰。别等他来拆你。</div></div>
+      <div class="seg why"><div class="k">为什么</div><div class="v">被动被拆，你就只是个数据源；主动定义映射规则，你就是<strong>规则的作者</strong>。同样是拆，谁拿笔谁掌握定义权。而且这张表就是动作1里"编排归触发器"的证据——编排规则是你写的，画布自然是你的。</div></div>
+      <div class="seg when"><div class="k">什么时候</div><div class="v">7.30 Advisor 需求评审之前交出去，抢在韩杰第一阶段并表之前。</div></div>
+    </div>
+  </div>
+
+  <div class="act">
+    <div class="act-head"><div class="n">3</div><div class="t">写一页"触发器是谁"，随身带着上桌</div><div class="pri p1">P1 · 本周</div></div>
+    <div class="act-body">
+      <div class="seg do"><div class="k">做什么</div><div class="v">不是 PRD。就一页：触发器 = 座舱的规则编排层，一句话定义 + 三个它不可替代的场景（动态任务切换、条件任务、预设任务）。这页纸的作用是——任何人再问"要触发器干嘛"，你三句话答完。</div><div class="v"><span class="say">"触发器是座舱的规则编排层：把中枢的信号，编排成'什么事发生→满足什么→做什么'的自动规则。VLM开关这种一次性动作不用它，但停任务换prompt重启、条件触发、预设任务这些'需要编排'的，只有它能做。"</span></div></div>
+      <div class="seg why"><div class="k">为什么</div><div class="v">7.8 你输在答不出"为什么需要触发器"。你缺的不是方案，是一句能上桌的"我是谁"。没有它，别人就能随手把你重定义（韩杰"没有触发器概念了"就是这么来的）。</div></div>
+      <div class="seg when"><div class="k">什么时候</div><div class="v">本周写完，背下来。下次任何会被问到，直接说。</div></div>
+    </div>
+  </div>
+
+  <div class="act">
+    <div class="act-head"><div class="n">4</div><div class="t">把停车驻车 / 预设任务钉死在触发器名下</div><div class="pri p1">P1 · 0818窗口</div></div>
+    <div class="act-body">
+      <div class="seg do"><div class="k">做什么</div><div class="v">7.8 你自己在 49:38 提过"停车驻车 AI Box 需求要不要放触发器"——然后没跟进。现在主动把它、以及预设任务/条件任务，正式立项挂在触发器下，作为 0818 的评审内容。</div></div>
+      <div class="seg why"><div class="k">为什么</div><div class="v">"编排层"不能只是个说法，得有实打实的场景撑着。这些多步/条件/持续型任务，正好是"传个enable字段"做不了、必须编排的——它们是你定位的活证据。</div></div>
+      <div class="seg when"><div class="k">什么时候</div><div class="v">0818 排期窗口。方案先于评审出，会上自己约时间、点参会人（韩杰、丁彬、汪帅）。</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== PART 6 ==================== -->
+<div class="part">
+  <div class="part-tag">PART 6 · 模块改到什么程度</div>
+  <h2>触发器模块 · 逐层改造范围</h2>
+  <div class="lead">从"被拆前"到"现在"，每一层要改到什么程度、你要做什么、优先级。这是把上面的战略落成活儿。</div>
+
+  <table>
+    <tr>
+      <th style="width:110px;">层级</th>
+      <th style="width:150px;">被拆前（原本要做）</th>
+      <th style="width:170px;">现在（被拆后）</th>
+      <th>你要做的动作</th>
+      <th style="width:64px;">程度</th>
+      <th style="width:52px;">优先级</th>
+    </tr>
+    <tr>
+      <td><strong>VLM生命周期</strong><br><span style="color:var(--text3);">AlwaysOn开关</span></td>
+      <td>判断上电+button，开关3个VLM任务</td>
+      <td>已剥离：舱外VLM默认开、舱内AI Service传button；触发器最多只做"激活透传注销"</td>
+      <td><strong>放手</strong>，别再争这块。省下的精力全投到编排层。</td>
+      <td><span class="badge b-cut">砍掉</span></td>
+      <td><span class="badge b-na">已定</span></td>
+    </tr>
+    <tr>
+      <td><strong>产品定位</strong><br><span style="color:var(--text3);">你是谁</span></td>
+      <td>开关VLM / 调Advisor 的"条件判断器"</td>
+      <td>动摇中：是编排层Owner？还是中枢的一个消费者？没定。</td>
+      <td>抢"<strong>编排归触发器</strong>"（动作1）+ 写一页定位（动作3）。这是生死线。</td>
+      <td><span class="badge b-life">重定义</span></td>
+      <td><span class="badge b-p0">P0最急</span></td>
+    </tr>
+    <tr>
+      <td><strong>条件数据结构</strong></td>
+      <td>触发器自己的"动态条件/静态条件"表</td>
+      <td>拆进信号中枢：触发事件表 + 条件表</td>
+      <td>自己动手把条件库<strong>逐条映射</strong>成两表，主动交韩杰（动作2）。</td>
+      <td><span class="badge b-mid">中改</span></td>
+      <td><span class="badge b-p0">P0</span></td>
+    </tr>
+    <tr>
+      <td><strong>配置平台交互</strong></td>
+      <td>"动态条件/静态条件"表单式配置</td>
+      <td>升级成三段式（触发事件→条件→动作）→ 最终可拖拽画布</td>
+      <td>重新设计配置平台交互；这块画布的产品设计就是你"编排层Owner"的实体。</td>
+      <td><span class="badge b-big">大改</span></td>
+      <td><span class="badge b-p0">P0</span></td>
+    </tr>
+    <tr>
+      <td><strong>动作类型</strong></td>
+      <td>只有"调Advisor"一种</td>
+      <td>扩展成多种：Advisor + 事件日志 + TTS + 未来规则引擎</td>
+      <td>定义动作类型的扩展点，每种动作的配置字段。</td>
+      <td><span class="badge b-mid">中改</span></td>
+      <td><span class="badge b-p1">P1</span></td>
+    </tr>
+    <tr>
+      <td><strong>承载场景</strong></td>
+      <td>AlwaysOn（已没）</td>
+      <td>空缺，需要新场景证明"编排层"价值</td>
+      <td>把停车驻车/预设任务/条件任务/定时任务立项挂到触发器下（动作4）。</td>
+      <td><span class="badge b-mid">补位</span></td>
+      <td><span class="badge b-p1">P1</span></td>
+    </tr>
+  </table>
+
+  <div class="callout"><b>一句话看懂这张表</b>：上面两行（生命周期、定位）是<b>战略</b>——一个认输放手、一个拼死要抢；下面四行（数据/平台/动作/场景）是<b>执行</b>——把"编排层"这个新身份落成真东西。<b>先赢上面，下面才有意义</b>；上面输了，下面改得再好也是在给别人的画布打工。</div>
+</div>
+
+<!-- ==================== FINAL ==================== -->
+<div class="final">
+  <div class="big">
+    7.8 你被<span class="hot">当面砍</span>，7.10 你被<span class="cool">隔空吞</span>。<br>
+    但触发器没死——它从"VLM的开关"，变成"<span class="go">编排的画布</span>"。<br>
+    你要做的不是再写一版 PRD，<br>
+    是上桌，把"<span class="go">编排归触发器</span>"这句话钉死。
+  </div>
+  <div class="sub">你的短板从来不是产出不够（v1–v8 就是证据），是不上桌谈定义和归属。这次，少写一份文档，多约一场对话。</div>
+</div>
+
+<div class="version">
+  触发器两场会 · 从被拆到重生 · v8 · 2026-07-13<br>
+  v7(7.8逐句带温度) · v5(产品分析) · v1–v6 见同目录 ｜ 本版新增：7.10维度 + 心情弧线 + 行动计划 + 模块改造范围
+</div>
+
+</div>
+</body>
+</html>

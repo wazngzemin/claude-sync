@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VLM 条件任务 · 模型解析讨论材料（预读）</title>
+<style>
+  :root{
+    --bg:#f4f6f9; --card:#ffffff; --ink:#1e2530; --ink2:#5c6575; --line:#e0e4ea;
+    --blue:#2f6fed; --blue-bg:#eaf1fe; --blue-line:#9dbcf7;
+    --purple:#7a45e6; --purple-bg:#f1ebfd; --purple-line:#c6adf3;
+    --green:#128a4e; --green-bg:#e6f6ed; --green-line:#9fd9b8;
+    --red:#d83b30; --red-bg:#fdeceb; --red-line:#f1b0aa;
+    --amber:#b96f00; --amber-bg:#fdf2df; --amber-line:#eecb87;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:-apple-system,"SF Pro Text","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--ink);line-height:1.75;}
+  .header{background:var(--card);border-bottom:1px solid var(--line);padding:30px 24px 24px;text-align:center;}
+  .header h1{font-size:22px;font-weight:800;}
+  .header .sub{font-size:13.5px;color:var(--ink2);margin-top:6px;}
+  .badge{display:inline-block;background:var(--blue);color:#fff;font-weight:700;font-size:12px;padding:3px 14px;border-radius:14px;margin-top:11px;}
+  .content{max-width:1020px;margin:0 auto;padding:24px 24px 72px;}
+  h2{font-size:17.5px;font-weight:800;margin:36px 0 12px;padding:9px 0 9px 12px;border-left:4px solid var(--blue);background:linear-gradient(90deg,#eef3fc,transparent);}
+  h3{font-size:14.5px;font-weight:800;margin:20px 0 8px;color:var(--blue);}
+  p{font-size:13.5px;margin:8px 0;}
+  .lead{font-size:13.5px;color:var(--ink2);}
+  table{width:100%;border-collapse:collapse;margin:10px 0 16px;font-size:12.5px;background:var(--card);border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+  th{background:#eef1f6;padding:9px 10px;text-align:left;font-weight:700;color:var(--ink2);border-bottom:1px solid var(--line);vertical-align:top;}
+  td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tr:last-child td{border-bottom:none;}
+  code{background:#eef1f6;padding:1px 6px;border-radius:4px;font-size:11.5px;color:var(--purple);word-break:break-all;}
+  .codeblock{background:#1e2530;color:#dfe6f0;border-radius:8px;padding:13px 15px;margin:10px 0;font-family:"SF Mono",Menlo,monospace;font-size:12px;line-height:1.7;overflow-x:auto;white-space:pre;}
+  .codeblock .k{color:#7fd1ff;}.codeblock .v{color:#a6e3a1;}.codeblock .c{color:#8a93a6;}
+  .flow{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px 16px;margin:12px 0;}
+  .node{border-radius:10px;padding:11px 15px;margin:0 auto;max-width:640px;border:1.5px solid var(--line);background:#fbfcfe;}
+  .node .role{font-size:11.5px;font-weight:800;display:block;margin-bottom:2px;}
+  .node .desc{font-size:12.5px;}
+  .n-user .role{color:var(--ink2);}
+  .n-task{border-color:var(--blue-line);background:var(--blue-bg);}.n-task .role{color:var(--blue);}
+  .n-vlm{border-color:var(--green-line);background:var(--green-bg);}.n-vlm .role{color:var(--green);}
+  .n-core{border-color:var(--purple);background:var(--purple-bg);border-width:2.5px;}.n-core .role{color:var(--purple);}
+  .n-out{border-color:var(--amber-line);background:var(--amber-bg);}.n-out .role{color:var(--amber);}
+  .arr{text-align:center;color:var(--ink2);font-size:16px;padding:4px 0;}
+  .arr .l{display:block;font-size:11px;color:var(--ink2);}
+  .box{padding:13px 16px;border-radius:9px;margin:11px 0;font-size:13.5px;}
+  .box-b{background:var(--blue-bg);border:1px solid var(--blue-line);}
+  .box-g{background:var(--green-bg);border:1px solid var(--green-line);}
+  .box-a{background:var(--amber-bg);border:1px solid var(--amber-line);}
+  .box-p{background:var(--purple-bg);border:1px solid var(--purple-line);}
+  strong{font-weight:800;}
+  .tag{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:4px;white-space:nowrap;}
+  .tag-label{background:var(--green-bg);color:var(--green);border:1px solid var(--green-line);}
+  .tag-sem{background:var(--purple-bg);color:var(--purple);border:1px solid var(--purple-line);}
+  .tag-q{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-line);}
+  .tag-ok{background:var(--green-bg);color:var(--green);border:1px solid var(--green-line);}
+  .tag-gap{background:var(--red-bg);color:var(--red);border:1px solid var(--red-line);}
+  .caseline{background:#fff;border-left:3px solid var(--amber);padding:7px 12px;margin:7px 0;font-size:13px;border-radius:0 6px 6px 0;}
+  .caseline b{color:var(--amber);}
+  .ver{text-align:center;padding:26px 0;font-size:12px;color:var(--ink2);}
+  ul{margin:6px 0 6px 22px;font-size:13.5px;}li{margin:3px 0;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>VLM 条件任务 ·「模型解析」讨论材料</h1>
+  <div class="sub">小范围讨论预读 · 针对 4 个待对齐问题，每个都给了初稿，请大家直接在初稿上补充 / 修改</div>
+  <div class="badge">v2 · 2026-07-16 · 初稿供讨论，非最终结论</div>
+</div>
+
+<div class="content">
+
+<!-- ============ 30秒导读 ============ -->
+<div class="box box-b">
+<strong>📖 30 秒导读（这份材料怎么用）：</strong><br>
+我们要做"<strong>VLM 条件任务</strong>"——用户说"后排宝宝哭了告诉我""有人抽烟提醒我"这类话，系统持续观察、条件达成就反馈。落地前有 <strong>4 个问题</strong>要对齐（丁彬提出）：<br>
+<strong>① 要提取哪些标签？② 模型的 caption（画面描述）输出能否支撑提取？③ 种子数据怎么构建？④ 标签给谁用、放在哪里？</strong><br>
+本材料对这 4 个问题<strong>各给了一版初稿</strong>（第四～七节），大家看完直接在对应表格上补充：算法同学重点看 <strong>②③</strong>，研发同学重点看 <strong>④+协议</strong>，产品同学重点看 <strong>①</strong>。第一～三节是背景，已了解链路的同学可以跳过。
+</div>
+
+<!-- ============ 一、背景 ============ -->
+<h2>一、背景：我们要做什么（1 个例子讲清）</h2>
+
+<p>用户说：<strong>"后排宝宝哭了告诉我"</strong>。系统要做三件事：</p>
+<table>
+  <tr><th style="width:60px;">步骤</th><th style="width:130px;">要做什么</th><th>谁来做</th></tr>
+  <tr><td>① 盯着</td><td>持续观察后排宝宝</td><td>端侧 VLM（视觉大模型），舱内高频每 5 秒看一次</td></tr>
+  <tr><td>② 判断</td><td>判断"宝宝到底哭了没有"</td><td><strong>本次要对齐的环节——模型解析</strong></td></tr>
+  <tr><td>③ 反馈</td><td>哭了就语音告诉用户</td><td>Task Service（任务服务）触发 → Planner（规划器）播报</td></tr>
+</table>
+
+<p><strong>难点在第②步。</strong>因为 VLM 只输出对画面的<strong>客观描述</strong>，不直接下"哭了 = 是/否"的结论。同一个宝宝，VLM 每 5 秒可能这样上报：</p>
+<div class="caseline"><b>第 1 次：</b>"后排儿童安静，闭眼休息"　→ 没哭</div>
+<div class="caseline"><b>第 2 次：</b>"后排儿童睁眼，面部平静"　→ 没哭</div>
+<div class="caseline"><b>第 3 次：</b>"后排儿童睁眼，<strong>脸上有泪珠，嘴角向下</strong>"　→ <strong>这算哭了吗？谁来判？</strong></div>
+
+<p>把"有泪珠、嘴角向下"这类描述，变成"哭了/没哭"的判定——<strong>这就是"模型解析"要解决的事，也是本次讨论的全部范围。</strong></p>
+
+<!-- ============ 二、链路 ============ -->
+<h2>二、整条链路一图看懂（判断环节在哪）</h2>
+
+<div class="flow">
+  <div class="node n-user"><span class="role">① 用户</span><span class="desc">"后排宝宝哭了告诉我"</span></div>
+  <div class="arr">↓</div>
+  <div class="node n-task"><span class="role">② Task Service（任务服务）</span><span class="desc">生成高频任务（编号 044，目标 = "宝宝哭了"），下发 VLM</span></div>
+  <div class="arr">↓</div>
+  <div class="node n-vlm"><span class="role">③ 端侧 VLM（视觉大模型）</span><span class="desc">每 5 秒上报一次。输出拆两部分：<strong>🟥 动态任务结果</strong>（编号 044 的观察，给判断用）+ <strong>🟩 乘客列表</strong>（整车情况，走 Context 上下文线）</span></div>
+  <div class="arr">↓ <span class="l">🟥 红框经数据中心，给判断环节</span></div>
+  <div class="node n-core"><span class="role">④ 模型解析（判断环节）——本次讨论的主角</span><span class="desc">判断"识别结果"是否达成目标"宝宝哭了"。<strong>没达成 ↺ 等下一条；达成 → 往下</strong></span></div>
+  <div class="arr">↓ <span class="l">callback（回调）通知</span></div>
+  <div class="node n-task"><span class="role">⑤ Task Service</span><span class="desc">触发反馈（按用户要的反馈周期，如每 60 秒一次）；任务完成后通知 VLM 停止观察</span></div>
+  <div class="arr">↓</div>
+  <div class="node n-out"><span class="role">⑥ Planner（规划器）→ 用户</span><span class="desc">播报"后排宝宝哭了"</span></div>
+</div>
+
+<p class="lead">注：<strong>VLM 上报周期（5 秒）</strong>和<strong>用户反馈周期（如"每 60 秒告诉我一次"）</strong>是两回事——5 秒是给判断环节喂素材的频率，60 秒是打扰用户的频率，两者解耦。</p>
+
+<!-- ============ 三、两条路线 ============ -->
+<h2>三、"判断"怎么实现：两条路线 + 分层建议</h2>
+
+<table>
+  <tr><th style="width:110px;">对比</th><th style="width:330px;">路线 A：标签提取</th><th>路线 B：语义匹配</th></tr>
+  <tr><td><strong>做法</strong></td><td>预定义标签（如"哭闹/平静/睡眠"），VLM 从画面<strong>提取标签</strong>，判断环节<strong>比对枚举值</strong>即可</td><td>不预定义。VLM 输出自然描述，判断环节用<strong>一个轻量模型</strong>判断"描述是否符合目标语义"</td></tr>
+  <tr><td><strong>适合</strong></td><td>高频、稳定、边界清晰的场景（抽烟 / 哭闹 / 安全座椅误装）</td><td>用户随口说的长尾需求（"毯子滑落了告诉我"）——没法提前穷举成标签</td></tr>
+  <tr><td><strong>要准备</strong></td><td>标签清单（第四节初稿）+ caption 支撑核对（第五节）+ 种子数据（第六节）</td><td>判断模型 + 少量样例</td></tr>
+  <tr><td><strong>短板</strong></td><td>新需求要加标签、重新准备数据，不灵活</td><td>模型有 badcase（误判样例），准确率要打磨</td></tr>
+</table>
+
+<div class="box box-p">
+<strong>◎ 建议分层，两条路线共存：高频场景走 A（快、准、省），长尾场景走 B（保证用户想到什么都能试着支持）。</strong>第四节的标签清单初稿里，每个场景都标了建议走哪条。
+</div>
+
+<!-- ============ 四、初稿① 标签清单 ============ -->
+<h2>四、问题① 初稿：要提取哪些标签（高频场景标签清单 · 初版）</h2>
+
+<p class="lead"><strong>这是本材料最核心的一张表</strong>——按舱内场景穷举了一版初稿。规则：出现频率高、边界清晰的 → 建议做成标签；表现多样、难穷举的 → 建议走语义。<strong>请大家直接在这张表上增删改。</strong></p>
+
+<table>
+  <tr>
+    <th style="width:34px;">#</th><th style="width:76px;">分类</th><th style="width:170px;">用户 query（指令）示例</th>
+    <th style="width:120px;">标签名（初拟）</th><th style="width:130px;">枚举值（初拟）</th>
+    <th style="width:76px;">建议路线</th><th>说明 / 依据</th>
+  </tr>
+  <tr><td>1</td><td rowspan="4">儿童看护</td><td>"后排宝宝哭了告诉我"</td><td>儿童哭闹</td><td>哭闹 / 平静 / 睡眠</td><td><span class="tag tag-label">A 标签</span></td><td>高频；哭的视觉特征（泪珠/张嘴/皱眉）可训练成标签</td></tr>
+  <tr><td>2</td><td>"宝宝睡着了告诉我 / 醒了叫我"</td><td>儿童睡眠状态</td><td>入睡 / 清醒</td><td><span class="tag tag-label">A 标签</span></td><td>高频；与 #1 可合并为一个状态标签组</td></tr>
+  <tr><td>3</td><td>"宝宝站起来了提醒我"</td><td>儿童离座</td><td>就座 / 站立</td><td><span class="tag tag-label">A 标签</span></td><td>行车安全，高优</td></tr>
+  <tr><td>4</td><td>"宝宝毯子滑落了告诉我"</td><td>—（不预置）</td><td>—</td><td><span class="tag tag-sem">B 语义</span></td><td>长尾、难穷举。格式表里已有真实样例"主驾后排宝宝的毯子已滑落"</td></tr>
+  <tr><td>5</td><td rowspan="4">安全提醒</td><td>"有人抽烟提醒我"（或系统预设）</td><td>吸烟行为</td><td>吸烟中 / 无</td><td><span class="tag tag-label">A 标签</span></td><td>高频预设场景，边界清晰</td></tr>
+  <tr><td>6</td><td>（系统预设）安全座椅装错</td><td>安全座椅误装</td><td>误装 / 正常 / 无座椅</td><td><span class="tag tag-label">A 标签</span></td><td>格式表"不安全因素"字段已有真实样例"儿童安全座椅被错误安装在副驾驶座位上"</td></tr>
+  <tr><td>7</td><td>（系统预设）下车后儿童滞留</td><td>儿童滞留</td><td>有滞留 / 无</td><td><span class="tag tag-label">A 标签</span></td><td>安全类高优；触发时机=下电后舱内检测 <span class="tag tag-q">时机待定</span></td></tr>
+  <tr><td>8</td><td>"我犯困了提醒我"（或预设）</td><td>驾驶员疲劳</td><td>疲劳 / 正常</td><td><span class="tag tag-label">A 标签</span></td><td>格式表已有真实样例"主驾乘客正常转头活动，未显疲惫"（任务 043）</td></tr>
+  <tr><td>9</td><td rowspan="2">乘员状态</td><td>（预设/合规）驾驶员手持电话</td><td>驾驶分心</td><td>手持电话 / 正常</td><td><span class="tag tag-label">A 标签</span></td><td>格式表已有真实样例"右手持手机打电话"（高频·动态字段）</td></tr>
+  <tr><td>10</td><td>"我妈容易晕车，她不舒服告诉我"</td><td>—（不预置）</td><td>—</td><td><span class="tag tag-sem">B 语义</span></td><td>"不舒服"表现太多样（闭眼/皱眉/手扶头），走语义更稳</td></tr>
+  <tr><td>11</td><td rowspan="2">宠物</td><td>"狗狗有异常告诉我"</td><td>—（不预置）</td><td>—</td><td><span class="tag tag-sem">B 语义</span></td><td>格式表已有真实样例"车内小狗正在睡觉"（任务 023）；"异常"难枚举</td></tr>
+  <tr><td>12</td><td>（预设）宠物单独留车提醒</td><td>宠物滞留</td><td>有滞留 / 无</td><td><span class="tag tag-label">A 标签</span></td><td>与 #7 同机制，检测对象换成动物（格式表"物品和动物列表"已有"灰色小型犬"样例）</td></tr>
+  <tr><td>13</td><td rowspan="2">物品</td><td>（预设）下车物品遗留提醒</td><td>物品遗留</td><td>有遗留 / 无</td><td><span class="tag tag-label">A 标签</span></td><td>格式表"物品和动物列表"已有"银色笔记本电脑和一本书""水杯"样例，可直接比对</td></tr>
+  <tr><td>14</td><td>"水洒了/东西倒了告诉我"</td><td>—（不预置）</td><td>—</td><td><span class="tag tag-sem">B 语义</span></td><td>长尾偶发</td></tr>
+  <tr><td>15</td><td>氛围</td><td>"后排吵起来了提醒我"</td><td>—（不预置）</td><td>—</td><td><span class="tag tag-sem">B 语义</span></td><td>"吵"依赖动作+表情组合，格式表"整体描述"字段可支撑部分</td></tr>
+</table>
+
+<div class="box box-a">
+<strong>请补充：</strong>① 产品同学——高频场景还有漏的吗（尤其上汽/赛力斯已承诺的预设场景）？② 算法同学——上面标 <span class="tag tag-label">A 标签</span> 的 10 个，哪些从模型角度不适合做成标签、建议改走语义？③ 枚举值粒度这样定行不行？
+</div>
+
+<!-- ============ 五、初稿② caption 支撑核对 ============ -->
+<h2>五、问题② 初稿：VLM 现有 caption 能否支撑（逐字段核对）</h2>
+
+<p class="lead">对照《端状态端侧模型格式梳理》表里 VLM <strong>现有的输出字段</strong>，逐个核对能支撑上面哪些标签。<strong>"支撑情况"列是初判，请算法同学（丁彬）确认或纠正。</strong></p>
+
+<table>
+  <tr><th style="width:150px;">VLM 现有字段</th><th style="width:200px;">真实样例（摘自格式表）</th><th style="width:180px;">能支撑的标签</th><th>缺口 / 待确认</th></tr>
+  <tr>
+    <td><strong>乘客列表 · 动态</strong><br>（舱内高频，5 秒）</td>
+    <td>"头依靠在中间乘客肩膀上睡觉""右手持手机打电话"</td>
+    <td>#2 睡眠状态、#9 驾驶分心、#8 疲劳（部分）</td>
+    <td><span class="tag tag-q">待确认</span>哭闹相关描述（泪珠/张嘴哭）当前 prompt（提示词）会稳定输出吗？不稳定则 #1 需要增强 prompt</td>
+  </tr>
+  <tr>
+    <td><strong>不安全因素描述</strong><br>（舱内低频，5 分钟；5-15 字，无异常输出空）</td>
+    <td>"儿童安全座椅被错误安装在副驾驶座位上"</td>
+    <td>#6 座椅误装、#3 儿童离座（待确认）、#5 吸烟（待确认）</td>
+    <td><span class="tag tag-q">待确认</span>①"儿童站立""吸烟"算不算这个字段的"不安全因素"范围？②低频 5 分钟对 #3 这种行车安全场景够不够？<span class="tag tag-gap">频率缺口</span></td>
+  </tr>
+  <tr>
+    <td><strong>物品和动物列表</strong><br>（舱内低频，5 分钟）</td>
+    <td>"银色笔记本电脑和一本书""水杯""灰色小型犬和毛毯"</td>
+    <td>#12 宠物滞留、#13 物品遗留</td>
+    <td>下车场景的触发时机（下电后拍一次？）<span class="tag tag-q">待定</span></td>
+  </tr>
+  <tr>
+    <td><strong>动态任务 · 识别结果</strong><br>（跟随宿主任务频率）</td>
+    <td>"车内小狗正在睡觉"（任务023）"主驾乘客正常转头活动，未显疲惫"（任务043）</td>
+    <td><strong>所有 B 语义场景的载体</strong>（#4/#10/#11/#14/#15）</td>
+    <td><span class="tag tag-q">待确认</span>①识别结果的粒度：给近结论（"在哭"）还是纯描述（"有泪珠"）？②没识别到时输出什么（建议空串=未达成）</td>
+  </tr>
+  <tr>
+    <td><strong>整体描述</strong><br>（舱内低频）</td>
+    <td>"舱内仅主驾位有一名28-35岁男性驾驶员，情绪平稳无波动，无社交交互"</td>
+    <td>#15 氛围类（部分）</td>
+    <td>粒度较粗，仅作辅助</td>
+  </tr>
+</table>
+
+<div class="box box-a">
+<strong>请算法同学确认：</strong>① 每行"待确认"项；② 若给 A 路线新增标签输出（如"吸烟=是/否"），是加新字段还是扩展现有字段；③ 频率缺口（不安全因素 5 分钟 vs 行车安全需要秒级）怎么解。
+</div>
+
+<!-- ============ 六、初稿③ 种子数据 ============ -->
+<h2>六、问题③ 初稿：种子数据怎么构建</h2>
+
+<p class="lead">种子数据 = 训练/调试判断能力用的样例集。初步定义每条种子数据长这样：</p>
+
+<div class="codeblock">{
+  <span class="k">"场景"</span>: <span class="v">"儿童哭闹"</span>,
+  <span class="k">"用户query"</span>: <span class="v">"后排宝宝哭了告诉我"</span>,
+  <span class="k">"正例caption"</span>: [<span class="v">"后排儿童睁眼，脸上有泪珠，嘴角向下"</span>, <span class="v">"后排儿童张嘴大哭，面部涨红"</span>],   <span class="c">// 应判"达成"</span>
+  <span class="k">"负例caption"</span>: [<span class="v">"后排儿童闭眼安睡"</span>, <span class="v">"后排儿童睁眼，面部平静"</span>],                    <span class="c">// 应判"未达成"</span>
+  <span class="k">"边界例caption"</span>: [<span class="v">"后排儿童揉眼睛，表情不明"</span>],                                  <span class="c">// 难判样例，用于定阈值</span>
+  <span class="k">"期望判定"</span>: <span class="v">"正例=达成；负例=未达成；边界例=未达成（宁漏判不误判）"</span>
+}</div>
+
+<table>
+  <tr><th style="width:200px;">分工</th><th>内容</th></tr>
+  <tr><td><strong>产品</strong>提供</td><td>每个场景的：用户 query 示例、期望判定口径（什么算达成/不算）、边界 case 的产品判断（如"揉眼睛不算哭"）</td></tr>
+  <tr><td><strong>算法</strong>构建</td><td>按上述口径生成/标注 caption 样例（正例/负例/边界例）；数量口径由算法定（建议每标签正负各若干十条起步 <span class="tag tag-q">具体量算法拍</span>）</td></tr>
+  <tr><td><strong>研发</strong>使用</td><td>用种子数据调试判断环节，跑准确率基线</td></tr>
+</table>
+
+<div class="box box-a">
+<strong>判定策略的产品口径（初稿）：宁可漏判，不要误判。</strong>理由：车内误报（没哭说哭了）反复打扰用户，伤害大于漏报（晚一轮 5 秒再报）。边界例一律判"未达成"，等下一帧更明确的描述。——这条口径请大家确认。
+</div>
+
+<!-- ============ 七、初稿④ 存哪给谁用 ============ -->
+<h2>七、问题④ 初稿：标签/结果给谁用、放在哪里</h2>
+
+<div class="flow">
+  <div class="node n-vlm"><span class="role">端侧 VLM</span><span class="desc">输出：🟥 动态任务结果 + 标签（若走 A 路线）　/　🟩 乘客列表等整车情况</span></div>
+  <div class="arr">↓ <span class="l">整包上报（沿用现有端状态协议）</span></div>
+  <div class="node n-task"><span class="role">AI Service 数据中心 → 云端端状态</span><span class="desc"><strong>存储位置：云端端状态</strong>（沿用 7.8 评审已定的整包上传链路，不新增存储）</span></div>
+  <div class="arr">↓ <span class="l">按 Topic（订阅主题）分发</span></div>
+  <div class="node n-core"><span class="role">消费方 1：模型解析（判断环节）</span><span class="desc">订阅 🟥 动态任务结果 + 标签 → 做达成判断 → 命中 callback（回调）给 Task Service</span></div>
+  <div class="arr">↓</div>
+  <div class="node n-out"><span class="role">消费方 2：Context（上下文）</span><span class="desc">订阅 🟩 乘客列表等 → 供对话/推理做背景，不参与达成判断</span></div>
+</div>
+
+<table>
+  <tr><th style="width:160px;">产出物</th><th style="width:160px;">放在哪</th><th style="width:180px;">谁订阅 / 消费</th><th>用来干嘛</th></tr>
+  <tr><td>🟥 动态任务识别结果</td><td>云端端状态（整包）</td><td>模型解析（判断环节）</td><td>B 路线语义判断的输入</td></tr>
+  <tr><td>标签提取结果（A 路线新增）</td><td>同上，随包上报 <span class="tag tag-q">字段位置待定</span></td><td>模型解析（判断环节）</td><td>A 路线枚举比对的输入</td></tr>
+  <tr><td>🟩 乘客列表 / 整体描述</td><td>云端端状态</td><td>Context（上下文）</td><td>对话背景，与本判断无关</td></tr>
+  <tr><td>判断命中信号</td><td>—（callback 消息）</td><td>Task Service（任务服务）</td><td>触发反馈、控制反馈周期、结束任务</td></tr>
+</table>
+
+<!-- ============ 八、协议草案 ============ -->
+<h2>八、接口字段草案（供研发预览，二次技评细对）</h2>
+
+<h3>8.1 输入：VLM → 判断环节（🟥 部分）</h3>
+<table>
+  <tr><th style="width:170px;">字段</th><th style="width:110px;">类型</th><th>说明</th></tr>
+  <tr><td>任务编号 task_no</td><td>string（字符串）</td><td>Task Service 下发任务时分配，VLM 原样带回</td></tr>
+  <tr><td>识别结果 result</td><td>string</td><td>该任务对应的观察描述（B 路线输入）</td></tr>
+  <tr><td>标签 labels</td><td>map（键值对）<span class="tag tag-q">待定</span></td><td>A 路线输出，如 <code>{"儿童哭闹":"哭闹"}</code>，字段形态待算法确认</td></tr>
+  <tr><td>上报时间 ts</td><td>int（时间戳）</td><td>该帧时间</td></tr>
+  <tr><td>置信度 confidence</td><td>float（小数）<span class="tag tag-q">建议加</span></td><td>若模型能给，用于阈值控误判</td></tr>
+</table>
+
+<h3>8.2 输出：判断环节 → Task Service</h3>
+<table>
+  <tr><th style="width:170px;">字段</th><th style="width:110px;">类型</th><th>说明</th></tr>
+  <tr><td>任务编号 task_no</td><td>string</td><td>达成的是哪个任务</td></tr>
+  <tr><td>回调编号 callback_id</td><td>string</td><td>本次触发唯一标识</td></tr>
+  <tr><td>达成时结果 result</td><td>string</td><td>触发时的原始描述（"有泪珠"），供播报参考</td></tr>
+  <tr><td>触发时间 triggered_at</td><td>int</td><td>判定达成时刻</td></tr>
+</table>
+
+<!-- ============ 九、结论页 ============ -->
+<h2>九、本次讨论要收的结论（勾掉一条算一条）</h2>
+
+<table>
+  <tr><th style="width:34px;">#</th><th style="width:280px;">要定的事</th><th style="width:130px;">请谁拍 / 确认</th><th>本材料初稿位置</th></tr>
+  <tr><td>1</td><td>路线：分层（高频标签 + 长尾语义）行不行</td><td>产品 + 算法 + 研发</td><td>第三节</td></tr>
+  <tr><td>2</td><td>标签清单初版：增删改 + 枚举值粒度</td><td>产品牵头，算法确认可行性</td><td>第四节（15 个场景）</td></tr>
+  <tr><td>3</td><td>caption 支撑核对：逐行确认"待确认"项 + 频率缺口</td><td>算法（丁彬）</td><td>第五节</td></tr>
+  <tr><td>4</td><td>识别结果粒度（近结论 vs 纯描述）+ 空值约定</td><td>算法</td><td>第五节末行</td></tr>
+  <tr><td>5</td><td>种子数据：定义、分工、量级口径</td><td>产品给口径，算法拍量</td><td>第六节</td></tr>
+  <tr><td>6</td><td>判定策略"宁漏判不误判"行不行</td><td>产品 + 算法</td><td>第六节黄框</td></tr>
+  <tr><td>7</td><td>存储与消费链路（沿用端状态整包 + 两个订阅方）</td><td>研发</td><td>第七节</td></tr>
+  <tr><td>8</td><td>接口字段（labels 字段形态、confidence 有无）</td><td>研发 + 算法</td><td>第八节</td></tr>
+  <tr><td>9</td><td>判断模型谁提供、调用成本量级</td><td>算法 + 研发</td><td>—（会上议）</td></tr>
+</table>
+
+<div class="box box-b">
+<strong>讨论完的下一步：</strong>按结论更新本材料 → 标签清单定稿 → 算法开始种子数据 → 进入二次技术方案评审（对齐正式接口与排期）。
+</div>
+
+<div class="ver">
+  VLM 条件任务 · 模型解析讨论材料 · v2 · 2026-07-16（v1 能力说明 → v2 重构为可发出的讨论材料：4 个问题各给初稿）<br>
+  素材：端状态端侧模型格式梳理表（真实字段与样例）· 端侧链路（红/绿框、双周期）· 7.15 技术方案评审
+</div>
+
+</div>
+</body>
+</html>

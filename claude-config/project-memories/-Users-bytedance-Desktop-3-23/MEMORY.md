@@ -1,6 +1,8 @@
 # Memory Index
 
-- [BaoCut setup](project_baocut_setup.md) — 字幕skill装全但被Metal4/macOS26卡死跑不了；本机CorpLink限速+封app篡改；下HF大模型唯一路=hf-mirror 2MB/s
+- [English needs Chinese annotation](feedback_english_needs_chinese.md) — 所有英文/代码术语后必须带中文括号备注；泽民非技术背景，中英混杂读不下去；已多次强调，交付前grep抽查裸英文
+
+- [BaoCut setup](project_baocut_setup.md) — 字幕skill已端到端跑通；关键=换Metal3库+adhoc重签补丁(~/Applications/BaoCut-patched.app+BAOCUT_CLI)+显式--model qwen3-asr-0.6b；下HF大模型唯一路=hf-mirror 2MB/s
 - [7.15 task management + trigger](project_715_task_management_trigger.md) — 动态adv技评把触发器抬成任务系统承重墙；6类触发+模型能力扩张；三个定义权/归属/押注决策待泽民拍板；二技评前攥协议草案+scope主张+归属结论
 - [User profile](user_profile.md) — ByteDance AI PM on Doubao in-car cockpit (Driver Agent 2.0 Planner), wants systematic/detailed outputs
 - [Fork workflow preferences](feedback_fork_workflow.md) — timestamp every fork, update INDEX.md, systematic not fragmented
@@ -29,6 +31,7 @@
 - [Discuss before producing diagrams](feedback_discuss_before_diagram.md) — 优化架构图必须先讨论再动手，不能直接改完给用户看
 - [Table-first for structured info](feedback_table_first.md) — 多字段/多属性对照默认用表格，单元格内写详细，不要先写大段文字
 - [Q&A first-principles format](feedback_qa_first_principles_format.md) — 讲解稿新标准：追问式Q&A+第一性原理+对抗式审查+真实case运算符映射；v8起生效
+- [Article absorption format](feedback_article_absorption_format.md) — 泽民日常读文章要的产物=七段「文章吸收解析」(一句话讲透/拆解/金点/5个为什么/方法论/mermaid带讲解/揉进五维度)；NOT fork工具·NOT梁宁复盘·NOT晨读判级；连跑偏三次才纠正
 - [6.30 three meetings](reference_630_meetings.md) — 三场会议纪要路径与核心定版：动态链路14:00/静态评审15:48/标签转化20:45
 - [7.2 visual review](project_72_review.md) — SLS-0804紫色线评审不通过；刘杨反对拼SP/汪帅质疑定位/韩杰点名格式评审/818vs0804排期错位；最多3个SP；泽民7行动，7.4周六11点续评
 - [7.4 second VLM review](project_74_review.md) — 黄红线挂泽民名下成阻塞(优先级没跟嘉锋对过)；绕Context被仁杰超然庆磊推翻中→原路返回；事件判断1万辆车成本战→三层设计；排期口径四版本；西钺"任务名称作主key"

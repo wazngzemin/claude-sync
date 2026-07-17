@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>触发器语义匹配 · 链路与协议</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --card:#ffffff; --ink:#1f2430; --ink2:#5a6273; --line:#dfe3ea;
+    --blue:#3b6ef0; --blue-bg:#eaf0fe; --blue-line:#9db8f6;
+    --purple:#7c4dff; --purple-bg:#f0eaff; --purple-line:#c3adf7;
+    --green:#1a9d5a; --green-bg:#e7f7ee; --green-line:#a3ddbd;
+    --red:#e0483d; --red-bg:#fdeceb; --red-line:#f2b3ad;
+    --amber:#c77700; --amber-bg:#fdf3e0; --amber-line:#f0cf8f;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:-apple-system,"SF Pro Text","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--ink);line-height:1.7;}
+  .header{background:var(--card);border-bottom:1px solid var(--line);padding:28px 24px 22px;text-align:center;}
+  .header h1{font-size:22px;font-weight:800;}
+  .header .sub{font-size:13px;color:var(--ink2);margin-top:5px;}
+  .badge{display:inline-block;background:var(--blue);color:#fff;font-weight:700;font-size:12px;padding:3px 13px;border-radius:14px;margin-top:10px;}
+  .content{max-width:960px;margin:0 auto;padding:22px 22px 70px;}
+  h2{font-size:17px;font-weight:800;margin:34px 0 12px;padding-left:10px;border-left:4px solid var(--blue);}
+  p{font-size:13.5px;margin:8px 0;}
+  .lead{font-size:13.5px;color:var(--ink2);}
+  table{width:100%;border-collapse:collapse;margin:10px 0 14px;font-size:12.5px;background:var(--card);border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+  th{background:#eef1f6;padding:9px 11px;text-align:left;font-weight:700;color:var(--ink2);border-bottom:1px solid var(--line);vertical-align:top;}
+  td{padding:9px 11px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tr:last-child td{border-bottom:none;}
+  code{background:#eef1f6;padding:1px 5px;border-radius:4px;font-size:11.5px;color:var(--purple);}
+
+  /* 流程图 */
+  .flow{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:22px 18px;margin:14px 0;}
+  .node{border-radius:10px;padding:11px 15px;margin:0 auto;max-width:620px;border:1.5px solid var(--line);background:#fbfcfe;}
+  .node .role{font-size:11px;font-weight:800;letter-spacing:.3px;display:block;margin-bottom:3px;}
+  .node .desc{font-size:12.5px;color:var(--ink);}
+  .n-user .role{color:var(--ink2);}
+  .n-task{border-color:var(--blue-line);background:var(--blue-bg);}.n-task .role{color:var(--blue);}
+  .n-vlm{border-color:var(--green-line);background:var(--green-bg);}.n-vlm .role{color:var(--green);}
+  .n-core{border-color:var(--purple);background:var(--purple-bg);border-width:2.5px;box-shadow:0 2px 12px rgba(124,77,255,.15);}.n-core .role{color:var(--purple);}
+  .n-out{border-color:var(--amber-line);background:var(--amber-bg);}.n-out .role{color:var(--amber);}
+  .arr{text-align:center;color:var(--ink2);font-size:16px;font-weight:700;padding:5px 0;}
+  .arr .l{display:block;font-size:11px;font-weight:500;color:var(--ink2);}
+  .split2{display:flex;gap:12px;max-width:620px;margin:0 auto;}
+  .split2>div{flex:1;}
+  .loopbadge{display:inline-block;font-size:11px;font-weight:700;color:var(--purple);background:#fff;border:1px solid var(--purple-line);border-radius:12px;padding:2px 10px;margin-top:5px;}
+
+  .box{padding:13px 15px;border-radius:9px;margin:11px 0;font-size:13px;}
+  .box-r{background:var(--red-bg);border:1px solid var(--red-line);}
+  .box-a{background:var(--amber-bg);border:1px solid var(--amber-line);}
+  .box-p{background:var(--purple-bg);border:1px solid var(--purple-line);}
+  .box-g{background:var(--green-bg);border:1px solid var(--green-line);}
+  .box-b{background:var(--blue-bg);border:1px solid var(--blue-line);}
+  strong{font-weight:800;}
+  .hl-r{color:var(--red);font-weight:800;}
+  .hl-p{color:var(--purple);font-weight:800;}
+  .tag{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:4px;}
+  .tag-you{background:var(--purple-bg);color:var(--purple);border:1px solid var(--purple-line);}
+  .tag-no{background:var(--red-bg);color:var(--red);border:1px solid var(--red-line);}
+  .tag-todo{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-line);}
+  .ver{text-align:center;padding:26px 0;font-size:12px;color:var(--ink2);}
+  ul{margin:6px 0 6px 20px;font-size:13px;}li{margin:3px 0;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>触发器语义匹配（模型解析）· 链路与协议</h1>
+  <div class="sub">以"后排宝宝哭了告诉我"为例 · 供 7.16 对齐 · 基于端侧真实链路（高频任务UP）</div>
+  <div class="badge">📌 v0.1 草案 · 2026-07-16 · 供对齐，非最终</div>
+</div>
+
+<div class="content">
+
+<p class="lead">这份材料就一个目的：把"触发器要做的语义匹配（模型解析）"这件事，<strong>用真实链路摆到桌上，逐段对齐输入、判断、输出、边界</strong>。会上顺着下面的流程图往下走，每停一处就对一处。</p>
+
+<div class="box box-r">
+<strong>⚠️ 开场先钉这一颗钉子（头号待澄清，不澄清后面白聊）：</strong><br>
+现在"<strong>判断是否达成用户 query（用户指令）的任务目标</strong>"这个动作，被画在了 <strong>Task Service（任务服务）</strong>名下。但 7.15 技评庆磊定的是"语义匹配归 <strong>Trigger（触发器）</strong>"，技术方案也白纸黑字写"Trigger 完成语义匹配"。<br>
+<span class="hl-r">这个判断到底是 Task Service 做，还是我触发器的规则服务做？——必须今天定死。</span>如果对外都算 Task Service，触发器就被架空成一个纯转发管道了。我的主张：<strong>判断这块是触发器规则服务的核心能力，归我。</strong>
+</div>
+
+<!-- ============ 主流程图 ============ -->
+<h2>一、端到端链路（会上投屏，指着这张讲）</h2>
+
+<div class="flow">
+  <div class="node n-user"><span class="role">① 用户 USER</span><span class="desc">"后排宝宝哭了告诉我"</span></div>
+  <div class="arr">↓</div>
+  <div class="node n-task"><span class="role">② Task Service（任务服务）· 生成任务</span><span class="desc">根据用户 query 生成一个 <strong>高频任务UP</strong>（编号如 044），下发端侧 VLM</span></div>
+  <div class="arr">↓ <span class="l">下发观察任务（编号044 + 目标"宝宝哭了"）</span></div>
+  <div class="node n-vlm"><span class="role">③ 端侧感知模块 VLM（视觉大模型）</span><span class="desc">舱内高频 AlwaysOn 每 <strong>5秒</strong> 拍一次，把结果<strong>拆成两框</strong>，分两个 Topic（订阅主题）上报 ↓</span></div>
+  <div class="arr">↓</div>
+  <div class="split2">
+    <div class="node n-vlm" style="border-color:var(--red-line);background:var(--red-bg);"><span class="role" style="color:var(--red);">🟥 红框 = 高频任务UP结果</span><span class="desc"><code>{"任务编号":"044","识别结果":"后排宝宝安静 / 在哭"}</code><br>← <strong>这一框专门给你（触发器）做匹配</strong></span></div>
+    <div class="node n-vlm"><span class="role">🟩 绿框 = Context 结果</span><span class="desc">乘客列表（位置 / 动态神态）<br>← 走 Context（上下文）路线，<strong>不归你</strong></span></div>
+  </div>
+  <div class="arr">↓ <span class="l">红框经 AI Service 数据中心，订阅给触发器</span></div>
+  <div class="node n-core"><span class="role">④ 触发器 · 语义匹配模型　【你的核心 · 归属待澄清】</span><span class="desc">判断 VLM 的"识别结果（在哭）" 是否 <strong>语义匹配</strong> 任务目标"哭了"<br><span class="loopbadge">↺ 每 5 秒来一次就判一次，没匹配上就继续等</span></span></div>
+  <div class="arr">↓ <span class="l">匹配命中 → callback（回调）</span></div>
+  <div class="node n-task"><span class="role">⑤ Task Service · 起执行 + 控反馈周期</span><span class="desc">命中后，按<strong>用户反馈周期</strong>（如"每60秒告诉我一次"）叫 Planner 执行播报；达成后<strong>通知 VLM 结束</strong>高频任务UP</span></div>
+  <div class="arr">↓</div>
+  <div class="node n-out"><span class="role">⑥ Planner（规划器）→ 用户</span><span class="desc">播报"后排宝宝哭了"</span></div>
+</div>
+
+<div class="box box-p">
+<strong>看这张图，你要在会上锁定的就一件事：第 ④ 步是你的。</strong>①②⑤是 Task Service、③是 VLM、⑥是 Planner——<span class="hl-p">只有第 ④ 步"语义匹配判断"是触发器的核心能力，这是你这一期要交付、也要守住归属的东西。</span>
+</div>
+
+<!-- ============ VLM 拆框 ============ -->
+<h2>二、VLM 的输出：为什么是"红框归你、绿框不归你"</h2>
+
+<p class="lead">这是你链路图里最关键的设计——VLM 主动把舱内高频结果拆成两框，分两个 Topic。别混：</p>
+<table>
+  <tr><th style="width:120px;">框</th><th style="width:150px;">内容</th><th style="width:120px;">订阅方 / 走哪条线</th><th>归谁</th></tr>
+  <tr style="background:var(--red-bg);">
+    <td><strong>🟥 红框<br>高频任务UP结果</strong></td>
+    <td><code>{"任务编号","识别结果"}</code><br>识别结果 = user_query（用户指令）对应的回答</td>
+    <td>触发器订阅（经 AI Service 数据中心）</td>
+    <td><span class="tag tag-you">触发器语义匹配</span></td>
+  </tr>
+  <tr style="background:var(--green-bg);">
+    <td><strong>🟩 绿框<br>Context 结果</strong></td>
+    <td>乘客列表：位置、动态神态（"头靠肩膀睡觉"等）</td>
+    <td>Context 订阅（context 路线）</td>
+    <td><span class="tag tag-no">不归你，走 Context</span></td>
+  </tr>
+</table>
+<div class="box box-b">
+<strong>你的边界第二刀（会上要主张）：</strong>我的语义匹配<span class="hl-p">只消费红框（高频任务UP结果的"识别结果"字段）</span>。绿框、以及格式表里那些自由 caption（画面描述）、标签串（如"大件物品-否-否"）是别的任务（停车/迎宾/安全/Context），<strong>不进我的语义匹配</strong>。守住这条，你的模型才不会被无限加复杂度。
+</div>
+
+<!-- ============ 两个周期 ============ -->
+<h2>三、两个周期不能混（你链路图里的关键细节）</h2>
+<table>
+  <tr><th style="width:170px;">周期</th><th style="width:100px;">典型值</th><th>谁定 / 干嘛</th></tr>
+  <tr><td><strong>VLM 上报周期</strong></td><td>5 秒</td><td>VLM 定，高频任务UP 每 5 秒吐一次识别结果给你判断</td></tr>
+  <tr><td><strong>用户反馈周期</strong></td><td>如 60 秒</td><td>用户 query 里指定（"每60秒告诉我宝宝在干嘛"），Task Service 控制多久播报一次给用户</td></tr>
+</table>
+<div class="box box-a">
+<strong>会上要问清：</strong>这两个周期解耦——VLM 5 秒给我判断素材，但用户要的是 60 秒一次反馈。<span class="hl-r">"多久判一次"（我）和"多久告诉用户一次"（Task Service）是两回事，别被合并到一个周期里。</span>这也牵扯：命中一次后是立即报、还是等反馈周期到点报？今天定。
+</div>
+
+<!-- ============ 输入协议 ============ -->
+<h2>四、输入协议草案（VLM 红框 → 触发器）</h2>
+<p class="lead">这是你抢定义权的实物——<strong>你先写，让丁彬/西钺在你的字段上改</strong>。会上投这张，逐字段确认：</p>
+<table>
+  <tr><th style="width:130px;">字段</th><th style="width:110px;">类型</th><th>说明 / 待确认</th></tr>
+  <tr><td>任务编号 task_no</td><td>string（字符串）</td><td>Task Service 生成高频任务UP时分配，VLM 原样带回</td></tr>
+  <tr><td>识别结果 result</td><td>string</td><td>user_query 对应的回答，如"后排宝宝安静""后排宝宝在哭" <span class="tag tag-todo">粒度待定</span></td></tr>
+  <tr><td>上报时间 ts</td><td>int（整数时间戳）</td><td>这一帧的时间</td></tr>
+  <tr><td>空值约定</td><td>—</td><td><span class="hl-r">无异常/未识别到时输出什么？空串=没触发，得约定死</span> <span class="tag tag-todo">待丁彬确认</span></td></tr>
+  <tr><td>置信度 confidence</td><td>float（小数）</td><td><span class="tag tag-todo">建议加</span>VLM 若能给置信度，我做阈值控误报更稳</td></tr>
+</table>
+
+<!-- ============ 输出协议 ============ -->
+<h2>五、输出协议草案（触发器 → Task Service）</h2>
+<table>
+  <tr><th style="width:130px;">字段</th><th style="width:110px;">类型</th><th>说明</th></tr>
+  <tr><td>任务编号 task_no</td><td>string</td><td>命中的是哪个任务</td></tr>
+  <tr><td>回调编号 callback_id</td><td>string</td><td>本次触发的唯一标识</td></tr>
+  <tr><td>命中结果 matched_result</td><td>string</td><td>触发时 VLM 的原始识别结果（"在哭"），供播报用</td></tr>
+  <tr><td>触发时间 triggered_at</td><td>int</td><td>命中的时刻</td></tr>
+</table>
+<div class="box box-p">
+<strong>我不回什么（边界声明）：</strong>我只回"匹配命中了、是哪个任务、原始识别结果"。<span class="hl-p">我不生成播报话术、不管任务生命周期、不做二次判断</span>——那些是 Task Service / Planner 的。命中之后的事，不归我。
+</div>
+
+<!-- ============ 待确认清单 ============ -->
+<h2>六、今天要拍死的待确认项（会上逐条收结论）</h2>
+<table>
+  <tr><th style="width:34px;">#</th><th style="width:230px;">待确认</th><th style="width:110px;">找谁拍</th><th>我的主张 / 倾向</th></tr>
+  <tr style="background:var(--red-bg);">
+    <td>1</td><td><strong>语义匹配判断的归属</strong>：Task Service 还是触发器规则服务？</td><td>庆磊 / 晓伟</td><td class="hl-r">归触发器（我）。这是我这一期的核心交付</td></tr>
+  <tr><td>2</td><td>我的输入 = 红框"识别结果"字段，对吧？绿框/自由caption/标签串不进我</td><td>丁彬 / 西钺</td><td>只消费红框识别结果，划死边界</td></tr>
+  <tr><td>3</td><td>识别结果的<strong>粒度</strong>：VLM 给"在哭 / 没哭"（近结论）还是"有泪珠"（纯描述）？</td><td>丁彬</td><td>越接近结论我越好判；但结论仍由我下</td></tr>
+  <tr><td>4</td><td><strong>空值约定</strong>：没识别到时输出什么</td><td>丁彬</td><td>空串=未触发，写进协议</td></tr>
+  <tr><td>5</td><td><strong>两个周期</strong>：上报周期(5s) vs 反馈周期(60s) 怎么解耦，命中后何时报</td><td>庆磊 / 丁彬</td><td>判断和反馈解耦，别合并</td></tr>
+  <tr><td>6</td><td><strong>匹配模型谁提供</strong>：task 模型侧(晓朝)给，还是触发器自起轻量模型？</td><td>晓朝 / 刘杨</td><td>问清，决定实现路径和成本归属</td></tr>
+  <tr><td>7</td><td><strong>准确率责任</strong>：badcase 谁扛</td><td>晓朝 / 全场</td><td>我定阈值兜底策略；准确率和算法共担；宁漏报不误报</td></tr>
+  <tr><td>8</td><td><strong>成本</strong>：5s一判的调用量级</td><td>韩杰</td><td>轻量模型，非常驻，和 Planner 切开；测算后补</td></tr>
+  <tr style="background:var(--red-bg);">
+    <td>9</td><td><strong>L2 泛化边界</strong>：像"照顾二排老人"那种每步重决策的，走不走我？</td><td>庆磊 / 明骏</td><td class="hl-r">不走我，走 Task 模型/React；我只做有明确目标的匹配</td></tr>
+</table>
+
+<div class="box box-a">
+<strong>会上收尾你就念这句：</strong>"今天结论我复述一遍——判断归触发器；输入是红框识别结果；粒度 X；空值 Y；两周期解耦；模型 Z 提供；准确率共担；成本我给测算；L2 不走我。协议草案我 X 日出正式版。有漏的吗？" —— <span class="hl-p">每条都落到白纸黑字，这场会你就赢了。</span>
+</div>
+
+<div class="ver">
+  触发器语义匹配 · 链路与协议 · v1 · 2026-07-16（文件名 -v1.html，内外一致）<br>
+  基于泽民真实链路图（VLM 拆红框/绿框、高频任务UP、两个周期）+ 端状态格式表 + 7.15技评 + Task方案<br>
+  配套：7.16-模型解析对齐会-作战手册-v2.html（策略/话术/对抗审查）
+</div>
+
+</div>
+</body>
+</html>

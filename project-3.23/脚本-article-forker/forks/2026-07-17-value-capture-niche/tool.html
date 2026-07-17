@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>价值捕获定位框架 · 生态位诊断器</title>
+<style>
+  :root{
+    --bg:#0b0f16; --panel:#111826; --panel2:#0e1420; --line:#22304a;
+    --ink:#e8eef7; --sub:#95a6bf; --dim:#63748f;
+    --gold:#f0b429; --gold2:#f6c95a; --teal:#2dd4bf; --red:#f2637a; --green:#4ade80; --blue:#60a5fa;
+    --shadow:0 10px 30px rgba(0,0,0,.4);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 600px at 80% -10%,#16223a 0%,var(--bg) 55%);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.65;-webkit-font-smoothing:antialiased}
+  a{color:var(--gold2);text-decoration:none}
+  .layout{display:flex;min-height:100vh}
+  /* sidebar */
+  .side{width:236px;flex:0 0 236px;background:linear-gradient(180deg,#0e1523,#0a0e16);
+    border-right:1px solid var(--line);position:sticky;top:0;height:100vh;padding:22px 16px;overflow:auto}
+  .brand{font-weight:800;font-size:16px;letter-spacing:.3px;line-height:1.4}
+  .brand small{display:block;color:var(--dim);font-weight:500;font-size:11.5px;margin-top:4px}
+  .nav{margin-top:22px;display:flex;flex-direction:column;gap:4px}
+  .nav a{display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:9px;color:var(--sub);
+    font-size:13.5px;border:1px solid transparent;transition:.15s}
+  .nav a .dot{width:7px;height:7px;border-radius:50%;background:var(--dim);flex:0 0 7px;transition:.15s}
+  .nav a:hover{background:#131c2c;color:var(--ink)}
+  .nav a.active{background:#15203400;border-color:var(--line);color:var(--ink);background:#131d30}
+  .nav a.active .dot{background:var(--gold);box-shadow:0 0 10px var(--gold)}
+  .side .foot{margin-top:26px;padding-top:16px;border-top:1px solid var(--line);color:var(--dim);font-size:11px}
+  /* main */
+  .main{flex:1;min-width:0;padding:34px 40px 90px;max-width:1080px}
+  .progwrap{position:fixed;top:0;left:236px;right:0;height:3px;background:#0e1420;z-index:20}
+  .progbar{height:100%;width:0;background:linear-gradient(90deg,var(--gold),var(--teal))}
+  section{margin-bottom:52px;scroll-margin-top:30px}
+  .eyebrow{color:var(--gold);font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase}
+  h1{font-size:27px;line-height:1.3;margin:8px 0 10px;font-weight:800}
+  h2{font-size:20px;margin:6px 0 14px;font-weight:750;display:flex;align-items:center;gap:10px}
+  h2 .num{font-size:12px;color:var(--bg);background:var(--gold);width:22px;height:22px;border-radius:6px;
+    display:inline-flex;align-items:center;justify-content:center;font-weight:800;flex:0 0 22px}
+  h3{font-size:15px;margin:16px 0 8px;color:var(--gold2);font-weight:700}
+  p{color:var(--sub);font-size:14px;margin:8px 0}
+  .lead{font-size:15px;color:var(--ink)}
+  .card{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);
+    border-radius:14px;padding:20px 22px;box-shadow:var(--shadow)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .tag{display:inline-block;font-size:11px;padding:2px 9px;border-radius:20px;border:1px solid var(--line);
+    color:var(--sub);background:#0e1626;margin:2px 4px 2px 0}
+  .kbd{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#0c1420;border:1px solid var(--line);
+    padding:1px 6px;border-radius:5px;color:var(--teal);font-size:12.5px}
+  .muted{color:var(--dim);font-size:12.5px}
+  .hr{height:1px;background:var(--line);margin:22px 0;border:0}
+
+  /* ---- scorer ---- */
+  .dim{border:1px solid var(--line);border-radius:12px;padding:15px 16px;margin-bottom:12px;background:#0d1524}
+  .dim .top{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+  .dim .name{font-weight:700;font-size:15px}
+  .dim .judge{color:var(--dim);font-size:12.5px;margin-top:3px}
+  .dim .val{font-weight:800;font-size:18px;color:var(--gold2);min-width:22px;text-align:right}
+  .scale{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+  .scale button{flex:1;min-width:70px;background:#0b1220;border:1px solid var(--line);color:var(--sub);
+    padding:9px 6px;border-radius:9px;cursor:pointer;font-size:12px;transition:.14s;text-align:center;line-height:1.35}
+  .scale button b{display:block;font-size:14px;color:var(--ink);margin-bottom:1px}
+  .scale button:hover{border-color:#3a5480;color:var(--ink)}
+  .scale button.sel{background:linear-gradient(180deg,#243654,#182740);border-color:var(--gold);
+    color:var(--ink);box-shadow:0 0 0 1px var(--gold) inset}
+  .scale button.sel b{color:var(--gold2)}
+
+  .result{position:sticky;top:24px}
+  .score-big{font-size:52px;font-weight:800;line-height:1;background:linear-gradient(90deg,var(--gold),var(--teal));
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .score-big span{font-size:20px;color:var(--dim);-webkit-text-fill-color:var(--dim)}
+  .layerbadge{display:inline-block;margin-top:10px;padding:6px 14px;border-radius:22px;font-weight:700;font-size:13.5px;
+    border:1px solid var(--line)}
+  .verdict{margin-top:14px;font-size:13.5px;color:var(--sub);border-left:3px solid var(--gold);padding-left:12px}
+  .meter{height:9px;background:#0b1220;border:1px solid var(--line);border-radius:20px;overflow:hidden;margin-top:16px}
+  .meter i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--red),var(--gold),var(--green));transition:.4s}
+  .risk{margin-top:16px;font-size:12.5px;color:var(--dim)}
+  .risk li{margin:5px 0 5px 2px;list-style:none;padding-left:16px;position:relative}
+  .risk li:before{content:"▸";position:absolute;left:0;color:var(--gold)}
+
+  /* ---- cases ---- */
+  .caselib{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:11px}
+  .casebtn{background:#0d1524;border:1px solid var(--line);border-radius:11px;padding:13px;cursor:pointer;transition:.15s;text-align:left}
+  .casebtn:hover{border-color:var(--gold);transform:translateY(-2px)}
+  .casebtn .cn{font-weight:750;font-size:14px}
+  .casebtn .cl{font-size:11px;color:var(--dim);margin-top:3px}
+  .casebtn .cs{margin-top:8px;font-weight:800;font-size:15px;color:var(--gold2)}
+  .casebtn.mine{border-style:dashed;border-color:var(--teal)}
+  .casebtn.mine .cs{color:var(--teal);font-size:12px;font-weight:600}
+  #caseWhy{margin-top:14px}
+
+  /* ---- path decider ---- */
+  .chip{display:flex;align-items:flex-start;gap:11px;padding:13px 15px;border:1px solid var(--line);border-radius:11px;
+    cursor:pointer;background:#0d1524;transition:.15s;margin-bottom:10px}
+  .chip:hover{border-color:#3a5480}
+  .chip.on{border-color:var(--teal);background:#0e2028}
+  .chip .box{width:19px;height:19px;border-radius:6px;border:1.5px solid var(--dim);flex:0 0 19px;margin-top:2px;
+    display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--bg);transition:.15s}
+  .chip.on .box{background:var(--teal);border-color:var(--teal)}
+  .chip .ct b{font-size:14px}
+  .chip .ct span{display:block;color:var(--dim);font-size:12px;margin-top:2px}
+  .pathcard{border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:12px;background:#0d1524;opacity:.5;transition:.25s}
+  .pathcard.rec{opacity:1;border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset}
+  .pathcard .ph{display:flex;justify-content:space-between;align-items:center}
+  .pathcard .pn{font-weight:750;font-size:15px}
+  .pathcard .src{font-size:12px;color:var(--teal)}
+  .pathcard ul{margin:10px 0 0 2px;list-style:none}
+  .pathcard li{font-size:12.5px;color:var(--sub);padding-left:16px;position:relative;margin:4px 0}
+  .pathcard li:before{content:"○";position:absolute;left:0;color:var(--dim);font-size:10px;top:3px}
+  .recflag{font-size:11px;background:var(--gold);color:var(--bg);padding:2px 8px;border-radius:20px;font-weight:700}
+
+  table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px}
+  th,td{border:1px solid var(--line);padding:9px 11px;text-align:left;vertical-align:top}
+  th{background:#0e1626;color:var(--gold2);font-weight:700}
+  td{color:var(--sub)}
+  .checklist label{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px dashed var(--line);cursor:pointer;font-size:13.5px;color:var(--sub)}
+  .checklist input{margin-top:4px;accent-color:var(--gold);width:15px;height:15px}
+  .clcount{margin-top:12px;font-weight:700;font-size:13.5px}
+  svg{max-width:100%;height:auto;display:block}
+  .callout{border:1px solid var(--line);border-left:3px solid var(--teal);background:#0d1620;border-radius:0 10px 10px 0;padding:13px 16px;margin:14px 0;font-size:13px;color:var(--sub)}
+  .callout b{color:var(--ink)}
+  @media(max-width:880px){
+    .side{display:none}.main{padding:24px 18px 80px}.progwrap{left:0}
+    .grid2,.grid3{grid-template-columns:1fr}.result{position:static}
+  }
+</style>
+</head>
+<body>
+<div class="progwrap"><div class="progbar" id="prog"></div></div>
+<div class="layout">
+  <aside class="side">
+    <div class="brand">价值捕获定位框架<small>生态位缺失 · 车企 6.1%→3.2%</small></div>
+    <nav class="nav" id="nav">
+      <a href="#intro" class="active"><span class="dot"></span>框架总览</a>
+      <a href="#scorer"><span class="dot"></span>生态位诊断器</a>
+      <a href="#cases"><span class="dot"></span>案例库</a>
+      <a href="#paths"><span class="dot"></span>三路径决策器</a>
+      <a href="#ladder"><span class="dot"></span>价值阶梯图</a>
+      <a href="#checklist"><span class="dot"></span>根因分诊清单</a>
+    </nav>
+    <div class="foot">Fork · 2026-07-17<br>观点/框架型 · 深色交互工具<br>双击即用，无需联网</div>
+  </aside>
+
+  <main class="main">
+    <!-- INTRO -->
+    <section id="intro">
+      <div class="eyebrow">CORE LENS</div>
+      <h1>你活得很累，不等于你在捕获价值</h1>
+      <p class="lead">车企利润率从 6.1% 掉到 3.2%，根因不是"竞争激烈"，而是它站错了生态位——困在"造一辆车、卖一辆车"的<b style="color:var(--red)">组装层</b>，利润被上游电池（宁德）和上游能力供应商（华为智驾/座舱）两头挤走。</p>
+      <div class="callout"><b>一句话骨架：</b>利润流向"不可绕过 + 有复利/锁定"的生态位，不流向"活最重但可替代"的组装层。这个工具帮你诊断：你（或你的产品/模块）站在哪一层、护城河能撑多久、往哪条路拿回定价权。</div>
+      <div class="grid3" style="margin-top:16px">
+        <div class="card"><h3 style="margin-top:0">① 四维诊断</h3><p style="margin:0">不可绕过性 / 差异化能力 / 复利锁定 / 服务化，各打 0-3 分，实时定位你在哪一层。</p></div>
+        <div class="card"><h3 style="margin-top:0">② 三路径决策</h3><p style="margin:0">制造成本 / 技术数据飞轮 / 服务用户关系，三种拿回定价权的方式，按你的筹码选。</p></div>
+        <div class="card"><h3 style="margin-top:0">③ 根因分诊</h3><p style="margin:0">"表面竞争 vs 结构生态位"清单——反直觉地判断问题是战术还是结构。</p></div>
+      </div>
+    </section>
+
+    <!-- SCORER -->
+    <section id="scorer">
+      <h2><span class="num">A</span>生态位诊断器</h2>
+      <p>给一个诊断对象（你的产品 / 你负责的模块 / 一个竞品）四维各打分。判据看每维小字。<span class="muted">想快速理解？先去下面「案例库」点一个真实案例，会自动填进来。</span></p>
+      <div class="grid2" style="margin-top:16px">
+        <div>
+          <div class="dim" data-dim="0">
+            <div class="top"><div><div class="name">不可绕过性</div><div class="judge">别人绕过你有损失吗？（卡点 / choke-point）</div></div><div class="val">0</div></div>
+            <div class="scale"></div>
+          </div>
+          <div class="dim" data-dim="1">
+            <div class="top"><div><div class="name">差异化能力</div><div class="judge">你是"决定能否上牌桌"的能力，还是锦上添花？</div></div><div class="val">0</div></div>
+            <div class="scale"></div>
+          </div>
+          <div class="dim" data-dim="2">
+            <div class="top"><div><div class="name">复利 / 锁定</div><div class="judge">每次交付沉淀成越来越强的资产吗，还是一次性？</div></div><div class="val">0</div></div>
+            <div class="scale"></div>
+          </div>
+          <div class="dim" data-dim="3">
+            <div class="top"><div><div class="name">服务化 / 用户关系</div><div class="judge">占用户持续关系，还是卖完就断联？</div></div><div class="val">0</div></div>
+            <div class="scale"></div>
+          </div>
+        </div>
+        <div>
+          <div class="card result">
+            <div class="muted" id="curObj">诊断对象：<b style="color:var(--ink)">未选择</b></div>
+            <div style="margin-top:10px"><span class="score-big" id="total">0</span><span class="score-big"><span> / 12</span></span></div>
+            <div class="layerbadge" id="layer">待打分</div>
+            <div class="meter"><i id="meter"></i></div>
+            <div class="verdict" id="verdict">四维各点一下，实时给你定位到"基础设施 / 能力 / 服务 / 组装"哪一层，并判断护城河。</div>
+            <div style="margin-top:16px"><b style="font-size:13px;color:var(--gold2)">三个掀桌压力测试</b>
+              <ul class="risk">
+                <li>下游能自研平替你吗？（能力层最易被反噬）</li>
+                <li>上游 / 新技术能绕过你吗？（基础设施也会被掀桌）</li>
+                <li>你的复利是真在滚，还是一次性修补的假象？</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CASES -->
+    <section id="cases">
+      <h2><span class="num">B</span>案例库（点一个，看它为什么赚/亏）</h2>
+      <p>原文的角色 + 两个补充参照。点击任意卡片，会把它的四维打分填进上面的诊断器，并展开理由。</p>
+      <div class="caselib" id="caselib"></div>
+      <div class="card" id="caseWhy" style="display:none">
+        <h3 id="whyName" style="margin-top:0"></h3>
+        <p id="whyText" style="color:var(--sub)"></p>
+      </div>
+    </section>
+
+    <!-- PATHS -->
+    <section id="paths">
+      <h2><span class="num">C</span>三路径决策器</h2>
+      <p>勾选你手里真实的<b>筹码</b>，下面三条突围路径会点亮推荐项，并列出走这条路缺不了的前提。</p>
+      <div class="grid2" style="margin-top:14px">
+        <div>
+          <div class="chip" data-chip="build"><div class="box">✓</div><div class="ct"><b>我有规模 / 供应链整合能力</b><span>零部件复用、产线摊销、垂直整合</span></div></div>
+          <div class="chip" data-chip="tech"><div class="box">✓</div><div class="ct"><b>我有数据 / 闭环 / 软件迭代力</b><span>统一数据系统、能持续 OTA 变强、有反馈闭环</span></div></div>
+          <div class="chip" data-chip="serve"><div class="box">✓</div><div class="ct"><b>我占着用户入口 / 持续关系</b><span>能持续触达用户、有运营与服务承载</span></div></div>
+          <div class="callout" style="margin-top:6px"><b>叠加走：</b>勾选多项时会提示——头部玩家（特斯拉）三条路同时走、互相加固，不是三选一。</div>
+        </div>
+        <div>
+          <div class="pathcard" data-path="build">
+            <div class="ph"><div class="pn">① 制造驱动 · 比亚迪路线</div><div class="src">定价权＝成本领先</div></div>
+            <ul><li>前提：有规模经济、成本差能持续拉开</li><li>天花板低（组装层里称王）；风险：对手规模追上即被重挖</li></ul>
+          </div>
+          <div class="pathcard" data-path="tech">
+            <div class="ph"><div class="pn">② 技术驱动 · 华为/小鹏路线</div><div class="src">定价权＝差异化＋数据飞轮</div></div>
+            <ul><li>前提：智驾成决定性差异 + 数据飞轮真转得动</li><li>复利最实；风险：同质化、数据边际递减</li></ul>
+          </div>
+          <div class="pathcard" data-path="serve">
+            <div class="ph"><div class="pn">③ 服务驱动 · 出行服务商</div><div class="src">定价权＝用户关系＋持续服务</div></div>
+            <ul><li>前提：L4 自动驾驶落地 + 用户接受"买服务不买车"</li><li>最难最值钱（终局赢家）；风险：依赖 L4，最像愿景</li></ul>
+          </div>
+          <div id="pathHint" class="muted" style="margin-top:6px">勾选左侧筹码后给建议。</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- LADDER -->
+    <section id="ladder">
+      <h2><span class="num">D</span>价值阶梯图 & 三路径分叉</h2>
+      <p>层级定天花板，<b>不可替代性定生死</b>——组装层做到极致（比亚迪成本）也能活，能力层护城河浅也会被下游吃掉。</p>
+      <div class="card">
+        <svg viewBox="0 0 900 380" role="img" aria-label="价值阶梯与三路径分叉图">
+          <defs>
+            <linearGradient id="g-serve" x1="0" x2="1"><stop offset="0" stop-color="#2dd4bf"/><stop offset="1" stop-color="#22a89a"/></linearGradient>
+            <linearGradient id="g-infra" x1="0" x2="1"><stop offset="0" stop-color="#f0b429"/><stop offset="1" stop-color="#d99514"/></linearGradient>
+            <linearGradient id="g-cap" x1="0" x2="1"><stop offset="0" stop-color="#60a5fa"/><stop offset="1" stop-color="#4b82d6"/></linearGradient>
+            <linearGradient id="g-asm" x1="0" x2="1"><stop offset="0" stop-color="#3a4a63"/><stop offset="1" stop-color="#2a3852"/></linearGradient>
+            <marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#f0b429"/></marker>
+          </defs>
+          <!-- value arrow -->
+          <text x="26" y="30" fill="#95a6bf" font-size="12">价值捕获 ↑</text>
+          <line x1="40" y1="345" x2="40" y2="45" stroke="#22304a" stroke-width="2" marker-end="url(#arrow)"/>
+          <!-- ladder -->
+          <g font-family="sans-serif">
+            <rect x="70" y="46" width="360" height="60" rx="9" fill="url(#g-serve)" opacity=".9"/>
+            <text x="88" y="72" fill="#052018" font-size="15" font-weight="700">服务层 · 占用户持续关系</text>
+            <text x="88" y="93" fill="#062a20" font-size="12">出行服务商 — 车只是交付终端（最难最值钱）</text>
+
+            <rect x="70" y="116" width="360" height="60" rx="9" fill="url(#g-infra)" opacity=".92"/>
+            <text x="88" y="142" fill="#2a1c00" font-size="15" font-weight="700">基础设施层 · 卡不可绕过节点</text>
+            <text x="88" y="163" fill="#2a1c00" font-size="12">宁德/电池 — 主流标准 → 正向飞轮</text>
+
+            <rect x="70" y="186" width="360" height="60" rx="9" fill="url(#g-cap)" opacity=".9"/>
+            <text x="88" y="212" fill="#08172e" font-size="15" font-weight="700">能力层 · 卖决定牌桌的差异化</text>
+            <text x="88" y="233" fill="#08172e" font-size="12">华为智驾/座舱 — 值钱，但易被下游反噬</text>
+
+            <rect x="70" y="256" width="360" height="60" rx="9" fill="url(#g-asm)"/>
+            <text x="88" y="282" fill="#cdd8ea" font-size="15" font-weight="700">组装层 · 线性交易、可替代</text>
+            <text x="88" y="303" fill="#95a6bf" font-size="12">车企卖车 — 被两头挤（除非成本极致）</text>
+          </g>
+          <!-- fork -->
+          <g font-family="sans-serif">
+            <circle cx="470" cy="286" r="6" fill="#f2637a"/>
+            <text x="470" y="330" fill="#95a6bf" font-size="12" text-anchor="middle">组装层困局</text>
+            <path d="M482,282 C560,250 600,120 660,86" stroke="#2dd4bf" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+            <path d="M482,285 C580,240 640,215 700,210" stroke="#60a5fa" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+            <path d="M482,290 C560,300 620,300 690,300" stroke="#f0b429" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+            <g font-size="12.5">
+              <rect x="668" y="70" width="200" height="34" rx="7" fill="#0e2028" stroke="#2dd4bf"/><text x="680" y="92" fill="#2dd4bf">③ 服务：用户关系</text>
+              <rect x="708" y="194" width="160" height="34" rx="7" fill="#0e1a2e" stroke="#60a5fa"/><text x="720" y="216" fill="#60a5fa">② 技术：数据飞轮</text>
+              <rect x="698" y="284" width="170" height="34" rx="7" fill="#241c08" stroke="#f0b429"/><text x="710" y="306" fill="#f0b429">① 制造：成本领先</text>
+            </g>
+          </g>
+        </svg>
+      </div>
+    </section>
+
+    <!-- CHECKLIST -->
+    <section id="checklist">
+      <h2><span class="num">E</span>根因分诊清单：表面竞争 vs 结构生态位</h2>
+      <p>利润/资源/评审话语权在下滑时，先跑这个，别急着归因"竞争太激烈 / 我不够努力"。勾选"是"。</p>
+      <div class="card">
+        <div class="checklist" id="cl">
+          <label><input type="checkbox"> 同样"激烈竞争"下，这条链上<b>有人在赚钱</b>（→ 病不在竞争，在你的层）</label>
+          <label><input type="checkbox"> 我这层的交付是<b>线性一次性</b>，没沉淀成越来越强的资产</label>
+          <label><input type="checkbox"> 别人<b>绕过我没损失</b>（不可绕过性≈0）</label>
+          <label><input type="checkbox"> 我提供的是<b>锦上添花</b>，不是"决定对方能否上牌桌"</label>
+          <label><input type="checkbox"> 我的<b>下游有能力/动机自研平替我</b>（能力层正被反噬）</label>
+          <label><input type="checkbox"> 我赚的是<b>一次性交易</b>，不是持续关系/服务</label>
+          <label><input type="checkbox"> 我全部精力在"把当前层做到极致"，没为"迁移到更高层"留过力</label>
+        </div>
+        <div class="clcount" id="clcount">已勾 0 / 7 —— <span style="color:var(--dim)">勾选中…</span></div>
+      </div>
+      <div class="callout" style="margin-top:16px"><b>迁移到你自己：</b>本工具的每个模块都能对三个对象跑一遍——① 豆包座舱产品（你是华为式能力层，还是可平替配套？）② 个人职业押注（一次性猛产出＝车企卖车模型；沉淀定义权/押注记录＝往能力层爬）③ 反复出现的 badcase（战术问题 vs 结构问题）。配套 <span class="kbd">source.md</span> / <span class="kbd">concept.md</span> 有完整 SOP 与 Prompt 模板。</div>
+    </section>
+  </main>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  // ---------- scale labels ----------
+  var SCALE=[
+    {n:"0 无",d:"纯组装/可替代/一次性"},
+    {n:"1 微弱",d:"有一点但不稳"},
+    {n:"2 明显",d:"有真实优势"},
+    {n:"3 强",d:"结构性、自增强"}
+  ];
+  var DIMS=[0,0,0,0];
+  var DIMNAMES=["不可绕过性","差异化能力","复利/锁定","服务化"];
+
+  // build scales
+  document.querySelectorAll('.dim').forEach(function(dim){
+    var idx=+dim.getAttribute('data-dim');
+    var wrap=dim.querySelector('.scale');
+    SCALE.forEach(function(s,v){
+      var b=document.createElement('button');
+      b.innerHTML='<b>'+s.n+'</b>'+s.d;
+      b.addEventListener('click',function(){
+        DIMS[idx]=v;
+        wrap.querySelectorAll('button').forEach(function(x){x.classList.remove('sel');});
+        b.classList.add('sel');
+        dim.querySelector('.val').textContent=v;
+        render();
+      });
+      wrap.appendChild(b);
+    });
+  });
+
+  function layerOf(){
+    var t=DIMS[0]+DIMS[1]+DIMS[2]+DIMS[3];
+    if(t===0) return {name:"待打分",color:"var(--dim)",note:""};
+    // dominant dimension decides layer
+    var max=Math.max.apply(null,DIMS);
+    var lead=DIMS.indexOf(max);
+    var layer;
+    if(DIMS[3]>=2 && DIMS[3]===max) layer={t:"服务层",c:"var(--teal)"};
+    else if(DIMS[0]>=2 && DIMS[0]===max) layer={t:"基础设施层",c:"var(--gold)"};
+    else if(DIMS[1]>=2 && DIMS[1]===max) layer={t:"能力层",c:"var(--blue)"};
+    else layer={t:"组装层",c:"var(--red)"};
+    return {name:layer.t,color:layer.c};
+  }
+
+  function bandVerdict(t){
+    if(t>=10) return "强生态位（宁德/成熟服务商级）。守住 + 持续加固飞轮，别被下一代技术掀桌。";
+    if(t>=7)  return "能力层——值钱，但反噬风险最高（华为智驾当前）。重点做三个掀桌压力测试，尤其'下游会不会自研平替'。";
+    if(t>=4)  return "夹心层——往上够不着、往下被挤。别原地卷，去「三路径决策器」选一条迁移路径。";
+    return "组装层——线性无复利，利润注定被两头挤（6.1%→3.2%）。要么规模成本做到极致，要么尽快迁移。";
+  }
+
+  function render(){
+    var t=DIMS[0]+DIMS[1]+DIMS[2]+DIMS[3];
+    document.getElementById('total').textContent=t;
+    var L=layerOf();
+    var badge=document.getElementById('layer');
+    badge.textContent=L.name;
+    badge.style.color=L.color;badge.style.borderColor=L.color;
+    document.getElementById('meter').style.width=(t/12*100)+'%';
+    document.getElementById('verdict').textContent = t===0
+      ? "四维各点一下，实时给你定位到'基础设施/能力/服务/组装'哪一层，并判断护城河。"
+      : bandVerdict(t);
+  }
+
+  // ---------- cases ----------
+  var CASES=[
+    {k:"catl",n:"宁德时代",l:"基础设施层",s:[3,3,3,1],why:"电池是电动车绕不过的核心环节。一旦成主流标准，全链围着它配套 → 正向飞轮（标准→配套→规模→更强标准）。服务化低（不直接触用户）。<b>破绽</b>：石油是资源垄断，电池是技术品，可被固态/钠电/车企自研掀桌，'不可绕过'有保质期。"},
+    {k:"hw",n:"华为智驾座舱",l:"能力层",s:[2,3,2,1],why:"卖智驾/座舱/OS/品牌——'没有华为，某界连高端牌桌都上不了'，能力＝入场券，故差异化给 3。但主机厂自研可平替，不可绕过性只给 2。<b>反噬风险</b>：今天离不开，明天小鹏/蔚来/理想自研成熟，能力层退化成'可选供应商'。"},
+    {k:"oem",n:"车企（旧模型）",l:"组装层",s:[0,1,0,1],why:"'造一辆车、卖一辆车'——线性、一次性、无复利、无锁定、无不可替代性。天然被上游电池 + 上游智驾两头挤，利润率从 6.1% 掉到 3.2%。这是价值捕获的反面教材。"},
+    {k:"byd",n:"比亚迪",l:"组装层称王",s:[1,2,1,1],why:"制造驱动：零部件复用、规模、供应链整合、产线摊销，把单车成本压到别人做不到。<b>用极致执行在组装层里造出不可替代性</b> → 价格战里有余粮。天花板低（仍是组装层），护城河是相对成本优势，会被规模追平或技术路线颠覆。"},
+    {k:"xp",n:"小鹏",l:"能力层（爬升中）",s:[1,2,2,1],why:"技术驱动：押智驾，重点搭统一数据系统 + 软件迭代 + 智驾闭环。复利在积累（数据飞轮开始转），差异化在拉开。风险：智驾同质化、飞轮边际递减，押注可能落空。"},
+    {k:"tsla",n:"特斯拉",l:"叠加走",s:[2,3,3,2],why:"<b>三条路同时走</b>：制造（一体压铸/成本）+ 技术（FSD 数据飞轮）+ 服务（Robotaxi）。互相加固，飞轮最强。证明三路径不是三选一——头部全都走。"},
+    {k:"mobi",n:"出行服务商",l:"服务层",s:[3,2,3,3],why:"从卖车变卖出行服务，车＝交付终端（像手机之于 App Store）。占用户持续关系 → 一次性交易变持续现金流 + 锁定，价值捕获最高形态。<b>破绽</b>：高度依赖 L4 自动驾驶落地，时间最不确定，最像愿景。"}
+  ];
+  var MINE={k:"mine",n:"豆包座舱 / Planner",l:"你来打分",why:"<b>这是你的产品——我不替你打分（打了就是编）。</b>座舱 AI 大脑站在文章里'华为'那个能力层（<i>推断，非原文</i>）。自己用四个问题打：① 没有豆包，荣威 D6X 上不上得了智能座舱牌桌？（→ 不可绕过性 + 差异化）② badcase→SP 闭环有没有真沉淀成复利资产，还是一次性修补？（→ 复利/锁定）③ 触发器持续任务 + 用户记忆到没到'占用户持续关系'？（→ 服务化）④ 上汽有没有能力/计划自研平替你？（→ 决定护城河深浅）。打完去三路径决策器：你同时手握技术（数据闭环）和服务（触发器/记忆）两把筹码。"};
+
+  var lib=document.getElementById('caselib');
+  function applyCase(c,isMine){
+    document.getElementById('curObj').innerHTML='诊断对象：<b style="color:var(--ink)">'+c.n+'</b>';
+    if(isMine){ DIMS=[0,0,0,0]; }
+    else { DIMS=c.s.slice(); }
+    document.querySelectorAll('.dim').forEach(function(dim){
+      var idx=+dim.getAttribute('data-dim');
+      dim.querySelector('.val').textContent=DIMS[idx];
+      var btns=dim.querySelectorAll('.scale button');
+      btns.forEach(function(b,v){ b.classList.toggle('sel', v===DIMS[idx] && !(isMine)); });
+    });
+    render();
+    var box=document.getElementById('caseWhy');
+    document.getElementById('whyName').innerHTML=c.n+' <span class="muted" style="font-weight:400">· '+c.l+' · '+(isMine?'—':(c.s.join(' / ')+' ＝ '+(c.s[0]+c.s[1]+c.s[2]+c.s[3])+'/12'))+'</span>';
+    document.getElementById('whyText').innerHTML=c.why;
+    box.style.display='block';
+    document.getElementById('scorer').scrollIntoView({behavior:'smooth'});
+  }
+  CASES.forEach(function(c){
+    var d=document.createElement('div');d.className='casebtn';
+    d.innerHTML='<div class="cn">'+c.n+'</div><div class="cl">'+c.l+'</div><div class="cs">'+(c.s[0]+c.s[1]+c.s[2]+c.s[3])+' / 12</div>';
+    d.addEventListener('click',function(){applyCase(c,false);});
+    lib.appendChild(d);
+  });
+  (function(){
+    var d=document.createElement('div');d.className='casebtn mine';
+    d.innerHTML='<div class="cn">'+MINE.n+'</div><div class="cl">'+MINE.l+'</div><div class="cs">点此自测 →</div>';
+    d.addEventListener('click',function(){applyCase(MINE,true);});
+    lib.appendChild(d);
+  })();
+
+  // ---------- path decider ----------
+  var chosen={build:false,tech:false,serve:false};
+  var PATHPRE={build:"制造：先确认规模经济在、成本差能持续拉开。",tech:"技术：先确认智驾/AI 是决定性差异，且数据飞轮转得动。",serve:"服务：先确认能占住用户持续关系（最难，常需 L4/运营）。"};
+  document.querySelectorAll('.chip').forEach(function(ch){
+    ch.addEventListener('click',function(){
+      var k=ch.getAttribute('data-chip');chosen[k]=!chosen[k];ch.classList.toggle('on',chosen[k]);
+      updatePaths();
+    });
+  });
+  function updatePaths(){
+    ['build','tech','serve'].forEach(function(k){
+      var card=document.querySelector('.pathcard[data-path="'+k+'"]');
+      card.classList.toggle('rec',chosen[k]);
+      var old=card.querySelector('.recflag');if(old)old.remove();
+      if(chosen[k]){var f=document.createElement('span');f.className='recflag';f.textContent='推荐';card.querySelector('.ph').appendChild(f);}
+    });
+    var n=(chosen.build?1:0)+(chosen.tech?1:0)+(chosen.serve?1:0);
+    var hint=document.getElementById('pathHint');
+    if(n===0) hint.innerHTML='勾选左侧筹码后给建议。';
+    else if(n===1){var k=chosen.build?'build':chosen.tech?'tech':'serve';hint.innerHTML='<b style="color:var(--gold2)">单路径：</b>'+PATHPRE[k];}
+    else hint.innerHTML='<b style="color:var(--teal)">叠加走（头部策略）：</b>你有多把筹码——像特斯拉一样几条同时走、互相加固，别三选一。优先用数据闭环加固能力层不可替代性，再往服务层爬。';
+  }
+
+  // ---------- checklist ----------
+  var cl=document.getElementById('cl');
+  cl.addEventListener('change',function(){
+    var boxes=cl.querySelectorAll('input');var n=0;boxes.forEach(function(b){if(b.checked)n++;});
+    var out=document.getElementById('clcount');
+    var msg = n>=3 ? '<span style="color:var(--red)">≥3 指向结构 → 这是生态位问题，加班/降价治不了根，必须谈迁移。</span>'
+            : n>0 ? '<span style="color:var(--gold2)">继续排——到 3 项就该怀疑不是竞争、是生态位。</span>'
+            : '<span style="color:var(--dim)">勾选中…</span>';
+    out.innerHTML='已勾 '+n+' / 7 —— '+msg;
+  });
+
+  // ---------- nav + progress ----------
+  var secs=[].slice.call(document.querySelectorAll('section'));
+  var navlinks=[].slice.call(document.querySelectorAll('.nav a'));
+  function onScroll(){
+    var y=window.scrollY, h=document.body.scrollHeight-window.innerHeight;
+    document.getElementById('prog').style.width=(h>0?(y/h*100):0)+'%';
+    var cur=secs[0].id;
+    secs.forEach(function(s){ if(s.getBoundingClientRect().top<=120) cur=s.id; });
+    navlinks.forEach(function(a){ a.classList.toggle('active', a.getAttribute('href')==='#'+cur); });
+  }
+  window.addEventListener('scroll',onScroll,{passive:true});
+  navlinks.forEach(function(a){a.addEventListener('click',function(e){
+    e.preventDefault();document.querySelector(a.getAttribute('href')).scrollIntoView({behavior:'smooth'});
+  });});
+  render();onScroll();
+})();
+</script>
+</body>
+</html>

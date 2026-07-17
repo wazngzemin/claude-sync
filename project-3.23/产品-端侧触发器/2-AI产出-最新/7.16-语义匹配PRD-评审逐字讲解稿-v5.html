@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>语义匹配 PRD · 评审逐字讲解稿 v5（整链串讲版）</title>
+<style>
+  :root{
+    --bg:#0f1117; --surface:#1a1d27; --surface2:#232733; --border:#2e3345;
+    --text:#e2e4eb; --text2:#9ba1b5; --accent:#6c8cff;
+    --red:#ff6b6b; --red-bg:rgba(255,107,107,0.07); --red-border:rgba(255,107,107,0.25);
+    --green:#69db7c; --green-bg:rgba(105,219,124,0.07); --green-border:rgba(105,219,124,0.25);
+    --yellow:#ffd43b; --yellow-bg:rgba(255,212,59,0.08); --yellow-border:rgba(255,212,59,0.3);
+    --purple:#b197fc; --purple-bg:rgba(177,151,252,0.07); --purple-border:rgba(177,151,252,0.25);
+    --cyan:#66d9e8; --cyan-bg:rgba(102,217,232,0.07); --cyan-border:rgba(102,217,232,0.25);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:-apple-system,"SF Pro Text","PingFang SC",sans-serif;background:var(--bg);color:var(--text);line-height:1.9;}
+  .header{background:linear-gradient(135deg,#1a1d27,#232733);border-bottom:1px solid var(--border);padding:34px 24px 24px;text-align:center;}
+  .header h1{font-size:22px;font-weight:800;}
+  .header .sub{font-size:13px;color:var(--text2);margin-top:6px;}
+  .badge{display:inline-block;background:var(--accent);color:#fff;font-weight:700;font-size:12px;padding:3px 14px;border-radius:14px;margin-top:10px;}
+  .content{max-width:920px;margin:0 auto;padding:24px 24px 80px;}
+  h2{font-size:17px;font-weight:800;margin:42px 0 12px;padding-bottom:8px;border-bottom:2px solid var(--accent);}
+  h2 .t{float:right;font-size:12px;color:var(--text2);font-weight:600;}
+  .part{background:var(--purple-bg);border:2px solid var(--purple-border);border-radius:10px;padding:12px 16px;margin:30px 0 8px;font-size:16px;font-weight:800;color:var(--purple);}
+  p{font-size:13.5px;margin:8px 0;}
+  .say{background:var(--yellow-bg);border:1px solid var(--yellow-border);border-left:4px solid var(--yellow);border-radius:8px;padding:16px 18px;margin:12px 0;font-size:15px;line-height:2.05;color:#f4f0dd;}
+  .say::before{content:"🎤 你说（照着念）";display:block;font-size:11px;font-weight:800;color:var(--yellow);letter-spacing:1px;margin-bottom:8px;}
+  .point{background:var(--cyan-bg);border:1px dashed var(--cyan-border);border-radius:7px;padding:8px 14px;margin:8px 0;font-size:12.5px;color:var(--cyan);}
+  .point::before{content:"👉 手指位置：";font-weight:800;}
+  .intr{border:1px solid var(--red-border);border-radius:8px;margin:10px 0;overflow:hidden;font-size:13px;}
+  .intr .q{background:var(--red-bg);padding:9px 14px;font-weight:700;}
+  .intr .q::before{content:"⚡ 若此处被打断 — ";color:var(--red);}
+  .intr .a{padding:10px 14px;line-height:1.95;color:#e8e2cf;background:rgba(255,212,59,0.04);}
+  .intr .a::before{content:"你接（照着念）：";display:block;font-size:11px;font-weight:800;color:var(--green);margin-bottom:4px;}
+  .note{background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:9px 14px;margin:8px 0;font-size:12.5px;color:var(--text2);}
+  .note b{color:var(--purple);}
+  table{width:100%;border-collapse:collapse;margin:10px 0 14px;font-size:12.5px;}
+  th{background:var(--surface2);padding:8px 11px;text-align:left;font-weight:700;color:var(--text2);border-bottom:1px solid var(--border);}
+  td{padding:8px 11px;border-bottom:1px solid var(--border);vertical-align:top;}
+  tr:last-child td{border-bottom:none;}
+  strong{color:var(--text);font-weight:800;}
+  .hl{color:var(--yellow);font-weight:700;}
+  .ver{text-align:center;padding:28px 0;font-size:12px;color:var(--text2);opacity:.6;}
+  ul{margin:6px 0 6px 22px;font-size:13px;}li{margin:3px 0;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>语义匹配 PRD · 评审逐字讲解稿【v5 · 整链串讲版】</h1>
+  <div class="sub">注册讲完之后，触发不再切拍——按你流程图 9→14 步，一条线从"VLM 生成描述"串到"Activation → 播报 → 拆台"</div>
+  <div class="badge">📌 v5 · 2026-07-16 · 修正：云端接收方 = Task 长时任务字段模块，Task 转发给触发器</div>
+</div>
+
+<div class="content">
+
+<div class="note"><b>v5 改了什么（认领 v4 两个错）：</b>① v4 把"云端接收转发"讲成无主语——正确的是：<strong>红框识别结果上云后，接收方是 Task 侧的"云端长时任务字段模块"，由 Task 转发给触发器</strong>（对应你流程图第 11 步"云端接收并转发 Trigger"）；② v4 自己发明了"无编号描述广播匹配"，把绿框扯进匹配期——删掉。<strong>绿框只走端状态订阅（运算符判状态/标签），匹配期的输入只有红框识别结果。</strong>③ 结构上：触发部分不再切成几拍，<strong>从 VLM 生成描述到播报拆台，一条线九步串到底</strong>，步骤编号对齐你的判断流程图（9→14）。</div>
+
+<!-- ============ 0 开场 ============ -->
+<h2>第 0 拍 · 开场<span class="t">⏱ 2 分钟</span></h2>
+
+<div class="say">
+各位，今天评 VLM 条件任务链路里触发器这一环。讲法说清楚——<br><br>
+<strong>触发器就干两块事：第一块，注册——任务怎么注册进来；第二块，触发——VLM 的观察怎么一步步变成一次触发。</strong>注册我讲清楚注册单长什么样；触发我拿"后排宝宝哭了告诉我"这个例子，<strong>从 VLM 睁眼看的那一刻起，到车里响起播报，整条链路一步不跳地串给大家。</strong><br><br>
+图上坐标系：左端侧右云端。主角：<strong>Task Service 任务中心</strong>——创建长时、持续、条件、定时四类任务；<strong>云端触发器</strong>——图上三行职责：全量/增量规则下发、动态任务注册、<strong>模型推理</strong>——现有规则服务的能力扩展，不是新建模块；<strong>端侧 VLM（视觉大模型）</strong>；<strong>数据中心</strong>；<strong>云端 Context（上下文）</strong>和<strong>云端长时任务字段模块</strong>——一会儿链路里各就各位；<strong>Director（对话推理引擎）</strong>。<br><br>
+三块背景不评：SLS 闭环归赛力斯，信号源面板是既有输入，静态 Advisor（静态顾问）归弋途。<br><br>
+先讲注册。
+</div>
+<div class="point">"两块事"伸两根手指；点云端触发器时逐行念三行职责，"模型推理"念出声；云端 Context 和长时任务字段模块两个圆柱各点一下："记住这两个位置"。</div>
+
+<!-- ============ PART 1 ============ -->
+<div class="part">第一部分 · 注册（⏱ 约 5 分钟）</div>
+
+<h2>第 1 拍 · 从一句话到一张注册单<span class="t">⏱ 5 分钟</span></h2>
+
+<div class="say">
+用户说：<strong>"后排宝宝哭了告诉我。"</strong>这句话进 <strong>Director</strong>，识别出是持续任务，交给 <strong>Task Service 任务中心</strong>，属于四类任务里的条件类。<br><br>
+Task Service 干三件事——<br><br>
+<strong>第一件，劈。</strong>把原话劈成两半：<strong>user_goal（用户目标）</strong>存原话"后排宝宝哭了告诉我"；<strong>execute_text（执行文本）</strong>存动作——"告知用户：后排宝宝哭了"，触发之后才用。条件半句"宝宝哭了"转写成<strong>感知目标</strong>。为什么劈？"哭了先别吵她、睡熟了再告诉我"这种话，条件和动作不劈开，判断必乱。<br><br>
+<strong>第二件，注册。</strong>沿这条红线到<strong>云端触发器</strong>——对应它职责里"动态任务注册"。注册单就是咱们配置平台"新建场景"三件套：<strong>conditions（触发条件）</strong>——预置过标签的写状态条件"哭闹状态 变更为 哭闹"；没预置的写<strong>语义目标"后排宝宝哭泣"</strong>。<strong>actions（动作）</strong>——命中后产生 Activation（激活）携带 task_id（任务ID）。<strong>execute_policy（策略）</strong>——one_shot（单次）命中即停、下电注销。<strong>等于程序替用户自动填了张我们天天手工配的场景单。</strong><br><br>
+<strong>第三件，下发观察。</strong>往端侧发 dynamic_watch_tasks（动态观察任务）：<strong>任务编号 8，感知目标"二排的宝宝哭了吗？"</strong>经消息处理透传进 AIBox，过任务优先级——OneShot（单次）P0 抢占、AlwaysOn（常开）P3——端侧 VLM 挂上任务。<br><br>
+<strong>注册完成的状态：触发器规则库里躺着一条规则等数据；端侧 VLM 揣着任务编号 8 开始每 5 秒看一次二排。</strong>万事俱备，只等宝宝的脸上有动静。触发开始。
+</div>
+<div class="point">query 框 → Director → Task Service（点 user_goal / execute_text 两行原文）→ 沿红线到云端触发器（比三根手指讲三件套）→ 跨到端侧点 dynamic_watch_tasks 代码块念"任务编号 8"→ 最后一句话时指着端侧 VLM 停住——悬念留在这，顺势进触发。</div>
+
+<div class="intr"><div class="q">刘杨："注册协议要改吗？"</div><div class="a">框架不改，复用现有三件套，唯一扩展是 conditions 多一种"语义目标"类型。改动量下来对。</div></div>
+
+<!-- ============ PART 2 ============ -->
+<div class="part">第二部分 · 触发：整条链路一步不跳串到底（⏱ 约 12 分钟，全场核心）</div>
+
+<h2>第 2 拍 · 先安一个对照组：状态条件走老机制，30 秒讲完<span class="t">⏱ 1 分钟</span></h2>
+
+<div class="say">
+串主链路之前，先把简单的那条说掉，做个对照。<br><br>
+如果注册的是<strong>状态条件</strong>——"哭闹状态 变更为 哭闹"这种预置过标签的——那它根本不需要今天讲的新东西：VLM 的<strong>绿框乘客列表</strong>跟整包按端状态协议上云进<strong>云端 Context</strong>，乘客状态从此就是端状态信号，跟车速档位同级；触发器<strong>订阅</strong>端状态，值一变，现有十个运算符比对，"变更为"抓沿——<strong>跟"档位 等于 P"一模一样，零模型调用。</strong>标签清单里能标签化的场景全走这条，讲完了。<br><br>
+今天的主角是另一种：注册的是<strong>语义目标</strong>——"后排宝宝哭泣"，没有标签可比。这条链路怎么从一帧画面走到一次触发，<strong>九步，我一步不跳地串。</strong>
+</div>
+<div class="point">左手快速划绿线：VLM → 数据中心 → 上传 → 云端 Context → 订阅线 → 云端触发器，一气呵成 30 秒；然后回到端侧 VLM，说"九步"时停住。</div>
+
+<h2>第 3 拍 · 主链路九步串到底（对齐判断流程图 9→14）<span class="t">⏱ 8 分钟 · 语速最慢</span></h2>
+
+<div class="say">
+<strong>第一步，VLM 生成客观描述。</strong>（流程图第 9 步）端侧 VLM 揣着任务编号 8，每 5 秒看一眼二排，生成一条<strong>客观描述</strong>——注意用词，客观：它看到什么说什么，<strong>"宝宝有泪珠"，或者"宝宝在微笑"</strong>——它不说哭没哭，结论不归它下。装进红框：<strong>动态任务，任务编号 8，识别结果——按 VLM 侧 SP（系统提示词）的原文定义，"识别结果 = user_query（用户指令）对应的回答内容"。</strong><br><br>
+<strong>第二步，定时上报云端。</strong>（流程图第 10 步）5 秒一条，由端侧<strong>数据中心</strong>收拢，红框走专线上云——图上这条"高频任务UP"线。<br><br>
+<strong>第三步，云端接收——接收方是 Task 侧。</strong>（流程图第 11 步）红框上来，落进<strong>云端长时任务字段模块</strong>——这是 Task 体系的模块，任务是它管的、编号是它发的，所以定向回答先回它手里。<strong>它接收之后，转发给云端触发器。</strong>记住这半句：<strong>Task 转发给触发器</strong>——数据的接收在 Task，判断在触发器，一进一转，边界干净。<br><br>
+<strong>第四步，触发器筛选候选。</strong>（流程图第 12 步，匹配期从这开始）触发器收到转发，先<strong>筛选该车辆活跃的 VLM 条件 Task</strong>——这辆车现在挂着哪几个等条件的任务？比如同时挂着"宝宝哭了告诉我"和"狗狗有异常告诉我"两个。上报里的<strong>任务编号 8</strong>，对上"宝宝哭了"这条任务，取出注册时存的目标。筛选是第一道漏斗——这辆车没有活跃任务，转发来了也直接丢弃，一次模型不调。<br><br>
+<strong>第五步，条件匹配。</strong>（流程图第 13 步，菱形那格）核心一问：<strong>这条描述，是否满足"后排宝宝哭泣"？输入就两样：Task 目标，加当前 VLM 描述。</strong>"宝宝有泪珠"对"后排宝宝哭泣"——字面不相等，含义相等——这就是十个运算符干不了、必须<strong>轻量模型</strong>干的活。一条重要边界，流程图原话：<strong>"模型只判断 matched / unmatched（匹配/不匹配），不生成执行 action（动作）"</strong>——它是裁判不是执行者，判完该干什么是 Task Service 按 execute_text 的事。判定口径：<strong>宁漏判不误判</strong>——"宝宝在微笑"，unmatched；"揉眼睛看不清"，证据不足，也按 unmatched。<br><br>
+<strong>第六步，未匹配——等。</strong>（流程图 13' ）unmatched 什么都不发生，<strong>Task 保持 waiting（等待中），等待下一次 VLM 上报</strong>。5 秒后下一条描述进来，<strong>回到第三步</strong>：长时任务字段模块接收、转发触发器、筛选、匹配——循环。第一条"闭眼安睡"，waiting；第二条"睁眼平静"，waiting；就这么一圈一圈转。<br><br>
+<strong>第七步，匹配成功——产生 Activation（激活）。</strong>（流程图第 14 步）第三十七条："睁眼，脸上有泪珠"——matched。触发器<strong>产生 Activation，携带 task_id，通知 Task Service</strong>。工程细节：匹配结果当布尔状态，引擎抓"unmatched 变更为 matched"的沿——连续十条 matched 只出一次 Activation；配 one_shot 即停。<br><br>
+<strong>第八步，Task Service 接棒。</strong>Activation 回到 Task Service 手里——<strong>条件真不真，触发器判过了，不二次匹配</strong>；Task 判它自己的事：按 EndPolicy（结束策略），报一次就关还是持续盯；用户要是说了"每 60 秒告诉我一次"，反馈节奏也在这控——<strong>判断 5 秒一判，反馈按用户节奏，两个周期解耦</strong>。然后取出注册时存的 <strong>execute_text："告知用户：后排宝宝哭了"</strong>——交给 Director。<br><br>
+<strong>第九步，播报，拆台。</strong>Director 推理——talk_or_not（说不说）、talk_content（说什么，带情绪 emoji 表情）、action_list（动作列表）——车里响起：<strong>"后排宝宝哭了。"</strong>任务关闭：触发器规则注销，VLM 收到"结束任务编号 8"停止观察。<strong>注册进来的，注销出去。从宝宝脸上一颗泪珠，到车里一句播报，九步，闭环。</strong>
+</div>
+<div class="point">这 8 分钟手指全程在图上连续移动不离图：端侧 VLM（第一步）→ 数据中心（第二步）→ <strong>云端长时任务字段模块（第三步，敲两下，说"Task 转发给触发器"时从这个圆柱划到云端触发器）</strong>→ 云端触发器（第四、五步，菱形判断停最久）→ 原地画圈（第六步循环）→ Activation 线到 Task Service（第七、八步）→ Director（第九步）→ 手大幅划回端侧 VLM（拆台收拢）。<strong>第三步是 v4 讲错的地方，这次"接收在 Task、判断在触发器"要一字一顿。</strong></div>
+
+<div class="intr"><div class="q">庆磊："规则引擎挂模型，架构怎么挂？"</div><div class="a">做成引擎第三种运算类型：条件八运算符比大小、事件两运算符比变更，加一种"比含义"。输出就是 matched/unmatched 一个布尔，跟其他运算符完全同构，边沿、one_shot 全复用；注册协议不动。模型谁提供，待确认第六条跟晓朝定。</div></div>
+
+<div class="intr"><div class="q">刘杨："一辆车挂多个任务，一次上报是不是每个都过模型？"</div><div class="a">三道闸：第四步筛选先挡掉没有活跃任务的车；状态条件档走运算符不进模型；真正进模型的是这辆车活跃的语义任务、按编号各对各的目标，单车同时挂的是个位数。压测口径下来对。</div></div>
+
+<div class="intr"><div class="q">韩杰："5 秒一判，成本？"</div><div class="a">三折减：筛选挡车、状态档零模型、进模型的单次两句话百级 token（词元）——跟 Planner（规划器）三万差两个数量级，激活期才跑、命中即停。真实测算=激活任务数×激活时长×语义档占比，这周书面给你。</div></div>
+
+<h2>第 4 拍 · 场景分流：一句话收拢<span class="t">⏱ 1 分钟</span></h2>
+
+<div class="say">
+两条判法怎么分流——<strong>注册时写什么条件，就走什么判法</strong>：写状态条件的，端状态订阅、运算符判，零成本；写语义目标的，走刚才九步、模型判。<br><br>
+哪类场景写成哪种，三问：能不能收敛成有限选项、高不高频值不值得预置、VLM 描述撑不撑得住。三问全过做标签；任何一问不过走语义。附件表格 31 个场景逐条标好了。<strong>方向：能标签化的尽量标签化——每标签化一个，判断成本归零一个。</strong>
+</div>
+
+<!-- ============ PART 3 ============ -->
+<div class="part">第三部分 · 收（⏱ 约 10 分钟）</div>
+
+<h2>第 5 拍 · 十条待确认，逐条收<span class="t">⏱ 8 分钟</span></h2>
+
+<div class="say">
+PRD 第十二章十条，逐条收结论。<br><br>
+一，触发器两块职责：注册按现有协议扩展；<strong>匹配期判断在云端触发器（模型推理），任务达成在 Task Service</strong>——庆磊、晓伟确认。<br>
+二，链路走向：红框识别结果由<strong>云端长时任务字段模块接收、Task 转发给触发器</strong>；绿框走端状态订阅——异议吗？<br>
+三，标签清单 31 条加增补 6 条——晓伟拍。<br>
+四，caption（画面描述）核对 26 条黄色列——丁彬，什么时候给？<br>
+五，识别结果粒度、空串等于 unmatched——丁彬定。<br>
+六，匹配模型谁提供——晓朝。<br>
+七，宁漏判不误判、证据不足按 unmatched——晓伟、晓朝认。<br>
+八，两周期解耦——庆磊看下。<br>
+九，转写规范归 Spec Builder（规格构建器）、规范我出——庆磊、西钺确认。<br>
+十，成本口径、测算这周给——韩杰认口径。
+</div>
+<div class="note"><b>收结论铁律：</b>每收一条复述"好，这条结论是XX，记下了"；有人说"下来再对"，当场追"谁跟我对、什么时候？"钉住人和时间才放行。</div>
+
+<h2>第 6 拍 · 收尾复述<span class="t">⏱ 1.5 分钟</span></h2>
+
+<div class="say">
+复述今天的结论。<br><br>
+一，触发器两块事。<strong>注册</strong>：劈原话、填三件套、下发观察任务。<strong>触发</strong>：状态条件走端状态订阅、运算符判；语义目标走九步主链——VLM 客观描述、定时上报、<strong>长时任务字段模块接收、Task 转发触发器</strong>、筛选候选、条件匹配 matched/unmatched、未匹配 waiting 循环、匹配产生 Activation 携带 task_id、Task 接棒播报拆台。<br>
+二，边界三句：模型只判匹配不生成 action；条件真假触发器管、任务生死 Task 管；判断 5 秒反馈按用户节奏，两周期解耦。<br>
+三，作业：丁彬黄色列 X 日前；种子数据口径我 X 日出；刘杨引擎改动量 X 日对；成本测算 X 日书面给韩杰。<br><br>
+0818 首批场景以标签清单定稿为准，今天结论我更新进 PRD 发群。谢谢各位。
+</div>
+
+<!-- 救场 ============ -->
+<h2>附 · 三句通用救场话</h2>
+<table>
+  <tr><th style="width:210px;">场面</th><th>你说</th></tr>
+  <tr><td>技术黑话听不懂</td><td>"实现层面你是专家，我不越界。产品侧我只确认一件事：<strong>这个做法下，匹配还是在触发器判、Activation 还是回给 Task Service，对吧？</strong>是就行，实现你们定。"</td></tr>
+  <tr><td>两人当场争起来</td><td>"这个分歧我记下了，归待确认第 X 条。今天先收能收的，<strong>这条我会后单独约你们俩，X 日前出结论。</strong>我继续。"</td></tr>
+  <tr><td>被拉出范围</td><td>"这个话题重要，但今天只评触发器这两块。<strong>我记进'另约'清单，会后我来约。</strong>回到刚才这条。"</td></tr>
+</table>
+
+<div class="note"><b>练习重点就一个：第 3 拍九步。</b>出声练三遍，练到能背出九个步骤名：<b>客观描述 → 定时上报 → Task 接收转发 → 筛选候选 → 条件匹配 → waiting 循环 → Activation → Task 接棒 → 播报拆台。</b>九步在手，全场任何打断都能从断点接着数。</div>
+
+<div class="ver">
+  语义匹配 PRD · 评审逐字讲解稿 · v5 · 2026-07-16（文件名 -v5.html，内外一致）<br>
+  版本历史：v1 按PRD章节 → v2 按图走线 → v3 注册/触发两块 → v4 对齐新图术语 → v5 整链串讲：触发部分改为九步一条线（对齐判断流程图9→14），修正第三步=云端长时任务字段模块接收、Task 转发给触发器；绿框只走端状态订阅、不进匹配期<br>
+</div>
+
+</div>
+</body>
+</html>

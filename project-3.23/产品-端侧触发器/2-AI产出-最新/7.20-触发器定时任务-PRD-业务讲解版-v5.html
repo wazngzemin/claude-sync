@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>云端触发器 · 定时任务 · PRD 业务讲解版 v5</title>
+<style>
+  :root{
+    --primary:#1f4e78; --primary-light:#e8f0f9;
+    --amber:#d97706; --amber-bg:#fff7ed;
+    --green:#1a7f37; --green-bg:#eafbef;
+    --red:#b42318; --red-bg:#fdeeee;
+    --border:#d5dbe2; --line:#c3ccd6;
+    --text:#1f2733; --muted:#5b6572; --soft:#f6f8fa;
+  }
+  *{box-sizing:border-box;}
+  body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    line-height:1.8; color:var(--text); max-width:1080px; margin:0 auto; padding:40px 26px; background:#eef1f4;}
+  .paper{background:#fff; padding:44px 46px; border-radius:14px; box-shadow:0 2px 24px rgba(20,40,70,.08);}
+  h1{font-size:29px; margin:0 0 6px; border-bottom:4px solid var(--primary); padding-bottom:14px;}
+  .meta{color:var(--muted); font-size:13.5px; margin:14px 0 8px;}
+  .lead{background:var(--primary-light); border-left:5px solid var(--primary); padding:16px 20px; border-radius:0 10px 10px 0; margin:22px 0; font-size:15px;}
+  .lead b{color:var(--primary);}
+  h2{font-size:23px; margin:52px 0 16px; padding:8px 0 8px 16px; border-left:6px solid var(--primary); background:linear-gradient(90deg,var(--primary-light),transparent);}
+  h3{font-size:18px; color:var(--primary); margin:32px 0 10px;}
+  h4{font-size:15.5px; margin:20px 0 8px;}
+  p{margin:10px 0;}
+  table{width:100%; border-collapse:collapse; margin:16px 0; font-size:13.8px; background:#fff;}
+  th,td{border:1px solid var(--border); padding:10px 12px; text-align:left; vertical-align:top;}
+  th{background:var(--primary-light); color:var(--primary); font-weight:600;}
+  tbody tr:nth-child(even){background:#fafbfc;}
+  code{background:#eef1f5; padding:1px 6px; border-radius:5px; font-size:13px; color:#8a4b00;}
+  .tag{display:inline-block; padding:1px 9px; border-radius:12px; font-size:12px; font-weight:600;}
+  .t-new{background:var(--green-bg); color:var(--green);}
+  .t-key{background:var(--amber-bg); color:var(--amber);}
+  .t-p0{background:var(--red-bg); color:var(--red);}
+
+  /* ── 业务比喻 / 要点卡片 ── */
+  .callout{border-radius:10px; padding:15px 20px; margin:16px 0; font-size:14.5px;}
+  .callout .h{font-weight:700; display:block; margin-bottom:4px;}
+  .c-key{background:var(--amber-bg); border:1px solid #f5c98a;}
+  .c-key .h{color:var(--amber);}
+  .c-note{background:var(--green-bg); border:1px solid #a7e0b8;}
+  .c-note .h{color:var(--green);}
+  .c-warn{background:var(--red-bg); border:1px solid #f2b6b0;}
+  .c-warn .h{color:var(--red);}
+  .c-info{background:var(--primary-light); border:1px solid #b9d2ee;}
+  .c-info .h{color:var(--primary);}
+
+  /* ── 手绘流程图 ── */
+  .flow{display:flex; flex-direction:column; align-items:center; gap:0; margin:22px 0; padding:26px 16px;
+    background:#fbfcfd; border:1px solid var(--border); border-radius:12px;}
+  .node{max-width:600px; width:auto; min-width:220px; text-align:center; padding:11px 20px; border-radius:10px;
+    background:#fff; border:1.6px solid var(--primary); color:var(--text); font-size:14px; line-height:1.5;
+    box-shadow:0 1px 3px rgba(20,40,70,.06);}
+  .node .sub{display:block; font-size:12px; color:var(--muted); margin-top:3px; font-weight:400;}
+  .node.start{border-color:var(--green); background:var(--green-bg); font-weight:600;}
+  .node.timer{border:2.5px solid var(--amber); background:var(--amber-bg); box-shadow:0 3px 10px rgba(217,119,6,.2); font-weight:600;}
+  .node.decision{border:1.8px dashed var(--amber); background:#fffaf0;}
+  .node.end{border-color:#8a94a6; background:#eef1f5; color:var(--muted);}
+  .node.skip{border:1.5px dashed #aeb6c2; background:#f4f6f8; color:#6b7280;}
+  .conn{width:2px; height:24px; background:var(--line); position:relative; flex:none;}
+  .conn::after{content:""; position:absolute; bottom:-1px; left:-4px; border:5px solid transparent; border-top-color:var(--line);}
+  .conn.lg{height:34px;}
+  .conn .lbl{position:absolute; left:11px; top:50%; transform:translateY(-50%); white-space:nowrap;
+    font-size:11.5px; color:var(--muted); background:#fbfcfd; padding:0 6px; border-radius:6px;}
+  .branches{display:flex; gap:26px; justify-content:center; align-items:flex-start; flex-wrap:wrap; width:100%;}
+  .branch{display:flex; flex-direction:column; align-items:center; gap:0; flex:1; min-width:210px; max-width:320px;}
+  .cond{font-size:12.5px; font-weight:600; padding:3px 13px; border-radius:14px; margin:8px 0 4px;}
+  .cond-yes{background:var(--green-bg); color:var(--green);}
+  .cond-no{background:var(--red-bg); color:var(--red);}
+  .cond-mid{background:#eef1f5; color:#475467;}
+  .loopnote{font-size:12px; color:#946a1f; font-style:italic; margin-top:8px; background:#fff7ea; padding:4px 12px; border-radius:8px;}
+
+  /* ── 全景分工图 ── */
+  .relay{display:flex; flex-direction:column; gap:0; align-items:center; margin:20px 0; padding:26px 16px;
+    background:#fbfcfd; border:1px solid var(--border); border-radius:12px;}
+  .actor{width:100%; max-width:640px; display:flex; align-items:center; gap:14px; padding:13px 18px; border-radius:11px;
+    background:#fff; border:1.6px solid var(--primary);}
+  .actor .no{flex:none; width:30px; height:30px; border-radius:50%; background:var(--primary); color:#fff;
+    display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px;}
+  .actor .body{font-size:14px; text-align:left;}
+  .actor .body b{color:var(--primary);}
+  .actor .body .sub{display:block; font-size:12px; color:var(--muted); margin-top:2px;}
+  .actor.star{border:2.6px solid var(--amber); background:var(--amber-bg); box-shadow:0 3px 10px rgba(217,119,6,.16);}
+  .actor.star .no{background:var(--amber);}
+  .actor.star .body b{color:var(--amber);}
+
+  /* ── 边界表强调 ── */
+  .boundary th{background:var(--primary); color:#fff;}
+  .boundary td:nth-child(1){font-weight:700; background:#f3f7fc;}
+  .boundary .never{color:var(--red); font-weight:600;}
+  .boundary .dev{color:var(--muted); font-size:12.5px;}
+
+  .rule{display:flex; gap:14px; align-items:flex-start; padding:13px 16px; margin:10px 0; background:var(--soft);
+    border-radius:10px; border-left:4px solid var(--primary);}
+  .rule .n{flex:none; width:26px; height:26px; border-radius:7px; background:var(--primary); color:#fff;
+    display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px;}
+  .rule .txt b{color:var(--primary);}
+  hr{border:none; border-top:1px dashed var(--border); margin:30px 0;}
+  .foot{color:var(--muted); font-size:13px; text-align:center; margin-top:40px;}
+</style>
+</head>
+<body>
+<div class="paper">
+
+<h1>云端触发器 · 定时任务 · 产品需求文档</h1>
+<div class="meta">
+  <b>业务讲解版 v5</b>　|　日期 2026-07-20　|　作者 王泽民（触发器产品）<br>
+  评审对象：刘杨（云端触发器研发）· 庆磊（Task 任务服务）· 晓伟（任务中心）· 丁彬（端侧视觉）· 韩杰（信号中枢）· 张荣（项目）<br>
+  上游依据：庆磊《Task 任务管理设计》· 《任务中心 产品文档》· 7.16《云端触发器-VLM 链路对齐会》纪要 · 5.29《动态 advisor 感知订阅技术设计》
+</div>
+
+<div class="lead">
+  <b>这版怎么读：</b>整份文档主线全部用<b>业务白话</b>，目标是——在座每个人不用看一行代码，就能听懂「定时任务是什么、业务怎么一步步流、每个人管的边界在哪」。
+  给研发的字段级接口（回调字段、协议表达）收在<b>末尾附录</b>，讲到再翻。<br>
+  <b>一句话定位：</b>给云端触发器补上第三种能力「定时」——<b>一个只会看表的闹钟</b>。它只负责「到点响一声」，响完之后干什么（提醒、车控、看画面判断），交给已有的系统去做，不为定时单建一套执行系统。
+</div>
+
+<!-- ══════════════ 一 ══════════════ -->
+<h2>一、为什么要做这个东西</h2>
+
+<h3>1.1 今天的缺口：系统只会「说完就办」，接不住「到点做 / 反复做」</h3>
+<p>今天系统的做事方式是<b>「说完就办」</b>：用户说一句话，系统当场想、当场做，这轮对话结束，事情就结束了。但车里有大量需求，<b>说出口的这一刻并不需要马上做</b>，而是要系统「记着」，等到未来某个时间点、或者每隔一段时间再做：</p>
+
+<table>
+  <thead><tr><th style="width:34%">用户真实会说的话</th><th style="width:28%">它是什么类型</th><th>出处</th></tr></thead>
+  <tbody>
+    <tr><td>十分钟后关闭座椅加热</td><td>过一会儿做一次</td><td>庆磊 Task 场景表（本期）</td></tr>
+    <tr><td>明天 9:00 提醒我出发</td><td>定在某钟点做一次</td><td>任务中心文档第七章示例</td></tr>
+    <tr><td>每小时开一次座椅按摩</td><td>每隔一段反复做</td><td>庆磊场景表 / 任务中心 UI 图</td></tr>
+    <tr><td>每分钟帮我看看后排宝宝在干嘛</td><td>每隔一段 + 看画面判断</td><td>丁彬 · 7.16 会议</td></tr>
+    <tr><td>每个工作日 8 点提醒我开会</td><td>按日历反复做</td><td>本 PRD 补充</td></tr>
+  </tbody>
+</table>
+
+<p>这类需求今天<b>没有载体</b>：对话是同步的，说完就完，接不住「等一会儿」；已经上线的<b>条件触发器</b>管的是「车况变成什么样」（温度高于 28 度、车速大于 30），它不管「时间到了没有」。<b>时间维度的能力目前是零</b>——这就是本 PRD 要补的缺口。</p>
+
+<div class="callout c-info"><span class="h">放进触发器的三块拼图里看</span>
+触发器要支持三种「点火」方式：<b>①条件触发</b>（车况满足，已上线）· <b>②语义触发</b>（画面命中，7.16 已评、开发中）· <b>③定时触发</b>（时间到了，<b>本次评审 · 最后一块</b>）。三块拼齐，触发器才完整。</div>
+
+<h3>1.2 定时任务是什么：四种「时间形态」</h3>
+<p><b>定时任务</b>＝ 用户说出口后，不在这轮对话里立刻做，而是由系统按「时间」在未来去激活、可能反复做的任务。按「时间怎么给」分四种形态：</p>
+
+<table>
+  <thead><tr><th style="width:20%">形态</th><th style="width:26%">一句话</th><th style="width:28%">典型例子</th><th>做几次</th></tr></thead>
+  <tbody>
+    <tr><td><b>相对延时</b></td><td>从现在起过多久，做一次</td><td>十分钟后关座椅加热</td><td>一次性</td></tr>
+    <tr><td><b>绝对时间</b></td><td>定在某个钟点，做一次</td><td>明天 9 点提醒出发</td><td>一次性</td></tr>
+    <tr><td><b>固定间隔</b></td><td>每隔多久，反复做</td><td>每小时开一次座椅按摩</td><td>循环</td></tr>
+    <tr><td><b>日历周期</b></td><td>按日历规则，反复做</td><td>每个工作日 8 点提醒开会</td><td>循环（二期）</td></tr>
+  </tbody>
+</table>
+
+<h3>1.3 定时器归属：搬了三次家，这次定在触发器</h3>
+<p>「定时器归谁做」历史上换过三个说法，到庆磊 7.20 技术方案已经<b>白纸黑字定论</b>——归云端触发器。本次评审<b>不再讨论归属</b>，只讨论「触发器侧的定时能力做成什么样」。</p>
+<table>
+  <thead><tr><th style="width:14%">时间</th><th style="width:30%">当时的方案</th><th>结果 / 问题</th></tr></thead>
+  <tbody>
+    <tr><td>过去</td><td>对话（Planner）一人包揽</td><td>「十分钟后」这类需求直接丢失，没人接</td></tr>
+    <tr><td>5.29</td><td>动态 Advisor 自己建定时器</td><td>割裂：条件走触发器、定时走 Advisor，两套点火系统，上下电 / 上限 / 判重各搞一套</td></tr>
+    <tr><td>7.16</td><td>刘杨口头认领：「有定时的话，触发器就要做一个定时器」</td><td>方向对，但只停在口头</td></tr>
+    <tr><td>7.20</td><td>庆磊《Task 任务管理设计》分工表定死归触发器；且「后续不再有动态 Advisor 这个概念」</td><td>归属已是既成事实，本 PRD 顺着它往下做</td></tr>
+  </tbody>
+</table>
+<div class="callout c-warn"><span class="h">为什么这场评审要抢时间</span>
+庆磊的<b>第二次技术评审</b>（讲接口细节那场）就在后面。产品口径如果晚于那场会，就只能被技术方案带着走。所以本 PRD 必须<b>抢在庆磊二评之前</b>把产品口径钉死。</div>
+
+<!-- ══════════════ 二 ══════════════ -->
+<h2>二、定时器到底怎么运转（讲给所有人，尤其研发）</h2>
+
+<h3>2.1 一个比喻讲透：定时器 ＝ 一个只会看表的闹钟</h3>
+<div class="callout c-key"><span class="h">🔔 核心认知：定时器是「闹钟」，不是「办事员」</span>
+闹钟只做<b>一件事</b>：到点了，响一声。<br>
+它<b>不知道</b>你设它是为了提醒你干嘛，也<b>不负责</b>去把那件事做掉。<br>
+「听懂你要干嘛、记账、到点真的去关座椅加热」——那是别人的活。<br>
+<b>所以定时任务不是第三个独立系统，而是给已有系统装了个闹钟。</b>「每分钟看下宝宝」拆开＝闹钟（每 60 秒响一次）＋ 看画面判断（响完之后拿画面判断宝宝状态）。响完之后干什么，全部复用已有能力。</div>
+
+<h3>2.2 一件事从头到尾，谁接力（业务全景）</h3>
+<p>以「十分钟后关座椅加热」为例，从用户开口到真正关掉，六个角色接力完成：</p>
+<div class="relay">
+  <div class="actor"><div class="no">1</div><div class="body"><b>对话大脑</b>（听懂话）<span class="sub">听出「这是到点才做的事」，交给任务系统 —— 自己不算时间、不管后面</span></div></div>
+  <div class="conn"></div>
+  <div class="actor"><div class="no">2</div><div class="body"><b>任务系统</b>（管任务）<span class="sub">把人话翻成任务、记在账上、管它一辈子 —— 「十分钟后」翻成「600 秒后」</span></div></div>
+  <div class="conn"></div>
+  <div class="actor"><div class="no">3</div><div class="body"><b>任务中心</b>（给用户看）<span class="sub">在屏幕上摆一张卡片：待办 · 十分钟后关座椅加热</span></div></div>
+  <div class="conn"><span class="lbl">同时把闹钟挂上</span></div>
+  <div class="actor star"><div class="no">4</div><div class="body"><b>云端定时器 · 本 PRD 主角</b><span class="sub">一个只会看表的闹钟：盯住 600 秒，到点响一声 —— 不管这任务是啥、不管响完做什么</span></div></div>
+  <div class="conn"><span class="lbl">⏰ 到点 · 响铃</span></div>
+  <div class="actor"><div class="no">5</div><div class="body"><b>执行前把关</b><span class="sub">真做之前再看一眼：现在还该做吗？（人还在车上吗、加热还开着吗）情况变了就跳过</span></div></div>
+  <div class="conn"></div>
+  <div class="actor"><div class="no">6</div><div class="body"><b>车端执行</b><span class="sub">真正把座椅加热关掉，并语音告知用户「已帮你关闭」</span></div></div>
+</div>
+<div class="callout c-note"><span class="h">一句话记住分工</span>
+<b>对话大脑</b>只管听懂并交出去；<b>任务系统</b>管任务的生老病死；<b>云端定时器</b>只管到点响铃；<b>车端</b>管真正做事；中间加一道<b>执行前把关</b>防止「到点了但情况已经变了」。</div>
+
+<h3>2.3 四种时间形态，其实是同一个闹钟</h3>
+<p>研发常问：四种形态是不是要做四套引擎？<b>不是。</b>对闹钟来说，永远只有一个问题：<b>「下一次几点响」</b>。四种形态只是「下一次几点响」的算法不同，响铃、通知完全是同一套：</p>
+<table>
+  <thead><tr><th style="width:22%">形态</th><th style="width:40%">「下一次几点响」怎么算</th><th>响完之后</th></tr></thead>
+  <tbody>
+    <tr><td>相对延时</td><td>现在 + 600 秒</td><td>响一次就摘掉，结束</td></tr>
+    <tr><td>绝对时间</td><td>盯住给定的那个钟点</td><td>响一次就摘掉，结束</td></tr>
+    <tr><td>固定间隔</td><td>这次响的时刻 + 一小时</td><td>响完自动再上一个一小时后的闹钟</td></tr>
+    <tr><td>日历周期</td><td>算出下一个符合规则的时刻（下一个工作日 8 点）</td><td>响完自动上下一个闹钟（二期）</td></tr>
+  </tbody>
+</table>
+
+<h3>2.4 <span class="tag t-key">重点</span> 各方业务边界：谁负责什么、谁绝不碰什么</h3>
+<p>这张表是整份 PRD 最该记住的一张。评审时如果有人问「这块归谁」，答案都在这里。<b>加粗红字＝这个角色绝对不做的事</b>，边界一旦讲清，会上就不会互相甩锅。</p>
+<table class="boundary">
+  <thead><tr><th style="width:16%">角色（业务名）</th><th style="width:38%">它负责什么（白话）</th><th style="width:30%">它绝不碰什么</th><th>研发对应</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>对话大脑</td>
+      <td>听出「这是要记下来到点做的事」，把它交给任务系统；任务到点回来后，再决定这一轮具体说什么、做什么</td>
+      <td class="never">不算时间、不判断是新建还是取消、不自己存任务</td>
+      <td class="dev">Planner（王泽民 SP 侧）</td>
+    </tr>
+    <tr>
+      <td>任务系统</td>
+      <td>把人话翻成结构化任务（十分钟后 → 600 秒）、记账、管一辈子（建 / 改 / 停）、到点了安排谁去执行</td>
+      <td class="never">不盯时间（盯时间是闹钟的活）</td>
+      <td class="dev">Task Service（庆磊侧）</td>
+    </tr>
+    <tr style="background:var(--amber-bg);">
+      <td><b>云端定时器</b><br><span class="tag t-key">本 PRD 主角</span></td>
+      <td>只做一件事：盯表，到点响铃、喊一嗓子「到点了」</td>
+      <td class="never">不管这任务是什么、不管到点后做什么、不推理、不执行、不存任务生命周期</td>
+      <td class="dev">云端触发器（刘杨侧）</td>
+    </tr>
+    <tr>
+      <td>任务中心卡片</td>
+      <td>给用户看的卡片：待办 / 进行中 / 记录；接收用户在卡片上的点击（取消、开关）</td>
+      <td class="never">不自己判断到点、不擅自让卡片消失（一切状态由后台消息驱动）</td>
+      <td class="dev">任务中心（晓伟侧）</td>
+    </tr>
+    <tr>
+      <td>执行前把关</td>
+      <td>到点后、真做之前，再看一眼当下车况，判断「此刻还该不该做」，不该做就本轮跳过</td>
+      <td class="never">不判断「到点没到点」（那是闹钟的活）</td>
+      <td class="dev">Guard（Task 侧）</td>
+    </tr>
+    <tr>
+      <td>车端执行</td>
+      <td>真正把事做掉：关加热 / 播报提醒 / 开按摩</td>
+      <td class="never">不决定「什么时候做」</td>
+      <td class="dev">车端 + Planner 回流</td>
+    </tr>
+  </tbody>
+</table>
+<div class="callout c-info"><span class="h">这套边界带来的三个「已定结论」（评审开场先讲，免得被当场纠正）</span>
+<b>① 时间谁来翻？</b> 「十分钟后 → 600 秒」由<b>任务系统</b>翻，不是对话大脑、也不是触发器。触发器永远只收算好的结果，绝不做自然语言解析。<br>
+<b>② 上下电怎么办？</b> 闹钟在<b>云端</b>，车熄火下电不影响它走时。所以不存在「定时器怎么重建」的问题，只剩一个策略：下电时这个任务关不关（见第 3.6 场景）。<br>
+<b>③ 谁把任务交给闹钟？</b> 由<b>任务系统</b>交，不再有「动态 Advisor」这个角色，任务中心只管端上的卡片。</div>
+
+<!-- ══════════════ 三 ══════════════ -->
+<h2>三、业务怎么流：8 个场景逐一走一遍</h2>
+<p>每个场景一张「从用户开口到做完」的流程图，纯业务语言。技术模块对应见 2.4 边界表与末尾附录。</p>
+
+<h3>3.0 先建立共同语言：一个任务的一生</h3>
+<div class="flow">
+  <div class="node start">用户设好 · 任务建成</div>
+  <div class="conn"></div>
+  <div class="node">等着 · 闹钟在计时</div>
+  <div class="conn"><span class="lbl">到点了</span></div>
+  <div class="node">这一轮 · 干活</div>
+  <div class="conn"></div>
+  <div class="node decision">干完看一眼：该结束了吗？</div>
+  <div class="branches">
+    <div class="branch"><span class="cond cond-mid">一次性 · 做完就结束</span><div class="node end">结束 · 收进任务记录</div></div>
+    <div class="branch"><span class="cond cond-yes">循环 · 还没到头</span><div class="node">回去接着等下一轮 ↺</div></div>
+    <div class="branch"><span class="cond cond-no">循环 · 次数到了 / 连续失败</span><div class="node end">结束 · 系统关掉</div></div>
+  </div>
+  <div class="loopnote">另外两种随时可能结束：用户喊停（已取消）· 下车且是「本趟内的事」（车辆下电）</div>
+</div>
+<p style="font-size:13.5px;color:var(--muted);">用三个词就够记：<b>等着 → 干活 → 要么结束、要么回去接着等</b>。下面八个场景都是这条主线的变体。</p>
+
+<!-- 场景一 -->
+<h3>3.1 场景一 · 一次性（相对延时）：十分钟后关闭座椅加热</h3>
+<div class="flow">
+  <div class="node start">用户说：十分钟后关闭座椅加热</div>
+  <div class="conn"></div>
+  <div class="node">系统听懂：这是到点才做的事，不是现在做</div>
+  <div class="conn"></div>
+  <div class="node">拆成两件事<span class="sub">什么时候做＝600 秒后　|　做什么＝关加热并提醒</span></div>
+  <div class="conn"></div>
+  <div class="node">任务中心建卡片：待办 · 十分钟后关座椅加热</div>
+  <div class="conn"><span class="lbl">挂上闹钟</span></div>
+  <div class="node timer">云端定时器盯住 600 秒 · 开始计时</div>
+  <div class="conn lg"><span class="lbl">⏰ 到点 · 响铃</span></div>
+  <div class="node decision">执行前再看一眼：人还在车上吗？加热还开着吗？</div>
+  <div class="branches">
+    <div class="branch"><span class="cond cond-no">情况已变 · 人已下车</span><div class="node skip">这次跳过 · 任务结束 · 不打扰</div></div>
+    <div class="branch"><span class="cond cond-yes">一切正常</span><div class="node">车端关闭座椅加热 · 语音「已帮你关闭」</div></div>
+  </div>
+  <div class="loopnote">正常做完 → 卡片进入任务记录 · 一次性不再重复</div>
+</div>
+<div class="callout c-key"><span class="h">业务要点</span>一次性任务＝<b>点一次火就结束</b>。中间那道「执行前再看一眼」很关键——到点时情况可能已经变了（人都下车了还去关加热就没意义），这种就<b>跳过、不打扰</b>；跳过<b>不算失败</b>。</div>
+
+<!-- 场景二 -->
+<h3>3.2 场景二 · 一次性（绝对时间）：明天 9 点提醒我出发</h3>
+<div class="flow">
+  <div class="node start">用户说：明天 9 点提醒我出发</div>
+  <div class="conn"></div>
+  <div class="node">系统听懂：这是定在某个钟点的事</div>
+  <div class="conn"></div>
+  <div class="node">拆解<span class="sub">什么时候做＝明天上午 9 点整　|　做什么＝提醒出发</span></div>
+  <div class="conn"></div>
+  <div class="node">建卡片：待办 · 明天 9 点出发提醒</div>
+  <div class="conn"><span class="lbl">挂上闹钟</span></div>
+  <div class="node timer">云端定时器盯住「明天 9 点」这个时刻</div>
+  <div class="conn lg"></div>
+  <div class="node decision">到 9 点之前 …</div>
+  <div class="branches">
+    <div class="branch"><span class="cond cond-no">用户改主意了</span><div class="node skip">用户取消 · 闹钟撤掉 · 不再提醒</div></div>
+    <div class="branch"><span class="cond cond-yes">到 9 点整</span><div class="node">响铃 · 车端语音「该出发了」</div></div>
+  </div>
+  <div class="loopnote">提醒完 → 卡片进入记录 · 任务结束</div>
+</div>
+<div class="callout c-key"><span class="h">业务要点</span>和场景一几乎一样，唯一区别是<b>时间怎么给</b>：场景一是「从现在数 600 秒」，这里是「盯住明天 9 点这个钟点」。到点前用户随时可以反悔取消。</div>
+
+<!-- 场景三 -->
+<h3>3.3 场景三 · 循环（固定间隔）：每小时开一次座椅按摩</h3>
+<div class="flow">
+  <div class="node start">用户说：每小时开一次座椅按摩</div>
+  <div class="conn"></div>
+  <div class="node">系统听懂：这是要反复做的事</div>
+  <div class="conn"></div>
+  <div class="node">拆解<span class="sub">每 3600 秒一次 · 每次开按摩并告知 · 下车或取消才停</span></div>
+  <div class="conn"></div>
+  <div class="node">建卡片：带「启用 / 关闭」开关（因为是循环任务）</div>
+  <div class="conn"><span class="lbl">挂上闹钟</span></div>
+  <div class="node timer">云端定时器 · 每到一小时响一次</div>
+  <div class="conn lg"><span class="lbl">⏰ 每小时到点</span></div>
+  <div class="node decision">执行前看一眼：座椅上有人吗？</div>
+  <div class="branches">
+    <div class="branch"><span class="cond cond-no">没人</span><div class="node skip">这次跳过 · 不算失败 · 等下一个小时 ↺</div></div>
+    <div class="branch"><span class="cond cond-yes">有人</span><div class="node">开座椅按摩 · 语音告知 → 回去等下一小时 ↺</div></div>
+  </div>
+  <div class="loopnote">三种方式才会结束：① 下车　② 用户在卡片上关掉开关（暂停，可再打开）　③ 用户取消（彻底结束）</div>
+</div>
+<div class="callout c-key"><span class="h">业务要点</span>循环任务靠<b>下车 / 关开关 / 取消</b>三种方式结束。两个易混细节：① 这次没人「跳过」但<b>不算失败</b>，下个小时照常来；② 「关开关」是<b>暂停</b>（还能打开恢复），「取消」是<b>彻底结束</b>。</div>
+
+<!-- 场景四 -->
+<h3>3.4 场景四 · 定时 + 看画面（循环）：每分钟看后排宝宝有没有哭 <span class="tag t-key">最需讲清</span></h3>
+<div class="flow">
+  <div class="node start">用户说：每分钟看下后排宝宝有没有哭</div>
+  <div class="conn"></div>
+  <div class="node">系统听懂：这是「定时 + 看画面判断」的组合任务</div>
+  <div class="conn"></div>
+  <div class="node">安排两件事同时进行</div>
+  <div class="branches">
+    <div class="branch"><span class="cond cond-mid">摄像头这边</span><div class="node">持续描述后排画面 · 每十几秒报一句<span class="sub">如「宝宝睁眼」「宝宝脸上有泪」</span></div></div>
+    <div class="branch"><span class="cond cond-mid">闹钟这边</span><div class="node timer">每 60 秒响一次 · 取一句最新描述来判断</div></div>
+  </div>
+  <div class="conn lg"><span class="lbl">⏰ 每 60 秒到点，拿最新描述判断</span></div>
+  <div class="node decision">宝宝哭了没？结果三选一</div>
+  <div class="branches">
+    <div class="branch"><span class="cond cond-mid">看不清</span><div class="node skip">这次不算数 · 不更新记忆 · 等下一分钟 ↺</div></div>
+    <div class="branch"><span class="cond cond-mid">没哭</span><div class="node">记住「现在没哭」· 等下一分钟 ↺</div></div>
+    <div class="branch"><span class="cond cond-yes">哭了</span><div class="node">再看上一次 …（下方）</div></div>
+  </div>
+  <div class="conn"><span class="lbl">「哭了」时，再判一步</span></div>
+  <div class="node decision">上一次是「没哭」吗？</div>
+  <div class="branches">
+    <div class="branch"><span class="cond cond-no">不是 · 上次就在哭</span><div class="node skip">不重复提醒 · 等下一分钟 ↺</div></div>
+    <div class="branch"><span class="cond cond-yes">是 · 刚从没哭变成哭</span><div class="node">提醒！播报「宝宝哭了」+ 安抚建议</div></div>
+  </div>
+  <div class="loopnote">提醒后记住「现在是哭了」，避免下一分钟重复提醒</div>
+</div>
+<div class="callout c-key"><span class="h">业务要点（这段最值钱，评审重点讲）</span>
+为什么只在<b>「从没哭变成哭」那一刻</b>提醒一次？—— 如果每分钟只要「哭了」就提醒，宝宝哭 5 分钟你会被烦 5 次。<br>
+产品规则：<b>抓状态跳变，提醒一次就够</b>；同一状态持续<b>不重复打扰</b>；「看不清」<b>不更新记忆</b>，防止一次误判打乱节奏。<br>
+这也印证了 2.1 的比喻——<b>定时只是个闹钟</b>，真正判断宝宝哭没哭、要不要提醒，是「看画面」那套已有能力干的。</div>
+
+<!-- 场景五 -->
+<h3>3.5 场景五 · 用户取消（语音 / 卡片两个入口）</h3>
+<div class="flow">
+  <div class="node start">用户想取消「每小时座椅按摩」</div>
+  <div class="branches">
+    <div class="branch"><span class="cond cond-mid">入口一 · 语音</span><div class="node">说「取消每小时座椅按摩」→ 系统听懂是取消，从当前任务里找到那一个</div></div>
+    <div class="branch"><span class="cond cond-mid">入口二 · 卡片</span><div class="node">在卡片上点「取消」→ 任务中心只把「用户想取消」这个动作报上去，<b>自己不擅自删卡片</b></div></div>
+  </div>
+  <div class="conn lg"><span class="lbl">两条汇到一起</span></div>
+  <div class="node">后台真的把任务停掉：摘掉闹钟 · 结束当前这一轮 · 标记「已取消」</div>
+  <div class="conn"></div>
+  <div class="node end">通知任务中心 → 卡片这才移除 / 进入记录</div>
+</div>
+<div class="callout c-key"><span class="h">业务要点</span>在卡片上点「取消」<b>不是卡片自己消失</b>——是「<b>报告用户意图 → 后台真的把任务停掉 → 再回来消卡片</b>」。避免用户以为取消了、后台其实还在跑。</div>
+
+<!-- 场景六 -->
+<h3>3.6 场景六 · 上下电：下车、上车，任务怎么办</h3>
+<div class="flow">
+  <div class="node start">车辆下电 · 用户下车熄火</div>
+  <div class="conn"></div>
+  <div class="node decision">逐个看还在等的任务：这是「本趟车内的事」还是「跨天的事」？</div>
+  <div class="branches">
+    <div class="branch"><span class="cond cond-no">本趟车内<span style="font-weight:400;display:block;font-size:11px;">如 十分钟后关加热、每小时按摩</span></span><div class="node end">人都走了，做了没意义 · 任务结束<span class="sub">下次上车不自动恢复，要就重新说</span></div></div>
+    <div class="branch"><span class="cond cond-yes">跨天跨行程<span style="font-weight:400;display:block;font-size:11px;">如 每个工作日 8 点提醒开会</span></span><div class="node timer">闹钟在云端，不受下电影响，继续计时</div></div>
+  </div>
+  <div class="conn"><span class="lbl">跨天任务：下车期间正好到点了怎么办</span></div>
+  <div class="node skip">车不在线，这次做不了 · 跳过 · 不补做</div>
+  <div class="conn"></div>
+  <div class="node end">等下一个到点时间，下次上车照常提醒</div>
+</div>
+<div class="callout c-key"><span class="h">业务要点</span>闹钟在<b>云端</b>，下车不会把跨天任务弄丢。区别只有一条——<b>本趟内的任务下车即结束</b>（人走了没意义），<b>跨天的任务继续等</b>（每工作日 8 点，明天照常）。下车期间错过的那一次<b>不补做</b>。</div>
+
+<!-- 场景七 -->
+<h3>3.7 场景七 · 超上限：任务太多了</h3>
+<div class="flow">
+  <div class="node start">用户又想加一个定时任务</div>
+  <div class="conn"></div>
+  <div class="node decision">先数一下：现在的定时任务到上限了吗？</div>
+  <div class="branches">
+    <div class="branch"><span class="cond cond-yes">没到</span><div class="node">正常创建</div></div>
+    <div class="branch"><span class="cond cond-no">到了</span><div class="node">不新建 · 也<b>绝不挤掉老的</b></div></div>
+  </div>
+  <div class="conn"><span class="lbl">到上限时</span></div>
+  <div class="node">语音告诉用户：任务已达上限，需先完成或删掉一个再加</div>
+  <div class="conn"></div>
+  <div class="node end">用户在任务中心删掉不要的，再来加</div>
+</div>
+<div class="callout c-warn"><span class="h">业务要点</span>满了就<b>明确报错</b>，<b>绝不偷偷挤掉</b>用户之前设的任务——否则用户设的「接孩子提醒」被无声顶掉，就是事故。让用户自己去任务中心删一个再加。</div>
+
+<!-- 场景八 -->
+<h3>3.8 场景八 · 判重：用户重复设置同一个任务</h3>
+<div class="flow">
+  <div class="node start">用户再次说「十分钟后关座椅加热」（之前已经设过一个）</div>
+  <div class="conn"></div>
+  <div class="node decision">系统发现：已经有一个一模一样的任务了</div>
+  <div class="conn"><span class="lbl">不新建第二个</span></div>
+  <div class="node">用新的时间 / 内容，去更新原来那一个</div>
+  <div class="conn"></div>
+  <div class="node end">还是「一个任务、一张卡片」，不会冒出两张卡、两个闹钟同时响</div>
+</div>
+<div class="callout c-key"><span class="h">业务要点</span>重复设置<b>只更新原来那个、不叠加</b>。用户以为自己在改，不该冒出两张卡片、两个闹钟同时响。</div>
+
+<!-- ══════════════ 四 ══════════════ -->
+<h2>四、产品定死的 8 条规则（把上面八张图的共性拎出来）</h2>
+<div class="rule"><div class="n">1</div><div class="txt"><b>一次性 vs 循环：</b>一次性任务<b>点一次火就结束</b>；循环任务靠「下车 / 关开关 / 取消」三种方式结束。</div></div>
+<div class="rule"><div class="n">2</div><div class="txt"><b>执行前再看一眼：</b>到点后、真做之前还要看当下情况，情况变了就<b>跳过</b>——跳过<b>不算失败</b>，下个周期照常。</div></div>
+<div class="rule"><div class="n">3</div><div class="txt"><b>只在状态跳变时提醒：</b>定时 + 看画面的任务，只在「从不符合变成符合」那一刻提醒一次；同一状态持续<b>不重复打扰</b>；看不清<b>不算数</b>。</div></div>
+<div class="rule"><div class="n">4</div><div class="txt"><b>云端定时、下电不丢：</b>闹钟在云端，下车不丢跨天任务；本趟内任务下车即结束，跨天任务继续等，错过<b>不补</b>。</div></div>
+<div class="rule"><div class="n">5</div><div class="txt"><b>满了报错不挤旧：</b>任务到上限就报错，<b>绝不挤掉</b>老任务；让用户自己删了再加。</div></div>
+<div class="rule"><div class="n">6</div><div class="txt"><b>重复设置只更新：</b>同一个任务重复设，<b>只更新</b>原来那张卡，不叠加出两张。</div></div>
+<div class="rule"><div class="n">7</div><div class="txt"><b>取消是报意图、不是自己消失：</b>卡片上点取消 ＝ 报意图 → 后台真停 → 再消卡，卡片<b>不擅自消失</b>。</div></div>
+<div class="rule"><div class="n">8</div><div class="txt"><b>用户只管说人话：</b>「十分钟后」变 600 秒、「明天 9 点」变具体时刻，这种翻译由<b>系统</b>完成，用户不用管。</div></div>
+
+<!-- ══════════════ 五 ══════════════ -->
+<h2>五、做到什么程度：范围 / 分期 / 验收</h2>
+
+<h3>5.1 一期做什么、不做什么</h3>
+<table>
+  <thead><tr><th style="width:12%">分期</th><th style="width:44%">包含</th><th>明确不做（划清边界）</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><b>一期</b><br><span class="tag t-new">跟任务中心同版本</span></td>
+      <td>① 相对延时 · 一次性<br>② 绝对时间 · 一次性<br>③ 固定间隔 · 循环（含有限次数）<br>④ 挂闹钟 / 改 / 摘 ＋ 到点回调<br>⑤ 数量上限 ＋ 超限报错<br>⑥ 上下电策略</td>
+      <td>· 自然语言时间解析（在任务系统做，触发器永不做）<br>· 端侧定时器（全部云端）<br>· 农历 / 节假日日历（依赖日历服务，二期评估）<br>· 跨时区</td>
+    </tr>
+    <tr>
+      <td><b>二期</b><br><span class="tag t-new">跟视觉链路节奏</span></td>
+      <td>⑦ 日历周期 · 循环（工作日规则）<br>⑧ 定时 + 看画面组合 ＋ 状态跳变判定</td>
+      <td>—</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>5.2 验收标准（逐条可测）</h3>
+<table>
+  <thead><tr><th style="width:7%">编号</th><th style="width:36%">用例</th><th>预期</th></tr></thead>
+  <tbody>
+    <tr><td>V1</td><td>创建「延时 600 秒」一次性任务</td><td>解析出 600 秒规则；闹钟挂上；任务＝等待；600±3 秒内到点响铃</td></tr>
+    <tr><td>V2</td><td>一次性任务执行成功</td><td>本轮＝成功；任务＝结束（正常）；通知端侧；无第二次触发</td></tr>
+    <tr><td>V3</td><td>「间隔 60 秒 · 做 3 次」循环任务</td><td>做 3 次，间隔各 60±3 秒；第 3 次后结束，闹钟摘掉</td></tr>
+    <tr><td>V4</td><td>达上限后再创建</td><td>返回错误；既有任务不受影响（不挤旧）；用户收到上限话术</td></tr>
+    <tr><td>V5</td><td>同一意图重复创建</td><td>定位到已有任务走更新；只 1 个任务、1 个闹钟</td></tr>
+    <tr><td>V6</td><td>两类任务运行中下电 → 上电</td><td>「本趟内」任务下电即结束并摘闹钟；「跨天」任务云端继续走，上电后无任何重建动作</td></tr>
+    <tr><td>V7</td><td>「每 60 秒看宝宝」连续 3 轮都「哭了」（二期）</td><td>只在第一次「没哭 → 哭」跳变时提醒一次，后两轮不重复</td></tr>
+    <tr><td>V8</td><td>周期任务某轮到点时座椅无人</td><td>该轮跳过；任务保持等待，下轮正常触发</td></tr>
+    <tr><td>V9</td><td>语音取消「每小时按摩」</td><td>摘闹钟 ＋ 结束当前轮 ＋ 任务＝已取消 ＋ 端侧收到状态消息</td></tr>
+    <tr><td>V10</td><td>跨天任务下电期间到点</td><td>本轮失败 / 跳过，不补；任务回等待，等下一触发点</td></tr>
+  </tbody>
+</table>
+
+<!-- ══════════════ 六 ══════════════ -->
+<h2>六、评审要拍的事 · 排期缺口 · 待确认清单</h2>
+
+<h3>6.1 本次评审要当场拍板的三件事</h3>
+<table>
+  <thead><tr><th style="width:22%">要拍的事</th><th style="width:42%">产品主张 / 结论</th><th>会上要谁点头</th></tr></thead>
+  <tbody>
+    <tr><td><b>① 定时器归属</b><span class="tag t-p0">追认</span></td><td>定时器统一由云端触发器持有（追认庆磊方案），5.29 的 Advisor 自建定时器口径作废</td><td>全员追认；<b>刘杨当面认下定时引擎的工作量</b></td></tr>
+    <tr><td><b>② 上下电策略</b><span class="tag t-key">新口径</span></td><td>闹钟在云端天然跨下电；任务关不关，看它是「本趟内」还是「跨天」（见 3.6 / 附录）</td><td>确认每类任务下电时关不关的默认值表</td></tr>
+    <tr><td><b>③ 首期协议表达</b><span class="tag t-p0">P0</span></td><td>现有条件协议的运算符表达不了「延时 / 间隔 / 周期」，时间规则先怎么放（候选见附录 A.4），王泽民起草口径</td><td>刘杨 + 庆磊三方对齐后定稿</td></tr>
+  </tbody>
+</table>
+
+<h3>6.2 排期缺口提示（评审现场必须提）</h3>
+<div class="callout c-warn"><span class="h">⚠ 定时引擎的人日不在庆磊排期表里</span>
+庆磊排期表合计 Task Service 24 人日 ＋ GUI 5 人日，其中<b>没有触发器侧定时引擎的工作项</b>。定时引擎（四形态调度、日历规则计算、与任务系统的接口）是<b>刘杨侧的新增工作量</b>，本场评审必须<b>当场补排期</b>，否则「定时跟任务中心同上线」的承诺会落空。</div>
+
+<h3>6.3 分工表</h3>
+<table>
+  <thead><tr><th style="width:12%">人</th><th style="width:22%">角色</th><th>要做的事</th></tr></thead>
+  <tbody>
+    <tr><td>王泽民</td><td>触发器产品 · 本 PRD owner</td><td>① 本 PRD 评审 ＋ 三个决策收口；② 对话大脑（Planner）改造：识别任务类请求并路由（<b>不是解析时间</b>）；③ 四形态 ＋ 首期协议表达的产品口径起草；④ 抢在庆磊二评前评审</td></tr>
+    <tr><td>庆磊</td><td>任务系统 owner</td><td>① 时间解析能力（四形态全覆盖）；② 首期协议序列化方案；③ 生命周期 / 执行前把关 / 结束策略实现；④ 给出第二次技术评审时间</td></tr>
+    <tr><td>刘杨</td><td>云端触发器研发</td><td>① 定时引擎：四形态调度 ＋ 到点回调（<b>需补人日</b>）；② 挂 / 改 / 摘接口；③ 回调字段对齐；④ 二期状态跳变判定的存储</td></tr>
+    <tr><td>晓伟</td><td>任务中心（端）</td><td>① 卡片展示与状态流转；② 取消事件回传；③ 放弃 Advisor 自建定时器；④ 确认任务中心上线时间（804 / 818）</td></tr>
+    <tr><td>丁彬</td><td>端侧视觉</td><td>二期定时 + 看画面联调（观察任务下发 / 十几秒上报 / 并发 3），7.16 已对齐，无新增</td></tr>
+    <tr><td>韩杰</td><td>信号中枢</td><td>纯定时任务不依赖端信号，无需求；定时 + 查车况组合出现时再对接</td></tr>
+  </tbody>
+</table>
+
+<h3>6.4 待确认清单</h3>
+<table>
+  <thead><tr><th style="width:8%">编号</th><th style="width:52%">问题</th><th style="width:20%">找谁</th><th>优先级</th></tr></thead>
+  <tbody>
+    <tr><td>Q1</td><td>庆磊第二次技术评审（接口细节场）时间？本 PRD 评审须更早</td><td>庆磊</td><td><span class="tag t-p0">P0</span></td></tr>
+    <tr><td>Q2</td><td>触发器侧定时引擎排期（庆磊排期表未覆盖）</td><td>刘杨</td><td><span class="tag t-p0">P0</span></td></tr>
+    <tr><td>Q3</td><td>上限口径冲突：5.29 分类型（定时 6 / 视觉定时 1 / 条件 6）vs 庆磊单一全局值——用哪套、数字多少</td><td>庆磊 + 刘杨 + 王泽民</td><td><span class="tag t-p0">P0</span></td></tr>
+    <tr><td>Q4</td><td>首期时间规则在现有协议里的表达方式（候选 A / B 见附录 A.4）</td><td>王泽民起草 + 刘杨庆磊对齐</td><td><span class="tag t-p0">P0</span></td></tr>
+    <tr><td>Q5</td><td>回调失败的重试策略；「连续几轮取不到画面描述」的阈值</td><td>刘杨</td><td>P1</td></tr>
+    <tr><td>Q6</td><td>任务中心上线时间（804 还是 818）——定时任务跟随上线的锚点</td><td>晓伟</td><td>P1</td></tr>
+    <tr><td>Q7</td><td>日历周期「工作日」是否含法定调休？日历源用哪个服务</td><td>王泽民定义 · 二期</td><td>P2</td></tr>
+  </tbody>
+</table>
+
+<!-- ══════════════ 附录 ══════════════ -->
+<hr>
+<h2>附录 A：给研发的接口速查（讲到再翻）</h2>
+<p style="color:var(--muted);font-size:13.5px;">以下是字段级细节，正文用不到，供研发对接与庆磊二评时查阅。</p>
+
+<h3>A.1 挂闹钟：任务系统 → 触发器（注册字段）</h3>
+<table>
+  <thead><tr><th style="width:22%">字段</th><th style="width:12%">必填</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td>task_id 任务唯一标识</td><td>是</td><td>判重键；同标识重复注册＝更新原任务，不新建</td></tr>
+    <tr><td>时间类型</td><td>是</td><td>四选一：相对延时 / 绝对时间 / 固定间隔 / 日历周期</td></tr>
+    <tr><td>时间参数</td><td>是</td><td>按类型给：延时秒数 / 时间戳 / 间隔秒数 / 周期规则</td></tr>
+    <tr><td>是否循环</td><td>是</td><td>单次 / 循环</td></tr>
+    <tr><td>执行次数上限 MaxRuns</td><td>是</td><td>-1＝无限，1＝单次，N＝循环 N 次后关闭</td></tr>
+    <tr><td>是否语义判断</td><td>是</td><td>是→必带观察目标，到点走看画面判断；否→到点直接回调</td></tr>
+    <tr><td>观察目标字符串</td><td>条件必填</td><td>语义判断为「是」时必填（如「后排宝宝哭了」）</td></tr>
+    <tr><td>回调地址</td><td>是</td><td>到点调谁，复用触发器既有回调能力</td></tr>
+  </tbody>
+</table>
+
+<h3>A.2 到点响铃：触发器 → 任务系统（回调五字段）</h3>
+<table>
+  <thead><tr><th style="width:26%">字段</th><th style="width:34%">含义</th><th>备注</th></tr></thead>
+  <tbody>
+    <tr><td>channel 通道</td><td>回调来源通道</td><td>区分触发类型 / 来源</td></tr>
+    <tr><td>vehicle_id 车辆</td><td>哪辆车</td><td>所有读写必带</td></tr>
+    <tr><td>task_id 任务</td><td>命中哪个任务</td><td>注册时由任务系统生成绑定</td></tr>
+    <tr><td>callback_id 回调</td><td>本次回调唯一标识</td><td>幂等键，防重复处理</td></tr>
+    <tr><td>triggered_at 触发时刻</td><td>实际触发时间戳</td><td>审计与对账</td></tr>
+  </tbody>
+</table>
+<p style="font-size:13px;color:var(--muted);">回调能力本身已存在（刘杨 7.16：「注册时告诉我回调到哪里，我直接调一个接口给他就行」），定时任务复用同一条回调路，不新建。</p>
+
+<h3>A.3 结束策略（五字段）→ 定时任务怎么用</h3>
+<table>
+  <thead><tr><th style="width:28%">字段</th><th style="width:30%">含义</th><th>定时任务怎么用</th></tr></thead>
+  <tbody>
+    <tr><td>CloseAfterSuccess 成功后关闭</td><td>一次成功即关闭</td><td>一次性＝是，循环＝否</td></tr>
+    <tr><td>CloseOnVehicleOffline 下电即关闭</td><td>下电即关闭</td><td>本趟内任务＝是，跨天任务＝否</td></tr>
+    <tr><td>ExpireAt 过期时刻</td><td>到点未结束则过期关闭</td><td>「今天内有效」类兜底，可选</td></tr>
+    <tr><td>MaxRuns 最大执行轮数</td><td>满 N 轮关闭</td><td>「看 10 次就行」＝10，无限不填</td></tr>
+    <tr><td>MaxFailures 最大失败数</td><td>失败满 N 次熔断</td><td>连续失败熔断保护</td></tr>
+  </tbody>
+</table>
+
+<h3>A.4 <span class="tag t-p0">P0 · Q4</span> 首期时间规则怎么塞进现有协议</h3>
+<p>现有条件协议只有 10 个运算符（等于 / 不等于 / 大于 / 大于等于 / 小于 / 小于等于 / 包含 / 不包含 ＋ 变更为 / 有变更），<b>没有一个能表达「延时 / 间隔 / 日历周期」</b>。首期触发器接口未升级前，时间规则怎么放，两个候选：</p>
+<table>
+  <thead><tr><th style="width:12%">候选</th><th style="width:52%">做法</th><th>倾向</th></tr></thead>
+  <tbody>
+    <tr><td><b>候选 A</b></td><td>放「执行策略」字段——时间规则本质是「何时执行」的策略，与条件（何时命中）正交</td><td><b>倾向 A</b>，需刘杨、庆磊确认该字段现有语义不冲突</td></tr>
+    <tr><td>候选 B</td><td>在条件里新增「时间类型」条件，把「延时 600 秒」当一种新条件</td><td>与现有 10 运算符体系不兼容，改动大</td></tr>
+  </tbody>
+</table>
+
+<h3>A.5 时间基准与精度</h3>
+<table>
+  <tbody>
+    <tr><td style="width:22%;font-weight:600;background:#f3f7fc;">时间基准</td><td>云端统一北京时间；一期不做多时区（国内车型）</td></tr>
+    <tr><td style="font-weight:600;background:#f3f7fc;">触发精度</td><td>秒级，误差目标 ≤3 秒。参照：看画面本身是 10–20 秒级上报，定时轮询只需比上报周期慢即可（王泽民 7.16：「他 10 秒上报，我 11 秒轮询就行」）</td></tr>
+  </tbody>
+</table>
+
+<hr>
+<h2>附录 B：与 5.29《动态 advisor 感知订阅技术设计》对照</h2>
+<table>
+  <thead><tr><th style="width:34%">5.29 内容</th><th style="width:18%">本 PRD 处理</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td>定时任务由 Advisor「注册定时器」</td><td>作废</td><td>定时器统一在触发器；「后续不再有动态 Advisor 这个概念」</td></tr>
+    <tr><td>字段 cycle / max_execution / vlm_use</td><td>语义保留 · 字段名升级</td><td>cycle→成功后关闭；max_execution→MaxRuns；vlm_use→触发类型 + 观察目标</td></tr>
+    <tr><td>上限：定时 6 / 视觉定时 1 / 条件 6</td><td>待定</td><td>与单一全局上限冲突（Q3）</td></tr>
+    <tr><td>超限从「新挤旧」改「报错等待」</td><td>沿用</td><td>创建校验报错；用户侧话术 + 任务中心删减</td></tr>
+    <tr><td>视觉定时演示 5 秒 / 量产 30–60 秒</td><td>换口径</td><td>以 7.16 丁彬「10–20 秒不定周期上报」为准，轮询周期 &gt; 上报周期</td></tr>
+    <tr><td>状态跳变判定：上次「否」且本次「是」才产生事件</td><td>沿用并推广</td><td>扩展为三态版（看不清则跳过），推广到看画面类条件任务</td></tr>
+    <tr><td>创建失败→关闭目标带原因；超时 5 秒</td><td>沿用</td><td>注册失败→任务关闭（失败）；超时 5 秒</td></tr>
+  </tbody>
+</table>
+
+<div class="foot">云端触发器 · 定时任务 PRD · 业务讲解版 v5 · 2026-07-20 · 王泽民</div>
+
+</div>
+</body>
+</html>

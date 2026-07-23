@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>定时器原理图解 · 给产品</title>
+<style>
+  :root{
+    --primary:#1f4e78; --primary-light:#e8f0f9;
+    --amber:#d97706; --amber-bg:#fff7ed;
+    --green:#1a7f37; --green-bg:#eafbef;
+    --red:#b42318; --red-bg:#fdeeee;
+    --border:#d5dbe2; --text:#1f2733; --muted:#5b6572;
+  }
+  *{box-sizing:border-box;}
+  body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    line-height:1.8; color:var(--text); max-width:900px; margin:0 auto; padding:40px 24px; background:#f6f8fa;}
+  .paper{background:#fff; padding:40px 44px; border-radius:14px; box-shadow:0 2px 20px rgba(20,40,70,.08);}
+  h1{font-size:28px; margin:0 0 10px; border-bottom:4px solid var(--primary); padding-bottom:12px;}
+  .meta{color:var(--muted); font-size:14px; margin-bottom:24px;}
+  h2{font-size:22px; margin:40px 0 16px; padding-left:14px; border-left:5px solid var(--primary); background:linear-gradient(90deg,var(--primary-light),transparent);}
+  h3{font-size:18px; color:var(--primary); margin:28px 0 12px;}
+  p{font-size:15.5px; margin:12px 0;}
+  table{width:100%; border-collapse:collapse; margin:18px 0; font-size:14px;}
+  th,td{border:1px solid var(--border); padding:11px 13px; text-align:left; vertical-align:top;}
+  th{background:var(--primary-light); color:var(--primary); font-weight:700;}
+  tbody tr:nth-child(even){background:#fafbfc;}
+
+  .callout{border-radius:10px; padding:16px 20px; margin:18px 0; font-size:14.5px;}
+  .callout .h{font-weight:800; display:block; margin-bottom:6px; font-size:15px;}
+  .c-key{background:var(--amber-bg); border:1px solid #f5c98a;}
+  .c-key .h{color:var(--amber);}
+  .c-ok{background:var(--green-bg); border:1px solid #a7e0b8;}
+  .c-ok .h{color:var(--green);}
+  .c-warn{background:var(--red-bg); border:1px solid #f2b6b0;}
+  .c-warn .h{color:var(--red);}
+
+  .queue{background:#fbfcfd; border:2px solid var(--primary); border-radius:12px; padding:18px 20px; margin:18px 0;}
+  .queue-title{font-weight:800; color:var(--primary); margin-bottom:12px; font-size:15px;}
+  .q-row{display:flex; gap:12px; align-items:center; padding:10px 14px; margin:8px 0; background:#fff; border:1px solid var(--border); border-radius:8px;}
+  .q-time{font-weight:800; color:var(--primary); min-width:180px;}
+  .q-id{color:var(--muted); font-size:13px; min-width:90px;}
+  .q-action{flex:1;}
+  .q-status{font-size:12px; padding:2px 10px; border-radius:12px; font-weight:700;}
+  .s-wait{background:#fef3c7; color:#92400e;}
+  .s-fire{background:var(--green-bg); color:var(--green);}
+  .s-done{background:#e5e7eb; color:#4b5563;}
+  .s-cancel{background:var(--red-bg); color:var(--red);}
+
+  .arrow{font-size:24px; color:var(--primary); text-align:center; margin:10px 0;}
+  .step-box{background:var(--primary-light); border-left:4px solid var(--primary); padding:14px 18px; border-radius:0 10px 10px 0; margin:16px 0;}
+  .step-box b{color:var(--primary);}
+  .foot{color:var(--muted); font-size:13px; text-align:center; margin-top:40px;}
+</style>
+</head>
+<body>
+<div class="paper">
+
+<h1>云端定时器 · 原理图解</h1>
+<div class="meta">给产品看的通俗版 · 用一个例子讲清定时器内部怎么运转 · 2026-07-20</div>
+
+<div class="callout c-key">
+  <span class="h">一句话先记住</span>
+  云端定时器 = <b>一个会排序的「闹钟列表」</b>。系统永远只看<b>最近要响的那个闹钟</b>，到了就通知任务系统，然后继续看下一个。
+</div>
+
+<h2>一、用「餐厅叫号系统」类比</h2>
+
+<p>想象你去商场吃饭，门口有个取号机：</p>
+<table>
+  <thead><tr><th style="width:28%">餐厅叫号系统</th><th style="width:34%">对应定时器</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td>顾客取号</td><td>任务系统来注册定时任务</td><td>每来一个任务，就往队列里加一条</td></tr>
+    <tr><td>号码按顺序排好</td><td>按「下次响铃时间」排序</td><td>最近要响的排在最前面</td></tr>
+    <tr><td>服务员盯着当前最小号</td><td>定时器盯着最近要响的任务</td><td>不用看全部，只看队首</td></tr>
+    <tr><td>到号了喊顾客</td><td>到点通知任务系统</td><td>只喊一嗓子，不管顾客去干嘛</td></tr>
+    <tr><td>顾客取消等位</td><td>任务被取消</td><td>从队列里把这条删掉</td></tr>
+  </tbody>
+</table>
+
+<h2>二、一个具体例子：十分钟后关座椅加热</h2>
+
+<p>假设现在是 <b>14:00:00</b>，用户说「十分钟后关闭座椅加热」。</p>
+
+<h3>第 1 步：任务系统来注册</h3>
+<div class="step-box">
+  <b>任务系统告诉定时器：</b>「我有一个任务，任务 ID 叫 A，请在 14:10:00 响铃。」<br>
+  （「十分钟后」在这里被翻译成了具体时间点 14:10:00）
+</div>
+
+<div class="queue">
+  <div class="queue-title">🕐 定时器内部的「闹钟队列」（按时间排序）</div>
+  <div class="q-row">
+    <div class="q-time">14:10:00</div>
+    <div class="q-id">任务 A</div>
+    <div class="q-action">关座椅加热 + 提醒</div>
+    <div class="q-status s-wait">等待中</div>
+  </div>
+</div>
+
+<h3>第 2 步：定时器等待</h3>
+<p>定时器不用一直「数秒」，它只需要算出一句话：「离 14:10:00 还有 10 分钟，我先睡 10 分钟。」</p>
+<div class="callout c-ok">
+  <span class="h">关键技术点</span>
+  系统不是每秒看一次表，而是<b>精确睡到最近要响的那个时间点</b>。这样既省资源又准时。
+</div>
+
+<h3>第 3 步：14:10:00 到点，响铃</h3>
+<div class="step-box">
+  <b>定时器通知任务系统：</b>「任务 A 到点了！」<br>
+  通知里只带任务 ID 和触发时间，不带具体要做什么。
+</div>
+
+<div class="queue">
+  <div class="queue-title">🕐 闹钟队列状态变化</div>
+  <div class="q-row">
+    <div class="q-time">14:10:00</div>
+    <div class="q-id">任务 A</div>
+    <div class="q-action">关座椅加热 + 提醒</div>
+    <div class="q-status s-fire">已触发</div>
+  </div>
+</div>
+
+<h3>第 4 步：任务 A 是一次性的，从队列删除</h3>
+<div class="queue">
+  <div class="queue-title">🕐 响铃后，一次性任务从队列移除</div>
+  <div class="q-row" style="background:#f9fafb;color:#9ca3af;">
+    <div class="q-time">—</div>
+    <div class="q-id">任务 A</div>
+    <div class="q-action">已完成，队列中不再存在</div>
+    <div class="q-status s-done">结束</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>三、循环任务怎么续？每小时按摩</h2>
+
+<p>假设 14:00:00 用户说「每小时开一次座椅按摩」。</p>
+
+<h3>第 1 步：注册第一个闹钟</h3>
+<div class="queue">
+  <div class="queue-title">🕐 队列：第一次响铃</div>
+  <div class="q-row">
+    <div class="q-time">15:00:00</div>
+    <div class="q-id">任务 B</div>
+    <div class="q-action">开座椅按摩</div>
+    <div class="q-status s-wait">等待中</div>
+  </div>
+</div>
+
+<h3>第 2 步：15:00:00 响铃后，自动续下一个</h3>
+<div class="callout c-key">
+  <span class="h">循环任务的核心动作</span>
+  响铃后，定时器不是删除任务，而是<b>把任务 B 的下一次响铃时间改成 16:00:00，然后重新排队</b>。
+</div>
+
+<div class="queue">
+  <div class="queue-title">🕐 队列：响铃后自动续上下一个</div>
+  <div class="q-row" style="background:#f9fafb;color:#9ca3af;">
+    <div class="q-time">15:00:00</div>
+    <div class="q-id">任务 B</div>
+    <div class="q-action">本次已触发</div>
+    <div class="q-status s-done">过去</div>
+  </div>
+  <div class="q-row">
+    <div class="q-time">16:00:00</div>
+    <div class="q-id">任务 B</div>
+    <div class="q-action">开座椅按摩</div>
+    <div class="q-status s-wait">等待中</div>
+  </div>
+</div>
+
+<p>只要用户不取消、不下电、不到最大次数，这个「响铃 → 执行 → 续下一个」的过程就会一直持续。</p>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>四、多个任务混在一起，定时器怎么排？</h2>
+
+<p>假设同时有三个任务：</p>
+<div class="queue">
+  <div class="queue-title">🕐 多任务队列（始终按时间排序）</div>
+  <div class="q-row">
+    <div class="q-time">14:05:00</div>
+    <div class="q-id">任务 C</div>
+    <div class="q-action">提醒喝水</div>
+    <div class="q-status s-wait">第一个响</div>
+  </div>
+  <div class="q-row">
+    <div class="q-time">14:10:00</div>
+    <div class="q-id">任务 A</div>
+    <div class="q-action">关座椅加热</div>
+    <div class="q-status s-wait">第二个响</div>
+  </div>
+  <div class="q-row">
+    <div class="q-time">15:00:00</div>
+    <div class="q-id">任务 B</div>
+    <div class="q-action">开座椅按摩</div>
+    <div class="q-status s-wait">第三个响</div>
+  </div>
+</div>
+
+<p>定时器永远只看队首：</p>
+<ol>
+  <li>先睡到 14:05:00，任务 C 响铃</li>
+  <li>再睡到 14:10:00，任务 A 响铃</li>
+  <li>再睡到 15:00:00，任务 B 响铃，然后给 B 续上 16:00:00</li>
+</ol>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>五、取消 / 下电时，队列怎么变？</h2>
+
+<h3>5.1 用户取消「每小时按摩」</h3>
+<div class="step-box">
+  任务系统通知定时器：「任务 B 取消了，从队列里删掉。」
+</div>
+<div class="queue">
+  <div class="q-row" style="background:var(--red-bg);">
+    <div class="q-time">15:00:00 → 删除</div>
+    <div class="q-id">任务 B</div>
+    <div class="q-action">已取消，从队列移除</div>
+    <div class="q-status s-cancel">取消</div>
+  </div>
+</div>
+
+<h3>5.2 车辆下电，本趟内任务关闭</h3>
+<div class="step-box">
+  任务系统通知定时器：「任务 A 是本趟内的，下电了要关，从队列里删掉。」
+</div>
+<div class="queue">
+  <div class="q-row" style="background:var(--red-bg);">
+    <div class="q-time">14:10:00 → 删除</div>
+    <div class="q-id">任务 A</div>
+    <div class="q-action">车辆下电，本趟内任务关闭</div>
+    <div class="q-status s-cancel">移除</div>
+  </div>
+</div>
+
+<h3>5.3 跨天任务下电，闹钟继续走</h3>
+<div class="step-box">
+  「每工作日 8 点提醒开会」这种跨天任务，下电<b>不删闹钟</b>，闹钟继续在队列里等。只是到点时车不在线，任务系统决定跳过本轮。
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>六、四种时间形态，底层都是「下一次几点响」</h2>
+
+<table>
+  <thead><tr><th style="width:20%">形态</th><th style="width:38%">用户说的话</th><th>定时器内部怎么算</th><th>响铃后</th></tr></thead>
+  <tbody>
+    <tr><td>相对延时</td><td>十分钟后关加热</td><td>现在 + 600 秒 = 14:10:00</td><td>删除</td></tr>
+    <tr><td>绝对时间</td><td>明天 9 点提醒出发</td><td>直接盯住 2026-07-21 09:00:00</td><td>删除</td></tr>
+    <tr><td>固定间隔</td><td>每小时按摩</td><td>本次响铃时间 + 3600 秒</td><td>续下一个</td></tr>
+    <tr><td>日历周期</td><td>每工作日 8 点开会</td><td>算出下一个工作日 8 点</td><td>续下一个</td></tr>
+  </tbody>
+</table>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>七、研发实现上常用什么技术？（知道名字就行）</h2>
+
+<p>你不用懂代码，但评审时可以听懂研发说的几个关键词：</p>
+<table>
+  <thead><tr><th style="width:24%">技术名词</th><th style="width:42%">白话解释</th><th>作用</th></tr></thead>
+  <tbody>
+    <tr><td>优先队列 / 最小堆</td><td>一种自动把「最近要响的闹钟」排到最前面的数据结构</td><td>让系统快速找到下一个该响的任务</td></tr>
+    <tr><td>时间轮</td><td>像钟表的刻度盘，把任务按秒/分钟放在对应格子里，指针转到哪格就处理哪格</td><td>适合大量定时任务，性能高</td></tr>
+    <tr><td>调度线程</td><td>一个专门负责「看表、响铃」的后台进程</td><td>持续运行，不依赖用户请求</td></tr>
+    <tr><td>持久化存储</td><td>把闹钟列表存在数据库或缓存里</td><td>服务重启不丢任务</td></tr>
+    <tr><td>分布式锁 / 分片</td><td>多台机器部署时，确保同一个闹钟只被一台机器处理</td><td>防止同一个任务响两次</td></tr>
+  </tbody>
+</table>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>八、评审时你可以这样问研发</h2>
+
+<table>
+  <thead><tr><th style="width:8%">编号</th><th style="width:42%">你可以问的问题</th><th>为什么这么问</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>「我们的定时器用的是优先队列还是时间轮？」</td><td>确认选型能支撑大量任务</td></tr>
+    <tr><td>2</td><td>「同时挂 1000 个闹钟，到点精度能不能保证在 3 秒内？」</td><td>验证性能是否满足 PRD</td></tr>
+    <tr><td>3</td><td>「服务重启后，没响的闹钟能不能恢复？」</td><td>验证持久化</td></tr>
+    <tr><td>4</td><td>「多机部署时，同一个闹钟会不会响两次？」</td><td>验证分布式一致性</td></tr>
+    <tr><td>5</td><td>「循环任务响完一次后，是定时器自己续下一个，还是任务系统通知你续？」</td><td>确认边界归属</td></tr>
+    <tr><td>6</td><td>「任务取消后，你们是把闹钟从队列里删掉，还是标记失效？」</td><td>确认取消生效及时</td></tr>
+  </tbody>
+</table>
+
+<div class="callout c-key">
+  <span class="h">最后再画个重点</span>
+  定时器本身<b>不复杂</b>，核心就是三句话：<br>
+  ① <b>维护一个按时间排序的闹钟队列</b>；<br>
+  ② <b>永远只看最近要响的那个</b>；<br>
+  ③ <b>到了就通知任务系统，其他什么都不管</b>。
+</div>
+
+<div class="foot">云端定时器原理图解 · 给产品 · 2026-07-20 · 王泽民</div>
+
+</div>
+</body>
+</html>

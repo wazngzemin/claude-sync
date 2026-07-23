@@ -1,0 +1,520 @@
+#!/usr/bin/env python3
+"""
+Claude Code Session Panel（会话管理面板）
+启动时预加载所有 session → 内存缓存 → API 秒返回
+启动: python3 session_panel.py → http://localhost:8780
+"""
+
+import json
+import http.server
+import socketserver
+import urllib.parse
+import threading
+import webbrowser
+import sys
+from pathlib import Path
+from datetime import datetime, timezone
+
+CLAUDE_DIR = Path.home() / ".claude"
+PORT = 8780
+
+_cached_sessions = []
+_cache_json = "[]"
+
+
+def _read_head_tail(filepath, head_bytes=16384, tail_bytes=16384):
+    file_size = filepath.stat().st_size
+    if file_size <= head_bytes + tail_bytes:
+        with open(filepath, "r", encoding="utf-8", errors="replace") as f:
+            return f.readlines()
+    with open(filepath, "rb") as f:
+        head_data = f.read(head_bytes).decode("utf-8", errors="replace")
+        f.seek(max(0, file_size - tail_bytes))
+        tail_data = f.read().decode("utf-8", errors="replace")
+    head_lines = head_data.split("\n")
+    if not head_data.endswith("\n"):
+        head_lines = head_lines[:-1]
+    tail_lines = tail_data.split("\n")
+    if not tail_data.startswith("\n"):
+        tail_lines = tail_lines[1:]
+    return head_lines + tail_lines
+
+
+def _extract_text(content):
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        for c in content:
+            if isinstance(c, dict) and c.get("type") == "text":
+                return c.get("text", "")
+    return ""
+
+
+import re
+
+_TAG_RE = re.compile(r"<[^>]+>")
+_IMG_RE = re.compile(r"\[Image[^\]]*\]")
+_PATH_RE = re.compile(r"'/Users/[^']*'")
+_ANSI_RE = re.compile(r"\[[\d;]*m")
+_SKIP_STARTS = (
+    "<system-reminder>", "<command-name>", "<local-command",
+    "Set model to", "Resume cancelled", "Tip:",
+    "article-forker", "deep-research",
+)
+
+def _clean_text(text):
+    if not text:
+        return ""
+    text = text.strip()
+    if text.startswith("<local-command"):
+        idx = text.find("</local-command-caveat>")
+        if idx > 0:
+            text = text[idx + len("</local-command-caveat>"):].strip()
+        else:
+            return ""
+    text = _TAG_RE.sub("", text).strip()
+    text = _ANSI_RE.sub("", text).strip()
+    text = _IMG_RE.sub("", text).strip()
+    text = _PATH_RE.sub("", text).strip()
+    text = re.sub(r"file:///\S+", "", text).strip()
+    text = text.replace("\n", " ").replace("\r", " ")
+    text = re.sub(r"\s+", " ", text).strip()
+    for prefix in _SKIP_STARTS:
+        if text.startswith(prefix):
+            return ""
+    if not text or text.startswith("/"):
+        return ""
+    if re.match(r"^https?://\S+$", text) and not any("一" <= c <= "鿿" for c in text):
+        return ""
+    return text
+
+
+def _parse_ts(ts, fallback):
+    if not ts:
+        return fallback
+    if isinstance(ts, str):
+        return ts
+    if isinstance(ts, (int, float)):
+        return datetime.fromtimestamp(
+            ts / 1000 if ts > 1e12 else ts, tz=timezone.utc
+        ).isoformat()
+    return fallback
+
+
+def _format_size(n):
+    if n < 1024:
+        return f"{n}B"
+    if n < 1048576:
+        return f"{n/1024:.1f}KB"
+    return f"{n/1048576:.1f}MB"
+
+
+def parse_one(filepath, session_id, project_name):
+    ai_title = ""
+    last_prompt = ""
+    first_user_msg = ""
+    first_ts = None
+    last_ts = None
+    user_n = 0
+    asst_n = 0
+    cwd = ""
+    model = ""
+    user_msgs = []
+
+    fsize = filepath.stat().st_size
+    fmtime = datetime.fromtimestamp(filepath.stat().st_mtime, tz=timezone.utc).isoformat()
+
+    for line in _read_head_tail(filepath):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            obj = json.loads(line)
+        except (json.JSONDecodeError, ValueError):
+            continue
+
+        t = obj.get("type", "")
+        if t == "ai-title":
+            ai_title = obj.get("aiTitle", ai_title)
+        elif t == "last-prompt":
+            last_prompt = obj.get("lastPrompt", "")
+        elif t == "user":
+            user_n += 1
+            ts = obj.get("timestamp")
+            if ts:
+                if first_ts is None:
+                    first_ts = ts
+                last_ts = ts
+            if not cwd:
+                cwd = obj.get("cwd", "")
+            raw = _extract_text(obj.get("message", {}).get("content", ""))
+            clean = _clean_text(raw)
+            if clean:
+                user_msgs.append(clean[:200])
+                if not first_user_msg:
+                    first_user_msg = clean[:300]
+        elif t == "assistant":
+            asst_n += 1
+            if not model:
+                model = obj.get("message", {}).get("model", "")
+
+    if user_n == 0 and asst_n == 0:
+        return None
+
+    has_cjk = lambda s: any("一" <= c <= "鿿" for c in s) if s else False
+    clean_lp = _clean_text(last_prompt)
+
+    if first_user_msg:
+        title = first_user_msg[:80]
+    elif clean_lp:
+        title = clean_lp[:80]
+    elif has_cjk(ai_title):
+        title = ai_title
+    elif ai_title:
+        title = ai_title
+    else:
+        title = session_id[:8]
+
+    subtitle = ""
+    if ai_title and has_cjk(ai_title) and ai_title != title:
+        subtitle = ai_title
+
+    return {
+        "session_id": session_id,
+        "title": title,
+        "ai_title": subtitle,
+        "first_user_msg": first_user_msg[:500],
+        "last_prompt": last_prompt[:500],
+        "all_user_messages": user_msgs[:20],
+        "project": project_name,
+        "cwd": cwd,
+        "model": model,
+        "user_turns": user_n,
+        "assistant_turns": asst_n,
+        "created_ts": _parse_ts(first_ts, fmtime),
+        "updated_ts": _parse_ts(last_ts, fmtime),
+        "file_size": fsize,
+        "file_size_human": _format_size(fsize),
+    }
+
+
+def load_all():
+    global _cached_sessions, _cache_json
+    sessions = []
+    projects_dir = CLAUDE_DIR / "projects"
+    if not projects_dir.exists():
+        return
+
+    total = 0
+    for pd in projects_dir.iterdir():
+        if not pd.is_dir():
+            continue
+        pname = pd.name.replace("-Users-bytedance-", "").replace("-", "/")
+        jsonls = sorted(pd.glob("*.jsonl"), key=lambda f: f.stat().st_mtime, reverse=True)
+        total += len(jsonls)
+        for jf in jsonls:
+            sid = jf.stem
+            try:
+                info = parse_one(jf, sid, pname)
+                if info:
+                    sessions.append(info)
+            except Exception:
+                pass
+
+    sessions.sort(key=lambda s: s["updated_ts"], reverse=True)
+    _cached_sessions = sessions
+    _cache_json = json.dumps(sessions, ensure_ascii=False)
+    print(f"  已加载 {len(sessions)}/{total} 个会话")
+
+
+HTML_PAGE = r"""<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Code 会话管理</title>
+<style>
+:root{--bg:#0d1117;--sf:#161b22;--sfh:#1c2333;--bd:#30363d;--tx:#e6edf3;--t2:#8b949e;--td:#484f58;--ac:#58a6ff;--ab:rgba(88,166,255,.08);--gn:#3fb950;--or:#d29922;--pp:#bc8cff;--rd:8px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;background:var(--bg);color:var(--tx);line-height:1.5}
+.hd{padding:16px 20px;border-bottom:1px solid var(--bd);background:var(--sf);position:sticky;top:0;z-index:100}
+.hd-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.hd h1{font-size:18px;font-weight:600;display:flex;align-items:center;gap:8px}
+.hd h1 .ic{width:26px;height:26px;background:linear-gradient(135deg,var(--ac),var(--pp));border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff;font-weight:700}
+.stats{display:flex;gap:14px;font-size:12px;color:var(--t2)}
+.stats .n{color:var(--ac);font-weight:600}
+.sr{display:flex;gap:8px}
+.sb{flex:1;position:relative}
+.sb input{width:100%;padding:9px 12px 9px 34px;background:var(--bg);border:1px solid var(--bd);border-radius:var(--rd);color:var(--tx);font-size:13px;outline:none;transition:border .2s}
+.sb input:focus{border-color:var(--ac)}
+.sb input::placeholder{color:var(--td)}
+.sb .si{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--td);font-size:13px}
+.btn{padding:0 14px;height:36px;background:var(--bg);border:1px solid var(--bd);border-radius:var(--rd);color:var(--t2);font-size:12px;cursor:pointer;display:flex;align-items:center;gap:5px;transition:all .15s;white-space:nowrap}
+.btn:hover{border-color:var(--ac);color:var(--tx)}
+.btn.on{background:var(--ab);border-color:var(--ac);color:var(--ac)}
+.btn.pri{background:var(--ac);border-color:var(--ac);color:#fff}
+.btn.pri:hover{opacity:.85}
+.fp{display:none;margin-top:10px;padding:10px 14px;background:var(--bg);border:1px solid var(--bd);border-radius:var(--rd)}
+.fp.show{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.fp label{font-size:11px;color:var(--t2);margin-right:2px}
+.fp select{padding:3px 6px;background:var(--sf);border:1px solid var(--bd);border-radius:4px;color:var(--tx);font-size:12px}
+.ct{padding:12px 20px}
+.sl{display:flex;flex-direction:column;gap:1px}
+.sc{display:grid;grid-template-columns:1fr auto;gap:10px;padding:12px 14px;background:var(--sf);border:1px solid transparent;border-radius:var(--rd);cursor:pointer;transition:all .12s}
+.sc:hover{background:var(--sfh);border-color:var(--bd)}
+.sc.ex{border-color:var(--ac);background:var(--sfh)}
+.sm{min-width:0}
+.st{font-size:13px;font-weight:500;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sub{font-size:11px;color:var(--td);margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-style:italic}
+.smeta{display:flex;gap:10px;flex-wrap:wrap;font-size:11px;color:var(--t2)}
+.smeta .tg{display:inline-flex;align-items:center;gap:2px;padding:1px 5px;border-radius:3px;background:rgba(255,255,255,.04)}
+.sa{display:flex;align-items:center;gap:5px;flex-shrink:0}
+.ab{padding:5px 10px;border-radius:5px;border:1px solid var(--bd);background:transparent;color:var(--t2);font-size:11px;cursor:pointer;transition:all .12s;white-space:nowrap}
+.ab:hover{border-color:var(--ac);color:var(--ac)}
+.ab.p{background:var(--ac);border-color:var(--ac);color:#fff}
+.ab.p:hover{opacity:.85}
+.sd{display:none;grid-column:1/-1;margin-top:10px;padding:14px;background:var(--bg);border-radius:6px;border:1px solid var(--bd)}
+.sc.ex .sd{display:block}
+.dl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--td);margin-bottom:4px}
+.dv{font-size:12px;color:var(--t2);word-break:break-all;line-height:1.6}
+.dv.id{font-family:"SF Mono","Fira Code",monospace;color:var(--ac);user-select:all;font-size:11px}
+.ds{margin-bottom:10px}
+.ml{display:flex;flex-direction:column;gap:3px}
+.mi{padding:4px 8px;background:var(--sf);border-radius:3px;font-size:11px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(60px);padding:8px 18px;background:var(--gn);color:#fff;border-radius:var(--rd);font-size:12px;font-weight:500;opacity:0;transition:all .3s;z-index:200;pointer-events:none}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.hl{background:rgba(88,166,255,.2);border-radius:2px;padding:0 1px}
+.empty{text-align:center;padding:50px 20px;color:var(--td)}
+.loading{text-align:center;padding:80px 20px;color:var(--t2);font-size:14px}
+@media(max-width:768px){.hd{padding:12px}.ct{padding:10px}.sc{grid-template-columns:1fr}.sa{justify-content:flex-end}.stats{display:none}}
+</style>
+</head>
+<body>
+<div class="hd">
+ <div class="hd-top">
+  <h1><span class="ic">C</span> Claude Code 会话管理</h1>
+  <div class="stats">
+   <span>共 <span class="n" id="tc">-</span> 个</span>
+   <span>显示 <span class="n" id="sc2">-</span> 个</span>
+  </div>
+ </div>
+ <div class="sr">
+  <div class="sb">
+   <span class="si">&#x1F50D;</span>
+   <input id="si" type="text" placeholder="搜索标题、消息内容、Session ID..." autofocus />
+  </div>
+  <button class="btn" id="fb" onclick="toggleF()">&#9881; 筛选</button>
+  <button class="btn" id="sb2" onclick="toggleS()">&#8645; 按更新时间</button>
+  <button class="btn pri" onclick="reload()">&#8635; 刷新</button>
+ </div>
+ <div class="fp" id="fp">
+  <label>项目:</label>
+  <select id="pf" onchange="run()"><option value="">全部</option></select>
+  <label>大小:</label>
+  <select id="sf" onchange="run()">
+   <option value="">全部</option>
+   <option value="l">&gt;1MB</option>
+   <option value="m">100KB-1MB</option>
+   <option value="s">&lt;100KB</option>
+  </select>
+  <label>时间:</label>
+  <select id="tf" onchange="run()">
+   <option value="">全部</option>
+   <option value="1h">1小时内</option>
+   <option value="today">今天</option>
+   <option value="3d">3天内</option>
+   <option value="7d">7天内</option>
+  </select>
+ </div>
+</div>
+<div class="ct">
+ <div class="sl" id="sl"><div class="loading">加载中...</div></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+let D=[],SM='updated';
+const $=id=>document.getElementById(id);
+
+function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1800)}
+
+async function load(){
+ $('sl').innerHTML='<div class="loading">加载中...</div>';
+ try{
+  const r=await fetch('/api/sessions');
+  D=await r.json();
+  $('tc').textContent=D.length;
+  fillProj();
+  run();
+ }catch(e){
+  $('sl').innerHTML='<div class="empty">加载失败: '+e.message+'</div>';
+ }
+}
+
+function reload(){
+ $('sl').innerHTML='<div class="loading">重新扫描中...</div>';
+ fetch('/api/refresh').then(()=>load());
+}
+
+function fillProj(){
+ const ps=[...new Set(D.map(s=>s.project))];
+ $('pf').innerHTML='<option value="">全部</option>'+ps.map(p=>'<option>'+esc(p)+'</option>').join('');
+}
+
+function run(){
+ const q=$('si').value.trim().toLowerCase();
+ const pj=$('pf').value,sz=$('sf').value,tm=$('tf').value;
+ let f=D;
+ if(q)f=f.filter(s=>{
+  const hay=[s.title,s.ai_title||'',s.session_id,s.first_user_msg,s.last_prompt,s.project,s.cwd,s.model,...(s.all_user_messages||[])].join(' ').toLowerCase();
+  return q.split(/\s+/).every(w=>hay.includes(w));
+ });
+ if(pj)f=f.filter(s=>s.project===pj);
+ if(sz)f=f.filter(s=>{
+  if(sz==='l')return s.file_size>1048576;
+  if(sz==='m')return s.file_size>=102400&&s.file_size<=1048576;
+  return s.file_size<102400;
+ });
+ if(tm){
+  const now=Date.now(),cuts={
+   '1h':3600000,'today':now-new Date().setHours(0,0,0,0),'3d':259200000,'7d':604800000
+  },c=cuts[tm]||0;
+  f=f.filter(s=>(now-new Date(s.updated_ts).getTime())<c);
+ }
+ f.sort((a,b)=>{
+  if(SM==='updated')return new Date(b.updated_ts)-new Date(a.updated_ts);
+  if(SM==='created')return new Date(b.created_ts)-new Date(a.created_ts);
+  if(SM==='size')return b.file_size-a.file_size;
+  return(b.user_turns+b.assistant_turns)-(a.user_turns+a.assistant_turns);
+ });
+ $('sc2').textContent=f.length;
+ render(f,q);
+}
+
+function hl(t,q){
+ if(!q||!t)return esc(t||'');
+ let r=esc(t);
+ q.toLowerCase().split(/\s+/).filter(Boolean).forEach(w=>{
+  const re=new RegExp('('+w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi');
+  r=r.replace(re,'<span class="hl">$1</span>');
+ });
+ return r;
+}
+
+function esc(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML}
+
+function rt(iso){
+ if(!iso)return '—';
+ const d=Date.now()-new Date(iso).getTime(),m=Math.floor(d/60000);
+ if(m<1)return '刚刚';if(m<60)return m+'分钟前';
+ const h=Math.floor(m/60);if(h<24)return h+'小时前';
+ const dy=Math.floor(h/24);if(dy<30)return dy+'天前';
+ return new Date(iso).toLocaleDateString('zh-CN');
+}
+
+function render(ss,q){
+ const el=$('sl');
+ if(!ss.length){el.innerHTML='<div class="empty">没有匹配的会话</div>';return}
+ el.innerHTML=ss.map((s,i)=>`
+  <div class="sc" id="c${i}" onclick="tog(${i})">
+   <div class="sm">
+    <div class="st">${hl(s.title,q)}</div>
+    ${s.ai_title&&s.first_user_msg?'<div class="sub">'+esc(s.ai_title)+'</div>':''}
+    <div class="smeta">
+     <span class="tg">${rt(s.updated_ts)}</span>
+     <span class="tg">${esc(s.file_size_human)}</span>
+     <span class="tg">${s.user_turns+s.assistant_turns}轮</span>
+     <span class="tg">${esc(s.project)}</span>
+     ${s.model?'<span class="tg">'+esc(s.model.split('/').pop().split(':')[0])+'</span>':''}
+    </div>
+   </div>
+   <div class="sa">
+    <button class="ab" onclick="event.stopPropagation();cid('${s.session_id}')">复制ID</button>
+    <button class="ab p" onclick="event.stopPropagation();crs('${s.session_id}')">恢复会话</button>
+   </div>
+   <div class="sd">
+    <div class="ds"><div class="dl">SESSION ID</div><div class="dv id">${s.session_id}</div></div>
+    ${s.cwd?`<div class="ds"><div class="dl">工作目录</div><div class="dv">${esc(s.cwd)}</div></div>`:''}
+    <div class="ds"><div class="dl">创建时间</div><div class="dv">${s.created_ts?new Date(s.created_ts).toLocaleString('zh-CN'):'—'}</div></div>
+    <div class="ds"><div class="dl">最近更新</div><div class="dv">${s.updated_ts?new Date(s.updated_ts).toLocaleString('zh-CN'):'—'}</div></div>
+    ${s.first_user_msg?`<div class="ds"><div class="dl">首条消息</div><div class="dv">${hl(s.first_user_msg,q)}</div></div>`:''}
+    ${s.last_prompt?`<div class="ds"><div class="dl">最后一条消息</div><div class="dv">${hl(s.last_prompt,q)}</div></div>`:''}
+    ${s.all_user_messages&&s.all_user_messages.length>1?`
+     <div class="ds"><div class="dl">用户消息（前${s.all_user_messages.length}条）</div>
+      <div class="ml">${s.all_user_messages.map(m=>`<div class="mi">${hl(m,q)}</div>`).join('')}</div>
+     </div>`:''}
+    <div class="ds" style="margin-top:10px">
+     <button class="ab p" onclick="event.stopPropagation();crs('${s.session_id}')">复制恢复命令</button>
+     <button class="ab" onclick="event.stopPropagation();cid('${s.session_id}')" style="margin-left:4px">复制会话ID</button>
+    </div>
+   </div>
+  </div>`).join('');
+}
+
+function tog(i){$('c'+i).classList.toggle('ex')}
+function crs(id){navigator.clipboard.writeText('claude --resume '+id).then(()=>toast('已复制: claude --resume '+id))}
+function cid(id){navigator.clipboard.writeText(id).then(()=>toast('已复制 Session ID'))}
+function toggleF(){$('fp').classList.toggle('show');$('fb').classList.toggle('on')}
+function toggleS(){
+ const ms=['updated','created','size','turns'],lb={updated:'按更新时间',created:'按创建时间',size:'按文件大小',turns:'按对话轮数'};
+ SM=ms[(ms.indexOf(SM)+1)%ms.length];
+ $('sb2').innerHTML='&#8645; '+lb[SM];run();
+}
+
+document.addEventListener('keydown',e=>{
+ if(e.key==='/'&&document.activeElement.tagName!=='INPUT'){e.preventDefault();$('si').focus()}
+ if(e.key==='Escape'){$('si').value='';run();$('si').blur()}
+});
+$('si').addEventListener('input',run);
+load();
+</script>
+</body>
+</html>"""
+
+
+class Handler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        p = urllib.parse.urlparse(self.path).path
+        if p == "/api/sessions":
+            self._json(_cache_json)
+        elif p == "/api/refresh":
+            load_all()
+            self._json('{"ok":true}')
+        elif p in ("/", "/index.html"):
+            self._html(HTML_PAGE)
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+    def _json(self, data):
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(data.encode("utf-8") if isinstance(data, str) else data)
+
+    def _html(self, data):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.end_headers()
+        self.wfile.write(data.encode("utf-8"))
+
+    def log_message(self, fmt, *args):
+        pass
+
+
+def main():
+    print("正在扫描 session 文件...")
+    load_all()
+    print(f"启动服务: http://localhost:{PORT}")
+    with socketserver.TCPServer(("", PORT), Handler) as httpd:
+        httpd.allow_reuse_address = True
+        threading.Timer(0.3, lambda: webbrowser.open(f"http://localhost:{PORT}")).start()
+        try:
+            httpd.serve_forever()
+        except KeyboardInterrupt:
+            print("\n已停止")
+
+
+if __name__ == "__main__":
+    main()

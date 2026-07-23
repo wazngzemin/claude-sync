@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>讲给车控：导航POI靠近触发 · 地理围栏需求</title>
+<style>
+:root{
+  --bg:#0e1117; --sf:#161b26; --sf2:#1c2333; --bd:#2a3348;
+  --tx:#e8ecf3; --t2:#9aa5b8; --td:#5a6577;
+  --ac:#5b9dff; --gn:#3fb950; --or:#d29922; --pp:#bc8cff; --rd:#f85149;
+  --mono:"SF Mono",Menlo,Consolas,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--tx);line-height:1.75;font-size:15px}
+.wrap{max-width:920px;margin:0 auto;padding:32px 24px 120px}
+
+/* 顶部 */
+.hero{border:1px solid var(--bd);background:linear-gradient(135deg,#1a2233,#141a26);border-radius:14px;padding:26px 30px;margin-bottom:8px}
+.hero .kicker{font-size:12px;letter-spacing:2px;color:var(--or);font-weight:600;text-transform:uppercase}
+.hero h1{font-size:26px;margin:6px 0 10px}
+.hero .meta{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--t2)}
+.hero .meta span{padding:2px 10px;background:var(--sf2);border:1px solid var(--bd);border-radius:20px}
+.hero .obj{margin-top:14px;padding:12px 16px;background:rgba(91,157,255,.07);border-left:3px solid var(--ac);border-radius:0 8px 8px 0;font-size:14px;color:var(--t2)}
+.hero .obj b{color:var(--ac)}
+
+/* 目录 */
+.toc{margin:18px 0 30px;padding:16px 22px;background:var(--sf);border:1px solid var(--bd);border-radius:12px}
+.toc .t{font-size:11px;color:var(--td);letter-spacing:1px;margin-bottom:8px}
+.toc ol{margin-left:20px;font-size:13.5px;color:var(--t2);columns:2;column-gap:40px}
+.toc li{margin:3px 0}
+.toc a{color:var(--t2);text-decoration:none}
+.toc a:hover{color:var(--ac)}
+
+/* 章节 */
+section{margin-top:38px}
+.sec-head{display:flex;align-items:baseline;gap:12px;border-bottom:2px solid var(--bd);padding-bottom:8px;margin-bottom:18px}
+.sec-head .num{font-family:var(--mono);font-size:13px;color:var(--or);font-weight:700}
+.sec-head h2{font-size:20px}
+.sec-head .dur{margin-left:auto;font-size:12px;color:var(--td);font-family:var(--mono)}
+
+h3{font-size:16px;margin:22px 0 10px;color:var(--tx);display:flex;align-items:center;gap:8px}
+h3::before{content:"";width:4px;height:16px;background:var(--ac);border-radius:2px}
+h4{font-size:14.5px;margin:16px 0 6px;color:var(--pp)}
+
+/* 讲稿台词框 */
+.say{position:relative;margin:14px 0;padding:16px 20px 16px 48px;background:var(--sf);border:1px solid var(--bd);border-radius:12px;font-size:15px}
+.say::before{content:"讲";position:absolute;left:14px;top:16px;width:24px;height:24px;background:var(--ac);color:#fff;font-size:12px;font-weight:700;border-radius:6px;display:flex;align-items:center;justify-content:center}
+.say .lead{color:var(--ac);font-weight:600}
+.say p{margin:6px 0}
+.say em{color:var(--or);font-style:normal;font-weight:600}
+
+/* 提示小框 */
+.tip{margin:12px 0;padding:11px 16px;border-radius:10px;font-size:13.5px;border:1px solid var(--bd);background:var(--sf2)}
+.tip.b{border-left:3px solid var(--ac)}
+.tip.g{border-left:3px solid var(--gn)}
+.tip.o{border-left:3px solid var(--or)}
+.tip .lab{font-weight:700;margin-right:8px}
+.tip.b .lab{color:var(--ac)} .tip.g .lab{color:var(--gn)} .tip.o .lab{color:var(--or)}
+
+/* 表格 */
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px;background:var(--sf);border-radius:10px;overflow:hidden;border:1px solid var(--bd)}
+th{background:var(--sf2);color:var(--tx);text-align:left;padding:9px 12px;font-weight:600;border-bottom:1px solid var(--bd);white-space:nowrap}
+td{padding:9px 12px;border-bottom:1px solid var(--bd);vertical-align:top;color:var(--t2)}
+tr:last-child td{border-bottom:none}
+td b{color:var(--tx)}
+td .mono{font-family:var(--mono);color:var(--ac);font-size:12.5px}
+
+/* 代码块 */
+pre{margin:12px 0;padding:14px 18px;background:#0a0d14;border:1px solid var(--bd);border-radius:10px;overflow-x:auto;font-family:var(--mono);font-size:12.5px;line-height:1.6;color:#c8d3e0}
+pre .c{color:var(--td)}
+pre .k{color:var(--pp)}
+pre .s{color:var(--gn)}
+pre .n{color:var(--or)}
+
+/* 状态机流程 */
+.flow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:14px 0;font-size:13px}
+.flow .st{padding:6px 14px;border-radius:8px;border:1px solid var(--bd);background:var(--sf2);font-weight:600}
+.flow .st.s0{color:var(--t2)} .flow .st.s1{color:var(--ac)} .flow .st.s2{color:var(--gn)} .flow .st.s3{color:var(--pp)}
+.flow .arr{color:var(--td);font-family:var(--mono)}
+.flow .evt{font-family:var(--mono);font-size:11.5px;color:var(--or);padding:2px 8px;border:1px dashed var(--or);border-radius:20px}
+
+/* 模块卡 */
+.mods{display:grid;grid-template-columns:repeat(auto-fit,minmax(255px,1fr));gap:12px;margin:14px 0}
+.mod{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:14px 16px}
+.mod .no{font-family:var(--mono);font-size:20px;color:var(--or);font-weight:800}
+.mod .nm{font-size:15px;font-weight:700;margin:2px 0 6px}
+.mod .ds{font-size:13px;color:var(--t2)}
+
+/* 时间线 */
+.tl{position:relative;margin:16px 0;padding-left:26px;border-left:2px solid var(--bd)}
+.tl .ev{position:relative;padding:7px 0 7px 8px;font-size:13.5px;color:var(--t2)}
+.tl .ev::before{content:"";position:absolute;left:-26px;top:14px;width:10px;height:10px;border-radius:50%;background:var(--sf2);border:2px solid var(--td)}
+.tl .ev .t{font-family:var(--mono);color:var(--td);font-size:12px;margin-right:10px}
+.tl .ev.hit{color:var(--tx);font-weight:600}
+.tl .ev.hit::before{background:var(--or);border-color:var(--or)}
+.tl .ev.gap{color:var(--td);font-style:italic}
+
+/* Q&A */
+.qa{margin:10px 0;border:1px solid var(--bd);border-radius:10px;overflow:hidden}
+.qa .q{padding:10px 16px;background:var(--sf2);font-weight:600;font-size:13.5px}
+.qa .q .who{color:var(--pp);font-weight:700;margin-right:6px}
+.qa .a{padding:10px 16px;font-size:13.5px;color:var(--t2);border-top:1px solid var(--bd)}
+.qa .a b{color:var(--gn)}
+
+/* 清单 */
+ul.chk{list-style:none;margin:10px 0}
+ul.chk li{padding:6px 0 6px 28px;position:relative;font-size:14px;color:var(--t2)}
+ul.chk li::before{content:"□";position:absolute;left:6px;color:var(--or);font-weight:700}
+ul.chk li b{color:var(--tx)}
+
+.hl{background:rgba(210,153,34,.18);color:var(--or);padding:0 4px;border-radius:3px}
+.smb{color:var(--ac)} .smg{color:var(--gn)} .smo{color:var(--or)} .smp{color:var(--pp)}
+
+footer{margin-top:60px;padding-top:20px;border-top:1px solid var(--bd);font-size:12px;color:var(--td);text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="hero">
+  <div class="kicker">需求讲解稿 · 面向车控 / 端侧团队</div>
+  <h1>导航 POI 靠近触发 · 地理围栏需求</h1>
+  <div class="meta">
+    <span>讲者：王泽民（触发器产品）</span>
+    <span>对象：车控 / 端侧 / 地图 SDK</span>
+    <span>日期：2026-07-20</span>
+    <span>时长：约 25 分钟 + 答疑</span>
+  </div>
+  <div class="obj">
+    <b>今天讲完要带走的结果：</b>① 车控明确端侧要建的围栏模块的五个部分；② 地图 SDK 距离查询接口的三个问题有答复；③ 端云两条通道（下发/上报）走哪条链路拍板；④ 工作量与排期有初步口径。
+  </div>
+</div>
+
+<div class="toc">
+  <div class="t">讲解顺序</div>
+  <ol>
+    <li><a href="#s1">开场：今天要对什么</a></li>
+    <li><a href="#s2">需求是什么（缺口）</a></li>
+    <li><a href="#s3">为什么围栏要建在端侧</a></li>
+    <li><a href="#s4">围栏具体做成什么样（核心）</a></li>
+    <li><a href="#s5">一次完整的触发走一遍</a></li>
+    <li><a href="#s6">生命周期与边界情况</a></li>
+    <li><a href="#s7">要车控确认和评估的事</a></li>
+    <li><a href="#s8">收尾</a></li>
+  </ol>
+</div>
+
+<!-- ============ 1 ============ -->
+<section id="s1">
+  <div class="sec-head"><span class="num">01</span><h2>开场：今天要对什么</h2><span class="dur">1 min</span></div>
+  <div class="say">
+    <p>"今天讲一个需求：<em>导航 POI 靠近触发</em>。一句话——用户在车里说'快到某个地方提醒我干点啥'，系统得能盯着、到了提醒。这里面要在端侧建一套<em>地理围栏</em>，这就是今天主要跟车控对的事。</p>
+    <p>"我按四块讲：需求是什么、为什么围栏放你们端侧、围栏具体做成什么样、最后要你们确认和评估什么。讲完大概 25 分钟，中间随时可以打断。"</p>
+  </div>
+  <div class="tip b"><span class="lab">提醒</span>开场别铺背景，30 秒内把"要你们建围栏"这句话扔出去。技术团队先知道今天要谈的是什么，后面才听得进去。</div>
+</section>
+
+<!-- ============ 2 ============ -->
+<section id="s2">
+  <div class="sec-head"><span class="num">02</span><h2>需求是什么（缺口）</h2><span class="dur">3 min</span></div>
+  <div class="say">
+    <p>"现在触发器支持不了'快到目的地''路过某地'这一类。举几个真实用户会讲的话：</p>
+    <p>——'快到外婆家提醒我给她打个电话'。<br>——'快到公司提醒我找个充电桩'。<br>——'路过徐浦大桥提醒我待会右转'。</p>
+    <p>"这种话现在的状态是：<em>没法注册、没法监测、没法触发</em>，整个链路是断的。这期要补的就是'接近 / 到达 / 离开'这套判断。"</p>
+  </div>
+
+  <h3>两类场景要分开说清楚</h3>
+  <table>
+    <tr><th></th><th>A 类 · 导航目的地 / 途经点</th><th>B 类 · 任意 POI（随口说的地点）</th></tr>
+    <tr><td><b>POI 和导航的关系</b></td><td>就是当前导航的目标</td><td>不在导航路线上（"外婆家"可能压根不在路线上）</td></tr>
+    <tr><td><b>距离谁在算</b></td><td>导航引擎已经在实时算剩余距离</td><td>导航没在算，没人知道车离它多远</td></tr>
+    <tr><td><b>例子</b></td><td>"离目的地还有 1 公里提醒我拿咖啡"</td><td>"快到外婆家提醒我打电话"</td></tr>
+    <tr><td><b>端侧要补什么</b></td><td>只差一个"过程判断"（状态机）</td><td>坐标解析 + 围栏 + 状态机，一整套</td></tr>
+  </table>
+
+  <div class="say">
+    <p>"这两类我用同一套围栏机制兜。A 类简单，导航已经把剩余距离算出来了，我在上面加一个过程判断就行。B 类是真正缺的——导航不管这个点，那就得给它<em>画一个圈</em>，端侧盯着车进没进这个圈。这个圈就是地理围栏。</p>
+    <p>"另外一个难点我要专门点出来：'接近'<em>不是</em>'距离小于 500 米'这么一句。它是个过程判断——得记住上一次的状态，得知道车在变近还是变远，触发过一次就不能再触发。这个就是后面讲的状态机加只触发一次的锁。"</p>
+  </div>
+</section>
+
+<!-- ============ 3 ============ -->
+<section id="s3">
+  <div class="sec-head"><span class="num">03</span><h2>为什么围栏要建在端侧（不是云端）</h2><span class="dur">2 min</span></div>
+  <div class="say">
+    <p>"先堵一条弯路——为什么这个判断不放云端做。云端做就意味着端侧把车的 GPS 坐标不停往上传，云端来算距离、判进出。这条路两个死结：</p>
+    <p>"第一，<em>坐标出车</em>。车的实时位置是敏感信息，要出车就得过数据安全合规审批，流程长、还不一定过得了。</p>
+    <p>"第二，<em>频率</em>。围栏要实时，就得每秒往云上传一次坐标。这要专门建一条高频上报链路，云端还得扛这个量。难度和成本都不值。</p>
+    <p>"所以围栏判断<em>只能放端侧</em>：实时位置本来就在你们车上，就地判断最省，坐标也不用出车。云端只在'真的到了'那一下收一个事件。这就是我找车控做这件事的原因——不是把活推给你们，是这活只能在你们身上。"</p>
+  </div>
+  <div class="tip g"><span class="lab">预期反应</span>这条是说服车控接活的正当性，讲清楚"坐标不出车、只报一次事件"，他们最容易接受的点就是数据不用离开车。</div>
+</section>
+
+<!-- ============ 4 ============ -->
+<section id="s4">
+  <div class="sec-head"><span class="num">04</span><h2>围栏具体做成什么样（核心）</h2><span class="dur">10 min</span></div>
+
+  <div class="say">
+    <p>"这是今天的重点。端侧要建一个围栏模块，拆成五块。我一块块讲它干什么。</p>
+  </div>
+
+  <div class="mods">
+    <div class="mod"><div class="no">1</div><div class="nm">指令接收器</div><div class="ds">收云端推下来的围栏定义（一段 JSON），解析出来。JSON 里带任务 id、圆心坐标、半径、策略。</div></div>
+    <div class="mod"><div class="no">2</div><div class="nm">围栏存储</div><div class="ds">把围栏存在本地、持久化，车机重启不能丢。存坐标、半径、围栏 id、当前状态。</div></div>
+    <div class="mod"><div class="no">3</div><div class="nm">距离轮询器</div><div class="ds">一个定时器，每秒（或降频）去问一次"车离这个点多远"——调地图 SDK 的距离查询，或读导航引擎的剩余距离字段。</div></div>
+    <div class="mod"><div class="no">4</div><div class="nm">围栏状态机</div><div class="ds">核心。维护"远 → 已接近 → 已到达 → 已离开"，带只触发一次的锁。判断进出、防抖动。</div></div>
+    <div class="mod"><div class="no">5</div><div class="nm">事件上报器</div><div class="ds">进出圈那一下，把事件报给云端。失败要重试。上报量极小，一个围栏一辈子就报一两次。</div></div>
+  </div>
+
+  <h3>① 云端推给端侧的围栏定义（下行）</h3>
+  <pre>{
+  <span class="k">"cmd"</span>: <span class="s">"create_fence"</span>,
+  <span class="k">"task_id"</span>: <span class="s">"t_20260720_001"</span>,
+  <span class="k">"fence_id"</span>: <span class="s">"f_001"</span>,
+  <span class="k">"center"</span>: [<span class="n">121.4737</span>, <span class="n">31.2304</span>],   <span class="c">// 圆心经纬度（十进制度）</span>
+  <span class="k">"radius"</span>: <span class="n">500</span>,                          <span class="c">// 半径，单位米，纯数字</span>
+  <span class="k">"poi_id"</span>: <span class="s">"B001234"</span>,
+  <span class="k">"poi_name"</span>: <span class="s">"外婆家(徐汇店)"</span>,
+  <span class="k">"policy"</span>: <span class="s">"one_shot"</span>                     <span class="c">// 只触发一次</span>
+}</pre>
+  <div class="tip o"><span class="lab">格式要求</span>半径用<b>米、纯数字</b>，不要 "500m" 这种带单位的字符串（剥单位是个老坑）。经纬度用十进制度、6 位小数。</div>
+
+  <h3>② 端侧报回云端的事件（上行）</h3>
+  <pre>{
+  <span class="k">"event_type"</span>: <span class="s">"fence_enter"</span>,   <span class="c">// fence_enter 进入 / fence_arrive 到达 / fence_leave 离开</span>
+  <span class="k">"fence_id"</span>: <span class="s">"f_001"</span>,
+  <span class="k">"task_id"</span>: <span class="s">"t_20260720_001"</span>,
+  <span class="k">"poi_id"</span>: <span class="s">"B001234"</span>,
+  <span class="k">"timestamp"</span>: <span class="s">"2026-07-20T14:58:25Z"</span>
+}</pre>
+
+  <h3>③ 围栏状态机（这是和普通"距离判断"的区别）</h3>
+  <div class="flow">
+    <span class="st s0">远</span><span class="arr">——d≤480m→</span><span class="evt">fence_enter</span>
+    <span class="st s1">已接近</span><span class="arr">——d≤50m 且 P档→</span><span class="evt">fence_arrive</span>
+    <span class="st s2">已到达</span><span class="arr">——d&gt;520m→</span><span class="evt">fence_leave</span>
+    <span class="st s3">已离开</span>
+  </div>
+  <div class="say">
+    <p>"状态机每秒跑一次判定，但注意——<em>绝大多数时候它什么都不干</em>。它干三件事：记住上一次状态、看距离有没有穿越阈值线、穿越了就翻转状态并报一个事件。翻转过一次就锁住，不再重复报。这就是 one_shot，只触发一次。</p>
+    <p>"具体怎么穿越，我拿阈值讲。'接近'不是一根 500 米的线，是<em>两条线加一个死区</em>：小于 480 米才算真的接近，大于 520 米才算离开，中间这 40 米是缓冲区、什么都不做。为什么——因为 GPS 会抖。等红灯的时候距离可能在 498、502 之间来回跳，要是阈值是一根线，就会'到了、没到、到了、没到'反复触发。死区把这个问题挡掉——必须真正穿过 480 才算到。"</p>
+  </div>
+
+  <h3>④ 三个异常处理（车控一定会问，主动先讲）</h3>
+  <table>
+    <tr><th>问题</th><th>场景</th><th>处理</th></tr>
+    <tr><td><b>GPS 抖动</b></td><td>路口等红灯，距离在 498↔502 反复跳</td><td>迟滞：&lt;480 才算接近、&gt;520 才算离开，中间死区不动作</td></tr>
+    <tr><td><b>立体空间</b></td><td>高架旁边直线才 300 米，沿路线要绕 2 公里</td><td>一律用<b>沿路线距离</b>，禁用直线距离</td></tr>
+    <tr><td><b>导航中途取消</b></td><td>导航中状态变"未发起"</td><td>状态机前置检查不过，停止判定</td></tr>
+    <tr><td><b>阈值不一</b></td><td>加油站 2km、咖啡 500m，不同场景阈值不同</td><td>阈值按场景由产品配，给默认值，配置平台支持</td></tr>
+  </table>
+
+  <h3>⑤ 距离从哪来（要地图 SDK 给的）</h3>
+  <div class="say">
+    <p>"轮询器每一跳要拿一次'车到这个点多远'。这个数据从地图 SDK 来——你们有一个'查当前车到某个 POI 的距离'的接口，我传一个 POI 或坐标，你返回距离。导航中、并且这个点在路线上的时候，优先用导航引擎的沿路线剩余距离，更准。</p>
+    <p>"这里有几个接口问题我要跟地图同学确认，放到最后一节一起说。"</p>
+  </div>
+</section>
+
+<!-- ============ 5 ============ -->
+<section id="s5">
+  <div class="sec-head"><span class="num">05</span><h2>一次完整的触发走一遍</h2><span class="dur">4 min</span></div>
+  <div class="say">
+    <p>"我拿'用户从 15 公里外开去外婆家'这条时间线走一遍，大家看状态机在每个时刻干什么。重点看两点：平时零开销，到点不遗漏。</p>
+  </div>
+  <div class="tl">
+    <div class="ev"><span class="t">14:30:10</span>围栏建好，定时器启动。d=15000m，状态=远，什么都不干。</div>
+    <div class="ev"><span class="t">14:30:11</span>d=14980，状态=远，什么都不干。</div>
+    <div class="ev gap">…（中间 29 分钟，每秒查一次，都是"远"，都不干活）…</div>
+    <div class="ev"><span class="t">14:58:20</span>d=530，状态=远，还没到，不干活。</div>
+    <div class="ev"><span class="t">14:58:22</span>d=510，进死区（480~520），不动作。</div>
+    <div class="ev"><span class="t">14:58:25</span>d=485，还在死区，不动作。</div>
+    <div class="ev hit"><span class="t">14:58:26</span>d=479，≤480！穿越 → 状态"远"翻成"已接近"，产出 fence_enter，打 one_shot 锁，上报云端。</div>
+    <div class="ev"><span class="t">14:58:27</span>d=470，状态=已接近，但已锁定，不再触发。</div>
+    <div class="ev gap">…（之后每秒还在看，但已锁定，不会再报第二次）…</div>
+  </div>
+  <div class="say">
+    <p>"看清楚——用户开半小时，定时器跑了一千八百次，前一千七百多次都是'远'、什么都不干，只有最后穿过 480 那一下才真正干活。这个设计就是<em>平时零开销、关键时刻不遗漏</em>。</p>
+    <p>"事件上报到云端之后，后面那条链路——引擎匹配、生成话术、语音播报——<em>完全是现有链路，一行不用改</em>。你们端侧要动的，就只有'距离从哪来'和'谁来判进出'这两块。"</p>
+  </div>
+  <div class="qa">
+    <div class="q"><span class="who">车控可能问</span>d=479 那一下，判定发生在端侧还是云端？</div>
+    <div class="a"><b>全部在端侧。</b>定时器、查距离、状态机判定，这三步都在端侧本地、不经过网络。只有最后"上报事件"才联网，而且整个围栏一生就报一两次，不是每秒都发。</div>
+  </div>
+  <div class="qa">
+    <div class="q"><span class="who">车控可能问</span>距离都是正数，怎么判"离开"？</div>
+    <div class="a"><b>看趋势。</b>先减后增就是先靠近再远离——到了变成 0，离开又涨回 500，涨过 520 就是离开。不过这一期做的是 one_shot，只要"接近"这一个事件，触发一次就完，不需要判离开。离开是后续 repeat（重复提醒）场景才要的。</div>
+  </div>
+</section>
+
+<!-- ============ 6 ============ -->
+<section id="s6">
+  <div class="sec-head"><span class="num">06</span><h2>生命周期与边界情况</h2><span class="dur">2 min</span></div>
+  <table>
+    <tr><th>情况</th><th>端侧怎么处理</th></tr>
+    <tr><td><b>正常触发闭环</b></td><td>播报完，停掉这个围栏的定时器，从本地存储删掉围栏记录；云端同时清规则</td></tr>
+    <tr><td><b>用户中途取消</b></td><td>云端下发 delete_fence，端侧删围栏、停轮询</td></tr>
+    <tr><td><b>车机重启</b></td><td>围栏存在本地持久化里，重启后读一遍本地存储，发现活跃围栏就重启定时器继续盯，不丢用户的提醒</td></tr>
+    <tr><td><b>同时多个提醒</b></td><td>围栏模块维护一个围栏列表，不是单个。定时器每跳遍历列表，每个围栏查一次、判一次。3~5 个完全没问题</td></tr>
+  </table>
+  <div class="tip o"><span class="lab">顺带确认</span>围栏数量特别多（10 个以上）每秒要调多次 SDK，可能有性能压力——这个归到下面"要确认的事"里问数量上限。</div>
+</section>
+
+<!-- ============ 7 ============ -->
+<section id="s7">
+  <div class="sec-head"><span class="num">07</span><h2>要车控确认和评估的事</h2><span class="dur">3 min</span></div>
+  <div class="say">
+    <p>"最后，要你们给我答复的几件事。尤其地图 SDK 那几个，会直接决定我这边能做到什么程度。</p>
+  </div>
+
+  <h4>地图 SDK（距离查询接口）</h4>
+  <ul class="chk">
+    <li>调用<b>频率限制</b>：每秒 1 次 / 5 次 / 更低？给个数字或范围就行</li>
+    <li><b>入参</b>传什么：poi_id？经纬度？要不要带当前车位置？</li>
+    <li><b>返回</b>的是直线距离还是沿路线距离？带不带单位？</li>
+    <li>非导航状态下这个接口<b>能不能用</b></li>
+  </ul>
+
+  <h4>端云两条通道</h4>
+  <ul class="chk">
+    <li>云端推围栏 JSON 给端侧：<b>复用现有端云长连接，还是新建</b>？（数据很轻、一次性，倾向复用）</li>
+    <li>端侧上报事件：<b>能否复用现有信号上报链路</b>？（上报量极小，一围栏 1~2 次）</li>
+  </ul>
+
+  <h4>端侧围栏模块</h4>
+  <ul class="chk">
+    <li>五个模块的<b>整体工作量和排期</b></li>
+    <li>距离轮询器：现有导航 SDK <b>有没有暴露"剩余距离"字段</b>？读取接口长什么样？</li>
+    <li>同时生效的围栏<b>数量上限</b>？</li>
+    <li>定位<b>精度</b>、从进圈到上报的<b>延迟</b>大概多少？（决定能不能用在高速场景）</li>
+    <li>圈是不是只能<b>正圆</b>？以后要不要支持不规则形状？接口上要不要先留口子？</li>
+  </ul>
+</section>
+
+<!-- ============ 8 ============ -->
+<section id="s8">
+  <div class="sec-head"><span class="num">08</span><h2>收尾（30 秒）</h2><span class="dur">0.5 min</span></div>
+  <div class="say">
+    <p>"总结一下。要补'到某个地方就触发'，导航已经在算的那种加个过程判断就行；导航不管的任意地点，就得在端侧建一套地理围栏——云端推定义下来，你们端侧存着、每秒查距离、状态机判进出、到了报一个事件。坐标不出车，后面播报链路全复用。</p>
+    <p>"要你们回去评估的是端侧那五个模块的工作量，还有地图 SDK 距离接口那几个问题。我们对个排期。有做不了或者更省的做法，现在提。"</p>
+  </div>
+  <div class="tip g"><span class="lab">收尾心法</span>说完"现在提"就停住，别再自己往下补。让车控先开口——他们当场蹦出来的"这个 SDK 不支持""这块排期紧"，才是你今天真正要谈成的东西。</div>
+</section>
+
+<footer>
+  导航 POI 靠近触发 · 讲给车控的地理围栏需求 · 2026-07-20 · 同源方案见《高德围栏下架-自建围栏方案-讲解稿-v2》
+</footer>
+
+</div>
+</body>
+</html>

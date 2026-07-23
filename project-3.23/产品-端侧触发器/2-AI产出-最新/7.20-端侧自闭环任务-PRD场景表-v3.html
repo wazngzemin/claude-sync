@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>端侧自闭环任务 PRD 场景表 v3</title>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({ startOnLoad: true, theme: 'default' });
+  </script>
+  <style>
+    :root {
+      --primary: #1f4e78;
+      --primary-light: #ddebf7;
+      --ok: #e2efda;
+      --warn: #fff2cc;
+      --gap: #fce4d6;
+      --border: #d0d7de;
+      --text: #24292f;
+      --text-muted: #57606a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      line-height: 1.7;
+      color: var(--text);
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 40px 24px;
+      background: #f6f8fa;
+    }
+    h1 { font-size: 28px; border-bottom: 3px solid var(--primary); padding-bottom: 12px; margin-bottom: 8px; }
+    .meta { color: var(--text-muted); font-size: 14px; margin-bottom: 32px; }
+    h2 { font-size: 22px; margin-top: 48px; margin-bottom: 20px; padding-left: 12px; border-left: 5px solid var(--primary); }
+    h3 { font-size: 18px; margin-top: 36px; margin-bottom: 16px; color: var(--primary); }
+    .scene-card {
+      background: #fff; border: 1px solid var(--border); border-radius: 10px;
+      padding: 24px; margin-bottom: 32px; box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0; background: #fff; font-size: 14px; }
+    th, td { border: 1px solid var(--border); padding: 10px 12px; text-align: left; vertical-align: top; }
+    th { background: var(--primary-light); color: var(--primary); font-weight: 600; }
+    th.k { width: 160px; }
+    .section-title {
+      background: var(--primary); color: #fff; font-weight: 600;
+      padding: 8px 12px; margin: 20px 0 0 0; border-radius: 6px 6px 0 0;
+    }
+    .section-title + table { margin-top: 0; }
+    .mermaid { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin: 20px 0; overflow-x: auto; }
+    .tag { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+    .tag-ok { background: var(--ok); color: #1a7f37; }
+    .tag-warn { background: var(--warn); color: #9a6700; }
+    .tag-gap { background: var(--gap); color: #cf222e; }
+    .note { background: #fff8c5; border-left: 4px solid #d4a72c; padding: 12px 16px; margin: 16px 0; border-radius: 0 6px 6px 0; font-size: 14px; }
+    .highlight-red { background: var(--gap); padding: 12px 16px; border-left: 4px solid #cf222e; border-radius: 0 6px 6px 0; font-size: 14px; margin: 16px 0; }
+    td.ok { background: var(--ok); }
+    td.warn { background: var(--warn); }
+    td.gap { background: var(--gap); }
+  </style>
+</head>
+<body>
+
+<h1>端侧自闭环任务 PRD 场景表 v3</h1>
+<p class="meta">
+  文档范围：天气路况保护 + 后视镜加热类端侧自闭环任务<br>
+  需求来源：预设条件表.xlsx ｜ 信号核对来源：火山_信号中枢全功能清单.xlsx（状态查询112条 / 触发事件31条 / 条件29条）<br>
+  原则：原始表中未提供的字段不填写。所有信号结论均逐条核对自状态查询表，非推测。<br>
+  <strong>核心定义：端侧自闭环 = 触发条件识别、决策、执行、反馈全部在车端完成，触发器直接调用车控，不上报云端。</strong>
+</p>
+
+<div class="highlight-red">
+  <strong>v3 核对后的三个硬结论（与 v2 的差异）：</strong><br>
+  ① <strong>驾驶模式枚举里没有「湿滑」</strong>——driveModeState 全部33个枚举逐一核对，无湿滑/雨天模式。雨天湿滑场景的执行动作本身不存在，需产品换动作或车控确认有无未上表的模式。<br>
+  ② <strong>「雪地」模式在枚举里明确存在</strong>（另有「混动雪地」）——雪天场景执行端支撑，卡点只在降雪识别。<br>
+  ③ <strong>全簿搜索0命中的信号：后视镜加热、洗车模式、湿度、雨量、雾天/能见度、降雪/结冰</strong>——这6类信号在信号中枢任何一张表里都没有。
+</div>
+
+<h2>一、状态查询逐场景核对结论（本次核心）</h2>
+<table>
+  <tr><th>场景</th><th>需要的状态查询信号</th><th>状态查询表里有没有</th><th>具体信号与取值</th><th>单项结论</th></tr>
+
+  <tr><td rowspan="5"><strong>1. 雾天后雾灯</strong></td>
+    <td>雾天/能见度识别</td><td class="gap">没有</td><td>「能见度」仅出现在后雾灯的描述文字里，不是信号</td><td class="gap">识别缺失</td></tr>
+  <tr><td>车速</td><td class="ok">有</td><td>vehicleSpeed（车辆速度）：0~655.35 km/h</td><td class="ok">可用</td></tr>
+  <tr><td>档位</td><td class="ok">有</td><td>VehDriveState（车辆行进状态）：D/P/R/N</td><td class="ok">可用</td></tr>
+  <tr><td>后雾灯状态（执行反馈）</td><td class="ok">有</td><td>rearFogLightState（后雾灯）：关闭/显示黄色</td><td class="ok">可用</td></tr>
+  <tr><td>潜在替代：舱外视觉</td><td class="warn">有但空白</td><td>outCabInfo（舱外信息）：视觉描述，自由文本，参数空白</td><td class="warn">理论上视觉链路可识别雾天，需找丁彬确认</td></tr>
+
+  <tr><td rowspan="4"><strong>2. 雨天湿滑模式</strong></td>
+    <td>下雨识别</td><td class="warn">可代理</td><td>wiperState（雨刮状态）：关闭/1档/2档/3档——「在刮刷」=非关闭；独立雨量传感器信号没有</td><td class="warn">可用雨刮代理，误触发风险高</td></tr>
+  <tr><td>车速</td><td class="ok">有</td><td>vehicleSpeed：0~655.35 km/h</td><td class="ok">可用</td></tr>
+  <tr><td>驾驶模式（读当前模式）</td><td class="ok">有</td><td>driveModeState（驾驶模式）：33个枚举</td><td class="ok">可读</td></tr>
+  <tr><td><strong>湿滑模式（执行目标）</strong></td><td class="gap"><strong>枚举里没有</strong></td><td>33个枚举：雪地/超级节能/赛道/运动/舒适/沙地/泥泞/岩石/无极/动力/混动/纯电/越野/怡静/智享/澎湃/自适应/纯电经济/纯电舒适/混动智能/混动运动/混动雪地/混动越野/混动个性/纯电增程/智能电混/增程/性能/默认/经济/均衡/个性化——<strong>无湿滑</strong></td><td class="gap"><strong>执行动作不存在，场景按原设计无法落地</strong></td></tr>
+
+  <tr><td rowspan="3"><strong>3. 雪天雪地模式</strong></td>
+    <td>降雪/结冰识别</td><td class="gap">没有</td><td>全簿无降雪/结冰信号；只能车外温度+雨刮弱推断，冬季晴天低温会误触发</td><td class="gap">识别缺失</td></tr>
+  <tr><td>车外温度</td><td class="warn">有但值域空白</td><td>ambientTemp（车外温度）：信号在，参数值域未填</td><td class="warn">可用，值域需韩杰补</td></tr>
+  <tr><td><strong>雪地模式（执行目标）</strong></td><td class="ok"><strong>枚举里有</strong></td><td>driveModeState 枚举含「雪地」「混动雪地」</td><td class="ok"><strong>执行动作存在</strong></td></tr>
+
+  <tr><td rowspan="4"><strong>4. 中低速后视镜加热</strong></td>
+    <td>雨刮刮刷</td><td class="ok">有</td><td>wiperState：关闭/1档/2档/3档；「持续30s」需触发器引擎计时（信号本身无时长）</td><td class="ok">可用</td></tr>
+  <tr><td>车速&lt;70</td><td class="ok">有</td><td>vehicleSpeed：0~655.35 km/h</td><td class="ok">可用</td></tr>
+  <tr><td>档位≠P</td><td class="ok">有</td><td>VehDriveState：D/P/R/N</td><td class="ok">可用</td></tr>
+  <tr><td><strong>后视镜加热（执行+反馈）</strong></td><td class="gap"><strong>没有</strong></td><td>全簿搜「后视镜」0命中，无状态信号、无控制信号</td><td class="gap"><strong>触发条件全齐，卡在执行端</strong></td></tr>
+
+  <tr><td rowspan="2"><strong>5. 洗车退出后视镜加热</strong></td>
+    <td>洗车模式/传送带洗车</td><td class="gap">没有</td><td>全簿搜「洗车」0命中</td><td class="gap">识别缺失</td></tr>
+  <tr><td>后视镜加热（执行+反馈）</td><td class="gap">没有</td><td>同场景4</td><td class="gap">执行缺失</td></tr>
+
+  <tr><td rowspan="4"><strong>6. 湿气重天气</strong></td>
+    <td>空气湿度</td><td class="gap">没有</td><td>全簿搜「湿度」0命中</td><td class="gap">识别缺失</td></tr>
+  <tr><td>车内温度</td><td class="warn">有但值域空白</td><td>cabinTemp（车内温度）：信号在，参数值域未填</td><td class="warn">可用，值域需韩杰补</td></tr>
+  <tr><td>车外温度</td><td class="warn">有但值域空白</td><td>ambientTemp（车外温度）：同上</td><td class="warn">可用</td></tr>
+  <tr><td>后视镜加热（执行+反馈）</td><td class="gap">没有</td><td>同场景4</td><td class="gap">执行缺失</td></tr>
+</table>
+
+<div class="note">
+  <strong>一句话总结：</strong>6个场景里，<strong>触发条件端被状态查询表完整支撑的只有场景4（中低速后视镜加热）</strong>；场景3执行端支撑但识别端缺；场景2出现「执行动作不在枚举里」的硬伤；场景1、5、6识别端缺关键信号。<strong>后视镜加热信号缺失同时卡死场景4、5、6的执行端</strong>——这是单点最高优先级缺口。
+</div>
+
+<h2>二、术语说明</h2>
+<table>
+  <tr><th class="k">术语</th><th>说明</th></tr>
+  <tr><td>端侧自闭环</td><td>触发条件识别、决策判断、执行动作、状态反馈全部在车端完成，触发器命中条件后直接调用车控接口执行，不上报云端。</td></tr>
+  <tr><td>条件任务</td><td>任务中心中的循环任务，开关在「待办」区常驻，条件满足即触发，用户可启用/禁用。</td></tr>
+  <tr><td>触发器引擎</td><td>监听端信号变化，按配置规则判断条件是否命中，命中后直接调用车控执行。</td></tr>
+</table>
+
+<h2>三、通用运行流程（端侧自闭环）</h2>
+<div class="mermaid">flowchart TD
+    A[系统预置条件任务&lt;br/&gt;常驻任务中心待办区] --&gt; B[用户启用/禁用任务]
+    B --&gt; C[触发器引擎订阅端信号]
+    C --&gt; D{条件是否命中?}
+    D --&gt;|否| C
+    D --&gt;|是| E[触发器直接调用车控执行]
+    E --&gt; F[车控执行动作]
+    F --&gt; G[读取执行后状态反馈]
+    G --&gt; H{退出/恢复条件是否满足?}
+    H --&gt;|否| H
+    H --&gt;|是| I[触发器直接调用车控恢复]
+    I --&gt; J[读取恢复后状态反馈]
+    J --&gt; K[任务卡片回到待办区]
+    K --&gt; C
+</div>
+
+<h2>四、场景逐条 PRD</h2>
+
+<!-- 场景 1 -->
+<div class="scene-card">
+  <h3>场景 1：天气路况保护-雾天后雾灯</h3>
+  <div class="section-title">场景信息</div>
+  <table>
+    <tr><th class="k">场景名称</th><td>天气路况保护-雾天后雾灯</td></tr>
+    <tr><th class="k">归属结论</th><td>条件任务</td></tr>
+    <tr><th class="k">优先级</th><td>P0</td></tr>
+    <tr><th class="k">场景简介</th><td>识别到雾天，自动开启后雾灯保护行车安全；天气恢复后执行恢复策略（关闭后雾灯）。难点=避免重复提醒（持续条件）。</td></tr>
+  </table>
+  <div class="section-title">条件</div>
+  <table>
+    <tr><th class="k">触发事件</th><td>雾天/能见度低（<strong>状态查询表无此信号</strong>，来源待定：舱外视觉 outCabInfo 或云端天气）</td></tr>
+    <tr><th class="k">触发条件</th><td>1. 雾天/能见度低 = 是<br>2. 车辆处于行驶状态（车速&gt;0 或 档位≠P）——vehicleSpeed / VehDriveState 均有</td></tr>
+    <tr><th class="k">退出条件</th><td>雾天状态消失/能见度恢复</td></tr>
+  </table>
+  <div class="section-title">执行功能</div>
+  <table>
+    <tr><th>功能执行条件</th><th>执行功能</th></tr>
+    <tr><td>触发条件命中</td><td>开启后雾灯（执行反馈信号 rearFogLightState 有：关闭/显示黄色）</td></tr>
+    <tr><td>退出条件命中</td><td>关闭后雾灯</td></tr>
+  </table>
+  <div class="section-title">闭环判定</div>
+  <table>
+    <tr><th class="k">端侧自闭环判定</th><td><span class="tag tag-gap">当前不可闭环</span>——识别端无信号。若走舱外视觉（VLM）识别雾天，需丁彬确认；若走云端天气，则不是端侧自闭环。</td></tr>
+  </table>
+  <div class="section-title">详细流程（端侧自闭环·目标态）</div>
+  <div class="mermaid">flowchart TD
+    subgraph 预置阶段
+        A1[任务中心注册雾天后雾灯任务&lt;br/&gt;状态：待办] --&gt; A2[用户启用/禁用]
+    end
+    A2 --&gt; B1[触发器订阅：雾天信号(待补)、车速、档位、后雾灯状态]
+    B1 --&gt; C1{雾天/能见度低 = 是?}
+    C1 --&gt;|否| B1
+    C1 --&gt;|是| C2{车速&gt;0 或 档位≠P?}
+    C2 --&gt;|否| B1
+    C2 --&gt;|是| D1[触发器直接调用车控：后雾灯开启]
+    D1 --&gt; E1[读取 rearFogLightState = 显示黄色 确认开启]
+    E1 --&gt; F1{雾天消失?}
+    F1 --&gt;|否| F1
+    F1 --&gt;|是| G1[触发器直接调用车控：后雾灯关闭]
+    G1 --&gt; H1[读取 rearFogLightState = 关闭 确认]
+    H1 --&gt; I1[任务保持待办&lt;br/&gt;继续监听下一次雾天]
+    I1 --&gt; B1
+  </div>
+</div>
+
+<!-- 场景 2 -->
+<div class="scene-card">
+  <h3>场景 2：天气路况保护-雨天湿滑模式</h3>
+  <div class="section-title">场景信息</div>
+  <table>
+    <tr><th class="k">场景名称</th><td>天气路况保护-雨天湿滑模式</td></tr>
+    <tr><th class="k">归属结论</th><td>条件任务</td></tr>
+    <tr><th class="k">优先级</th><td>P0</td></tr>
+    <tr><th class="k">场景简介</th><td>识别到雨天，自动开启湿滑模式保护（转向/动力策略调整）；雨停后恢复。同18的重复提醒问题→频控解决。</td></tr>
+  </table>
+  <div class="section-title">条件</div>
+  <table>
+    <tr><th class="k">触发事件</th><td>下雨识别：wiperState（雨刮状态）由「关闭」变为「1/2/3档」（雨量传感器信号无，只能雨刮代理）</td></tr>
+    <tr><th class="k">触发条件</th><td>1. 雨刮状态 ≠ 关闭<br>2. 车速 &gt; 0（vehicleSpeed 有）</td></tr>
+    <tr><th class="k">退出条件</th><td>雨刮回到关闭状态持续一段时间</td></tr>
+  </table>
+  <div class="section-title">执行功能</div>
+  <table>
+    <tr><th>功能执行条件</th><th>执行功能</th></tr>
+    <tr><td>触发条件命中</td><td><strong style="color:#cf222e">切换驾驶模式至湿滑模式——driveModeState 33个枚举里没有「湿滑」，动作不存在</strong></td></tr>
+    <tr><td>退出条件命中</td><td>切回原驾驶模式</td></tr>
+  </table>
+  <div class="section-title">闭环判定</div>
+  <table>
+    <tr><th class="k">端侧自闭环判定</th><td><span class="tag tag-gap">按原设计无法落地</span>——识别端可用雨刮代理，但<strong>执行目标「湿滑模式」不在驾驶模式枚举中</strong>。两条出路：①产品换执行动作（如切「舒适」模式，或只做提醒）；②车控确认 D6X 是否有未上表的雨天模式。</td></tr>
+  </table>
+  <div class="section-title">详细流程（前提：执行动作问题解决后）</div>
+  <div class="mermaid">flowchart TD
+    subgraph 预置阶段
+        A1[任务中心注册雨天湿滑模式任务&lt;br/&gt;状态：待办] --&gt; A2[用户启用/禁用]
+    end
+    A2 --&gt; B1[触发器订阅：雨刮状态、车速、驾驶模式]
+    B1 --&gt; C1{雨刮状态 ≠ 关闭?}
+    C1 --&gt;|否| B1
+    C1 --&gt;|是| C2{车速 &gt; 0?}
+    C2 --&gt;|否| B1
+    C2 --&gt;|是| D1[读取当前 driveModeState 记录原模式]
+    D1 --&gt; E1[触发器直接调用车控：切换至目标模式&lt;br/&gt;（湿滑不存在，目标待产品定）]
+    E1 --&gt; F1[读取 driveModeState 确认切换成功]
+    F1 --&gt; G1{雨刮回到关闭&lt;br/&gt;持续TBD时间?}
+    G1 --&gt;|否| G1
+    G1 --&gt;|是| H1[触发器直接调用车控：切回原模式]
+    H1 --&gt; I1[读取 driveModeState 确认恢复]
+    I1 --&gt; J1[任务保持待办&lt;br/&gt;继续监听下一次下雨]
+    J1 --&gt; B1
+  </div>
+</div>
+
+<!-- 场景 3 -->
+<div class="scene-card">
+  <h3>场景 3：天气路况保护-雪天雪地模式</h3>
+  <div class="section-title">场景信息</div>
+  <table>
+    <tr><th class="k">场景名称</th><td>天气路况保护-雪天雪地模式</td></tr>
+    <tr><th class="k">归属结论</th><td>条件任务</td></tr>
+    <tr><th class="k">优先级</th><td>P0</td></tr>
+    <tr><th class="k">场景简介</th><td>识别到雪天，自动切换车辆行进状态为雪地模式；雪停/路面恢复后切回。动作用到车控既有「雪地」模式选项。</td></tr>
+  </table>
+  <div class="section-title">条件</div>
+  <table>
+    <tr><th class="k">触发事件</th><td>车外低温 + 降雪/结冰识别（<strong>降雪信号无</strong>，来源待定）</td></tr>
+    <tr><th class="k">触发条件</th><td>1. 车外温度 ambientTemp ≤ 0℃（阈值TBD；信号在但值域空白，需韩杰补）<br>2. 降雪/结冰识别 = 是（信号缺失）</td></tr>
+    <tr><th class="k">退出条件</th><td>温度回升/降雪停止持续一段时间</td></tr>
+  </table>
+  <div class="section-title">执行功能</div>
+  <table>
+    <tr><th>功能执行条件</th><th>执行功能</th></tr>
+    <tr><td>触发条件命中</td><td>切换驾驶模式至雪地模式（<strong style="color:#1a7f37">driveModeState 枚举含「雪地」「混动雪地」，动作存在</strong>）</td></tr>
+    <tr><td>退出条件命中</td><td>切回原驾驶模式</td></tr>
+  </table>
+  <div class="section-title">闭环判定</div>
+  <table>
+    <tr><th class="k">端侧自闭环判定</th><td><span class="tag tag-warn">执行端支撑，识别端缺失</span>——雪地模式在枚举里，动作能落；卡点只剩「怎么知道下雪了」：低温+雨刮弱推断误触发高（冬季晴天低温也命中），需独立降雪/结冰识别（舱外视觉或云端天气）。另需车控确认是否允许自动切换驾驶模式。</td></tr>
+  </table>
+  <div class="section-title">详细流程（端侧自闭环·目标态）</div>
+  <div class="mermaid">flowchart TD
+    subgraph 预置阶段
+        A1[任务中心注册雪天雪地模式任务&lt;br/&gt;状态：待办] --&gt; A2[用户启用/禁用]
+    end
+    A2 --&gt; B1[触发器订阅：车外温度、降雪识别(待补)、驾驶模式]
+    B1 --&gt; C1{车外温度 ≤ 0℃?}
+    C1 --&gt;|否| B1
+    C1 --&gt;|是| C2{降雪/结冰识别 = 是?}
+    C2 --&gt;|否| B1
+    C2 --&gt;|是| D1[读取当前 driveModeState 记录原模式]
+    D1 --&gt; E1[触发器直接调用车控：切换至雪地模式]
+    E1 --&gt; F1[读取 driveModeState = 雪地 确认切换]
+    F1 --&gt; G1{温度回升 且 降雪停止&lt;br/&gt;持续TBD时间?}
+    G1 --&gt;|否| G1
+    G1 --&gt;|是| H1[触发器直接调用车控：切回原模式]
+    H1 --&gt; I1[读取 driveModeState 确认恢复]
+    I1 --&gt; J1[任务保持待办&lt;br/&gt;继续监听下一次雪天]
+    J1 --&gt; B1
+  </div>
+</div>
+
+<!-- 场景 4 -->
+<div class="scene-card">
+  <h3>场景 4：中低速场景-车速小于70km/h且非P档</h3>
+  <div class="section-title">场景信息</div>
+  <table>
+    <tr><th class="k">场景名称</th><td>中低速场景-车速小于70km/h且非P档</td></tr>
+    <tr><th class="k">归属结论</th><td>建议开启</td></tr>
+    <tr><th class="k">优先级</th><td>新增-P0</td></tr>
+    <tr><th class="k">场景简介</th><td>中低速行驶途中下雨时，镜面附着大量小雨滴。低速气流弱，风无法吹走水珠，后视镜加热蒸发水珠，改善观察视野。</td></tr>
+  </table>
+  <div class="section-title">条件</div>
+  <table>
+    <tr><th class="k">触发事件</th><td>雨刮持续刮刷30秒（wiperState 有档位枚举但无时长，30s 需触发器引擎计时）</td></tr>
+    <tr><th class="k">触发条件</th><td>1. 雨刮状态 ≠ 关闭（wiperState：关闭/1档/2档/3档）<br>2. 刮刷状态持续30s（引擎计时）<br>3. 车速 &lt; 70km/h（vehicleSpeed 有）<br>4. 档位 ≠ P（VehDriveState 有）</td></tr>
+    <tr><th class="k">退出条件</th><td>车速≥70 或 档位=P 或 雨刮停止</td></tr>
+  </table>
+  <div class="section-title">执行功能</div>
+  <table>
+    <tr><th>功能执行条件</th><th>执行功能</th></tr>
+    <tr><td>触发条件命中</td><td><strong style="color:#cf222e">开启后视镜加热——全簿无后视镜加热信号，执行接口与反馈均缺</strong></td></tr>
+    <tr><td>退出条件命中</td><td>关闭后视镜加热</td></tr>
+  </table>
+  <div class="section-title">闭环判定</div>
+  <table>
+    <tr><th class="k">端侧自闭环判定</th><td><span class="tag tag-warn">触发条件全支撑，卡在执行端</span>——雨刮/车速/档位三个条件信号都在状态查询表里，是6个场景中触发端最完整的；唯一缺口是后视镜加热的控制接口和状态反馈信号（需车控+韩杰补录）。补上即可端侧自闭环。</td></tr>
+  </table>
+  <div class="section-title">详细流程（端侧自闭环）</div>
+  <div class="mermaid">flowchart TD
+    subgraph 预置阶段
+        A1[任务中心注册中低速后视镜加热任务&lt;br/&gt;状态：待办] --&gt; A2[用户启用/禁用]
+    end
+    A2 --&gt; B1[触发器订阅：雨刮状态、车速、档位]
+    B1 --&gt; C1{雨刮状态 ≠ 关闭?}
+    C1 --&gt;|否| B1
+    C1 --&gt;|是| C2[触发器引擎开始计时]
+    C2 --&gt; C3{持续刮刷 ≥ 30s?}
+    C3 --&gt;|中断| B1
+    C3 --&gt;|是| C4{车速 &lt; 70km/h 且 档位 ≠ P?}
+    C4 --&gt;|否| B1
+    C4 --&gt;|是| D1[触发器直接调用车控：开启后视镜加热&lt;br/&gt;（接口待补）]
+    D1 --&gt; E1[读取后视镜加热反馈确认开启&lt;br/&gt;（信号待补）]
+    E1 --&gt; F1{车速≥70 或 档位=P 或 雨刮停止?}
+    F1 --&gt;|否| F1
+    F1 --&gt;|是| G1[触发器直接调用车控：关闭后视镜加热]
+    G1 --&gt; H1[读取反馈确认关闭]
+    H1 --&gt; I1[任务保持待办&lt;br/&gt;继续监听]
+    I1 --&gt; B1
+  </div>
+</div>
+
+<!-- 场景 5 -->
+<div class="scene-card">
+  <h3>场景 5：洗车模式-退出传送带洗车</h3>
+  <div class="section-title">场景信息</div>
+  <table>
+    <tr><th class="k">场景名称</th><td>洗车模式-退出传送带洗车</td></tr>
+    <tr><th class="k">归属结论</th><td>建议开启</td></tr>
+    <tr><th class="k">优先级</th><td>新增-P0</td></tr>
+    <tr><th class="k">场景简介</th><td>在使用自动洗车装置洗车结束后，后视镜上的水滴无法快速去除，有存留水滴，可通过后视镜加热蒸发水滴。</td></tr>
+  </table>
+  <div class="section-title">条件</div>
+  <table>
+    <tr><th class="k">触发事件</th><td>洗车模式从「传送带洗车」退出（<strong>全簿无洗车模式信号</strong>）</td></tr>
+    <tr><th class="k">触发条件</th><td>1. 前序状态 = 传送带洗车<br>2. 当前状态 ≠ 传送带洗车</td></tr>
+    <tr><th class="k">退出条件</th><td>固定时长后关闭（如3分钟，TBD）</td></tr>
+  </table>
+  <div class="section-title">执行功能</div>
+  <table>
+    <tr><th>功能执行条件</th><th>执行功能</th></tr>
+    <tr><td>触发条件命中</td><td>开启一次后视镜加热（<strong style="color:#cf222e">执行接口缺，同场景4</strong>）</td></tr>
+    <tr><td>固定时长到达</td><td>关闭后视镜加热</td></tr>
+  </table>
+  <div class="section-title">闭环判定</div>
+  <table>
+    <tr><th class="k">端侧自闭环判定</th><td><span class="tag tag-gap">当前不可闭环</span>——识别端（洗车模式信号）和执行端（后视镜加热）双缺。需先确认 D6X 是否有洗车模式功能及信号，再谈落地。</td></tr>
+  </table>
+  <div class="section-title">详细流程（端侧自闭环·目标态）</div>
+  <div class="mermaid">flowchart TD
+    subgraph 预置阶段
+        A1[任务中心注册洗车后视镜加热任务&lt;br/&gt;状态：待办] --&gt; A2[用户启用/禁用]
+    end
+    A2 --&gt; B1[触发器订阅：洗车模式状态(待补)]
+    B1 --&gt; C1{当前 = 传送带洗车?}
+    C1 --&gt;|否| B1
+    C1 --&gt;|是| C2{状态从传送带洗车退出?}
+    C2 --&gt;|否| C2
+    C2 --&gt;|是| D1[触发器直接调用车控：开启后视镜加热&lt;br/&gt;（接口待补）]
+    D1 --&gt; E1[读取反馈确认开启]
+    E1 --&gt; F1[引擎计时：持续TBD分钟]
+    F1 --&gt; G1{计时到达?}
+    G1 --&gt;|否| G1
+    G1 --&gt;|是| H1[触发器直接调用车控：关闭后视镜加热]
+    H1 --&gt; I1[读取反馈确认关闭]
+    I1 --&gt; J1[任务保持待办&lt;br/&gt;继续监听下一次洗车]
+    J1 --&gt; B1
+  </div>
+</div>
+
+<!-- 场景 6 -->
+<div class="scene-card">
+  <h3>场景 6：湿气重天气</h3>
+  <div class="section-title">场景信息</div>
+  <table>
+    <tr><th class="k">场景名称</th><td>湿气重天气</td></tr>
+    <tr><th class="k">归属结论</th><td>建议开启</td></tr>
+    <tr><th class="k">优先级</th><td>新增-P0</td></tr>
+    <tr><th class="k">场景简介</th><td>刚出地库：南方夏天雨后立刻出太阳，地库内部温度偏低，驶出车库后湿热空气让后视镜快速起雾。内外温差大产生凝雾，低速下气流微弱吹不掉雾气。</td></tr>
+  </table>
+  <div class="section-title">条件</div>
+  <table>
+    <tr><th class="k">触发事件</th><td>湿度 &gt; 60% 且 1分钟内温差 &gt; 5℃（<strong>湿度信号全簿无</strong>）</td></tr>
+    <tr><th class="k">触发条件</th><td>1. 空气湿度 &gt; 60%（信号缺失）<br>2. 1分钟内温度差值 &gt; 5℃（cabinTemp/ambientTemp 在，但时间窗差值需引擎计算；温差口径车内vs车外还是位置移动前后，需产品定）<br>3. 时间阈值TBD</td></tr>
+    <tr><th class="k">退出条件</th><td>固定时长或温湿度条件消失后关闭</td></tr>
+  </table>
+  <div class="section-title">执行功能</div>
+  <table>
+    <tr><th>功能执行条件</th><th>执行功能</th></tr>
+    <tr><td>触发条件命中</td><td>开启一次后视镜加热（<strong style="color:#cf222e">执行接口缺，同场景4</strong>）</td></tr>
+    <tr><td>固定时长到达或条件消失</td><td>关闭后视镜加热</td></tr>
+  </table>
+  <div class="section-title">闭环判定</div>
+  <table>
+    <tr><th class="k">端侧自闭环判定</th><td><span class="tag tag-gap">当前不可闭环</span>——湿度信号（识别端）和后视镜加热（执行端）双缺；温差计算还需触发器引擎具备时间窗能力。三个缺口都补上才能落地。</td></tr>
+  </table>
+  <div class="section-title">详细流程（端侧自闭环·目标态）</div>
+  <div class="mermaid">flowchart TD
+    subgraph 预置阶段
+        A1[任务中心注册湿气重后视镜加热任务&lt;br/&gt;状态：待办] --&gt; A2[用户启用/禁用]
+    end
+    A2 --&gt; B1[触发器订阅：湿度(待补)、车内温度、车外温度]
+    B1 --&gt; C1{湿度 &gt; 60%?}
+    C1 --&gt;|否| B1
+    C1 --&gt;|是| C2[引擎记录1分钟温度序列]
+    C2 --&gt; C3{1分钟内温差 &gt; 5℃?}
+    C3 --&gt;|否| C2
+    C3 --&gt;|是| D1[触发器直接调用车控：开启后视镜加热&lt;br/&gt;（接口待补）]
+    D1 --&gt; E1[读取反馈确认开启]
+    E1 --&gt; F1[引擎计时：持续TBD分钟]
+    F1 --&gt; G1{计时到达 或 温湿度条件消失?}
+    G1 --&gt;|否| G1
+    G1 --&gt;|是| H1[触发器直接调用车控：关闭后视镜加热]
+    H1 --&gt; I1[读取反馈确认关闭]
+    I1 --&gt; J1[任务保持待办&lt;br/&gt;继续监听]
+    J1 --&gt; B1
+  </div>
+</div>
+
+<h2>五、硬缺口清单（信号中枢全簿0命中）</h2>
+<table>
+  <tr><th>缺口</th><th>影响场景</th><th>性质</th><th>找谁</th></tr>
+  <tr><td>后视镜加热（控制接口+状态信号）</td><td>场景4、5、6（三个场景的执行端）</td><td class="gap">信号+接口双缺，单点最高优先级</td><td>车控确认硬件能力 → 韩杰补录信号</td></tr>
+  <tr><td>湿滑模式（驾驶模式枚举）</td><td>场景2（执行动作不存在）</td><td class="gap">枚举缺失，非信号缺失</td><td>产品换动作 或 车控确认有无未上表模式</td></tr>
+  <tr><td>湿度信号</td><td>场景6（识别端）</td><td class="gap">信号缺失</td><td>韩杰问端上有无湿度传感器</td></tr>
+  <tr><td>洗车模式信号</td><td>场景5（识别端）</td><td class="gap">信号缺失</td><td>车控确认D6X有无洗车模式功能</td></tr>
+  <tr><td>雾天/能见度识别</td><td>场景1（识别端）</td><td class="gap">信号缺失；替代=舱外视觉outCabInfo或云端天气</td><td>产品定口径；视觉走丁彬</td></tr>
+  <tr><td>降雪/结冰识别</td><td>场景3（识别端）</td><td class="gap">信号缺失；替代同上</td><td>产品定口径；视觉走丁彬</td></tr>
+  <tr><td>雨量传感器信号</td><td>场景2、4（识别端可被雨刮代理）</td><td class="warn">有雨刮弱代理，非阻塞</td><td>韩杰问端上有无雨量传感器</td></tr>
+  <tr><td>cabinTemp/ambientTemp 值域空白</td><td>场景3、6</td><td class="warn">信号在，参数没写完</td><td>韩杰补表</td></tr>
+</table>
+
+<h2>六、待确认问题清单</h2>
+<table>
+  <tr><th>编号</th><th>问题</th><th>涉及场景</th><th>找谁</th><th>优先级</th></tr>
+  <tr><td>Q1</td><td>后视镜加热：D6X硬件是否支持？控制接口和状态反馈信号能否补录进信号中枢？</td><td>场景4、5、6</td><td>车控 + 韩杰</td><td class="gap">P0（卡3个场景）</td></tr>
+  <tr><td>Q2</td><td>湿滑模式不在driveModeState 33个枚举里：换什么动作？还是车端有未上表的雨天模式？</td><td>场景2</td><td>产品拍 + 车控确认</td><td class="gap">P0</td></tr>
+  <tr><td>Q3</td><td>驾驶模式自动切换（雪地/恢复）是否被车控允许？有无安全限制（如行驶中禁止切换）？</td><td>场景2、3</td><td>车控/上汽</td><td class="gap">P0</td></tr>
+  <tr><td>Q4</td><td>雾天/降雪识别走什么：舱外视觉outCabInfo（VLM）还是云端天气？走云端就不是端侧自闭环</td><td>场景1、3</td><td>产品定口径；视觉找丁彬</td><td class="gap">P0</td></tr>
+  <tr><td>Q5</td><td>D6X是否有洗车模式功能及状态信号？</td><td>场景5</td><td>车控</td><td class="gap">P0</td></tr>
+  <tr><td>Q6</td><td>端上是否有湿度传感器？无则场景6建议砍掉或换识别方式</td><td>场景6</td><td>韩杰/端上</td><td class="gap">P0</td></tr>
+  <tr><td>Q7</td><td>触发器引擎是否具备「状态持续N秒」计时能力和「时间窗差值」计算能力？</td><td>场景4（30s）、6（1分钟温差）</td><td>研发</td><td class="warn">P1</td></tr>
+  <tr><td>Q8</td><td>cabinTemp/ambientTemp参数值域空白，需补全</td><td>场景3、6</td><td>韩杰</td><td class="warn">P1</td></tr>
+</table>
+
+</body>
+</html>

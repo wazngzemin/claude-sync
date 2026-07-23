@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>云端触发器 · 定时任务 · 按角色会议问答速查</title>
+<style>
+
+  :root{
+    --primary:#1f4e78; --primary-light:#e8f0f9;
+    --amber:#d97706; --amber-bg:#fff7ed;
+    --green:#1a7f37; --green-bg:#eafbef;
+    --red:#b42318; --red-bg:#fdeeee;
+    --purple:#7c3aed; --purple-bg:#f3eefc;
+    --cyan:#0e7490; --cyan-bg:#ecfdff;
+    --border:#d5dbe2; --line:#c3ccd6;
+    --text:#1f2733; --muted:#5b6572; --soft:#f6f8fa;
+  }
+  *{box-sizing:border-box;}
+  body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    line-height:1.85; color:var(--text); max-width:1200px; margin:0 auto; padding:36px 22px; background:#eef1f4;}
+  .paper{background:#fff; padding:44px 48px; border-radius:14px; box-shadow:0 2px 24px rgba(20,40,70,.08);}
+  h1{font-size:30px; margin:0 0 8px; border-bottom:4px solid var(--primary); padding-bottom:14px;}
+  .meta{color:var(--muted); font-size:13.5px; margin:14px 0 10px;}
+  .badge{display:inline-block; padding:3px 12px; border-radius:20px; font-size:13px; font-weight:700;}
+  .b-main{background:var(--primary); color:#fff;}
+  .b-key{background:var(--amber-bg); color:var(--amber); border:1px solid #f5c98a;}
+  .b-ok{background:var(--green-bg); color:var(--green);}
+  .b-warn{background:var(--red-bg); color:var(--red);}
+
+  .lead{background:var(--primary-light); border-left:5px solid var(--primary); padding:18px 22px; border-radius:0 10px 10px 0; margin:24px 0; font-size:15.5px;}
+  .lead b{color:var(--primary);}
+
+  h2{font-size:24px; margin:50px 0 18px; padding:8px 0 8px 16px; border-left:6px solid var(--primary); background:linear-gradient(90deg,var(--primary-light),transparent);}
+  h3{font-size:20px; color:var(--primary); margin:36px 0 14px;}
+  h4{font-size:17px; margin:26px 0 12px; color:#2a3a4d;}
+  p{margin:12px 0; font-size:15px;}
+  table{width:100%; border-collapse:collapse; margin:18px 0; font-size:14px; background:#fff;}
+  th,td{border:1px solid var(--border); padding:12px 14px; text-align:left; vertical-align:top;}
+  th{background:var(--primary-light); color:var(--primary); font-weight:700;}
+  tbody tr:nth-child(even){background:#fafbfc;}
+
+  .callout{border-radius:10px; padding:16px 22px; margin:18px 0; font-size:14.5px;}
+  .callout .h{font-weight:800; display:block; margin-bottom:6px; font-size:15px;}
+  .c-key{background:var(--amber-bg); border:1px solid #f5c98a;}
+  .c-key .h{color:var(--amber);}
+  .c-ok{background:var(--green-bg); border:1px solid #a7e0b8;}
+  .c-ok .h{color:var(--green);}
+  .c-warn{background:var(--red-bg); border:1px solid #f2b6b0;}
+  .c-warn .h{color:var(--red);}
+  .c-info{background:var(--primary-light); border:1px solid #b9d2ee;}
+  .c-info .h{color:var(--primary);}
+  .c-purple{background:var(--purple-bg); border:1px solid #d9c8f5;}
+  .c-purple .h{color:var(--purple);}
+
+  /* 角色色标 */
+  .role{display:inline-block; font-size:11px; font-weight:800; padding:2px 8px; border-radius:5px; margin-right:6px; vertical-align:middle;}
+  .r-user{background:#dcfce7; color:#166534;}
+  .r-brain{background:#dbeafe; color:#1e40af;}
+  .r-task{background:#fef3c7; color:#92400e;}
+  .r-card{background:#fce7f3; color:#9d174d;}
+  .r-timer{background:#ffedd5; color:#9a3412; border:1px solid #fdba74;}
+  .r-guard{background:#e0e7ff; color:#3730a3;}
+  .r-car{background:#ccfbf1; color:#115e59;}
+
+  /* 详细流程图：时间线形式 */
+  .timeline{position:relative; margin:26px 0; padding:28px 24px 28px 18px; background:#fbfcfd; border:1px solid var(--border); border-radius:12px;}
+  .timeline::before{content:""; position:absolute; left:36px; top:28px; bottom:28px; width:3px; background:var(--line); border-radius:3px;}
+  .step{position:relative; display:flex; gap:18px; margin:0 0 18px 0; align-items:flex-start;}
+  .step:last-child{margin-bottom:0;}
+  .step .dot{flex:none; width:20px; height:20px; border-radius:50%; background:#fff; border:3px solid var(--primary); margin-left:10px; margin-top:10px; z-index:1;}
+  .step .dot.green{border-color:var(--green); background:var(--green-bg);}
+  .step .dot.amber{border-color:var(--amber); background:var(--amber-bg);}
+  .step .dot.red{border-color:var(--red); background:var(--red-bg);}
+  .step .dot.purple{border-color:var(--purple); background:var(--purple-bg);}
+  .step .dot.cyan{border-color:var(--cyan); background:var(--cyan-bg);}
+
+  .step-card{flex:1; background:#fff; border:1.5px solid var(--border); border-radius:10px; padding:13px 18px; box-shadow:0 1px 3px rgba(20,40,70,.05);}
+  .step-card .title{font-weight:700; font-size:15px; margin-bottom:5px; color:#1f2733;}
+  .step-card .desc{font-size:13.8px; color:var(--text); line-height:1.65;}
+  .step-card .note{font-size:12.5px; color:var(--muted); margin-top:7px; padding-top:7px; border-top:1px dashed var(--border);}
+  .step-card .branch{display:flex; gap:12px; flex-wrap:wrap; margin-top:10px;}
+  .step-card .branch .arm{flex:1; min-width:160px; padding:8px 12px; border-radius:8px; font-size:12.5px;}
+  .arm-ok{background:var(--green-bg); border:1px solid #a7e0b8;}
+  .arm-skip{background:#f3f4f6; border:1px dashed #d1d5db; color:#4b5563;}
+  .arm-warn{background:var(--red-bg); border:1px solid #f2b6b0;}
+  .arm-info{background:var(--primary-light); border:1px solid #b9d2ee;}
+
+  /* 并行步骤 */
+  .parallel{display:flex; gap:16px; margin:14px 0; flex-wrap:wrap;}
+  .parallel .step-card{flex:1; min-width:260px;}
+
+  /* 讲解话术框 */
+  .talk{background:#f0fdf4; border:1.5px solid #86efac; border-radius:10px; padding:14px 18px; margin:16px 0; font-size:14px;}
+  .talk .h{font-weight:800; color:var(--green); display:block; margin-bottom:6px;}
+  .talk ul{margin:6px 0 6px 18px; padding-left:12px;}
+  .talk li{margin:4px 0;}
+
+  /* 边界表 */
+  .boundary th{background:var(--primary); color:#fff;}
+  .boundary td:first-child{font-weight:800; background:#f3f7fc; white-space:nowrap;}
+  .boundary .not{color:var(--red); font-weight:600;}
+
+  .rule{display:flex; gap:14px; align-items:flex-start; padding:14px 18px; margin:12px 0; background:var(--soft);
+    border-radius:10px; border-left:4px solid var(--primary);}
+  .rule .n{flex:none; width:26px; height:26px; border-radius:7px; background:var(--primary); color:#fff;
+    display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px;}
+  .rule .txt b{color:var(--primary);}
+
+  hr{border:none; border-top:1px dashed var(--border); margin:34px 0;}
+  .foot{color:var(--muted); font-size:13px; text-align:center; margin-top:42px;}
+  .role-card{background:#fff; border:2px solid var(--border); border-radius:14px; padding:22px 24px; margin:24px 0;}
+  .role-header{display:flex; align-items:center; gap:14px; margin-bottom:16px; padding-bottom:12px; border-bottom:2px solid var(--primary-light);}
+  .role-avatar{width:46px; height:46px; border-radius:50%; background:var(--primary); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:18px;}
+  .role-name{font-size:20px; font-weight:800; color:var(--primary);}
+  .role-title{font-size:13px; color:var(--muted); margin-top:2px;}
+  .concern{background:var(--amber-bg); border:1px solid #f5c98a; border-radius:8px; padding:10px 14px; font-size:13px; color:#92400e; margin:12px 0;}
+  .qa-block{margin:14px 0;}
+  .qa-q{font-weight:700; color:var(--red); font-size:14px; margin:10px 0 6px; padding:10px 12px; background:#fef2f2; border-radius:8px; border-left:3px solid var(--red);}
+  .qa-a{font-size:14px; line-height:1.75; margin-left:8px; padding:12px 14px; background:#f8fafc; border-radius:8px;}
+  .qa-a b{color:var(--primary);}
+  .section-title{font-size:22px; font-weight:800; color:var(--primary); margin:40px 0 18px; padding:12px 0 12px 16px; border-left:6px solid var(--primary); background:linear-gradient(90deg,var(--primary-light),transparent);}
+  .subsection{font-size:17px; font-weight:700; color:#2a3a4d; margin:24px 0 10px; padding-left:10px; border-left:3px solid var(--primary);}
+  .tag{display:inline-block; padding:2px 10px; border-radius:12px; font-size:12px; font-weight:700; margin-right:6px;}
+  .tag-p0{background:var(--red-bg); color:var(--red);}
+  .tag-p1{background:var(--amber-bg); color:var(--amber);}
+  .tag-p2{background:var(--green-bg); color:var(--green);}
+  .summary-table td:first-child{font-weight:700; white-space:nowrap;}
+  .flow-part{background:#fbfcfd; border:1px solid var(--border); border-radius:10px; padding:16px 18px; margin:14px 0;}
+  .flow-part h4{margin:0 0 10px; color:var(--primary); font-size:15px;}
+  .toc{background:var(--soft); border-radius:10px; padding:16px 22px; margin:20px 0;}
+  .toc h3{margin:0 0 10px; font-size:16px;}
+  .toc ul{margin:0; padding-left:20px; font-size:13.5px; line-height:1.85;}
+  .killer{background:var(--red-bg); border:1px solid #f2b6b0; border-radius:8px; padding:12px 16px; margin:14px 0;}
+  .killer b{color:var(--red);}
+</style>
+</head>
+<body>
+<div class="paper">
+
+<h1>云端触发器 · 定时任务 · 按角色会议问答速查</h1>
+<div class="meta">配套 v10 PRD + 会议话术稿使用 · 按参会人角色分类 · 2026-07-21 · 王泽民</div>
+
+<div class="callout c-key">
+  <span class="h">使用说明</b>
+  这份速查按<b>参会人角色</b>分类。每个人最关心什么、最可能在哪一页挑战你、你怎么回应，都列出来。建议会前按人头过一遍，会上被谁问到就翻到谁那一页。
+</div>
+
+<div class="toc">
+  <h3>目录</h3>
+  <ul>
+    <li><a href="#s-summary">一、各角色关注重点总览</a></li>
+    <li><a href="#s-liuyang">二、刘杨（触发器研发）</a></li>
+    <li><a href="#s-qinglei">三、庆磊（任务系统研发）</a></li>
+    <li><a href="#s-xiaowei">四、晓伟（Planner + 任务系统产品）</a></li>
+    <li><a href="#s-hanjie">五、韩杰（端状态）</a></li>
+    <li><a href="#s-dingbin">六、丁彬（VLM 产品）</a></li>
+    <li><a href="#s-rong">七、荣姐（项目经理）</a></li>
+    <li><a href="#s-lvpo">八、绿坡（测试）</a></li>
+    <li><a href="#s-flow">九、讲四个流程图时，各角色会怎么问</a></li>
+    <li><a href="#s-cheat">十、一句话应急回答</a></li>
+  </ul>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<div class="section-title" id="s-summary">一、各角色关注重点总览</div>
+
+<table class="summary-table">
+  <thead><tr><th>角色</th><th>职责</th><th>他最关心什么</th><th>最可能挑战的模块</th></tr></thead>
+  <tbody>
+    <tr><td>刘杨</td><td>触发器研发</td><td>人日、接口范围、多机一致性、下电保持</td><td>图 1 边界、图 2 状态机、分工表</td></tr>
+    <tr><td>庆磊</td><td>任务系统研发</td><td>协议字段、时间解析、生命周期管理、Guard</td><td>四种时间形态、时间规则表达、上下电策略</td></tr>
+    <tr><td>晓伟</td><td>Planner + 任务系统产品</td><td>Planner 边界、任务中心交互、取消链路、上线时间</td><td>流程图、Case 5 取消、分工表</td></tr>
+    <tr><td>韩杰</td><td>端状态</td><td>下电事件、信号上报、车辆在线状态</td><td>Case 6 上下电、流程图中车辆下电分支</td></tr>
+    <tr><td>丁彬</td><td>VLM 产品</td><td>视觉链路职责、采样节奏、状态跳变</td><td>图 0 第四张、Case 4 看宝宝</td></tr>
+    <tr><td>荣姐</td><td>项目经理</td><td>排期、风险、分期、上线时间</td><td>分工表、待确认清单、分期</td></tr>
+    <tr><td>绿坡</td><td>测试</td><td>可测性、验收标准、异常场景覆盖</td><td>业务规则、验收标准、状态机</td></tr>
+  </tbody>
+</table>
+
+<!-- ═══════════════════════════════════════ -->
+<div class="section-title" id="s-liuyang">二、刘杨（触发器研发）</div>
+
+<div class="role-card">
+  <div class="role-header">
+    <div class="role-avatar">刘</div>
+    <div>
+      <div class="role-name">刘杨</div>
+      <div class="role-title">云端触发器研发 · 定时引擎 owner</div>
+    </div>
+  </div>
+  <div class="concern">
+    <b>核心关注点：</b>这个功能到底要我做什么？接口边界在哪里？人日怎么给？多机部署和下电保持能不能做？
+  </div>
+
+  <div class="subsection">背景与目标</div>
+  <div class="qa-block">
+    <div class="qa-q">这个定时任务是不是要新建一个服务？和现有触发器什么关系？</div>
+    <div class="qa-a">
+      不新建独立服务，是在现有云端触发器里新增一个<b>定时引擎模块</b>。它和条件触发、语义触发共享触发器的调度底座，只是激活条件变成时间到达。这样复用现有基础设施，也避免边界混乱。
+    </div>
+  </div>
+  <div class="qa-block">
+    <div class="qa-q">任务系统把时间解析做了，触发器只剩一个到点 callback，凭什么占我这么多人日？</div>
+    <div class="qa-a">
+      触发器侧工作量不只是 callback。具体包括：<b>① 闹钟队列维护</b>（优先队列/时间轮选型）；<b>② 到点精度保证</b>（大量任务下 3 秒内触发）；<b>③ 多机部署一致性</b>（同一个闹钟只响一次）；<b>④ 循环续钟</b>（固定间隔/日历周期）；<b>⑤ 服务重启恢复</b>；<b>⑥ 下电保持</b>。这些才是人日大头。
+    </div>
+  </div>
+
+  <div class="subsection">图 1 定时器任务范围</div>
+  <div class="qa-block">
+    <div class="qa-q">触发器对外暴露几个接口？传什么字段？</div>
+    <div class="qa-a">
+      四个核心接口：<b>创建闹钟</b>（任务 ID、下次触发时间、循环规则、过期时间）、<b>修改闹钟</b>（更新下次触发时间或规则）、<b>取消闹钟</b>（按任务 ID 摘钟）、<b>到点回调</b>（触发器回传任务 ID 和触发时间）。回调不带执行动作。
+    </div>
+  </div>
+  <div class="qa-block">
+    <div class="qa-q">循环任务续钟是触发器自己算，还是任务系统告诉触发器下一次几点？</div>
+    <div class="qa-a">
+      建议触发器自己算。任务系统创建时把「间隔秒数」或「日历规则」传过来，触发器每次响铃后按规则算出下一次时间并重新排队。这样任务系统不用每次参与续钟，接口更干净。如果你们觉得触发器算日历周期太重，也可以任务系统算好下一次再通知触发器更新，这个可以会上定。
+    </div>
+  </div>
+
+  <div class="subsection">四种时间形态</div>
+  <div class="qa-block">
+    <div class="qa-q">相对延时和绝对时间对触发器来说有区别吗？</div>
+    <div class="qa-a">
+      对触发器没有区别，都是「一个具体时间点」。区别在任务系统解析阶段：相对延时 = 当前时间 + 偏移量；绝对时间 = 直接给目标时间。触发器只收最终时间点。
+    </div>
+  </div>
+  <div class="qa-block">
+    <div class="qa-q">日历周期首期做吗？规则复杂吗？</div>
+    <div class="qa-a">
+      日历周期放二期。首期只做相对延时、绝对时间、固定间隔。触发器侧先支持按秒级间隔续钟，日历规则二期再扩展。
+    </div>
+  </div>
+
+  <div class="subsection">图 0 业务流程图</div>
+  <div class="qa-block">
+    <div class="qa-q">图里没画 Guard，到点后到底执不执行？</div>
+    <div class="qa-a">
+      Guard 在任务系统侧做，不属于触发器职责。触发器到点 callback 后，任务系统先做 Guard，通过才下发执行。 Guard 不通过就跳过，跳过不算失败。这个在业务规则第 3、4 条写了。
+    </div>
+  </div>
+  <div class="qa-block">
+    <div class="qa-q">第四张图「定时 + 看画面」，触发器要订阅画面流吗？</div>
+    <div class="qa-a">
+      <b>不需要。</b>触发器只是每 60 秒响一次铃。画面流由任务系统直接订阅 VLM，和触发器无关。触发器只提供采样时钟。
+    </div>
+  </div>
+
+  <div class="subsection">图 2 状态机</div>
+  <div class="qa-block">
+    <div class="qa-q">状态机里「已关闭」和「已取消」对触发器侧有区别吗？</div>
+    <div class="qa-a">
+      触发器侧动作一样，都是摘闹钟。区别在业务语义：已取消是用户主动或任务系统主动终止；已关闭是因为车辆下电且任务非跨天。任务系统调用触发器取消接口时可以把原因带过来，便于日志和排查。
+    </div>
+  </div>
+  <div class="qa-block">
+    <div class="qa-q">循环任务续钟失败怎么办？比如算不出下一次时间。</div>
+    <div class="qa-a">
+      如果循环规则有问题或达到最大次数，就不续钟，任务结束。如果是临时计算异常，可以按策略重试或回调任务系统处理，这个在待确认 Q5 里要细化重试策略。
+    </div>
+  </div>
+
+  <div class="subsection">分工与待确认</div>
+  <div class="qa-block">
+    <div class="qa-q"><span class="tag tag-p0">P0</span> 触发器侧定时引擎排期，庆磊表里没有，你怎么给？</div>
+    <div class="qa-a">
+      这是今天必须拍的事情。建议刘杨本周内给出一个人日评估，包含：队列选型、接口开发、多机一致性、持久化、下电保持。如果人日超预期，我们现场调整分期或上线时间。
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<div class="section-title" id="s-qinglei">三、庆磊（任务系统研发）</div>
+
+<div class="role-card">
+  <div class="role-header">
+    <div class="role-avatar">庆</div>
+    <div>
+      <div class="role-name">庆磊</div>
+      <div class="role-title">任务系统研发 · Task Service owner</div>
+    </div>
+  </div>
+  <div class="concern">
+    <b>核心关注点：</b>协议里怎么表达时间规则？生命周期和 Guard 怎么做？上下电策略谁决定？和触发器的接口边界在哪里？
+  </div>
+
+  <div class="subsection">定义与范围</div>
+  <div class="qa-block">
+    <div class="qa-q">自然语言解析到底谁做？Planner 还是任务系统？</div>
+    <div class="qa-a">
+      任务系统做。Planner 只识别「这是一个定时任务请求」并带出原始时间表达。任务系统把「十分钟后」「明天 9 点」翻译成结构化规则。
+    </div>
+  </div>
+  <div class="qa-block">
+    <div class="qa-q">「模糊时间」比如「过一会儿」「待会儿」怎么处理？</div>
+    <div class="qa-a">
+      任务系统定义兜底策略：无法解析时反问用户，或按默认值处理。这些细节不在触发器侧，不影响 PRD 主逻辑。
+    </div>
+  </div>
+
+  <div class="subsection">四种时间形态</div>
+  <div class="qa-block">
+    <div class="qa-q"><span class="tag tag-p0">P0</span> 现有协议没有「相对延时 / 固定间隔」字段，你让我怎么序列化？</div>
+    <div class="qa-a">
+      产品主张：把「时间规则」作为执行策略的扩展字段表达。字段可以包含：type（delay/absolute/interval/cron）、value（秒数或目标时间）、timezone、max_count。具体格式我们三人（王泽民、庆磊、刘杨）会前小会对齐，下周二前出结论。
+    </div>
+  </div>
+  <div class="qa-block">
+    <div class="qa-q">绝对时间涉及时区吗？车辆跨时区怎么办？</div>
+    <div class="qa-a">
+      本期先按车辆当前所在时区处理，不单独做跨时区。如果用户说「明天 9 点」，默认按车辆当前时区解析。跨时区作为后续优化项。
+    </div>
+  </div>
+
+  <div class="subsection">图 0 业务流程图</div>
+  <div class="qa-block">
+    <div class="qa-q">Guard 检查具体检查哪些内容？谁来定义规则？</div>
+    <div class="qa-a">
+      Guard 规则由产品定义，任务系统实现。例如：关座椅加热前要检查「车辆在线、座椅加热开着、座椅有人」；提醒出发只要检查「车辆在线」。不同任务类型 Guard 条件不同，任务系统按任务类型配置。
+    </div>
+  </div>
+  <div class="qa-block">
+    <div class="qa-q">跳过不算失败，那任务中心怎么展示？</div>
+    <div class="qa-a">
+      跳过不上报失败，任务状态保持「等待中」或「已跳过」。任务中心可以展示「本轮条件不满足，已跳过」，但不显示红色失败。
+    </div>
+  </div>
+
+  <div class="subsection">Case 讲解</div>
+  <div class="qa-block">
+    <div class="qa-q">循环任务的「最大次数」存在哪里？</div>
+    <div class="qa-a">
+      存在任务系统。触发器只关心「当前响铃后要不要续下一个」。任务系统可以在创建时告诉触发器最大次数，也可以自己计数，达到后通知触发器摘钟。
+    </div>
+  </div>
+  <div class="qa-block">
+    <div class="qa-q">用户取消后，任务系统要先通知触发器摘钟，再更新卡片。如果摘钟失败怎么办？</div>
+    <div class="qa-a">
+      摘钟失败要重试，并给用户反馈「取消失败，请重试」。卡片不允许在摘钟成功前消失。这是业务规则第 9 条。
+    </div>
+  </div>
+
+  <div class="subsection">业务规则</div>
+  <div class="qa-block">
+    <div class="qa-q"><span class="tag tag-p0">P0</span> 第 7 条「满了报错不挤旧」，上限是全局还是按类型？</div>
+    <div class="qa-a">
+      这是待确认 Q3。产品倾向先按全局上限做，简单可测。如果庆磊觉得应该按类型分，我们可以讨论，但今天最好拍一个。
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<div class="section-title" id="s-xiaowei">四、晓伟（Planner + 任务系统产品）</div>
+
+<div class="role-card">
+  <div class="role-header">
+    <div class="role-avatar">晓</div>
+    <div>
+      <div class="role-name">晓伟</div>
+      <div class="role-title">Planner + 任务系统产品</div>
+    </div>
+  </div>
+  <div class="concern">
+    <b>核心关注点：</b>Planner 要改什么？任务中心卡片怎么展示？取消链路怎么设计？上线时间能不能匹配？
+  </div>
+
+  <div class="subsection">定义与范围</div>
+  <div class="qa-block">
+    <div class="qa-q">Planner 要识别哪些表达为定时任务？</div>
+    <div class="qa-a">
+      只要用户表达里包含「未来执行」或「周期执行」意图，Planner 就识别为定时任务。典型表达：「十分钟后…」「明天 9 点…」「每小时…」「每隔…」。Planner 不需要解析具体时间，只打标签并交给任务系统。
+    </div>
+  </div>
+  <div class="qa-block">
+    <div class="qa-q">Planner 解析不了的时间，要不要反问？</div>
+    <div class="qa-a">
+      可以反问，但建议先交给任务系统兜底。任务系统解析失败后再反问，避免 Planner 和任务系统重复判断。
+    </div>
+  </div>
+
+  <div class="subsection">图 1 定时器任务范围</div>
+  <div class="qa-block">
+    <div class="qa-q">任务中心卡片要展示哪些信息？</div>
+    <div class="qa-a">
+      至少展示：任务名称、下次触发时间、循环规则、开关状态、取消入口。对于跨天任务，还要展示「跨天保留」提示。
+    </div>
+  </div>
+
+  <div class="subsection">图 0 业务流程图</div>
+  <div class="qa-block">
+    <div class="qa-q">流程图里用户说完后，卡片什么时候出现？</div>
+    <div class="qa-a">
+      任务系统创建任务并通知触发器挂钟成功后，任务中心展示卡片。如果挂钟失败，要给用户错误提示，不展示卡片。
+    </div>
+  </div>
+
+  <div class="subsection">Case 5：用户取消</div>
+  <div class="qa-block">
+    <div class="qa-q">取消链路为什么一定要「后台真停成功后再消卡」？用户体验会不会卡？</div>
+    <div class="qa-a">
+      这是为了避免「用户以为取消了，后台还在响铃」的更差体验。卡片可以先进入「取消中」状态，给用户反馈；确认成功后再消失。如果失败，卡片保留并提示重试。
+    </div>
+  </div>
+  <div class="qa-block">
+    <div class="qa-q">语音取消和卡片取消是同一个接口吗？</div>
+    <div class="qa-a">
+      是的。两个入口最终都转成「取消任务」意图，走同一条链路。区别只在入口形态。
+    </div>
+  </div>
+
+  <div class="subsection">分工与待确认</div>
+  <div class="qa-block">
+    <div class="qa-q"><span class="tag tag-p1">P1</span> 任务中心上线时间定 804 还是 818？</div>
+    <div class="qa-a">
+      这是待确认 Q4，需要晓伟今天给一个明确答复。如果 804 风险大，我们现场拍 818，但触发器侧排期要匹配。
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<div class="section-title" id="s-hanjie">五、韩杰（端状态）</div>
+
+<div class="role-card">
+  <div class="role-header">
+    <div class="role-avatar">韩</div>
+    <div>
+      <div class="role-name">韩杰</div>
+      <div class="role-title">端状态</div>
+    </div>
+  </div>
+  <div class="concern">
+    <b>核心关注点：</b>下电事件怎么上报？车辆在线状态怎么定义？本趟内/跨天的默认值谁定？
+  </div>
+
+  <div class="subsection">背景与目标</div>
+  <div class="qa-block">
+    <div class="qa-q">这个需求要我端状态这边做什么？</div>
+    <div class="qa-a">
+      纯定时任务不需要端状态参与。只有两类情况需要你：<b>① 下电事件上报</b>，任务系统据此决定任务是否结束；<b>② Guard 里用到车辆在线/座椅占用等车态信号</b>。这些不是新信号，复用现有 Context 机制。
+    </div>
+  </div>
+
+  <div class="subsection">Case 6：上下电</div>
+  <div class="qa-block">
+    <div class="qa-q">下电事件从哪里上报？信号中枢还是车端直接报？</div>
+    <div class="qa-a">
+      按现有链路走，车端通过 Context 或信号中枢上报下电事件给云端。任务系统订阅这个事件，决定任务下电策略。不需要为定时任务单独建上报链路。
+    </div>
+  </div>
+  <div class="qa-block">
+    <div class="qa-q">「车辆下电」和「车辆不在线」是同一个信号吗？</div>
+    <div class="qa-a">
+      不一定。下电是一个明确事件；不在线可能是网络问题。任务系统主要关心「下电事件」来处理本趟内任务结束。到点时的 Guard 检查车辆是否在线，用于决定是否跳过本轮。
+    </div>
+  </div>
+  <div class="qa-block">
+    <div class="qa-q">本趟内和跨天的默认值谁定？</div>
+    <div class="qa-a">
+      产品定义默认值，任务系统写入任务属性。比如车控类（关加热、开按摩）默认本趟内；提醒类（明天 9 点、每工作日开会）默认跨天。会后我会出一张默认值表。
+    </div>
+  </div>
+
+  <div class="subsection">图 0 业务流程图</div>
+  <div class="qa-block">
+    <div class="qa-q">流程图里下电分支是不是缺了？</div>
+    <div class="qa-a">
+      是的，原流程图主要展示主流程，下电作为异常分支没有单独画。详细处理在 Case 6 里。如果韩杰觉得主流程图需要补下电分支，我们可以会后加一条虚线。
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<div class="section-title" id="s-dingbin">六、丁彬（VLM 产品）</div>
+
+<div class="role-card">
+  <div class="role-header">
+    <div class="role-avatar">丁</div>
+    <div>
+      <div class="role-name">丁彬</div>
+      <div class="role-title">VLM 产品</div>
+    </div>
+  </div>
+  <div class="concern">
+    <b>核心关注点：</b>视觉链路在定时 + 看画面里承担什么？为什么不是画面变了直接触发？状态跳变怎么定义？
+  </div>
+
+  <div class="subsection">图 0 第四张图</div>
+  <div class="qa-block">
+    <div class="qa-q">「定时 + 看画面」这个场景，VLM 要做什么？</div>
+    <div class="qa-a">
+      VLM 只负责持续输出画面描述，比如「后排宝宝哭了」「后排宝宝没哭」「看不清」。它不参与定时、不参与决策、不参与提醒触发。
+    </div>
+  </div>
+  <div class="qa-block">
+    <div class="qa-q">画面流已经在持续上报，为什么触发器还要 60 秒采样一次？</div>
+    <div class="qa-a">
+      触发器不是「还要」采样，它本身就是提供采样时钟。业务上需要按固定节奏判断，避免 VLM 抖动导致频繁触发。同时状态跳变策略要配合这个节奏，防止持续状态重复打扰。
+    </div>
+  </div>
+
+  <div class="subsection">Case 4：看宝宝</div>
+  <div class="qa-block">
+    <div class="qa-q">状态跳变是谁来判断？</div>
+    <div class="qa-a">
+      任务系统判断。任务系统维护一个「上次状态」记忆，每次采样时对比最新画面描述：只有「上次没哭 → 这次哭了」才触发提醒。
+    </div>
+  </div>
+  <div class="qa-block">
+    <div class="qa-q">「看不清」怎么定义？是 VLM 返回空还是返回特定语义？</div>
+    <div class="qa-a">
+      建议 VLM 返回特定语义，比如「画面不清晰，无法判断」。任务系统收到这个语义后，本轮不更新记忆。具体语义值我们二期联调时对。
+    </div>
+  </div>
+  <div class="qa-block">
+    <div class="qa-q">这个场景一期做吗？</div>
+    <div class="qa-a">
+      不做，二期。本期只做纯定时任务，不依赖视觉链路。二期和日历周期一起做。
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<div class="section-title" id="s-rong">七、荣姐（项目经理）</div>
+
+<div class="role-card">
+  <div class="role-header">
+    <div class="role-avatar">荣</div>
+    <div>
+      <div class="role-name">荣姐</div>
+      <div class="role-title">项目经理</div>
+    </div>
+  </div>
+  <div class="concern">
+    <b>核心关注点：</b>能不能按期？风险在哪里？分期怎么定？需要哪些资源？
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-q">这个项目整体排期多久？能不能赶上任务中心 804/818？</div>
+    <div class="qa-a">
+      一期和任务中心同版本上线。触发器侧定时引擎的人日待刘杨本周内给出；任务系统侧庆磊已有大致评估。如果人日在预期内，804 有希望；如果超预期，建议调整到 818。今天会上先把人日拍出来。
+    </div>
+  </div>
+  <div class="qa-block">
+    <div class="qa-q">最大风险是什么？</div>
+    <div class="qa-a">
+      三个最大风险：<b>① 触发器侧定时引擎人日没覆盖</b>，可能导致排期落空；<b>② 时间规则协议表达没对齐</b>，庆磊和刘杨接口对不上；<b>③ 上下电默认值表缺失</b>，研发实现时各做各的。这三个都是今天必须拍的事情。
+    </div>
+  </div>
+  <div class="qa-block">
+    <div class="qa-q">二期怎么定？</div>
+    <div class="qa-a">
+      二期包含日历周期和定时 + 看画面。具体排期等一期上线后，根据视觉链路进度再定。本期 PRD 里把二期范围明确写清楚，避免一期做二期的事。
+    </div>
+  </div>
+  <div class="qa-block">
+    <div class="qa-q">今天会要产出什么？</div>
+    <div class="qa-a">
+      三份产出：<b>① 定时器归属确认</b>；<b>② 上下电策略默认值表</b>；<b>③ 时间规则协议表达方案 + owner</b>。会后我更新 PRD，下周进技术方案评审。
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<div class="section-title" id="s-lvpo">八、绿坡（测试）</div>
+
+<div class="role-card">
+  <div class="role-header">
+    <div class="role-avatar">绿</div>
+    <div>
+      <div class="role-name">绿坡</div>
+      <div class="role-title">测试</div>
+    </div>
+  </div>
+  <div class="concern">
+    <b>核心关注点：</b>怎么测？验收标准是什么？异常场景有哪些？能不能自动化？
+  </div>
+
+  <div class="qa-block">
+    <div class="qa-q">验收标准有哪些？能不能量化？</div>
+    <div class="qa-a">
+      PRD 里列了 V1–V10 验收用例，包括：创建一次性任务 600±3 秒内触发、循环任务做 3 次间隔 60±3 秒、超上限报错、重复创建只更新、下电后本趟内结束/跨天继续等。这些都可以自动化测。
+    </div>
+  </div>
+  <div class="qa-block">
+    <div class="qa-q">到点精度怎么测？允许误差多少？</div>
+    <div class="qa-a">
+      PRD 里建议 3 秒内。测试可以构造 1000 个并发任务，统计到点延迟分布。具体精度要求可以根据触发器选型再调，但 3 秒是产品底线。
+    </div>
+  </div>
+  <div class="qa-block">
+    <div class="qa-q">多机部署场景怎么测「同一个闹钟只响一次」？</div>
+    <div class="qa-a">
+      需要触发器侧实现分布式锁或分片机制。测试可以模拟多机同时部署，构造到点任务，验证 callback 只发生一次、任务只执行一次。
+    </div>
+  </div>
+  <div class="qa-block">
+    <div class="qa-q">下电场景怎么测？</div>
+    <div class="qa-a">
+      构造两类任务：本趟内任务和跨天任务。模拟车辆下电 → 验证本趟内任务结束并摘钟、跨天任务闹钟保留 → 模拟上电 → 验证跨天任务正常触发。
+    </div>
+  </div>
+  <div class="qa-block">
+    <div class="qa-q">Guard 跳过的场景算通过还是不通过？</div>
+    <div class="qa-a">
+      算预期行为，不是 BUG。测试用例要单独写「跳过场景」，验证任务状态不变、下次周期继续、不上报失败。
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<div class="section-title" id="s-flow">九、讲四个流程图时，各角色会怎么问</div>
+
+<div class="flow-part">
+  <h4>讲第一张图（一次性相对延时）时</h4>
+  <div class="qa-block">
+    <div class="qa-q">刘杨：</b> 触发器只 callback 一次，如果 callback 失败怎么办？</div>
+    <div class="qa-a">
+      触发器侧要有失败重试机制。如果连续重试失败，可以标记任务为异常，由任务系统决定是跳过还是人工处理。重试策略待确认 Q5 细化。
+    </div>
+  </div>
+  <div class="qa-block">
+    <div class="qa-q">庆磊：</b> Guard 放在任务系统，具体规则谁提供？</div>
+    <div class="qa-a">
+      产品提供 Guard 规则表，任务系统实现。例如关加热要检查车辆在线、加热开着、座椅有人。
+    </div>
+  </div>
+  <div class="qa-block">
+    <div class="qa-q">绿坡：</b> 到点时用户刚好下车，这个 case 怎么测？</div>
+    <div class="qa-a">
+      构造「到点前车已下电」场景，验证触发器 still callback，任务系统 Guard 不通过，任务跳过并结束。
+    </div>
+  </div>
+</div>
+
+<div class="flow-part">
+  <h4>讲第二张图（一次性绝对时间）时</h4>
+  <div class="qa-block">
+    <div class="qa-q">庆磊：</b> 跨天时间解析涉及时区吗？</div>
+    <div class="qa-a">
+      本期按车辆当前时区处理，不单独做跨时区。
+    </div>
+  </div>
+  <div class="qa-block">
+    <div class="qa-q">韩杰：</b> 下电期间到点，上电后要补发吗？</div>
+    <div class="qa-a">
+      不补发。错过就错过，一次性任务直接结束。这是业务规则明确的。
+    </div>
+  </div>
+  <div class="qa-block">
+    <div class="qa-q">晓伟：</b> 用户说明天 9 点是早上还是晚上？</div>
+    <div class="qa-a">
+      默认早上 9 点。晚上要说「晚上 9 点」才解析为 21:00。任务系统定义话术兜底。
+    </div>
+  </div>
+</div>
+
+<div class="flow-part">
+  <h4>讲第三张图（循环固定间隔）时</div>
+  <div class="qa-block">
+    <div class="qa-q">刘杨：</b> 循环续钟是触发器算还是任务系统算？</div>
+    <div class="qa-a">
+      建议触发器算。任务系统创建时把间隔规则传给触发器，触发器每次响铃后自己续下一个。如果日历规则复杂，可以任务系统算。
+    </div>
+  </div>
+  <div class="qa-block">
+    <div class="qa-q">庆磊：</b> 最大次数存在哪里？</div>
+    <div class="qa-a">
+      任务系统维护。触发器只负责续钟，达到次数后任务系统通知触发器摘钟。
+    </div>
+  </div>
+  <div class="qa-block">
+    <div class="qa-q">绿坡：</b> 循环任务怎么验证它确实停止了？</div>
+    <div class="qa-a">
+      设置最大次数为 3，验证触发 3 次后不再触发，且触发器队里无此任务。
+    </div>
+  </div>
+</div>
+
+<div class="flow-part">
+  <h4>讲第四张图（定时 + 看画面）时</div>
+  <div class="qa-block">
+    <div class="qa-q">丁彬：</b> VLM 要改什么？</div>
+    <div class="qa-a">
+      本期不改。二期需要 VLM 能输出「宝宝哭了/没哭/看不清」这类语义。本期纯定时任务和 VLM 无关。
+    </div>
+  </div>
+  <div class="qa-block">
+    <div class="qa-q">庆磊：</b> 状态跳变记忆存在哪里？</div>
+    <div class="qa-a">
+      任务系统维护「上次状态」。每次采样时对比最新画面描述，只在跳变时触发。
+    </div>
+  </div>
+  <div class="qa-block">
+    <div class="qa-q">荣姐：</b> 这个场景一期不做，那今天为什么要讲？</div>
+    <div class="qa-a">
+      为了说明定时器的边界：它只是采样时钟。避免大家误以为触发器要去看画面。同时二期范围要提前对齐。
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<div class="section-title" id="s-cheat">十、一句话应急回答</div>
+
+<table>
+  <thead><tr><th>问题类型</th><th>应急回答</th></tr></thead>
+  <tbody>
+    <tr><td>边界类</td><td>触发器 = 闹钟，只到点通知；执行、Guard、生命周期都归任务系统。</td></tr>
+    <tr><td>排期类</td><td>这是今天必须拍的事情，刘杨本周给人日，庆磊确认协议，晓伟确认上线时间。</td></tr>
+    <tr><td>协议类</td><td>时间规则放执行策略扩展字段，三人小会对齐后下周二前出结论。</td></tr>
+    <tr><td>异常类</td><td>到点先 Guard，不符合就跳过，跳过不算失败，下次周期继续。</td></tr>
+    <tr><td>二期类</td><td>日历周期和定时 + 看画面放二期，本期先把纯定时跑稳。</td></tr>
+    <tr><td>责任类</td><td>产品定义规则和默认值，任务系统实现，触发器提供调度能力，测试验证验收用例。</td></tr>
+  </tbody>
+</table>
+
+<div class="foot">云端触发器 · 定时任务 · 按角色会议问答速查 · 2026-07-21 · 王泽民</div>
+
+</div>
+</body>
+</html>

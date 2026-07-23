@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>7.16 云端触发器VLM链路评审 · 带温度的逐句复盘 v2</title>
+<style>
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --surface2: #232733;
+    --border: #2e3345; --text: #e2e4eb; --text2: #9ba1b5;
+    --accent: #6c8cff; --red: #ff6b6b; --red-bg: rgba(255,107,107,0.06);
+    --red-border: rgba(255,107,107,0.2); --green: #69db7c;
+    --green-bg: rgba(105,219,124,0.06); --green-border: rgba(105,219,124,0.2);
+    --yellow: #ffd43b; --yellow-bg: rgba(255,212,59,0.06);
+    --yellow-border: rgba(255,212,59,0.2); --orange: #ffa94d;
+    --orange-bg: rgba(255,169,77,0.06); --orange-border: rgba(255,169,77,0.2);
+    --purple: #b197fc; --purple-bg: rgba(177,151,252,0.06);
+    --purple-border: rgba(177,151,252,0.2); --cyan: #66d9e8;
+    --cyan-bg: rgba(102,217,232,0.06); --cyan-border: rgba(102,217,232,0.2);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: -apple-system, "SF Pro Text", "Helvetica Neue", "PingFang SC", sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.85; padding: 0;
+  }
+  .verbar {
+    position: sticky; top: 0; z-index: 99;
+    background: rgba(15,17,23,0.92); backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 24px; font-size: 12px; color: var(--text2);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .verbar b { color: var(--accent); font-weight: 700; }
+  .header {
+    background: linear-gradient(135deg, #1a1d27 0%, #232733 100%);
+    border-bottom: 1px solid var(--border); padding: 40px 24px 32px; text-align: center;
+  }
+  .header h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .header .sub { font-size: 13px; color: var(--text2); }
+  .header .verdict {
+    max-width: 860px; margin: 22px auto 0; text-align: left;
+    background: rgba(108,140,255,0.07); border: 1px solid rgba(108,140,255,0.25);
+    border-radius: 10px; padding: 16px 20px; font-size: 13.5px; line-height: 1.9;
+  }
+  .header .verdict b { color: var(--accent); }
+  .content { max-width: 920px; margin: 0 auto; padding: 24px 24px 80px; }
+  h2 { font-size: 17px; font-weight: 700; margin: 48px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+  h2:first-of-type { margin-top: 16px; }
+  h2 .num { color: var(--accent); margin-right: 8px; }
+  p { margin: 8px 0; font-size: 13px; }
+
+  .scene {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; margin: 24px 0; overflow: hidden;
+  }
+  .scene-head {
+    padding: 14px 18px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  }
+  .scene-time { font-size: 12px; color: var(--accent); font-weight: 700; white-space: nowrap; }
+  .scene-title { font-size: 14px; font-weight: 700; }
+  .scene-body { padding: 16px 18px; }
+
+  .label { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px; margin-bottom: 6px; margin-top: 14px; }
+  .label:first-child { margin-top: 0; }
+  .label-room { background: var(--cyan-bg); color: var(--cyan); border: 1px solid var(--cyan-border); }
+  .label-mind { background: var(--purple-bg); color: var(--purple); border: 1px solid var(--purple-border); }
+  .label-you { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
+  .label-std { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+  .label-prep { background: var(--yellow-bg); color: var(--yellow); border: 1px solid var(--yellow-border); }
+  .label-miss { background: var(--orange-bg); color: var(--orange); border: 1px solid var(--orange-border); }
+
+  .block { padding: 12px 14px; border-radius: 6px; margin: 8px 0; font-size: 13px; line-height: 1.85; }
+  .block-room { background: var(--cyan-bg); border: 1px solid var(--cyan-border); }
+  .block-mind { background: var(--purple-bg); border: 1px solid var(--purple-border); }
+  .block-you { background: var(--red-bg); border: 1px solid var(--red-border); }
+  .block-std { background: var(--green-bg); border: 1px solid var(--green-border); }
+  .block-prep { background: var(--yellow-bg); border: 1px solid var(--yellow-border); }
+  .block-miss { background: var(--orange-bg); border: 1px solid var(--orange-border); }
+
+  .dim { color: var(--text2); }
+  .heat { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 11px; font-weight: 700; }
+  .heat-1 { background: rgba(105,219,124,0.15); color: var(--green); }
+  .heat-2 { background: rgba(255,212,59,0.15); color: var(--yellow); }
+  .heat-3 { background: rgba(255,169,77,0.15); color: var(--orange); }
+  .heat-4 { background: rgba(255,107,107,0.15); color: var(--red); }
+
+  table { width: 100%; border-collapse: collapse; margin: 10px 0 16px; font-size: 13px; }
+  th { background: var(--surface2); padding: 9px 12px; text-align: left; font-weight: 600; color: var(--text2); border-bottom: 1px solid var(--border); }
+  td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+
+  strong { color: var(--text); }
+  .tag { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 11.5px; font-weight: 700; white-space: nowrap; }
+  .t-win { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+  .t-mid { background: var(--yellow-bg); color: var(--yellow); border: 1px solid var(--yellow-border); }
+  .t-lose { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
+
+  .nums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 14px; }
+  .num { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 22px 14px; text-align: center; }
+  .num .v { font-size: 42px; font-weight: 900; line-height: 1; color: var(--accent); }
+  .num .v.zero { color: var(--green); }
+  .num .l { font-size: 12.5px; color: var(--text); margin-top: 9px; font-weight: 600; }
+  .num .cmp { font-size: 11.5px; color: var(--text2); margin-top: 5px; }
+
+  .closing {
+    background: linear-gradient(135deg, #1a1d27, #232733);
+    border: 1px solid var(--border); border-radius: 14px;
+    padding: 30px 34px; text-align: center; margin-top: 44px;
+  }
+  .closing .big { font-size: 16.5px; font-weight: 700; line-height: 1.8; }
+  .closing .big em { color: var(--accent); font-style: normal; }
+  .closing .sub { color: var(--text2); font-size: 12.5px; margin-top: 14px; line-height: 1.8; }
+  .version { text-align: center; padding: 28px 0 10px; font-size: 12px; color: var(--text2); opacity: .6; line-height: 1.8; }
+
+  .gap-card { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--orange); border-radius: 10px; padding: 16px 18px; margin: 12px 0; }
+  .gap-card h4 { font-size: 14px; color: var(--orange); margin-bottom: 6px; }
+  .gap-card p { font-size: 12.5px; color: var(--text2); }
+  .gap-card p b { color: var(--text); }
+
+  .action { list-style: none; }
+  .action li { padding: 12px 14px 12px 40px; position: relative; border-bottom: 1px dashed var(--border); font-size: 13px; }
+  .action li:last-child { border-bottom: none; }
+  .action li::before { content: ""; position: absolute; left: 8px; top: 18px; width: 12px; height: 12px; border: 2px solid var(--accent); border-radius: 3px; }
+  .action b { color: var(--accent); }
+  .deadline { display: inline-block; background: var(--surface2); border-radius: 6px; padding: 1px 8px; font-size: 11.5px; font-weight: 700; color: var(--yellow); margin-left: 6px; }
+</style>
+</head>
+<body>
+
+<div class="verbar">
+  <span>7.16 云端触发器→VLM链路评审 · 复盘系列</span>
+  <span>当前版本 <b>v2</b>（带温度逐句+技术补课） · 2026-07-22</span>
+</div>
+
+<div class="header">
+  <h1>7.16 云端触发器 → VLM<span class="dim">（视觉语言模型）</span> 链路评审 · 带温度的逐句复盘</h1>
+  <div class="sub">每个场景 = 会场在聊什么 + 你当时什么处境 + 你说了什么 + 标准话术 + 为什么说不出来 + 怎么补</div>
+  <div class="verdict">
+    一句话定性：<b>结论赢了，主导权输了。</b>这是你<b>第一场</b>真正意义上自己主持、自己讲完、拿到结果的技术评审（53分钟，7人）。链路对齐达成、触发器归属被刘杨当众钉死（30:23）、地盘从「条件判断」扩到「语义匹配」。<br><br>
+    但三个数字暴露真相：<b>3 次让步</b>（置信度+依据54秒缴械 / 枚举路线全放弃没算成本 / 任务编号第一反应说反了）· <b>1 次</b>主动行使主导权 · <b>0 次</b>收尾复述。主位空着，荣姐坐上去替你收完了整场。
+  </div>
+</div>
+
+<div class="content">
+
+<!-- ================= 一、三货币结算 ================= -->
+<h2><span class="num">01</span>成功性结算：三种货币，赢一输一悬空一</h2>
+
+<table>
+  <tr><th style="width:13%">货币</th><th style="width:14%">结算</th><th>证据（带时间戳）</th></tr>
+  <tr>
+    <td><b>归属</b><br><span class="dim">地盘划给谁</span></td>
+    <td><span class="tag t-win">大赢</span></td>
+    <td>刘杨（触发器研发）30:23 主动定调：「对触发器来说就是支持一个模型推理嘛，<strong>一种新的触发场景</strong>」——研发负责人当众认账，触发器从「条件+定时」两类扩到「条件+定时+语义匹配」三类。职责边界也被韩杰帮你收窄（23:47：不用管高频低频舱内舱外那一堆，只处理定制任务结果）。标签路线被丁彬当场废掉（35:21「不用抽标签了」），链路反而简化。</td>
+  </tr>
+  <tr>
+    <td><b>工期</b><br><span class="dim">谁付时间</span></td>
+    <td><span class="tag t-lose">悬空</span></td>
+    <td>刘杨44:19直接问「这个 VLM 对触发器的要求，DDL<span class="dim">（截止时间）</span>是什么时候？」你反手问丁彬「我记得是 804 还是 818 来着？」→ 丁彬只答了 context 部分（804）→ 任务中心部分甩给<strong>不在会上</strong>的晓伟。<strong>你自己的需求，排期你答不上来。</strong>这条悬空到下一场会之前必须钉死。</td>
+  </tr>
+  <tr>
+    <td><b>风险</b><br><span class="dim">出事谁背</span></td>
+    <td><span class="tag t-mid">赢一半</span></td>
+    <td>好的：你两次主动收窄议题（38:24 / 40:04「今天先聊 VLM，定时后面评」），防住发散，没接无对价的锅。坏的：①SP（系统提示词）里的「置信度+依据」被刘杨54秒砍掉，你零抵抗零留条款；②枚举值路线全放弃（27:30「全部通过模型去判断」），成本翻几倍，你连「这笔账算一下」都没说；③「消息处理模块谁承接」悬空，你主动把它甩出去（33:12），阻塞点挂在自己链路上。</td>
+  </tr>
+</table>
+
+<div class="gap-card" style="border-left-color: var(--accent)">
+  <h4 style="color: var(--accent)">这个「赢」是真的，但来路要看清</h4>
+  <p>归属大赢不是你争来的，是 <b>「需求本身对你有利」+「荣姐替你收口」+「刘杨本来就认触发器」</b> 三件事叠出来的。换一场对你不利、又没有荣姐帮你收口的会，你这套「被动答疑」的打法会当场失效。这就是下面所有「为什么必须提升」的全部理由。</p>
+</div>
+
+<!-- ================= 二、六回合逐句拆解 ================= -->
+<h2><span class="num">02</span>六回合逐句拆解：会场温度 × 你的处境 × 标准话术</h2>
+
+<!-- 回合 1 -->
+<div class="scene">
+  <div class="scene-head">
+    <div class="scene-time">00:01 – 09:40</div>
+    <div class="scene-title">回合1 · 开场首讲：讲完了，但韩杰还要替你串一遍 <span class="heat heat-2">温度：平静但暗涌</span></div>
+  </div>
+  <div class="scene-body">
+    <div class="label label-room">会场在聊什么</div>
+    <div class="block block-room">
+      你开场讲了7分钟（01:31–09:37）：背景（昨天任务中心评审延伸出端侧触发器要解析 VLM 字段）→ 注册逻辑（用户query → director → 任务中心带条件注册）→ 触发逻辑（两条链路：context 乘客列表 + 高频任务UP经任务中心转发）。<br><br>
+      期间刘杨三次打断（04:44 / 05:26 / 06:50），全是在帮你校准链路细节——「任务编号8是云端下发给端侧检测的对吧？」「长时任务字段模块是什么？」「注册的时候就要告诉 ID 和描述吧？」。你三次都答「对对对」。<br><br>
+      你讲完问「这块链路上边大家还有什么问题吗」（09:37），<strong>韩杰接的第一句是：「我大概串一下，看我说的对不对」</strong>（09:41）——然后他从「用户说帮我看一下宝宝」开始，把整条链路重新复述了一遍。<br><br>
+      <span class="dim">信号：你的首讲信息密度不够，别人听完还要自己再组装一遍才敢确认。这7分钟里「诶」「其实」「就是」出现了几十次，模块名说了三个版本（动态感知模块 / 那就是任务中心吧 / 长时任务字段模块）。</span>
+    </div>
+
+    <div class="label label-mind">你当时大概什么处境</div>
+    <div class="block block-mind">
+      这是你第一次主持技术评审，开场前你还在等人（00:01「再稍等会，看看晓伟和蒋文还上来吗」）。晓伟最终没来——这给你埋了两个雷：任务中心 DDL 没人答（44:19爆雷）、端侧承接方没人拍（张荣31:16追问）。<br><br>
+      你开场的策略是「把链路讲清楚就行」，这是执行型 PM 的本能——把会当成<strong>答疑</strong>，不是当成<strong>谈判</strong>。所以你没有在开场摆「今天要收什么」，只是把图摊开说「看一下这块的整个链路」。这句话等于邀请所有人一起来主导。
+    </div>
+
+    <div class="label label-you">你说了什么</div>
+    <div class="block block-you">
+      「今天主要是跟大家聊一块，关于云端的触发器到 VLM 的整个的一个解析的链路…看一下这块的整个链路。」（01:31）<br>
+      「他会做两个事情，一块是注册动态任务给到云端触发器，另一块是他会给到一个叫，其实这一块<strong>少了一个叫动态感知模块</strong>…」（10:30，被韩杰追问时临时补模块）
+    </div>
+
+    <div class="label label-std">标准话术</div>
+    <div class="block block-std">
+      「今天这场我要收三个东西：一，VLM→触发器这条链路拆成几个需求、每个需求挂谁名，今天定死；二，我这边的依赖我先报——云端 context 804，任务中心晓伟不在，他那条我今天必须拿到口径；三，端侧承接方今天点名。<strong>先用7分钟过链路，过完我逐个点名收口。</strong>」<br><br>
+      <span class="dim">差别：你的开场是「看一下」，标准开场是「我要收三个东西」。前者邀请别人主导，后者宣告你是主人。</span>
+    </div>
+
+    <div class="label label-prep">为什么说不出来 + 怎么准备</div>
+    <div class="block block-prep">
+      说不出来是因为<strong>你根本没把「收口」当成自己的活</strong>。你觉得自己是来讲方案的，讲完、答对问题就算完成。但评审的产出不是「大家听懂了」，是「需求×owner×DDL 那张表」。<br><br>
+      准备法：以后每场你主持的会，开场前在文档最顶上写一行字——<strong>「散会时我要拿到哪三样东西」</strong>，开场第一句话就把它念出来。这一条做到了，后面五个回合的问题会少一半。
+    </div>
+  </div>
+</div>
+
+<!-- 回合 2 -->
+<div class="scene">
+  <div class="scene-head">
+    <div class="scene-time">11:33 – 15:22</div>
+    <div class="scene-title">回合2 · 任务编号：你的第一反应是反的，被两人联手纠正 <span class="heat heat-3">温度：技术围攻（善意的）</span></div>
+  </div>
+  <div class="scene-body">
+    <div class="label label-room">会场在聊什么</div>
+    <div class="block block-room">
+      韩杰11:33盯着图问：注册动态任务那条线给到触发器，带不带任务编号？你说「<strong>我触发器其实不需要任务编号，我只需要让他告诉我需要盯什么目标就可以了</strong>」（11:54）。<br><br>
+      丁彬立刻接：「建议还是带上，对你能对上，你下发了什么任务，我回答什么结果」（12:46）。刘杨跟上：「它只是个任务 ID 的概念吧，触发器要知道你当前给回来的任务是哪个」（12:47）。韩杰把逻辑讲透：「你这个格式不是布尔是/否，它一定要知道这个到底是个啥任务，才能加条件判断」（12:57–13:11）。<br><br>
+      你从11:54到15:22，用了<strong>3分28秒</strong>才转过弯：「可以…现在可以理解为这个任务编号就是 ID 吧」。期间韩杰还在替你找台阶（13:40「或者逻辑可能刘杨的逻辑会更复杂」）。<br><br>
+      <span class="dim">这不是围攻，是两个技术负责人在帮你修方案。但全场都看到了：触发器 PM 对自己模块的输入契约，第一反应是错的。</span>
+    </div>
+
+    <div class="label label-mind">你当时大概什么处境</div>
+    <div class="block block-mind">
+      你的思维模型是「语义匹配」：VLM 给一段描述 + 任务给一个目标，模型判断匹配不匹配——在这个模型里，确实「只需要目标字符串」。你漏掉的是工程现实：<strong>库里可能同时挂着100个任务，VLM 一次上报3个结果，没有 ID 你根本不知道该把哪条结果喂给哪个目标去配对。</strong><br><br>
+      你脑子里是单任务的理想case，他们脑子里是并发的真实系统。这不是你不聪明，是你没从「判断一次对不对」切换到「系统怎么把对的输入送到对的判断里」。
+    </div>
+
+    <div class="label label-you">你说了什么</div>
+    <div class="block block-you">
+      「我触发器其实我不需要任务编号，我其实我我只需要让他告诉我需要盯什么目标就可以了。」（11:54）<br>
+      3分28秒后：「嗯，可以…现在可以理解为这个任务编号就是 ID 吧。」（15:22）
+    </div>
+
+    <div class="label label-std">标准话术</div>
+    <div class="block block-std">
+      被问「带不带编号」时，正确回答是一句话：<strong>「带。注册时任务中心给我 task_id + 感知目标，VLM 上报结果时带 task_id，我用 task_id 把结果和目标配对，再喂给模型判断。没有 task_id，并发场景下结果和目标对不上。」</strong><br><br>
+      如果当时真的没想清楚，退一步的说法是：「这个问题关键，我先确认理解——编号是为了让我把上报结果和注册目标配对对吧？那我这边协议里必须带上，我记为待办，会后24小时内把字段定义发群里确认。」<span class="dim">（承认没想清楚 + 当场锁交付物，比硬撑强十倍）</span>
+    </div>
+
+    <div class="label label-miss">这一回合暴露的技术短板</div>
+    <div class="block block-miss">
+      <strong>短板①：并发系统的配对思维。</strong>你以后设计任何「上游上报 → 触发器判断」的协议，先问三个问题：同时有几个任务在跑？一次上报几条结果？结果和目标靠什么字段配对？这三个问题答出来，task_id 就是显然的必需品。<br><br>
+      <strong>补课动作：</strong>把 PRD 协议章节里的 dynamic_watch_tasks（动态监控任务）和 VLM 输出 JSON 并排画一张「配对图」：左边3个注册任务（task_id 8/9/10 + 各自感知目标），右边一次上报的3条结果（各带 task_id），中间画线连起来。这张图放进 PRD v2，下次评审直接投它。
+    </div>
+  </div>
+</div>
+
+<!-- 回合 3 -->
+<div class="scene">
+  <div class="scene-head">
+    <div class="scene-time">19:50 – 27:40</div>
+    <div class="scene-title">回合3 · 「整包一坨没有标签」→ 枚举路线全灭，你54秒接受全模型方案 <span class="heat heat-3">温度：方案级塌方</span></div>
+  </div>
+  <div class="scene-body">
+    <div class="label label-room">会场在聊什么</div>
+    <div class="block block-room">
+      刘杨19:50问 context 链路：触发器是不是从 context 拿所有 VLM 信号喂模型？你答「没有问题」（23:18）——这里你已经让了一步（本来可以只拿相关字段）。<br><br>
+      真正的塌方在26:20。丁彬指着表说：「端状态现在给上去的就这三个包，<strong>整包都给到端状态去了，它其实并没有进行一个解析</strong>」——意思是：你 PRD 里设计的 A 路线（VLM 输出预置标签枚举值、触发器字符串比对、零模型成本）<strong>地基不存在</strong>。端上根本不产出标签，产出的是「一坨」未解析的描述文本。<br><br>
+      刘杨27:19顺势推：「就可以没有那种结构化信号的条件了，<strong>只有都是通过模型去判断了</strong>」。你27:30接：「对对，就是全部通过模型去判断」。27:34你补了一句：「之前我可能预想的它是有一些枚举值的，但是现在看来的话，就是全部都是通过模型去做。」<br><br>
+      <span class="dim">从丁彬爆料到你缴械，全程不到90秒。你准备了一周的 A/B 双路线设计（A标签零成本 / B语义有成本），A 路线当场死亡，你连一句「那成本呢」都没问。</span>
+    </div>
+
+    <div class="label label-mind">你当时大概什么处境</div>
+    <div class="block block-mind">
+      这一下是真把你打懵了——只是你没表现出来。「整包无标签」这个事实，丁彬是会上才说的（或者说你才听懂），意味着你会前找 caption 样例、整理31条标签清单、做「caption 支撑核对表」的那一整周功课，<strong>方向被抽掉了</strong>。<br><br>
+      你当时的心理大概率是：赶紧顺着说，别显得我方案白做了。所以你27:34那句「之前我可能预想的是有一些枚举值的」已经是极限——你承认了，但没有为「标签路线死掉的代价」要任何对价。
+    </div>
+
+    <div class="label label-you">你说了什么</div>
+    <div class="block block-you">
+      「对对，就是全部通过模型去判断。」（27:30）<br>
+      「之前我可能预想的它是有一些枚举值的，但是现在看来的话，就是全部都是通过模型去做。」（27:34）<br>
+      <span class="dim">然后话题就走了。成本的事，全场没人提。</span>
+    </div>
+
+    <div class="label label-std">标准话术</div>
+    <div class="block block-std">
+      「等一下，这个变化对成本影响是数量级的，我要把它摆在桌上：原来标签路线是字符串比对，<strong>零模型调用</strong>；现在每条上报都要过一次模型，按10–20秒一报、3个并发任务算，单车每天是上万次调用。<strong>方案我接受，但两个动作要当场定：一，成本这笔账我会后重算，明天发群里；二，标签化作为二期降本方向写进 PRD，端侧如果后续能做标签提取，触发器这边协议预留枚举字段。</strong>丁彬，端侧做标签提取这事有没有排期可能？」<br><br>
+      <span class="dim">核心动作：方案可以让，但「让的代价」必须当场标价、当场挂名、当场留后门。让而不标价 = 白送。</span>
+    </div>
+
+    <div class="label label-prep">为什么说不出来 + 怎么准备</div>
+    <div class="block block-prep">
+      说不出来是因为<strong>你没有把「成本」当成自己的武器</strong>。你准备的是「方案怎么对」，没准备「每个方案值多少钱」。而评审桌上，成本是产品经理为数不多的硬通货——技术细节你辩不过研发，但「这条路线单车每天多花 X 万次调用」是所有人都得听的数字。<br><br>
+      准备法：以后每个方案做 A/B 两版时，旁边必须各标一个成本数字（调用次数 / token 量 / 开发人天），哪怕粗糙。<strong>你可以输掉方案，但不能输掉「方案值多少钱」的发言权。</strong>
+    </div>
+  </div>
+</div>
+
+<!-- 回合 4 -->
+<div class="scene">
+  <div class="scene-head">
+    <div class="scene-time">36:10 – 37:04</div>
+    <div class="scene-title">回合4 · SP字段被砍：置信度+依据，54秒缴械 <span class="heat heat-2">温度：快速掠过</span></div>
+  </div>
+  <div class="scene-body">
+    <div class="label label-room">会场在聊什么</div>
+    <div class="block block-room">
+      张荣35:44确认「云端触发器会把自然语言转化成条件的判断结果对吧」，你顺势把你的 SP 输出设计亮出来：「判断它是否达成，以及未达成还是无法判断，可能就这」（35:53）——但你的 SP 里还有「置信度」和「依据」两个字段。<br><br>
+      刘杨36:10直接砍：「为啥需要个依据？依据干啥用？」你解释「没有依据可能判断不是特别准，置信度可能不是那么高」（36:16）。丁彬36:25专业补刀：「依据最多放到 COT（思维链）里头，对判断准不准影响不大，帮助应该是 debug（调试）用的多一点」。韩杰36:46简化：「就一个 Y 和 N 就好了」。<br><br>
+      你36:52缴械：「直接判断它是三，那就三个类型呗，直接达成、未达成，还有无法判断呗。」36:37秒「好，可以。」<br><br>
+      <span class="dim">从刘杨开砍到你接受，54秒。丁彬其实给了你一个台阶——「debug 用的多一点」——这是留条款的机会，你没接。</span>
+    </div>
+
+    <div class="label label-mind">你当时大概什么处境</div>
+    <div class="block block-mind">
+      你设计的「置信度+依据」本来就不是深思熟虑的产物，是写 SP 时顺手加的「稳妥件」。所以当三个人连珠炮砍过来，你心里其实认同他们——但你犯的不是「同意砍」，是<strong>「同意得太快、太干净」</strong>。哪怕你认同方向，也应该把砍掉的代价说出来的同时，把丁彬递的 debug 台阶接住。
+    </div>
+
+    <div class="label label-you">你说了什么</div>
+    <div class="block block-you">
+      「直接判断它是三，那就三个类型呗，直接达成、未达成，还有无法判断呗。」（36:52）<br>「好，可以。」（37:04）
+    </div>
+
+    <div class="label label-std">标准话术</div>
+    <div class="block block-std">
+      「行，砍『依据』我同意，输出就三态：达成 / 未达成 / 无法判断。但留一句：线上一旦误判，没有依据字段，badcase（异常案例）定位只能靠猜——所以丁彬刚说的那个点我接一下，<strong>debug 模式下把 COT 打回来的口子我保留，不占线上 token（词元）</strong>。这个我写进 SP 备注，今天定。」<br><br>
+      <span class="dim">公式：同意方向 + 说出代价 + 接住对方递的台阶 + 当场声明「我写进去」。四步一共20秒，你既显得从善如流，又把后门焊死了。</span>
+    </div>
+
+    <div class="label label-miss">这一回合暴露的问题</div>
+    <div class="block block-miss">
+      <strong>「裸体撤退」轻症复发。</strong>7.8 复盘里这个词指的是：方案被攻击时全线撤退、不留任何条款。这次程度轻（字段本身不重要），但模式一样——<strong>你对「同意」的理解是「马上说可以」，而不是「同意的同时完成一次交换」。</strong>每一次「好，可以」都是一次免费出让。会上所有人都在记账：这个人的东西，砍起来没有成本。
+    </div>
+  </div>
+</div>
+
+<!-- 回合 5 -->
+<div class="scene">
+  <div class="scene-head">
+    <div class="scene-time">37:07 – 38:28</div>
+    <div class="scene-title">回合5 · 频率之问：你说「11秒轮询」，刘杨纠正「上报驱动」 <span class="heat heat-2">温度：技术纠错</span></div>
+  </div>
+  <div class="scene-body">
+    <div class="label label-room">会场在聊什么</div>
+    <div class="block block-room">
+      张兰若37:07问：「这个模型多久运行一次？」你答：「如果说你们10秒上报一次的话，我们可能是<strong>11秒去定位一次</strong>」（37:19）——注意这个词，「定位」其实是「轮询」（你08:54也说过一次「11秒去轮询一次」）。<br><br>
+      刘杨37:34纠正：「<strong>我云端没有处理的频率，云端处理频率就是你什么时候上报，你上报一次我就处理一次。</strong>你5秒上报我5秒，你3秒我就3秒。」丁彬帮腔：「其实我们不上报就没有必要判断嘛」。<br><br>
+      你37:46还在挣扎：「诶，咱们触发器不是一，那我理解可能会比它晚一秒也可以吧？」刘杨37:54再解释：「肯定会有延时嘛，网络上就有延时，我的意思是假如你5秒，那我5秒300毫秒的时候。」<br><br>
+      <span class="dim">这个技术点你从头到尾没真正接住。「轮询」（我主动去查）和「上报驱动」（你来了我就处理）是两种架构心智，你嘴上接受了，但37:46那句说明脑子里还是轮询模型。</span>
+    </div>
+
+    <div class="label label-you">你说了什么</div>
+    <div class="block block-you">
+      「我们只需要比他的值大就可以。比如说他是10秒上报一次，那么我可能是11秒去轮询一次就可以了。」（08:54）<br>
+      「诶，咱们触发器不是一，那我理解可能会比它晚一秒也可以吧？」（37:46）
+    </div>
+
+    <div class="label label-std">标准话术</div>
+    <div class="block block-std">
+      「明白，我纠正一下自己的说法：触发器侧<strong>不设独立频率，事件驱动</strong>——端侧上报一次、云端长时任务字段模块转发一次、我判断一次。时延 = 上报间隔（10–20秒）+ 网络 + 模型推理，端到端最差情况在20秒级。<strong>这个时延上限对产品体验的影响我回去验一遍：宝宝哭了这种场景，用户能容忍的提醒延迟是多少秒，我拿个数字出来。</strong>」<br><br>
+      <span class="dim">最后那句是反守为攻——把技术参数翻译回产品命题（用户能容忍多少秒延迟），这就是产品该干的活，也是你唯一能压过技术的阵地。</span>
+    </div>
+
+    <div class="label label-miss">这一回合暴露的技术短板</div>
+    <div class="block block-miss">
+      <strong>短板②：轮询 vs 上报驱动（事件驱动）。</strong>一句话记住：<strong>轮询 = 我定个闹钟定期去问「有新的吗」；上报驱动 = 你有新的就喊我，你不喊我不动。</strong>云端触发器是后者——它没有闹钟，它的「闹钟」就是上游的转发事件。所以「11秒轮询」这个说法在架构上就不存在。<br><br>
+      <strong>短板③：频率决定时延，时延是产品命题不是技术命题。</strong>10–20秒上报 + 模型推理 = 用户说完「宝宝哭了告诉我」之后，宝宝真哭了到收到提醒，最差要等20多秒。这个体验账<strong>只有你算</strong>，技术不会替你算。会后必须补：①梳理 P0 场景的时延容忍度表（宝宝哭=秒级可接受？小孩爬窗=必须更快？）②如果某场景容忍度 < 上报间隔，提前跟丁彬谈「高优任务插队」机制（他09:07提到过高优踩低优，这就是口子）。
+    </div>
+  </div>
+</div>
+
+<!-- 回合 6 -->
+<div class="scene">
+  <div class="scene-head">
+    <div class="scene-time">44:19 – 53:28</div>
+    <div class="scene-title">回合6 · DDL之问 + 荣姐收口：主位易主的最后10分钟 <span class="heat heat-4">温度：主场彻底让出</span></div>
+  </div>
+  <div class="scene-body">
+    <div class="label label-room">会场在聊什么</div>
+    <div class="block block-room">
+      刘杨44:19问出全场最重的一句：「现在评的这个 VLM 对触发器的要求是什么时候？DDL 是什么时候？」<br><br>
+      你的回答链：问丁彬「804还是818来着？」（44:28）→ 丁彬答「context 是804」（44:41）→ 你说「我下来问一下晓伟吧，晓伟没在会上」（45:00）→「我们依赖两块嘛，云端 context 和任务中心…任务中心804有风险，一会问一下晓伟」（45:14）。<br><br>
+      然后张荣46:32开始了长达3分钟的收口表演：拆需求（「至少是看到三个需求」）→ 点承接方（「下发是任务中心怎么给，上报是 VLM 怎么到 AI service」）→ 找漏环（「中间有没有人被漏掉的」）→ 定下一步（「先跟大家对齐了，再串讲一遍，让各模块分清各自承担的」49:26）。<br><br>
+      这期间你说的全部的话：「对的」（47:57）、「这个是晓伟的事情，云端长时任务模块是今天下午刚跟庆磊聊出来的」（47:18）。<br><br>
+      会议最后52:26，刘杨又做了一次确认（触发器本质是依赖任务中心预置+转发），你答「对对对…他会转发给云端触发器的」。53:28你说「那我们先这样今天」——散会。<strong>没有收尾复述，没有 action 清单，没有 DDL 承诺。</strong><br><br>
+      <span class="dim">最后10分钟，这场会的 owner 事实上是荣姐。你的会，她收的口。</span>
+    </div>
+
+    <div class="label label-mind">你当时大概什么处境</div>
+    <div class="block block-mind">
+      44:19 那一下你是真的答不上来——不是你忘了，是<strong>这个数字根本不存在</strong>。你会前没有给自己定过「触发器侧什么时候交付」，因为你心里的排期逻辑是「依赖方定了我就定了」，跟着上游走。但刘杨问的不是依赖，是<strong>你的承诺</strong>。你把「承诺题」听成了「查依赖题」，所以反手去问丁彬。<br><br>
+      到荣姐收口的时候，你大概率是松了一口气的——终于有人把这一团理清了。你没有意识到：她理的每一句，都是你这个链路 owner 该说的。她越能干，你越像接口人。
+    </div>
+
+    <div class="label label-you">你说了什么</div>
+    <div class="block block-you">
+      「丁彬，你们这条链路是…我记得是804还是818来着？」（44:28，被问 DDL 时反问别人）<br>
+      「对，其实我下来我问一下晓伟吧，晓伟没在会上。」（45:00）<br>
+      「那我们先这样今天。」（53:28，裸散会）
+    </div>
+
+    <div class="label label-std">标准话术（两段）</div>
+    <div class="block block-std">
+      <strong>被问 DDL 时：</strong>「触发器侧开发量我先报——协议定了之后，语义匹配这一路我认 X 天。硬依赖两条：云端 context 804 已确认，任务中心晓伟不在、我今天必须拿到他的口径。两条都卡 818，我就是 818；任务中心如果滑，我先把这个风险标红挂出来，不含糊。」<br><br>
+      <strong>散会前收口（这段话必须是你说，不能让荣姐说）：</strong>「最后我收个尾，今天定下来的东西我复述一遍：一，链路拆三个需求——VLM 上报链路（丁彬）、长时任务字段模块+任务中心注册（晓伟，待确认）、触发器语义匹配（我）；二，触发器输出三态、不带置信度，SP 我改完发群；三，成本按全模型路线重算，明天出数；四，端侧承接方蒋文找赵衍，DDL 明天中午；五，我的排期 818，依赖任务中心口径，今天之内我拿到。<strong>有遗漏的现在补。没有的话，这张表我今晚发群里，各位回个确认。</strong>」<br><br>
+      <span class="dim">注意：复述不是礼貌，是<strong>权力动作</strong>——谁复述，谁就是这场会的记账人；谁记账，结论就按谁的口径落地。这场会的纪要如果是荣姐的口径，你的三个让步就永远钉不进 action 里。</span>
+    </div>
+
+    <div class="label label-prep">为什么说不出来 + 怎么准备</div>
+    <div class="block block-prep">
+      DDL 答不上，根因是<strong>你把排期当成「依赖的函数」，没当成「自己的报价」</strong>。准备法：任何评审前，先写三个数：我的开发量 X 天、我的依赖是哪几条、我认的交付日是几号。哪怕错了，先报再修——报价被砍价，你仍在牌桌上；不报价，你连桌都没上。<br><br>
+      收尾说不出，根因是<strong>你脑子里没有「action 清单」这根弦</strong>。准备法：开会时在手边放一张白纸，标题写「散会前我要复述的N件事」，会上每定一件事就记一行。53分钟下来，纸上自然有5行，散会照着念就行。这不是能力问题，是习惯问题，一场会就能练出来。
+    </div>
+  </div>
+</div>
+
+<!-- ================= 三、技术短板补课清单 ================= -->
+<h2><span class="num">03</span>技术短板补课：会上别人说的内容里，你没吃透的 6 个概念</h2>
+
+<p class="dim" style="margin-bottom:14px">这一节回答你问的「会上其他人说的内容我哪里是有短板的」。每条 = 会上原话 → 正确理解 → 你要做的动作。</p>
+
+<div class="gap-card">
+  <h4>① 上报驱动 vs 轮询（刘杨 37:34 纠正你两次）</h4>
+  <p><b>正确理解：</b>触发器没有自己的时钟，上游转发一次它判断一次。说「我11秒轮询一次」在架构上不成立。<b>动作：</b>PRD v2 里把「判断频率」一节改写成「事件驱动：以上游转发事件为触发源」，并把端到端时延公式写出来（时延 = 上报间隔10–20s + 网络 + 模型推理）。</p>
+</div>
+
+<div class="gap-card">
+  <h4>② 任务编号 = 配对主键（丁彬/刘杨/韩杰 12:46–15:22 三人接力讲）</h4>
+  <p><b>正确理解：</b>并发3个任务时，VLM 上报的每条结果必须带 task_id，触发器靠它把「结果」和「注册时的感知目标」配对，才能喂给模型判断。不是优先级、不是枚举值，是<b>主键</b>。<b>动作：</b>PRD 协议章节补「配对图」（见回合2的补课动作）。</p>
+</div>
+
+<div class="gap-card">
+  <h4>③ 整包无标签（丁彬 26:20：「就这三个包整包给到端状态，并没有进行解析」）</h4>
+  <p><b>正确理解：</b>端状态里的 VLM 数据是未结构化的描述文本大包裹，没有「宝宝哭=1」这种原子信号。所以 A 路线（枚举标签+字符串比对）地基不存在，全模型判断是唯一现实路线——但它是成本路线。<b>动作：</b>成本重算 + 标签化写成二期降本方向，反喂端侧提需求（端侧提取标签的排期问丁彬）。</p>
+</div>
+
+<div class="gap-card">
+  <h4>④ context 链路 vs 高频UP链路是两条互不相交的路（刘杨 19:50 起反复确认）</h4>
+  <p><b>正确理解：</b>绿框（乘客列表，默认 alwayson 任务）→ 走端状态 → 进云端 context → 触发器订阅；红框（动态任务结果）→ 走任务中心长时任务字段模块 → 转发触发器。两条路的报文、topic、路径完全不同，触发器对两条路的取数方式也不同（订阅 vs 接收转发）。<b>动作：</b>PRD 链路图把两条路画成不同颜色+标注「订阅/转发」字样，下一场评审直接投这张。</p>
+</div>
+
+<div class="gap-card">
+  <h4>⑤ 订阅 vs 工具调用（陈西钺 50:51–51:25 给你的现场教学）</h4>
+  <p><b>正确理解：</b>舱外 VQA 不是「你订阅他上报」，是「你需要时调用、他当场返回」——「我是工具，你订阅不了」。这两种集成模式的触发逻辑完全不同：订阅=数据推给你你再判断；工具=你的模型判断时主动发起调用拿数据。<b>动作：</b>舱外场景（即将驶出地库、风景介绍）找晓伟对齐需求归属后，单独约西钺把「触发器→VQA工具调用」链路也评了——这是下一场会的内容，别拖。</p>
+</div>
+
+<div class="gap-card">
+  <h4>⑥ 并发上限3 + 高优踩低优（丁彬 19:35 / 09:07）</h4>
+  <p><b>正确理解：</b>端侧 VLM 同一时刻最多跑3个动态任务，第4个要靠任务中心跟用户交互兜住（增删改替换）；且上报可能被高优任务踩下去导致「该报没报」。<b>动作：</b>PRD 补两个异常分支——①第4个任务来了触发器侧什么行为（提示用户任务满？排队？）；②上报缺失时触发器怎么处理（等下一条？超时告警？）。这两个分支现在 PRD 里都是空白。</p>
+</div>
+
+<!-- ================= 四、行动清单 ================= -->
+<h2><span class="num">04</span>行动清单：8 件事，按 deadline 排</h2>
+
+<ul class="action">
+  <li><b>① 问晓伟任务中心 DDL</b>——44:19 当众悬空的那个问题，今天必须拿到口径。拿到后触发器排期立刻定死并报给刘杨。<span class="deadline">今天</span></li>
+  <li><b>② 改 SP：输出三态（达成/未达成/无法判断），去置信度、去依据，加 debug 模式 COT 回传备注</b>——刘杨36:10砍的，韩杰36:46简化的，丁彬36:25递的 debug 台阶，全接住写进去。<span class="deadline">今天</span></li>
+  <li><b>③ 成本重算</b>——全模型路线 + 10–20秒上报 + 3并发，单车单日调用量是多少？万车呢？算出数字发群里，顺手把「标签化=二期降本」写进 PRD。<span class="deadline">明天</span></li>
+  <li><b>④ 发会议纪要+action表</b>——三个需求×各自owner×各自DDL，亲手写、亲手发、要每人回确认。这是你当上「记账人」的第一步。<span class="deadline">今晚</span></li>
+  <li><b>⑤ 出「需求拆分×承接方」表</b>——荣姐46:32点的那三个需求（VLM上报链路 / 长时任务字段模块 / 触发器语义匹配），加上端侧承接方（蒋文找赵衍），做成表跟丁彬对齐。<span class="deadline">明天</span></li>
+  <li><b>⑥ 约西钺聊舱外 VQA 模式</b>——工具调用不是订阅（50:51），舱外场景链路要单独对齐；先跟晓伟确认佳杰留下的舱外场景归属。<span class="deadline">本周</span></li>
+  <li><b>⑦ 更新 PRD 到 v2</b>——全模型路线、事件驱动频率、task_id 配对图、并发上限3的异常分支、上报缺失处理、三态输出。<span class="deadline">本周</span></li>
+  <li><b>⑧ 要丁彬新版链路图对一遍</b>——他52:03主动说「链路图最近又更新了，你参考一下」，跟庆磊又对过。拿过来逐节点核对你 PRD 里的链路。<span class="deadline">本周</span></li>
+</ul>
+
+<!-- ================= 五、三个数字 ================= -->
+<h2><span class="num">05</span>三个数字 + 三毛病对照</h2>
+
+<div class="nums">
+  <div class="num"><div class="v">3</div><div class="l">次让步零对价</div><div class="cmp">置信度+依据54秒缴械 / 枚举路线全灭没算成本 / 承接方甩给汪帅刘杨</div></div>
+  <div class="num"><div class="v zero">1</div><div class="l">次主动行使主导权</div><div class="cmp">收窄议题「今天先聊 VLM，定时后面评」（38:24/40:04）——全场唯一一次，但做对了</div></div>
+  <div class="num"><div class="v">0</div><div class="l">次收尾复述</div><div class="cmp">53分钟散会于「那我们先这样今天」——action/DDL/纪要全无，记账权让给了荣姐</div></div>
+</div>
+
+<table style="margin-top:20px">
+  <tr><th style="width:22%">老毛病</th><th style="width:14%">本场状态</th><th>证据与判断</th></tr>
+  <tr>
+    <td><b>展示台</b><br><span class="dim">把会当成果展示，不是谈判</span></td>
+    <td><span class="tag t-mid">好转一半</span></td>
+    <td>好的：敢收窄议题、敢承认「之前预想有枚举值」。差的：开场仍是「看一下链路」的展示姿态，没有摆「我要收什么」。</td>
+  </tr>
+  <tr>
+    <td><b>技术耳</b><br><span class="dim">把权力问题听成技术问题</span></td>
+    <td><span class="tag t-mid">好转一半</span></td>
+    <td>好的：跟上了大部分技术讨论（两条链路、并发上限）。差的：DDL 之问（承诺题）听成查依赖题；频率之问（架构题）听成参数题。</td>
+  </tr>
+  <tr>
+    <td><b>裸体撤退</b><br><span class="dim">被压时全线缴械不留条款</span></td>
+    <td><span class="tag t-lose">仍在</span></td>
+    <td>SP字段54秒缴械、枚举路线90秒缴械、承接方主动甩出。程度比7.8轻（这次没人打你），但「同意=马上说可以」的条件反射没改。</td>
+  </tr>
+</table>
+
+<div class="gap-card" style="border-left-color: var(--purple); margin-top:20px">
+  <h4 style="color: var(--purple)">本场新增模式：④ 主场让座（比僵住更危险）</h4>
+  <p>7.2/7.8 你输在<b>被攻击后僵住</b>——那是能力问题，靠次数脱敏能治。这场没人攻击你，暴露的是另一种：<b>主位摆在面前，你自己不坐</b>。链路收敛、归属分配、收尾复述，全是 owner 的活，全让荣姐做了。<br><br>
+  僵住是被打倒，让座是没人打你、位子空着你站旁边。前者治的是胆，后者治的是<b>角色认知</b>——你从心底里把自己当「触发器模块的答题人」，没当「这条链路的主人」。这个认知不换，主持100场会，100场都是别人收口。</p>
+</div>
+
+<div class="closing">
+  <div class="big">7.8 你输在被打倒，7.16 你输在没人打、位子空着你不坐。<br>下一场会只做一件事：<em>开场第一句，把「今天我要收的三个东西」念出来；<br>散会前最后一句，把 action 表复述一遍。</em><br>这两句说了，主位就是你的。</div>
+  <div class="sub">下一场预告：定时任务评审（你自己43:14认领的）+ 舱外 VQA 链路对齐（西钺）。会前把「三个必答」写在纸顶上：我这条链路拆几个需求挂谁名 / 我的 DDL 是几号卡在哪两个依赖 / 承接方今天谁认领。</div>
+</div>
+
+<div class="version">
+  版本历史：v1（2026-07-17 梁宁六公理框架版） → <b>v2（2026-07-22 带温度逐句+技术补课版，当前）</b><br>
+  v2 变更：改为六回合逐句拆解（会场温度/处境/标准话术/为什么说不出来）· 新增6个技术概念补课 · 新增8件带deadline行动清单 · 新增三毛病对照表
+</div>
+
+</div>
+</body>
+</html>

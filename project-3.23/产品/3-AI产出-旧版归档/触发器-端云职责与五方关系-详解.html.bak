@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>触发器 · 端云职责与五方关系详解</title>
+<style>
+:root{--bg:#f7f9fc;--card:#fff;--text:#2c3e50;--border:#eaeaea;--accent:#3498db;--max:960px}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;color:var(--text);line-height:1.75;font-size:15px}
+.container{max-width:var(--max);margin:36px auto;padding:34px 42px;background:var(--card);border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.05)}
+@media(max-width:768px){.container{margin:0;border-radius:0;padding:16px}}
+h1{font-size:1.85rem;text-align:center;border-bottom:2px solid var(--border);padding-bottom:14px;margin-top:0}
+h2{font-size:1.4rem;margin-top:2.4em;padding:10px 14px;border-radius:8px;border-left:4px solid var(--accent);background:#f0f7ff;color:#1a202c}
+h3{font-size:1.14rem;margin-top:1.5em;color:#1e40af}
+h4{font-size:1rem;margin-top:1.1em}
+h4.case-hd{padding:6px 10px;background:#f1f5f9;border-radius:6px;border-left:3px solid #475569}
+p{margin-bottom:.9em;text-align:justify}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:.89rem}
+th,td{border:1px solid var(--border);padding:9px 11px;text-align:left;vertical-align:top}
+th{background:#f8f9fa;font-weight:600;color:#1a202c}
+tr:nth-child(even){background:#fafbfc}
+ol,ul{margin:8px 0 8px 20px;line-height:1.8}
+code{background:#f1f5f9;padding:1px 5px;border-radius:3px;font-size:.85rem;font-family:"SF Mono",Menlo,Consolas,monospace}
+.note{padding:10px 14px;border-radius:6px;margin:12px 0;font-size:.92rem}
+.note-red{background:#fee2e2;border-left:3px solid #dc2626}
+.note-green{background:#dcfce7;border-left:3px solid #16a34a}
+.note-blue{background:#dbeafe;border-left:3px solid #2563eb}
+.note-purple{background:#f3e8ff;border-left:3px solid #7c3aed}
+.note-yellow{background:#fef3c7;border-left:3px solid #d97706}
+.note-cyan{background:#ecfeff;border-left:3px solid #0e7490}
+.tag{display:inline-block;padding:1px 7px;border-radius:4px;font-size:11px;font-weight:700}
+.t-done{background:#dcfce7;color:#15803d}.t-data{background:#fef3c7;color:#a16207}.t-vote{background:#fee2e2;color:#dc2626}
+.tag-p0{color:#dc2626;font-weight:700}.tag-p1{color:#a16207;font-weight:700}.tag-p2{color:#475569;font-weight:700}
+.flow{display:flex;flex-wrap:wrap;align-items:stretch;gap:6px;margin:14px 0;padding:14px;background:#fafbfc;border:1px solid #eaeaea;border-radius:8px}
+.fnode{flex:1 1 108px;min-width:100px;max-width:215px;padding:8px 10px;border-radius:8px;font-size:.79rem;line-height:1.35;text-align:center;border:1.5px solid;display:flex;flex-direction:column;justify-content:center;gap:2px}
+.fnode b{font-size:.84rem}.fnode small{color:#555;font-size:.72rem}
+.cloud{background:#ede9fe;border-color:#7c3aed}.edge{background:#ffedd5;border-color:#ea580c}
+.vlm{background:#fef3c7;border-color:#d97706}.exec{background:#dcfce7;border-color:#16a34a}
+.ctx{background:#dbeafe;border-color:#2563eb}.adv{background:#f3e8ff;border-color:#9333ea}
+.dir{background:#ecfeff;border-color:#0891b2}.danger{background:#fee2e2;border-color:#dc2626}
+.farr{display:flex;align-items:center;justify-content:center;color:#94a3b8;font-weight:700;font-size:.95rem;flex:0 0 auto}
+.toc{background:#f8f9fa;padding:14px 18px;border-radius:8px;margin:18px 0}
+.toc a{color:#2563eb;text-decoration:none}.toc a:hover{text-decoration:underline}
+svg{max-width:100%;height:auto}
+figure{margin:14px 0}
+.legend{font-size:.8rem;color:#666;margin-top:6px}
+.legend span{display:inline-block;margin-right:14px}
+.sw{display:inline-block;width:11px;height:11px;border-radius:2px;vertical-align:middle;margin-right:3px}
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>触发器 · 端云职责与五方关系详解</h1>
+<p style="text-align:center;color:#888;font-size:13px">王泽民 · 2026-06-22 · 配套《Driver Agent 2.0 触发器系统 PRD v2.0》</p>
+
+<div class="note note-cyan">
+<b>名词口径（先统一）：</b><br/>
+· <b>Planner / Director（⑲⑳）</b> = 系统中央大脑（三层漏斗的第三层·深度推理）。老叫法 Planner、触发器大图里画作 ⑲Director汇入+⑳Director推理，同一个角色，下文写「Planner/Director」。<br/>
+· <b>广义触发器</b> = 仁杰原"触发与感知"模块 = <b>触发半（⑮云端 / ㉔端侧 / ④信号库）+ 感知半（㉕感知器）+ 感知订阅（注册接口）</b>。<br/>
+· <b>VLM</b>：端侧持续感知 = ㉕感知器（赛力斯）；云端一次性问答 = 云端 VQA（上汽+赛力斯）。<br/>
+· <b>Advisor</b>：⑯静态（4个常驻参谋）/ ⑰动态（Director 临时派的监工）。只出建议，不执行。
+</div>
+
+<div class="toc">
+<b>目录</b>
+<ol>
+<li><a href="#s1">端侧触发器要做的任务（做什么 / 云做会怎样 / 依赖谁 / 怎么做）</a></li>
+<li><a href="#s2">云端做了哪些、还没做哪些（状态看板 + 依赖谁 + 怎么做）</a></li>
+<li><a href="#s3">VLM × 触发器 × Advisor × Planner 五方关系（含全景流程图）</a></li>
+<li><a href="#s4">VQA 和它们的关系</a></li>
+</ol>
+</div>
+
+<!-- ============================ §1 ============================ -->
+<h2 id="s1">一、端侧触发器要做的任务</h2>
+
+<p>判断"该不该放端侧"只有一把尺子——这件事踩没踩到 4 条硬约束的任意一条：<b>① 实时性</b>（差几百毫秒~几秒就出问题）<b>② 断网可用</b>（隧道/地库/高速弱网）<b>③ 隐私+带宽</b>（画面/高频信号不能往云传）<b>④ 安全</b>（差几秒就是事故/人命）。踩到任一条 → 必须端侧。</p>
+
+<h3>1.1 七大类端侧任务总表</h3>
+<table>
+<tr><th style="width:13%">端侧任务</th><th style="width:22%">具体做什么（原子）</th><th style="width:24%">如果云来做会怎样</th><th style="width:12%">云做不了 / 依赖谁</th><th>具体要怎么做（产品动作）</th></tr>
+
+<tr><td><b>① 本地定时器</b></td><td>本地倒计时 / Cron，到点触发；记"到期时间点"并持久化 eMMC，重启续算（24-5 / 24-2）</td><td>云端能"算"时间，但到点那一刻车若在隧道断网 → 指令下不来 → 等出隧道再补发（多等 2-5 分钟）或干脆没执行</td><td>断网时云不可达。<b>依赖：</b>端侧研发（定时器模块）</td><td>产品出《定时类型规格》：倒计时/Cron/日期/节日、最小间隔、最大并发、HMI 卡片展示；找端侧研发排期</td></tr>
+
+<tr><td><b>② 简单条件判定</b></td><td>每 500ms 扫 ④ 信号库做数值/枚举比较 + 阈值穿越（F→T 才触发）（24-3/4/10）</td><td>上汽就是纯云端判定 → 延迟叠加到 3-8 秒（上报周期+5s扫描+下发往返）+ 弱网停摆 + 全量信号持续上报烧带宽</td><td>实时性+断网。<b>依赖：</b>端侧研发（扫描/判定引擎）</td><td>产品出《对齐窗口=500ms + 持续时长/运行阶段判定边界》；运算符清单一期范围找 ⑮研发 review</td></tr>
+
+<tr><td><b>③ 白名单车控直执</b></td><td>条件命中且动作在白名单（TTS/音量/温度/车窗/氛围灯/座椅）→ 端侧直调本地车控 API，不上云（24-12）</td><td>每个动作都等 Director 推理 2-3 秒 + 网络往返；手势接听、降音量慢半拍体验就崩；断网完全做不了</td><td>实时性+断网。<b>依赖：</b>兰若 / 蓉姐（白名单边界拍板）+ 智驾（安全类 confirm）</td><td>产品出《端侧直执白名单清单》（白名单内=低风险、白名单外=必回Director），拉兰若+蓉姐拍板，安全动作找智驾确认</td></tr>
+
+<tr><td><b>④ 视觉持续监控</b></td><td>调度 ㉕感知器 Always-on 每 3-5 秒一帧识别舱内外 + 五态归一（24-8/9 + ㉕）</td><td>四条约束全踩：①舱内画面持续上传=隐私灾难/合规风险 ②帧帧上传=带宽爆 ③DMS 端侧500ms vs 云端4秒（120km/h=差130米）④地库断网=遗留告警发不出（人命）</td><td>隐私+带宽+实时+安全全卡。<b>依赖：</b>丁彬/丁斌+佳杰/斯华（AIBox/㉕）</td><td>产品出《VLM task 7 字段定义 + 五态下游处理规则》；找丁彬确认 ㉕ 能识别哪些、推荐参数；调度接口找佳杰</td></tr>
+
+<tr><td><b>⑤ 弱网/断网降级执行</b></td><td>已下发端侧的规则在断网时本地判定+本地执行，不停摆</td><td>纯云端方案断网=整条链路停摆；而进隧道/地库是高频日常</td><td><b>云端定义上做不了</b>（断网=不可达）。<b>依赖：</b>端侧研发</td><td>产品定义《哪些规则需弱网闭环》（标在 15-9 下发时）+ 降级矩阵</td></tr>
+
+<tr><td><b>⑥ 信号采集标准化</b></td><td>③ 传感器/CAN 信号 → 标准化 → 写入 ④ 端侧信号库</td><td>采集本身只能在端；标准化若放云端则每条原始信号都上传（带宽+延迟），且车型 CAN 差异传到云端才处理</td><td>信号源物理在车上。<b>依赖：</b>CDC 研发（两套 CAN 信号清单）</td><td>找 CDC 要上汽 DNA + 赛力斯 CAN 信号总表 → 产品做《信号-条件-可配置性 mapping》（也是 15-1 的输入）</td></tr>
+
+<tr><td><b>⑦ 结果回写+上报</b></td><td>结果写 ④ → 上报 ㉑ Context；断网存本地缓存队列、按时间戳补传（24-11，铁律②）</td><td>没有端侧缓存 → 断网期间执行记录丢失 → 端云状态不一致</td><td>缓冲层只能在端。<b>依赖：</b>施佳杰（Context 写入接口）</td><td>产品出《上报事件 schema + 脱敏粒度》，找施佳杰对齐 ㉑ 写入接口</td></tr>
+</table>
+
+<div class="note note-yellow"><b>一句话：</b>端侧做"快+笨+可靠"——定时、数值比较、白名单车控、视觉检测、安全告警、弱网闭环、信号采集回写。<b>不需要脑子但要快、要断网也能干。</b>语义理解 / 跨任务仲裁 / 推理一律不碰（归云端）。</div>
+
+<!-- ============================ §2 ============================ -->
+<h2 id="s2">二、云端做了哪些、还没做哪些</h2>
+
+<p>云端触发器 ⑮ = <b>登记 + 判定 + 裁决 + 分发</b>中心。<b>状态说明：</b>"引擎该干什么"（12 原子职责、端云分类决策树初版、五态、铁律）在 PRD 里已定清——这是<b>产品定义层（✅ 已做）</b>；但引擎要真跑起来，产品得喂进去一堆数据/规格/数值，这些<b>大部分还没交</b>。</p>
+
+<p class="legend"><span><span class="tag t-done">✅ 已定义</span>产品职责已拆清</span><span><span class="tag t-data">⚠ 缺数据/规格</span>等输入</span><span><span class="tag t-vote">❌ 待拍板</span>等决策</span></p>
+
+<h3>2.1 ⑮ 12 原子状态看板</h3>
+<table>
+<tr><th style="width:6%">组</th><th style="width:14%">原子</th><th style="width:26%">做什么</th><th style="width:9%">状态</th><th style="width:22%">没做的缺什么 / 依赖谁</th><th>具体怎么做</th></tr>
+
+<tr><td rowspan="3"><b>注册<br/>登记</b></td><td>15-1 注册校验 iCanDo</td><td>查这车有没有这传感器/能不能做这动作 + 内容审查 → 接不接</td><td><span class="tag t-data">⚠</span></td><td>缺 iCanDo 信号能力清单。<b>依赖 CDC 研发</b>给两套 CAN 清单</td><td>要清单 → 产品做信号-动作能力 mapping → 找晓伟确认 23 工具哪些可被触发器调</td></tr>
+<tr><td>15-2 场景入库</td><td>存全部规则（scene_id/条件/动作/来源/生命周期）+ 版本灰度</td><td><span class="tag t-data">⚠</span></td><td>场景库是空的。<b>依赖赵益红</b>的赛力斯条件任务大表</td><td>要 21+ 场景大表 → 产品逐条翻译成 ⑬ 配置 → ⑮研发确认 DB schema</td></tr>
+<tr><td>15-3 信号扫描</td><td>周期扫 ㉑ 快照匹配场景库（触发器心跳）</td><td><span class="tag t-done">✅</span></td><td>需定扫描频率（温度5s/车速1s/充电30s）</td><td>产品出分类扫描频率表 → ⑮研发评估性能</td></tr>
+
+<tr><td rowspan="4"><b>判定</b></td><td>15-4 条件判定</td><td>运算符引擎，复合 AND/OR 跨信号源</td><td><span class="tag t-vote">❌</span></td><td>运算符一期范围未拍（range/持续/group/变更为/POI）</td><td>产品出一期/二期运算符表 → ⑬研发（刘杨?）估人天 → 排期</td></tr>
+<tr><td>15-5 VLM task 编译</td><td>把 ⑬ 的 VLM 7 字段编译成 ㉕ 可执行 task</td><td><span class="tag t-data">⚠</span></td><td>缺 7 字段定义。<b>依赖丁彬</b>确认 ㉕ 能力</td><td>产品出 query 模板库（每场景=camera/seat/推荐 interval/timeout）→ 丁彬确认</td></tr>
+<tr><td>15-6 抖动过滤</td><td>±区间防狂刷</td><td><span class="tag t-data">⚠</span></td><td>缺各信号抖动区间数值（温度±0.5°…）</td><td>找 CDC 了解传感器波动幅度 → 产品定区间 → ⑮研发 review</td></tr>
+<tr><td>15-7 频控冷却</td><td>cooldown + 每日上限</td><td><span class="tag t-data">⚠</span></td><td>缺各场景频控数值</td><td>产品出 execute_policy 数值表（逐场景一行）</td></tr>
+
+<tr><td rowspan="2"><b>仲裁<br/>分类</b></td><td>15-8 优先级仲裁</td><td>P0-P4 + 互斥组，业务语义仲裁（降温vs省电）</td><td><span class="tag t-data">⚠</span></td><td>缺互斥组划分表 + P0-P4 分级标准</td><td>产品出互斥组表（温控/音频/导航/安全组）→ 晓伟对齐 Planner 工具互斥 → 智驾 confirm 安全类</td></tr>
+<tr><td>15-9 端云分类</td><td><b>总开关</b>：留云/下发端/转VLM/回Director</td><td><span class="tag t-vote">❌</span></td><td>有决策树初版，但未上会正式拍。<b>依赖兰若</b></td><td>把决策树（10 条规则）上会，找兰若 confirm 端云边界，不能偷偷定</td></tr>
+
+<tr><td rowspan="3"><b>输出<br/>下发</b></td><td>15-10 标准事件</td><td>命中结果打统一格式供下游消费</td><td><span class="tag t-done">✅</span></td><td>需定事件字段 + 二次推理规则</td><td>和 ⑮研发定协议，找晓伟确认 Director 消费需哪些字段</td></tr>
+<tr><td>15-11 Callback 路由</td><td>按动作分发：notify_planner→Director / trigger_advisor→⑯⑰ / 端侧→㉔</td><td><span class="tag t-done">✅</span></td><td>需路由规则表 + Director 接收接口</td><td>找晓伟确认 tool_feedback 格式、施佳杰确认 Context 写入</td></tr>
+<tr><td>15-12 场景下发</td><td>编译规则包下发 ㉔（云到端唯一通道）</td><td><span class="tag t-data">⚠</span></td><td>缺规则包协议 v2（VLM task/白名单等新字段）</td><td>牵头 ⑮研发+㉔研发联调会，产品出规则包字段初版，两端评审定稿</td></tr>
+</table>
+
+<h3>2.2 最卡的三条（堵死后面一切的输入）</h3>
+<div class="note note-red">
+<b>22 项缺口里，真正的关键路径是"要别人给数据 / 要别人拍板"这几条——它们是其它所有交付物的输入：</b><br/>
+<b>1. 两套 CAN 信号清单</b>（CDC 研发）—— 没有它 15-1 写不出、⑬ 静态条件配不了，地基没浇。<br/>
+<b>2. 赛力斯条件任务大表</b>（赵益红）—— 没有它 ⑮ 场景库是空的，引擎没东西可跑。<br/>
+<b>3. 端云分类边界拍板</b>（兰若）—— 15-9 是总开关，原则不上会拍死，端云分工全悬着。<br/>
+这三条都是"别人不给/不拍，产品再能写也推不动"——应作为本周向蓉姐/兰若正式提需求的重点（呼应 §11.3 冲突#5：图画了线但没正式提需求）。
+</div>
+
+<!-- ============================ §3 ============================ -->
+<h2 id="s3">三、VLM × 触发器 × Advisor × Planner 五方关系</h2>
+
+<p>先把五个角色一句话定位，再看全景流程图，最后逐条关系拆"关系是什么 / 缺什么 / 上下游 / 怎么做"。</p>
+
+<table>
+<tr><th style="width:16%">角色</th><th style="width:30%">是什么</th><th>在这套关系里的位置</th></tr>
+<tr><td><b>Planner/Director ⑲⑳</b></td><td>系统大脑。理解意图、深度推理、拍板、调工具、跟踪反馈</td><td>触发器的<b>注册方之一</b>（衍生条件任务）+ <b>消费方</b>（命中回它）+ 动态 Advisor 的<b>创建者</b></td></tr>
+<tr><td><b>Advisor ⑯⑰</b></td><td>参谋。只出建议（advice），不执行/不控车/不直接说话</td><td>静态=触发器的<b>消费方</b>（从 Context 读事件）；动态=触发器的<b>注册方</b>（感知订阅）</td></tr>
+<tr><td><b>广义触发器</b></td><td>条件监控+自动化中间层+感知底座。"何时唤醒"</td><td><b>中枢</b>：上接 Planner/Advisor 的注册，下接信号与执行，内含感知器㉕</td></tr>
+<tr><td><b>VLM（㉕感知器 / 云端VQA）</b></td><td>眼睛。㉕=端侧持续感知；VQA=云端一次性问答</td><td>㉕ 是触发器的<b>感知半（在触发器内部）</b>；VQA 是 Director 的工具（旁路）</td></tr>
+<tr><td><b>Context（㉑云 / ④端）</b></td><td>统一事实源。所有状态的结构化快照</td><td>触发器结果统一<b>写这里</b>，Advisor/Director 统一<b>从这里读</b>（铁律②）</td></tr>
+</table>
+
+<h3>3.1 全景关系图</h3>
+<figure>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 560" font-family="-apple-system,PingFang SC,sans-serif">
+<defs>
+<marker id="aB" markerWidth="9" markerHeight="7" refX="7.5" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7z" fill="#0891b2"/></marker>
+<marker id="aP" markerWidth="9" markerHeight="7" refX="7.5" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7z" fill="#9333ea"/></marker>
+<marker id="aO" markerWidth="9" markerHeight="7" refX="7.5" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7z" fill="#ea580c"/></marker>
+<marker id="aG" markerWidth="9" markerHeight="7" refX="7.5" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7z" fill="#475569"/></marker>
+<marker id="aR" markerWidth="9" markerHeight="7" refX="7.5" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7z" fill="#dc2626"/></marker>
+</defs>
+<rect width="880" height="560" fill="#fff"/>
+
+<!-- Funnel strip top -->
+<rect x="20" y="14" width="840" height="40" rx="6" fill="#f8fafc" stroke="#e2e8f0"/>
+<text x="30" y="30" font-size="10" fill="#64748b" font-weight="700">三层漏斗</text>
+<text x="30" y="45" font-size="10.5" fill="#475569">①用户语音 ▸ ②ASR ▸ ⑨拒识(情景RAG/仲裁) ▸ 简单走⑤句法RAG直执 / 复杂走 ⑩意图解析 ▸ ⑬/⑮(条件任务) 或 ⑲⑳(深度推理)</text>
+
+<!-- Planner/Director center top -->
+<rect x="350" y="78" width="180" height="56" rx="9" fill="#ecfeff" stroke="#0891b2" stroke-width="2"/>
+<text x="440" y="101" text-anchor="middle" font-size="13" font-weight="700">⑲⑳ Planner / Director</text>
+<text x="440" y="120" text-anchor="middle" font-size="10" fill="#475569">大脑 · 推理 · 拍板 · 调工具</text>
+
+<!-- Advisor left -->
+<rect x="36" y="200" width="160" height="86" rx="9" fill="#f3e8ff" stroke="#9333ea" stroke-width="1.6"/>
+<text x="116" y="222" text-anchor="middle" font-size="12.5" font-weight="700">⑯⑰ Advisor</text>
+<text x="116" y="240" text-anchor="middle" font-size="9.5" fill="#475569">⑯静态4个(常驻)</text>
+<text x="116" y="254" text-anchor="middle" font-size="9.5" fill="#475569">⑰动态(Director派)</text>
+<text x="116" y="272" text-anchor="middle" font-size="9.5" fill="#7c3aed" font-weight="600">只出 advice</text>
+
+<!-- 广义触发器 big box center -->
+<rect x="250" y="190" width="380" height="210" rx="11" fill="#fff7ed" stroke="#c2410c" stroke-width="2" stroke-dasharray="2,0"/>
+<text x="266" y="210" font-size="12" fill="#c2410c" font-weight="800">广义触发器（触发与感知）</text>
+<!-- 触发半 -->
+<rect x="266" y="222" width="160" height="44" rx="6" fill="#ede9fe" stroke="#7c3aed" stroke-width="1.3"/>
+<text x="346" y="240" text-anchor="middle" font-size="11" font-weight="700">⑮ 云端触发器</text>
+<text x="346" y="256" text-anchor="middle" font-size="9" fill="#475569">注册/判定/仲裁/分类/下发</text>
+<rect x="266" y="276" width="160" height="44" rx="6" fill="#ffedd5" stroke="#ea580c" stroke-width="1.3"/>
+<text x="346" y="294" text-anchor="middle" font-size="11" font-weight="700">㉔ 端侧触发器</text>
+<text x="346" y="310" text-anchor="middle" font-size="9" fill="#475569">判定/定时/调度/直执</text>
+<rect x="266" y="330" width="160" height="40" rx="6" fill="#ffedd5" stroke="#ea580c" stroke-width="1.1"/>
+<text x="346" y="354" text-anchor="middle" font-size="10.5" font-weight="700">④ 端侧信号库</text>
+<!-- 感知半 ㉕ -->
+<rect x="446" y="250" width="168" height="92" rx="8" fill="#fef3c7" stroke="#d97706" stroke-width="1.8"/>
+<text x="530" y="272" text-anchor="middle" font-size="12" font-weight="700">㉕ 感知器（感知半）</text>
+<text x="530" y="290" text-anchor="middle" font-size="9.5" fill="#475569">VLM 定时捞图</text>
+<text x="530" y="304" text-anchor="middle" font-size="9.5" fill="#475569">→ VQA 判事件</text>
+<text x="530" y="322" text-anchor="middle" font-size="9" fill="#92400e">端侧持续监控(赛力斯)</text>
+<!-- internal arrow 24-8 调度 -->
+<path d="M426,300 L446,300" fill="none" stroke="#ea580c" stroke-width="1.6" marker-end="url(#aO)"/>
+<text x="436" y="293" text-anchor="middle" font-size="8" fill="#ea580c">24-8</text>
+
+<!-- Context right -->
+<rect x="690" y="200" width="160" height="86" rx="9" fill="#dbeafe" stroke="#2563eb" stroke-width="1.6"/>
+<text x="770" y="226" text-anchor="middle" font-size="12.5" font-weight="700">㉑ / ④ Context</text>
+<text x="770" y="246" text-anchor="middle" font-size="9.5" fill="#475569">统一事实源</text>
+<text x="770" y="264" text-anchor="middle" font-size="9.5" fill="#2563eb" font-weight="600">谁都从这读</text>
+
+<!-- 云端VQA bottom right -->
+<rect x="690" y="438" width="160" height="58" rx="9" fill="#ede9fe" stroke="#7c3aed" stroke-width="1.4" stroke-dasharray="5,3"/>
+<text x="770" y="461" text-anchor="middle" font-size="12" font-weight="700">☁ 云端 VQA</text>
+<text x="770" y="479" text-anchor="middle" font-size="9" fill="#475569">一次性问答·旁路</text>
+
+<!-- 执行 bottom center -->
+<rect x="340" y="450" width="200" height="50" rx="9" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+<text x="440" y="471" text-anchor="middle" font-size="11.5" font-weight="700">㉒工具库 / ㉖TTS / ㉘车控</text>
+<text x="440" y="488" text-anchor="middle" font-size="9" fill="#475569">执行落地</text>
+
+<!-- ===== Arrows ===== -->
+<!-- Director → ⑮ 注册条件任务 (L33) -->
+<path d="M430,134 Q360,165 350,222" fill="none" stroke="#0891b2" stroke-width="1.6" marker-end="url(#aB)"/>
+<text x="320" y="172" font-size="9" fill="#0891b2" font-weight="600">注册条件任务(L33)</text>
+<!-- Director → Advisor 创建动态 -->
+<path d="M350,116 Q210,150 175,200" fill="none" stroke="#0891b2" stroke-width="1.6" marker-end="url(#aB)"/>
+<text x="200" y="150" font-size="9" fill="#0891b2" font-weight="600">创建/销毁动态Advisor</text>
+<!-- Advisor → 触发器 感知订阅 -->
+<path d="M196,250 L266,250" fill="none" stroke="#9333ea" stroke-width="1.8" marker-end="url(#aP)"/>
+<text x="231" y="244" text-anchor="middle" font-size="9" fill="#9333ea" font-weight="700">感知订阅</text>
+<!-- ㉕/④ → Context 回写上报 -->
+<path d="M614,300 Q660,250 690,243" fill="none" stroke="#ea580c" stroke-width="1.6" marker-end="url(#aO)"/>
+<text x="660" y="300" font-size="9" fill="#ea580c" font-weight="600">结果回写④→㉑(24-11)</text>
+<path d="M426,350 Q560,400 690,270" fill="none" stroke="#ea580c" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#aO)"/>
+<!-- Context → Advisor 消费 -->
+<path d="M690,243 Q420,150 196,235" fill="none" stroke="#2563eb" stroke-width="1.4" marker-end="url(#aB)"/>
+<text x="430" y="180" font-size="9" fill="#2563eb" font-weight="600">命中事件→Advisor消费</text>
+<!-- Context → Director 消费 -->
+<path d="M770,200 Q700,120 530,106" fill="none" stroke="#2563eb" stroke-width="1.4" marker-end="url(#aB)"/>
+<text x="660" y="135" font-size="9" fill="#2563eb" font-weight="600">→Director消费</text>
+<!-- Advisor → Director advice -->
+<path d="M150,200 Q230,120 350,100" fill="none" stroke="#9333ea" stroke-width="1.6" marker-end="url(#aP)"/>
+<text x="210" y="108" font-size="9" fill="#9333ea" font-weight="700">advice→⑲汇入</text>
+<!-- Director → 云端VQA 一次性(虚线) -->
+<path d="M530,120 Q720,200 770,438" fill="none" stroke="#dc2626" stroke-width="1.4" stroke-dasharray="6,3" marker-end="url(#aR)"/>
+<text x="745" y="360" font-size="9" fill="#dc2626" font-weight="600">一次性VQA(不经触发器)</text>
+<!-- Director → 执行 -->
+<path d="M440,134 L440,450" fill="none" stroke="#16a34a" stroke-width="1.5" marker-end="url(#aB)" opacity="0.55"/>
+<text x="448" y="420" font-size="9" fill="#16a34a" font-weight="600">调工具/车控(L27/L29/L30)</text>
+<!-- 触发器 → 执行 白名单直执 -->
+<path d="M346,370 L400,450" fill="none" stroke="#16a34a" stroke-width="1.5" marker-end="url(#aB)"/>
+<text x="335" y="420" font-size="9" fill="#16a34a" font-weight="600">白名单直执(24-12)</text>
+</svg>
+<div class="legend">
+<span><span class="sw" style="background:#0891b2"></span>Planner/Director 发起</span>
+<span><span class="sw" style="background:#9333ea"></span>Advisor</span>
+<span><span class="sw" style="background:#ea580c"></span>触发器内部/端侧</span>
+<span><span class="sw" style="background:#2563eb"></span>Context 读写</span>
+<span><span class="sw" style="background:#dc2626"></span>VQA 旁路(虚线)</span>
+</div>
+</figure>
+
+<div class="note note-purple"><b>看图三个要点：</b>① <b>㉕ 感知器在触发器框里</b>——VLM 不是独立模块，是触发器的感知半；② <b>所有结果先进 Context，再被 Advisor/Director 消费</b>（橙→蓝→紫，铁律②，没有任何直推）；③ <b>只有一条红虚线（Director 一次性 VQA）绕开触发器</b>，其余视觉全在触发器里。</div>
+
+<h3>3.2 逐条关系拆解（关系 / 缺什么 / 上下游 / 怎么做）</h3>
+<table>
+<tr><th style="width:16%">关系对</th><th style="width:30%">关系是什么</th><th style="width:24%">现在缺什么</th><th style="width:10%">上下游</th><th>怎么做</th></tr>
+
+<tr><td><b>Planner/Director ↔ 触发器</b></td><td>Director 衍生条件任务 → ⑮ 注册（L33）；触发器命中 → notify_planner 回 Director（L21/L11）。Director 既是注册方又是消费方</td><td>① notify_planner 回调格式（标准事件字段）② Director SP 里"收到触发事件怎么处理"的 knowhow（尤其上汽无 Advisor 时）</td><td>晓伟</td><td>产品出标准事件 schema + 上汽 5-10 个主动服务 case 模板 → 晓伟据此调 Director SP</td></tr>
+
+<tr><td><b>Advisor ↔ 触发器</b></td><td>静态 Advisor 从 Context 被动消费触发器写入的事件；动态 Advisor 通过<b>感知订阅</b>主动注册触发器（= ⑰↔触发器 7 接口）</td><td>① 感知订阅 7 接口协议（订阅/回调/事件/能力描述/文本→事件类型/优先级/兜底）② Advisor 视觉事件依赖表</td><td>益红 / 赵益红</td><td>产品+益红出《Advisor 视觉事件依赖表》+ 7 接口字段定义，与 ⑮ 注册 API 对齐</td></tr>
+
+<tr><td><b>触发器 ↔ VLM(㉕)</b></td><td>㉕ 是触发器的感知半：触发器 24-8 调度 ㉕、24-9/10/11 处理 ㉕ 结果。VLM 在触发器内部，不是外挂</td><td>① VLM task 7 字段定义 ② 24-8→AIBox 启停接口 ③ 五态下游处理规则 ④ <b>24-8 调度归属（泽民 vs 佳杰，617 未拍）</b></td><td>丁彬/丁斌 · 佳杰/斯华</td><td>产品出 7 字段+五态规则 → 丁彬确认 ㉕ 能力；拉 30min 会和佳杰拍 VLM 调度归属</td></tr>
+
+<tr><td><b>VLM ↔ Advisor</b></td><td>Advisor 够不着 VLM（云端 LLM 没有手），必须经触发器的感知订阅；"文本→事件类型"接口把 Advisor 的人话翻成 ㉕ 的结构化 task</td><td>"文本→事件类型"接口的规格（事件类型枚举 + 输出 schema 与 ⑮ 对齐）；若做成模型则需训练数据/选型</td><td>益红 + 泽民</td><td>产品+益红定文本→事件类型接口规格，冻结输出 schema</td></tr>
+
+<tr><td><b>Advisor ↔ Planner/Director</b></td><td>Advisor 出 advice → ⑲ 汇入 → ⑳ Director 拍板；Director 创建/销毁动态 Advisor、绑 Goal List</td><td>① advice → Director 的汇入格式 ② 动态 Advisor 生命周期 + 级联删除规则</td><td>晓伟 · 益红</td><td>产品定 advice 汇入字段 + 动态 Advisor 取消 4 场景的级联清理规则</td></tr>
+
+<tr><td><b>触发器 ↔ Context</b></td><td>触发器结果统一写 ④/㉑（铁律②，不直推），Advisor/Director 统一从 Context 读</td><td>上报事件 schema + 脱敏粒度 + 端云 Context 同步机制</td><td>施佳杰</td><td>产品出 24-11→㉑ 上报 schema，找施佳杰对齐 Context 写入/同步接口</td></tr>
+</table>
+
+<h3>3.3 一条链路走通：「照顾二排宝宝」串起五方</h3>
+<div class="flow">
+<div class="fnode dir"><b>⑳ Director</b><small>建目标+派动态Advisor</small></div><div class="farr">▶</div>
+<div class="fnode adv"><b>⑰ 动态Advisor</b><small>感知订阅"盯宝宝"</small></div><div class="farr">▶</div>
+<div class="fnode edge"><b>触发器 ⑮/㉔</b><small>注册→调度</small></div><div class="farr">▶</div>
+<div class="fnode vlm"><b>㉕ 感知器</b><small>持续识别·穿越判定</small></div><div class="farr">▶</div>
+<div class="fnode ctx"><b>④→㉑ Context</b><small>事件回写</small></div><div class="farr">▶</div>
+<div class="fnode adv"><b>⑯/⑰ Advisor</b><small>出建议</small></div><div class="farr">▶</div>
+<div class="fnode dir"><b>⑳ Director</b><small>拍板+执行</small></div>
+</div>
+<p style="font-size:.9em;color:#555">Director 派活 → Advisor 订阅（经触发器）→ 触发器调度 VLM 感知 → 结果进 Context → Advisor 出建议 → Director 拍板执行。<b>五方各司其职，触发器是中枢，VLM 在触发器内，Context 是唯一交换台。</b></p>
+
+<!-- ============================ §4 ============================ -->
+<h2 id="s4">四、VQA 和它们的关系</h2>
+
+<p>VQA = <b>云端一次性视觉问答</b>（给一张图 + 一个 prompt → 拿一个答案）。它和 ㉕ 感知器是"看"这件事的两条底层路径，关系要单独讲清，因为它<b>有一条是绕开触发器的</b>。</p>
+
+<h3>4.1 VQA 的两条路径：一条经触发器，一条不经</h3>
+<table>
+<tr><th style="width:18%">路径</th><th style="width:26%">谁发起 · 链路</th><th style="width:14%">经触发器吗</th><th>典型场景</th></tr>
+<tr><td><b>路径①：Director 一次性 VQA</b></td><td>⑳ Director 调 ㉒ <code>search_visual_info</code> → 下发抓帧 → 端侧摄像头 → 上传 → 云端 VQA → 回 Director</td><td><span style="color:#dc2626">❌ 不经</span>（不经 ⑮、不经 ㉔）</td><td>"帮我看下前面有没有加油站"——用户当场问、看一眼</td></tr>
+<tr><td><b>路径②：Advisor 定时 VQA</b></td><td>⑰ 动态 Advisor 感知订阅 → ⑮ 定时器到点 → 视频通话接口 → 端侧摄像头 → 云端 VQA → 回 ⑰ + 注入 ㉑</td><td><span style="color:#16a34a">✅ 经</span>（要定时器=要触发器）</td><td>"每 5 分钟看一次宝宝"——上汽 D6X 也能跑（无 ㉕ 时用 VQA 替代）</td></tr>
+</table>
+
+<div class="flow">
+<div class="fnode dir"><b>⑳ Director</b><small>用户当场问</small></div><div class="farr">▶</div>
+<div class="fnode dir"><b>㉒ search_visual_info</b><small>工具库·调VQA</small></div><div class="farr">▶</div>
+<div class="fnode edge"><b>端侧摄像头</b><small>抓帧上传</small></div><div class="farr">▶</div>
+<div class="fnode cloud"><b>☁ 云端VQA</b><small>图+prompt→答案</small></div><div class="farr">▶</div>
+<div class="fnode dir"><b>⑳ Director</b><small>二次推理+TTS</small></div>
+</div>
+<p style="font-size:.9em;color:#555">↑ 路径①（不经触发器）：纯 Director 工具调用。这就是你直觉里"不需要触发器"的那条——但它只是"看一眼"，不能持续盯。</p>
+
+<h3>4.2 VQA vs ㉕ 感知器：谁在什么时候用</h3>
+<table>
+<tr><th style="width:14%">维度</th><th>云端 VQA</th><th>端侧 ㉕ 感知器</th></tr>
+<tr><td>运行模式</td><td>一次性问答（问一次看一次）</td><td>Always-on 持续感知（每 3-5 秒一帧）</td></tr>
+<tr><td>谁调</td><td>Director（路径①，旁路）或 Advisor 定时器（路径②，经触发器）</td><td>触发器 24-8 调度（一定经触发器）</td></tr>
+<tr><td>车型</td><td>上汽 ✅ + 赛力斯 ✅</td><td>仅赛力斯（需 AIBox）</td></tr>
+<tr><td>断网</td><td>必须有网</td><td>端侧本地推理，断网照跑</td></tr>
+<tr><td>隐私/延迟</td><td>需上传 + 1-4 秒</td><td>画面不出车 + 500ms</td></tr>
+<tr><td>适用</td><td>低频、一次性（"那是什么"）</td><td>高频、持续盯（DMS/遗留/盯宝宝）</td></tr>
+</table>
+
+<h3>4.3 VQA 和四方的关系一句话</h3>
+<table>
+<tr><th style="width:18%">VQA ↔</th><th>关系</th></tr>
+<tr><td><b>Planner/Director</b></td><td>VQA 是 Director 的一个<b>工具</b>（search_visual_info）。Director 想"看一眼"直接调，不惊动触发器</td></tr>
+<tr><td><b>触发器</b></td><td>当需求是"定时/持续看"时，VQA 被挂在触发器的定时器下（路径②）；当是"看一眼"时与触发器无关（路径①）</td></tr>
+<tr><td><b>Advisor</b></td><td>Advisor 想要持续视觉但车上没 ㉕（如上汽）→ 感知订阅降级成"定时器 + VQA"，仍经触发器</td></tr>
+<tr><td><b>㉕ 感知器</b></td><td>两者是"看"的两条路：㉕ 持续/端侧/赛力斯，VQA 一次性/云端/通用。同一需求"盯副驾睡没睡"，赛力斯走 ㉕、上汽走 VQA</td></tr>
+</table>
+
+<h3>4.4 VQA 相关缺口</h3>
+<table>
+<tr><th style="width:34%">缺什么</th><th style="width:10%">P级</th><th style="width:18%">依赖谁</th><th>怎么做</th></tr>
+<tr><td>视频通话接口 + 端侧摄像头抓帧链路协议</td><td class="tag-p1">P1</td><td>端侧研发 + VQA 服务</td><td>产品出抓帧指令格式（camera/分辨率/超时），两端联调</td></tr>
+<tr><td>上汽视觉能力边界表（只有 VQA → 哪些能做/不能做/降级）</td><td class="tag-p1">P1</td><td>泽民自己出</td><td>列所有视觉场景 × 上汽能否做 × 降级方案</td></tr>
+<tr><td>多 Advisor 同订阅时的 VQA prompt 拼接规则</td><td class="tag-p2">P2</td><td>益红 + VQA 服务</td><td>定义并发观察任务的 prompt 合并策略</td></tr>
+</table>
+
+<hr style="margin:36px 0;border:none;border-top:2px solid var(--border)"/>
+<p style="text-align:center;color:#999;font-size:13px">
+触发器 · 端云职责与五方关系详解 · 王泽民 · 2026-06-22<br/>
+配套《Driver Agent 2.0 触发器系统 PRD v2.0》（触发器PRD-v2.html）
+</p>
+
+</div>
+</body>
+</html>

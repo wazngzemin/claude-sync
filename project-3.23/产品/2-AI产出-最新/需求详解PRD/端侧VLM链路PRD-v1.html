@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>端侧VLM链路 PRD v1 · 双通道定版 · 2026-07-06</title>
+<style>
+:root{--ink:#1e293b;--grey:#64748b;--line:#e2e8f0;--edge:#ea580c;--cloud:#2563eb;--green:#16a34a;--warn:#dc2626;--gold:#b45309;--purple:#7c3aed}
+*{box-sizing:border-box}
+body{margin:0;background:#f1f5f9;color:var(--ink);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;line-height:1.78;font-size:14.5px}
+.wrap{max-width:1100px;margin:0 auto;padding:34px 28px 160px}
+h1{font-size:1.8rem;margin:0 0 4px;text-align:center}
+.sub{color:var(--grey);font-size:.96rem;margin-bottom:18px;text-align:center}
+h2{font-size:1.38rem;margin:48px 0 10px;padding:18px 0 6px;border-top:3px solid var(--edge);color:var(--edge)}
+h3{font-size:1.14rem;margin:30px 0 6px;color:#334155;padding-left:8px;border-left:3px solid var(--edge)}
+h4{font-size:1.02rem;margin:20px 0 4px;color:#475569}
+p{margin:6px 0}
+table{border-collapse:collapse;width:100%;margin:10px 0;font-size:.86rem;background:#fff;border-radius:8px;overflow:hidden}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+th{background:#f8fafc;font-weight:700}
+tr:nth-child(even){background:#fcfcfd}
+code{font-family:ui-monospace,Menlo,monospace;font-size:.88em;background:#f1f5f9;padding:1px 5px;border-radius:3px}
+pre{background:#1e293b;color:#e2e8f0;padding:12px 14px;border-radius:7px;font-size:.8rem;overflow-x:auto;font-family:ui-monospace,Menlo,monospace;line-height:1.5;margin:8px 0}
+.note{border-radius:8px;padding:11px 14px;margin:12px 0;font-size:.92rem}
+.nb{background:#eff6ff;border:1px solid #bfdbfe}
+.nr{background:#fef2f2;border:1px solid #fecaca}
+.ng{background:#fffbeb;border:1px solid #fde68a}
+.nx{background:#f0fdf4;border:1px solid #bbf7d0}
+.np{background:#f5f3ff;border:1px solid #ddd6fe}
+.big{background:var(--ink);color:#fff;border-radius:10px;padding:13px 18px;margin:12px 0}.big b{color:#fcd34d}
+.toc{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px 20px;margin:16px 0;font-size:.82rem}
+.toc a{color:#334155;text-decoration:none;display:block;padding:2px 0}.toc a:hover{color:var(--edge)}
+.toc .h{font-weight:800;color:var(--ink);margin-top:6px}
+.redline{background:#fef2f2;border-left:4px solid var(--warn);padding:8px 12px;margin:8px 0;font-size:.9rem}
+.story{background:linear-gradient(135deg,#fff7ed,#ffedd5);border:1px solid #fdba74;border-radius:10px;padding:16px 20px;margin:14px 0;font-size:.94rem}
+.story b{color:#c2410c}
+.flow-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:12px 0;padding:12px;background:#fafbfc;border:1px solid var(--line);border-radius:8px}
+.fn{flex:0 0 auto;padding:7px 10px;border-radius:7px;font-size:.78rem;text-align:center;border:1.5px solid;line-height:1.3}
+.fn b{display:block;font-size:.82rem}
+.fn-edge{background:#ffedd5;border-color:#ea580c}
+.fn-vlm{background:#fef3c7;border-color:#d97706}
+.fn-dc{background:#dbeafe;border-color:#2563eb}
+.fn-cld{background:#f3e8ff;border-color:#9333ea}
+.fn-exec{background:#dcfce7;border-color:#16a34a}
+.fa{flex:0 0 auto;color:#94a3b8;font-weight:700;font-size:1rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>端侧VLM链路 PRD v1</h1>
+<div class="sub">基于7.6下午VLM链路专项会定版 · 双通道分离架构 · Owner: 王泽民 · 2026-07-06</div>
+
+<div class="big">
+<b>本文档定位</b>：聚焦<b>端侧VLM数据链路</b>的独立PRD——从触发器发出推理指令，到VLM SDK执行推理，到结果通过双通道回传，到数据中心整包透传云端，到云端消费决策。<br/><br/>
+<b>不在本文档范围</b>：触发器的条件匹配引擎、信号库设计、规则下发、20个预设场景的逐条定义（这些在「端侧触发器PRD v4」中）。本文档专注于<b>VLM从被触发到数据到达云端</b>这一段链路的产品设计。<br/><br/>
+<b>会议基线</b>：7.6下午 VLM链路专项会（丁彬/汪帅/斯华Walter/李鑫/董均/张荣/蒋文/张兰若/王泽民）
+</div>
+
+<div class="toc">
+<a class="h">一、需求背景与问题</a>
+<a href="#s1">1.1 为什么需要这份PRD</a>
+<a href="#s12">1.2 7.6之前的链路问题</a>
+<a href="#s13">1.3 7.6定版的核心变更</a>
+<a class="h">二、整体架构：双通道分离</a>
+<a href="#s21">2.1 一句话说清楚</a>
+<a href="#s22">2.2 三条关键箭头</a>
+<a href="#s23">2.3 各模块角色定义</a>
+<a class="h">三、AlwaysOn链路需求（已定版）</a>
+<a href="#s31">3.1 完整链路六阶段</a>
+<a href="#s32">3.2 各阶段详细需求</a>
+<a href="#s33">3.3 AlwaysOn三任务定义</a>
+<a href="#s34">3.4 边界case</a>
+<a class="h">四、OneShot链路需求（数据回传待评审）</a>
+<a href="#s41">4.1 完整链路</a>
+<a href="#s42">4.2 已确认部分</a>
+<a href="#s43">4.3 待评审：数据回传路径</a>
+<a class="h">五、数据中心需求</a>
+<a href="#s51">5.1 核心职责</a>
+<a href="#s52">5.2 订阅机制</a>
+<a href="#s53">5.3 存储策略</a>
+<a href="#s54">5.4 透传规范</a>
+<a class="h">六、接口定义</a>
+<a href="#s61">6.1 触发器 → VLM SDK（运行指令）</a>
+<a href="#s62">6.2 VLM SDK → 触发器（状态回调）</a>
+<a href="#s63">6.3 VLM SDK → 数据中心（topic发布）</a>
+<a href="#s64">6.4 数据中心 → 云端（端状态上报）</a>
+<a class="h">七、异常处理</a>
+<a href="#s71">7.1 职责切割原则</a>
+<a href="#s72">7.2 异常场景全量</a>
+<a class="h">八、产品红线</a>
+<a class="h">九、排期·依赖·开放问题</a>
+<a href="#s91">9.1 排期</a>
+<a href="#s92">9.2 各方依赖</a>
+<a href="#s93">9.3 开放问题（7.6遗留）</a>
+</div>
+
+<!-- ============================================================ -->
+<!--   一、需求背景与问题                                          -->
+<!-- ============================================================ -->
+<h2 id="s1">一、需求背景与问题</h2>
+
+<h3>1.1 为什么需要这份PRD</h3>
+
+<p>端侧VLM（视觉语言模型）是Driver Agent 2.0在赛力斯车型上的核心能力：通过AIBox搭载的端侧VLM引擎，持续感知车辆内外环境（天气、路面、乘客、充电桩等），为云端Planner提供视觉信息。</p>
+
+<p><b>问题是</b>：VLM从"被触发"到"数据到达云端"这条链路，涉及4个团队（触发器/VLM SDK/数据中心/云端端状态），之前没有一份文档把整条链路的产品需求写清楚。7.6下午的专项会上，链路设计发生了重大变更（从串行变并行双通道），必须有一份PRD把定版结论落地成可执行的需求。</p>
+
+<h3 id="s12">1.2 7.6之前的链路问题</h3>
+
+<div class="story">
+<b>旧链路（7.6上午之前的理解）</b>：触发器调VLM → VLM执行 → 结果返回给触发器 → 触发器整包透传给AI Service → AI Service上报云端。<br/><br/>
+<b>问题</b>：<br/>
+① 触发器承担了"VLM数据透传"的职责，但触发器本质是信号处理模块，不该碰VLM原始数据<br/>
+② VLM数据量大、频率高（AlwaysOn每3-5秒一帧），经触发器中转增加延迟<br/>
+③ 触发器无法解析VLM原始输出（一个大JSON），数据过触发器没有任何业务价值<br/>
+④ 职责不清导致异常处理模糊——VLM执行失败了，到底谁负责重试？谁负责上报？
+</div>
+
+<h3 id="s13">1.3 7.6定版的核心变更</h3>
+
+<table>
+<tr><th width="5%">#</th><th width="30%">变更点</th><th width="35%">旧方案</th><th width="30%">新方案（7.6定版）</th></tr>
+<tr><td>1</td><td><b>VLM数据流向</b></td><td>VLM → 触发器 → AI Service → 云端（串行）</td><td>VLM SDK → 数据中心（数据通道·直送）<br/>VLM SDK → 触发器（控制通道·状态回调）<br/>（并行双通道）</td></tr>
+<tr><td>2</td><td><b>触发器角色</b></td><td>触发 + 接收结果 + 透传数据</td><td>只触发 + 只接收状态回调，不碰VLM数据</td></tr>
+<tr><td>3</td><td><b>数据中心角色</b></td><td>被动接收端状态上报</td><td>主动订阅VLM SDK topic + 整包缓存 + 透传云端</td></tr>
+<tr><td>4</td><td><b>异常职责</b></td><td>不清晰</td><td>触发器保证"发送成功"，VLM SDK保证"执行成功"</td></tr>
+<tr><td>5</td><td><b>㉔-U模块定义</b></td><td>VLM数据透传上报</td><td>触发器自身事件上报（开关变更/异常/心跳）</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<!--   二、整体架构：双通道分离                                     -->
+<!-- ============================================================ -->
+<h2 id="s21">二、整体架构：双通道分离</h2>
+
+<h3>2.1 一句话说清楚</h3>
+
+<div class="big">
+触发器负责<b>调度</b>（告诉VLM SDK"去看什么"）→ VLM SDK负责<b>执行</b>（调摄像头、跑模型）→ 执行完分两条路回传：<br/>
+• <b style="color:#93c5fd">控制通道</b>：状态回调给触发器（"我执行完了，成功/失败"）→ 触发器据此管调度状态<br/>
+• <b style="color:#86efac">数据通道</b>：VLM原始输出直送数据中心（"这是我看到的东西"）→ 数据中心整包透传云端
+</div>
+
+<p><b>核心原则</b>：触发器管调度不管数据，数据中心管数据不管调度。两条通道并行，互不依赖。</p>
+
+<h3 id="s22">2.2 三条关键箭头</h3>
+
+<div class="flow-row">
+<div class="fn fn-edge"><b>端侧触发器 ㉔</b>㉔-9 VLM调度</div>
+<div class="fa" style="color:#ea580c">── ① 触发推理 ──▶</div>
+<div class="fn fn-vlm"><b>VLM SDK</b>AIBox</div>
+<div class="fa" style="color:#2563eb">◀── ② 控制通道 ──</div>
+<div class="fn fn-edge"><b>㉔-9</b>状态回调</div>
+</div>
+
+<div class="flow-row">
+<div class="fn fn-vlm"><b>VLM SDK</b>推理完成</div>
+<div class="fa" style="color:#16a34a">── ③ 数据通道 ──▶</div>
+<div class="fn fn-dc"><b>数据中心</b>李鑫</div>
+<div class="fa">── 整包透传 ──▶</div>
+<div class="fn fn-cld"><b>云端端状态</b></div>
+<div class="fa">──▶</div>
+<div class="fn fn-cld"><b>Context/Advisor</b>注入Planner</div>
+</div>
+
+<table>
+<tr><th>箭头</th><th>名称</th><th>方向</th><th>传什么</th><th>谁实现</th></tr>
+<tr><td style="color:#ea580c;font-weight:700">①</td><td>触发推理</td><td>触发器 → VLM SDK</td><td>运行指令（9字段）：task_id / task_goal / camera / priority / timeout / mutex_group / trigger_source / expire_at / execution_type</td><td>汪帅（触发器）→ 斯华（VLM SDK）</td></tr>
+<tr><td style="color:#2563eb;font-weight:700">②</td><td>控制通道</td><td>VLM SDK → 触发器</td><td>状态回调：<code>success</code> / <code>empty</code> / <code>timeout</code> / <code>failed</code></td><td>斯华（VLM SDK）→ 汪帅（触发器 ㉔-9）</td></tr>
+<tr><td style="color:#16a34a;font-weight:700">③</td><td>数据通道</td><td>VLM SDK → 数据中心</td><td>VLM原始输出（完整JSON），通过topic发布</td><td>斯华（VLM SDK）→ 李鑫（数据中心）</td></tr>
+</table>
+
+<h3 id="s23">2.3 各模块角色定义</h3>
+
+<table>
+<tr><th width="15%">模块</th><th width="10%">Owner</th><th width="10%">进程</th><th width="40%">在VLM链路中的角色</th><th width="25%">不做什么</th></tr>
+<tr><td><b>端侧触发器 ㉔</b></td><td>汪帅</td><td>AI Service</td><td>• 根据信号变更/开关条件判定何时需要VLM推理<br/>• 组装运行指令（9字段）发送给VLM SDK<br/>• 接收状态回调，更新任务队列（释放互斥/安排下一周期/标记完成）<br/>• 上报触发器自身事件（开关变更/异常/心跳）</td><td>• 不接收VLM原始数据<br/>• 不做数据透传<br/>• 不做VLM推理重试（AlwaysOn由SDK保证）</td></tr>
+<tr><td><b>VLM SDK</b></td><td>斯华/Walter</td><td>AIBox（封装在豆包APK）</td><td>• 接收运行指令 → 调用摄像头 → VLM引擎推理<br/>• 管理任务优先级（oneshot抢占alwayson）<br/>• 推理完成后分两条通道回传：<br/>　② 状态回调给触发器（控制通道）<br/>　③ 原始输出发布到topic（数据通道）<br/>• AlwaysOn周期由SDK内部控制（闲时常驻）</td><td>• 不做条件判定<br/>• 不决定何时触发<br/>• 不与云端直接通信</td></tr>
+<tr><td><b>数据中心</b></td><td>李鑫</td><td>AI Service</td><td>• 订阅VLM SDK的topic（按具体topic订阅，非全量）<br/>• 接收VLM原始输出 → 整包缓存<br/>• 按端状态格式整包透传云端（不解析·不拆字段）<br/>• 未来可向触发器提供信号订阅接口（按需）</td><td>• 不解析VLM原始JSON<br/>• 不拆字段（除非触发器提需求）<br/>• 不做调度决策</td></tr>
+<tr><td><b>云端端状态</b></td><td>韩杰</td><td>云端</td><td>• 接收数据中心上报的VLM数据<br/>• 存储并供Context/Advisor消费</td><td>—</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<!--   三、AlwaysOn链路需求（已定版）                               -->
+<!-- ============================================================ -->
+<h2 id="s31">三、AlwaysOn链路需求（已定版）</h2>
+
+<h3>3.1 完整链路六阶段</h3>
+
+<div class="flow-row">
+<div class="fn fn-edge"><b>① 上电+开关</b>㉔-8 判断条件<br/>注册任务</div>
+<div class="fa">→</div>
+<div class="fn fn-edge"><b>② ㉔-9 调度</b>优先级·互斥·冷却<br/>组装运行指令</div>
+<div class="fa" style="color:#ea580c">→</div>
+<div class="fn fn-vlm"><b>③ VLM SDK执行</b>调摄像头·推理<br/>产出原始输出</div>
+<div class="fa" style="color:#16a34a">→</div>
+<div class="fn fn-dc"><b>④ 数据中心</b>订阅·缓存·透传</div>
+<div class="fa">→</div>
+<div class="fn fn-cld"><b>⑤ 云端消费</b>Context注入Planner</div>
+<div class="fa" style="color:#2563eb">↺</div>
+<div class="fn fn-edge"><b>⑥ 周期循环</b>㉔-9收回调<br/>3s后下一轮</div>
+</div>
+
+<h3 id="s32">3.2 各阶段详细需求</h3>
+
+<h4>阶段①：上电 + 开关判断</h4>
+
+<table>
+<tr><th width="20%">需求项</th><th width="50%">详细描述</th><th width="30%">会议依据</th></tr>
+<tr><td><b>舱外AlwaysOn开启条件</b></td><td><code>power_state = on</code>（系统上电即开，不需要额外条件）<br/>触发器启动时读信号库 → 满足条件 → 向㉔-9注册舱外AlwaysOn任务</td><td>丁彬："舱外AlwaysOn在系统上电的时候就打开，下电的时候就关了"</td></tr>
+<tr><td><b>舱内AlwaysOn开启条件</b></td><td><code>power_state = on</code> <b>AND</b> <code>awake_button = on</code>（两条件同时满足）<br/>任一不满足 → 关闭舱内AlwaysOn</td><td>丁彬："舱内需要两个条件，系统上电+AI设置中AlwaysOn button开"<br/>汪帅："满足两个信号，开关一下——典型的触发器case"</td></tr>
+<tr><td><b>开关逻辑</b></td><td><b>开 = AND</b>（所有条件同时满足才开）<br/><b>关 = OR</b>（任一条件不满足就关）<br/>舱外只看power，舱内看power+button</td><td>—</td></tr>
+<tr><td><b>触发器只管开关</b></td><td>触发器负责"上电开、下电关"，不负责3s/5s/5min的周期调度<br/>周期循环由VLM SDK内部控制</td><td>丁彬："端侧开关，但不负责里头的小的周期处理"<br/>斯华："周期性我们内部保证，你告诉我让我干活，我就自闭环"</td></tr>
+</table>
+
+<h4>阶段②：㉔-9 VLM调度 + 组装运行指令</h4>
+
+<table>
+<tr><th width="20%">需求项</th><th width="50%">详细描述</th><th width="30%">备注</th></tr>
+<tr><td><b>优先级排队</b></td><td>P0(安全不可延迟) > P1(体验高优) > P2(增值) > P3(背景) > P4(动态最低)<br/>AlwaysOn默认P3</td><td>高优到达 → 低优挂起</td></tr>
+<tr><td><b>互斥组</b></td><td><code>VLM_CABIN</code>（舱内任务互斥）<br/><code>VLM_FRONT</code>（舱外/前视任务互斥）<br/>同一互斥组内，高优抢占低优</td><td>摄像头资源独占</td></tr>
+<tr><td><b>运行指令（9字段）</b></td><td>见下方接口定义</td><td>每次触发推理都带完整9字段</td></tr>
+</table>
+
+<h4>阶段③：VLM SDK执行推理</h4>
+
+<table>
+<tr><th width="20%">需求项</th><th width="50%">详细描述</th><th width="30%">会议依据</th></tr>
+<tr><td><b>任务优先级管理</b></td><td>VLM SDK内部维护任务队列<br/>OneShot(P0)到达 → AlwaysOn(P3)自动挂起让出摄像头<br/>OneShot完成 → AlwaysOn自动恢复（闲时常驻原则）</td><td>斯华："oneshot来了，周期性就会被搁置...一直被打断也会有结果返回"</td></tr>
+<tr><td><b>内部鲁棒</b></td><td>如果AIBox未启动/崩溃，VLM SDK内部等待并自动重试<br/>不依赖触发器补发<br/>触发器只通知一遍</td><td>汪帅："AI Box要保证鲁棒性，自己做重试。不能要求触发器不断重试"<br/>丁彬："内部轮询保证"</td></tr>
+<tr><td><b>推理输出</b></td><td>产出完整的原始JSON字符串<br/>包含识别标签、置信度、描述等</td><td>整包输出，不在端侧解析</td></tr>
+</table>
+
+<h4>阶段④⑤：双通道回传 + 云端消费</h4>
+
+<table>
+<tr><th width="15%">通道</th><th width="15%">方向</th><th width="25%">传什么</th><th width="25%">接收方做什么</th><th width="20%">会议依据</th></tr>
+<tr><td style="color:#2563eb;font-weight:700">② 控制通道</td><td>VLM SDK → 触发器 ㉔-9</td><td>状态回调：<code>success</code> / <code>empty</code> / <code>timeout</code> / <code>failed</code><br/>只传状态，不传VLM原始数据</td><td>㉔-9 更新任务状态<br/>AlwaysOn: 等3s → 下一周期<br/>互斥保持（常驻不释放）</td><td>张兰若总结："一个是任务成功性保证，一个是结果下传"</td></tr>
+<tr><td style="color:#16a34a;font-weight:700">③ 数据通道</td><td>VLM SDK → 数据中心</td><td>VLM原始输出（完整JSON）<br/>通过topic发布<br/>触发器不经手</td><td>数据中心订阅 → 整包缓存 → 按端状态格式透传云端</td><td>汪帅："结果返回直接到数据中心"<br/>丁彬确认："整包全部给到云端"</td></tr>
+</table>
+
+<h4>阶段⑥：周期循环</h4>
+
+<p>㉔-9 收到 <code>success</code> 或 <code>empty</code> 状态回调后，等待周期间隔（舱外3s/舱内动态5s/舱内静态5min），然后再次向VLM SDK发送运行指令，进入下一周期。持续运行直到 power→off（下电）或 button→off（用户关闭舱内AlwaysOn）。</p>
+
+<h3 id="s33">3.3 AlwaysOn三任务定义</h3>
+
+<table>
+<tr><th>任务</th><th>task_id</th><th>camera</th><th>周期</th><th>priority</th><th>mutex_group</th><th>开启条件</th><th>关闭条件</th></tr>
+<tr><td><b>舱外AlwaysOn</b></td><td>outdoor_perception</td><td>前视</td><td>3s</td><td>P3</td><td>VLM_FRONT</td><td>power=on</td><td>power=off</td></tr>
+<tr><td><b>舱内动态AlwaysOn</b></td><td>cabin_dynamic</td><td>舱内</td><td>5s</td><td>P3</td><td>VLM_CABIN</td><td>power=on AND button=on</td><td>power=off OR button=off</td></tr>
+<tr><td><b>舱内静态AlwaysOn</b></td><td>cabin_static</td><td>舱内</td><td>5min</td><td>P3</td><td>VLM_CABIN</td><td>power=on AND button=on</td><td>power=off OR button=off</td></tr>
+</table>
+
+<h3 id="s34">3.4 边界case</h3>
+
+<table>
+<tr><th width="25%">场景</th><th width="40%">预期行为</th><th width="35%">依据</th></tr>
+<tr><td>系统上电，AIBox还没启动</td><td>触发器发送开启指令 → VLM SDK内部等待AIBox启动 → 自动开始执行<br/>触发器不补发</td><td>汪帅："可能豆包先起了，存在谁先起谁后起的问题"<br/>斯华："SDK init时先调，等AIBox起来后自动告诉它进入AlwaysOn"</td></tr>
+<tr><td>AlwaysOn运行中被P0 oneshot打断</td><td>AlwaysOn挂起让出摄像头 → oneshot执行 → oneshot完成 → AlwaysOn自动恢复<br/>由VLM SDK内部管理</td><td>斯华："周期性我们内部保证，只要你告诉我让我干活，我就自闭环"</td></tr>
+<tr><td>用户关闭舱内AlwaysOn（button→off）</td><td>触发器检测到button变更 → 向VLM SDK发送关闭指令 → 舱外AlwaysOn继续运行</td><td>丁彬："系统下电或设置关，就要关闭。任一条件"</td></tr>
+<tr><td>VLM推理连续返回empty</td><td>正常。empty是"看了没看到"，是有效结论（如天气晴朗无异常）<br/>不触发重试，继续下一周期</td><td>产品逻辑</td></tr>
+<tr><td>VLM推理连续返回timeout/failed</td><td>㉔-9记录异常状态 → ㉔-U上报异常事件到云端<br/>AlwaysOn由SDK内部保证恢复</td><td>—</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<!--   四、OneShot链路需求                                         -->
+<!-- ============================================================ -->
+<h2 id="s41">四、OneShot链路需求（数据回传待评审）</h2>
+
+<h3>4.1 完整链路</h3>
+
+<div class="flow-row">
+<div class="fn fn-edge"><b>信号变更</b>如R→P档</div>
+<div class="fa">→</div>
+<div class="fn fn-edge"><b>㉔-J条件匹配</b>穿越检测·三关</div>
+<div class="fa">→</div>
+<div class="fn fn-edge"><b>㉔-9调度</b>抢占AlwaysOn</div>
+<div class="fa" style="color:#ea580c">→</div>
+<div class="fn fn-vlm"><b>VLM SDK执行</b>单次推理</div>
+<div class="fa" style="color:#2563eb">→</div>
+<div class="fn fn-edge"><b>② 状态回调</b>释放互斥·完成</div>
+</div>
+<div class="flow-row" style="border:1px dashed #ca8a04">
+<div class="fn fn-vlm"><b>VLM SDK</b>推理结果</div>
+<div class="fa" style="color:#ca8a04">─ ─ ③ 数据回传（路径待定）─ ─ ▶</div>
+<div class="fn fn-dc"><b>数据中心</b></div>
+<div class="fa">→</div>
+<div class="fn fn-cld"><b>云端</b>条件满足→执行</div>
+<div class="fa">→</div>
+<div class="fn fn-exec"><b>CDC车控</b>如开充电口盖</div>
+</div>
+
+<h3 id="s42">4.2 已确认部分</h3>
+
+<table>
+<tr><th width="20%">环节</th><th width="45%">需求</th><th width="35%">会议依据</th></tr>
+<tr><td><b>触发方式</b></td><td>信号变更 → ㉔-J条件匹配 → F→T穿越 → 防抖 → 命中后三关（优先级P0/互斥/冷却P0不设冷却）</td><td>与AlwaysOn共用同一套条件匹配引擎</td></tr>
+<tr><td><b>② 控制通道</b></td><td>VLM SDK执行完成 → 状态回调给㉔-9 → ㉔-9释放互斥 → 标记完成 → 恢复被挂起的AlwaysOn</td><td>张兰若确认："VLM应该既返回给触发器，又返回给AI Service"</td></tr>
+<tr><td><b>触发失败重试</b></td><td>发送运行指令失败 → 触发器进行<b>一次</b>重试 → 二次失败停止触发</td><td>丁彬："触发失败由触发器进行一次重试"<br/>汪帅确认</td></tr>
+<tr><td><b>同步+异步接口</b></td><td>调用VLM SDK：发送状态<b>同步</b>返回（立刻知道发成功没）<br/>推理结果<b>异步</b>回调（模型跑1-2秒）</td><td>斯华："调用成功会给你结果，最后结果是异步回调"<br/>丁彬："结果异步，状态是同步的"</td></tr>
+</table>
+
+<h3 id="s43">4.3 待评审：数据回传路径</h3>
+
+<div class="note nr">
+<b>7.6会上未定版</b>。丁彬原话："one shot 等需求导入再聊。"<br/>
+AlwaysOn的双通道已确认（数据直送数据中心），但OneShot的VLM数据如何到达云端还有两个方案：
+</div>
+
+<table>
+<tr><th width="10%">方案</th><th width="35%">路径</th><th width="25%">优点</th><th width="25%">缺点</th><th width="5%">倾向</th></tr>
+<tr><td><b>A</b></td><td>走数据中心直通（同AlwaysOn）<br/>VLM SDK → topic → 数据中心 → 云端</td><td>• 架构一致，端侧只有一条数据通道<br/>• 触发器完全不碰VLM数据<br/>• 维护成本低</td><td>• 触发器不知道推理的具体内容<br/>• 无法在端侧做基于结果的本地决策</td><td>—</td></tr>
+<tr><td><b>B</b></td><td>经触发器中转<br/>VLM SDK → 触发器 → 数据中心 → 云端</td><td>• 触发器能知道具体结果（如"看到充电桩"）<br/>• 可在端侧做本地决策（如直接下发车控指令）</td><td>• 触发器要解析VLM数据<br/>• 增加耦合和延迟<br/>• 与双通道原则矛盾</td><td>—</td></tr>
+</table>
+
+<div class="note ng">
+<b>产品建议</b>：优先方案A（与AlwaysOn统一），除非后续有明确的"端侧基于VLM结果做本地决策"的需求（如充电桩识别后端侧直接开充电口盖，不走云端）。预计7月中旬需求导入后评审。
+</div>
+
+<!-- ============================================================ -->
+<!--   五、数据中心需求                                            -->
+<!-- ============================================================ -->
+<h2 id="s51">五、数据中心需求</h2>
+
+<h3>5.1 核心职责</h3>
+
+<p>数据中心在VLM链路中承担"数据汇聚+透传"角色，是VLM原始输出从端侧到云端的唯一通道。</p>
+
+<table>
+<tr><th width="5%">#</th><th width="25%">需求</th><th width="40%">详细描述</th><th width="30%">会议依据</th></tr>
+<tr><td>1</td><td><b>订阅VLM SDK topic</b></td><td>向VLM SDK订阅指定topic（按具体topic，不全量订阅）<br/>目前需订阅3个AlwaysOn任务的topic<br/>新增任务时按需添加</td><td>斯华："有topic的，具体的topic"<br/>丁彬："数据中心就订阅这三个就行"</td></tr>
+<tr><td>2</td><td><b>接收VLM原始输出</b></td><td>订阅后，每次VLM推理完成，数据中心自动收到完整JSON<br/>无需触发器中转</td><td>汪帅："AI Box产生的事件，结果返回直接到数据中心"</td></tr>
+<tr><td>3</td><td><b>整包缓存</b></td><td>收到后在内存中缓存最新一包<br/>key = task_id（如outdoor_perception）<br/>value = VLM原始JSON</td><td>按需存储，不全量缓存所有历史</td></tr>
+<tr><td>4</td><td><b>整包透传云端</b></td><td>按端状态上报格式，将VLM原始输出整包透传到云端<br/><b>不解析、不拆字段</b></td><td>丁彬："直接整包透传到云端去解析"</td></tr>
+</table>
+
+<h3 id="s52">5.2 订阅机制</h3>
+
+<table>
+<tr><th width="20%">项目</th><th width="80%">说明</th></tr>
+<tr><td><b>订阅时机</b></td><td>数据中心启动时即注册订阅，不依赖触发器是否已开启AlwaysOn<br/>（盲订——订阅后有数据就收，没数据就等）</td></tr>
+<tr><td><b>订阅粒度</b></td><td>按具体topic订阅（如 <code>outdoor_perception</code> / <code>cabin_dynamic</code> / <code>cabin_static</code>）<br/>不订阅不相关的topic（如赛力斯增强哨兵、迎宾等）</td></tr>
+<tr><td><b>新增topic</b></td><td>后续新增VLM任务时，由产品提需求告知数据中心需要订阅哪个topic<br/>（如OneShot的 <code>charging_port</code>）</td></tr>
+</table>
+
+<h3 id="s53">5.3 存储策略</h3>
+
+<div class="note ng">
+<b>7.6会议暂定按需存储</b><br/>
+汪帅建议全量缓存（四五百个事件约10M内存），李鑫倾向按需。暂定：<br/>
+• VLM原始输出：收到即透传，最新一包缓存在内存<br/>
+• 车控信号K-V：后续触发器有需求时再提（如需要从数据中心订阅某个信号的变更事件）<br/>
+• 全量缓存方案保留，待评估内存开销后再定
+</div>
+
+<h3 id="s54">5.4 透传规范</h3>
+
+<table>
+<tr><th width="20%">项目</th><th width="80%">说明</th></tr>
+<tr><td><b>上报格式</b></td><td>按现有端状态上报通道的格式（已有链路，赛力斯四里已打通）</td></tr>
+<tr><td><b>不解析</b></td><td>不拆解VLM原始JSON中的字段（如不单独提取 <code>weather</code> 或 <code>passenger_count</code>）<br/>整包作为一个value上报</td></tr>
+<tr><td><b>后续拆解</b></td><td>如果触发器未来需要依赖VLM输出中的某个字段做条件判断，该字段必须被数据中心拆为独立key → 需产品提需求</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<!--   六、接口定义                                                -->
+<!-- ============================================================ -->
+<h2 id="s61">六、接口定义</h2>
+
+<h3>6.1 触发器 → VLM SDK：运行指令</h3>
+
+<pre>{
+  "task_id":         "outdoor_perception",     // 任务唯一标识
+  "task_goal":       "识别前方天气路况",         // 任务目标描述
+  "camera":          "front",                  // 摄像头: front / cabin / rear
+  "priority":        "P3",                     // 优先级: P0-P4
+  "timeout":         3000,                     // 超时时间(ms)
+  "mutex_group":     "VLM_FRONT",              // 互斥组: VLM_CABIN / VLM_FRONT
+  "trigger_source":  "alwayson",               // 触发来源: alwayson / condition_match / timer
+  "expire_at":       null,                     // 过期时间(null=常驻)
+  "execution_type":  "periodic"                // 执行类型: periodic / oneshot
+}</pre>
+
+<div class="note nb">
+<b>调用方式</b>：同步接口。调用后立刻返回发送状态（成功/失败），推理结果通过异步回调返回。
+</div>
+
+<h3 id="s62">6.2 VLM SDK → 触发器：状态回调（控制通道）</h3>
+
+<pre>{
+  "task_id":    "outdoor_perception",
+  "status":     "success",           // success / empty / timeout / failed
+  "timestamp":  1720252800000
+}</pre>
+
+<table>
+<tr><th>status值</th><th>含义</th><th>触发器处理</th></tr>
+<tr><td><code>success</code></td><td>推理成功，有识别结果</td><td>更新任务状态 → AlwaysOn等周期后下一轮 / OneShot标记完成释放互斥</td></tr>
+<tr><td><code>empty</code></td><td>推理成功但没看到目标（有效结论，非异常）</td><td>同success处理</td></tr>
+<tr><td><code>timeout</code></td><td>推理超时</td><td>记录异常 → ㉔-U上报 → 不写伪结果（红线）</td></tr>
+<tr><td><code>failed</code></td><td>推理失败（模型崩溃/摄像头异常等）</td><td>记录异常 → ㉔-U上报 → OneShot一次重试，AlwaysOn由SDK恢复</td></tr>
+</table>
+
+<h3 id="s63">6.3 VLM SDK → 数据中心：topic发布（数据通道）</h3>
+
+<pre>topic: "vlm.outdoor_perception"
+
+payload: {
+  "task_id":    "outdoor_perception",
+  "result":     { ... },             // VLM原始输出(完整JSON)
+  "timestamp":  1720252800000
+}</pre>
+
+<div class="note nb">
+数据中心通过订阅 <code>vlm.outdoor_perception</code> / <code>vlm.cabin_dynamic</code> / <code>vlm.cabin_static</code> 等topic接收数据。具体topic命名需斯华/李鑫对齐。
+</div>
+
+<h3 id="s64">6.4 数据中心 → 云端：端状态上报</h3>
+
+<p>复用现有端状态上报通道，将VLM原始输出整包作为一个字段上报。具体格式沿用赛力斯四里已打通的链路，由李鑫/韩杰对齐。</p>
+
+<!-- ============================================================ -->
+<!--   七、异常处理                                                -->
+<!-- ============================================================ -->
+<h2 id="s71">七、异常处理</h2>
+
+<h3>7.1 职责切割原则</h3>
+
+<div class="big">
+<b>触发器</b>保证"调用请求发送成功"——发了就完事，不管VLM内部怎么跑<br/>
+<b>VLM SDK</b>保证"收到后内部执行成功"——自己做鲁棒，不依赖触发器补发<br/>
+<b>数据中心</b>保证"收到的VLM数据完整透传云端"——订阅后就透传，不加工<br/><br/>
+<b style="color:#fca5a5">每一方只保证自己这一段，不替别人兜底</b>
+</div>
+
+<h3 id="s72">7.2 异常场景全量</h3>
+
+<table>
+<tr><th width="5%">#</th><th width="20%">异常场景</th><th width="20%">谁发现</th><th width="35%">处理方式</th><th width="20%">会议依据</th></tr>
+<tr><td>1</td><td><b>触发器发送指令失败</b></td><td>触发器</td><td>OneShot: 一次重试，二次失败停止触发 + ㉔-U告警<br/>AlwaysOn: 不补发，SDK内部保证</td><td>丁彬："触发失败由触发器一次重试"</td></tr>
+<tr><td>2</td><td><b>AIBox未启动</b></td><td>VLM SDK</td><td>SDK内部等待AIBox启动后自动执行<br/>触发器不感知、不补发</td><td>汪帅："AI Box自己保证鲁棒性"<br/>斯华："init时先调，等起来后自动开始"</td></tr>
+<tr><td>3</td><td><b>VLM推理超时</b></td><td>VLM SDK</td><td>状态回调 <code>timeout</code> → 触发器记录异常<br/><b>不写伪结果</b>（红线）<br/>AlwaysOn继续下一周期</td><td>产品红线</td></tr>
+<tr><td>4</td><td><b>VLM推理失败</b></td><td>VLM SDK</td><td>状态回调 <code>failed</code> → 触发器记录异常<br/>OneShot: 触发器一次重试<br/>AlwaysOn: SDK内部恢复</td><td>—</td></tr>
+<tr><td>5</td><td><b>被高优抢占</b></td><td>VLM SDK</td><td>低优任务挂起 → 高优完成 → 低优自动恢复<br/>VLM SDK内部管理，触发器不感知</td><td>斯华确认</td></tr>
+<tr><td>6</td><td><b>数据中心未收到topic</b></td><td>数据中心</td><td>订阅后等待，无数据不上报<br/>不主动拉取，不告警</td><td>汪帅："数据中心不管能不能收到的事，收到就报"</td></tr>
+<tr><td>7</td><td><b>状态回调丢失</b></td><td>触发器</td><td>㉔-9超时守卫兜底<br/>超过timeout未收到回调 → 标记异常</td><td>产品逻辑</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<!--   八、产品红线                                                -->
+<!-- ============================================================ -->
+<h2>八、产品红线</h2>
+
+<div class="redline"><b>红线1</b>：超时/失败时<b>不写伪结果</b>。VLM没看到就是没看到（empty），超时/崩溃不能编造一个"没看到"的结果写入信号库或上报云端。</div>
+<div class="redline"><b>红线2</b>：触发器<b>不碰VLM原始数据</b>。VLM的原始JSON只走数据通道到数据中心，触发器只收状态回调（4个status值），不接收、不解析、不透传VLM数据。</div>
+<div class="redline"><b>红线3</b>：<b>端云必须基于同一份规则</b>。端侧触发器和云端触发器对同一条规则的判定结果必须一致，否则就是bug。规则由云端下发，端侧执行。</div>
+<div class="redline"><b>红线4</b>：<b>数据中心整包透传，不解析</b>。在产品明确提出拆字段需求之前，数据中心对VLM原始输出不做任何解析/拆解/过滤。</div>
+
+<!-- ============================================================ -->
+<!--   九、排期·依赖·开放问题                                      -->
+<!-- ============================================================ -->
+<h2 id="s91">九、排期 · 依赖 · 开放问题</h2>
+
+<h3>9.1 排期</h3>
+
+<table>
+<tr><th>里程碑</th><th>内容</th><th>时间</th><th>备注</th></tr>
+<tr><td><b>804</b></td><td>触发器VLM触发能力（从818提前到804）<br/>含：① 触发推理 + ② 控制通道状态回调 + AlwaysOn开关</td><td>8月4日</td><td>7.6会议确认提前</td></tr>
+<tr><td><b>804</b></td><td>数据中心订阅+透传能力<br/>含：③ 数据通道接收 + 整包缓存 + 透传云端</td><td>8月4日</td><td>需李鑫确认</td></tr>
+<tr><td><b>818</b></td><td>OneShot数据回传路径定版 + 实现</td><td>8月18日</td><td>待丁彬需求导入后评审</td></tr>
+</table>
+
+<h3 id="s92">9.2 各方依赖</h3>
+
+<table>
+<tr><th width="15%">依赖方</th><th width="15%">Owner</th><th width="40%">需要提供</th><th width="15%">截止时间</th><th width="15%">状态</th></tr>
+<tr><td><b>VLM SDK</b></td><td>斯华/Walter</td><td>• 运行指令接口（同步发送+异步回调）<br/>• topic发布能力<br/>• 状态回调接口定义</td><td>804前</td><td style="color:#ca8a04;font-weight:600">待对齐</td></tr>
+<tr><td><b>数据中心</b></td><td>李鑫</td><td>• topic订阅能力<br/>• 整包缓存+透传<br/>• 端状态上报通道（已有，需确认VLM数据格式）</td><td>804前</td><td style="color:#ca8a04;font-weight:600">待对齐</td></tr>
+<tr><td><b>云端端状态</b></td><td>韩杰</td><td>• 接收VLM整包数据的存储能力<br/>• 供Context/Advisor读取的接口</td><td>804前</td><td style="color:#ca8a04;font-weight:600">待对齐</td></tr>
+<tr><td><b>触发器 ㉔-9</b></td><td>汪帅</td><td>• VLM调度+状态管理模块<br/>• 运行指令组装<br/>• 状态回调处理</td><td>804前</td><td style="color:#ca8a04;font-weight:600">待对齐</td></tr>
+<tr><td><b>产品</b></td><td>泽民</td><td>• 3个AlwaysOn任务的task_id/camera/周期等参数<br/>• 运行指令9字段的具体取值<br/>• topic命名规范</td><td>7月中</td><td style="color:#16a34a;font-weight:600">本PRD</td></tr>
+</table>
+
+<h3 id="s93">9.3 开放问题（7.6遗留）</h3>
+
+<table>
+<tr><th width="5%">#</th><th width="25%">问题</th><th width="35%">当前状态</th><th width="20%">预计解决时间</th><th width="15%">Owner</th></tr>
+<tr><td>1</td><td><b>OneShot数据回传路径</b></td><td>方案A（数据中心直通）vs 方案B（触发器中转）<br/>待丁彬需求导入后评审</td><td>7月中旬</td><td>丁彬/泽民</td></tr>
+<tr><td>2</td><td><b>数据中心存储策略</b></td><td>全量存 vs 按需存<br/>暂定按需，触发器有新需求时再提</td><td>按需</td><td>李鑫</td></tr>
+<tr><td>3</td><td><b>VLM原始输出拆字段</b></td><td>目前整包透传不解析<br/>如果触发器要依赖VLM输出中的某个字段，需拆为独立key</td><td>按需</td><td>泽民→李鑫</td></tr>
+<tr><td>4</td><td><b>端云规则一致性保障</b></td><td>规则由云端下发端侧执行<br/>如何保证判定结果一致？差异化策略？</td><td>待定</td><td>汪帅/泽民</td></tr>
+<tr><td>5</td><td><b>topic命名规范</b></td><td>需斯华/李鑫对齐<br/>建议：<code>vlm.{task_id}</code></td><td>804前</td><td>斯华/李鑫</td></tr>
+<tr><td>6</td><td><b>VLM SDK同步接口确认</b></td><td>汪帅要求OneShot提供同步接口<br/>斯华确认发送状态同步、结果异步</td><td>804前</td><td>斯华</td></tr>
+</table>
+
+<div class="note nb">
+<b>关联文档</b><br/>
+• 端侧触发器完整PRD → <code>端侧触发器PRD-v4.html</code>（含信号库/条件匹配/20场景等）<br/>
+• 端侧VLM链路架构图 → <code>端侧触发器-独立架构流程图-v5.html</code>（含总体架构+AlwaysOn链路+OneShot链路三张详图）<br/>
+• VLM场景PRD → <code>VLM场景PRD.html</code>（6.21版，5个VLM核心场景，部分内容已被7.6会议更新）<br/>
+• 7.6会议纪要 → <code>端侧预置任务-VLM相关链路.md</code>
+</div>
+
+</div>
+</body>
+</html>

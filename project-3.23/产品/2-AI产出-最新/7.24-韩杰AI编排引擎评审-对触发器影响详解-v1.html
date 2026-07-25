@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>韩杰7.24 AI编排引擎评审 · 对触发器影响详解 v1</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,"PingFang SC","Noto Sans SC",sans-serif;background:#f5f6f8;color:#1f2430;line-height:1.8;padding:44px 16px 120px}
+.pg{max-width:1080px;margin:0 auto}
+h1{font-size:1.42em;font-weight:700;color:#111;margin-bottom:4px}
+.sub{font-size:.85em;color:#8a8f9a;margin-bottom:22px}
+.ver{background:#eef2f9;border:1px solid #ccd8ea;border-radius:8px;padding:8px 14px;font-size:.8em;color:#2c5178;display:inline-block;margin-bottom:16px}
+.concl{background:#eaf4ec;border:1px solid #cfe4d3;border-radius:10px;padding:16px 20px;margin:16px 0;font-size:.97em;line-height:1.8}
+.concl b{color:#1a7a44}
+.warn{background:#fdf6e8;border:1px solid #edd9ae;border-radius:10px;padding:14px 18px;margin:16px 0;font-size:.93em}
+.warn b{color:#a35a12}
+.alert{background:#fdecea;border:1px solid #f5c6c0;border-radius:10px;padding:14px 18px;margin:16px 0;font-size:.93em}
+.alert b{color:#c0392b}
+.fix{background:#fdecea;border:1px solid #f5c6c0;border-radius:10px;padding:14px 20px;margin:16px 0;font-size:.95em;line-height:1.8}
+.fix b{color:#c0392b}
+h2{font-size:1.14em;font-weight:700;color:#fff;padding:9px 16px;border-radius:7px;margin-top:36px;margin-bottom:14px}
+.h1{background:linear-gradient(100deg,#2c5178,#1f3a57)}
+.h2{background:linear-gradient(100deg,#c0392b,#98271d)}
+.h3{background:linear-gradient(100deg,#b0662f,#8a4e22)}
+.h4{background:linear-gradient(100deg,#5a4a8a,#413468)}
+.h5{background:linear-gradient(100deg,#333,#111)}
+.h6{background:linear-gradient(100deg,#1a6b6b,#115050)}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:.84em;background:#fff}
+th,td{border:1px solid #dfe3ea;padding:8px 10px;text-align:left;vertical-align:top}
+th{background:#eef1f6;font-weight:600;white-space:nowrap}
+tr:nth-child(even){background:#fafbfc}
+.ok{color:#1a7a44;font-weight:700;white-space:nowrap}
+.no{color:#c0392b;font-weight:700;white-space:nowrap}
+.half{color:#a35a12;font-weight:700;white-space:nowrap}
+.tag{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11.5px;font-weight:700;white-space:nowrap}
+.t-win{background:#eaf4ec;color:#1a7a44;border:1px solid #cfe4d3}
+.t-lose{background:#fdecea;color:#c0392b;border:1px solid #f5c6c0}
+.t-mid{background:#fdf6e8;color:#a35a12;border:1px solid #edd9ae}
+.say{background:#eef4ee;border:1px solid #cfe4d6;border-radius:6px;padding:12px 16px;margin:8px 0;font-size:.92em;color:#1a5f3a;line-height:1.8}
+.say b{color:#0f5c30}
+.pit{color:#c0392b;font-size:.92em}
+.note{font-size:.8em;color:#9098a5;margin-top:4px}
+.end{margin-top:42px;padding-top:18px;border-top:1px solid #ddd;color:#9098a5;font-size:.82em}
+strong{color:#111}
+.card{background:#fff;border:1px solid #dfe3ea;border-radius:10px;padding:16px 18px;margin:12px 0}
+.card h4{font-size:.95em;font-weight:700;color:#2c5178;margin-bottom:8px}
+.impact{border-left:4px solid #c0392b;background:#fff;border-radius:0 8px 8px 0;padding:14px 18px;margin:12px 0}
+.impact h4{color:#c0392b;font-size:.95em;font-weight:700;margin-bottom:6px}
+.action{list-style:none}
+.action li{padding:12px 14px 12px 40px;position:relative;border-bottom:1px dashed #dfe3ea;font-size:.9em}
+.action li:last-child{border-bottom:none}
+.action li::before{content:"";position:absolute;left:8px;top:18px;width:12px;height:12px;border:2px solid #2c5178;border-radius:3px}
+.action b{color:#2c5178}
+.deadline{display:inline-block;background:#eef2f9;border-radius:6px;padding:1px 8px;font-size:.8em;font-weight:700;color:#2c5178;margin-left:6px}
+.quote{background:#f8f9fa;border-left:3px solid #6c8cff;padding:10px 14px;margin:8px 0;font-size:.88em;color:#4a5568;font-style:italic}
+.quote b{color:#2c5178;font-style:normal}
+.compare{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0}
+.compare .col{background:#fff;border:1px solid #dfe3ea;border-radius:8px;padding:12px}
+.compare .col h5{font-size:.85em;font-weight:700;margin-bottom:6px}
+.compare .col.old h5{color:#c0392b}
+.compare .col.new h5{color:#1a7a44}
+.compare .col p{font-size:.82em;color:#4a5568}
+</style>
+</head>
+<body>
+<div class="pg">
+
+<h1>韩杰 7.24 AI 编排引擎评审 · 对触发器影响详解</h1>
+<div class="sub">47 分钟评审 + PRD 文档逐行拆解 · 回答：影响是什么 / 为什么 / 你要做什么 / 怎么做 / 一句话总结</div>
+<div class="ver">v1 · 2026-07-24 · 基于韩杰评审纪要 47:12 + 《座舱 AI 编排引擎需求文档》</div>
+
+<div class="concl">
+<b>一句话总结：韩杰把你的触发器从「一个单一的条件判断模块」升级成了「整个座舱的原子能力编排引擎」——你的触发器不再是独立产品，而是被拆解成「触发事件+条件+动作」三类原子能力，成为所有业务方（Advisor/主动服务/事件日志/任务大师）共用的底层基础设施。</b>
+</div>
+
+<!-- ============ 第一章 评审背景 ============ -->
+<h2 class="h1">第一章 · 评审背景：韩杰在干什么？</h2>
+
+<div class="card">
+<h4>评审核心信息</h4>
+<table>
+<tr><th style="width:18%">项目</th><th>内容</th></tr>
+<tr><td><b>评审人</b></td><td>韩杰（信号中枢/原料层 PM）</td></tr>
+<tr><td><b>时长</b></td><td>47 分 12 秒</td></tr>
+<tr><td><b>参会</b></td><td>张嘉锋（任务集组织者）、陈婧文、张航等；<b>你和仁杰没上会</b></td></tr>
+<tr><td><b>评审内容</b></td><td>《座舱 AI 编排引擎需求文档》——基于原子能力的场景编排架构</td></tr>
+<tr><td><b>核心动作</b></td><td>把座舱所有主动能力（Advisor/主动服务/事件日志/任务大师/异步消息）依赖的「触发+条件+动作」三段式，拆成标准原子能力，一次开发、所有业务复用</td></tr>
+</table>
+</div>
+
+<div class="card">
+<h4>韩杰的原子能力架构</h4>
+<p style="font-size:.9em;margin-bottom:10px">韩杰发现座舱里所有主动能力都依赖同一类「触发+条件+动作」的三段式，于是把这三段拆成标准原子能力：</p>
+<table>
+<tr><th style="width:15%">原子能力</th><th style="width:35%">定义</th><th style="width:25%">举例</th><th style="width:25%">对应你原来的什么</th></tr>
+<tr><td><b>触发事件</b></td><td>作为场景编排的启动入口，统一接入车辆状态、环境感知、语音指令、定时任务、用户交互等各类事件信号</td><td>车机上电 / 主驾上车 / 车门关闭 / 档位切换</td><td>你原来「注册条件」里的「什么时候」</td></tr>
+<tr><td><b>条件</b></td><td>承接触发事件，基于静态规则或 AI 意图推理做多维度逻辑校验、分支判断</td><td>副驾是否有人 / 电量是否大于30% / 宝宝是否哭了（AI判断）</td><td>你原来「注册条件」里的「什么条件下」</td></tr>
+<tr><td><b>动作</b></td><td>引擎核心编排载体，负责串联、调度、时序控制跨域座舱功能</td><td>生成事件日志 / 调 advisor / 调车控 / 生成异步消息</td><td>你原来「callback 给任务系统」</td></tr>
+</table>
+</div>
+
+<div class="warn">
+<b>⚠️ 关键事实：你和仁杰都没上会。</b>韩杰在评审结尾说「泽民也上来，泽民、仁杰、嘉锋，我们小范围再碰一下」——这意味着这个架构还没跟你对齐过，你的触发器 PRD 和韩杰的原子能力库是两套语言，需要统一。
+</div>
+
+<!-- ============ 第二章 五大影响 ============ -->
+<h2 class="h2">第二章 · 对你的触发器：五大影响</h2>
+
+<!-- 影响一 -->
+<div class="impact">
+<h4>影响一：你的触发器被「原子化」拆解了</h4>
+<p><b>你原来的触发器：</b>一个模块，干三件事——注册条件、监听信号、判断命中、callback。</p>
+<p><b>韩杰的拆解：</b>把你的三件事拆成三类独立原子能力，每类都可以被任何业务方单独调用。</p>
+<div class="compare">
+<div class="col old">
+<h5>你原来的触发器</h5>
+<p>一个模块 = 注册条件 + 监听信号 + 判断命中 + callback<br><br>所有逻辑耦合在一起，只能被任务系统（Task Service）调用</p>
+</div>
+<div class="col new">
+<h5>韩杰的原子能力</h5>
+<p>触发事件（什么时候）+ 条件（什么条件下）+ 动作（做什么）<br><br>三类能力解耦，任何业务方（Advisor/主动服务/事件日志/任务大师）都可以自由组合调用</p>
+</div>
+</div>
+<p><b>为什么：</b>韩杰发现座舱里所有主动能力都依赖同一类「触发+条件+动作」的三段式，与其每个业务方都自己造一套，不如把这三段拆成标准原子能力，一次开发、所有业务复用。</p>
+<p><b>证据（PRD 第 14 行）：</b>「Advisor、主动服务、事件日志、任务大师、异步消息，本质都依赖同一类基础的原子能力——『什么时候（触发）+ 什么条件下（条件）+ 为用户做什么（动作）』」</p>
+</div>
+
+<!-- 影响二 -->
+<div class="impact">
+<h4>影响二：你的触发器从「业务模块」变成了「基础设施」</h4>
+<p><b>你原来的定位：</b>触发器是任务系统（Task Service）的「条件判断引擎」，只管「什么时候该触发」，是任务系统的子模块。</p>
+<p><b>韩杰的新定位：</b>触发器是「AI 场景编排引擎」的底层原子能力库，所有业务方都来调用你的原子能力，<b>任务系统（Task Service）反而成了触发器的「客户」</b>。</p>
+<p><b>证据（PRD 第 34 行）：</b>「任务管理：实际上当前我原子能力的所有的触发和条件其实都是任务管理的一个子集」——这句话的意思是：任务系统需要用触发/条件能力时，从原子能力库里调用，而不是任务系统「拥有」触发器。</p>
+<div class="alert">
+<b>🚨 风险：</b>这个定位变化意味着你的「归属」变了——原来你是「任务系统的触发器 PM」，现在你是「原子能力库的 PM」。如果你不认领这个新定位，你的地盘就会被韩杰的「原子能力清单」定义，而不是你的 PRD 定义。
+</div>
+</div>
+
+<!-- 影响三 -->
+<div class="impact">
+<h4>影响三：你的 VLM 语义匹配被「AI 条件判断」收编了</h4>
+<p><b>你原来设计的：</b>触发器新增「VLM 语义匹配」能力，专门处理「宝宝哭了告诉我」这类场景，是触发器的「第四种触发类型」（前三种是延时/条件/周期）。</p>
+<p><b>韩杰的定义：</b>你的「VLM 语义匹配」被归类为「条件」原子能力下的一个子类——「AI 判断」。</p>
+<p><b>证据（PRD 第 725-734 行）：</b></p>
+<div class="quote">
+「智能座舱当前接入了 LLM、VLM，模型输出内容与格式可能会无法保持稳定。先接入 AI 条件判断，支持基于动态的要求及输入，输出稳定的布尔结果。<br><br>
+判断类型：布尔判断 / AI判断<br>
+条件举例：目标：监控宝宝是否哭泣；输入：宝宝醒了，眼上有泪痕」
+</div>
+<p><b>关键变化：</b>你的「VLM 语义匹配」不再是触发器独有的第四种触发类型，而是被归类为「条件」原子能力下的「AI 判断」子类。<b>这意味着 VLM 语义匹配的判断逻辑（什么算「哭了」、怎么判断 matched/unmatched）的定义权，变成了「AI 判断」这个原子能力的定义权。</b></p>
+</div>
+
+<!-- 影响四 -->
+<div class="impact">
+<h4>影响四：端云分工被重新定义了</h4>
+<p><b>你原来的设计：</b>触发器在云端，VLM 语义匹配也在云端。</p>
+<p><b>韩杰的新分工：</b>绝大多数触发 + 条件判断放端侧，仅依赖云端模型推理的判断（如 VLM 识别后排宝宝哭）放云端。</p>
+<p><b>证据（PRD 第 867-874 行）：</b></p>
+<div class="quote">
+「分工原则：绝大多数触发 + 条件判断放端侧；仅依赖云端模型推理的判断（如 VLM 识别后排宝宝哭）放云端。<br><br>
+端侧承接：可自闭环的场景对应的能力放端侧；涉及安全、隐私相关的能力也放端侧。绝大多数触发事件与条件判断均在端侧完成，保证弱网/无网可闭环。<br><br>
+云端承接：仅依赖云端模型推理的判断放云端，例如通过 VLM 识别"后排宝宝哭"这类需要大模型能力的判断。」
+</div>
+<p><b>关键变化：</b>你的触发器原来全在云端，现在被拆成两半——<b>端侧管「绝大多数触发+条件」，云端只管「需要大模型推理的判断」</b>。这意味着你的 VLM 语义匹配是「云端承接」的那部分，但「什么是需要大模型推理的判断」这个边界是产品定义，不是研发定义。</p>
+</div>
+
+<!-- 影响五 -->
+<div class="impact">
+<h4>影响五：你的 PRD 被「规整」了</h4>
+<p><b>陈婧文在评审里说的（第 144-148 行）：</b></p>
+<div class="quote">
+「仁杰那份触发器的需求里面，更侧重的是云端，端侧那份没写，拆给了泽铭去写端侧的。但是泽铭的端侧触发器的需求是比较就可能因为刚好现在有 VLM 的需求，所以他那份写得非常的针对 VLM，他并不是一个就是更能 general 一些囊括各种端侧情况的一种架构，他更多的是去解决了 VLM 的单点需求。」
+</div>
+<p><b>翻译：</b>你的端侧触发器 PRD 被认定为「太针对 VLM 单点需求，不够通用」，韩杰这份 PRD 是「规整、完善、能囊括各种端侧情况的通用架构」。<b>这意味着你的 PRD 可能需要「并入」韩杰的原子能力库，而不是保持独立需求。</b></p>
+</div>
+
+<!-- ============ 第三章 为什么 ============ -->
+<h2 class="h3">第三章 · 为什么韩杰要这么做？</h2>
+
+<div class="card">
+<h4>韩杰的动机（从评审原话拆解）</h4>
+<table>
+<tr><th style="width:22%">韩杰说的</th><th style="width:38%">真实意图</th><th style="width:40%">对你的影响</th></tr>
+<tr>
+<td>「各个模块做各个模块的，互相之间的关联可能不会特别清楚」</td>
+<td>座舱主动能力（Advisor/主动服务/事件日志/任务大师）各自为战，重复造轮子</td>
+<td>你的触发器是「各自为战」之一，韩杰要统一</td>
+</tr>
+<tr>
+<td>「把座舱的能力原子化、标准化，一次开发、所有模块都可以去用」</td>
+<td>提升开发效率，降低新业务接入成本</td>
+<td>你的触发器被拆成原子能力，成为「公共基础设施」</td>
+</tr>
+<tr>
+<td>「当前触发器部署在云端，无网/弱网时信号同步不及时，直接导致触发延迟或失效」</td>
+<td>云端强依赖是痛点，端侧自闭环是方向</td>
+<td>你的触发器被拆成端云两半，端侧管绝大多数</td>
+</tr>
+<tr>
+<td>「任务管理：实际上当前我原子能力的所有的触发和条件其实都是任务管理的一个子集」</td>
+<td>任务系统（Task Service）不再是触发器的「宿主」，而是触发器的「客户」</td>
+<td>你的「归属」变了——从「任务系统的触发器 PM」变成「原子能力库的 PM」</td>
+</tr>
+</table>
+</div>
+
+<div class="card">
+<h4>韩杰的三个需求（PRD 第 1043-1062 行）</h4>
+<table>
+<tr><th style="width:18%">需求</th><th style="width:32%">内容</th><th style="width:25%">目标</th><th style="width:25%">优先级</th></tr>
+<tr>
+<td><b>需求一：规则脚本</b></td>
+<td>配置平台增加离线规则脚本，支持发布；客户端增加规则脚本模块，支持获取服务器发布的脚本</td>
+<td>把脚本端云同步这条路打通，把协议打通</td>
+<td>基础项</td>
+</tr>
+<tr>
+<td><b>需求二：事件日志上报（P0）</b></td>
+<td>产品提供触发事件及条件判断及事件日志拼接规则；客户端基于需求完成规则脚本编写</td>
+<td>端侧脚本+端侧触发+端侧执行链路贯通，打通事件日志链路</td>
+<td><span class="tag t-lose">P0</span></td>
+</tr>
+<tr>
+<td><b>需求三：端侧自闭环主动服务（P0）</b></td>
+<td>产品提供端侧主动服务脚本（含原子能力）；客户端完成原子能力开发，并基于脚本实现监听+执行</td>
+<td>高时效要求主动服务闭环，满足赛力斯离线需求（韩杰自己说是「伪需求」）</td>
+<td><span class="tag t-lose">P0</span></td>
+</tr>
+</table>
+<p class="note">注意：需求二和需求三是赛力斯 P0，要交到车上的；需求一是基础项，打通端云协议。</p>
+</div>
+
+<!-- ============ 第四章 你要做什么 ============ -->
+<h2 class="h4">第四章 · 你要做什么？四件事</h2>
+
+<ul class="action">
+<li>
+<b>第一件事：认领你的「原子能力」地盘</b><span class="deadline">本周</span><br>
+韩杰把触发器拆成了原子能力，但<b>原子能力的业务定义权还没人认领</b>。你要做的：<br>
+① 找韩杰对齐：「触发事件、条件、动作这三类原子能力，哪些是产品定义、哪些是研发实现？」<br>
+② 明确你的边界：原子能力的「业务定义」（什么场景需要什么触发事件/条件/动作）是产品定，「技术实现」（怎么监听信号、怎么判断条件）是研发定<br>
+③ 抢下「AI 判断」的定义权：VLM 语义匹配的判断逻辑（什么算「哭了」、怎么判断 matched/unmatched）是产品定义，不能让研发自己定<br>
+<b>具体动作：</b>给韩杰发一条消息：「韩杰，昨天评审我看了录屏。触发事件/条件/动作这三类原子能力，我想确认一下：①原子能力的业务定义（什么场景需要什么能力）是产品定还是研发定？②AI 判断（VLM 语义匹配）的判断逻辑和阈值，是产品定义还是研发自己调？③我这边的 VLM 条件任务 PRD，是并入你的原子能力库，还是保持独立需求？」
+</li>
+<li>
+<b>第二件事：把你的 VLM PRD 和韩杰的原子能力库「对齐」</b><span class="deadline">本周</span><br>
+你的 VLM 语义匹配 PRD 是按「触发器新增第四种触发类型」写的，韩杰是按「条件原子能力下的 AI 判断子类」写的。两套语言要统一。<br>
+<b>具体动作：</b>做一张映射表，把你的 PRD 概念映射到韩杰的原子能力库：<br>
+· 你的「VLM 语义匹配」（第四种触发类型）→ 韩杰的「条件 → AI 判断」<br>
+· 你的「task_id + user_goal」→ 韩杰的「目标 + 输入」<br>
+· 你的「matched/unmatched」→ 韩杰的「布尔结果（true/false）」<br>
+· 你的「端侧 VLM 上报」→ 确认属于「触发事件」还是「条件」的输入
+</li>
+<li>
+<b>第三件事：抢下「端侧自闭环场景」的产品定义权</b><span class="deadline">下周</span><br>
+韩杰 PRD 里提到两个端侧自闭环场景（P0）：①切到 D 档时，如果有儿童，弹主动服务卡片 ②天气路况保护（车速快 + 路面湿滑 → 开雾灯）。<b>韩杰自己都说这是「伪需求」</b>（评审第 232 行：「现在赛力斯提的这些端侧的自闭环的场景，稍微有一些鸡肋」），张嘉锋也承认（第 241 行：「我们想先低代价先做好这个」）。<br>
+<b>机会：</b>这两个场景是「为了验证端侧架构能跑通」而硬凑的，产品定义很薄弱。你可以主动提出「端侧自闭环场景的产品定义框架」——什么场景该放端侧、什么该放云端、判断标准是什么。把「后排宝宝哭了」作为端云协同的标杆 case 写进去——端侧 VLM 采集 + 云端 AI 判断。
+</li>
+<li>
+<b>第四件事：参加韩杰说的「小范围对齐会」</b><span class="deadline">本周</span><br>
+韩杰在评审结尾说（第 256 行）：「泽民也上来，泽民、仁杰、嘉锋，我们小范围再碰一下」。<b>你必须参加，而且要带着主张去：</b><br>
+① 原子能力的业务定义权归产品——什么场景需要什么触发事件/条件/动作，产品定<br>
+② AI 判断的逻辑和阈值归产品——VLM 语义匹配的判断标准是产品定<br>
+③ 你的 VLM PRD 是「AI 判断」的第一个落地 case——不是被韩杰收编，而是作为原子能力库的第一个业务方
+</li>
+</ul>
+
+<!-- ============ 第五章 怎么做 ============ -->
+<h2 class="h5">第五章 · 怎么做？三个关键问题 + 话术</h2>
+
+<div class="card">
+<h4>问题一：原子能力的「业务定义」归谁？</h4>
+<p><b>为什么问：</b>韩杰把触发器拆成了原子能力，但「什么场景需要什么能力」这个业务定义权还没人认领。如果研发自己定，你的产品定义权就没了。</p>
+<div class="say">
+<b>话术：</b>「韩杰，触发事件/条件/动作这三类原子能力，我想确认一下：什么场景需要什么能力，是产品定义还是研发定义？如果是产品定义，那我要参与原子能力清单的制定——特别是『AI 判断』这块，VLM 语义匹配的判断逻辑（什么算『哭了』、怎么判断 matched/unmatched）是我这边定的。」
+</div>
+</div>
+
+<div class="card">
+<h4>问题二：AI 判断的「判断逻辑」归谁？</h4>
+<p><b>为什么问：</b>韩杰把 VLM 语义匹配归类为「条件 → AI 判断」，但「什么算哭了、怎么判断 matched/unmatched、阈值怎么定」这些判断逻辑是产品定义，不能让研发自己调。</p>
+<div class="say">
+<b>话术：</b>「AI 判断（VLM 语义匹配）的判断逻辑——什么算『哭了』、怎么判断 matched/unmatched、阈值怎么定——是产品定义还是研发自己调？我这边有 VLM 条件任务的 PRD，这部分判断逻辑是我定的，包括 task_id + user_goal 的配对、matched/unmatched 的布尔输出、端侧 VLM 上报的格式。这些是我要保留的定义权。」
+</div>
+</div>
+
+<div class="card">
+<h4>问题三：端云分工的「边界」怎么定？</h4>
+<p><b>为什么问：</b>韩杰定了「仅依赖云端模型推理的判断放云端」，但「什么是需要大模型推理的判断」这个边界是产品定义，不是研发定义。比如「宝宝哭了」这个判断，为什么必须放云端？端侧小模型能不能做？</p>
+<div class="say">
+<b>话术：</b>「『仅依赖云端模型推理的判断放云端』——那什么是『需要大模型推理的判断』？这个边界是产品定义还是研发定义？比如『宝宝哭了』这个判断，为什么必须放云端？端侧小模型能不能做？我的理解是：端侧 VLM 负责采集画面描述（『宝宝睁眼，脸上有泪珠』），云端 AI 判断负责语义匹配（『这算不算哭了』）——这个端云协同的边界是我要定义的。」
+</div>
+</div>
+
+<!-- ============ 第六章 重要内容排序 ============ -->
+<h2 class="h6">第六章 · 哪些内容是重要的？重要度排序</h2>
+
+<table>
+<tr><th style="width:10%">优先级</th><th style="width:30%">内容</th><th style="width:30%">为什么重要</th><th style="width:30%">你要做什么</th></tr>
+<tr>
+<td><span class="tag t-lose">P0</span></td>
+<td><b>AI 判断（VLM 语义匹配）的定义权</b></td>
+<td>这是你的核心地盘，韩杰已经把它写进原子能力库了，你不抢就被研发定</td>
+<td>抢下「什么算哭了、怎么判断 matched/unmatched」的定义权</td>
+</tr>
+<tr>
+<td><span class="tag t-lose">P0</span></td>
+<td><b>端云分工原则</b></td>
+<td>韩杰定了「绝大多数放端侧」，但「什么是需要大模型推理的判断」这个边界是产品定义</td>
+<td>定义「端侧 VLM 采集 + 云端 AI 判断」的端云协同边界</td>
+</tr>
+<tr>
+<td><span class="tag t-mid">P1</span></td>
+<td><b>原子能力的业务定义权</b></td>
+<td>什么场景需要什么能力，这是产品的事，不能让研发自己定</td>
+<td>参与原子能力清单的制定，确保业务定义权归产品</td>
+</tr>
+<tr>
+<td><span class="tag t-mid">P1</span></td>
+<td><b>你的 VLM PRD 和原子能力库的关系</b></td>
+<td>是被收编还是保持独立？这决定你的需求归属</td>
+<td>明确你的 VLM PRD 是「AI 判断」的第一个落地 case，不是被韩杰收编</td>
+</tr>
+<tr>
+<td><span class="tag t-win">P2</span></td>
+<td><b>端侧自闭环场景的产品定义</b></td>
+<td>韩杰自己都说这是伪需求，你可以提出更好的框架</td>
+<td>提出「端侧自闭环场景的产品定义框架」</td>
+</tr>
+<tr>
+<td><span class="tag t-win">P2</span></td>
+<td><b>可视化配置平台</b></td>
+<td>远期规划，优先级低，但你要确保平台上线后你的原子能力定义权还在</td>
+<td>关注平台建设，确保你的定义权不被平台「配置化」掉</td>
+</tr>
+</table>
+
+<!-- ============ 第七章 风险与机会 ============ -->
+<h2 class="h1">第七章 · 风险与机会</h2>
+
+<div class="fix">
+<b>🚨 三大风险</b><br>
+① <b>被定位成「VLM 单点需求的 PM」</b>——陈婧文已经这么定义你了（「泽铭的端侧触发器的需求是比较就可能因为刚好现在有 VLM 的需求，所以他那份写得非常的针对 VLM」），如果你不抢下「AI 判断」的定义权，你就只是「VLM 单点需求的 PM」，而不是「触发器整体架构的 PM」。<br>
+② <b>原子能力的业务定义权被研发拿走</b>——韩杰把触发器拆成了原子能力，但「什么场景需要什么能力」这个业务定义权还没人认领。如果你不认领，研发会自己定。<br>
+③ <b>你的 PRD 被「规整」掉</b>——韩杰的 PRD 是「通用架构」，你的 PRD 是「VLM 单点需求」，如果不对齐，你的 PRD 可能被并入韩杰的原子能力库，失去独立需求归属。
+</div>
+
+<div class="concl">
+<b>✅ 三大机会</b><br>
+① <b>抢下「AI 判断」的定义权</b>——VLM 语义匹配的判断逻辑（什么算「哭了」、怎么判断 matched/unmatched）是产品定义，这是你的核心地盘，韩杰已经把它写进原子能力库了，你要认领。<br>
+② <b>定义「端云协同」的边界</b>——「端侧 VLM 采集 + 云端 AI 判断」的端云协同模式是你要定义的，这是你的产品价值。<br>
+③ <b>成为「原子能力库的第一个业务方」</b>——你的 VLM 条件任务 PRD 是「AI 判断」的第一个落地 case，不是被韩杰收编，而是作为原子能力库的第一个业务方。
+</div>
+
+<!-- ============ 结尾 ============ -->
+<div class="end">
+<p><b>最后一句话：</b>韩杰这个需求不是「新做一个业务」，而是「把你的触发器拆成原子能力，让整个座舱复用」——你的机会是抢下「原子能力的业务定义权」和「AI 判断的逻辑定义权」，你的风险是被定位成「VLM 单点需求的 PM」而失去对触发器整体架构的话语权。</p>
+<p style="margin-top:8px">版本：v1 · 2026-07-24 · 基于韩杰评审纪要 47:12 +《座舱 AI 编排引擎需求文档》逐行拆解</p>
+</div>
+
+</div>
+</body>
+</html>

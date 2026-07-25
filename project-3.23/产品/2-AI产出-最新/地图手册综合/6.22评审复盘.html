@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>6.22 端侧触发器需求评审 · 复盘</title>
+<style>
+:root{--bg:#f7f9fc;--card:#fff;--text:#2c3e50;--border:#eaeaea;--accent:#3498db;--max:940px}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;color:var(--text);line-height:1.75;font-size:15px}
+.container{max-width:var(--max);margin:36px auto;padding:34px 42px;background:var(--card);border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.05)}
+@media(max-width:768px){.container{margin:0;border-radius:0;padding:16px}}
+h1{font-size:1.85rem;text-align:center;border-bottom:2px solid var(--border);padding-bottom:14px;margin-top:0}
+h2{font-size:1.38rem;margin-top:2.3em;padding:10px 14px;border-radius:8px;border-left:4px solid var(--accent);background:#f0f7ff;color:#1a202c}
+h3{font-size:1.12rem;margin-top:1.5em;color:#1e40af}
+h4{font-size:1rem;margin-top:1.1em}
+p{margin-bottom:.9em;text-align:justify}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:.88rem}
+th,td{border:1px solid var(--border);padding:9px 11px;text-align:left;vertical-align:top}
+th{background:#f8f9fa;font-weight:600;color:#1a202c}
+tr:nth-child(even){background:#fafbfc}
+ol,ul{margin:8px 0 8px 20px;line-height:1.8}
+code{background:#f1f5f9;padding:1px 5px;border-radius:3px;font-size:.85rem;font-family:"SF Mono",Menlo,Consolas,monospace}
+.q{color:#6b7280;font-style:italic;font-size:.92em}
+.note{padding:10px 14px;border-radius:6px;margin:12px 0;font-size:.92rem}
+.note-red{background:#fee2e2;border-left:3px solid #dc2626}
+.note-green{background:#dcfce7;border-left:3px solid #16a34a}
+.note-blue{background:#dbeafe;border-left:3px solid #2563eb}
+.note-purple{background:#f3e8ff;border-left:3px solid #7c3aed}
+.note-yellow{background:#fef3c7;border-left:3px solid #d97706}
+.tag{display:inline-block;padding:1px 7px;border-radius:4px;font-size:11px;font-weight:700}
+.t-good{background:#dcfce7;color:#15803d}.t-bad{background:#fee2e2;color:#dc2626}.t-mid{background:#fef3c7;color:#a16207}
+.tag-p0{color:#dc2626;font-weight:700}.tag-p1{color:#a16207;font-weight:700}
+.flow{display:flex;flex-wrap:wrap;align-items:stretch;gap:6px;margin:14px 0;padding:14px;background:#fafbfc;border:1px solid #eaeaea;border-radius:8px}
+.fnode{flex:1 1 110px;min-width:100px;max-width:220px;padding:8px 10px;border-radius:8px;font-size:.79rem;line-height:1.35;text-align:center;border:1.5px solid;display:flex;flex-direction:column;justify-content:center;gap:2px}
+.fnode b{font-size:.84rem}.fnode small{color:#555;font-size:.72rem}
+.cloud{background:#ede9fe;border-color:#7c3aed}.edge{background:#ffedd5;border-color:#ea580c}
+.vlm{background:#fef3c7;border-color:#d97706}.exec{background:#dcfce7;border-color:#16a34a}
+.ctx{background:#dbeafe;border-color:#2563eb}.adv{background:#f3e8ff;border-color:#9333ea}
+.dir{background:#ecfeff;border-color:#0891b2}.danger{background:#fee2e2;border-color:#dc2626}
+.farr{display:flex;align-items:center;justify-content:center;color:#94a3b8;font-weight:700;font-size:.95rem;flex:0 0 auto}
+.wrong{text-decoration:line-through;color:#dc2626}
+.scoreboard{display:flex;gap:12px;flex-wrap:wrap;margin:14px 0}
+.score{flex:1 1 150px;padding:12px;border-radius:8px;text-align:center}
+.score .n{font-size:1.6rem;font-weight:800}
+.toc{background:#f8f9fa;padding:14px 18px;border-radius:8px;margin:18px 0}
+.toc a{color:#2563eb;text-decoration:none}.toc a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>6.22 端侧触发器需求评审 · 复盘</h1>
+<p style="text-align:center;color:#888;font-size:13px">王泽民 · 评审 2026-06-22 15:01–16:08（1h6m）· 参会：泽民 / 丁彬(舱外VLM) / 陈西钺(架构·赛力斯对接) / 施佳杰=佳杰(动态Advisor·事件·任务中心·AIBox调度) / 吴仁杰(架构·原触发器设计) / 赵益红(静态Advisor)</p>
+
+<div class="note note-red">
+<b>这次评审最重要的一句话：你的端侧触发器 scope 被大幅收窄了。</b>评审定调（仁杰主张、西钺/丁彬认同）：<b>固定/常驻/标配的端侧闭环功能（哨兵、上下车安全、起步安全、迎宾、睡眠提醒）→ 全部回到赛力斯 CDC 底软自己做，不走端侧触发器</b>；端侧触发器<b>只做云端下发的"动态任务"</b>（有定时器优势）<b>+ 动态视觉感知事件链路</b>。换句话说：你 PRD 里那张"端侧 7 大类任务"的图，<b>评审后大半要划走</b>。
+</div>
+
+<div class="toc">
+<b>目录</b>
+<ol>
+<li><a href="#s1">评审定调：3 个最重要的结论</a></li>
+<li><a href="#s2">你的表现复盘（做得好 / 没接住，逐条带证据）</a></li>
+<li><a href="#s3">整体链路是否清晰？你画错的那条 + 厘清后的正确链路</a></li>
+<li><a href="#s4">⚠ 端侧触发器 scope 的变化（评审前 vs 评审后）</a></li>
+<li><a href="#s5">接下来要做什么 / 为什么 / 怎么做（行动清单）</a></li>
+<li><a href="#s6">还悬着的问题 + 风险</a></li>
+</ol>
+</div>
+
+<!-- ============ §1 ============ -->
+<h2 id="s1">一、评审定调：3 个最重要的结论</h2>
+
+<table>
+<tr><th style="width:5%">#</th><th style="width:26%">结论</th><th style="width:34%">谁定的 / 原话</th><th>对你意味着什么</th></tr>
+<tr><td>1</td><td><b>端侧闭环固定类 → 回赛力斯 CDC，不走触发器</b></td><td>仁杰(15:32)："端侧触发器只做云端下发的任务，闭环的任务都不做了"；丁彬(16:17)："原来端侧闭环的还继续闭环，几乎不需要触发器做什么"；西钺(16:26)认同</td><td>哨兵/上下车/起步安全/迎宾/睡眠提醒不归你了。你 PRD 的"端侧 7 类任务"要重划</td></tr>
+<tr><td>2</td><td><b>事件 ≠ 状态：Advisor 订阅"事件"，不轮询 Context</b></td><td>施佳杰(24:31/26:35)："我注册了事件之后，就等云端触发器给我发，我不会去轮询你的 context"</td><td>你画的链路图有一条<b>核心错误</b>（详见 §3），评审当场被佳杰抓出来了</td></tr>
+<tr><td>3</td><td><b>动态视觉感知事件 = 你的真正主战场（且待建）</b></td><td>仁杰(42:01)+施佳杰(28:07)：要单独拉"对动态视觉行为"一类事件；7 月中要定；赛力斯有端模，这条端云链路要新建</td><td>定时器是老本，<b>视觉事件链路才是这次评审真正压给你的活</b>，且很多细节没定</td></tr>
+</table>
+
+<div class="note note-blue"><b>顺带解决一个悬案：</b>会上确认 <b>施佳杰 = 佳杰</b>（王泽民 57:45 喊"佳杰看一下"，施佳杰应答）——他一个人/一个团队同时管 <b>动态 Advisor + 事件模块 + 任务中心 + AIBox 任务调度接口</b>。我们之前负责人地图里那个"施佳杰是否=佳杰"的待确认，<b>现在确认是同一人</b>。</div>
+
+<!-- ============ §2 ============ -->
+<h2 id="s2">二、你的表现复盘</h2>
+
+<div class="scoreboard">
+<div class="score" style="background:#dcfce7"><div class="n" style="color:#15803d">准备</div><div>有备而来：开场 7 点清单 + 主动问"有没有漏"</div></div>
+<div class="score" style="background:#fef3c7"><div class="n" style="color:#a16207">临场</div><div>偏被动应答：结论基本是仁杰/佳杰/西钺帮你定的</div></div>
+<div class="score" style="background:#fee2e2"><div class="n" style="color:#dc2626">硬伤</div><div>一条核心链路画错、两三个关键问题答得不实、末尾跟丢</div></div>
+</div>
+
+<h3>2.1 做得好的 <span class="tag t-good">保持</span></h3>
+<table>
+<tr><th style="width:22%">时刻</th><th style="width:40%">你做了什么</th><th>为什么好</th></tr>
+<tr><td>开场 (02:35)</td><td>直接抛出端侧触发器 7 点清单（定时器/简单条件/白名单车控/VLM 合规/弱网/信号标准化/上报 context），并问"有没有漏掉的"</td><td>有框架、有准备，主动设议程——这是 PM 该有的开场</td></tr>
+<tr><td>faceid 归属 (04:14)</td><td>益红问视觉强相关事件放哪，你明确"放云端"，并说"上午和仁杰对齐过"</td><td>判断对、且提前对齐过关键人，不是临时拍</td></tr>
+<tr><td>触发器 vs 信号库 (06:36–07:03)</td><td>丁彬追问两者区别，你讲清"信号库=只做状态存储，触发器=跑 if/else 逻辑"</td><td>核心概念解释清楚，丁彬当场"明白"了</td></tr>
+<tr><td>不藏问题 (09:05)</td><td>主动点出"赛力斯 CDC 也做了逻辑，这块会冲突，是个问题点"</td><td>诚实暴露冲突，反而引出了西钺"统一收口"的关键讨论</td></tr>
+</table>
+
+<h3>2.2 没接住的 <span class="tag t-bad">要改</span></h3>
+<table>
+<tr><th style="width:18%">时刻 / 问题</th><th style="width:30%">当时怎么了</th><th>更稳的答法</th></tr>
+<tr><td><b>① 链路图画错</b><br/>(施佳杰 25:48)</td><td>你画的是 <span class="wrong">㉑Context → ⑰动态Advisor</span>（advisor 轮询 context）。佳杰指出应是 <b>⑮云端触发器 → ⑰动态Advisor</b>（触发器推事件）。你"对对对"接受，但没当场反应过来这是核心错</td><td>当场点破区别：<b>Context 存的是"状态/condition"，触发器推的是"事件"</b>；Advisor 订阅事件、不轮询状态（ROI 角度不可能 24h 轮询）。承认图要改</td></tr>
+<tr><td><b>② 模型驱动还是规则驱动</b><br/>(丁彬 30:39)</td><td>你答"上汽赛力斯都是模型驱动的，规则驱动的，后边加模型推理"——<b>自相矛盾</b>，模型和规则都说了</td><td>给一句干脆的："<b>当前规则驱动为主</b>（if/else 条件匹配 + 阈值穿越），<b>二期再加模型推理</b>判断复杂语义"</td></tr>
+<tr><td><b>③ 关键结论全是别人定的</b></td><td>端侧收窄(仁杰)、事件vs状态(佳杰)、链路修正(仁杰33:53)、调度归属(佳杰57:47)——你多数时候"对对对/明白"</td><td>作为<b>被评审模块的 owner</b>，该由你来 framing 和收敛。别人讲完，你要复述确认 + 拍板，而不是只点头</td></tr>
+<tr><td><b>④ 末尾跟丢</b><br/>(01:05:04)</td><td>通用视觉事件/泛化感知讨论时，你直接说"<b>那需要我做什么呢？我没太听懂</b>"</td><td>全程盯住"对我模块提了什么 requirement"，没懂当场追问澄清，别攒到最后才发现跟丢了</td></tr>
+<tr><td><b>⑤ 任务中心准备不足</b><br/>(51–55)</td><td>佳杰长篇讲你要建什么（端云任务同步/任务 vs 场景字段/enable-disable 接口），你"我有这个模块/我知道"，但又问"我怎么判定哪些是任务哪些是感知"——说明没设计透</td><td>这块 PRD 里确实没考虑进去，<b>诚实承认 + 当场记 TODO</b>，比硬说"我有"更稳</td></tr>
+<tr><td><b>⑥ 信号库归属甩给仁杰</b><br/>(01:05:54)</td><td>丁彬问"信号收集谁负责"，你答"这个可能是仁杰那边去搞的"——对自己 scope 边界不确定</td><td>617 已确认 <b>④端侧信号库 ∈ 你的触发器 scope</b>。该答："信号库归我，采集/上报由端模和业务做，我定 schema"</td></tr>
+</table>
+
+<div class="note note-yellow"><b>一句话总评：</b>你<b>准备的框架不错</b>（7 点清单是加分项），但<b>临场偏被动</b>——一条核心链路画错被当场抓出、两三个关键问题（模型vs规则 / 任务中心 / 信号库归属）答得不实、末尾还跟丢了。最大的问题不是某句话答错，而是<b>作为被评审模块的 owner，你没掌控住"收敛结论"和"界定自己 scope"的主动权</b>，结论基本是仁杰/佳杰/西钺帮你定的。下次评审：<b>每讨论完一段，由你来复述+拍板+记 TODO</b>，把主动权抓回来。</div>
+
+<!-- ============ §3 ============ -->
+<h2 id="s3">三、整体链路：你画错的那条 + 厘清后的正确链路</h2>
+
+<p>评审最有价值的产出，就是把"动态视觉感知事件"这条链路捋清楚了。但你原图有一处核心错误。</p>
+
+<h3>3.1 你画错的那条（佳杰 25:48 当场纠正）</h3>
+<div class="flow">
+<div class="fnode edge"><b>④ 端侧信号库</b><small>VLM 结果写入</small></div><div class="farr">▶</div>
+<div class="fnode ctx"><b>㉑ Context</b><small>上报</small></div><div class="farr">▶</div>
+<div class="fnode danger"><b>✘ ⑰ 动态Advisor</b><small>从 Context 轮询消费</small></div>
+</div>
+<p class="q">错在哪：Advisor 不可能 24 小时轮询 Context 找"用户睡醒了没"。而且 Context 里存的是<b>状态</b>（他睡着时也在 Context 里），不是<b>事件</b>。</p>
+
+<h3>3.2 厘清后的正确链路（仁杰 + 佳杰 + 丁彬 共同捋出）</h3>
+<div class="flow">
+<div class="fnode dir"><b>⑳ Director</b><small>用户"照看宝宝"→创建动态Advisor</small></div><div class="farr">▶</div>
+<div class="fnode adv"><b>⑰ 动态Advisor</b><small>拆解query→改写注意力SP</small></div><div class="farr">▶</div>
+<div class="fnode cloud"><b>⑮ 云端触发器</b><small>注册→下发动态SP</small></div><div class="farr">▶</div>
+<div class="fnode vlm"><b>端模 VLM</b><small>按SP观测特定目标</small></div><div class="farr">▶</div>
+<div class="fnode edge"><b>④ 端侧信号库</b><small>结果写入(状态)</small></div><div class="farr">▶</div>
+<div class="fnode cloud"><b>⑮ 云端触发器</b><small>监听变化·阈值穿越·组装"事件"</small></div><div class="farr">▶</div>
+<div class="fnode adv"><b>⑰/⑯ Advisor</b><small>订阅的事件被推送·消费</small></div><div class="farr">▶</div>
+<div class="fnode dir"><b>⑳ Director</b><small>推理→执行</small></div>
+</div>
+
+<table>
+<tr><th style="width:18%">关键澄清</th><th>内容（评审原话）</th></tr>
+<tr><td><b>事件 vs 状态/condition</b></td><td>佳杰(29:34)：Context 解决的是 <b>condition</b>（"车里有小孩"），触发器给的是 <b>event</b>（"用户在倒车""用户睡醒"）。倒车=事件、有小孩=condition、做什么=Advisor 给。事件是"高度简化的语义"，advisor 订阅事件</td></tr>
+<tr><td><b>为什么事件放触发器不放 Advisor</b></td><td>佳杰(29:03)+西钺(30:27)：事件比状态更有价值；从推理 ROI 角度，不可能让 Advisor 24h 轮询不相关的事 → 才有了触发器的需求</td></tr>
+<tr><td><b>Director 不直接到触发器</b></td><td>仁杰(33:53)：Director 先创建 ⑰动态Advisor，由动态Advisor 拆解 query、改写注意力 SP，再去调触发器注册——不是 Director 直连触发器</td></tr>
+<tr><td><b>SP 下发链路（待定）</b></td><td>仁杰(34:59)：动态 SP 是"经触发器下发给端模" 还是 "注册触发器场景再给端模" 还是 "动态版本直接给端模"？——<b>没定，7 月中要定</b></td></tr>
+<tr><td><b>端模能力（关键不确定性）</b></td><td>端模能不能做"看到 X 就告诉我"的条件式判断（动态注意力）？丁彬(40:58)：靠 prompt 限制有限集，指令遵循好应该行，<b>但没试过</b>。能 → 链路简单；不能 → 端模只能固定周期输出，需云端模块从每次输出里判断</td></tr>
+</table>
+
+<div class="note note-green"><b>所以"链路是否清晰"的答案：</b>评审<b>把主链路捋清了</b>（上面这条），但<b>三个卡点没定</b>——① SP 下发走哪条 ② 端模有没有条件式动态注意力能力 ③ 事件组装这层放云端触发器还是端侧。这三个是你 7 月中前要推动定下来的。</div>
+
+<!-- ============ §4 ============ -->
+<h2 id="s4">四、⚠ 端侧触发器 scope 的变化（评审前 vs 评审后）</h2>
+
+<p>这是这次复盘<b>最该让你警醒</b>的一块：你 PRD-v2 和五方关系文档里假设的端侧触发器职责，评审后大半被划走了。</p>
+
+<table>
+<tr><th style="width:24%">你 PRD 里的"端侧 7 类任务"</th><th style="width:14%">评审后归属</th><th>依据</th></tr>
+<tr><td>① 本地定时器</td><td><span class="tag t-good">保留</span> 端侧触发器</td><td>仁杰/西钺明确：端侧触发器做云端下发的任务，正因为它有定时器</td></tr>
+<tr><td>② 简单条件端侧执行</td><td><span class="tag t-bad">大半划走</span> → 赛力斯 CDC</td><td>固定类（如赛力斯 CDC 已做的充电桩开盖、温控）归赛力斯；仅动态/会变的留触发器</td></tr>
+<tr><td>③ 白名单车控直执</td><td><span class="tag t-bad">划走</span> → 赛力斯 CDC 底软</td><td>丁彬(16:17)/仁杰：端侧闭环执行继续走赛力斯业务逻辑，不耦合触发器</td></tr>
+<tr><td>④ VLM 视觉持续监控</td><td><span class="tag t-mid">重塑</span> → "动态视觉感知事件"</td><td>执行在端模/AIBox，触发器做 SP 下发 + 事件组装。这是你新的主战场</td></tr>
+<tr><td>⑤ 弱网/断网降级执行</td><td><span class="tag t-mid">部分保留</span></td><td>固定闭环类归赛力斯；但"任务中心端侧持久化（弱网可用）"保留在你这</td></tr>
+<tr><td>⑥ 信号采集标准化</td><td><span class="tag t-mid">归属待定</span></td><td>你会上甩给了仁杰；实际 ④信号库∈你 scope，采集上报由端模/业务做</td></tr>
+<tr><td>⑦ 上报 Context</td><td><span class="tag t-good">保留</span></td><td>但要改成"触发器组装事件后推送"，不是 Advisor 轮询 Context</td></tr>
+<tr><td colspan="3" style="background:#f3e8ff"><b>🆕 评审新增压给你的活：</b>(a) 动态视觉感知事件链路（含 SP 下发 + 事件组装）；(b) <b>通用视觉事件 / 端侧泛化感知通道</b>（兜底长尾，透传动态 query 给 AIBox，分舱内静态/动态/舱外三类、prompt 增量更新）；(c) <b>任务中心端云打通</b>（端侧持久化 + 任务/场景字段区分 + enable/disable 反向写入接口）</td></tr>
+</table>
+
+<div class="note note-red"><b>结论：</b>端侧触发器从你 PRD 的"7 类全包"，收窄成 <b>{ 本地定时器 + 动态视觉感知事件 + 通用视觉事件通道 + 任务中心端侧同步 }</b>。<b>固定闭环类（哨兵/上下车/起步安全/迎宾/简单车控）让给赛力斯 CDC。</b>你的 PRD-v2 和五方关系文档需要按这个结论<b>重新划一遍 scope</b>——否则下次评审还是会被打回。</div>
+
+<!-- ============ §5 ============ -->
+<h2 id="s5">五、接下来要做什么 / 为什么 / 怎么做</h2>
+
+<table>
+<tr><th style="width:4%">#</th><th style="width:20%">做什么</th><th style="width:22%">为什么</th><th style="width:26%">怎么做</th><th>找谁 / 时间</th></tr>
+<tr><td>1</td><td><b>改链路图</b>：Context→Advisor 改成 云端触发器→Advisor（事件推送）</td><td>评审当场被佳杰抓出的核心错；不改下次还错</td><td>把"④信号库→触发器监听组装事件→推送 Advisor"画出来，标清事件 vs condition</td><td>泽民自己 · <span class="tag-p0">本周</span></td></tr>
+<tr><td>2</td><td><b>PRD scope 重划</b>：端侧触发器收窄，固定闭环类标"赛力斯 CDC"</td><td>评审定调；PRD 现在 over-claim，scope 对不上</td><td>按 §4 那张表重划端侧职责，赛力斯重叠项标出来</td><td>泽民 · <span class="tag-p0">本周</span></td></tr>
+<tr><td>3</td><td><b>等并消化"事件依赖表"</b></td><td>益红+佳杰要给你视觉事件 query case，是你设计事件类的输入</td><td>拿到后逐条翻译成触发器的"事件定义"（驶出地库/睡醒/打手机/物品出现移除…）</td><td>益红+佳杰给(周内) → 泽民 · <span class="tag-p0">P0</span></td></tr>
+<tr><td>4</td><td><b>拉"视觉感知事件"专题会</b></td><td>佳杰(47:57)主动提的 TODO；工程链路怎么和 AIBox 打通、数据怎么拿，要细聊</td><td>基于 query case，把 SP 下发链路 + 取数链路放大聊清</td><td>泽民约 佳杰+益红+丁彬/兰若 · <span class="tag-p0">P0</span></td></tr>
+<tr><td>5</td><td><b>定"动态视觉感知事件"这一类</b>（含 3 个卡点）</td><td>这是你新的主战场；7 月中要定</td><td>定：① SP 下发走哪条 ② 事件组装放云/端 ③ 推动端模能力验证</td><td>泽民牵头 + 仁杰/佳杰/丁彬 · <span class="tag-p0">7月中</span></td></tr>
+<tr><td>6</td><td><b>设计"通用视觉事件 / 泛化感知通道"</b></td><td>西钺+佳杰要的兜底长尾；不然只有枚举场景+VQA问当下</td><td>透传动态 advisor 的泛化 query 给 AIBox（system prompt）；分舱内静态/动态/舱外三类；prompt 做<b>增量</b>更新（非覆盖）</td><td>泽民 + 佳杰 + 丁彬(舱外)/兰若(舱内) · 再约会</td></tr>
+<tr><td>7</td><td><b>任务中心端云打通</b></td><td>佳杰明确的硬依赖；用户要在任务中心 enable/disable</td><td>① 端侧任务同步持久化模块 ② 加"任务级 vs 感知级"字段 ③ 提供 enable/disable 反向写入接口 ④ 列赛力斯走触发器的可穷举清单+标显示价值</td><td>泽民 + 佳杰 + 晓伟(图) · <span class="tag-p1">P1</span></td></tr>
+<tr><td>8</td><td><b>推端模条件式注意力能力验证</b></td><td>整条视觉事件链路的前提；"看到X就告诉我"端模能不能做没试过</td><td>给丁彬/兰若一组有限集 query，让端模 prompt 限制观测目标试一版</td><td>泽民推 丁彬(舱外)/兰若(舱内) · <span class="tag-p0">7月中前</span></td></tr>
+<tr><td>9</td><td><b>认领信号库归属</b></td><td>会上你甩给了仁杰，但 ④∈你 scope（617 已确认）</td><td>明确：信号库归触发器，采集/上报由端模+业务做，你定上报 schema；和仁杰对齐边界</td><td>泽民 + 仁杰 · <span class="tag-p1">P1</span></td></tr>
+<tr><td>10</td><td><b>推赛力斯梳理自己业务仲裁</b></td><td>西钺(17:14)的顾虑：赛力斯多业务同时提醒、内部没仲裁，面客体验差</td><td>面客时推赛力斯把自己业务梳理清；字节侧做系统级仲裁兜底</td><td>泽民/西钺 + 赛力斯 · <span class="tag-p1">P1</span></td></tr>
+</table>
+
+<!-- ============ §6 ============ -->
+<h2 id="s6">六、还悬着的问题 + 风险</h2>
+<table>
+<tr><th style="width:30%">悬着的问题</th><th style="width:40%">为什么是风险</th><th>谁来定</th></tr>
+<tr><td><b>端模能否做条件式动态注意力</b>（"看到X就告诉我"）</td><td>能 → 链路简单；不能 → 要云端加一个"从 VLM 每次输出里判断"的模块，工作量和链路都变重。整条视觉事件链路都压在这个不确定性上</td><td>丁彬/兰若 试 → 7 月中</td></tr>
+<tr><td><b>SP 下发走哪条链路</b></td><td>触发器下发 / 注册场景再给端模 / 动态版本直接给端模——三选一没定，影响接口设计</td><td>泽民+仁杰+佳杰</td></tr>
+<tr><td><b>事件组装层放云端触发器还是端侧</b></td><td>西钺担心：端模输出"物体在什么地方"这类复杂状态，always-on 不带时间变化，事件判定不一定搞得定</td><td>泽民+佳杰</td></tr>
+<tr><td><b>通用视觉事件的 prompt 增量机制</b></td><td>丁彬：若不是增量而是覆盖，原 prompt 就没了、原感知内容丢失；还要分增到舱内静态/动态/舱外哪个任务</td><td>佳杰+丁彬</td></tr>
+<tr><td><b>SOP 排期风险</b></td><td>丁彬(49:32)：方舟 SOP 基本满了，你梳理的信号若和现有无重叠，可能要排期、当前提供不了</td><td>丁彬+方舟</td></tr>
+<tr><td><b>赛力斯可穷举清单还没到</b></td><td>你上周让赛力斯梳理，他们拉了十几个人但没给你；任务中心"任务 vs 场景"标注、端云分类都依赖它</td><td>赛力斯 → 泽民催</td></tr>
+</table>
+
+<hr style="margin:36px 0;border:none;border-top:2px solid var(--border)"/>
+<p style="text-align:center;color:#999;font-size:13px">
+6.22 端侧触发器需求评审 · 复盘 · 王泽民 · 2026-06-22<br/>
+依据：6.22 会议逐字稿（1h6m）· 配套《触发器 PRD-v2》《端云职责与五方关系详解》
+</p>
+
+</div>
+</body>
+</html>

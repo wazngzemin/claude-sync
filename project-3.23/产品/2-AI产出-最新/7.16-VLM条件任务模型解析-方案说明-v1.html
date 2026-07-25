@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VLM 条件任务 · 模型解析能力说明</title>
+<style>
+  :root{
+    --bg:#f4f6f9; --card:#ffffff; --ink:#1e2530; --ink2:#5c6575; --line:#e0e4ea;
+    --blue:#2f6fed; --blue-bg:#eaf1fe; --blue-line:#9dbcf7;
+    --purple:#7a45e6; --purple-bg:#f1ebfd; --purple-line:#c6adf3;
+    --green:#128a4e; --green-bg:#e6f6ed; --green-line:#9fd9b8;
+    --red:#d83b30; --red-bg:#fdeceb; --red-line:#f1b0aa;
+    --amber:#b96f00; --amber-bg:#fdf2df; --amber-line:#eecb87;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:-apple-system,"SF Pro Text","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--ink);line-height:1.75;}
+  .header{background:var(--card);border-bottom:1px solid var(--line);padding:30px 24px 24px;text-align:center;}
+  .header h1{font-size:23px;font-weight:800;}
+  .header .sub{font-size:13.5px;color:var(--ink2);margin-top:6px;}
+  .badge{display:inline-block;background:var(--blue);color:#fff;font-weight:700;font-size:12px;padding:3px 14px;border-radius:14px;margin-top:11px;}
+  .content{max-width:980px;margin:0 auto;padding:24px 24px 72px;}
+  h2{font-size:18px;font-weight:800;margin:38px 0 12px;padding:9px 0 9px 12px;border-left:4px solid var(--blue);background:linear-gradient(90deg,#eef3fc,transparent);}
+  h3{font-size:15px;font-weight:800;margin:22px 0 9px;color:var(--blue);}
+  p{font-size:14px;margin:9px 0;}
+  .lead{font-size:14px;color:var(--ink2);}
+  .plain{background:#eef3fc;border-radius:8px;padding:10px 14px;font-size:13.5px;margin:10px 0;color:var(--ink);border:1px solid var(--blue-line);}
+  .plain b{color:var(--blue);}
+  table{width:100%;border-collapse:collapse;margin:12px 0 16px;font-size:13px;background:var(--card);border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+  th{background:#eef1f6;padding:10px 12px;text-align:left;font-weight:700;color:var(--ink2);border-bottom:1px solid var(--line);vertical-align:top;}
+  td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tr:last-child td{border-bottom:none;}
+  code{background:#eef1f6;padding:1px 6px;border-radius:4px;font-size:12px;color:var(--purple);word-break:break-all;}
+  .codeblock{background:#1e2530;color:#dfe6f0;border-radius:8px;padding:14px 16px;margin:10px 0;font-family:"SF Mono",Menlo,monospace;font-size:12.5px;line-height:1.7;overflow-x:auto;white-space:pre;}
+  .codeblock .k{color:#7fd1ff;}.codeblock .v{color:#a6e3a1;}.codeblock .c{color:#8a93a6;}
+
+  .flow{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:22px 18px;margin:14px 0;}
+  .node{border-radius:10px;padding:12px 16px;margin:0 auto;max-width:640px;border:1.5px solid var(--line);background:#fbfcfe;}
+  .node .role{font-size:11.5px;font-weight:800;display:block;margin-bottom:3px;}
+  .node .desc{font-size:13px;}
+  .n-user .role{color:var(--ink2);}
+  .n-task{border-color:var(--blue-line);background:var(--blue-bg);}.n-task .role{color:var(--blue);}
+  .n-vlm{border-color:var(--green-line);background:var(--green-bg);}.n-vlm .role{color:var(--green);}
+  .n-core{border-color:var(--purple);background:var(--purple-bg);border-width:2.5px;box-shadow:0 2px 14px rgba(122,69,230,.15);}.n-core .role{color:var(--purple);}
+  .n-out{border-color:var(--amber-line);background:var(--amber-bg);}.n-out .role{color:var(--amber);}
+  .arr{text-align:center;color:var(--ink2);font-size:17px;padding:5px 0;}
+  .arr .l{display:block;font-size:11.5px;color:var(--ink2);}
+  .split2{display:flex;gap:12px;max-width:640px;margin:0 auto;}.split2>div{flex:1;}
+
+  .box{padding:13px 16px;border-radius:9px;margin:12px 0;font-size:13.5px;}
+  .box-b{background:var(--blue-bg);border:1px solid var(--blue-line);}
+  .box-g{background:var(--green-bg);border:1px solid var(--green-line);}
+  .box-a{background:var(--amber-bg);border:1px solid var(--amber-line);}
+  .box-p{background:var(--purple-bg);border:1px solid var(--purple-line);}
+  .box-r{background:var(--red-bg);border:1px solid var(--red-line);}
+  strong{font-weight:800;}
+  .tag{display:inline-block;font-size:11px;font-weight:700;padding:1px 8px;border-radius:4px;}
+  .tag-a{background:var(--green-bg);color:var(--green);border:1px solid var(--green-line);}
+  .tag-b{background:var(--purple-bg);color:var(--purple);border:1px solid var(--purple-line);}
+  .tag-q{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-line);}
+  .ver{text-align:center;padding:26px 0;font-size:12px;color:var(--ink2);}
+  ul{margin:7px 0 7px 22px;font-size:13.5px;}li{margin:4px 0;}
+  .caseline{background:#fff;border-left:3px solid var(--amber);padding:8px 13px;margin:8px 0;font-size:13.5px;border-radius:0 6px 6px 0;}
+  .caseline b{color:var(--amber);}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>VLM 条件任务 ·「模型解析」能力说明</h1>
+  <div class="sub">以「后排宝宝哭了告诉我」为例，讲清楚这件事是什么、链路怎么走、需要各方准备什么</div>
+  <div class="badge">v1 · 2026-07-16 · 供各方对齐讨论</div>
+</div>
+
+<div class="content">
+
+<div class="box box-b">
+<strong>这份材料给谁看、讲什么：</strong><br>
+面向 <strong>VLM（视觉大模型）算法、服务端研发、产品</strong> 三方。围绕一类新需求——"<strong>VLM 条件任务</strong>"（如"后排宝宝哭了告诉我""有人抽烟提醒我"），讲清楚其中一个关键环节：<strong>怎么把 VLM 看到的画面，判断成"条件达成了没有"</strong>（本文暂称"<strong>模型解析 / 语义匹配</strong>"）。全文用一个场景从头走到尾，读完你会清楚：这个环节是什么、放在链路哪里、输入输出是什么、有几种实现路线、需要各方准备什么。
+</div>
+
+<!-- ============ 一、场景 ============ -->
+<h2>一、先看一个场景：用户说"后排宝宝哭了告诉我"</h2>
+
+<p class="lead">这是一句很自然的话，但系统要完成它，其实要做三件事：</p>
+
+<table>
+  <tr><th style="width:60px;">步骤</th><th style="width:110px;">要做什么</th><th>谁来做</th></tr>
+  <tr><td>① 盯着</td><td>持续观察后排宝宝</td><td>车上的 VLM（摄像头 AI，每隔几秒看一次）</td></tr>
+  <tr><td>② 判断</td><td>判断"宝宝到底哭了没有"</td><td><strong>本文要讲的环节 —— 模型解析 / 语义匹配</strong></td></tr>
+  <tr><td>③ 播报</td><td>哭了就语音告诉用户</td><td>Planner（规划器，负责最终执行）</td></tr>
+</table>
+
+<div class="plain"><b>一句话：</b>整件事的难点不在"看"（VLM 能看），也不在"说"（Planner 能说），而在中间那步——<b>把"看到的画面"变成"哭了 / 没哭"的判断</b>。这一步就是本文的主角。</div>
+
+<!-- ============ 二、核心难点 ============ -->
+<h2>二、核心难点：VLM 只会"描述画面"，不会"下结论"</h2>
+
+<p>为什么"判断宝宝哭没哭"需要单独一个环节？因为 VLM 有一个特点——<strong>它只输出对画面的客观描述（caption，画面描述文本），不直接给"是 / 否"的结论。</strong></p>
+
+<p>举例，同样是后排宝宝，VLM 每 5 秒可能这样上报：</p>
+<div class="caseline"><b>第 1 次：</b>"后排儿童安静，闭眼休息"</div>
+<div class="caseline"><b>第 2 次：</b>"后排儿童睁眼，面部平静"</div>
+<div class="caseline"><b>第 3 次：</b>"后排儿童睁眼，<strong>脸上有泪珠，嘴角向下</strong>"</div>
+
+<p>用户要的是"哭了就告诉我"——但 VLM 从头到尾没说过"哭了"两个字，它只说了"有泪珠、嘴角向下"。<strong>谁来把"有泪珠、嘴角向下"判断成"这就是哭了"？这就是"模型解析"要做的事。</strong></p>
+
+<div class="box box-a">
+<strong>为什么 VLM 不直接给"哭了=是/否"？</strong>因为 VLM 是一个通用的感知能力，它不预先知道每个用户会提什么需求。今天用户问"哭没哭"，明天问"睡没睡"，后天问"有没有玩手机"——VLM 没法为每一种可能的问题都内置一个"是/否"判断。<span style="color:var(--amber);font-weight:700;">它能做的是如实描述画面，把"要不要判定为哭"这个和具体需求相关的判断，交给后面的环节。</span>
+</div>
+
+<!-- ============ 三、链路 ============ -->
+<h2>三、这个"判断"环节放在整条链路的哪里</h2>
+
+<p class="lead">把整个场景端到端画出来（每个盒子标了是哪个模块负责）：</p>
+
+<div class="flow">
+  <div class="node n-user"><span class="role">① 用户</span><span class="desc">"后排宝宝哭了告诉我"</span></div>
+  <div class="arr">↓</div>
+  <div class="node n-task"><span class="role">② Task Service（任务服务）</span><span class="desc">把这句话变成一个持续任务，生成一个 <strong>高频任务</strong>（编号如 044，目标="宝宝哭了"），下发给 VLM</span></div>
+  <div class="arr">↓ <span class="l">下发观察任务</span></div>
+  <div class="node n-vlm"><span class="role">③ 端侧 VLM（视觉大模型）</span><span class="desc">每 <strong>5 秒</strong>看一次后排，上报画面描述（如"有泪珠、嘴角向下"）</span></div>
+  <div class="arr">↓ <span class="l">每 5 秒一条画面描述</span></div>
+  <div class="node n-core"><span class="role">④ 模型解析 / 语义匹配　【本文主角】</span><span class="desc">判断这条画面描述，是否达成了目标"宝宝哭了"<br><span style="font-size:12px;color:var(--purple);">↺ 每来一条判一次，没达成就继续等下一条</span></span></div>
+  <div class="arr">↓ <span class="l">判定"达成了"</span></div>
+  <div class="node n-task"><span class="role">⑤ Task Service</span><span class="desc">收到"达成"信号，触发播报；任务完成后通知 VLM 停止观察</span></div>
+  <div class="arr">↓</div>
+  <div class="node n-out"><span class="role">⑥ Planner（规划器）→ 用户</span><span class="desc">语音播报："后排宝宝哭了"</span></div>
+</div>
+
+<div class="plain"><b>看这张图记住一件事：</b>第 ④ 步"模型解析 / 语义匹配"是这条链路里<b>唯一负责"判断条件达成没达成"</b>的环节。前面 VLM 只管看、只管描述；后面 Task/Planner 只管触发和播报；<b>中间"到底算不算达成"这个判断，就在第 ④ 步</b>。</div>
+
+<!-- ============ 四、VLM 输出 ============ -->
+<h2>四、VLM 到底给什么：两类结果分开走（红框 / 绿框）</h2>
+
+<p class="lead">这里有个重要设计：VLM 把舱内高频观察的结果，<strong>拆成两部分、走两条订阅线</strong>，别混。用真实的输出样例看：</p>
+
+<div class="codeblock"><span class="c">// VLM 舱内高频每 5 秒的输出（真实结构）</span>
+{
+  <span class="k">"乘客列表"</span>: [                 <span class="c">// 🟩 绿框：车内整体情况</span>
+    {<span class="k">"位置"</span>: <span class="v">"副驾后方"</span>, <span class="k">"动态"</span>: <span class="v">"头依靠在中间乘客肩膀上睡觉"</span>}
+  ],
+  <span class="k">"动态任务"</span>: [                 <span class="c">// 🟥 红框：用户 query 对应的观察结果</span>
+    {<span class="k">"任务编号"</span>: <span class="v">"044"</span>, <span class="k">"识别结果"</span>: <span class="v">"后排儿童睁眼，脸上有泪珠"</span>}
+  ]
+}</div>
+
+<table>
+  <tr><th style="width:120px;">哪部分</th><th style="width:230px;">内容</th><th style="width:150px;">走哪条线</th><th>用来干嘛</th></tr>
+  <tr style="background:var(--red-bg);">
+    <td><strong>🟥 红框<br>动态任务结果</strong></td>
+    <td><code>{"任务编号","识别结果"}</code><br>识别结果 = 用户 query（用户指令）对应的观察</td>
+    <td>给"模型解析"环节</td>
+    <td><strong>判断条件达成没达成</strong></td>
+  </tr>
+  <tr style="background:var(--green-bg);">
+    <td><strong>🟩 绿框<br>乘客列表</strong></td>
+    <td>车内每个位置有谁、在干嘛（整体情况）</td>
+    <td>走 Context（上下文）线</td>
+    <td>给对话/推理提供背景，<strong>不参与本文的判断</strong></td>
+  </tr>
+</table>
+
+<div class="plain"><b>为什么要拆开：</b>"宝宝哭了告诉我"这个具体任务，只关心红框里编号 044 的识别结果，不需要整车情况。拆成两框、走两条线，让"判断某个具体任务"这件事拿到的输入干净、聚焦。</div>
+
+<!-- ============ 五、两个周期 ============ -->
+<h2>五、两个不同的周期，别混：看得多勤 ≠ 报得多勤</h2>
+
+<p>这里容易搞混，用场景讲清楚。假设用户说的是"<strong>每 60 秒告诉我宝宝在干嘛</strong>"：</p>
+<table>
+  <tr><th style="width:180px;">周期</th><th style="width:110px;">这个例子里</th><th>含义</th></tr>
+  <tr><td><strong>VLM 上报周期</strong></td><td>5 秒</td><td>VLM 每 5 秒看一次、给一条画面描述（供判断用）</td></tr>
+  <tr><td><strong>用户反馈周期</strong></td><td>60 秒</td><td>用户希望每 60 秒被告知一次结果</td></tr>
+</table>
+<div class="plain"><b>一句话：</b>VLM 5 秒给一次"素材"，不代表要 5 秒打扰用户一次。"多久看一次 / 判一次"和"多久告诉用户一次"是两件事，需要分开设定。</div>
+
+<!-- ============ 六、两条路线 ============ -->
+<h2>六、"判断"具体怎么实现：两条路线</h2>
+
+<p class="lead">把"画面描述 → 达成没达成"这一步做出来，业界通常有两条路。它们没有绝对好坏，适用场景不同：</p>
+
+<table>
+  <tr><th style="width:120px;">对比</th><th style="width:330px;">路线 A：标签提取</th><th>路线 B：语义匹配</th></tr>
+  <tr><td><strong>做法</strong></td><td>预先定义好一批标签（如"哭泣/平静/睡眠"），让 VLM 从画面里<strong>提取出标签</strong>，后面直接<strong>比对标签</strong>（等于"哭泣"就算达成）</td><td>不预定义标签，用一个<strong>模型直接判断</strong>画面描述是否符合目标语义</td></tr>
+  <tr><td><strong>举例</strong></td><td><span class="tag tag-a">适合</span>"有人抽烟提醒我"——"抽烟"是高频、稳定、边界清晰的标签，VLM 直接提取"抽烟=是/否"</td><td><span class="tag tag-b">适合</span>"宝宝哭了告诉我"——"哭"的表现多样（泪珠/咧嘴/皱眉/哭声），难穷举成固定标签，靠模型理解</td></tr>
+  <tr><td><strong>要准备</strong></td><td>标签清单 + VLM 的描述要包含相关信息 + 种子数据（训练样例）</td><td>一个语义判断模型 + 少量样例</td></tr>
+  <tr><td><strong>能覆盖</strong></td><td>只有预定义过的标签场景</td><td>用户任意说的新需求，都能尝试判断</td></tr>
+  <tr><td><strong>短板</strong></td><td>来个新需求就要加标签、要 VLM 支持、要重新准备数据，不够灵活</td><td>模型判断会有误判样例（badcase），准确率需要打磨</td></tr>
+</table>
+
+<div class="box box-p">
+<strong>◎ 建议：不二选一，分层组合</strong>
+<ul>
+  <li><strong>高频、稳定的场景</strong>（抽烟、没系安全带、儿童站起来等）→ 走<strong>路线 A 标签提取</strong>：预置标签，VLM 提取，比对即可，又快又准。</li>
+  <li><strong>长尾、任意的场景</strong>（用户随口说的各种需求）→ 走<strong>路线 B 语义匹配</strong>：靠模型理解，保证"用户想到什么都能试着支持"。</li>
+</ul>
+这样既能把高频场景做得又快又稳，又能覆盖用户五花八门的长尾需求。两条路线共存，按场景选用。
+</div>
+
+<!-- ============ 七、协议 ============ -->
+<h2>七、输入 / 输出协议（草案，字段待各方确认）</h2>
+
+<h3>7.1 输入：VLM（红框）→ 模型解析环节</h3>
+<table>
+  <tr><th style="width:150px;">字段</th><th style="width:120px;">类型</th><th>说明 / 待确认</th></tr>
+  <tr><td>任务编号 task_no</td><td>string（字符串）</td><td>Task Service 生成任务时分配，VLM 原样带回</td></tr>
+  <tr><td>识别结果 result</td><td>string</td><td>用户 query 对应的观察，如"后排儿童睁眼、有泪珠" <span class="tag tag-q">粒度待定</span></td></tr>
+  <tr><td>上报时间 ts</td><td>int（时间戳）</td><td>这一帧画面的时间</td></tr>
+  <tr><td>空值约定</td><td>—</td><td>没识别到 / 无异常时，输出什么？<span class="tag tag-q">待定</span>（建议：空串=未达成）</td></tr>
+  <tr><td>置信度 confidence</td><td>float（小数）</td><td><span class="tag tag-q">建议增加</span>若 VLM 能给，判断可用它控制误判</td></tr>
+</table>
+
+<h3>7.2 输出：模型解析环节 → Task Service</h3>
+<table>
+  <tr><th style="width:150px;">字段</th><th style="width:120px;">类型</th><th>说明</th></tr>
+  <tr><td>任务编号 task_no</td><td>string</td><td>达成的是哪个任务</td></tr>
+  <tr><td>回调编号 callback_id</td><td>string</td><td>本次触发的唯一标识</td></tr>
+  <tr><td>达成时的结果 result</td><td>string</td><td>触发时 VLM 的原始描述（"有泪珠"），供播报参考</td></tr>
+  <tr><td>触发时间 triggered_at</td><td>int</td><td>判定达成的时刻</td></tr>
+</table>
+
+<!-- ============ 八、待各方确认 ============ -->
+<h2>八、需要各方共同确认 &amp; 准备的事项</h2>
+
+<p class="lead">下面是把这件事落地，需要各方一起对齐的问题。<strong>标了"建议"的是初步倾向，欢迎讨论。</strong></p>
+
+<table>
+  <tr><th style="width:34px;">#</th><th style="width:250px;">待确认 / 待准备</th><th style="width:150px;">主要涉及</th><th>初步建议</th></tr>
+  <tr><td>1</td><td><strong>路线选择</strong>：分层（高频标签+长尾语义）/ 纯标签 / 纯语义</td><td>产品 + VLM算法 + 研发</td><td>建议分层</td></tr>
+  <tr><td>2</td><td><strong>需要提取哪些标签</strong>（高频场景的标签体系）<span class="tag tag-q">丁彬提的依赖①</span></td><td>产品牵头整理</td><td>先从高频场景整初版</td></tr>
+  <tr><td>3</td><td><strong>VLM 的描述能否支撑标签提取</strong>（没相关描述就提不出）<span class="tag tag-q">依赖②</span></td><td>VLM算法核对 caption</td><td>对照《端状态格式表》逐项核；缺的改 prompt 或走语义</td></tr>
+  <tr><td>4</td><td><strong>构建种子数据</strong>（给研发训练/调试用）<span class="tag tag-q">依赖③</span></td><td>产品给 case + 算法构建</td><td>高频标签场景需要；语义路线用少量样例</td></tr>
+  <tr><td>5</td><td><strong>标签/结果给谁用、存哪</strong><span class="tag tag-q">依赖④</span></td><td>研发 + 产品</td><td>供"模型解析"环节消费；存端状态/数据中心供订阅</td></tr>
+  <tr><td>6</td><td><strong>识别结果的粒度</strong>：VLM 给近结论（"在哭"）还是纯描述（"有泪珠"）</td><td>VLM算法 + 产品</td><td>越接近结论越好判，最终判定仍由解析环节做</td></tr>
+  <tr><td>7</td><td><strong>空值约定</strong>：没识别到时输出什么</td><td>VLM算法</td><td>约定空串=未达成，写进协议</td></tr>
+  <tr><td>8</td><td><strong>两个周期</strong>：上报周期 vs 反馈周期怎么解耦</td><td>研发 + 产品</td><td>判断与反馈分开设定</td></tr>
+  <tr><td>9</td><td><strong>判断准确率</strong>：误判/漏判怎么衡量、谁打磨</td><td>算法 + 产品</td><td>产品定策略（宁漏报不误报），算法打磨模型</td></tr>
+  <tr><td>10</td><td><strong>模型/成本</strong>：判断模型谁提供、调用量级</td><td>算法 + 研发</td><td>轻量模型、非常驻，成本另行测算</td></tr>
+</table>
+
+<div class="box box-b">
+<strong>下一步：</strong>建议就上面 10 条，小范围先对一轮，形成初步分工与结论后，再进入正式技术方案评审（对齐接口、字段、排期）。
+</div>
+
+<!-- ============ 附录 ============ -->
+<h2>附录：VLM 真实输出样例（摘自《端状态端侧模型格式梳理》）</h2>
+
+<table>
+  <tr><th style="width:140px;">任务</th><th style="width:100px;">更新频率</th><th>真实输出样例</th></tr>
+  <tr><td>舱内 AlwaysOn 高频</td><td>每 5 秒</td><td><code>{"乘客列表":[{"位置":"副驾","动态":"右手持手机打电话"}],"动态任务":[{"任务编号":"043","识别结果":"主驾乘客正常转头，未显疲惫"}]}</code></td></tr>
+  <tr><td>舱外 AlwaysOn</td><td>3 秒</td><td><code>{"天气情况描述":["下雨","浓雾"],"路面情况描述":"路面湿滑"}</code></td></tr>
+  <tr><td>舱内 VQA（视觉问答）</td><td>按需</td><td>"副驾乘客帽子是粉红色，上面写了 emie 几个英文字母"</td></tr>
+  <tr><td>舱外迎宾</td><td>按需</td><td>标签串：<code>大件物品-否-否</code></td></tr>
+  <tr><td>上下车安全</td><td>按需</td><td><code>【前后门】-【开门障碍&异常路面】-【雪糕筒、积水】</code> 或 "无影响"</td></tr>
+</table>
+<div class="plain"><b>从样例能看出：</b>VLM 的输出格式其实是<b>混合</b>的——有结构化 JSON、有自由文本描述、有标签串。这也是为什么"判断条件达成"这一步不简单：面对不同格式的输入，需要想清楚哪些走标签比对、哪些走语义判断（对应第六节两条路线）。</div>
+
+<div class="ver">
+  VLM 条件任务 · 模型解析能力说明 · v1 · 2026-07-16<br>
+  素材：端状态端侧模型格式梳理表 · 端侧真实链路（高频任务/红框绿框/两周期）· 7.15 技术方案评审
+</div>
+
+</div>
+</body>
+</html>

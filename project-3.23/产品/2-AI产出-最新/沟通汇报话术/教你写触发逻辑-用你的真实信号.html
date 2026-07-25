@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>教你写触发逻辑</title>
+<style>
+ body{margin:0;background:#f1f5f9;color:#0f172a;font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;line-height:1.72}
+ .wrap{max-width:1060px;margin:0 auto;padding:30px 22px 60px}
+ h1{font-size:25px;margin:0 0 4px}.sub{color:#475569;font-size:14px;margin:0 0 16px}
+ h2{font-size:20px;margin:30px 0 12px;padding-left:11px;border-left:5px solid #0891b2;color:#0e7490}
+ .box{background:#fff;border:1.5px solid #cbd5e1;border-radius:12px;padding:16px 20px;margin:12px 0}
+ .key{background:#0f172a;color:#fff;border-radius:12px;padding:15px 20px;font-size:15px;line-height:1.85;margin:12px 0}
+ .key b{color:#7dd3fc}.key .hl{background:#fde68a;color:#713f12;padding:0 5px;border-radius:4px;font-weight:700}
+ .formula{text-align:center;font-size:19px;font-weight:bold;color:#0e7490;background:#ecfeff;border:2px dashed #0891b2;border-radius:12px;padding:16px;margin:12px 0}
+ .formula .sig{color:#0891b2}.formula .op{color:#dc2626}.formula .val{color:#15803d}.formula .act{color:#b45309}
+ table{width:100%;border-collapse:collapse;font-size:12.8px;margin:6px 0}
+ th,td{border:1px solid #e2e8f0;padding:7px 9px;text-align:left;vertical-align:top}
+ th{background:#0f172a;color:#fff;font-size:12px}
+ td.f{font-weight:bold;white-space:nowrap}
+ .num{background:#fef3c7}.dyn{background:#dcfce7}.sta{background:#e0f2fe}
+ .warn{background:#fef2f2;color:#b91c1c;font-weight:600}
+ ol.steps{counter-reset:s;list-style:none;padding-left:0}
+ ol.steps li{position:relative;padding:9px 12px 9px 42px;margin:7px 0;background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px;font-size:13.6px}
+ ol.steps li::before{counter-increment:s;content:counter(s);position:absolute;left:10px;top:9px;width:23px;height:23px;background:#0891b2;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:12px}
+ .hl{background:#fde68a;padding:0 4px;border-radius:3px;color:#713f12;font-weight:600}
+ .tag{display:inline-block;font-size:11px;font-weight:bold;border-radius:5px;padding:1px 7px}
+ .t-num{background:#fef3c7;color:#92400e}.t-dyn{background:#dcfce7;color:#166534}.t-sta{background:#e0f2fe;color:#075985}
+ b{color:#0f172a}
+</style>
+</head>
+<body>
+<div class="wrap">
+ <h1>教你写"触发逻辑" · 用你表里真实的 pass 信号</h1>
+ <p class="sub">你已有：信号清单（表B「可订阅信号能力清单」，pass=实车测过可用）｜你缺：把信号写成"逻辑"（触发条件）</p>
+
+ <div class="key">
+  你手里的表（pass 那 61 条）= <b>有哪些信号能用</b>，但<span class="hl">没有"逻辑"</span>。<br>
+  所谓"逻辑" = 给每条信号配上 <b>运算符 + 值 + 动作</b>，让它变成一个"会触发的条件"。下面教你怎么配。
+ </div>
+
+ <!-- 1 逻辑是什么 -->
+ <h2>① "逻辑"就是这个公式（一条条件 = 一行）</h2>
+ <div class="formula">
+  <span class="sig">[信号]</span> <span class="op">[运算符]</span> <span class="val">[值]</span> → <span class="act">[触发什么动作]</span>
+ </div>
+ <div class="box" style="text-align:center;font-size:14px">
+  例：<span style="color:#0891b2;font-weight:bold">车内温度</span> <span style="color:#dc2626;font-weight:bold">大于</span> <span style="color:#15803d;font-weight:bold">26℃</span> → <span style="color:#b45309;font-weight:bold">提醒/开空调</span><br>
+  <span style="color:#64748b;font-size:12.5px">你表里有"车内温度"这个信号(pass)，但"大于26→提醒"这后半截要你写——这就是"逻辑"。</span>
+ </div>
+
+ <!-- 2 运算符怎么选 -->
+ <h2>② 运算符怎么选（你不会的核心，3 种）</h2>
+ <div class="box">
+  <table>
+   <tr><th>信号是哪种</th><th>能用的运算符</th><th>怎么判断</th><th>例（你表里的真实信号）</th></tr>
+   <tr class="num"><td class="f"><span class="tag t-num">数值型</span></td><td><b>大于/小于/等于/区间</b></td><td>值是数字（温度/速度/距离/电量）</td><td>车内温度 <b>大于</b> 26｜车速 <b>大于</b> 120</td></tr>
+   <tr class="sta"><td class="f"><span class="tag t-sta">状态-静态</span></td><td><b>等于</b>（当前是什么）</td><td>所有状态信号都支持</td><td>空调开关 <b>等于</b> on｜座椅加热 <b>不等于</b> 关闭</td></tr>
+   <tr class="dyn"><td class="f"><span class="tag t-dyn">状态-动态</span></td><td><b>变更为</b>（刚变成什么）</td><td><span class="hl">只有备注标"支持变更为"的能用</span></td><td>车门 <b>变更为</b> 开｜座椅占用 <b>变更为</b> 已占用</td></tr>
+  </table>
+  <p style="font-size:12.8px;color:#b91c1c;margin-top:8px">⚠️ 你表里 pass 信号中，<b>只有 3 个标了"支持变更为"</b>：车门状态、车门锁状态、座位占座信息。其它状态信号<b>只能用"等于"</b>（看不了"刚变成"，只看"当前是"）。</p>
+ </div>
+
+ <!-- 3 手把手 -->
+ <h2>③ 手把手：从你表里挑信号，写成逻辑（跟着做一遍）</h2>
+ <div class="box">
+  <p><b>例：想做"上车就打招呼"</b></p>
+  <ol class="steps">
+   <li>想清楚触发时机："有人坐下" = 座椅从没人变成有人</li>
+   <li>去你表里找信号：<b>座位占座信息 / 状态(states)</b> → pass ✅、备注<b>支持变更为</b> ✅</li>
+   <li>选运算符：要的是"刚坐下"(动态) → 用 <b>变更为</b>（这个信号正好支持）</li>
+   <li>填值：取值范围里是 已占用/未占用 → 值 = <b>已占用</b></li>
+   <li>配动作：→ <b>情感advisor 打招呼</b></li>
+   <li>写成逻辑：<span class="hl">座位占座信息.states 变更为 已占用 → 打招呼</span> ✅ 一条逻辑就写好了</li>
+  </ol>
+  <p style="margin-top:10px;font-size:12.8px;color:#475569"><b>反例（教你避坑）</b>：想做"接近目的地500m提醒"，去表里找"剩余距离"——<span class="warn">你 pass 里目的地只有 地址+到达时间，<b>没有剩余距离</b></span>，所以这条<b>现在写不了</b>，得先让刘杨开放"剩余距离"信号。这就是为什么要先有信号清单(字典)才能写逻辑。</p>
+ </div>
+
+ <!-- 4 起草清单 -->
+ <h2>④ 我用你真实 pass 信号，起草好的「高频触发条件清单」（你拿去改）</h2>
+ <div class="box">
+  <table>
+   <tr><th>#</th><th>条件名</th><th>信号(英文key)</th><th>运算符</th><th>值</th><th>→ 动作</th><th>类型</th><th>备注</th></tr>
+   <tr class="num"><td>1</td><td class="f">车内温度过高</td><td>车内外温度状态.temperature</td><td>大于</td><td>26℃</td><td>提醒/开空调</td><td><span class="tag t-num">数值</span></td><td>温度运算符需确认引擎支持大于(任军)</td></tr>
+   <tr class="dyn"><td>2</td><td class="f">上车打招呼</td><td>座位占座信息.states</td><td>变更为</td><td>已占用</td><td>情感打招呼</td><td><span class="tag t-dyn">动态✓</span></td><td>支持变更为</td></tr>
+   <tr class="dyn"><td>3</td><td class="f">开车门(上下车基础)</td><td>车门状态.switch</td><td>变更为</td><td>on(开)</td><td>配合上下车判断</td><td><span class="tag t-dyn">动态✓</span></td><td>支持变更为</td></tr>
+   <tr class="dyn"><td>4</td><td class="f">车辆落锁</td><td>车门锁状态.switch</td><td>变更为</td><td>on(锁)</td><td>落锁关怀</td><td><span class="tag t-dyn">动态✓</span></td><td>支持变更为</td></tr>
+   <tr class="num"><td>5</td><td class="f">超速提醒</td><td>车辆速度.velocity</td><td>大于</td><td>120km/h</td><td>提醒减速</td><td><span class="tag t-num">数值</span></td><td>velocity 运算符需确认</td></tr>
+   <tr class="sta"><td>6</td><td class="f">导航回家识别</td><td>目的地.address 等于 收藏地址(家).address</td><td>等于</td><td>—</td><td>识别"在回家"</td><td><span class="tag t-sta">组合</span></td><td>address等值比对,格式找金龙确认</td></tr>
+   <tr class="sta"><td>7</td><td class="f">下车未关座椅加热</td><td>座椅加热状态.states</td><td>不等于</td><td>关闭</td><td>下车提醒关</td><td><span class="tag t-sta">静态</span></td><td>配合车门落锁(条件4)组合</td></tr>
+   <tr class="sta"><td>8</td><td class="f">下车未关车窗</td><td>车窗状态.switch</td><td>等于</td><td>on(开)</td><td>下车提醒关窗</td><td><span class="tag t-sta">静态</span></td><td>配合下车组合</td></tr>
+   <tr class="sta"><td>9</td><td class="f">座椅通风开着</td><td>座椅通风开关状态.states</td><td>不等于</td><td>关闭</td><td>下车提醒关</td><td><span class="tag t-sta">静态</span></td><td>—</td></tr>
+   <tr class="num"><td>10</td><td class="f">快到目的地(时间)</td><td>目的地.到达时间(time)</td><td>小于等于</td><td>10分钟</td><td>提醒收拾东西</td><td><span class="tag t-num">数值</span></td><td>⚠️到达时间是pass的,但格式"几小时几分"待金龙(见导航文档)</td></tr>
+   <tr class="warn"><td>11</td><td class="f">接近目的地(距离)</td><td>目的地.剩余距离</td><td>小于等于</td><td>500m</td><td>提醒拿咖啡</td><td>—</td><td>❌剩余距离不在pass!需先让刘杨开放(导航项)</td></tr>
+   <tr class="warn"><td>12</td><td class="f">上下电打招呼</td><td>上下电状态</td><td>变更为</td><td>上电</td><td>上电欢迎</td><td>—</td><td>❌上下电状态不在你这版pass!需确认/开放</td></tr>
+  </table>
+  <p style="font-size:12.5px;color:#475569;margin-top:8px">前 10 条是<b>你 pass 信号现在就能写</b>的逻辑；第 11、12 条标红 = <b>想做但信号还没开放</b>，要先找刘杨开。<span class="hl">这就是把"信号清单"变成"条件清单(逻辑)"的全过程。</span></p>
+ </div>
+
+ <!-- 5 是不是给表就行 -->
+ <h2>⑤ 回答你的问题："是不是把表格给他就行了？"</h2>
+ <div class="box">
+  <table>
+   <tr><th>给谁</th><th>给什么</th><th>给表够不够</th></tr>
+   <tr><td class="f">弋途（项4·实车信号可获取清单）</td><td>把 pass 的 61 条<b>筛出来</b>、标清每条支持的运算符（等于/变更为），给他</td><td><b>≈ 够</b>（信号表筛一下就行，他要的是"能订哪些信号"）</td></tr>
+   <tr><td class="f">触发器/需求1（高频条件清单）</td><td>不是给信号表，是上面 ④ 那种<b>写好逻辑(条件+动作)的新表</b></td><td><span class="warn">不够</span>，信号表 ≠ 逻辑，逻辑要你写</td></tr>
+  </table>
+  <p style="margin-top:8px"><b>结论</b>：给弋途看"能订哪些信号"——筛出 pass 给他 <b>差不多就行</b>；但需求1 的"逻辑/条件清单"——<b>得你照 ④ 写出来</b>，给表不等于给逻辑。</p>
+ </div>
+
+ <!-- 6 你接下来 -->
+ <h2>⑥ 你接下来 3 步实操</h2>
+ <div class="box">
+  <ol class="steps">
+   <li><b>给弋途</b>：把表B里 pass 的 61 条筛出来、补上"支持的运算符"列，命名"对外可订阅信号清单"发他（项4 ≈ 完成）</li>
+   <li><b>写需求1 逻辑清单</b>：拿 ④ 这 12 条当底，自己再从 pass 信号里挑高频补到 20~30 条，每条写全 信号/运算符/值/动作（能写的先写，写不了的标红说明缺哪个信号）</li>
+   <li><b>把"缺的信号"汇总找刘杨开放</b>：剩余距离、上下电状态… 这些想写逻辑但 pass 里没有的，列一张"待开放信号"清单推刘杨</li>
+  </ol>
+ </div>
+
+</div>
+</body>
+</html>

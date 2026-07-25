@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>5-6.30会议整理 · 动态Advisor视觉识别目标下发链路 v1</title>
+<style>
+  :root {
+    --bg: #0d1117; --surface: #161b22; --border: #30363d;
+    --text: #e6edf3; --text2: #8b949e; --text3: #6e7681;
+    --blue: #58a6ff; --green: #3fb950; --orange: #d29922;
+    --red: #f85149; --purple: #bc8cff; --cyan: #39d353;
+    --pink: #f778ba;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.7;
+    max-width: 960px; margin: 0 auto; padding: 40px 24px 80px;
+  }
+  h1 { font-size: 1.8em; margin-bottom: 8px; color: var(--blue); }
+  .subtitle { color: var(--text2); font-size: 0.95em; margin-bottom: 32px; }
+  h2 {
+    font-size: 1.3em; color: var(--green); margin: 40px 0 16px;
+    padding-bottom: 8px; border-bottom: 1px solid var(--border);
+  }
+  h3 { font-size: 1.1em; color: var(--orange); margin: 24px 0 12px; }
+  h4 { font-size: 1em; color: var(--purple); margin: 20px 0 8px; }
+  p { margin: 8px 0; }
+
+  /* 结论卡片 */
+  .conclusion-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 16px 20px; margin: 12px 0;
+    border-left: 3px solid var(--green);
+  }
+  .conclusion-card.warn { border-left-color: var(--orange); }
+  .conclusion-card.info { border-left-color: var(--blue); }
+  .conclusion-card.critical { border-left-color: var(--red); }
+  .conclusion-card h4 { margin-top: 0; }
+
+  /* 表格 */
+  table {
+    width: 100%; border-collapse: collapse; margin: 12px 0;
+    font-size: 0.92em;
+  }
+  th, td {
+    border: 1px solid var(--border); padding: 10px 12px;
+    text-align: left; vertical-align: top;
+  }
+  th { background: var(--surface); color: var(--blue); font-weight: 600; }
+  td { background: var(--bg); }
+
+  /* 流程 */
+  .flow-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 20px; margin: 16px 0;
+    font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.88em;
+    line-height: 2; white-space: pre-wrap;
+  }
+
+  /* 标签 */
+  .tag {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-size: 0.82em; font-weight: 600; margin: 0 2px;
+  }
+  .tag-green { background: rgba(63,185,80,0.15); color: var(--green); }
+  .tag-orange { background: rgba(210,153,34,0.15); color: var(--orange); }
+  .tag-blue { background: rgba(88,166,255,0.15); color: var(--blue); }
+  .tag-red { background: rgba(248,81,73,0.15); color: var(--red); }
+  .tag-purple { background: rgba(188,140,255,0.15); color: var(--purple); }
+  .tag-pink { background: rgba(247,120,186,0.15); color: var(--pink); }
+
+  /* 引用 */
+  .quote {
+    border-left: 3px solid var(--text3); padding: 8px 16px;
+    margin: 8px 0; color: var(--text2); font-style: italic;
+    background: rgba(255,255,255,0.02);
+  }
+
+  /* 分割线 */
+  hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+
+  /* 对比高亮 */
+  .vs-row td:nth-child(2) { color: var(--text2); }
+  .vs-row td:nth-child(3) { color: var(--green); }
+
+  /* 编号列表 */
+  ol { padding-left: 20px; }
+  ol li { margin: 6px 0; }
+  ul { padding-left: 20px; }
+  ul li { margin: 4px 0; }
+
+  /* 版本历史 */
+  .version-history { margin-top: 48px; }
+  .version-history table { font-size: 0.85em; }
+</style>
+</head>
+<body>
+
+<h1>5 · 6.30 会议整理：动态 Advisor 视觉识别目标下发链路</h1>
+<p class="subtitle">
+  会议时间：2026-06-30 14:00–15:01 &nbsp;|&nbsp;
+  参会人：陈西钺、丁彬、张兰若、吴仁杰 &nbsp;|&nbsp;
+  来源：<code>1-原始素材/会议纪要/6.30 端侧vlm会议纪要.md</code>
+</p>
+
+<!-- ==================== 一句话总结 ==================== -->
+<h2>§0 一句话总结</h2>
+<div class="conclusion-card critical">
+  <p>这次会议<strong>定了动态 Advisor 视觉感知的完整下行链路</strong>——从 Advisor 发出感知需求，到触发器拼 SP、下发端侧 VLM、拿到结果、还原 SP 的全流程。核心共识：<strong>舱内走端侧 VLM（合规不上云）、舱外走云端 VQA；提槽工具公共化给触发器调；SP 拼接/删除全由触发器管理；枚举类信号直接匹配、描述类才走动态 SP</strong>。</p>
+</div>
+
+<!-- ==================== 会议背景 ==================== -->
+<h2>§1 会议背景与核心议题</h2>
+
+<table>
+  <tr>
+    <th style="width:20%">维度</th>
+    <th>说明</th>
+  </tr>
+  <tr>
+    <td><strong>起因</strong></td>
+    <td>上汽项目中，动态 Advisor 的视觉感知全部走云端 VQA。赛力斯项目因<span class="tag tag-red">合规要求</span>，舱内图片不能上云，必须走端侧 VLM。因此下行链路需要重新对齐。</td>
+  </tr>
+  <tr>
+    <td><strong>核心议题</strong></td>
+    <td>动态 Advisor 发起视觉感知需求后，<strong>谁判断舱内/舱外？谁拼 SP？SP 怎么管理生命周期？枚举和非枚举信号怎么分流？</strong></td>
+  </tr>
+  <tr>
+    <td><strong>前置背景</strong></td>
+    <td>6.29 西钺已与泽民初步沟通方案：VQA 工具内部区分舱内/舱外 → 舱内的 SP 交给触发器拼接下发。本次会议是扩大到端侧 VLM 团队（丁彬、张兰若）一起对齐。</td>
+  </tr>
+</table>
+
+<!-- ==================== 九大结论 ==================== -->
+<h2>§2 九大核心结论</h2>
+
+<!-- 结论1 -->
+<div class="conclusion-card">
+  <h4>结论 ① 舱内 / 舱外分流方案 <span class="tag tag-red">合规驱动</span></h4>
+  <table>
+    <tr>
+      <th style="width:15%">方向</th>
+      <th style="width:25%">链路</th>
+      <th>原因</th>
+      <th style="width:15%">调用方式</th>
+    </tr>
+    <tr>
+      <td><strong>舱内</strong></td>
+      <td>端侧 VLM（AIBox）</td>
+      <td>舱内图片含乘客隐私信息，<strong>不能上云</strong>，只能在端侧推理</td>
+      <td>周期性 5 秒</td>
+    </tr>
+    <tr>
+      <td><strong>舱外</strong></td>
+      <td>云端 VQA</td>
+      <td>舱外图片可上云，且 VQA 有联网信源（懂车帝、LBS 等）能力</td>
+      <td>按需调用</td>
+    </tr>
+  </table>
+  <div class="quote">西钺 00:12:16："仓外的图是持续上云的吗？不是，是有调用才会上云。"</div>
+</div>
+
+<!-- 结论2 -->
+<div class="conclusion-card info">
+  <h4>结论 ② 提槽工具公共化 <span class="tag tag-blue">架构变更</span></h4>
+  <p><strong>现状：</strong>提槽模型（判断 direction：舱内/舱外/舱外什么位置）包裹在 VQA 工具内部。</p>
+  <p><strong>变更：</strong>西钺将提槽工具从 VQA 中拆出来，<strong>独立部署，"人人尽可用"</strong>。触发器直接调提槽工具，无需绕一圈走 VQA。</p>
+  <div class="quote">西钺 00:55:02："现在我把这个提槽工具放外面，人人尽可用。"</div>
+  <p><strong>触发器使用场景：</strong>当 Advisor 下发的感知需求不在枚举范围内时，触发器调提槽工具判断该需求属于舱内还是舱外，再决定走端侧 VLM 还是云端 VQA。</p>
+</div>
+
+<!-- 结论3 -->
+<div class="conclusion-card">
+  <h4>结论 ③ SP 拼接由触发器负责 <span class="tag tag-green">职责确认</span></h4>
+  <table>
+    <tr>
+      <th style="width:20%">角色</th>
+      <th>职责</th>
+    </tr>
+    <tr>
+      <td><strong>动态 Advisor</strong></td>
+      <td>给出感知需求的<strong>人话描述</strong>（如"看毯子掉没掉"、"副驾在不在睡觉"）+ 开启/关闭任务</td>
+    </tr>
+    <tr>
+      <td><strong>触发器（泽民）</strong></td>
+      <td>接收人话描述 → <strong>拼接到 always-on SP 中</strong> → 下发端侧 → 任务结束时<strong>删除对应 SP 片段</strong></td>
+    </tr>
+    <tr>
+      <td><strong>端侧 VLM（丁彬/兰若）</strong></td>
+      <td>接收拼好的 SP → 每 5 秒推理 → 按 KV 槽位返回结果 → <strong>不做条件判断，只输出客观描述</strong></td>
+    </tr>
+  </table>
+  <div class="quote">丁彬 00:34:13："拼 SP 放到泽民那拼…就是云端触发器那拼。"</div>
+  <p><strong>讨论过的备选方案：</strong>张兰若提议由 VLM 端自己拼（"接收一个新的就放进去一个"），但最终因触发器本身就是下发触发方、且需要管理 SP 的生命周期，<strong>确定由触发器拼</strong>。</p>
+</div>
+
+<!-- 结论4 -->
+<div class="conclusion-card warn">
+  <h4>结论 ④ SP 生命周期管理 <span class="tag tag-orange">关键流程</span></h4>
+  <p>SP 的增删由 <strong>Advisor（决策方）+ 触发器（执行方）</strong> 配合完成：</p>
+  <ol>
+    <li><strong>创建：</strong>Advisor 创建感知任务 → 通知触发器 → 触发器把新 SP 片段拼入 always-on SP</li>
+    <li><strong>运行：</strong>端侧 VLM 每 5 秒用完整 SP（原始 + 动态追加）推理 → 结果写入对应 KV 槽位</li>
+    <li><strong>完成/取消：</strong>Advisor 判断任务达成（或用户取消）→ 通知触发器停止 → 触发器<strong>删除对应 SP 片段</strong> → 还原到原始 always-on SP</li>
+  </ol>
+  <div class="quote">西钺 00:31:07："你这个触发场景取消了，你就得同时给端模发一下，这个里面如果包含 SP，那就把 SP 也删掉。"</div>
+  <div class="quote">丁彬 00:35:29："adviser 就会告诉触发器任务停止，然后云端触发器就要把那个 SP 还原，就把新加的 SP1 给去掉。"</div>
+</div>
+
+<!-- 结论5 -->
+<div class="conclusion-card">
+  <h4>结论 ⑤ VLM 只输出客观描述，不做条件判断 <span class="tag tag-purple">能力边界</span></h4>
+  <table>
+    <tr>
+      <th style="width:30%">VLM 能做的</th>
+      <th style="width:30%">VLM 不能做的</th>
+      <th>谁来做</th>
+    </tr>
+    <tr>
+      <td>每 5 秒看一次，输出<br>"毯子在脚底" / "毯子盖着"<br>"副驾闭眼" / "副驾看手机"</td>
+      <td>"毯子掉了告诉我"（条件触发式）<br>"看到X就怎么样"（带触发逻辑）</td>
+      <td><strong>触发器</strong>做条件判断<br>（阈值穿越 / 状态变更）</td>
+    </tr>
+  </table>
+  <div class="quote">西钺 00:18:43："我们只说毯子的状态在哪，掉不掉应该是应用方来判断。"</div>
+  <p><strong>关键设计原则：</strong>VLM 就是个"眼睛"，只看、只描述；"大脑"的判断逻辑全部在触发器层。和端侧车况信号的处理模式完全一致——VLM 输出 = 原始信号，触发器做"变更为"/"等于"等运算。</p>
+</div>
+
+<!-- 结论6 -->
+<div class="conclusion-card info">
+  <h4>结论 ⑥ 枚举类 vs 描述类信号处理 <span class="tag tag-blue">分流规则</span></h4>
+  <table>
+    <tr>
+      <th style="width:15%">类型</th>
+      <th style="width:25%">定义</th>
+      <th style="width:25%">举例</th>
+      <th>处理方式</th>
+    </tr>
+    <tr>
+      <td><span class="tag tag-green">枚举类</span></td>
+      <td>VLM 已固化的标签输出，值域固定</td>
+      <td>性别（男/女）、位置（主驾/副驾/后排）、有无小狗（有/无）、在不在打电话（是/否）</td>
+      <td>已在 Context 中 → <strong>触发器直接条件匹配</strong>，等同于"空调开没开" → 不需要额外拼 SP</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-orange">描述类</span></td>
+      <td>没有固定标签，需要 VLM 根据 SP 临时回答</td>
+      <td>毯子掉没掉、穿什么衣服、小狗项圈在不在、看到瑞幸告诉我</td>
+      <td>Context 中没有 → <strong>需要拼动态 SP 下发 VLM</strong>，走完整的下行链路</td>
+    </tr>
+  </table>
+  <div class="quote">西钺 00:49:38："所有枚举类的都是当成直接条件，你可以直接用等号来处理。不是枚举类的，都要去拼 SP。"</div>
+  <p><strong>推论：</strong>枚举类信号对触发器来说，和车况端状态（空调/座椅加热/车窗）的处理方式完全一致——都是已有的、可枚举的值，用"等于"/"变更为"运算符匹配。描述类信号才是本次新增的动态 SP 链路需要处理的对象。</p>
+</div>
+
+<!-- 结论7 -->
+<div class="conclusion-card warn">
+  <h4>结论 ⑦ 多任务必须合并到同一 SP <span class="tag tag-orange">性能约束</span></h4>
+  <p>如果同时有多个动态感知任务（如"观察后排宝宝" + "观察后排小狗" + "看窗外红绿灯"），<strong>不能分别下发到不同推理周期</strong>，必须<strong>全部拼到同一个 SP 中</strong>，让 VLM 一次推理全部回答。</p>
+  <table>
+    <tr>
+      <th style="width:15%">方式</th>
+      <th>说明</th>
+      <th style="width:15%">结论</th>
+    </tr>
+    <tr>
+      <td>分别下发</td>
+      <td>每个任务一个独立推理周期 → 推理周期变长，5 秒可能不够 → 延迟叠加</td>
+      <td><span class="tag tag-red">否决</span></td>
+    </tr>
+    <tr>
+      <td>合并下发</td>
+      <td>所有任务拼入同一 SP → 每 5 秒一次推理拿到所有结果 → 各任务用 KV 槽位区分</td>
+      <td><span class="tag tag-green">采纳</span></td>
+    </tr>
+  </table>
+  <div class="quote">西钺 00:28:59："你不能把多个任务放到不同的循环里面，不然每个循环的推理周期就变长了，所以你要把它放在一起去做推理。"</div>
+</div>
+
+<!-- 结论8 -->
+<div class="conclusion-card">
+  <h4>结论 ⑧ Advisor 先查 Context 已有信息再决定是否下发 <span class="tag tag-green">过滤机制</span></h4>
+  <p>动态 Advisor 在创建感知任务前，<strong>必须先检查 Context 里是否已有足够信息</strong>：</p>
+  <ul>
+    <li>如果 Context 中已有枚举标签（如"副驾=女性"）能回答 Advisor 的问题 → <strong>不下发</strong>，直接用已有信息</li>
+    <li>如果 Context 中信息不足（需求不在枚举范围内）→ 才走动态 SP 下发链路</li>
+  </ul>
+  <div class="quote">西钺 00:44:35："宝宝哭了就立刻告诉我，你肯定要先过滤一次，先去看当前的 context 里面有没有这个信息，有的话你就不应该再下发任务了。"</div>
+  <p><strong>设计意义：</strong>避免已有标签的信息被重复下发成动态 SP，浪费 VLM 推理资源。</p>
+</div>
+
+<!-- 结论9 -->
+<div class="conclusion-card info">
+  <h4>结论 ⑨ 静态 vs 动态 Advisor 定义确认 <span class="tag tag-blue">概念对齐</span></h4>
+  <table>
+    <tr>
+      <th style="width:15%">类型</th>
+      <th style="width:25%">特征</th>
+      <th>举例</th>
+      <th style="width:20%">生命周期</th>
+    </tr>
+    <tr>
+      <td><span class="tag tag-green">静态</span></td>
+      <td>预设好的，系统启动即存在</td>
+      <td>舒适 Advisor、情感 Advisor、安全 Advisor、出行 Advisor（共 4 个）</td>
+      <td>始终存在，不销毁</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-orange">动态</span></td>
+      <td>由用户 query 触发创建</td>
+      <td>"宝宝毯子掉了告诉我" → 创建一个毯子监控 Advisor</td>
+      <td>任务完成即销毁</td>
+    </tr>
+  </table>
+  <div class="quote">西钺 00:51:34："静态就是预设的，一定会有的。动态就是根据用户的 query，实时创建、用完就毁的那种。"</div>
+</div>
+
+<hr>
+
+<!-- ==================== 完整数据流 ==================== -->
+<h2>§3 完整数据流（动态 Advisor 视觉感知链路）</h2>
+
+<h3>3.1 核心链路（舱内-描述类信号）</h3>
+<div class="flow-box">用户："宝宝毯子掉了告诉我"
+    │
+    ▼
+<span style="color:var(--blue)">Planner</span> 理解意图 → 创建<span style="color:var(--orange)">动态 Advisor</span>（毯子监控）
+    │
+    ▼
+<span style="color:var(--orange)">动态 Advisor</span> 检查 Context：
+    ├── "毯子状态" 在枚举标签里吗？→ <span style="color:var(--red)">不在</span>
+    │   → 需要动态 SP
+    ▼
+<span style="color:var(--orange)">动态 Advisor</span> → <span style="color:var(--green)">云端触发器</span>：注册感知需求
+    │   需求内容（人话）："帮我看毯子掉没掉"
+    │
+    ▼
+<span style="color:var(--green)">云端触发器</span> 调<span style="color:var(--blue)">提槽工具</span>：判断 direction
+    │   → 结果：舱内（后排）
+    │
+    ▼
+<span style="color:var(--green)">云端触发器</span> 拼 SP：
+    │   原始 always-on SP + "观察后排毯子状态，回答在 key=blanket_status"
+    │   → 完整 SP 下发到<span style="color:var(--purple)">端侧触发器</span>
+    │
+    ▼
+<span style="color:var(--purple)">端侧触发器</span> → <span style="color:var(--cyan)">端侧 VLM（AIBox）</span>
+    │   每 5 秒推理一次，SP 中含动态追加部分
+    │
+    ▼
+<span style="color:var(--cyan)">VLM 推理输出</span>（KV 格式）：
+    │   { ..., blanket_status: "毯子盖在宝宝身上" }   ← 第 1 个 5 秒
+    │   { ..., blanket_status: "毯子盖在宝宝身上" }   ← 第 2 个 5 秒
+    │   { ..., blanket_status: "毯子滑落在脚底" }     ← 第 3 个 5 秒 ⚡
+    │
+    ▼
+结果写入<span style="color:var(--purple)">端侧信号库</span> → 上报 <span style="color:var(--blue)">Context</span>
+    │
+    ▼
+<span style="color:var(--green)">云端触发器</span> 订阅 Context，检测到状态变更：
+    │   blanket_status: "盖着" → "滑落"  <span style="color:var(--red)">（false→true 阈值穿越！）</span>
+    │
+    ▼
+<span style="color:var(--green)">云端触发器</span> push 事件 → <span style="color:var(--orange)">动态 Advisor</span>
+    │
+    ▼
+<span style="color:var(--orange)">动态 Advisor</span> 判断任务达成 → 触发用户提醒
+    │   → 同时通知<span style="color:var(--green)">云端触发器</span>：任务结束
+    │
+    ▼
+<span style="color:var(--green)">云端触发器</span> 删除 blanket_status 相关 SP 片段
+    │   → 还原到原始 always-on SP
+    │
+    ▼
+<span style="color:var(--purple)">端侧 VLM</span> 下一个 5 秒周期开始用还原后的 SP 推理
+    │   → 链路恢复到动态任务前的状态 ✅</div>
+
+<h3>3.2 快捷链路（舱内-枚举类信号）</h3>
+<div class="flow-box">用户："副驾打电话的时候把音量降低"
+    │
+    ▼
+<span style="color:var(--blue)">Planner</span> → 创建<span style="color:var(--orange)">动态 Advisor</span>（副驾通话监控）
+    │
+    ▼
+<span style="color:var(--orange)">动态 Advisor</span> 检查 Context：
+    ├── "是否在打电话" 在枚举标签里吗？→ <span style="color:var(--green)">在！</span>
+    │   → 不需要拼 SP，直接走触发器条件匹配
+    ▼
+<span style="color:var(--orange)">动态 Advisor</span> → <span style="color:var(--green)">云端触发器</span>：注册条件
+    │   信号：phone_call = true（枚举值）
+    │   运算符：变更为
+    │   动作：降低音量
+    │
+    ▼
+<span style="color:var(--green)">云端触发器</span> 等待 Context 中 phone_call 字段变更
+    │   （数据来源：VLM always-on SP 的固有标签输出）
+    │   → phone_call: false → true  ⚡
+    │
+    ▼
+触发动作 → 完成 ✅
+    <span style="color:var(--text3)">（全程不需要拼任何动态 SP，和车况信号的处理完全一致）</span></div>
+
+<h3>3.3 舱外链路</h3>
+<div class="flow-box">用户："看到瑞幸咖啡的时候提醒我"
+    │
+    ▼
+<span style="color:var(--orange)">动态 Advisor</span> 检查 Context → 不在枚举范围内
+    │
+    ▼
+<span style="color:var(--green)">云端触发器</span> 调<span style="color:var(--blue)">提槽工具</span> → direction = 舱外
+    │
+    ▼
+<span style="color:var(--green)">云端触发器</span> 直接调<span style="color:var(--blue)">云端 VQA</span>（图片可上云）
+    │   按需取图 → VQA 推理 → 结果回 Context
+    │
+    ▼
+<span style="color:var(--green)">云端触发器</span> 检测结果 → 匹配到"瑞幸" → 触发提醒 ✅</div>
+
+<hr>
+
+<!-- ==================== 与之前方案对比 ==================== -->
+<h2>§4 与上汽方案的差异对比</h2>
+
+<table class="vs-row">
+  <tr>
+    <th style="width:20%">维度</th>
+    <th style="width:38%">上汽方案（旧）</th>
+    <th style="width:42%">赛力斯方案（本次确认）</th>
+  </tr>
+  <tr>
+    <td><strong>舱内视觉</strong></td>
+    <td>图片上云 → 云端 VQA 推理</td>
+    <td>图片<strong>不上云</strong> → 端侧 VLM 推理（合规）</td>
+  </tr>
+  <tr>
+    <td><strong>舱外视觉</strong></td>
+    <td>云端 VQA</td>
+    <td>仍可走云端 VQA（不变）</td>
+  </tr>
+  <tr>
+    <td><strong>提槽判断</strong></td>
+    <td>VQA 工具内部自带</td>
+    <td>提槽工具<strong>公共化</strong>，触发器可独立调用</td>
+  </tr>
+  <tr>
+    <td><strong>SP 来源</strong></td>
+    <td>VQA 工具内部处理</td>
+    <td>Advisor 给人话需求 → <strong>触发器</strong>负责拼接/管理/删除</td>
+  </tr>
+  <tr>
+    <td><strong>条件判断</strong></td>
+    <td>VQA 或 Advisor 各自处理</td>
+    <td><strong>触发器统一做</strong>（阈值穿越/变更为/等于）</td>
+  </tr>
+  <tr>
+    <td><strong>动态 Advisor 链路</strong></td>
+    <td>Advisor → 直接调 VQA → 拿结果</td>
+    <td>Advisor → 触发器 → 拼 SP → 端侧 VLM → 信号库 → Context → 触发器 → Advisor</td>
+  </tr>
+</table>
+
+<hr>
+
+<!-- ==================== VLM 返回格式 ==================== -->
+<h2>§5 VLM 返回格式与 KV 槽位机制</h2>
+
+<div class="conclusion-card info">
+  <h4>KV 槽位返回机制 <span class="tag tag-blue">接口约定</span></h4>
+  <p>丁彬确认：VLM 的 SP 中会为每个感知任务预留对应的<strong> KV 槽位</strong>。VLM 推理后，在对应位置填写 answer。</p>
+</div>
+
+<table>
+  <tr>
+    <th style="width:25%">SP 中的动态追加</th>
+    <th style="width:20%">KV Key</th>
+    <th>VLM 可能的输出（answer）</th>
+  </tr>
+  <tr>
+    <td>"观察副驾是否在睡觉"</td>
+    <td><code>sleep_status</code></td>
+    <td>"睡觉" / "没睡觉" / "闭眼" / "在看手机"</td>
+  </tr>
+  <tr>
+    <td>"观察后排毯子状态"</td>
+    <td><code>blanket_status</code></td>
+    <td>"毯子盖在宝宝身上" / "毯子滑落在脚底"</td>
+  </tr>
+  <tr>
+    <td>"后排有没有小狗"</td>
+    <td colspan="2"><em>（枚举类，已在 always-on SP 中，不需要动态追加）</em></td>
+  </tr>
+</table>
+
+<div class="quote">丁彬 00:37:12："你拼的那个 SP 就叫副驾在不在睡觉，我们会在对应的一个位置回复…这个 answer 就是睡觉或者没睡觉。"</div>
+
+<hr>
+
+<!-- ==================== 关键讨论细节 ==================== -->
+<h2>§6 关键讨论过程还原</h2>
+
+<h3>6.1 "VLM 该不该做条件判断"的争论</h3>
+<p>围绕"宝宝毯子掉了告诉我"这个 case，会上出现了两种理解：</p>
+<table>
+  <tr>
+    <th style="width:15%">方案</th>
+    <th>内容</th>
+    <th style="width:15%">结论</th>
+  </tr>
+  <tr>
+    <td>条件式</td>
+    <td>给 VLM 的 SP 写成"毯子掉的时候告诉我" → VLM 自己判断掉/没掉 → 只在掉的时候返回结果</td>
+    <td><span class="tag tag-red">否决</span></td>
+  </tr>
+  <tr>
+    <td>观察式</td>
+    <td>给 VLM 的 SP 写成"帮我看毯子状态" → VLM 每 5 秒都客观描述 → 触发器做变更判断</td>
+    <td><span class="tag tag-green">采纳</span></td>
+  </tr>
+</table>
+<p><strong>核心理由：</strong>端侧 VLM 没有专门做触发逻辑的能力（不像豆包 APP 可以 prompt 里写"当什么什么的时候告诉我"），只能做"看一看，说出来"。条件判断、时间窗口、穿越检测都是触发器的职责。</p>
+
+<h3>6.2 "拼 SP 在哪里做"的争论</h3>
+<table>
+  <tr>
+    <th style="width:15%">方案</th>
+    <th>支持者</th>
+    <th>理由</th>
+    <th style="width:12%">结论</th>
+  </tr>
+  <tr>
+    <td>VLM 端自己拼</td>
+    <td>张兰若</td>
+    <td>"接收一个新的就放进去一个，不需要上游帮我们拼好"</td>
+    <td><span class="tag tag-red">未采纳</span></td>
+  </tr>
+  <tr>
+    <td>触发器拼</td>
+    <td>西钺、丁彬</td>
+    <td>触发器本身就是下发触发方，触发时带上 SP 是自然动作；且触发器负责 SP 生命周期管理</td>
+    <td><span class="tag tag-green">采纳</span></td>
+  </tr>
+</table>
+<div class="quote">西钺 00:30:18："触发是泽民来触发嘛，他触发的时候带上 SP，是一个比较自然的动作。"</div>
+<div class="quote">丁彬 00:34:02："拼 SP 放到泽民那拼…谁发谁拼好像比较好，不然返回去的时候是一堆信息，挑不了。"</div>
+
+<h3>6.3 "佳杰的场景表"争议</h3>
+<p>会中看了佳杰之前整理的一个动态 Advisor 场景表（含"存在小狗"/"出现小狗"/"移除小狗"等事件描述），但参会者对其定义和使用方式存在困惑：</p>
+<ul>
+  <li>丁彬：这些应该是静态的（已有标签），为什么标成动态？</li>
+  <li>西钺：不清楚佳杰的场景是什么，"聊半天没什么场景可以用"</li>
+  <li>张兰若：佳杰可能想了一些动态 Advisor case，但没跟 VLM 团队对齐</li>
+</ul>
+<p><strong>结论：</strong>暂不依赖佳杰的表，触发器侧自行定义枚举范围，和端侧 VLM 团队直接对齐。</p>
+
+<h3>6.4 VLM 错误容忍度问题</h3>
+<div class="quote">张兰若 00:39:39："我们但凡出现一次错误，它发现两次。比如狗这个事突然没有了，第二次可能有个 glitch 又出现了，触发器就会有问题。VLM 不能出错，错了他这边也会跟着错。"</div>
+<p><strong>启示：</strong>触发器的阈值穿越检测对 VLM 输出的稳定性有强依赖。如果 VLM 输出抖动（一会儿有狗一会儿没狗），会导致触发器误触发。这是后续需要端侧 VLM 团队保证输出稳定性的重要约束。</p>
+
+<hr>
+
+<!-- ==================== 待办项 ==================== -->
+<h2>§7 待确认 / 待办项</h2>
+
+<table>
+  <tr>
+    <th style="width:5%">#</th>
+    <th style="width:35%">事项</th>
+    <th style="width:15%">Owner</th>
+    <th style="width:15%">依赖方</th>
+    <th>备注</th>
+  </tr>
+  <tr>
+    <td>1</td>
+    <td>提槽工具从 VQA 拆出来，独立部署给触发器调用</td>
+    <td>西钺</td>
+    <td>泽民</td>
+    <td>西钺承诺"随时可以拿出来"</td>
+  </tr>
+  <tr>
+    <td>2</td>
+    <td>VLM 枚举标签清单（固化的输出字段列表）</td>
+    <td>丁彬/兰若</td>
+    <td>泽民</td>
+    <td>触发器需要知道哪些信号可以直接匹配（=枚举），哪些需要动态 SP（=描述）</td>
+  </tr>
+  <tr>
+    <td>3</td>
+    <td>SP 拼接协议定义（KV 槽位命名规则、返回格式）</td>
+    <td>泽民 + 丁彬</td>
+    <td>—</td>
+    <td>需要约定：触发器给 VLM 的动态 SP 片段格式、VLM 返回的 KV 位置映射</td>
+  </tr>
+  <tr>
+    <td>4</td>
+    <td>佳杰的动态 Advisor 场景列表补充完整</td>
+    <td>佳杰</td>
+    <td>泽民/丁彬</td>
+    <td>当前列表不清晰，需要明确 case 和对应的感知需求</td>
+  </tr>
+  <tr>
+    <td>5</td>
+    <td>VLM 输出稳定性保证（避免 glitch 导致触发器误触发）</td>
+    <td>丁彬/兰若</td>
+    <td>泽民</td>
+    <td>张兰若提出的问题，影响触发器阈值穿越准确性</td>
+  </tr>
+  <tr>
+    <td>6</td>
+    <td>静态触发器任务对接（开充电口盖 case）</td>
+    <td>丁彬 + 泽民</td>
+    <td>仁杰</td>
+    <td>丁彬会后约泽民单独过</td>
+  </tr>
+</table>
+
+<hr>
+
+<!-- ==================== 会议原文关键发言索引 ==================== -->
+<h2>§8 会议原文关键发言索引</h2>
+
+<table>
+  <tr>
+    <th style="width:12%">时间戳</th>
+    <th style="width:10%">发言人</th>
+    <th>关键内容</th>
+    <th style="width:10%">对应结论</th>
+  </tr>
+  <tr><td>00:03:03</td><td>西钺</td><td>上汽走 VQA，赛力斯舱内走端侧 VLM，下行链路要对清</td><td>①</td></tr>
+  <tr><td>00:05:05</td><td>西钺</td><td>VQA 工具两部分：提槽（direction）+ 推理；提槽可以拿给触发器调</td><td>②</td></tr>
+  <tr><td>00:11:42</td><td>西钺</td><td>SP 拼接泽民这边做，就是一段 SP 后面加原始 query</td><td>③</td></tr>
+  <tr><td>00:14:52</td><td>丁彬</td><td>频率固定 5 秒，只是往里面插一个多感知任务/品类</td><td>⑦</td></tr>
+  <tr><td>00:15:40</td><td>丁彬</td><td>描述了完整链路：Advisor→触发器→拼SP→下发→推理→信号库→Context→触发器→还原SP</td><td>④</td></tr>
+  <tr><td>00:18:43</td><td>西钺</td><td>VLM 只说毯子状态在哪，掉不掉是应用方判断</td><td>⑤</td></tr>
+  <tr><td>00:28:59</td><td>西钺</td><td>多个任务不能放不同循环，要拼在一起推理</td><td>⑦</td></tr>
+  <tr><td>00:34:13</td><td>丁彬</td><td>拼 SP 放到泽民那拼</td><td>③</td></tr>
+  <tr><td>00:37:12</td><td>丁彬</td><td>VLM 按 KV 值返回，SP 中有对应位置的 answer</td><td>§5</td></tr>
+  <tr><td>00:44:35</td><td>西钺</td><td>必须先过滤，先看 Context 里有没有信息</td><td>⑧</td></tr>
+  <tr><td>00:49:38</td><td>西钺</td><td>枚举类直接条件匹配，非枚举类都要拼 SP</td><td>⑥</td></tr>
+  <tr><td>00:51:34</td><td>西钺</td><td>静态=预设，动态=用户发起用完销毁</td><td>⑨</td></tr>
+  <tr><td>00:55:02</td><td>西钺</td><td>提槽工具放外面，人人尽可用</td><td>②</td></tr>
+</table>
+
+<hr>
+
+<!-- ==================== 版本历史 ==================== -->
+<div class="version-history">
+<h2>版本历史</h2>
+<table>
+  <tr>
+    <th style="width:12%">版本</th>
+    <th style="width:15%">日期</th>
+    <th>变更内容</th>
+    <th style="width:15%">来源</th>
+  </tr>
+  <tr>
+    <td>v1</td>
+    <td>2026-06-30</td>
+    <td>基于 6.30 会议纪要创建，整理九大核心结论 + 三条数据流链路 + 方案对比 + 待办项</td>
+    <td>6.30 端侧 VLM 会议</td>
+  </tr>
+</table>
+</div>
+
+</body>
+</html>

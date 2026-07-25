@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>7.17 静态Advisor需求 → 触发器要做什么 · v1</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; background:#f4f6f9; color:#1f2933; line-height:1.75; }
+  .wrap { max-width:1200px; margin:0 auto; padding:32px 24px 80px; }
+
+  /* ===== 页头 ===== */
+  .hero { background:linear-gradient(135deg,#1e3a5f 0%,#2d5f8a 100%); color:#fff; border-radius:16px; padding:36px 40px; margin-bottom:28px; }
+  .hero .tag { display:inline-block; background:rgba(255,255,255,.18); border-radius:6px; padding:2px 12px; font-size:13px; margin-bottom:12px; letter-spacing:1px; }
+  .hero h1 { font-size:26px; font-weight:700; margin-bottom:14px; }
+  .hero .conclusion { font-size:16px; background:rgba(255,255,255,.12); border-left:4px solid #ffd666; border-radius:0 8px 8px 0; padding:14px 18px; }
+  .hero .conclusion b { color:#ffd666; }
+  .hero .meta { margin-top:14px; font-size:13px; opacity:.75; }
+
+  /* ===== 章节 ===== */
+  .sec { background:#fff; border-radius:14px; padding:30px 34px; margin-bottom:26px; box-shadow:0 1px 4px rgba(30,58,95,.06); }
+  .sec-title { font-size:20px; font-weight:700; color:#1e3a5f; margin-bottom:6px; display:flex; align-items:center; gap:10px; }
+  .sec-title .num { background:#1e3a5f; color:#fff; width:30px; height:30px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0; }
+  .sec-sub { color:#6b7a8c; font-size:14px; margin-bottom:20px; }
+
+  /* ===== 总览流程图 ===== */
+  .flow { display:flex; align-items:stretch; gap:0; margin:18px 0 6px; }
+  .flow-col { flex:1; display:flex; flex-direction:column; gap:8px; }
+  .flow-arrow { display:flex; align-items:center; padding:0 8px; color:#8aa2bc; font-size:22px; font-weight:700; }
+  .flow-head { font-size:13px; font-weight:700; color:#5a6b7d; text-align:center; padding:6px 4px; border-radius:6px; margin-bottom:2px; }
+  .fc1 .flow-head { background:#eef3f8; }
+  .fc2 .flow-head { background:#fff3e0; }
+  .fc3 .flow-head { background:#e8f5e9; }
+  .fbox { border-radius:8px; padding:8px 10px; font-size:12.5px; line-height:1.5; border:1px solid; }
+  .fc1 .fbox { background:#f7fafc; border-color:#d5e0ea; }
+  .fc2 .fbox { background:#fffaf2; border-color:#f0d9b0; }
+  .fc3 .fbox { background:#f4faf4; border-color:#c9e2ca; }
+  .fbox b { font-size:13px; }
+  .fbox .small { color:#7a8a9a; font-size:11.5px; }
+
+  /* ===== 关键澄清 ===== */
+  .clarify { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .clarify-card { border-radius:10px; padding:18px 20px; border:1px solid #e3e9f0; }
+  .clarify-card.wrong { background:#fdf3f3; border-color:#f0c5c5; }
+  .clarify-card.right { background:#f2f9f2; border-color:#bfdfc0; }
+  .clarify-card h4 { font-size:15px; margin-bottom:8px; }
+  .clarify-card.wrong h4 { color:#b03a3a; }
+  .clarify-card.right h4 { color:#2e7d32; }
+  .clarify-card p { font-size:13.5px; color:#4a5866; }
+
+  /* ===== 配置卡片(仿平台表单) ===== */
+  .cfg-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+  .cfg { border:1px solid #dde5ee; border-radius:12px; overflow:hidden; background:#fff; }
+  .cfg-head { padding:12px 16px; display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .cfg-head .name { font-weight:700; font-size:15px; color:#16283c; }
+  .cfg-head .idx { font-size:12px; color:#8aa2bc; font-weight:700; }
+  .cfg.ok .cfg-head { background:#eef7ee; border-bottom:1px solid #d4e8d4; }
+  .cfg.warn .cfg-head { background:#fff7e8; border-bottom:1px solid #f0dfb8; }
+  .cfg.gap .cfg-head { background:#fdf0f0; border-bottom:1px solid #f0cccc; }
+  .badge { font-size:11.5px; padding:2px 10px; border-radius:20px; font-weight:600; white-space:nowrap; }
+  .badge.ok { background:#2e7d32; color:#fff; }
+  .badge.warn { background:#e6a23c; color:#fff; }
+  .badge.gap { background:#c0392b; color:#fff; }
+  .cfg-body { padding:12px 16px 14px; }
+  .frow { display:flex; gap:10px; padding:6px 0; border-bottom:1px dashed #edf1f6; font-size:13px; }
+  .frow:last-child { border-bottom:none; }
+  .frow .k { width:88px; flex-shrink:0; color:#7a8a9a; font-size:12.5px; padding-top:1px; }
+  .frow .v { flex:1; color:#25313e; }
+  .sig { font-family:"SF Mono",Menlo,monospace; font-size:12px; background:#eef3f8; color:#1e5a8a; border-radius:4px; padding:1px 6px; white-space:nowrap; }
+  .op { font-family:"SF Mono",Menlo,monospace; font-size:12px; background:#f3eefa; color:#6b3fa0; border-radius:4px; padding:1px 6px; white-space:nowrap; }
+  .adv { display:inline-block; font-size:11.5px; border-radius:4px; padding:1px 8px; margin-right:4px; font-weight:600; }
+  .adv.comfort { background:#e3f2fd; color:#1565c0; }
+  .adv.travel { background:#e8f5e9; color:#2e7d32; }
+  .adv.emotion { background:#fce4ec; color:#c2185b; }
+  .adv.content { background:#fff3e0; color:#e65100; }
+  .tpl { background:#f7f9fb; border-left:3px solid #8aa2bc; border-radius:0 6px 6px 0; padding:6px 10px; font-size:12.5px; color:#4a5866; margin-top:2px; }
+  .pitfall { background:#fdf6ec; border-left:3px solid #e6a23c; border-radius:0 6px 6px 0; padding:6px 10px; font-size:12.5px; color:#8a5a1a; margin-top:6px; }
+  .pitfall.red { background:#fdf0f0; border-left-color:#c0392b; color:#8a2a20; }
+
+  /* ===== 表格 ===== */
+  table { width:100%; border-collapse:collapse; font-size:13.5px; margin-top:12px; }
+  th { background:#1e3a5f; color:#fff; padding:9px 12px; text-align:left; font-weight:600; font-size:13px; }
+  td { padding:9px 12px; border-bottom:1px solid #e8edf3; vertical-align:top; }
+  tr:nth-child(even) td { background:#f9fbfd; }
+  td b.who { color:#1e5a8a; }
+
+  /* ===== 边界双栏 ===== */
+  .boundary { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .bd-card { border-radius:10px; padding:18px 20px; }
+  .bd-card.mine { background:#eef7ee; border:1px solid #c9e2ca; }
+  .bd-card.theirs { background:#f4f6f9; border:1px solid #d5dde6; }
+  .bd-card h4 { font-size:15px; margin-bottom:10px; }
+  .bd-card.mine h4 { color:#2e7d32; }
+  .bd-card.theirs h4 { color:#5a6b7d; }
+  .bd-card ul { list-style:none; }
+  .bd-card li { font-size:13px; padding:4px 0; color:#3a4856; }
+  .bd-card li::before { content:"· "; color:#8aa2bc; font-weight:700; }
+
+  /* ===== 行动清单 ===== */
+  .todo { display:flex; flex-direction:column; gap:10px; }
+  .todo-item { display:flex; gap:14px; background:#f9fbfd; border:1px solid #e3e9f0; border-radius:10px; padding:14px 18px; align-items:flex-start; }
+  .todo-item .day { flex-shrink:0; background:#1e3a5f; color:#fff; border-radius:8px; padding:4px 12px; font-size:13px; font-weight:700; }
+  .todo-item .body { font-size:14px; }
+  .todo-item .body .detail { font-size:12.5px; color:#6b7a8c; margin-top:2px; }
+
+  .note { font-size:12.5px; color:#8a97a5; margin-top:10px; }
+  @media (max-width:900px){ .cfg-grid,.clarify,.boundary{grid-template-columns:1fr;} .flow{flex-direction:column;} .flow-arrow{transform:rotate(90deg); justify-content:center;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ============ 页头 ============ -->
+  <div class="hero">
+    <div class="tag">静态 Advisor（顾问模型）需求承接 · 804 排期</div>
+    <h1>静态Advisor那张63行的表，落到你头上到底是什么活</h1>
+    <div class="conclusion">
+      一句话：<b>10 条平台配置 + 3 条规则定义 + 4 个要找人谈的缺口</b>。<br>
+      30 个上车场景 ≠ 30 条配置——触发器只管"把事件干净地推出去"，场景分流是 Advisor 拿 Context（上下文信息）自己做的。
+    </div>
+    <div class="meta">来源：静态advisor-整理版.xlsx（事件库8个预设事件 / 46条Feature / 63行场景展开） × 火山_信号中枢全功能清单.xlsx（韩杰） · 2026-07-17 · v1</div>
+  </div>
+
+  <!-- ============ 0 总览 ============ -->
+  <div class="sec">
+    <div class="sec-title"><span class="num">0</span>先看全局：需求从哪来，你卡在哪一环</div>
+    <div class="sec-sub">静态Advisor同学整理的表 = 左边这列"8个预设事件"。他们的诉求就一句话：<b>这8个事件发生时，请触发器把消息推给我，我来推理要不要主动服务。</b>你的活全部在中间这列。</div>
+    <div class="flow">
+      <div class="flow-col fc1">
+        <div class="flow-head">静态Advisor要的：8个预设事件</div>
+        <div class="fbox"><b>车辆电量低</b><br><span class="small">电量低于X%（X=用户车机设置值）→ 3个场景</span></div>
+        <div class="fbox"><b>即将到达目的地</b><br><span class="small">距目的地1000米 → 3个场景</span></div>
+        <div class="fbox"><b>目的地变更</b> <span class="small">→ 6个场景</span></div>
+        <div class="fbox"><b>途径点变更</b> <span class="small">→ 3个场景</span></div>
+        <div class="fbox"><b>用户发起导航</b> <span class="small">→ 8个场景</span></div>
+        <div class="fbox"><b>主/副/左后/右后上车了</b><br><span class="small">→ 30个场景（迎宾/预测/舒适/内容）</span></div>
+        <div class="fbox"><b>车辆下电</b> <span class="small">→ 清理所有未完成子目标</span></div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-col fc2">
+        <div class="flow-head">你的触发器要做的：4件事</div>
+        <div class="fbox"><b>① 事件注册</b><br><span class="small">在配置平台把事件配出来（用 tri_ 触发事件 + 2个事件运算符）</span></div>
+        <div class="fbox"><b>② 条件滤噪</b><br><span class="small">用 con_ 条件 + 8个条件运算符，把无效触发拦掉（如行驶中挪座 ≠ 上车）</span></div>
+        <div class="fbox"><b>③ 事件描述</b><br><span class="small">每个事件配一句人话模板，触发时生成文字推给Advisor / 写事件日志</span></div>
+        <div class="fbox"><b>④ 频次与协调</b><br><span class="small">"一次上电周期仅一次"、主副驾同时上车合并、主动服务总开关</span></div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-col fc3">
+        <div class="flow-head">下游：4个静态Advisor消费</div>
+        <div class="fbox"><b>舒适 Advisor</b><br><span class="small">环境/人员自适应车控、特殊成员关怀…</span></div>
+        <div class="fbox"><b>出行 Advisor</b><br><span class="small">低电量推荐、停车规划、目的地预测…</span></div>
+        <div class="fbox"><b>情感 Advisor</b><br><span class="small">上车迎宾、节庆陪伴、情绪安抚…</span></div>
+        <div class="fbox"><b>内容 Advisor</b><br><span class="small">上车内容预编排、通勤内容流…</span></div>
+        <div class="fbox" style="border-style:dashed;"><span class="small">Advisor 拿事件 + Context（时间/天气/Face ID人脸识别/记忆）推理出建议 → 走交互策略 → 执行</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 1 关键澄清 ============ -->
+  <div class="sec">
+    <div class="sec-title"><span class="num">1</span>先纠正一个最容易慌的误解</div>
+    <div class="sec-sub">看到"上车了"底下挂30个场景，第一反应是"我要配30条？"——不是。</div>
+    <div class="clarify">
+      <div class="clarify-card wrong">
+        <h4>✕ 错误画面：触发器替Advisor分场景</h4>
+        <p>给"夏季高温上车""生日祝福""久别重逢"…每个场景配一条触发规则，条件里塞温度、日期、Face ID（人脸识别）……<b>配不出来的</b>：生日、节气、情绪、记忆根本不是车端信号，条件表里没有对应的 con_ 条目。</p>
+      </div>
+      <div class="clarify-card right">
+        <h4>✓ 正确画面：触发器只管"干净地报事"</h4>
+        <p>你只配"<b>主驾有人入座了</b>"这1类事件（4个座位=4条），把事件+车端状态推给Advisor。至于这次上车该走"深夜披星戴月"还是"生日祝福"，是Advisor拿Context里的时间/天气/记忆/Face ID自己推理的。<b>条件的用途是滤噪，不是分场景</b>——这正是韩杰7.9跟嘉锋掰扯一小时的"漏斗"结论。</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 2 十条配置 ============ -->
+  <div class="sec">
+    <div class="sec-title"><span class="num">2</span>你的交付物①：配置平台上的 10 条场景配置</div>
+    <div class="sec-sub">每张卡就是配置平台"新建场景"页你要填的东西（动态条件=触发事件 / 静态条件 / 执行动作 / 执行策略）。绿=拿现有能力直接配；黄=能配但写法要确认；红=平台/表里缺东西，先谈再配。</div>
+    <div class="cfg-grid">
+
+      <!-- 1 电量低 -->
+      <div class="cfg warn">
+        <div class="cfg-head"><span class="name">1｜静态Adv-车辆电量低</span><span class="badge warn">写法待确认</span></div>
+        <div class="cfg-body">
+          <div class="frow"><span class="k">动态条件</span><span class="v"><span class="sig">tri_battery（电量）</span> 数值信号，"低于X%"要靠 <span class="op">小于 X</span> 的<b>假→真边沿</b>触发（平台没有"切入/切出"，10个运算符里凑）</span></div>
+          <div class="frow"><span class="k">静态条件</span><span class="v">无（滤噪不需要，场景分流交给Advisor）</span></div>
+          <div class="frow"><span class="k">执行动作</span><span class="v">推给 <span class="adv travel">出行</span><div class="tpl">模板："14点32分，车辆电量降至18%，低于提醒阈值20%"</div></span></div>
+          <div class="frow"><span class="k">执行策略</span><span class="v"><b>一次上电周期仅一次</b>（表里明确写了）</span></div>
+          <div class="pitfall">⚠ 两个确认点：① X 是用户在车机上设的值，不是固定数——平台条件值现在只能写死，<b>能不能引用车机设置项？找韩杰</b>；② "上电周期重置"的频次策略平台执行策略里有没有？</div>
+        </div>
+      </div>
+
+      <!-- 2 即将到达 -->
+      <div class="cfg ok">
+        <div class="cfg-head"><span class="name">2｜静态Adv-即将到达目的地</span><span class="badge ok">复用你的导航PRD</span></div>
+        <div class="cfg-body">
+          <div class="frow"><span class="k">动态条件</span><span class="v">就是你导航触发器PRD里的<b>"接近目的地"事件</b>（阈值1000米，one_shot（只触发一次）状态机），不要用 <span class="sig">tri_geofence（地理围栏）</span>——围栏是固定POI，目的地每次导航都在变</span></div>
+          <div class="frow"><span class="k">静态条件</span><span class="v">无</span></div>
+          <div class="frow"><span class="k">执行动作</span><span class="v">推给 <span class="adv travel">出行</span><div class="tpl">模板："17点48分，距离导航目的地约1000米"</div></span></div>
+          <div class="frow"><span class="k">执行策略</span><span class="v">每次导航一次（one_shot 本来就保证）</span></div>
+        </div>
+      </div>
+
+      <!-- 3 目的地变更 -->
+      <div class="cfg ok">
+        <div class="cfg-head"><span class="name">3｜静态Adv-目的地变更</span><span class="badge ok">直接配</span></div>
+        <div class="cfg-body">
+          <div class="frow"><span class="k">动态条件</span><span class="v"><span class="sig">tri_destination（目的地变更）</span> <span class="op">有变更</span></span></div>
+          <div class="frow"><span class="k">静态条件</span><span class="v">无（短途/跨城判断是Advisor算距离，不是车端信号）</span></div>
+          <div class="frow"><span class="k">执行动作</span><span class="v">推给 <span class="adv travel">出行</span><div class="tpl">模板："15点02分，导航目的地变更为 虹桥火车站"</div></span></div>
+          <div class="frow"><span class="k">执行策略</span><span class="v">满足即触发</span></div>
+        </div>
+      </div>
+
+      <!-- 4 途径点变更 -->
+      <div class="cfg gap">
+        <div class="cfg-head"><span class="name">4｜静态Adv-途径点变更</span><span class="badge gap">韩杰表里缺</span></div>
+        <div class="cfg-body">
+          <div class="frow"><span class="k">动态条件</span><span class="v">应为 <span class="sig">tri_passbyPoint（途径点）</span> <span class="op">有变更</span> —— 但韩杰触发事件表31条里<b>没有这条</b>，条件表倒是有 <span class="sig">con_passbyPoint</span></span></div>
+          <div class="frow"><span class="k">执行动作</span><span class="v">推给 <span class="adv travel">出行</span><div class="tpl">模板："16点10分，导航途径点变更为 XX充电站"</div></span></div>
+          <div class="pitfall red">✋ 先别配——<b>找韩杰在触发事件表补录"途径点变更"</b>，这是你带着静态Advisor需求去要的第一个增量。</div>
+        </div>
+      </div>
+
+      <!-- 5 发起导航 -->
+      <div class="cfg ok">
+        <div class="cfg-head"><span class="name">5｜静态Adv-用户发起导航</span><span class="badge ok">直接配</span></div>
+        <div class="cfg-body">
+          <div class="frow"><span class="k">动态条件</span><span class="v"><span class="sig">tri_navigation（发起导航）</span> <span class="op">变更为</span> 导航中</span></div>
+          <div class="frow"><span class="k">静态条件</span><span class="v">无</span></div>
+          <div class="frow"><span class="k">执行动作</span><span class="v">推给 <span class="adv travel">出行</span><span class="adv content">内容</span>（一个事件、两个订阅方——导游推荐归出行，通勤内容流归内容）<div class="tpl">模板："9点15分，用户发起导航，目的地 公司"</div></span></div>
+          <div class="frow"><span class="k">执行策略</span><span class="v">满足即触发</span></div>
+        </div>
+      </div>
+
+      <!-- 6-9 上车 -->
+      <div class="cfg warn">
+        <div class="cfg-head"><span class="name">6-9｜静态Adv-主驾/副驾/左后/右后上车</span><span class="badge warn">4条 · 滤噪要设计</span></div>
+        <div class="cfg-body">
+          <div class="frow"><span class="k">动态条件</span><span class="v"><span class="sig">tri_seatOccupancy（占座）</span> 座位=主驾 <span class="op">变更为</span> 有人（副驾/左后/右后同理，共4条）</span></div>
+          <div class="frow"><span class="k">静态条件</span><span class="v"><span class="sig">con_gear（档位）</span> <span class="op">等于</span> P挡 —— 这就是"漏斗"的活教材：<b>行驶中乘员挪座位不算上车</b>，不滤掉就会开着车突然迎宾</span></div>
+          <div class="frow"><span class="k">执行动作</span><span class="v">主驾→<span class="adv comfort">舒适</span><span class="adv travel">出行</span><span class="adv emotion">情感</span><span class="adv content">内容</span>；副驾→<span class="adv comfort">舒适</span><span class="adv emotion">情感</span><span class="adv content">内容</span>；左后/右后→<span class="adv comfort">舒适</span><span class="adv emotion">情感</span><div class="tpl">模板："8点05分，主驾位有人入座"</div></span></div>
+          <div class="frow"><span class="k">执行策略</span><span class="v">短时离座又回座要去重（取物/关门重开），窗口多长你来定，先提N分钟内不重复</span></div>
+          <div class="pitfall">⚠ 30个场景（迎宾/预测/温控/内容编排）全部由Advisor分流，你只保证"入座事件干净、座位准确、不重复"。</div>
+        </div>
+      </div>
+
+      <!-- 10 下电 -->
+      <div class="cfg ok">
+        <div class="cfg-head"><span class="name">10｜静态Adv-车辆下电</span><span class="badge ok">直接配</span></div>
+        <div class="cfg-body">
+          <div class="frow"><span class="k">动态条件</span><span class="v"><span class="sig">tri_power（上下电）</span> <span class="op">变更为</span> 下电</span></div>
+          <div class="frow"><span class="k">静态条件</span><span class="v">无</span></div>
+          <div class="frow"><span class="k">执行动作</span><span class="v">推给 <span class="adv comfort">舒适</span><span class="adv travel">出行</span> —— 用途特殊：<b>不是要推理，是要清场</b>（删除所有未完成子目标，表格备注原话）<div class="tpl">模板："22点40分，车辆下电"</div></span></div>
+          <div class="frow"><span class="k">执行策略</span><span class="v">满足即触发</span></div>
+        </div>
+      </div>
+
+    </div>
+    <div class="note">合计：电量低 1 + 接近目的地 1 + 目的地变更 1 + 途径点变更 1 + 发起导航 1 + 占座 4 + 下电 1 = <b>10 条</b>。其中 7 条今天就能动手，2 条要先确认写法，1 条要韩杰补表。</div>
+  </div>
+
+  <!-- ============ 3 三条规则 ============ -->
+  <div class="sec">
+    <div class="sec-title"><span class="num">3</span>你的交付物②：3 条平台配不出来的规则，要写进PRD</div>
+    <div class="sec-sub">这三条是 Feature list 里标 P0 的基础设施需求，配置表单里没有对应字段，得你用文字定义清楚给研发。</div>
+    <table>
+      <tr><th style="width:180px;">规则</th><th>要定义什么</th><th style="width:270px;">为什么非你不可</th></tr>
+      <tr>
+        <td><b>① 频次策略</b><br><span style="font-size:12px;color:#8a97a5;">对应"预设事件触发推理 P0"</span></td>
+        <td>"一次上电周期仅一次"（电量低）的重置时机 = <span class="sig">tri_power</span> 上电事件；占座去重窗口 = N 分钟内同座位重复入座不再推送。N 你拍，建议先 5 分钟。</td>
+        <td>平台执行策略现在只有"执行N次/每次都执行"这类，<b>没有"按上电周期重置"</b>——要么推平台加，要么触发引擎侧实现，归属你去钉。</td>
+      </tr>
+      <tr>
+        <td><b>② 多事件协调</b><br><span style="font-size:12px;color:#8a97a5;">对应"多事件协调 P0"</span></td>
+        <td>主驾、副驾间隔 &lt;N 秒先后上车 → 合并成一条事件推送（描述改为"主驾和副驾先后上车"），只触发一次迎宾推理。合并窗口 N 你拍，建议先 10 秒。</td>
+        <td>不定这条，上线第一天就是"你好呀——你好呀——"连播两次的badcase（坏例）。<b>合并发生在触发器侧还是Advisor侧，要跟嘉锋对</b>——你主张触发器侧合并，理由：省一次Advisor推理成本。</td>
+      </tr>
+      <tr>
+        <td><b>③ 主动服务总开关</b><br><span style="font-size:12px;color:#8a97a5;">对应"主动服务的开关状态 P0"</span></td>
+        <td>用户关闭主动服务 → 触发器<b>停止向4个静态Advisor分发</b>（事件日志建议照记，方便排查）；重新开启即恢复。开关状态需要作为一个端状态信号上报。</td>
+        <td>开关信号现在<b>不在韩杰的状态查询表112条里</b>——这是你要韩杰补的第二个信号。拦截点放触发器分发层最干净，不用4个Advisor各自判断。</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- ============ 4 边界 ============ -->
+  <div class="sec">
+    <div class="sec-title"><span class="num">4</span>边界：哪些条件你配，哪些不归你</div>
+    <div class="sec-sub">静态Advisor场景描述里出现的信息五花八门，拿这张表挡住"这个能不能加到触发条件里"的所有追问。</div>
+    <div class="boundary">
+      <div class="bd-card mine">
+        <h4>✓ 触发器条件能配的（车端信号，con_ 表里有）</h4>
+        <ul>
+          <li>档位 <span class="sig">con_gear</span> —— 上车滤噪用</li>
+          <li>乘坐状态 <span class="sig">con_occupancy</span> —— 区分座位</li>
+          <li>导航状态 <span class="sig">con_navState</span> —— 电量低分"在导/没导"时备用</li>
+          <li>当前位置 <span class="sig">con_curLoc</span> —— "在家附近"类判断备用</li>
+          <li>温度 <span class="sig">con_temp</span>、电量、车速、车窗、车门、空调状态等 29 条</li>
+        </ul>
+      </div>
+      <div class="bd-card theirs">
+        <h4>✕ 不走触发器条件的（Advisor 的 Context 输入）</h4>
+        <ul>
+          <li>时间/日期/节假日/节气/生日 —— 云端日历，Advisor推理时自带</li>
+          <li>天气/空气质量 —— 云端天气接口</li>
+          <li>Face ID（人脸识别）/身份/久别重逢 —— 视觉链路，丁彬</li>
+          <li>情绪 —— 舱内VLM（视觉语言模型）输出是自由文本，7.15丁彬说了要云端二次整形，成不了条件枚举值</li>
+          <li>用户记忆/通勤规律 —— 云端记忆模块</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 5 谈判点 ============ -->
+  <div class="sec">
+    <div class="sec-title"><span class="num">5</span>4 个缺口，找谁、开口第一句话</div>
+    <table>
+      <tr><th style="width:70px;">找谁</th><th style="width:300px;">要什么</th><th>开口话术</th></tr>
+      <tr>
+        <td><b class="who">韩杰</b></td>
+        <td>触发事件表补录 <b>tri_passbyPoint（途径点变更）</b>；状态查询表补录<b>主动服务开关</b>信号</td>
+        <td>"静态Advisor的8个预设事件我逐条对了你的表，31条触发事件里缺'途径点变更'，条件表里倒是有con_passbyPoint——帮我把tri_也补上，804排期要用。另外主动服务开关得进状态表。"</td>
+      </tr>
+      <tr>
+        <td><b class="who">韩杰</b></td>
+        <td>电量低的 <b>X（用户设置值）动态引用</b> + <b>"一次上电周期仅一次"频次策略</b>平台支持方案</td>
+        <td>"电量低阈值X是用户车机上设的，平台条件值现在只能写死数字——是加'引用设置项'能力，还是端侧直接上报'低电量提醒已触发'这个事件？两个方案你选一个，我都能接。"</td>
+      </tr>
+      <tr>
+        <td><b class="who">嘉锋<br>明骏</b></td>
+        <td><b>多事件合并</b>在触发器侧还是Advisor侧；<b>子目标review定时触发</b>（P0）归属——定时轮询不是事件触发，是触发器出定时器还是任务系统出</td>
+        <td>"主副驾同时上车我主张触发器侧合并再推，省一次推理。子目标review是定时任务不是事件，我建议走任务系统的定时能力，触发器不做轮询——你们确认。"</td>
+      </tr>
+      <tr>
+        <td><b class="who">静态Adv<br>同学</b></td>
+        <td>确认"即将到达目的地"就用你导航PRD的接近事件（1000米/one_shot）；确认事件描述模板文案</td>
+        <td>"接近目的地我已有现成事件，阈值1000米、每次导航只触发一次，直接复用。10条事件的描述模板我起草好了，你过一眼文案。"</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- ============ 6 行动排序 ============ -->
+  <div class="sec">
+    <div class="sec-title"><span class="num">6</span>本周怎么动</div>
+    <div class="todo">
+      <div class="todo-item"><span class="day">今天</span><div class="body">把第2节的10条配置整理成一张Excel配置清单（事件ID/运算符/条件/推送目标/描述模板/频次策略六列）——<b>这张表就是你跟所有人对话的底稿</b><div class="detail">7条绿的直接填完整，3条黄红的备注栏写清卡点</div></div></div>
+      <div class="todo-item"><span class="day">明天</span><div class="body">拿着清单找韩杰，一次谈完两件事：补tri_passbyPoint+开关信号、电量X值方案二选一<div class="detail">他正在整理信号中枢表，现在提补录成本最低；拖到表评审定版就要走变更流程了</div></div></div>
+      <div class="todo-item"><span class="day">本周</span><div class="body">3条规则（频次/合并/开关）写成一页PRD附录，发嘉锋明骏确认归属<div class="detail">重点钉"子目标review定时触发不归触发器"，别让定时轮询的活默默落你头上</div></div></div>
+      <div class="todo-item"><span class="day">周五</span><div class="body">跟静态Advisor同学过一遍描述模板文案 + 确认接近目的地复用方案，锁定804范围<div class="detail">锁定后10条配置就能在平台上开配，赶在联调前</div></div></div>
+    </div>
+  </div>
+
+  <div class="note" style="text-align:center;">7.17-静态Advisor触发器-我要做什么-v1 · 依据：静态advisor-整理版.xlsx / 火山_信号中枢全功能清单.xlsx / 7.9·7.10·7.15会议纪要 · 运算符严格按平台真实10个（条件8+事件2），无"切入/切出"</div>
+
+</div>
+</body>
+</html>

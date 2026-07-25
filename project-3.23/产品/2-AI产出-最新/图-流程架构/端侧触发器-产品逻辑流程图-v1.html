@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>端侧触发器 · 产品逻辑流程图 v1</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#f5f5f5;font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;color:#1a1a2e}
+.page{max-width:1520px;margin:0 auto;padding:30px 20px 60px}
+.title{text-align:center;font-size:1.5rem;font-weight:700;margin-bottom:4px}
+.subtitle{text-align:center;color:#666;font-size:.85rem;margin-bottom:20px}
+
+/* 图例 */
+.legend{display:flex;justify-content:center;gap:24px;margin-bottom:18px;font-size:.82rem;color:#555;flex-wrap:wrap}
+.legend-item{display:flex;align-items:center;gap:6px}
+.legend-line{width:36px;height:4px;border-radius:2px}
+
+/* 画布 */
+.canvas{position:relative;width:1480px;height:960px;margin:0 auto;background:#fff;border-radius:14px;box-shadow:0 2px 20px rgba(0,0,0,.06);overflow:hidden}
+
+/* 端侧/云侧分区 */
+.zone-label{position:absolute;font-size:1.1rem;font-weight:700;color:#888;letter-spacing:4px}
+.divider{position:absolute;left:1060px;top:0;bottom:0;width:2px;background:repeating-linear-gradient(to bottom,#ccc 0,#ccc 8px,transparent 8px,transparent 16px)}
+
+/* 模块盒子通用 */
+.box{position:absolute;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;font-size:.82rem;line-height:1.5}
+.box-title{font-weight:700;font-size:.92rem;margin-bottom:2px}
+.box-desc{color:#555;font-size:.78rem;line-height:1.4}
+
+/* 模块类型样式 */
+.box-trigger{background:#fff7ed;border:2.5px solid #ea580c}
+.box-trigger .box-title{color:#c2410c}
+.box-sub{background:#fff;border:1.5px solid #ea580c;border-radius:8px}
+.box-sub .box-title{color:#c2410c;font-size:.82rem}
+
+.box-aibox{background:#e8f5e9;border:2px solid #43a047}
+.box-aibox .box-title{color:#2e7d32}
+
+.box-vlm{background:#f3e5f5;border:2px solid #8e24aa}
+.box-vlm .box-title{color:#6a1b9a}
+
+.box-dc{background:#e3f2fd;border:2px solid #1976d2}
+.box-dc .box-title{color:#0d47a1}
+
+.box-cloud{background:#f1f8e9;border:2px solid #558b2f}
+.box-cloud .box-title{color:#33691e}
+
+.box-dt{background:#e8eaf6;border:2.5px solid #3949ab}
+.box-dt .box-title{color:#283593}
+
+.box-sls{background:#fff;border:2px dashed #9e9e9e}
+.box-sls .box-title{color:#616161}
+
+.box-signal{background:#fafafa;border:1.5px solid #bdbdbd;border-radius:8px}
+
+/* 圆形节点 */
+.circle{position:absolute;width:50px;height:50px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.78rem;font-weight:600}
+
+/* SVG箭头层 */
+.arrows{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
+
+/* 箭头标签 */
+.arrow-label{position:absolute;font-size:.72rem;line-height:1.3;padding:2px 6px;border-radius:4px;white-space:nowrap}
+.al-orange{color:#c2410c;background:rgba(255,247,237,.9)}
+.al-blue{color:#1565c0;background:rgba(227,242,253,.9)}
+.al-green{color:#2e7d32;background:rgba(232,245,233,.9)}
+.al-purple{color:#6a1b9a;background:rgba(243,229,245,.9)}
+.al-gray{color:#555;background:rgba(250,250,250,.9)}
+.al-red{color:#c62828;background:rgba(255,235,238,.9)}
+
+/* 注释标签 */
+.note-tag{position:absolute;font-size:.7rem;color:#fff;padding:2px 8px;border-radius:10px;font-weight:600}
+.tag-confirmed{background:#43a047}
+.tag-pending{background:#ef6c00}
+.tag-new{background:#1976d2}
+</style>
+</head>
+<body>
+<div class="page">
+<div class="title">端侧触发器 · 产品逻辑流程图</div>
+<div class="subtitle">综合 7.6 VLM链路会议 + 事件融入DT内审 · 产品视角 · v1 · 2026-07-06</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-line" style="background:#ea580c"></div>控制通道（触发指令 / 状态回调）</div>
+  <div class="legend-item"><div class="legend-line" style="background:#1976d2"></div>数据通道（VLM输出直送）</div>
+  <div class="legend-item"><div class="legend-line" style="background:#43a047"></div>上报通道（端状态 → 云端）</div>
+  <div class="legend-item"><div class="legend-line" style="background:#8e24aa"></div>配置/规则下发</div>
+  <div class="legend-item"><div class="legend-line" style="background:#999"></div>订阅关系</div>
+</div>
+
+<div class="canvas">
+  <!-- 分区标签 -->
+  <div class="zone-label" style="left:480px;top:12px">端 侧</div>
+  <div class="zone-label" style="left:1220px;top:12px">云 侧</div>
+  <div class="divider"></div>
+
+  <!-- ========== 顶部：用户query主路径 ========== -->
+  <div class="circle" style="left:40px;top:50px;background:#e8eaf6;border:2px solid #3949ab;color:#283593">query</div>
+
+  <!-- ========== 云侧：DT ========== -->
+  <div class="box box-dt" style="left:1100px;top:40px;width:340px;height:250px">
+    <div class="box-title" style="font-size:1.05rem">DT（Director + Advisor）</div>
+    <div class="box-desc" style="margin-top:8px;text-align:left;padding:0 16px;font-size:.76rem;color:#444">
+      <b>Director</b>：对话主控，快决策对外<br/>
+      <b>静态Advisor</b>：舒适/出行/内容/情感<br/>
+      <b>动态Advisor</b>：临时持续任务<br/>
+      <b>Context</b>：消费端状态+VLM数据<br/>
+      <div style="margin-top:6px;padding-top:6px;border-top:1px solid #c5cae9;color:#3949ab;font-weight:600">
+        事件输入 → 情景注意力<br/>
+        <span style="font-weight:400;font-size:.72rem;color:#666">（7.6晚内审：事件融入DT，补充上下文）</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== 云侧：云端端状态 ========== -->
+  <div class="box box-cloud" style="left:1140px;top:360px;width:260px;height:100px">
+    <div class="box-title">云端 端状态</div>
+    <div class="box-desc">VLM数据+车辆信号统一上报<br/>注入Context供DT消费</div>
+  </div>
+
+  <!-- ========== 云侧：云端触发器⑮ ========== -->
+  <div class="box" style="left:1140px;top:540px;width:260px;height:120px;background:#fce4ec;border:2px solid #c62828">
+    <div class="box-title" style="color:#b71c1c">云端触发器 ⑮</div>
+    <div class="box-desc" style="margin-top:4px">
+      预设规则全量/增量下发<br/>
+      动态Advisor注册任务中转<br/>
+      灰度 / 回滚 / 云控
+    </div>
+  </div>
+  <span class="note-tag tag-confirmed" style="left:1320px;top:530px">已有</span>
+
+  <!-- ========== 端侧：SLS闭环业务 ========== -->
+  <div class="box box-sls" style="left:40px;top:120px;width:240px;height:260px;justify-content:flex-start;padding-top:12px">
+    <div class="box-title">SLS 闭环业务</div>
+    <div class="box-desc" style="margin-top:6px;color:#888;font-size:.72rem">赛力斯自闭环<br/>不经触发器</div>
+    <div class="box box-sls" style="position:relative;left:auto;top:auto;width:200px;height:70px;margin-top:16px;border-style:solid;border-color:#9e9e9e">
+      <div class="box-title" style="font-size:.82rem">SLS 应用触发</div>
+      <div class="box-desc">增强哨兵 / 迎宾等</div>
+    </div>
+    <div class="box-desc" style="margin-top:12px;color:#888;font-size:.72rem">↕ 触发+结果返回 SLS</div>
+  </div>
+
+  <!-- ========== 端侧：AIBox ========== -->
+  <div class="box box-aibox" style="left:320px;top:120px;width:420px;height:260px;justify-content:flex-start;padding-top:14px">
+    <div class="box-title" style="font-size:.95rem">AIBox</div>
+    <div style="display:flex;gap:16px;margin-top:20px">
+      <div class="box" style="position:relative;left:auto;top:auto;width:170px;height:80px;background:#fff;border:1.5px solid #43a047">
+        <div class="box-title" style="color:#2e7d32;font-size:.8rem">任务优先级管理</div>
+        <div class="box-desc">P0安全 → P4背景<br/>互斥组排队</div>
+      </div>
+      <div class="box box-vlm" style="position:relative;left:auto;top:auto;width:170px;height:80px">
+        <div class="box-title" style="font-size:.8rem">端侧感知模块<br/>VLM</div>
+      </div>
+    </div>
+    <div style="margin-top:16px;display:flex;gap:16px">
+      <div class="box" style="position:relative;left:auto;top:auto;width:355px;height:60px;background:#fff;border:1.5px solid #43a047">
+        <div class="box-title" style="color:#2e7d32;font-size:.8rem">VLM SDK</div>
+        <div class="box-desc">封装推理引擎 · 数据发布到topic · 状态回调给调用方</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== 端侧：视频流处理 ========== -->
+  <div class="box box-signal" style="left:40px;top:430px;width:180px;height:50px">
+    <div class="box-title" style="color:#666;font-size:.8rem">视频流处理</div>
+  </div>
+
+  <!-- ========== 端侧：AI Service 数据中心 ========== -->
+  <div class="box box-dc" style="left:800px;top:340px;width:220px;height:160px">
+    <div class="box-title">AI Service<br/>数据中心</div>
+    <div class="box-desc" style="margin-top:6px">
+      订阅 VLM SDK topic<br/>
+      接收VLM原始整包输出<br/>
+      缓存 · 按需透传云端<br/>
+      <span style="color:#0d47a1;font-weight:600">owner: 李鑫</span>
+    </div>
+  </div>
+  <span class="note-tag tag-confirmed" style="left:940px;top:330px">7.6定版</span>
+
+  <!-- ========== 端侧：端侧触发器（主模块）========== -->
+  <div class="box box-trigger" style="left:40px;top:550px;width:720px;height:380px;justify-content:flex-start;padding-top:16px;align-items:flex-start;padding-left:20px">
+    <div style="width:100%;text-align:center">
+      <div class="box-title" style="font-size:1.05rem">端侧触发器</div>
+      <div class="box-desc" style="margin-top:2px">动态Advisor / 主动服务 / Director 的底层执行引擎<br/>
+        <span style="color:#c2410c;font-weight:600">owner: 王泽民 · 研发: 汪帅</span>
+      </div>
+    </div>
+
+    <!-- 三个子模块 -->
+    <div style="display:flex;gap:20px;margin-top:20px;width:100%;justify-content:center">
+      <!-- 条件规则订阅 -->
+      <div class="box box-sub" style="position:relative;left:auto;top:auto;width:210px;height:140px;justify-content:flex-start;padding-top:10px">
+        <div class="box-title">条件规则订阅</div>
+        <div class="box-desc" style="font-size:.72rem;color:#888;margin-bottom:4px">（原触发器）</div>
+        <div class="box-desc" style="text-align:left;padding:0 10px;font-size:.72rem">
+          信号ID的AND/OR组合判断<br/>
+          向数据中心订阅信号变更<br/>
+          条件命中 → 触发任务<br/>
+          规则可云控下发
+        </div>
+      </div>
+      <!-- 定时器订阅 -->
+      <div class="box box-sub" style="position:relative;left:auto;top:auto;width:210px;height:140px;justify-content:flex-start;padding-top:10px">
+        <div class="box-title">定时器订阅</div>
+        <div class="box-desc" style="text-align:left;padding:0 10px;font-size:.72rem;margin-top:6px">
+          端侧本地计时<br/>
+          弱网/无网也能触发<br/>
+          掉电持久化恢复<br/>
+          倒计时/循环(max 30次)<br/>
+          最小间隔1分钟
+        </div>
+      </div>
+      <!-- VLM调度 -->
+      <div class="box box-sub" style="position:relative;left:auto;top:auto;width:210px;height:140px;justify-content:flex-start;padding-top:10px">
+        <div class="box-title">VLM 调度<br/>&amp; 状态管理</div>
+        <div class="box-desc" style="text-align:left;padding:0 10px;font-size:.72rem;margin-top:4px">
+          条件命中 → 组装运行指令<br/>
+          P0-P4优先级排队<br/>
+          接收VLM状态回调<br/>
+          超时守卫 · 互斥管理
+        </div>
+      </div>
+    </div>
+
+    <!-- 底部：职责边界 -->
+    <div style="width:100%;text-align:center;margin-top:16px;padding:8px 16px;background:rgba(234,88,12,.06);border-radius:6px">
+      <div class="box-desc" style="font-size:.72rem;color:#c2410c">
+        <b>职责边界（7.6定版）</b>：触发器保证"调用请求发送成功"，VLM SDK保证"收到后内部执行成功"<br/>
+        触发器<b>不碰</b>VLM原始数据 · 只接收状态回调(success/empty/timeout/failed)
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== 端侧：信号源 ========== -->
+  <div class="box box-signal" style="left:100px;top:945px;width:600px;height:1px;border:none;flex-direction:row;gap:12px;font-size:.72rem;color:#888">
+    ▲ 信号源：车辆端状态(韩杰) · 导航/场景 · VLM标签 · 环境感知 · 用户输入 · OEM/IoT
+  </div>
+
+  <!-- ========== SVG 箭头层 ========== -->
+  <svg class="arrows" viewBox="0 0 1480 960" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <marker id="ah-orange" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8" fill="#ea580c"/></marker>
+      <marker id="ah-blue" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8" fill="#1976d2"/></marker>
+      <marker id="ah-green" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8" fill="#43a047"/></marker>
+      <marker id="ah-purple" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8" fill="#8e24aa"/></marker>
+      <marker id="ah-gray" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8" fill="#999"/></marker>
+      <marker id="ah-red" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8" fill="#c62828"/></marker>
+    </defs>
+
+    <!-- 1. query → DT (顶部主路径) -->
+    <line x1="90" y1="75" x2="1096" y2="75" stroke="#3949ab" stroke-width="2.5" marker-end="url(#ah-blue)" stroke-dasharray="8,4"/>
+
+    <!-- 2. SLS → AIBox (触发推理) -->
+    <path d="M280,230 L316,230" stroke="#9e9e9e" stroke-width="1.5" marker-end="url(#ah-gray)"/>
+
+    <!-- 3. AIBox → SLS (结果返回) -->
+    <path d="M316,260 L280,260" stroke="#9e9e9e" stroke-width="1.5" marker-end="url(#ah-gray)"/>
+
+    <!-- 4. 视频流 → AIBox (视频流) -->
+    <path d="M220,455 L380,455 L380,384" stroke="#9e9e9e" stroke-width="1.5" marker-end="url(#ah-gray)"/>
+
+    <!-- 5. 端侧触发器 VLM调度 → AIBox (触发推理, 控制通道, going up) -->
+    <path d="M480,550 L480,384" stroke="#ea580c" stroke-width="3" marker-end="url(#ah-orange)"/>
+
+    <!-- 6. AIBox → 端侧触发器 (状态回调, 控制通道, going down) -->
+    <path d="M520,384 L520,550" stroke="#ea580c" stroke-width="2" marker-end="url(#ah-orange)" stroke-dasharray="6,3"/>
+
+    <!-- 7. AIBox VLM → 数据中心 (VLM原始输出, 数据通道) -->
+    <path d="M744,340 L796,400" stroke="#1976d2" stroke-width="3" marker-end="url(#ah-blue)"/>
+
+    <!-- 8. 数据中心 → 端侧触发器 (订阅, going down-left) -->
+    <path d="M850,504 L850,570 L764,570" stroke="#999" stroke-width="1.5" marker-end="url(#ah-gray)" stroke-dasharray="5,3"/>
+
+    <!-- 9. 数据中心 → 云端端状态 (整包透传, going right) -->
+    <path d="M1024,410 L1136,410" stroke="#43a047" stroke-width="2.5" marker-end="url(#ah-green)"/>
+
+    <!-- 10. 云端端状态 → DT (注入Context, going up) -->
+    <path d="M1270,356 L1270,294" stroke="#43a047" stroke-width="2" marker-end="url(#ah-green)"/>
+
+    <!-- 11. 云端触发器⑮ → 端侧触发器 (规则下发, going left) -->
+    <path d="M1136,600 L1060,600 L1060,720 L764,720" stroke="#8e24aa" stroke-width="2" marker-end="url(#ah-purple)" stroke-dasharray="8,4"/>
+
+    <!-- 12. DT → 云端触发器 (动态任务注册) -->
+    <path d="M1220,294 L1220,536" stroke="#8e24aa" stroke-width="1.5" marker-end="url(#ah-purple)" stroke-dasharray="5,3"/>
+
+    <!-- 13. SLS舱内开关 → 触发器 (左侧小箭头) -->
+    <path d="M130,505 L130,546" stroke="#ea580c" stroke-width="1.5" marker-end="url(#ah-orange)"/>
+  </svg>
+
+  <!-- ========== 箭头标签 ========== -->
+  <!-- 1. query → DT -->
+  <div class="arrow-label al-gray" style="left:500px;top:56px">用户语音 → 云端处理</div>
+
+  <!-- 5. 触发器 → AIBox -->
+  <div class="arrow-label al-orange" style="left:374px;top:468px">① 触发推理<br/>（运行指令）</div>
+
+  <!-- 6. AIBox → 触发器 -->
+  <div class="arrow-label al-orange" style="left:530px;top:468px">② 状态回调<br/>（控制通道）</div>
+
+  <!-- 7. AIBox → 数据中心 -->
+  <div class="arrow-label al-blue" style="left:714px;top:345px;transform:rotate(-30deg);transform-origin:left top">③ VLM输出<br/>直送（数据通道）</div>
+
+  <!-- 8. 数据中心 → 触发器 -->
+  <div class="arrow-label al-gray" style="left:762px;top:540px;font-size:.7rem">订阅信号变更</div>
+
+  <!-- 9. 数据中心 → 云端端状态 -->
+  <div class="arrow-label al-green" style="left:1038px;top:388px;font-size:.7rem">整包透传<br/>端状态上报</div>
+
+  <!-- 10. 云端端状态 → DT -->
+  <div class="arrow-label al-green" style="left:1278px;top:310px;font-size:.7rem">注入<br/>Context</div>
+
+  <!-- 11. 云端触发器 → 端侧触发器 -->
+  <div class="arrow-label al-purple" style="left:870px;top:700px;font-size:.7rem">规则下发 / 动态任务注册</div>
+
+  <!-- 12. DT → 云端触发器 -->
+  <div class="arrow-label al-purple" style="left:1228px;top:430px;font-size:.7rem">Advisor注册<br/>感知订阅</div>
+
+  <!-- 4. 视频流 → AIBox -->
+  <div class="arrow-label al-gray" style="left:240px;top:436px;font-size:.7rem">视频流</div>
+
+  <!-- SLS标签 -->
+  <div class="arrow-label al-gray" style="left:282px;top:216px;font-size:.68rem">触发</div>
+  <div class="arrow-label al-gray" style="left:282px;top:248px;font-size:.68rem">返回</div>
+
+  <!-- SLS舱内开关 -->
+  <div class="arrow-label al-orange" style="left:30px;top:490px;font-size:.7rem;white-space:normal;width:120px;text-align:center">SLS舱内<br/>AlwaysOn开关</div>
+
+  <!-- 信号源上箭头 -->
+  <div class="arrow-label al-gray" style="left:180px;top:932px;font-size:.72rem">▲ 信号源：车辆端状态(韩杰) · 导航场景 · VLM标签 · 环境感知 · 用户输入 · OEM/IoT(赛力斯CDC)</div>
+
+  <!-- ========== 7.6会议结论标注 ========== -->
+  <div style="position:absolute;left:40px;top:12px;display:flex;gap:8px;font-size:.72rem">
+    <span class="note-tag tag-confirmed">7.6下午VLM链路定版</span>
+    <span class="note-tag tag-new">7.6晚事件融入DT内审</span>
+  </div>
+
+</div><!-- canvas -->
+
+<!-- 底部说明 -->
+<div style="max-width:1480px;margin:16px auto 0;display:flex;gap:16px;font-size:.78rem;color:#555">
+  <div style="flex:1;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:12px 16px">
+    <b style="color:#c2410c">双通道分离（7.6定版）</b><br/>
+    • <b>控制通道</b>（橙色）：触发器 ↔ VLM SDK，触发指令 + 状态回调<br/>
+    • <b>数据通道</b>（蓝色）：VLM SDK → 数据中心，原始输出直送，触发器不经手<br/>
+    • <b>原因</b>：触发器是条件判断模块，不该承担数据透传；VLM数据量大频率高，经触发器中转增加延迟
+  </div>
+  <div style="flex:1;background:#e3f2fd;border:1px solid #bbdefb;border-radius:8px;padding:12px 16px">
+    <b style="color:#0d47a1">关键结论（7.6各方确认）</b><br/>
+    • 触发器保证"请求发送成功"，VLM SDK保证"收到后执行成功"（职责切割）<br/>
+    • AlwaysOn双通道已定版；OneShot回传路径<b>待评审</b><br/>
+    • 数据中心整包透传，按需缓存；端云规则必须一致（汪帅原话："否则就是bug"）
+  </div>
+  <div style="flex:1;background:#e8eaf6;border:1px solid #c5cae9;border-radius:8px;padding:12px 16px">
+    <b style="color:#283593">事件融入DT（7.6晚内审方向）</b><br/>
+    • 事件 = 异步消息（手动操作/GUI/工具反馈），不只是trigger<br/>
+    • MVP：最近1条重要事件插入对话历史（解决QQ音乐登录等bug）<br/>
+    • 长期：情景注意力模块（事件+VLM+记忆 → 自然语言情境描述）
+  </div>
+</div>
+
+</div><!-- page -->
+</body>
+</html>

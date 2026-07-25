@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>触发器全链路 · 可视化流程图+逐节点详解 v2</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; color: #1f2937; background: #f4f5f7; padding: 28px 20px 90px; line-height: 1.55; }
+  .wrap { max-width: 1320px; margin: 0 auto; }
+  h1 { font-size: 1.55rem; color: #b91c1c; border-bottom: 3px solid #dc2626; padding-bottom: 10px; margin-bottom: 6px; }
+  .sub { color: #6b7280; font-size: 0.88rem; margin-bottom: 20px; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 10px 22px; background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px 18px; margin-bottom: 8px; font-size: 0.86rem; align-items:center; }
+  .legend b { color:#374151; margin-right:6px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; }
+  .sw { width: 22px; height: 15px; border-radius: 4px; border: 2px solid; display: inline-block; }
+  .sw.mine { border-color: #16a34a; background: #dcfce7; }
+  .sw.other { border-color: #94a3b8; background: #f1f5f9; }
+  .sw.input { border-color: #f59e0b; background: #fef3c7; }
+  .sw.stuck { border-color: #dc2626; background: #fee2e2; border-style: dashed; }
+  .howto { background:#eff6ff; border-left:4px solid #2563eb; border-radius:0 8px 8px 0; padding:10px 16px; margin-bottom:24px; font-size:0.9rem; color:#1e40af; }
+
+  .stage { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 20px 22px 26px; margin-bottom: 26px; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+  .stage-h { font-size: 1.15rem; font-weight: 700; color: #b91c1c; margin-bottom: 4px; }
+  .stage-h .badge { display:inline-block; background:#1f2937; color:#fbbf24; font-size:0.75rem; padding:2px 9px; border-radius:5px; margin-right:8px; vertical-align:middle; }
+  .stage-say { color: #4b5563; font-size: 0.92rem; margin-bottom: 18px; background:#f9fafb; border-radius:8px; padding:10px 15px; }
+  .stage-say b { color:#b45309; }
+
+  .lanes { display:flex; gap:0; border-radius:10px; overflow:hidden; border:1px solid #e5e7eb; }
+  .lane { flex:1; padding:14px 12px 20px; }
+  .lane.edge { background:#f0fdfa; }
+  .lane.cloud { background:#faf5ff; }
+  .lane-tag { font-size:0.82rem; font-weight:700; margin-bottom:14px; padding:3px 10px; border-radius:6px; display:inline-block; }
+  .lane.edge .lane-tag { background:#ccfbf1; color:#0f766e; }
+  .lane.cloud .lane-tag { background:#f3e8ff; color:#7c3aed; }
+
+  .row { display:flex; flex-wrap:wrap; gap:14px; justify-content:center; align-items:stretch; }
+  .col { display:flex; flex-direction:column; align-items:center; gap:0; }
+  .node { position:relative; border:2px solid; border-radius:11px; background:#fff; padding:9px 13px; min-width:120px; max-width:240px; text-align:center; box-shadow:0 1px 2px rgba(0,0,0,.05); }
+  .node .t { font-weight:700; font-size:0.9rem; }
+  .node .o { font-size:0.72rem; color:#6b7280; margin-top:2px; }
+  .node .a { font-size:0.72rem; color:#9ca3af; margin-top:3px; line-height:1.35; }
+  .node.input { border-color:#f59e0b; background:#fffbeb; }
+  .node.mine { border-color:#16a34a; background:#f0fdf4; box-shadow:0 0 0 3px #bbf7d0; }
+  .node.mine .t { color:#15803d; }
+  .node.other { border-color:#94a3b8; background:#f8fafc; }
+  .node.stuck { border-color:#dc2626; border-style:dashed; background:#fef2f2; }
+  .node .flag { position:absolute; top:-11px; left:50%; transform:translateX(-50%); font-size:0.66rem; font-weight:700; padding:1px 8px; border-radius:8px; white-space:nowrap; }
+  .node.mine .flag { background:#16a34a; color:#fff; }
+  .node.stuck .flag { background:#dc2626; color:#fff; }
+
+  .av { color:#64748b; font-size:1.5rem; line-height:1; margin:3px 0; text-align:center; }
+  .av.green { color:#16a34a; }
+  .av.orange { color:#ea580c; }
+  .ah { display:flex; align-items:center; color:#64748b; font-size:1.4rem; padding:0 2px; }
+  .alabel { font-size:0.72rem; color:#6b7280; text-align:center; margin:1px 0; font-weight:700; }
+  .converge { text-align:center; margin:6px 0; }
+
+  /* 逐节点详解 */
+  .detail-h { font-size:0.98rem; font-weight:700; color:#0f766e; margin:22px 0 10px; padding-left:10px; border-left:4px solid #14b8a6; }
+  .dcard { border:1px solid #e5e7eb; border-left:5px solid; border-radius:0 10px 10px 0; padding:12px 16px; margin:11px 0; background:#fff; }
+  .dcard.mine { border-left-color:#16a34a; background:#f7fef9; }
+  .dcard.other { border-left-color:#94a3b8; }
+  .dcard.input { border-left-color:#f59e0b; }
+  .dcard.stuck { border-left-color:#dc2626; background:#fffafa; }
+  .dcard-h { font-weight:700; font-size:0.98rem; margin-bottom:6px; }
+  .dcard-h .tag { font-size:0.7rem; font-weight:700; padding:1px 8px; border-radius:4px; margin-left:8px; vertical-align:middle; }
+  .tag.mine { background:#dcfce7; color:#166534; } .tag.other { background:#f1f5f9; color:#475569; } .tag.stuck { background:#fee2e2; color:#b91c1c; } .tag.input { background:#fef3c7; color:#92400e; }
+  .drow { display:grid; grid-template-columns:88px 1fr; gap:8px; padding:4px 0; font-size:0.87rem; border-top:1px solid #f3f4f6; }
+  .drow .dk { font-weight:700; color:#6b7280; }
+  .drow:first-of-type { border-top:none; }
+  pre.data { background:#0b0f17; color:#a7f3d0; padding:9px 13px; border-radius:7px; font-size:0.76rem; line-height:1.55; overflow-x:auto; font-family:"SF Mono",Menlo,Consolas,monospace; margin:5px 0; white-space:pre-wrap; }
+  pre.data b { color:#fbbf24; } pre.data .c { color:#6b7280; }
+  .why { background:#fffbeb; border-radius:6px; padding:6px 11px; font-size:0.84rem; color:#92400e; margin:5px 0; }
+  .why b { color:#b45309; }
+  .keytake { background:#ecfdf5; border:1px solid #6ee7b7; border-radius:8px; padding:11px 15px; margin-top:16px; font-size:0.9rem; color:#065f46; }
+  .keytake b { color:#047857; }
+
+  .stucknote { background:#fef2f2; border:1px dashed #dc2626; border-radius:8px; padding:10px 15px; margin-top:14px; font-size:0.85rem; color:#991b1b; }
+  .stucknote b { color:#dc2626; }
+  .stuckflag { display:inline-block; background:#dc2626; color:#fff; font-size:0.73rem; font-weight:700; padding:2px 9px; border-radius:5px; margin:2px 3px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>触发器全链路 · 可视化流程图 + 逐节点详解</h1>
+<p class="sub">2026-07-04 · v2:每段先看图,图下面每个节点都展开讲(是什么/数据长啥样/为什么/坑) · 端侧=青底 云侧=紫底</p>
+
+<div class="legend">
+  <b>图例</b>
+  <span class="chip"><span class="sw mine"></span>你的节点(泽民负责)</span>
+  <span class="chip"><span class="sw other"></span>别人的节点(标owner)</span>
+  <span class="chip"><span class="sw input"></span>数据源/输入</span>
+  <span class="chip"><span class="sw stuck"></span>卡点(卡在你这里)</span>
+</div>
+<div class="howto">📖 <b>怎么读:</b>每段先看盒子流程图(箭头=数据流向),再往下看"逐节点详解"——每个盒子拆开讲清楚它在干嘛、进出的数据长什么样(带真实示例)、为什么这么设计、有什么坑。绿色=你负责,红色=卡住的地方。</div>
+
+
+<!-- ==================================================================== -->
+<!-- 第①段 -->
+<!-- ==================================================================== -->
+<div class="stage">
+  <div class="stage-h"><span class="badge">第①段</span>感知上行流 —— 车和摄像头把状态持续送上云</div>
+  <div class="stage-say">💬 <b>这段在干嘛:</b>车里三种"信息源"(传感器、摄像头、外部数据)不停地把"现在什么情况"往云端送,最后全汇进一本叫 <b>Context</b> 的"全局记事本"。你的触发器不直接看传感器,只读这本记事本——这叫<b>解耦</b>(传感器换型号不影响你)。</div>
+
+  <!-- 图 -->
+  <div class="lanes">
+    <div class="lane edge" style="flex:1.7">
+      <span class="lane-tag">▣ 端侧(车上)</span>
+      <div class="row">
+        <div class="col">
+          <div class="node input"><div class="t">📡 车状态信号</div><div class="o">传感器/CAN·车厂</div></div>
+          <div class="av">▼</div>
+          <div class="node other"><div class="t">端状态客户端</div><div class="o">李鑫</div><div class="a">纯透传·不存储</div></div>
+        </div>
+        <div class="col">
+          <div class="node input"><div class="t">📷 VLM 视觉</div><div class="o">AIBox端模·丁彬/兰若</div><div class="a">高频5s/低频5min/舱外3s/oneshot</div></div>
+          <div class="av green">▲ 点火</div>
+          <div class="node mine"><span class="flag">你的</span><div class="t">端侧触发器㉔/SLS开关</div></div>
+        </div>
+      </div>
+      <div class="av">▼</div>
+      <div class="row"><div class="node other"><div class="t">端侧信号库</div></div></div>
+    </div>
+    <div class="lane cloud">
+      <span class="lane-tag">☁ 云侧</span>
+      <div class="col">
+        <div class="node input"><div class="t">🌐 外部数据</div><div class="o">天气/POI/时间/记忆</div></div>
+        <div class="av">▼</div>
+        <div class="node other"><div class="t">云端信号库</div><div class="o">仁杰</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="converge"><div class="av">▼&nbsp;&nbsp;三方信号汇聚&nbsp;&nbsp;▼</div></div>
+  <div class="row">
+    <div class="node stuck"><span class="flag">卡C2</span><div class="t">AI service 数据中心</div><div class="o">赵衍·还没立项</div></div>
+    <div class="ah">──▶</div>
+    <div class="node other" style="border-color:#7c3aed;background:#faf5ff"><div class="t">☁ 云端 Context</div><div class="o">仁杰·全局事实源</div></div>
+  </div>
+
+  <!-- 逐节点详解 -->
+  <div class="detail-h">🔍 逐节点详解</div>
+
+  <div class="dcard input">
+    <div class="dcard-h">📡 车状态信号<span class="tag input">数据源·车厂</span></div>
+    <div class="drow"><span class="dk">是什么</span><span>车上所有传感器/CAN总线产生的原始状态:座位占座、档位、车速、车门、温度、空调……都是<b>结构化枚举值</b>,天生适合运算符。</span></div>
+    <div class="drow"><span class="dk">数据长啥样</span><span><pre class="data">{ "信号":"座位占座信息", "position":"主驾", "states":"已占用",
+  "prev":"未占用", <span class="c">// prev→current 这个"沿"就是"变更为"判定的依据</span>
+  "capture_ts":"14:10:03" }</pre></span></div>
+    <div class="why"><b>为什么对你重要:</b>这类信号是你的"A档"——直接上 <code>等于/变更为</code>,零模型成本。你条件库里大部分条件都建在这上面。</div>
+  </div>
+
+  <div class="dcard input">
+    <div class="dcard-h">📷 VLM 视觉(AIBox端模)<span class="tag other">丁彬/兰若</span></div>
+    <div class="drow"><span class="dk">是什么</span><span>车里的摄像头 + 视觉大模型,每隔几秒"看一眼"车内外,输出<b>自然语言描述+少量标签</b>。跑三个循环+按需单次:</span></div>
+    <div class="drow"><span class="dk">四种任务</span><span>
+      • <b>舱内高频(5秒)</b>:看变化快的——动作、神态<br/>
+      • <b>舱内低频(5分钟)</b>:看变化慢的——位置、性别、年龄、物品<br/>
+      • <b>舱外(3秒)</b>:天气、路面<br/>
+      • <b>oneshot(按需一次)</b>:迎宾、上下车、充电桩、寻车</span></div>
+    <div class="drow"><span class="dk">数据长啥样</span><span><pre class="data"><span class="c">// 低频任务每5分钟全量输出一次:</span>
+{ "乘客列表":[
+   {"位置":"主驾区域","性别":"男","年龄":"青中年","动态":"端正坐姿…"},
+   {"位置":"副驾后方区域","性别":"女","年龄":"<b>儿童</b>"} ],
+  "物品或动物类型":"粉色书包" }  <span class="c">// ← 注意:物品是caption不是枚举!</span></pre></span></div>
+    <div class="why"><b>你的点火作用:</b>这三个循环不是自己转的——是你的<b>端侧触发器㉔/SLS开关</b>把它"打开"的(绿箭头▲)。开了才5秒一转。<b>坑:</b>低频任务5分钟才出一次结果,"上车即推荐"最坏等5分钟(见亲子案例K1)→ 要用占座事件触发oneshot插队。</div>
+  </div>
+
+  <div class="dcard mine">
+    <div class="dcard-h">🔥 端侧触发器㉔ / SLS开关<span class="tag mine">你的</span></div>
+    <div class="drow"><span class="dk">是什么</span><span>你负责的"点火开关"。SLS舱内AlwaysOn开关拨下去,由<b>端侧触发器执行"启动周期推理"</b>这个动作(6.30定:点火权统一收口端侧触发器)。</span></div>
+    <div class="why"><b>为什么收口给你:</b>如果推理入口有的从SLS进、有的从Advisor进,任务优先级就管不全了。入口唯一,排队才有意义。<b>过渡期(0804):</b>SLS直接点火,818你接管。</div>
+  </div>
+
+  <div class="dcard other">
+    <div class="dcard-h">📮 端状态客户端<span class="tag other">李鑫·纯透传</span></div>
+    <div class="drow"><span class="dk">是什么</span><span>一个"快递员"——收到信号就转发上云,<b>不处理、不存储、不缓存</b>(7.4确认)。给它啥它传啥。</span></div>
+    <div class="why"><b>坑(关键):</b>它不存 = 全链路没人记得"上一帧"。而你的"变更为"判断恰恰需要前帧对比 → 这就引出卡点C2(见下)。</div>
+  </div>
+
+  <div class="dcard other">
+    <div class="dcard-h">🗄 端侧信号库 / 云端信号库<span class="tag other">仁杰</span></div>
+    <div class="drow"><span class="dk">是什么</span><span>把杂乱的原始信号<b>标准化</b>成统一格式(key/value/source/timestamp/ttl)。端侧的负责车上信号,云端的是"全集"(端信号同步上来 + 外部数据)。</span></div>
+    <div class="drow"><span class="dk">数据长啥样</span><span><pre class="data">{ "key":"vlm_rear_left_object", "value":"毯子在地上",
+  "source":"VLM", "capture_ts":"14:05:10", "ttl":300 }  <span class="c">// ttl=有效期,过期作废</span></pre></span></div>
+  </div>
+
+  <div class="dcard stuck">
+    <div class="dcard-h">⚠ AI service 数据中心<span class="tag stuck">卡点C2 · 赵衍·还没立项</span></div>
+    <div class="drow"><span class="dk">该做什么</span><span>端上信号上云的中转站。赵衍7.4说"AIBox传给AI service,AI service做端数据中心",但<b>还没立项</b>。</span></div>
+    <div class="drow"><span class="dk">为什么卡你</span><span>你判"从没狗变成有狗"需要上一帧,但端不存、透传不存 → <b>前帧得有人存</b>。最合适的地方就是这个数据中心:每类信号保留"最近一次有效值+时间戳"。</span></div>
+    <div class="why"><b>🔴 讲之前先确认:</b>Context是不是只存最新值?如果Context本身带历史,前帧就在Context里,这个卡点是伪命题。<b>先问仁杰Context存储粒度,再决定C2怎么解。</b></div>
+  </div>
+
+  <div class="dcard other">
+    <div class="dcard-h">☁ 云端 Context<span class="tag other">仁杰·全局事实源</span></div>
+    <div class="drow"><span class="dk">是什么</span><span>全系统的"当前状态总账本"。所有信号最后都汇进来。你的触发器、Director、Advisor 都从这读。</span></div>
+    <div class="drow"><span class="dk">关键性质</span><span>① <b>只存储+主动查询,没有被动通知</b>(庆磊7.4)——你得自己去扫,它不会主动告诉你变了。② 带 ttl 防过期数据误判。③ 给Advisor/Director是"推理时固定拼接",不是订阅。</span></div>
+  </div>
+
+  <div class="stucknote">
+    <b>⚠ 这段的两个卡点:</b>
+    <span class="stuckflag">C1 回传怎么走</span>VLM结果绕Context一大圈,还是原路直接返回?(下一段详说)
+    <span class="stuckflag">C2 谁存前帧</span>推AI service存"最近有效值",但先确认Context存储粒度。
+  </div>
+  <div class="keytake"><b>🎯 这段记住一句:</b>信号从"传感器/摄像头/外部数据"三方汇进Context这本记事本,你只读记事本不碰传感器(解耦)。但记事本"只有当前值、不主动通知你"——所以你要<b>每5秒主动去扫</b>,而且"变更判断"缺前帧,这是你要解决的第一个数据难题。</div>
+</div>
+
+
+<!-- ==================================================================== -->
+<!-- 第②段 -->
+<!-- ==================================================================== -->
+<div class="stage">
+  <div class="stage-h"><span class="badge">第②段</span>query下行流 —— 用户说话,先分四路</div>
+  <div class="stage-say">💬 <b>这段在干嘛:</b>用户说一句话,系统先判断这是哪种需求(<b>四路分流</b>)。跟你有关的是"②条件话"——它会进你的配置平台注册成规则,或者进你的云端触发器拼SP。</div>
+
+  <div class="row">
+    <div class="node input"><div class="t">🎤 用户语音</div></div>
+    <div class="ah">──▶</div>
+    <div class="node other"><div class="t">ASR 转文字</div><div class="o">端·丁彬</div></div>
+    <div class="ah">──▶</div>
+    <div class="node other"><div class="t">⑨ 拒识分流</div><div class="o">意图·斯华</div></div>
+  </div>
+  <div class="converge"><div class="av">▼&nbsp;&nbsp;分四路&nbsp;&nbsp;▼</div></div>
+  <div class="row" style="align-items:flex-start">
+    <div class="col">
+      <div class="node other"><div class="t">① 车控</div><div class="a">"开车窗"</div></div>
+      <div class="av">▼</div><div class="node other"><div class="t">端侧离线fc</div><div class="a">端直接执行</div></div>
+    </div>
+    <div class="col" style="max-width:340px">
+      <div class="node other" style="border-color:#f59e0b"><div class="t">② 条件话</div><div class="a">"超25度开空调"/"毯子掉了告诉我"</div></div>
+      <div class="av orange">▼</div><div class="node other"><div class="t">⑩ 意图解析</div></div>
+      <div class="av orange">▼ 两种来源 ▼</div>
+      <div class="row" style="gap:10px">
+        <div class="col"><div class="alabel">系统预设/静态</div>
+          <div class="node mine"><span class="flag">你的</span><div class="t">⑬ 配置平台</div></div>
+          <div class="av green">▼</div><div class="node mine"><span class="flag">你的</span><div class="t">⑮ 云端触发器</div></div></div>
+        <div class="col"><div class="alabel">用户动态</div>
+          <div class="node other"><div class="t">⑲ Director</div></div>
+          <div class="av">▼</div><div class="node other"><div class="t">⑰ 动态Advisor</div><div class="o">庆磊</div></div>
+          <div class="av green">▼</div><div class="node mine"><span class="flag">你的</span><div class="t">⑮ 拼SP</div></div></div>
+      </div>
+    </div>
+    <div class="col"><div class="node other"><div class="t">③ 非车控</div><div class="a">"天气咋样"</div></div>
+      <div class="av">▼</div><div class="node other"><div class="t">⑲ Director</div><div class="a">直接推理</div></div></div>
+    <div class="col"><div class="node other"><div class="t">④ 拒识</div><div class="a">噪音</div></div>
+      <div class="av">▼</div><div class="node other"><div class="t">日志</div></div></div>
+  </div>
+
+  <div class="detail-h">🔍 逐节点详解</div>
+
+  <div class="dcard other">
+    <div class="dcard-h">⑨ 拒识分流(四路)<span class="tag other">意图·斯华</span></div>
+    <div class="drow"><span class="dk">是什么</span><span>用户的话上云第一站,判断属于四类的哪一类,分流到不同的路。用"词表命中+意图模型+超时兜底"。</span></div>
+    <div class="drow"><span class="dk">四路是啥</span><span>
+      <b>①车控</b>:"开车窗"这种明确指令 → 回端侧直接执行,不上大模型<br/>
+      <b>②条件话</b>:"超25度开空调""毯子掉了告诉我" → 走你的链路(重点)<br/>
+      <b>③非车控query</b>:"今天天气咋样" → 直达Director推理<br/>
+      <b>④拒识</b>:噪音、误唤醒 → 记日志丢弃</span></div>
+  </div>
+
+  <div class="dcard other">
+    <div class="dcard-h">⑩ 意图解析<span class="tag other">意图</span></div>
+    <div class="drow"><span class="dk">是什么</span><span>把"条件话"从自然语言拆成结构化的"条件+动作"。</span></div>
+    <div class="drow"><span class="dk">数据长啥样</span><span><pre class="data"><span class="c">"超过25度开空调" 解析成:</span>
+{ "condition":"temperature > 25", "action":"开空调" }
+<span class="c">"下车提醒带伞" 解析成(注意补全了主语):</span>
+{ "condition":"主驾 下车", "action":"TTS:别忘带伞" }</pre></span></div>
+  </div>
+
+  <div class="dcard mine">
+    <div class="dcard-h">🔀 条件话的两条分支<span class="tag mine">你的核心入口</span></div>
+    <div class="drow"><span class="dk">分支A·系统预设/静态</span><span>产品提前配好的固定场景("温度>45自动开空调")→ 进你的<b>⑬配置平台</b>注册 → 存进<b>⑮云端触发器</b>场景库。这条走"注册"路径。</span></div>
+    <div class="drow"><span class="dk">分支B·用户动态</span><span>用户临时说的("毯子掉了告诉我")→ Director拆解 → 动态Advisor创建任务 → 给你的<b>⑮拼SP</b>(如果要看视觉)。这条走"拼SP"路径。</span></div>
+    <div class="why"><b>为什么分两条:</b>A是"编译期约定"(提前配好,能做频控、能挂多个场景),B是"运行期约定"(用户一句话现造,用完即销毁)。A像公交线路,B像打网约车。</div>
+  </div>
+
+  <div class="keytake"><b>🎯 这段记住一句:</b>用户说话先分四路,只有"条件话"进你这。条件话又分两条:产品预设的走"配置平台注册",用户临时说的走"Director→动态Advisor→你拼SP"。你在这一段是<b>"接单口"</b>——把用户的意图变成你能判断的规则。</div>
+</div>
+
+
+<!-- ==================================================================== -->
+<!-- 第③段 -->
+<!-- ==================================================================== -->
+<div class="stage">
+  <div class="stage-h"><span class="badge">第③段</span>触发判定 —— 你的核心战场</div>
+  <div class="stage-say">💬 <b>这段在干嘛:</b>你的云端触发器每5秒读一次Context记事本,拿"注册过的条件"去比对"当前信号",<b>成立就组装成事件、叫醒对应的Advisor</b>。视觉类任务还要拼SP下发给端上的VLM看。这是你花最多精力的地方,也是卡点最密的地方。</div>
+
+  <div class="lanes">
+    <div class="lane cloud" style="flex:1.4">
+      <span class="lane-tag">☁ 云端触发器⑮(你的P0)</span>
+      <div class="node mine" style="max-width:none"><span class="flag">你的核心</span><div class="t">⑮ 云端触发器</div><div class="a">15-3扫描(5s) → 15-4判定 → 15-6防抖 → 15-7频控 → 15-8仲裁 → 命中</div></div>
+      <div class="av green">▼ 命中→15-13组装事件→四出口 ▼</div>
+      <div class="row">
+        <div class="node mine" style="min-width:105px"><div class="t">静态Advisor⑯</div><div class="o">黄线</div></div>
+        <div class="node stuck" style="min-width:105px"><span class="flag">卡C1</span><div class="t">动态Advisor⑰</div><div class="o">红线</div></div>
+        <div class="node other" style="min-width:95px"><div class="t">通知Director</div></div>
+        <div class="node other" style="min-width:90px"><div class="t">直接执行</div></div>
+      </div>
+    </div>
+    <div class="lane edge">
+      <span class="lane-tag">▣ 端侧触发器㉔(818·P1)</span>
+      <div class="node stuck" style="max-width:none"><span class="flag">卡C6/C7</span><div class="t">㉔ 端侧触发器</div><div class="a">本地定时器/持久化/SP下发/结果回写</div></div>
+      <div class="av">▼</div>
+      <div class="node other" style="max-width:none"><div class="t">触发oneshot</div><div class="a">R→P档→看充电桩→开盖</div></div>
+    </div>
+  </div>
+
+  <div class="detail-h">🔍 云端触发器⑮ 内部:命中一条规则的6步</div>
+
+  <div class="dcard mine">
+    <div class="dcard-h">⑮ 云端触发器 · 判定流水线<span class="tag mine">你的·P0</span></div>
+    <div class="drow"><span class="dk">15-3 扫描</span><span>每5秒心跳读一次Context快照,看有没有信号变化(<b>主动轮询,不是等通知</b>——因为Context不主动通知)。</span></div>
+    <div class="drow"><span class="dk">15-4 判定</span><span>拿注册的条件比对当前信号。支持 静态条件 <b>AND</b> 动态条件。<br/>例:"主驾占座=已占用" AND "乘客列表里有儿童" → 两个都满足才命中。<span style="color:#dc2626">← 卡C8:一个是事件、一个是状态,怎么AND?</span></span></div>
+    <div class="drow"><span class="dk">15-6 防抖</span><span>信号在临界值反复跳(29.9→30.1→29.9)不该反复触发,要连续K帧一致才认。<b>对付VLM的glitch(张兰若警告:狗突然消失又出现)。</b></span></div>
+    <div class="drow"><span class="dk">15-7 频控</span><span>同一条规则触发过就进冷却:总100次/天100/上电10/间隔60s。<span style="color:#dc2626">← 卡C12:但它挡不住"用户拒绝了"这种语义。</span></span></div>
+    <div class="drow"><span class="dk">15-8 仲裁</span><span>多条规则同时命中,按优先级P0~P4排谁先执行(安全类P0 > 娱乐类P4)。</span></div>
+    <div class="drow"><span class="dk">15-13 组装事件</span><span>命中后打包成标准事件,push给Advisor。</span></div>
+    <div class="drow"><span class="dk">事件长啥样</span><span><pre class="data">{ "event_id":"evt_0001", "scene_id":"亲子出行上车", "priority":0,
+  "hit_conditions":[
+    {"signal":"座位占座.主驾","op":"变更为","value":"已占用"},
+    {"signal":"乘客列表.年龄","op":"等于","value":"儿童"} ],
+  "下游输入":{"scene":"亲子出行","push_text":"检测到亲子出行…"} }</pre></span></div>
+    <div class="why"><b>四个出口(15-13后往哪送):</b>①静态Advisor(黄线,你负责)②动态Advisor(红线,你负责,卡C1回传)③通知Director ④简单动作直接执行。走哪个由场景配置的callback决定。</div>
+  </div>
+
+  <div class="detail-h">🔍 动态视觉分支:拼SP怎么拼(卡C4/C5)</div>
+  <div class="dcard stuck">
+    <div class="dcard-h">🧩 15-16/17/18 拼SP引擎<span class="tag stuck">卡C4归属·C5成本</span></div>
+    <div class="drow"><span class="dk">流程</span><span>Advisor给"人话需求"("毯子掉没掉")→ 15-16判枚举还是描述 → 15-17提槽判舱内/舱外 → 15-18拼SP → 经㉔下发VLM。</span></div>
+    <div class="drow"><span class="dk">拼SP长啥样</span><span><pre class="data"><b>原生SP</b>: "prompt: aaaa, bbbb"          <span class="c">(AlwaysOn基础任务)</span>
+ <b>+ 动态SP</b>: "cccc"                     <span class="c">(观察毯子状态)</span>
+ <b>= 合并SP</b>: "prompt: aaaa, bbbb, cccc"
+KV槽位: answer1←aaaa / answer2←bbbb / answer3←cccc(毯子结果)</pre></span></div>
+    <div class="why"><b>为什么归你不归Advisor:</b>同时可能有3个Advisor各要看不同东西,VLM 5秒一个窗口只吃一个SP,<b>必须有人合并、定槽位、再拆结果分发</b>——能看到全部任务的只有管注册的触发器。<span style="color:#dc2626">刘杨反对这归属(C4),1万辆车用模型判断的成本也被质疑(C5)。</span></div>
+  </div>
+
+  <div class="detail-h">🔍 端侧触发器㉔:9个能力(818·P1)</div>
+  <div class="dcard stuck">
+    <div class="dcard-h">㉔ 端侧触发器<span class="tag stuck">卡C6定位·C7排期</span></div>
+    <div class="drow"><span class="dk">六块能力</span><span>
+      ① <b>本地定时器</b>——"10分钟后关座椅加热",断网照跑、掉电重启接着跑<br/>
+      ② <b>本地持久化</b>——SQLite,规则/任务掉电不丢<br/>
+      ③ <b>任务中心端云同步</b>——用户enable/disable任务,两边一致<br/>
+      ④ <b>端侧地理围栏</b>——进出区域判定<br/>
+      ⑤ <b>端状态条件触发</b>——R档切P档→触发看充电桩(系统预设任务)<br/>
+      ⑥ <b>VLM的SP转发</b>——把云端拼好的SP交给AIBox</span></div>
+    <div class="why"><b>为什么被质疑(C6):</b>汪帅说"这不是触发器,是个VLM工具"——因为7.2那张图只画了⑥。要给他一页纸讲清楚:⑥只是其一,它是AIBox的<b>调用方</b>不是工具。</div>
+  </div>
+
+  <div class="stucknote">
+    <b>⚠ 这段卡点最密:</b>
+    <span class="stuckflag">C1 回传通道</span>动态Advisor结果绕Context还是原路返回(仁杰派vs你6.30版)。
+    <span class="stuckflag">C4 拼SP归属</span>刘杨反对。
+    <span class="stuckflag">C5 判断成本</span>1万辆车→三层分级(L1零成本/L3限流兜底)。
+    <span class="stuckflag">C8 AND语义</span>事件×状态混合。
+    <span class="stuckflag">C12 拒绝屏蔽</span>频控挡不住拒绝。
+  </div>
+  <div class="keytake"><b>🎯 这段记住一句:</b>你的云端触发器就干一件事——<b>5秒扫一次记事本,拿规则比信号,命中就叫醒Advisor</b>。中间的判定/防抖/频控/仲裁是"怎么判得准、判得不烦人"。视觉类多一步"拼SP让VLM去看"。端侧触发器是它在车上的手(定时器/持久化/断网兜底)。</div>
+</div>
+
+
+<!-- ==================================================================== -->
+<!-- 第④段 -->
+<!-- ==================================================================== -->
+<div class="stage">
+  <div class="stage-h"><span class="badge">第④段</span>执行输出 —— 变成用户听到的话</div>
+  <div class="stage-say">💬 <b>这段在干嘛:</b>Advisor拿到你push的事件,出个建议;Director拍板生成话术和动作;最后变成车里的语音、车控、屏幕卡片。用户拒绝的话,结果要<b>回流到你的触发器</b>做屏蔽。</div>
+
+  <div class="row">
+    <div class="node other"><div class="t">Advisor建议</div><div class="a">advice</div></div>
+    <div class="ah">──▶</div>
+    <div class="node other"><div class="t">⑳ Director推理</div><div class="a">生成话术+动作</div></div>
+    <div class="ah">──▶</div>
+    <div class="col"><div class="row" style="gap:9px">
+      <div class="node other"><div class="t">🔊 TTS</div></div>
+      <div class="node other"><div class="t">🚗 车控</div></div>
+      <div class="node other"><div class="t">🖼 卡片</div></div>
+      <div class="node other"><div class="t">🛠 工具</div></div></div></div>
+    <div class="ah">──▶</div>
+    <div class="node input"><div class="t">👤 用户</div></div>
+  </div>
+  <div class="converge" style="margin-top:8px"><div class="alabel">用户拒绝 ↩ 回流</div></div>
+  <div class="row">
+    <div class="node stuck"><span class="flag">卡C12</span><div class="t">拒绝结果回流</div><div class="a">调你的场景屏蔽接口</div></div>
+    <div class="ah">──▶</div>
+    <div class="node mine"><span class="flag">你的</span><div class="t">⑮ 触发器频控</div></div>
+  </div>
+
+  <div class="detail-h">🔍 逐节点详解</div>
+  <div class="dcard other">
+    <div class="dcard-h">⑳ Director 推理<span class="tag other">大脑核心</span></div>
+    <div class="drow"><span class="dk">是什么</span><span>基于豆包大模型的推理中枢。输入=Advisor建议+Context,输出三个字段。</span></div>
+    <div class="drow"><span class="dk">输出长啥样</span><span><pre class="data">{ "talk_or_not": true,
+  "talk_content": "小朋友也在车上,帮你准备了儿童节目,要放吗?",
+  "action_list": [{"tool":"push_card","params":{"template":"模版一","ttl_min":3}}] }</pre></span></div>
+  </div>
+  <div class="dcard stuck">
+    <div class="dcard-h">↩ 拒绝结果回流<span class="tag stuck">卡C12</span></div>
+    <div class="drow"><span class="dk">问题</span><span>益红配了"拒绝后本次上电不再推荐",但你的频控(execute_policy)只会<b>数次数</b>,不懂"用户拒绝了"。</span></div>
+    <div class="drow"><span class="dk">怎么解</span><span>Director识别拒绝 → 调你的<b>"场景屏蔽接口"</b>(作用域=本上电周期)→ 15-7频控下次直接拦。<b>但这个接口现在不存在,要提给刘杨。</b></span></div>
+  </div>
+  <div class="keytake"><b>🎯 这段记住一句:</b>你push事件之后,后面的话术/动作是Advisor和Director的活,你不管。但有一根线要连回来:<b>用户拒绝的结果得回流到你的频控</b>,否则"拒绝后不再推荐"实现不了。</div>
+</div>
+
+
+<!-- 全链路串联 -->
+<div class="stage" style="background:#1f2937;color:#e5e7eb;border:none">
+  <div class="stage-h" style="color:#fbbf24">🎯 一句话把四段串起来(以"到公司提醒拿外卖"为例)</div>
+  <div style="font-size:0.92rem;line-height:2;margin-top:8px">
+  用户说"到公司提醒拿外卖" → <span style="color:#5eead4">②条件话</span> → 你在<span style="color:#86efac">配置平台⑬</span>注册成规则 → <span style="color:#5eead4">①感知上行</span>持续把"距公司距离"送进Context → 你的<span style="color:#86efac">⑮云端触发器</span>每5秒判"距离&lt;500m" → <span style="color:#fca5a5">命中</span> → 组装事件push出行Advisor → Advisor出建议 → Director出话术 → <span style="color:#5eead4">④输出</span>:TTS"快到公司了,别忘了拿外卖"。
+  <br/><br/>
+  <b style="color:#fbbf24">你在这条链路出现三次:</b>注册(配置平台⑬)→ 判定(云端触发器⑮)→ 执行(端侧触发器㉔)。<b style="color:#fca5a5">所有卡点都在"信号上来"和"你判定"的交界处</b>——本质是同一个问题:VLM给的是描述,你要的是能判断的信号,中间的转换成本谁扛、判断放哪、结果怎么回、前帧谁存。
+  </div>
+</div>
+
+<p style="text-align:center;color:#9ca3af;font-size:0.85rem;margin-top:20px">触发器全链路可视化流程图 v2(图+逐节点详解+数据示例) · 2026-07-04 · 配套《12-作战地图-v2》文字详版</p>
+
+</div>
+</body>
+</html>

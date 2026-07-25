@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>7.10 信号中枢：为什么要拆条件 — 逐步拆解版</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #232733;
+    --surface3: #2a2e3d;
+    --border: #2e3345;
+    --text: #e2e4ea;
+    --text-dim: #8b8fa3;
+    --text-dim2: #5f6378;
+    --accent: #6c7cff;
+    --accent-light: #8b98ff;
+    --orange: #ff8c42;
+    --orange-dim: rgba(255,140,66,0.12);
+    --green: #4ade80;
+    --green-dim: rgba(74,222,128,0.10);
+    --red: #f87171;
+    --red-dim: rgba(248,113,113,0.10);
+    --yellow: #facc15;
+    --yellow-dim: rgba(250,204,21,0.10);
+    --cyan: #22d3ee;
+    --cyan-dim: rgba(34,211,238,0.10);
+    --purple: #a78bfa;
+    --purple-dim: rgba(167,139,250,0.10);
+    --blue: #60a5fa;
+    --blue-dim: rgba(96,165,250,0.10);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; line-height:1.8; }
+  .container { max-width:860px; margin:0 auto; padding:40px 24px 80px; }
+
+  /* Header */
+  .header { text-align:center; margin-bottom:56px; padding-bottom:32px; border-bottom:1px solid var(--border); }
+  .header .tag { display:inline-block; background:var(--accent); color:#fff; font-size:11px; font-weight:700; padding:4px 14px; border-radius:20px; margin-bottom:16px; letter-spacing:1.5px; }
+  .header h1 { font-size:26px; font-weight:700; margin-bottom:10px; line-height:1.4; }
+  .header .sub { color:var(--text-dim); font-size:13px; line-height:1.6; }
+
+  /* Step */
+  .step { margin-bottom:56px; }
+  .step-num { display:inline-flex; align-items:center; gap:8px; margin-bottom:14px; }
+  .step-num .circle { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; color:#fff; }
+  .step-num .circle.blue { background:var(--accent); }
+  .step-num .circle.orange { background:var(--orange); }
+  .step-num .circle.green { background:var(--green); color:#000; }
+  .step-num .label { font-size:12px; font-weight:700; letter-spacing:2px; color:var(--text-dim); }
+  .step h2 { font-size:20px; font-weight:700; margin-bottom:16px; line-height:1.4; }
+  .step p { font-size:14px; color:var(--text); margin-bottom:14px; line-height:1.9; }
+  .step p.dim { color:var(--text-dim); }
+
+  /* Card */
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:24px; margin:20px 0; }
+  .card-title { font-size:13px; font-weight:700; color:var(--text-dim); letter-spacing:1px; margin-bottom:16px; padding-bottom:10px; border-bottom:1px solid var(--border); }
+
+  /* Config simulator */
+  .config-sim { background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; margin:20px 0; }
+  .config-header { padding:12px 20px; background:var(--surface2); border-bottom:1px solid var(--border); display:flex; align-items:center; gap:8px; }
+  .config-header .dot { width:8px; height:8px; border-radius:50%; }
+  .config-header .dot.r { background:#ff5f57; }
+  .config-header .dot.y { background:#febc2e; }
+  .config-header .dot.g { background:#28c840; }
+  .config-header .title { font-size:12px; color:var(--text-dim); margin-left:8px; }
+  .config-body { padding:20px; }
+  .config-field { margin-bottom:18px; }
+  .config-field:last-child { margin-bottom:0; }
+  .config-label { font-size:12px; font-weight:600; color:var(--text-dim); margin-bottom:6px; display:flex; align-items:center; gap:6px; }
+  .config-label .badge { font-size:10px; padding:2px 6px; border-radius:4px; font-weight:700; }
+  .config-label .badge.dynamic { background:var(--orange-dim); color:var(--orange); }
+  .config-label .badge.static { background:var(--blue-dim); color:var(--blue); }
+  .config-label .badge.action { background:var(--green-dim); color:var(--green); }
+  .config-input { width:100%; padding:10px 14px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; font-size:13px; color:var(--text); }
+
+  /* Timeline */
+  .timeline { position:relative; padding-left:36px; margin:20px 0; }
+  .timeline::before { content:''; position:absolute; left:14px; top:8px; bottom:8px; width:2px; background:var(--border); }
+  .tl-item { position:relative; margin-bottom:20px; }
+  .tl-item:last-child { margin-bottom:0; }
+  .tl-dot { position:absolute; left:-36px; top:4px; width:18px; height:18px; border-radius:50%; border:2px solid var(--border); background:var(--bg); }
+  .tl-dot.active { border-color:var(--green); background:var(--green); }
+  .tl-dot.check { border-color:var(--yellow); background:var(--yellow); }
+  .tl-dot.fail { border-color:var(--red); background:var(--red); }
+  .tl-dot.trigger { border-color:var(--orange); background:var(--orange); }
+  .tl-time { font-size:11px; color:var(--text-dim2); font-weight:600; }
+  .tl-text { font-size:14px; line-height:1.7; }
+  .tl-text strong { font-weight:600; }
+  .tl-sub { font-size:12px; color:var(--text-dim); margin-top:4px; line-height:1.6; }
+
+  /* Comparison */
+  .compare-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:20px 0; }
+  .compare-col { background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+  .compare-col .col-header { padding:12px 16px; font-size:13px; font-weight:700; border-bottom:1px solid var(--border); }
+  .compare-col .col-header.old { background:var(--red-dim); color:var(--red); }
+  .compare-col .col-header.new { background:var(--green-dim); color:var(--green); }
+  .compare-col .col-body { padding:16px; font-size:13px; line-height:1.8; }
+  .compare-col .col-body .line { margin-bottom:8px; }
+  .compare-col .col-body .line:last-child { margin-bottom:0; }
+  .compare-col .col-result { padding:12px 16px; font-size:13px; font-weight:600; border-top:1px solid var(--border); }
+  .compare-col .col-result.fail { background:var(--red-dim); color:var(--red); }
+  .compare-col .col-result.pass { background:var(--green-dim); color:var(--green); }
+
+  /* Big arrow */
+  .big-arrow { text-align:center; margin:24px 0; font-size:28px; color:var(--text-dim2); }
+
+  /* Quote */
+  .quote { background:var(--surface); border-left:3px solid var(--accent); padding:14px 18px; border-radius:0 8px 8px 0; margin:16px 0; }
+  .quote .speaker { font-size:11px; font-weight:700; color:var(--accent-light); margin-bottom:4px; }
+  .quote .text { font-size:13px; color:var(--text); line-height:1.7; }
+
+  /* Highlight */
+  .highlight { padding:20px; border-radius:10px; margin:20px 0; text-align:center; }
+  .highlight.key { background:linear-gradient(135deg, rgba(255,140,66,0.10), rgba(250,204,21,0.08)); border:1px solid rgba(255,140,66,0.25); }
+  .highlight.answer { background:linear-gradient(135deg, rgba(74,222,128,0.10), rgba(34,211,238,0.08)); border:1px solid rgba(74,222,128,0.25); }
+  .highlight.insight { background:linear-gradient(135deg, rgba(108,124,255,0.10), rgba(167,139,250,0.08)); border:1px solid rgba(108,124,255,0.25); }
+  .highlight .big { font-size:17px; font-weight:700; line-height:1.6; margin-bottom:6px; }
+  .highlight .small { font-size:13px; color:var(--text-dim); line-height:1.6; }
+
+  /* Node visual */
+  .node-box { display:inline-block; padding:8px 14px; border-radius:8px; font-size:13px; font-weight:600; margin:2px 4px; }
+  .node-box.dyn { background:var(--orange-dim); color:var(--orange); border:1px solid rgba(255,140,66,0.3); }
+  .node-box.sta { background:var(--blue-dim); color:var(--blue); border:1px solid rgba(96,165,250,0.3); }
+  .node-box.act { background:var(--green-dim); color:var(--green); border:1px solid rgba(74,222,128,0.3); }
+  .node-box.tri { background:var(--orange-dim); color:var(--orange); border:1px solid rgba(255,140,66,0.3); }
+  .node-box.con { background:var(--yellow-dim); color:var(--yellow); border:1px solid rgba(250,204,21,0.3); }
+
+  /* Difference table */
+  .diff-table { width:100%; border-collapse:collapse; margin:16px 0; font-size:13px; }
+  .diff-table th { padding:10px 14px; text-align:left; font-weight:600; font-size:11px; letter-spacing:1px; color:var(--text-dim); background:var(--surface2); }
+  .diff-table td { padding:12px 14px; border-bottom:1px solid var(--border); vertical-align:top; line-height:1.7; }
+  .diff-table tr:last-child td { border-bottom:none; }
+  .diff-table .em { font-weight:600; }
+
+  /* Scenario flow */
+  .scenario-flow { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:24px; margin:20px 0; }
+  .sf-title { font-size:13px; font-weight:700; color:var(--text-dim); margin-bottom:16px; letter-spacing:1px; }
+  .sf-step { display:flex; align-items:flex-start; gap:12px; margin-bottom:16px; position:relative; }
+  .sf-step:not(:last-child)::after { content:''; position:absolute; left:15px; top:32px; bottom:-16px; width:2px; background:var(--border); }
+  .sf-step:last-child { margin-bottom:0; }
+  .sf-icon { flex-shrink:0; width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; color:#fff; position:relative; z-index:1; }
+  .sf-icon.trigger { background:var(--orange); }
+  .sf-icon.cond { background:var(--yellow); color:#000; }
+  .sf-icon.action { background:var(--green); color:#000; }
+  .sf-icon.sleep { background:var(--surface3); color:var(--text-dim); }
+  .sf-content { flex:1; padding-top:4px; }
+  .sf-content .sf-label { font-size:11px; font-weight:700; letter-spacing:1px; margin-bottom:2px; }
+  .sf-content .sf-label.orange { color:var(--orange); }
+  .sf-content .sf-label.yellow { color:var(--yellow); }
+  .sf-content .sf-label.green { color:var(--green); }
+  .sf-content .sf-label.dim { color:var(--text-dim); }
+  .sf-content .sf-desc { font-size:14px; line-height:1.7; }
+  .sf-content .sf-note { font-size:12px; color:var(--text-dim); margin-top:2px; }
+
+  /* Section divider */
+  .divider { margin:48px 0; border:none; border-top:1px solid var(--border); }
+
+  /* Footer */
+  .footer { margin-top:48px; padding-top:24px; border-top:1px solid var(--border); text-align:center; font-size:12px; color:var(--text-dim); }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <div class="tag">逐步拆解版</div>
+    <h1>韩杰为什么要把条件拆成"触发事件 + 条件"？</h1>
+    <div class="sub">基于 7.10 会议 · 用一个完整场景，一步步讲清每一个概念</div>
+  </div>
+
+  <!-- ===== STEP 1 ===== -->
+  <div class="step">
+    <div class="step-num">
+      <div class="circle blue">1</div>
+      <div class="label">从你最熟悉的东西开始</div>
+    </div>
+    <h2>你在配置平台上配过规则，对吧？</h2>
+
+    <p>先回忆一下你日常工作。你在火山配置平台上配一条触发器规则的时候，界面大概长这样：</p>
+
+    <div class="config-sim">
+      <div class="config-header">
+        <div class="dot r"></div><div class="dot y"></div><div class="dot g"></div>
+        <div class="title">火山座舱 · 场景配置平台 · 新建触发器规则</div>
+      </div>
+      <div class="config-body">
+        <div class="config-field">
+          <div class="config-label"><span class="badge dynamic">动态条件</span> 状态变化触发</div>
+          <div class="config-input">档位状态：从 P档 变为 D档</div>
+        </div>
+        <div class="config-field">
+          <div class="config-label"><span class="badge static">静态条件 ①</span> 当前状态判断</div>
+          <div class="config-input">车窗状态 = 有至少一扇未关闭</div>
+        </div>
+        <div class="config-field">
+          <div class="config-label"><span class="badge static">静态条件 ②</span> 当前状态判断</div>
+          <div class="config-input">车速 = 0 km/h</div>
+        </div>
+        <div class="config-field">
+          <div class="config-label"><span class="badge action">执行动作</span></div>
+          <div class="config-input">调用 舒适Advisor → 提醒关窗</div>
+        </div>
+      </div>
+    </div>
+
+    <p>这就是你配一条规则的样子。有<span class="node-box dyn">动态条件</span>、有<span class="node-box sta">静态条件</span>、有<span class="node-box act">执行动作</span>。</p>
+    <p class="dim">到这一步，有没有问题？如果这个配置界面你熟悉，我们继续往下走。</p>
+  </div>
+
+  <!-- ===== STEP 2 ===== -->
+  <div class="step">
+    <div class="step-num">
+      <div class="circle blue">2</div>
+      <div class="label">搞清两个基础概念</div>
+    </div>
+    <h2>"动态条件"和"静态条件"到底有什么区别？</h2>
+
+    <p>这两个词听着像，但意思完全不同。用最直白的话说：</p>
+
+    <div class="compare-grid">
+      <div class="compare-col">
+        <div class="col-header" style="background:var(--orange-dim); color:var(--orange);">动态条件 = 变化</div>
+        <div class="col-body">
+          <div class="line">关注的是：<strong>状态有没有发生变化？</strong></div>
+          <div class="line" style="margin-top:12px;">例子：</div>
+          <div class="line">· 档位从 <strong>P档 → D档</strong>（变了！）</div>
+          <div class="line">· 座位从 <strong>空 → 有人坐</strong>（变了！）</div>
+          <div class="line">· 车门从 <strong>开 → 关</strong>（变了！）</div>
+          <div class="line" style="margin-top:12px; color:var(--orange);">核心词：<strong>从A变成B</strong></div>
+        </div>
+      </div>
+      <div class="compare-col">
+        <div class="col-header" style="background:var(--blue-dim); color:var(--blue);">静态条件 = 当前状态</div>
+        <div class="col-body">
+          <div class="line">关注的是：<strong>现在的状态是什么？</strong></div>
+          <div class="line" style="margin-top:12px;">例子：</div>
+          <div class="line">· 车窗 <strong>= 有一扇没关</strong>（当前就是这样）</div>
+          <div class="line">· 车速 <strong>= 0</strong>（当前就是这样）</div>
+          <div class="line">· 温度 <strong>&gt; 28℃</strong>（当前就是这样）</div>
+          <div class="line" style="margin-top:12px; color:var(--blue);">核心词：<strong>现在是B</strong></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="quote">
+      <div class="speaker">于庆磊 · 43:16 · 会上确认</div>
+      <div class="text">"动态是不是就理解成状态从A到B，静态就是当前的状况是B？" → 韩杰："对，是的。"</div>
+    </div>
+
+    <div class="highlight key">
+      <div class="big">动态条件 = 发生了一件事（变化）<br>静态条件 = 此刻的状况（状态）</div>
+      <div class="small">这个区别非常重要，下面所有的推理都建立在这个区别上。</div>
+    </div>
+  </div>
+
+  <!-- ===== STEP 3 ===== -->
+  <div class="step">
+    <div class="step-num">
+      <div class="circle blue">3</div>
+      <div class="label">理解老系统的运行方式</div>
+    </div>
+    <h2>老的配置平台是怎么运行的？</h2>
+
+    <p>你在平台上配好了这条规则之后，系统是怎么跑的？</p>
+
+    <div class="card">
+      <div class="card-title">老平台的运行逻辑：所有条件并列检查</div>
+      <div class="timeline">
+        <div class="tl-item">
+          <div class="tl-dot"></div>
+          <div class="tl-time">每隔几百毫秒</div>
+          <div class="tl-text">系统同时检查所有条件：<br>
+            <span class="node-box dyn" style="font-size:12px;">档位P→D？</span>
+            <span class="node-box sta" style="font-size:12px;">车窗未关？</span>
+            <span class="node-box sta" style="font-size:12px;">车速=0？</span>
+          </div>
+          <div class="tl-sub">三个条件地位平等，系统不区分谁是"动态"谁是"静态"，全部同时查</div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-dot"></div>
+          <div class="tl-time">大部分时间</div>
+          <div class="tl-text">结果：没有全部满足 → <strong>什么也不做</strong></div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-dot active"></div>
+          <div class="tl-time">某一瞬间，三个条件恰好都满足了</div>
+          <div class="tl-text">结果：<strong>触发！</strong> → 调用舒适Advisor</div>
+        </div>
+      </div>
+    </div>
+
+    <p>关键点：在老系统里，<strong>"动态条件"和"静态条件"虽然在配置界面上长得不一样，但在系统运行时，它们被当作完全平等的三个条件来处理。</strong>系统不在乎哪个是"变化"哪个是"状态"，它只在乎"三个是不是同时为真"。</p>
+
+    <p class="dim">这对于"调Advisor"这个动作来说，完全够用。条件满了，调Advisor，结束。没有任何问题。</p>
+  </div>
+
+  <!-- ===== STEP 4 ===== -->
+  <div class="step">
+    <div class="step-num">
+      <div class="circle orange">4</div>
+      <div class="label">问题出现了</div>
+    </div>
+    <h2>现在，Director提了一个新需求：事件日志</h2>
+
+    <p>明骏（Director PM）提了一个需求：<strong>Director需要知道车上刚刚发生了什么事</strong>，这样模型才能更好地跟用户聊天。</p>
+
+    <p>他需要的东西叫"事件日志"，长这样：</p>
+
+    <div class="card">
+      <div class="card-title">Director想要的事件日志（样例）</div>
+      <table class="diff-table">
+        <tr><th>时间</th><th>事件描述</th></tr>
+        <tr><td>14:03</td><td class="em">主驾切入D档</td></tr>
+        <tr><td>14:05</td><td class="em">主驾打开车窗</td></tr>
+        <tr><td>14:12</td><td class="em">副驾落座</td></tr>
+        <tr><td>14:15</td><td class="em">导航开始</td></tr>
+      </table>
+    </div>
+
+    <p>注意看：每一条事件日志都是<strong>一句清晰的人话，描述"发生了什么事"</strong>。不是一堆状态值，不是"档位=D且车窗=未关且车速=0"。</p>
+
+    <p>这个事件日志会被注入到Director的上下文里，让模型知道"最近车上发生了什么"，从而更好地跟用户对话。</p>
+
+    <div class="quote">
+      <div class="speaker">韩杰 · 05:40 · 解释事件日志用途</div>
+      <div class="text">"单独增加了一个事件日志……快速地告诉模型当前车上，或者说前一段时间发生了哪些事情。"</div>
+    </div>
+  </div>
+
+  <!-- ===== STEP 5 ===== -->
+  <div class="step">
+    <div class="step-num">
+      <div class="circle orange">5</div>
+      <div class="label">核心矛盾</div>
+    </div>
+    <h2>老系统没办法生成这个事件日志</h2>
+
+    <p>为什么？一步步看。</p>
+
+    <p>还是刚才那条规则。当系统触发的那一刻，系统知道什么？</p>
+
+    <div class="card">
+      <div class="card-title">触发瞬间，老系统掌握的信息</div>
+      <table class="diff-table">
+        <tr><th>条件</th><th>状态</th><th>系统知不知道这是"变化"还是"状态"？</th></tr>
+        <tr>
+          <td>档位 P→D</td>
+          <td style="color:var(--green);">✅ 满足</td>
+          <td style="color:var(--red);">不知道。对系统来说，这只是"条件1=真"</td>
+        </tr>
+        <tr>
+          <td>车窗未关</td>
+          <td style="color:var(--green);">✅ 满足</td>
+          <td style="color:var(--red);">不知道。对系统来说，这只是"条件2=真"</td>
+        </tr>
+        <tr>
+          <td>车速=0</td>
+          <td style="color:var(--green);">✅ 满足</td>
+          <td style="color:var(--red);">不知道。对系统来说，这只是"条件3=真"</td>
+        </tr>
+      </table>
+    </div>
+
+    <p>系统只知道"三个条件同时为真了"。但它<strong>不知道</strong>：</p>
+    <ul style="margin:12px 0 12px 20px; font-size:14px; line-height:2;">
+      <li><strong>"档位P→D"是刚刚发生的变化</strong>（是起因、是"事件"）</li>
+      <li><strong>"车窗未关"和"车速=0"只是当时的背景状态</strong>（不是事件）</li>
+    </ul>
+
+    <p>所以，当系统要写事件日志的时候——</p>
+
+    <div class="highlight key">
+      <div class="big">事件日志该写什么？</div>
+      <div class="small">
+        写"档位P→D + 车窗未关 + 车速=0"？→ 这不是一个"事件"，这是三个状态<br>
+        只写"档位P→D"？→ 系统怎么知道该选这个？三个条件地位平等，凭什么选它？
+      </div>
+    </div>
+
+    <p><strong>这就是老系统的根本问题：所有条件被当作平等的"真/假判断"，系统分不清谁是"发生的事"（起因），谁是"当时的情况"（背景）。</strong></p>
+  </div>
+
+  <!-- ===== STEP 6 ===== -->
+  <div class="step">
+    <div class="step-num">
+      <div class="circle orange">6</div>
+      <div class="label">追问一层</div>
+    </div>
+    <h2>等等，老平台上不是已经区分了"动态"和"静态"吗？为什么系统不用这个信息？</h2>
+
+    <p>好问题。配置界面上确实标了<span class="node-box dyn" style="font-size:12px;">动态条件</span>和<span class="node-box sta" style="font-size:12px;">静态条件</span>。</p>
+
+    <p>但问题是：<strong>这个标签只是给你（PM）看的，系统运行时不用它。</strong></p>
+
+    <p>在老的代码逻辑里，"动态条件"和"静态条件"被统一塞进一个条件列表，用同一套逻辑做AND判断。系统只做一件事：<strong>所有条件都为真 → 触发。</strong> "动态"和"静态"这两个标签在运行时被忽略了。</p>
+
+    <div class="quote">
+      <div class="speaker">韩杰 · 12:29 · 说明老平台逻辑</div>
+      <div class="text">"对于触发器原来的配置平台，它的逻辑是若干个条件同时满足，它就执行这样的动作。也就是说它原来是没有触发事件的，它全部都是条件。"</div>
+    </div>
+
+    <p>换句话说：老平台虽然在<strong>界面上</strong>区分了动态/静态，但在<strong>运行时</strong>没有区分。动态条件没有被赋予任何特殊地位——不能生成事件描述，不能作为流程入口，跟静态条件完全一样。</p>
+
+    <div class="highlight key">
+      <div class="big">这就是问题的根源</div>
+      <div class="small">"动态条件"明明代表的是"发生了一件事"，但系统运行时没把它当"事件"用。<br>韩杰要做的，就是让系统真正把它当"事件"来用。</div>
+    </div>
+  </div>
+
+  <!-- ===== STEP 7 ===== -->
+  <div class="step">
+    <div class="step-num">
+      <div class="circle green">7</div>
+      <div class="label">韩杰的解法</div>
+    </div>
+    <h2>韩杰做了什么？把"动态条件"升级成"触发事件"</h2>
+
+    <p>韩杰的做法不是推翻重来，而是<strong>把已有的"动态条件"升级</strong>——从一个普通的条件，升级成整个流程的入口和主角。</p>
+
+    <p>具体来说，升级了三件事：</p>
+
+    <div class="card">
+      <div class="card-title">"动态条件" → "触发事件"：升级了什么？</div>
+      <table class="diff-table">
+        <tr><th style="width:30%;">升级项</th><th style="width:35%;">老的"动态条件"</th><th style="width:35%;">新的"触发事件"</th></tr>
+        <tr>
+          <td class="em">① 地位</td>
+          <td>跟静态条件平等，只是条件列表里的一个</td>
+          <td style="color:var(--green);"><strong>整个流程的入口。</strong>只有它"响了"，后续的条件才开始检查</td>
+        </tr>
+        <tr>
+          <td class="em">② 事件描述</td>
+          <td>没有。只有一个布尔值（满足/不满足）</td>
+          <td style="color:var(--green);"><strong>自带事件描述。</strong>比如"档位切入D档"，可以直接喂给Director的事件日志</td>
+        </tr>
+        <tr>
+          <td class="em">③ 运行时行为</td>
+          <td>跟其他条件一起被轮询，每隔几百毫秒查一次</td>
+          <td style="color:var(--green);"><strong>事件驱动。</strong>只在状态真的发生变化的那一刻才触发，平时不运行</td>
+        </tr>
+      </table>
+    </div>
+
+    <p>同时，"静态条件"改名叫"条件"——内容不变，但地位变了：从"跟动态条件平等的并列判断"，变成了"触发事件响了之后才检查的过滤器"。</p>
+
+    <div class="quote">
+      <div class="speaker">刘杨 · 12:52 · 会上确认映射</div>
+      <div class="text">"你其实是把触发器的动态条件叫成了触发事件，静态条件叫成了条件。" → 韩杰："对，是的。"</div>
+    </div>
+  </div>
+
+  <!-- ===== STEP 8 ===== -->
+  <div class="step">
+    <div class="step-num">
+      <div class="circle green">8</div>
+      <div class="label">对比运行方式</div>
+    </div>
+    <h2>同一条规则，老系统 vs 新系统的运行过程</h2>
+
+    <p>用同一个场景（司机挂D档出发，车窗没关），对比两个系统怎么跑：</p>
+
+    <div class="compare-grid">
+      <div class="compare-col">
+        <div class="col-header old">老系统：并列检查</div>
+        <div class="col-body">
+          <div class="line">⏱ 一直在轮询：</div>
+          <div class="line" style="padding-left:12px;">档位P→D？❌ 还没切</div>
+          <div class="line" style="padding-left:12px;">车窗未关？✅</div>
+          <div class="line" style="padding-left:12px;">车速=0？✅</div>
+          <div class="line" style="padding-left:12px; color:var(--text-dim);">→ 没有全满足，不触发</div>
+          <div class="line" style="margin-top:10px;">⏱ 继续轮询…</div>
+          <div class="line" style="margin-top:10px;">⏱ 司机挂了D档！</div>
+          <div class="line" style="padding-left:12px;">档位P→D？✅ 刚切了</div>
+          <div class="line" style="padding-left:12px;">车窗未关？✅</div>
+          <div class="line" style="padding-left:12px;">车速=0？✅</div>
+          <div class="line" style="padding-left:12px; color:var(--green);">→ 全满足！触发！</div>
+          <div class="line" style="margin-top:10px;">✅ 调Advisor → 提醒关窗</div>
+        </div>
+        <div class="col-result fail">⚠ 要写事件日志？写什么？系统不知道"档位P→D"是这次触发的原因。三个条件同时变真，谁是起因？</div>
+      </div>
+      <div class="compare-col">
+        <div class="col-header new">新系统：串行漏斗</div>
+        <div class="col-body">
+          <div class="line">💤 平时什么都不做</div>
+          <div class="line" style="color:var(--text-dim);">（不轮询，等事件）</div>
+          <div class="line" style="margin-top:10px;">⚡ 司机挂了D档！</div>
+          <div class="line" style="padding-left:12px; color:var(--orange);">触发事件响了："档位切入D档"</div>
+          <div class="line" style="margin-top:10px;">🔽 开始检查条件：</div>
+          <div class="line" style="padding-left:12px;">条件①：车窗未关？✅ 过</div>
+          <div class="line" style="padding-left:12px;">条件②：车速=0？✅ 过</div>
+          <div class="line" style="margin-top:10px;">🔽 所有条件通过，执行动作：</div>
+          <div class="line" style="padding-left:12px; color:var(--green);">动作①：调Advisor → 提醒关窗</div>
+          <div class="line" style="padding-left:12px; color:var(--green);">动作②：写事件日志</div>
+        </div>
+        <div class="col-result pass">✅ 事件日志："14:03 档位切入D档" — 直接用触发事件的描述，清晰明确。</div>
+      </div>
+    </div>
+
+    <p>看到区别了吗？</p>
+    <ul style="margin:12px 0 12px 20px; font-size:14px; line-height:2.2;">
+      <li><strong>老系统</strong>：三个条件同时检查，同时变真，系统不知道哪个是"起因" → 写不了事件日志</li>
+      <li><strong>新系统</strong>：触发事件是入口，它"响了"才开始检查后面的条件 → 触发事件天然就是事件描述</li>
+    </ul>
+  </div>
+
+  <!-- ===== STEP 9 ===== -->
+  <div class="step">
+    <div class="step-num">
+      <div class="circle green">9</div>
+      <div class="label">新系统完整流程</div>
+    </div>
+    <h2>新系统的一条规则，从头到尾完整走一遍</h2>
+
+    <div class="scenario-flow">
+      <div class="sf-title">场景：司机挂D档出发，车窗没关</div>
+
+      <div class="sf-step">
+        <div class="sf-icon sleep">💤</div>
+        <div class="sf-content">
+          <div class="sf-label dim">平时</div>
+          <div class="sf-desc">系统在"听"状态变化，但不做任何判断。类似手机的消息推送——不是你每秒去刷微信，而是有消息来了手机通知你。</div>
+        </div>
+      </div>
+
+      <div class="sf-step">
+        <div class="sf-icon trigger">⚡</div>
+        <div class="sf-content">
+          <div class="sf-label orange">触发事件响了</div>
+          <div class="sf-desc"><strong>档位从P切到了D</strong>——状态发生了变化！</div>
+          <div class="sf-note">系统此刻自动做了一件事：根据拼接规则，生成事件描述 →<strong>"档位切入D档"</strong></div>
+          <div class="sf-note">这句话就是将来事件日志要用的。老系统没有这个能力。</div>
+        </div>
+      </div>
+
+      <div class="sf-step">
+        <div class="sf-icon cond">①</div>
+        <div class="sf-content">
+          <div class="sf-label yellow">条件检查 ①</div>
+          <div class="sf-desc">车窗有没有未关闭？→ <strong style="color:var(--green);">有，通过</strong></div>
+          <div class="sf-note">注意：只有触发事件响了之后，才会开始检查这个条件。如果档位没变，这个条件根本不会被检查。</div>
+        </div>
+      </div>
+
+      <div class="sf-step">
+        <div class="sf-icon cond">②</div>
+        <div class="sf-content">
+          <div class="sf-label yellow">条件检查 ②</div>
+          <div class="sf-desc">车速是不是0？→ <strong style="color:var(--green);">是，通过</strong></div>
+        </div>
+      </div>
+
+      <div class="sf-step">
+        <div class="sf-icon action">▶</div>
+        <div class="sf-content">
+          <div class="sf-label green">执行动作（可以同时执行多个！）</div>
+          <div class="sf-desc">
+            <strong>动作①</strong>：调舒适Advisor → 提醒关窗<br>
+            <strong>动作②</strong>：生成事件日志 → "14:03 档位切入D档"，发给Director<br>
+            <strong>动作③</strong>：（未来）TTS直接播报 / 触发其他workflow
+          </div>
+          <div class="sf-note">老系统只能做动作①。新系统可以同时做多个动作。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== STEP 10 ===== -->
+  <div class="step">
+    <div class="step-num">
+      <div class="circle green">10</div>
+      <div class="label">如果条件没通过呢？</div>
+    </div>
+    <h2>换一个情况：车窗都关好了</h2>
+
+    <p>同一条规则，司机挂了D档，但车窗都关好了：</p>
+
+    <div class="scenario-flow">
+      <div class="sf-title">场景：司机挂D档出发，车窗都关好了</div>
+
+      <div class="sf-step">
+        <div class="sf-icon trigger">⚡</div>
+        <div class="sf-content">
+          <div class="sf-label orange">触发事件响了</div>
+          <div class="sf-desc"><strong>档位从P切到D</strong>——状态变化了！</div>
+        </div>
+      </div>
+
+      <div class="sf-step">
+        <div class="sf-icon" style="background:var(--red);">✕</div>
+        <div class="sf-content">
+          <div class="sf-label" style="color:var(--red);">条件检查 ① — 不通过</div>
+          <div class="sf-desc">车窗有没有未关闭？→ <strong style="color:var(--red);">没有，都关好了，不通过</strong></div>
+          <div class="sf-note">到这里就停了。不再检查后面的条件，不执行任何动作。</div>
+        </div>
+      </div>
+    </div>
+
+    <p>这就是"漏斗"的意思——触发事件是漏斗的入口，条件是漏斗的过滤层，只有一层层都通过，最后才执行动作。任何一层没通过，就停下来。</p>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ===== STEP 11 ===== -->
+  <div class="step">
+    <div class="step-num">
+      <div class="circle blue">11</div>
+      <div class="label">回到核心问题</div>
+    </div>
+    <h2>所以，韩杰为什么要拆？</h2>
+
+    <p>现在可以完整回答了。</p>
+
+    <p><strong>原因不是一个，是四个，层层递进：</strong></p>
+
+    <div class="card">
+      <div class="card-title">原因 ① — 事件日志需要知道"发生了什么"（产品需求驱动）</div>
+      <p style="font-size:14px; line-height:1.9;">Director要事件日志，事件日志需要一句话描述"发生了什么事"。老系统里，动态条件和静态条件地位平等，系统不知道谁是"起因"，没法生成这句话。拆开之后，触发事件就是"主角"，自带事件描述。</p>
+      <div class="quote" style="margin-top:12px;">
+        <div class="speaker">韩杰 · 13:27</div>
+        <div class="text">"Advisor和事件日志，都需要一个明确的触发理由——我要告诉Planner谁在几点的时候去做了一件事情。"</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">原因 ② — 老的并列检查只能做简单规则（产品能力瓶颈）</div>
+      <p style="font-size:14px; line-height:1.9;">老系统只能做"A且B且C → 执行"。但车载场景需要更复杂的流程——比如"先等档位变化，然后延时3秒，再检查车窗，然后根据结果走不同分支"。这种有先后、有时延、有分支的逻辑，并列条件做不了。拆成"触发事件 → 条件 → 动作"的串行流程后，天然支持先后顺序。</p>
+      <div class="quote" style="margin-top:12px;">
+        <div class="speaker">韩杰 · 14:39</div>
+        <div class="text">"并行链路比较适合简单的规则——五个条件一起满足就OK。但车载场景我们会涉及到时延、串行改并行、同时并发。"</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">原因 ③ — 配置平台要升级成运营画布（产品终局）</div>
+      <p style="font-size:14px; line-height:1.9;">韩杰的终局：配置平台升级成workflow画布，运营人员拖拽节点就能配规则。画布需要不同类型的节点——你不能让五个条件都是同一种节点，那画出来就是一排并列的方块，画不出流程图。拆成三种节点（🔶触发事件 → 🟡条件 → 🟢动作），画布才能用。</p>
+      <div class="quote" style="margin-top:12px;">
+        <div class="speaker">韩杰 · 15:51</div>
+        <div class="text">"拖拽一个触发事件，它是档位切入D档，再拖几个条件——串行的或并行的，再拖一个动作。通过画布的方式快速把能力建设起来。"</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">原因 ④ — 多个下游要共享同一套触发逻辑（产品架构收敛）</div>
+      <p style="font-size:14px; line-height:1.9;">现在不止触发器要用"状态变化 → 条件判断 → 执行"这套逻辑，事件日志也要用，未来的规则引擎/任务大师也要用。如果每个下游各搞一套，逻辑分散、难维护。拆成"触发事件 + 条件 + 动作"后，这套逻辑成为通用底座——不同的下游只是挂不同的"动作"节点。</p>
+      <div class="quote" style="margin-top:12px;">
+        <div class="speaker">韩杰 · 09:38</div>
+        <div class="text">"事件日志和trigger放在了一起，他们两个共享这两个东西（触发事件和条件）。"</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== STEP 12 ===== -->
+  <div class="step">
+    <div class="step-num">
+      <div class="circle blue">12</div>
+      <div class="label">最终总结</div>
+    </div>
+    <h2>一句话说清楚</h2>
+
+    <div class="highlight insight">
+      <div class="big">
+        老平台的"动态条件"虽然代表"发生了一件事"，<br>
+        但系统运行时没把它当"事件"用——它只是一个普通条件。<br><br>
+        韩杰做的事：<br>
+        把"动态条件"真正升级成"事件"——<br>
+        给它事件描述能力、给它入口地位、给它驱动后续流程的权力。<br><br>
+        改名叫"触发事件"，就是为了强调：<br>
+        <span style="color:var(--orange);">这不再是一个普通条件，这是整个流程的起点和主角。</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">一张表看全部</div>
+      <table class="diff-table">
+        <tr><th></th><th>老系统</th><th>新系统</th></tr>
+        <tr>
+          <td class="em">名字</td>
+          <td>动态条件 / 静态条件</td>
+          <td>触发事件 / 条件 / 动作</td>
+        </tr>
+        <tr>
+          <td class="em">数据</td>
+          <td>都在一张条件表里</td>
+          <td>拆成三张表（触发事件表、条件表、动作表）</td>
+        </tr>
+        <tr>
+          <td class="em">运行时地位</td>
+          <td>全部平等，并列AND</td>
+          <td>触发事件是入口，条件是过滤器，有主次</td>
+        </tr>
+        <tr>
+          <td class="em">执行顺序</td>
+          <td>同时检查，全满足就触发</td>
+          <td>先触发事件 → 再逐个检查条件 → 最后执行动作</td>
+        </tr>
+        <tr>
+          <td class="em">能生成事件描述？</td>
+          <td style="color:var(--red);">不能</td>
+          <td style="color:var(--green);">能。触发事件自带事件描述拼接规则</td>
+        </tr>
+        <tr>
+          <td class="em">能做复杂流程？</td>
+          <td style="color:var(--red);">不能。只有AND</td>
+          <td style="color:var(--green);">能。支持串行、并行、时延、分支</td>
+        </tr>
+        <tr>
+          <td class="em">能支持多种动作？</td>
+          <td style="color:var(--red);">只能调Advisor</td>
+          <td style="color:var(--green);">Advisor + 事件日志 + TTS + 规则引擎</td>
+        </tr>
+        <tr>
+          <td class="em">能画workflow？</td>
+          <td style="color:var(--red);">不能。节点类型单一</td>
+          <td style="color:var(--green);">能。三种节点类型可拖拽编排</td>
+        </tr>
+        <tr>
+          <td class="em">产品名</td>
+          <td>触发器</td>
+          <td>信号中枢</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="footer">
+    基于 7月10日 SLS端状态接入/触发器需求评审会议 · 逐步拆解版 · 2026-07-13
+  </div>
+
+</div>
+</body>
+</html>

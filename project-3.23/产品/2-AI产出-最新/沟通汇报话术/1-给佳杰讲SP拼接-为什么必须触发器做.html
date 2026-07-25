@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>给佳杰讲 SP 拼接 · 为什么必须触发器做</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; line-height: 1.85; color: #1f2937; max-width: 960px; margin: 0 auto; padding: 32px 24px 80px; background: #fafaf9; }
+  h1 { font-size: 1.6rem; border-bottom: 3px solid #7c3aed; padding-bottom: 12px; color: #5b21b6; }
+  h2 { font-size: 1.25rem; margin-top: 44px; padding: 10px 14px; background: #1f2937; color: #fff; border-radius: 8px; }
+  h3 { font-size: 1.08rem; margin-top: 24px; color: #7c3aed; border-left: 4px solid #7c3aed; padding-left: 10px; }
+  p { margin: 10px 0; }
+  ul, ol { margin: 8px 0; padding-left: 24px; } li { margin: 5px 0; }
+  code { background: #fef3c7; padding: 1px 6px; border-radius: 4px; font-size: 0.92em; color: #92400e; }
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 0.9rem; background: #fff; }
+  th { background: #1f2937; color: #fff; padding: 8px 9px; text-align: left; } td { border: 1px solid #e5e7eb; padding: 8px 9px; vertical-align: top; }
+  tr:nth-child(even) { background: #f9fafb; }
+  .box { padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+  .red { background: #fef2f2; border-left: 4px solid #dc2626; }
+  .blue { background: #eff6ff; border-left: 4px solid #2563eb; }
+  .orange { background: #fff7ed; border-left: 4px solid #ea580c; }
+  .green { background: #f0fdf4; border-left: 4px solid #16a34a; }
+  .purple { background: #f5f3ff; border-left: 4px solid #7c3aed; }
+  .gray { background: #f3f4f6; border-left: 4px solid #6b7280; }
+  .pm { color: #dc2626; font-weight: 700; }
+  .en { color: #6b7280; font-size: 0.88em; }
+  .scene { background: #fff; border: 2px solid #7c3aed; padding: 16px 20px; border-radius: 10px; margin: 16px 0; }
+  .lead { font-size: 1.02rem; background: #fff; border: 1px solid #c4b5fd; padding: 14px 18px; border-radius: 10px; }
+  .talk { background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 12px 16px; margin: 10px 0; font-size: 0.95rem; }
+  .talk b { color: #15803d; }
+  .warn { background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 12px 16px; margin: 10px 0; font-size: 0.95rem; }
+  .warn b { color: #dc2626; }
+</style>
+</head>
+<body>
+
+<h1>给佳杰讲 SP 拼接 · 为什么必须触发器做</h1>
+<p class="en">2026-07-03 · 沟通对象：佳杰（动态Advisor/常驻任务 owner）· 目的：让佳杰理解并认可"SP 拼接由触发器负责"</p>
+
+<div class="lead">
+<b>讲之前先对齐一件事：</b>你面对佳杰，不是要说服他"你该干活"。你要让他看到——<b>他的 Advisor 有一个下不去端模的问题，而你的触发器恰好能帮他解决</b>。站在他的利益上讲。
+</div>
+
+<!-- ==================== 讲法策略 ==================== -->
+<h2>一、讲法策略：从佳杰的痛点入手，不要从你的方案入手</h2>
+
+<div class="box purple">
+<b>佳杰关心的不是"触发器怎么拼字符串"，而是：</b><br/>
+① 我的 Advisor 说了"看毯子"，端模怎么才能看？<br/>
+② 端模看了之后结果怎么回到我的 Advisor？<br/>
+③ 如果有三个 Advisor 同时要看不同的东西，端模怎么都顾上？<br/><br/>
+<b>所以讲法是：先用一个 case 把他的问题暴露出来，然后自然引出触发器是解法。</b>
+</div>
+
+<!-- ==================== 开场 ==================== -->
+<h2>二、逐字话术（可以照着念）</h2>
+
+<h3>2.1 开场：抛问题，不讲方案</h3>
+
+<div class="talk">
+<b>你说：</b>"佳杰，我想跟你对齐一个事——你的常驻任务要让端模去看东西，这个链路现在通不通？我举个例子。"
+</div>
+
+<div class="talk">
+<b>你说：</b>"比如你有一个常驻任务，用户说了'帮我看后排宝宝毯子掉没掉'。你的 Advisor 知道要看，但问题来了——<b>你怎么让端模去看？</b>你直接调 AIBox 吗？"
+</div>
+
+<div class="box gray">
+<b>预判他的回答：</b>佳杰大概率会说"我订阅你触发器的事件啊"或者"丁彬那边的接口"。<br/>
+<b>关键点：</b>不管他说什么，你要把他引到下面这个矛盾上——
+</div>
+
+<h3>2.2 核心矛盾：三个 Advisor 同时要看，端模只有一个窗口</h3>
+
+<div class="talk">
+<b>你说：</b>"好，假设现在同时有三个 Advisor 各自要看不同的东西："
+</div>
+
+<table>
+<tr><th style="width:14%">Advisor</th><th style="width:30%">它想看什么</th><th>它给端模的指令</th></tr>
+<tr><td>Advisor A</td><td>后排宝宝毯子掉没掉</td><td>"看后排毯子在不在宝宝身上"</td></tr>
+<tr><td>Advisor B</td><td>副驾有没有打电话</td><td>"看副驾有没有手持手机"</td></tr>
+<tr><td>Advisor C</td><td>主驾有没有闭眼</td><td>"看主驾眼睛闭合状态"</td></tr>
+</table>
+
+<div class="talk">
+<b>你说：</b>"端模 5 秒一个窗口，一次只吃一个 SP。<b>这三条指令谁来合并成一个 SP 喂给端模？</b>"
+</div>
+
+<div class="warn">
+<b>这就是要让佳杰意识到的矛盾：</b><br/>
+Advisor A 不知道 B 和 C 存在（互相看不见）→ A 没法把 B 和 C 的指令拼进自己的 SP<br/>
+端模自己不能合并（它只吃 SP，不知道哪条来自谁）<br/>
+<b>必须有一个"全局角色"看得到所有 Advisor 的需求，合并成一个 SP，再拆开返回。</b>
+</div>
+
+<h3>2.3 解法：这个全局角色就是触发器</h3>
+
+<div class="talk">
+<b>你说：</b>"所以我这边触发器来做这件事。逻辑很简单，就三个动作——"
+</div>
+
+<table>
+<tr><th style="width:4%">#</th><th style="width:14%">动作</th><th style="width:40%">干什么</th><th>给佳杰的白话</th></tr>
+<tr><td>1</td><td><b>合并追加</b></td><td>三个 Advisor 各给我一句话，我按槽位拼到 always-on SP 的尾部</td><td>"你给我人话，我往端模 SP 里追加一行"</td></tr>
+<tr><td>2</td><td><b>对位读取</b></td><td>端模返回一坨结果，我按预定好的 key 把每个 Advisor 要的值捞出来，分发回去</td><td>"结果回来我帮你挑，你只拿到你要的那条"</td></tr>
+<tr><td>3</td><td><b>清理删除</b></td><td>某个 Advisor 的任务结束了，我把它那行从 SP 里摘掉，还原</td><td>"你说不看了，我帮你撤"</td></tr>
+</table>
+
+<div class="talk">
+<b>你说：</b>"对你来说，<b>你只管给我一句人话+告诉我你要什么 key 的返回值</b>。拼接、下发、拆结果、清理——全是我的活。你不用碰端模的 SP 格式，也不用知道还有几个 Advisor 在跑。"
+</div>
+
+<h3>2.4 回应"为什么 Advisor 自己不能拼"</h3>
+
+<p>佳杰可能会问：为什么不是我自己拼？或者兰若 6.30 那个方案——Advisor 自己拼、端模自己拼？</p>
+
+<div class="talk">
+<b>你说：</b>"兰若 6.30 一开始也想让 Advisor 自己拼，后来她自己推翻了。原因就一句话：<b>端模返回的是一坨混在一起的结果，Advisor 自己挑不出自己要的那部分。</b>"
+</div>
+
+<div class="talk">
+<b>你说：</b>"而且技术上，端模一次只吃一个 SP。三个 Advisor 如果各自拼各自发，端模吃谁的？吃了 A 的就漏了 B 和 C。<b>只有一个人做合并，才能保证都喂进去。</b>丁彬也说了：'谁拼的谁才知道从哪去拿。'"
+</div>
+
+<div class="box red">
+<b>一句话总结给佳杰：</b><br/>
+"<b>你的 Advisor 负责说'看什么'和'看到了怎么办'。我的触发器负责'怎么让端模去看'和'把结果分发回你'。</b>中间拼 SP 这件事，必须在我这——因为只有我看得到所有 Advisor 的需求，能做全局合并。"
+</div>
+
+<!-- ==================== 协议 ==================== -->
+<h2>三、你和佳杰需要对齐的接口协议</h2>
+
+<p>讲完"为什么是我做"之后，佳杰下一个问题一定是"那我给你什么、你给我什么"。提前准备好：</p>
+
+<h3>3.1 Advisor → 触发器（注册观测需求）</h3>
+
+<table>
+<tr><th style="width:18%">字段</th><th style="width:38%">含义</th><th>示例</th></tr>
+<tr><td><code>advisor_id</code></td><td>哪个 Advisor 发的</td><td>"advisor-007"</td></tr>
+<tr><td><code>observe_query</code></td><td>人话描述"看什么"</td><td>"后排毯子是否在宝宝身上"</td></tr>
+<tr><td><code>camera_group</code></td><td>用哪组摄像头</td><td>CABIN（舱内）</td></tr>
+<tr><td><code>return_key</code></td><td>Advisor 要的返回值 key</td><td>"rear_blanket_status"</td></tr>
+<tr><td><code>lifecycle</code></td><td>持续型 / 一次性</td><td>持续型（用户说停才停）</td></tr>
+</table>
+
+<div class="box green">
+<b>对佳杰说：</b>"你就给我这五个字段。SP 怎么拼、端模怎么调、slot 怎么定——都是我的事，你不用管。"
+</div>
+
+<h3>3.2 触发器 → Advisor（返回结果）</h3>
+
+<table>
+<tr><th style="width:18%">字段</th><th style="width:38%">含义</th><th>示例</th></tr>
+<tr><td><code>advisor_id</code></td><td>发给谁</td><td>"advisor-007"</td></tr>
+<tr><td><code>return_key</code></td><td>对应注册时的 key</td><td>"rear_blanket_status"</td></tr>
+<tr><td><code>value</code></td><td>端模输出的值</td><td>"毯子在地上"</td></tr>
+<tr><td><code>event_type</code></td><td>状态（持续）/ 事件（穿越那一刻）</td><td>event（从"盖着"变成"在地上"）</td></tr>
+<tr><td><code>timestamp</code></td><td>发生时间</td><td>1751529600</td></tr>
+</table>
+
+<div class="box green">
+<b>对佳杰说：</b>"你收到的就是干净的、只属于你这条任务的结果。不用从一坨混合信息里自己挑。"
+</div>
+
+<!-- ==================== 全链路 ==================== -->
+<h2>四、全链路走一遍（讲给佳杰看的版本）</h2>
+
+<p>用"三个 Advisor 同时要看"的场景走一遍，让佳杰看清触发器在中间干了什么。</p>
+
+<table>
+<tr><th style="width:4%">步</th><th style="width:12%">谁</th><th style="width:48%">干什么</th><th>佳杰的视角</th></tr>
+<tr><td>1</td><td><b>Advisor A/B/C</b></td><td>分别向触发器注册观测需求：<br/>A: "看后排毯子" key=blanket_status<br/>B: "看副驾手机" key=copilot_phone<br/>C: "看主驾闭眼" key=driver_eyes</td><td>我只管提需求</td></tr>
+<tr><td>2</td><td><b>触发器</b></td><td><b>合并：</b>把三条人话按槽位拼入 always-on SP 尾部：<br/><code>[slot-A] 请描述后排毯子位置状态</code><br/><code>[slot-B] 请描述副驾是否手持手机</code><br/><code>[slot-C] 请描述主驾眼睛闭合状态</code></td><td>我看不到这一步<br/>（也不需要看到）</td></tr>
+<tr><td>3</td><td><b>触发器 → 端模</b></td><td>拼好的完整 SP 下发到 AIBox 端模</td><td></td></tr>
+<tr><td>4</td><td><b>端模</b></td><td>每 5 秒按 SP 输出一坨混合结果：<br/><code>{slot-A: "毯子在宝宝身上", slot-B: "副驾右手持手机", slot-C: "主驾眼睛睁开"}</code></td><td></td></tr>
+<tr><td>5</td><td><b>触发器</b></td><td><b>拆分发：</b><br/>• 按 key=blanket_status 捞 slot-A 的值 → 发给 Advisor A<br/>• 按 key=copilot_phone 捞 slot-B 的值 → 发给 Advisor B<br/>• 按 key=driver_eyes 捞 slot-C 的值 → 发给 Advisor C</td><td>我只收到我要的那条</td></tr>
+<tr><td>6</td><td><b>触发器</b></td><td><b>阈值穿越：</b>如果 slot-A 从"在宝宝身上"变成"在地上"→ 组装事件 push 给 A</td><td>我收到"毯子刚掉了"事件</td></tr>
+<tr><td>7</td><td><b>Advisor A</b></td><td>收到事件 → 推理 → advice 给 Director</td><td>我拿到事件就开始干活</td></tr>
+</table>
+
+<div class="box blue">
+<b>画重点给佳杰看：</b><br/>
+步骤 2-5 是触发器的活。佳杰的 Advisor <b>只出现在第 1 步（提需求）和第 7 步（收结果）</b>。<br/>
+中间"怎么拼、怎么喂端模、怎么拆结果"——全部透明，佳杰不用关心。
+</div>
+
+<!-- ==================== 预判 ==================== -->
+<h2>五、佳杰可能的反问 + 你的回答</h2>
+
+<table>
+<tr><th style="width:30%">佳杰可能问</th><th>你的回答</th></tr>
+<tr><td>"SP 的模板谁定？你能定吗？"</td><td>"模板是丁彬/兰若定的，端模能理解什么格式他们说了算。<b>我不生成 prompt、不理解语义</b>——我只做字符串追加、按 key 读值、任务结束删除。纯机械操作。"</td></tr>
+<tr><td>"你拼的东西端模能理解吗？"</td><td>"能不能理解是丁彬要保证的事。我和丁彬对好 SP 模板格式（哪个位置放什么 slot），然后我严格按模板往里填你给我的人话。<b>我不改写、不润色、不判断语义。</b>"</td></tr>
+<tr><td>"如果我只有一个 Advisor 要看，还需要走你吗？"</td><td>"一样走。因为即使只有一个，你的指令也需要拼进 always-on 的 SP 里——always-on SP 是一直在跑的，你不能覆盖它，只能追加。而且将来随时可能来第二个、第三个，提前走通不返工。"</td></tr>
+<tr><td>"我能不能自己直接调 AIBox？"</td><td>"技术上能调，但你调了之后结果是一坨混合的——你怎么从里面挑出你要的？而且你调的时候不知道别的 Advisor 在不在跑，<b>你可能把别人的 SP 覆盖掉</b>。兰若 6.30 就是想到这一步才推翻了'Advisor 自己拼'的方案。"</td></tr>
+<tr><td>"那你对我的依赖是什么？"</td><td>"我对你的依赖就一个：<b>你告诉我看什么、要什么 key 的返回值</b>。五个字段，很轻。我不需要你改任何现有逻辑。"</td></tr>
+</table>
+
+<!-- ==================== 总结 ==================== -->
+<h2>六、一页纸总结（可以截图发给佳杰）</h2>
+
+<div class="scene">
+
+<h3 style="margin-top:0;text-align:center">SP 拼接分工：一句话版</h3>
+
+<table>
+<tr><th style="width:20%">角色</th><th style="width:35%">职责</th><th>不做什么</th></tr>
+<tr><td><b>动态 Advisor<br/>（佳杰）</b></td><td>说"看什么" + 定 return_key + 收结果 + 推理</td><td>不碰 SP 格式、不调 AIBox、不拆结果</td></tr>
+<tr><td><b>触发器<br/>（泽民）</b></td><td>合并多条需求 → 按模板拼 SP → 下发端模 → 拆结果按 key 分发 → 阈值穿越 → 事件 push → 任务结束清理</td><td>不理解语义、不生成 prompt、不判断结果对不对</td></tr>
+<tr><td><b>端模/AIBox<br/>（丁彬）</b></td><td>定 SP 模板格式 + 吃 SP + 按 slot 输出结果</td><td>不知道有几个 Advisor、不管合并</td></tr>
+</table>
+
+<div class="box red" style="margin-top:16px">
+<b>为什么只能触发器做合并：</b><br/>
+① Advisor 互相看不见 → 没法合并别人的指令<br/>
+② 端模一次只吃一个 SP → 三个 Advisor 各自发 = 覆盖冲突<br/>
+③ 返回结果是混合的 → Advisor 自己挑不出自己的<br/>
+④ 触发器是唯一一个"看得到所有需求 + 看得到所有结果"的全局角色<br/><br/>
+<b>兰若 6.30 结论（她自己推翻了"Advisor 自己拼"）：</b>"只能触发器那边合并成一个任务。"<br/>
+<b>丁彬结论：</b>"谁拼谁才知道从哪去拿。"
+</div>
+
+</div>
+
+<hr style="margin-top:40px;border:none;border-top:2px dashed #cbd5e1"/>
+<p class="en">2026-07-03 · 沟通对象：佳杰 · 核心论点：SP拼接=纯机械操作(追加/读取/删除) + 触发器是唯一全局角色 · 含逐字话术+预判反问+接口协议</p>
+
+</body>
+</html>

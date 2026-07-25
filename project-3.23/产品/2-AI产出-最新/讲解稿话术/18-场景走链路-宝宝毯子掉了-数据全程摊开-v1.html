@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>场景走链路 · 宝宝毯子掉了 · 数据全程摊开 v1</title>
+<style>
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; color:#1f2937; background:#f4f5f7; padding:30px 22px 100px; line-height:1.65; }
+  .wrap { max-width:1080px; margin:0 auto; }
+  h1 { font-size:1.5rem; color:#b91c1c; border-bottom:3px solid #dc2626; padding-bottom:10px; }
+  .sub { color:#6b7280; font-size:0.88rem; margin:6px 0 18px; }
+  .scene { background:#fff; border:1px solid #fed7aa; border-left:5px solid #ea580c; border-radius:0 10px 10px 0; padding:14px 18px; margin:14px 0; }
+  .scene b { color:#c2410c; }
+  .howto { background:#eff6ff; border-left:4px solid #2563eb; border-radius:0 8px 8px 0; padding:10px 16px; margin:14px 0; font-size:0.9rem; color:#1e40af; }
+  .howto b { color:#1e3a8a; }
+
+  .step { background:#fff; border:1px solid #e5e7eb; border-radius:12px; margin:16px 0; overflow:hidden; }
+  .step.mine { border:2px solid #16a34a; box-shadow:0 0 0 3px #dcfce7; }
+  .step-h { padding:11px 17px; font-weight:700; font-size:1.02rem; display:flex; align-items:center; gap:10px; }
+  .step.mine .step-h { background:#f0fdf4; color:#15803d; }
+  .step:not(.mine) .step-h { background:#f8fafc; color:#334155; }
+  .step-n { flex-shrink:0; width:34px; height:34px; border-radius:50%; color:#fff; font-weight:700; display:flex; align-items:center; justify-content:center; font-size:0.95rem; }
+  .step.mine .step-n { background:#16a34a; }
+  .step:not(.mine) .step-n { background:#94a3b8; }
+  .step-h .tag { font-size:0.7rem; font-weight:700; padding:1px 8px; border-radius:4px; margin-left:auto; }
+  .step-h .tag.mine { background:#16a34a; color:#fff; }
+  .step-h .tag.other { background:#e2e8f0; color:#475569; }
+  .step-b { padding:14px 18px; }
+  .blk { margin:9px 0; }
+  .blk-label { font-size:0.8rem; font-weight:700; padding:2px 9px; border-radius:4px; display:inline-block; margin-bottom:4px; }
+  .lbl-what { background:#fef3c7; color:#92400e; }
+  .lbl-data { background:#1e293b; color:#7dd3fc; }
+  .lbl-do { background:#dcfce7; color:#166534; }
+  .lbl-give { background:#ede9fe; color:#5b21b6; }
+  .what { font-size:0.92rem; }
+  pre.data { background:#0b0f17; color:#a7f3d0; padding:11px 14px; border-radius:8px; font-size:0.79rem; line-height:1.55; overflow-x:auto; font-family:"SF Mono",Menlo,Consolas,monospace; white-space:pre-wrap; }
+  pre.data .c { color:#6b7280; } pre.data .k { color:#7dd3fc; } pre.data .v { color:#fcd34d; } pre.data .chg { color:#fca5a5; font-weight:700; }
+  .do { background:#f0fdf4; border-left:3px solid #16a34a; border-radius:0 6px 6px 0; padding:8px 13px; font-size:0.9rem; }
+  .do b { color:#166534; }
+  .give { font-size:0.9rem; color:#5b21b6; }
+  .struct-ref { font-size:0.78rem; color:#6b7280; background:#f3f4f6; padding:1px 7px; border-radius:4px; }
+  .wait { font-size:0.78rem; background:#fee2e2; color:#b91c1c; padding:1px 7px; border-radius:4px; font-weight:700; }
+  .box { padding:12px 16px; border-radius:8px; margin:14px 0; font-size:0.9rem; }
+  .green { background:#f0fdf4; border-left:4px solid #16a34a; }
+  .amber { background:#fffbeb; border-left:4px solid #f59e0b; }
+  code { background:#fef3c7; padding:1px 5px; border-radius:4px; font-size:0.9em; color:#92400e; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>场景走链路 · "宝宝毯子掉了提醒我" · 数据全程摊开</h1>
+<p class="sub">2026-07-05 · 用一个具体场景把整条动态链路走到底 · 每一步:发生什么 / 此刻数据长什么样(真实值) / 我做什么 / 交给谁</p>
+
+<div class="scene">
+<b>场景设定:</b>14:00,爸爸(主驾)开车,后排安全座椅上坐着 5 岁女儿,盖着一条小毯子。爸爸不放心,说了一句:<b>"宝宝毯子掉了提醒我"</b>。<br/>
+接下来就看:这句话进系统后,整条链路怎么走,<b>你(触发器)在每一步具体干什么、数据怎么一步步变化</b>,直到毯子真掉了、车里响起提醒。
+</div>
+
+<div class="howto">
+<b>怎么读:</b>每一步一张卡。<span class="blk-label lbl-what">发生什么</span>人话讲这步 · <span class="blk-label lbl-data">此刻的数据</span>这一刻数据长什么样(真实值,像运行日志)· <span class="blk-label lbl-do">我做什么</span>你(触发器)的动作 · <span class="blk-label lbl-give">交给谁</span>下一站。<br/>
+<b>绿色加粗的卡=你的动作</b>。你会看到:这条链路 18 步里,第 5-8、11-16 步几乎全是你的活。灰色的<span class="struct-ref">结构名</span>标签指向《17号数据契约》里对应的结构,<span class="wait">待定</span>标记的是还没定的字段。
+</div>
+
+
+<!-- 1 -->
+<div class="step">
+<div class="step-h"><div class="step-n">1</div>用户说话 → ASR转文字<span class="tag other">丁彬·端</span></div>
+<div class="step-b">
+<div class="blk"><span class="blk-label lbl-what">发生什么</span><div class="what">爸爸说的那句话,车机的麦克风收到,端侧 ASR 转成文字。</div></div>
+<div class="blk"><span class="blk-label lbl-data">此刻的数据</span>
+<pre class="data">{ <span class="k">"text"</span>: <span class="v">"宝宝毯子掉了提醒我"</span>,
+  <span class="k">"speaker"</span>: <span class="v">"主驾"</span>, <span class="k">"position"</span>: <span class="v">"driver"</span>,
+  <span class="k">"timestamp"</span>: <span class="v">"14:00:03"</span> }</pre></div>
+<div class="give"><span class="blk-label lbl-give">交给谁</span>→ 第2步 拒识分流</div>
+</div></div>
+
+<!-- 2 -->
+<div class="step">
+<div class="step-h"><div class="step-n">2</div>拒识分流:这是哪种话?<span class="tag other">斯华·意图</span></div>
+<div class="step-b">
+<div class="blk"><span class="blk-label lbl-what">发生什么</span><div class="what">判断这句话属于四路里的哪一路。"毯子掉了提醒我"不是"开车窗"那种直接指令,是一个要持续观察的需求 → 归"非车控/条件话",送 Director。</div></div>
+<div class="blk"><span class="blk-label lbl-data">此刻的数据</span>
+<pre class="data">{ <span class="k">"intent"</span>: <span class="v">"条件话·持续观测"</span>, <span class="k">"route"</span>: <span class="v">"→ Director"</span> }</pre></div>
+<div class="give"><span class="blk-label lbl-give">交给谁</span>→ 第3步 Director</div>
+</div></div>
+
+<!-- 3 -->
+<div class="step">
+<div class="step-h"><div class="step-n">3</div>Director 拆解 → 创建动态Advisor<span class="tag other">仁杰/庆磊</span></div>
+<div class="step-b">
+<div class="blk"><span class="blk-label lbl-what">发生什么</span><div class="what">Director 判断这是"持续视觉观测任务"(要一直盯着毯子,不知道什么时候掉),于是创建一个专门管这件事的动态 Advisor。</div></div>
+<div class="blk"><span class="blk-label lbl-data">此刻的数据</span>
+<pre class="data">{ <span class="k">"task_type"</span>: <span class="v">"持续视觉观测"</span>,
+  <span class="k">"advisor_id"</span>: <span class="v">"dyn_adv_001"</span>, <span class="c">// 新建的动态Advisor</span>
+  <span class="k">"目标"</span>: <span class="v">"毯子掉了→通知用户"</span> }</pre></div>
+<div class="give"><span class="blk-label lbl-give">交给谁</span>→ 第4步 动态Advisor自己先查一下</div>
+</div></div>
+
+<!-- 4 -->
+<div class="step">
+<div class="step-h"><div class="step-n">4</div>动态Advisor 先查:毯子是现成信号吗?<span class="tag other">庆磊</span></div>
+<div class="step-b">
+<div class="blk"><span class="blk-label lbl-what">发生什么</span><div class="what">动态Advisor 先看 Context 里有没有"毯子"这种现成信号(官方图第一个菱形"是否预对齐的 enum")。查下来——AIBox 没有"毯子掉没掉"这种枚举标签 → <b>走"拼SP"这条路</b>(不是走 enum 直接监听那条)。</div></div>
+<div class="blk"><span class="blk-label lbl-data">此刻的数据</span>
+<pre class="data">查Context: <span class="k">"毯子"</span> → <span class="v">未找到枚举信号</span>
+判定: <span class="k">"is_enum"</span>: <span class="chg">false</span>  <span class="c">// false=走拼SP路 / 如果是"宝宝睡了吗",睡觉是enum→true→走监听路</span></pre></div>
+<div class="give"><span class="blk-label lbl-give">交给谁</span>→ 第5步:把需求给<b>你(云端触发器)</b></div>
+</div></div>
+
+<!-- 5 你 -->
+<div class="step mine">
+<div class="step-h"><div class="step-n">5</div>动态Advisor 把"人话需求"给你<span class="tag mine">你·云端触发器</span></div>
+<div class="step-b">
+<div class="blk"><span class="blk-label lbl-what">发生什么</span><div class="what">动态Advisor 给你的是<b>一句人话</b>(不是SP!):"观察后排宝宝毯子状态"。拼SP是你的事。</div></div>
+<div class="blk"><span class="blk-label lbl-data">此刻的数据 <span class="struct-ref">ObserveRequest</span></span>
+<pre class="data">{ <span class="k">"task_id"</span>: <span class="v">"task_blanket_001"</span>,   <span class="wait">待定·谁生成找刘杨</span>
+  <span class="k">"request_text"</span>: <span class="v">"观察后排宝宝毯子状态"</span>,  <span class="c">// 人话,不是SP</span>
+  <span class="k">"is_enum"</span>: <span class="v">false</span>,
+  <span class="k">"position_hint"</span>: <span class="v">"后排"</span>,
+  <span class="k">"advisor_id"</span>: <span class="v">"dyn_adv_001"</span> }  <span class="c">// 记住是谁发起的,结果要还给它</span></pre></div>
+<div class="do"><span class="blk-label lbl-do">我做什么</span><b>接收</b>这个人话需求,准备把它变成 VLM 能执行的 SP。<b>注意:</b><code>task_id</code> 谁生成还没定——这是你要找刘杨定的。</div>
+</div></div>
+
+<!-- 6 你 -->
+<div class="step mine">
+<div class="step-h"><div class="step-n">6</div>你判:描述类 + 舱内<span class="tag mine">你·云端触发器 15-16/15-17</span></div>
+<div class="step-b">
+<div class="blk"><span class="blk-label lbl-what">发生什么</span><div class="what">你先判"毯子"是描述类(不是enum)→ 要拼SP。再判方向:"毯子"在舱内 → 走端侧VLM(舱内图不上云,合规)。</div></div>
+<div class="blk"><span class="blk-label lbl-data">此刻的数据</span>
+<pre class="data">15-16 枚举/描述分流: <span class="k">"type"</span>: <span class="chg">"描述类"</span>  <span class="c">// → 要拼SP</span>
+15-17 提槽判方向:     <span class="k">"target"</span>: <span class="chg">"舱内VLM"</span> <span class="c">// 毯子在舱内 → 端侧VLM</span></pre></div>
+<div class="do"><span class="blk-label lbl-do">我做什么</span><b>两个判断</b>:是描述类(要拼SP)、在舱内(走端侧VLM)。判完进入拼SP。</div>
+</div></div>
+
+<!-- 7 你 核心 -->
+<div class="step mine">
+<div class="step-h"><div class="step-n">7</div>⭐ 你拼SP + 定KV槽位<span class="tag mine">你·云端触发器 15-18·核心</span></div>
+<div class="step-b">
+<div class="blk"><span class="blk-label lbl-what">发生什么</span><div class="what">这是你整条链路最核心的动作。VLM 现在正在跑一个 AlwaysOn SP(在看主驾、副驾状态)。你把"观察毯子"这句<b>拼进去</b>,并给它分配一个 KV 槽位(用任务名当 key),记住"毯子结果放在 answer_blanket 这个位子"。</div></div>
+<div class="blk"><span class="blk-label lbl-data">此刻的数据 <span class="struct-ref">SPPackage</span></span>
+<pre class="data"><span class="c">// 拼之前,VLM正在跑的原生SP:</span>
+原生SP = "prompt: 观察主驾状态(aaaa), 观察副驾状态(bbbb)"
+
+<span class="c">// 你拼入"观察毯子",变成:</span>
+{ <span class="k">"task_id"</span>: <span class="v">"task_blanket_001"</span>,
+  <span class="k">"sp_content"</span>: <span class="v">"prompt: aaaa, bbbb, 观察后排宝宝毯子状态(cccc)"</span>,  <span class="chg">← 多了cccc</span>
+  <span class="k">"kv_key"</span>: <span class="v">"answer_blanket"</span>,   <span class="c">// 毯子结果放这个槽位(用任务名)</span>
+  <span class="k">"target"</span>: <span class="v">"舱内VLM"</span>,
+  <span class="k">"period_sec"</span>: <span class="v">5</span>,
+  <span class="k">"deploy_interface"</span>: <span class="v">"?"</span> }  <span class="wait">待定·下发接口找刘杨(T2)</span></pre></div>
+<div class="do"><span class="blk-label lbl-do">我做什么</span><b>三件事:</b>① 把"cccc"追加到 SP 字符串尾部;② 定 KV 槽位 <code>answer_blanket</code>,记录"这个任务的结果放这个位子";③ 准备下发。<b>你不理解毯子是什么,只做字符串拼接 + 记槽位。</b></div>
+</div></div>
+
+<!-- 8 你 -->
+<div class="step mine">
+<div class="step-h"><div class="step-n">8</div>你把SP包下发给端侧触发器<span class="tag mine">你·云端触发器 → 端侧触发器</span></div>
+<div class="step-b">
+<div class="blk"><span class="blk-label lbl-what">发生什么</span><div class="what">拼好的 SP 包,从云端触发器下发给端侧触发器。</div></div>
+<div class="do"><span class="blk-label lbl-do">我做什么</span>通过下发接口把 SPPackage 送到端侧触发器。<b>用什么接口(push还是pull)</b>就是张荣缺席时问你的"端侧触发器怎么跟云端拼接SP"——<span class="wait">待定·找刘杨(T2)</span></div>
+<div class="give"><span class="blk-label lbl-give">交给谁</span>→ 第9步 端侧触发器</div>
+</div></div>
+
+<!-- 9 你端侧 -->
+<div class="step mine">
+<div class="step-h"><div class="step-n">9</div>端侧触发器触发VLM推理<span class="tag mine">你·端侧触发器</span></div>
+<div class="step-b">
+<div class="blk"><span class="blk-label lbl-what">发生什么</span><div class="what">端侧触发器收到 SP,调 AIBox,让 VLM 按这个新 SP 每 5 秒看一次。</div></div>
+<div class="do"><span class="blk-label lbl-do">我做什么</span>端侧触发器是 VLM 的"触发方"——调 AIBox 让它按合并SP推理。从这一刻起,VLM 每 5 秒除了看主驾副驾,还多看一眼毯子。</div>
+<div class="give"><span class="blk-label lbl-give">交给谁</span>→ 第10步 VLM</div>
+</div></div>
+
+<!-- 10 -->
+<div class="step">
+<div class="step-h"><div class="step-n">10</div>VLM 第1轮推理:毯子还盖着<span class="tag other">丁彬·AIBox</span></div>
+<div class="step-b">
+<div class="blk"><span class="blk-label lbl-what">发生什么</span><div class="what">VLM 第一次看(14:00:15),毯子还好好盖着。它只输出<b>客观描述</b>,不判断"掉没掉"。</div></div>
+<div class="blk"><span class="blk-label lbl-data">此刻的数据 <span class="struct-ref">VLMResult</span></span>
+<pre class="data">{ <span class="k">"task_id"</span>: <span class="v">"task_blanket_001"</span>,
+  <span class="k">"kv_key"</span>: <span class="v">"answer_blanket"</span>,
+  <span class="k">"answer"</span>: <span class="v">"毯子盖在宝宝身上"</span>,   <span class="c">// 客观描述,没说"没掉"</span>
+  <span class="k">"capture_ts"</span>: <span class="v">"14:00:15"</span> }  <span class="wait">待定·时间戳找丁彬</span></pre></div>
+<div class="give"><span class="blk-label lbl-give">交给谁</span>→ 第11步 回到你的端侧触发器</div>
+</div></div>
+
+<!-- 11 你端侧 -->
+<div class="step mine">
+<div class="step-h"><div class="step-n">11</div>端侧触发器接收结果 + 透传AI service<span class="tag mine">你·端侧触发器(紫线)</span></div>
+<div class="step-b">
+<div class="blk"><span class="blk-label lbl-what">发生什么</span><div class="what">VLM 结果先回到端侧触发器,你把它以端状态协议透传给 AI service → 上云进 Context。</div></div>
+<div class="do"><span class="blk-label lbl-do">我做什么</span>① 接收 VLMResult;② 以端状态协议透传 AI service(紫线你负责这段)。<b>注意:</b>结果不是给"触发者自己",是给 AI service 上云——这就是丁彬第③点"触发方≠接收方",要跟斯华对齐。<span class="wait">待定·找斯华</span></div>
+<div class="give"><span class="blk-label lbl-give">交给谁</span>→ AI service → Context → 第12步 你云端监听</div>
+</div></div>
+
+<!-- 12 你云端 -->
+<div class="step mine">
+<div class="step-h"><div class="step-n">12</div>云端触发器监听槽位,存前帧<span class="tag mine">你·云端触发器 15-13</span></div>
+<div class="step-b">
+<div class="blk"><span class="blk-label lbl-what">发生什么</span><div class="what">你的云端触发器盯着 <code>answer_blanket</code> 这个槽位。第1轮结果来了,你把它记成"前帧"(用来跟下一轮比)。第1轮无可比,不触发。</div></div>
+<div class="blk"><span class="blk-label lbl-data">此刻的数据 <span class="struct-ref">PrevFrame</span></span>
+<pre class="data">{ <span class="k">"signal_key"</span>: <span class="v">"answer_blanket"</span>,
+  <span class="k">"last_value"</span>: <span class="v">"毯子盖在宝宝身上"</span>,   <span class="c">// 存下来当前帧</span>
+  <span class="k">"capture_ts"</span>: <span class="v">"14:00:15"</span> }
+存储位置: <span class="v">AI service? 触发器自维护?</span>  <span class="wait">待定·前帧存哪找赵衍(C2)</span></pre></div>
+<div class="do"><span class="blk-label lbl-do">我做什么</span>存前帧。<b>这里有个大坑:</b>前帧存哪还没定(端不留存、透传不存)——这就是 C2,你要找赵衍/仁杰定。没有前帧,你根本没法比"变没变"。</div>
+</div></div>
+
+<!-- 13 -->
+<div class="step">
+<div class="step-h"><div class="step-n">13</div>几轮后…VLM 第N轮:毯子掉了<span class="tag other">丁彬·AIBox</span></div>
+<div class="step-b">
+<div class="blk"><span class="blk-label lbl-what">发生什么</span><div class="what">中间几轮毯子都还盖着(数据略)。到 14:05:20,孩子一动,毯子滑到脚底了。VLM 这一轮的描述变了。</div></div>
+<div class="blk"><span class="blk-label lbl-data">此刻的数据 <span class="struct-ref">VLMResult</span></span>
+<pre class="data">{ <span class="k">"task_id"</span>: <span class="v">"task_blanket_001"</span>,
+  <span class="k">"kv_key"</span>: <span class="v">"answer_blanket"</span>,
+  <span class="k">"answer"</span>: <span class="chg">"毯子滑落在脚底"</span>,   <span class="c">// ← 变了!</span>
+  <span class="k">"capture_ts"</span>: <span class="v">"14:05:20"</span> }</pre></div>
+<div class="give"><span class="blk-label lbl-give">交给谁</span>→ 同样经端侧触发器透传上云 → 第14步 你检测</div>
+</div></div>
+
+<!-- 14 你云端 核心 -->
+<div class="step mine">
+<div class="step-h"><div class="step-n">14</div>⭐ 你检测到变化(穿越判断)<span class="tag mine">你·云端触发器 15-13·核心</span></div>
+<div class="step-b">
+<div class="blk"><span class="blk-label lbl-what">发生什么</span><div class="what">你拿这一轮的值,和你存的前帧比——变了!这就是"变更为"判断。</div></div>
+<div class="blk"><span class="blk-label lbl-data">此刻的数据(你在比)</span>
+<pre class="data">前帧(last_value): <span class="v">"毯子盖在宝宝身上"</span>
+本轮(answer):     <span class="chg">"毯子滑落在脚底"</span>
+→ 判定: <span class="chg">变了!触发!</span>  <span class="c">// 防抖:连续K帧确认,防VLM抖动误判</span></pre></div>
+<div class="do"><span class="blk-label lbl-do">我做什么</span>① 前帧 vs 本轮对比 → 检测到变化;② 防抖(连续几帧一致才认,防 VLM glitch);③ 命中 → 把结果返回给发起的 Advisor。<b>注意:你只判"变没变",不判"是不是掉了"——那是 Advisor 的事。</b></div>
+</div></div>
+
+<!-- 15 你 -->
+<div class="step mine">
+<div class="step-h"><div class="step-n">15</div>你把结果返回动态Advisor<span class="tag mine">你·云端触发器 → Advisor</span></div>
+<div class="step-b">
+<div class="blk"><span class="blk-label lbl-what">发生什么</span><div class="what">你把"毯子滑落在脚底 + 变了"返回给当初发起的 dyn_adv_001。</div></div>
+<div class="blk"><span class="blk-label lbl-data">此刻的数据</span>
+<pre class="data">→ 返回给 <span class="v">dyn_adv_001</span>:
+{ <span class="k">"task_id"</span>: <span class="v">"task_blanket_001"</span>,
+  <span class="k">"answer"</span>: <span class="v">"毯子滑落在脚底"</span>, <span class="k">"changed"</span>: <span class="v">true</span> }</pre></div>
+<div class="do"><span class="blk-label lbl-do">我做什么</span>把结果原样返回 Advisor。<b>这一步走"绕Context"还是"原路返回",7.4有争议(T5)——要和丁彬西钺定。</b></div>
+<div class="give"><span class="blk-label lbl-give">交给谁</span>→ 第16步 动态Advisor判断</div>
+</div></div>
+
+<!-- 16 -->
+<div class="step">
+<div class="step-h"><div class="step-n">16</div>动态Advisor 判断:满足退出了吗?<span class="tag other">庆磊</span></div>
+<div class="step-b">
+<div class="blk"><span class="blk-label lbl-what">发生什么</span><div class="what">动态Advisor 判断:"毯子滑落在脚底" = 毯子确实掉了 → 满足退出条件 → 通知你删SP。<b>"掉没掉"的判断在 Advisor,不在你、不在 VLM。</b></div></div>
+<div class="blk"><span class="blk-label lbl-data">此刻的数据</span>
+<pre class="data">Advisor判断: <span class="v">"毯子滑落在脚底"</span> = 掉了 → <span class="chg">满足退出</span>
+→ 通知你: <span class="k">"删除 task_blanket_001 的SP"</span></pre></div>
+<div class="give"><span class="blk-label lbl-give">交给谁</span>→ 第17步 通知你删SP</div>
+</div></div>
+
+<!-- 17 你 -->
+<div class="step mine">
+<div class="step-h"><div class="step-n">17</div>你删SP + 还原AlwaysOn<span class="tag mine">你·云端触发器</span></div>
+<div class="step-b">
+<div class="blk"><span class="blk-label lbl-what">发生什么</span><div class="what">Advisor 通知你任务完了,你把"观察毯子(cccc)"从合并SP里删掉,还原成原生SP。VLM 下一轮不再看毯子。</div></div>
+<div class="blk"><span class="blk-label lbl-data">此刻的数据</span>
+<pre class="data">删除前: "prompt: aaaa, bbbb, <span class="chg">cccc</span>"
+删除后: "prompt: aaaa, bbbb"   <span class="c">// cccc拿掉,还原</span>
+同时: 删掉槽位 answer_blanket、清前帧、任务状态→success</pre></div>
+<div class="do"><span class="blk-label lbl-do">我做什么</span>① 删 cccc;② 删槽位;③ 清前帧;④ 任务状态置 success。<b>这一步漏了,VLM 会一直白看毯子——拼SP的收尾必须做。</b></div>
+</div></div>
+
+<!-- 18 -->
+<div class="step">
+<div class="step-h"><div class="step-n">18</div>Advisor出建议 → Director出话术 → TTS<span class="tag other">庆磊/仁杰</span></div>
+<div class="step-b">
+<div class="blk"><span class="blk-label lbl-what">发生什么</span><div class="what">动态Advisor 出建议,Director 生成话术,车里响起提醒。整条链路闭环。</div></div>
+<div class="blk"><span class="blk-label lbl-data">此刻的数据</span>
+<pre class="data">{ <span class="k">"talk_content"</span>: <span class="v">"宝宝的毯子掉了哦,要帮您调高一下空调温度吗?"</span> }
+→ TTS 播报</pre></div>
+</div></div>
+
+
+<!-- 收尾 -->
+<div class="box green">
+<b>🎯 走完这18步,回头看你(触发器)干了什么:</b><br/>
+第5步接需求 → 第6步判描述/舱内 → 第7步<b>拼SP定槽位</b> → 第8步下发 → 第9步触发VLM → 第11步接结果透传 → 第12步<b>存前帧</b> → 第14步<b>检测变化</b> → 第15步返回Advisor → 第17步<b>删SP还原</b>。<br/>
+<b>这10步就是"你要做什么"的全部。</b>而你现在的待办,本质就是把这10步里几个"待定"的接口/字段定死:<code>task_id谁生成</code>(第5步)、<code>SP下发接口</code>(第8步)、<code>触发方≠接收方</code>(第11步)、<code>前帧存哪</code>(第12步)、<code>回传绕不绕</code>(第15步)。
+</div>
+
+<div class="box amber">
+<b>这个场景里你碰到的数据结构(回指17号):</b>ObserveRequest(第5步)· SPPackage(第7步)· VLMResult(第10/13步)· PrevFrame(第12步)· 还有没直接出现但一直在用的 Signal、TaskState。<b>17号那份"字典"里的每个结构,在这个场景里都变成了带真实值的一步——那份字典是查的,这份场景是走的。</b>
+</div>
+
+<p style="text-align:center;color:#9ca3af;font-size:0.85rem;margin-top:24px">场景走链路·宝宝毯子掉了·数据全程摊开 v1 · 2026-07-05 · 动态红线18步 · 配套《17号数据契约》(字段字典)</p>
+
+</div>
+</body>
+</html>

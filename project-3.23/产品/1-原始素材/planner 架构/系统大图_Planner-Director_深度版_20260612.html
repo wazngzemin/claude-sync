@@ -1,0 +1,1335 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Planner / Director 系统深度大图</title>
+<style>
+  :root{
+    --bg:#0d1016; --panel:#151a22; --panel2:#1b2230; --border:#293141;
+    --ink:#e6edf3; --sub:#9aa7b8; --muted:#6b7686;
+    --blue:#4c9eeb; --green:#3fb950; --amber:#e3a008; --red:#f85149;
+    --purple:#a371f7; --teal:#39c5cf; --pink:#f778ba;
+    --A:#4c9eeb; --B:#a371f7; --C:#e3a008; --D:#6b7686; --E:#39c5cf; --F:#f778ba;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;line-height:1.66;font-size:15px}
+  .wrap{max-width:1320px;margin:0 auto;padding:0 18px 130px}
+  header.hero{padding:44px 18px 28px;background:linear-gradient(150deg,#0f2233,#0d1016 74%);border-bottom:1px solid var(--border)}
+  header.hero .wrap{padding-bottom:0}
+  h1{font-size:28px;margin:0 0 8px}
+  .lede{color:var(--sub);max-width:900px;font-size:15px}
+  .chip{display:inline-block;background:var(--panel2);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:12.5px;color:var(--sub);margin:6px 6px 0 0}
+  nav.toc{position:sticky;top:0;z-index:30;background:rgba(13,16,22,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--border);padding:9px 18px;display:flex;gap:5px;flex-wrap:wrap;font-size:12.7px}
+  nav.toc a{color:var(--sub);text-decoration:none;padding:4px 10px;border-radius:7px}
+  nav.toc a:hover{background:var(--panel2);color:var(--ink)}
+  section{margin-top:48px;scroll-margin-top:56px}
+  h2{font-size:21px;border-left:4px solid var(--blue);padding-left:12px;margin:0 0 4px}
+  h2 .n{color:var(--muted);font-weight:400;margin-right:8px}
+  .howto{color:var(--sub);font-size:13.6px;margin:6px 0 12px;background:var(--panel2);border:1px solid var(--border);border-left:3px solid var(--teal);padding:9px 14px;border-radius:0 8px 8px 0}
+  .howto b{color:var(--teal)}
+  .board{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:12px;margin:12px 0;overflow-x:auto}
+  svg{display:block;width:100%;height:auto;min-width:920px}
+  .legend{display:flex;gap:15px;flex-wrap:wrap;font-size:12.3px;color:var(--sub);margin:10px 4px 2px}
+  .legend span{display:flex;align-items:center;gap:6px}
+  .sq{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:980px){.grid2{grid-template-columns:1fr}}
+  footer{margin-top:54px;padding-top:18px;border-top:1px solid var(--border);color:var(--muted);font-size:12.3px}
+  .kicker{color:var(--blue);font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase}
+  text{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="wrap">
+    <div class="kicker">Driver Agent 2.0 · 豆包上车 · 深度版</div>
+    <h1>Planner / Director 系统深度大图</h1>
+    <p class="lede">不是示意框，是贴着真实架构画的工程级大图：① 豆包上车<b>三层漏斗全链路</b>（句法RAG→情景RAG+仲裁→Planner云端→26工具→Advisor/GoalList），标出每层注入哪类 bug、各有几条；② <b>单次 Planner 调用的 [SP,UP] 解剖</b>含 KV Cache 与多轮复用；③ <b>33个case→5根因→7解法的流向图</b>；④ <b>3张机制时序图</b>逐帧拆解模型为什么犯错。</p>
+    <div>
+      <span class="chip">📅 2026-06-12</span>
+      <span class="chip">三层漏斗 · 26工具</span>
+      <span class="chip">[SP≈30-35K · UP≈10-15K]</span>
+      <span class="chip">Sankey 流向</span>
+      <span class="chip">时序图 ×3</span>
+    </div>
+  </div>
+</header>
+
+<nav class="toc">
+  <a href="#g1">① 三层漏斗全架构</a>
+  <a href="#g2">② 单次调用[SP,UP]解剖</a>
+  <a href="#g3">③ case→根因→解法 流向图</a>
+  <a href="#g4">④ 机制时序图 ×3</a>
+  <a href="#g5">⑤ 分诊决策树</a>
+  <a href="#sop" style="color:#7fd693">⑥ 解法标准流程</a>
+  <a href="#road" style="color:#7fd693">⑦ 三阶段路线</a>
+  <a href="#play" style="color:#7fd693">⑧ 逐类解法+步骤</a>
+  <a href="#kit" style="color:#7fd693">⑨ 可复制物料库</a>
+  <a href="#done" style="color:#7fd693">⑩ 全解终态+RACI</a>
+  <a href="#sp-flow" style="color:#ffd9a0">⑪ 真实SP执行流程</a>
+  <a href="#sp-tools" style="color:#ffd9a0">⑫ 28工具+缺口</a>
+  <a href="#sp-find" style="color:#ffd9a0">⑬ 读真SP的发现+干预平台</a>
+  <a href="#sp-fix" style="color:#ffd9a0">⑭ 逐工具改+立即清单</a>
+  <a href="#sft" style="color:#7fd6d9">⑮ 下游SFT/FC链路+怎么训SFT</a>
+</nav>
+
+<div class="wrap">
+
+<!-- ============ 图1 三层漏斗全架构 ============ -->
+<section id="g1">
+  <h2><span class="n">图①</span>豆包上车三层漏斗 · 全链路架构（bug 注入点 + 条数）</h2>
+  <div class="howto">怎么看：一句话进来，<b>从上往下穿三层漏斗</b>——大部分在 L1/L2 就被"命中→直接执行"（右侧出口）截走，只有<b>复杂需求才落到 L3 Planner 云端大脑</b>。Planner 读 [SP+UP] 出决策 → 调 26 个下游工具 → 工具返回 <code style="color:#ffd9a0">tool_feedback</code> → Chat 播报。右上 Advisor 团队 + Goal List 是"深度思考+目标看板"。<b>每个节点的红牌 = 注入哪类 bug + 本次过单的条数</b>。</div>
+  <div class="board">
+    <svg viewBox="0 0 1300 820" role="img">
+      <defs>
+        <marker id="a1" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#7d8796"/></marker>
+        <marker id="a1g" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#3fb950"/></marker>
+        <marker id="a1o" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#e3a008"/></marker>
+      </defs>
+
+      <!-- input -->
+      <rect x="60" y="20" width="150" height="42" rx="9" fill="#1b2230" stroke="#2a3242"/><text x="135" y="46" fill="#e6edf3" font-size="13.5" font-weight="700" text-anchor="middle">用户语音</text>
+      <rect x="240" y="20" width="120" height="42" rx="9" fill="#1b2230" stroke="#5c2b2b"/><text x="300" y="40" fill="#e6edf3" font-size="13" font-weight="700" text-anchor="middle">ASR</text><text x="300" y="55" fill="#6b7686" font-size="10" text-anchor="middle">语音转文字</text>
+      <rect x="300" y="72" width="22" height="16" rx="4" fill="#6b7686"/><text x="311" y="84" fill="#fff" font-size="10" font-weight="700" text-anchor="middle">D</text>
+      <path d="M210,41 L238,41" stroke="#7d8796" stroke-width="1.6" marker-end="url(#a1)"/>
+      <path d="M300,62 L300,98 L300,108" stroke="#7d8796" stroke-width="1.6" fill="none" marker-end="url(#a1)"/>
+
+      <!-- L1 句法RAG -->
+      <rect x="60" y="110" width="720" height="64" rx="10" fill="#10202c" stroke="#39c5cf" stroke-width="1.5"/>
+      <text x="84" y="136" fill="#39c5cf" font-size="13.5" font-weight="800">第一层 · 句法 RAG</text>
+      <text x="84" y="156" fill="#9aa7b8" font-size="12">毫秒级 · 规则匹配 · 处理"打开车窗"这类<tspan fill="#cfeef1">明确指令</tspan></text>
+      <rect x="600" y="124" width="160" height="36" rx="8" fill="#13241a" stroke="#3fb950"/><text x="680" y="147" fill="#a7e3b0" font-size="11.5" text-anchor="middle">命中 → 直接执行</text>
+      <path d="M560,142 L598,142" stroke="#3fb950" stroke-width="1.6" marker-end="url(#a1g)"/>
+      <text x="320" y="190" fill="#6b7686" font-size="11">未命中 ↓</text>
+      <path d="M300,174 L300,200" stroke="#7d8796" stroke-width="1.6" marker-end="url(#a1)"/>
+
+      <!-- L2 情景RAG+仲裁 -->
+      <rect x="60" y="202" width="720" height="72" rx="10" fill="#1a1726" stroke="#a371f7" stroke-width="1.5"/>
+      <text x="84" y="228" fill="#bda4f3" font-size="13.5" font-weight="800">第二层 · 情景 RAG + 仲裁模型</text>
+      <text x="84" y="248" fill="#9aa7b8" font-size="12">注入 [用户记忆 / 车况 / 情景] → 判定 <tspan fill="#dccaf7">简单 / 复杂</tspan> 分流</text>
+      <text x="84" y="265" fill="#6b7686" font-size="11">分错（简单复杂误判）是已知挑战之一</text>
+      <rect x="600" y="218" width="160" height="36" rx="8" fill="#13241a" stroke="#3fb950"/><text x="680" y="241" fill="#a7e3b0" font-size="11.5" text-anchor="middle">简单 → 快链路</text>
+      <path d="M560,236 L598,236" stroke="#3fb950" stroke-width="1.6" marker-end="url(#a1g)"/>
+      <text x="312" y="295" fill="#6b7686" font-size="11">复杂需求 ↓</text>
+      <path d="M300,274 L300,308" stroke="#7d8796" stroke-width="1.6" marker-end="url(#a1)"/>
+
+      <!-- L3 Planner big -->
+      <rect x="60" y="310" width="720" height="370" rx="12" fill="#13202f" stroke="#4c9eeb" stroke-width="2"/>
+      <text x="80" y="338" fill="#bcd9f5" font-size="15" font-weight="800">第三层 · Planner / Director（云端 LLM · 豆包 Seed 1.8）</text>
+      <text x="80" y="357" fill="#9aa7b8" font-size="11.5">深度推理 · 多步规划 · 调用多工具 · 输出结构化 JSON 决策</text>
+      <rect x="600" y="322" width="22" height="17" rx="4" fill="#4c9eeb"/><text x="611" y="335" fill="#0d1016" font-size="10.5" font-weight="700" text-anchor="middle">A</text>
+      <rect x="626" y="322" width="22" height="17" rx="4" fill="#a371f7"/><text x="637" y="335" fill="#fff" font-size="10.5" font-weight="700" text-anchor="middle">B</text>
+      <text x="752" y="335" fill="#9aa7b8" font-size="10.5" text-anchor="end">真问题 A=15 · B=2</text>
+
+      <!-- SP block -->
+      <rect x="80" y="370" width="330" height="296" rx="9" fill="#0f1822" stroke="#2a3a4d"/>
+      <text x="95" y="390" fill="#7fb6e8" font-size="12.5" font-weight="700">SP · System Prompt ≈30–35K tok（固定+动态）</text>
+      <g font-size="10.3" fill="#cdd6e0">
+        <rect x="95" y="400" width="300" height="18" rx="3" fill="#16263a"/><text x="103" y="413">① 角色定义　② 输入类型(query/advisor/feedback)</text>
+        <rect x="95" y="421" width="300" height="18" rx="3" fill="#16263a"/><text x="103" y="434">③ 26 个工具定义（车控/导航/媒体/POI…）</text>
+        <rect x="95" y="442" width="300" height="18" rx="3" fill="#16263a"/><text x="103" y="455">④ 输出格式 talk_or_not / talk_content / action_list</text>
+        <rect x="95" y="463" width="300" height="18" rx="3" fill="#16263a"/><text x="103" y="476">⑤ 注意事项（"该调工具"规则放这里 → 易被忽略）</text>
+        <rect x="95" y="484" width="300" height="26" rx="3" fill="#1d2f17" stroke="#3fb950"/><text x="103" y="494" fill="#a7e3b0">⑥ 参考示例 ≈占 SP 50%</text><text x="103" y="506" fill="#7da884">动态示例从这注入（情景RAG）</text>
+        <rect x="95" y="514" width="300" height="18" rx="3" fill="#16263a"/><text x="103" y="527">⑦ D6X 车辆知识(五座)　⑧ 工具 tips　⑨ 其他知识</text>
+        <rect x="95" y="535" width="300" height="18" rx="3" fill="#16263a"/><text x="103" y="548">⑩ 聊天风格 + 情绪状态机 / emoji(14种)</text>
+      </g>
+      <text x="95" y="572" fill="#e3a008" font-size="11.5" font-weight="700">⑪ 动态模板变量（每轮变 → KV Cache 断裂点）</text>
+      <g font-size="10.3">
+        <rect x="95" y="580" width="72" height="36" rx="5" fill="#2a2410" stroke="#e3a008"/><text x="131" y="595" fill="#f2dca0" text-anchor="middle">{{status}}</text><text x="131" y="609" fill="#9a8a52" font-size="9" text-anchor="middle">视觉感知</text>
+        <rect x="172" y="580" width="78" height="36" rx="5" fill="#2a2410" stroke="#e3a008"/><text x="211" y="595" fill="#f2dca0" text-anchor="middle">{{goal_list}}</text><text x="211" y="609" fill="#9a8a52" font-size="9" text-anchor="middle">目标队列</text>
+        <rect x="255" y="580" width="72" height="36" rx="5" fill="#2a2410" stroke="#e3a008"/><text x="291" y="595" fill="#f2dca0" text-anchor="middle">{{env_info}}</text><text x="291" y="609" fill="#9a8a52" font-size="9" text-anchor="middle">端状态★</text>
+        <rect x="332" y="580" width="63" height="36" rx="5" fill="#2a2410" stroke="#e3a008"/><text x="363" y="595" fill="#f2dca0" text-anchor="middle">{{memory}}</text><text x="363" y="609" fill="#9a8a52" font-size="9" text-anchor="middle">记忆</text>
+      </g>
+      <text x="95" y="638" fill="#f85149" font-size="10.5">★ env_info 是表格式 → 模型读不懂 → A2 根因（机制③）</text>
+      <text x="95" y="656" fill="#6b7686" font-size="10">注意事项放 SP 中部 → 长上下文注意力衰减 → A3 不调工具（机制②）</text>
+
+      <!-- UP block -->
+      <rect x="425" y="370" width="338" height="296" rx="9" fill="#0f1822" stroke="#2a3a4d"/>
+      <text x="440" y="390" fill="#7fb6e8" font-size="12.5" font-weight="700">UP · User Prompt ≈10–15K tok</text>
+      <g font-size="10.5" fill="#cdd6e0">
+        <rect x="440" y="400" width="308" height="50" rx="5" fill="#16263a"/><text x="448" y="418">最近 N 轮对话历史</text><text x="448" y="434" fill="#9aa7b8" font-size="9.7">role:user（query/advisor/tool_feedback）</text><text x="448" y="446" fill="#9aa7b8" font-size="9.7">⇄ role:assistant（Planner 的 JSON 输出）</text>
+        <rect x="440" y="456" width="308" height="46" rx="5" fill="#16263a"/><text x="448" y="474">当前轮输入（数组形式同时传入）</text><text x="448" y="490" fill="#9aa7b8" font-size="9.7">用户 query[speaker/position/timestamp] + advisor 建议</text>
+      </g>
+      <text x="440" y="522" fill="#f778ba" font-size="10.5">上下文优化：远区(1-8轮)删 feedback/action_list，近区(9-10)完整</text>
+      <!-- KV cache -->
+      <rect x="440" y="535" width="308" height="120" rx="7" fill="#101a14" stroke="#3fb950"/>
+      <text x="455" y="555" fill="#7fd693" font-size="12" font-weight="700">KV Cache（Prompt Cache）</text>
+      <g font-size="10.2" fill="#bcd6c2">
+        <text x="455" y="574">· 前缀完全匹配 → 复用已算 KV 向量</text>
+        <text x="455" y="592">· 同一请求多轮：第2/3轮复用前序全部 token，</text>
+        <text x="468" y="606">　只算增量（几百 tok）→ 显著更快</text>
+        <text x="455" y="624">· 跨请求：仅 SP 固定段(~30K)可命中；</text>
+        <text x="468" y="638">　动态变量不同 → 缓存断裂</text>
+        <text x="455" y="650" fill="#e8a0a0">· 长对话(&gt;20轮) → KV 占用大 → 易被挤出 → 变慢</text>
+      </g>
+
+      <!-- arrow Planner -> downstream -->
+      <path d="M780,440 L880,440" stroke="#7d8796" stroke-width="2" marker-end="url(#a1)"/>
+      <text x="830" y="432" fill="#9aa7b8" font-size="10.5" text-anchor="middle">action_list</text>
+
+      <!-- downstream 26 tools -->
+      <rect x="880" y="310" width="380" height="240" rx="11" fill="#1b2230" stroke="#5c4a1c"/>
+      <text x="900" y="334" fill="#f2dca0" font-size="13.5" font-weight="800">下游 Agent 执行 · 26 工具</text>
+      <rect x="1150" y="318" width="22" height="17" rx="4" fill="#e3a008"/><text x="1161" y="331" fill="#0d1016" font-size="10.5" font-weight="700" text-anchor="middle">C</text>
+      <rect x="1176" y="318" width="22" height="17" rx="4" fill="#6b7686"/><text x="1187" y="331" fill="#fff" font-size="10.5" font-weight="700" text-anchor="middle">D</text>
+      <g font-size="9.6" fill="#d8c69a">
+        <!-- tool chips grid -->
+        <g>
+          <rect x="900" y="346" width="108" height="22" rx="4" fill="#2a2410"/><text x="954" y="361" text-anchor="middle">vehicle控制</text>
+          <rect x="1014" y="346" width="108" height="22" rx="4" fill="#2a2410"/><text x="1068" y="361" text-anchor="middle">navi导航</text>
+          <rect x="1128" y="346" width="118" height="22" rx="4" fill="#2a2410"/><text x="1187" y="361" text-anchor="middle">route规划</text>
+          <rect x="900" y="372" width="108" height="22" rx="4" fill="#2a2410"/><text x="954" y="387" text-anchor="middle">music媒体</text>
+          <rect x="1014" y="372" width="108" height="22" rx="4" fill="#2a2410"/><text x="1068" y="387" text-anchor="middle">short_video</text>
+          <rect x="1128" y="372" width="118" height="22" rx="4" fill="#2a2410"/><text x="1187" y="387" text-anchor="middle">poi_qa搜索</text>
+          <rect x="900" y="398" width="108" height="22" rx="4" fill="#2a2410"/><text x="954" y="413" text-anchor="middle">web_search</text>
+          <rect x="1014" y="398" width="108" height="22" rx="4" fill="#2a2410"/><text x="1068" y="413" text-anchor="middle">weather</text>
+          <rect x="1128" y="398" width="118" height="22" rx="4" fill="#2a2410"/><text x="1187" y="413" text-anchor="middle">ambient_light</text>
+          <rect x="900" y="424" width="108" height="22" rx="4" fill="#2a2410"/><text x="954" y="439" text-anchor="middle">user_memory</text>
+          <rect x="1014" y="424" width="108" height="22" rx="4" fill="#2a2410"/><text x="1068" y="439" text-anchor="middle">manual_qa</text>
+          <rect x="1128" y="424" width="118" height="22" rx="4" fill="#2a2410"/><text x="1187" y="439" text-anchor="middle">auto_drive</text>
+          <rect x="900" y="450" width="346" height="22" rx="4" fill="#221d10"/><text x="1073" y="465" text-anchor="middle" fill="#9a8a52">…goal_list_update / face_id / recording / image_gen / car_log 等共 26</text>
+        </g>
+      </g>
+      <text x="900" y="498" fill="#9aa7b8" font-size="10.5">意图系统在此二次分类（弋途）→ "开始导航到XX"被分到算路 = C</text>
+      <text x="900" y="516" fill="#9aa7b8" font-size="10.5">同时出两工具承载不了 / FC 接不住 = D</text>
+      <text x="900" y="534" fill="#6b7686" font-size="10">SFT 在此适配 Planner 输出习惯（L5）</text>
+
+      <!-- feedback loop -->
+      <path d="M1070,550 L1070,600 L500,600 L500,668" stroke="#7d8796" stroke-width="1.5" fill="none" stroke-dasharray="4 3" marker-end="url(#a1)"/>
+      <text x="780" y="594" fill="#6b7686" font-size="10.5" text-anchor="middle">tool_feedback 作为下一轮 UP 输入回流（feedback=0=成功无细节 → B 幻觉）</text>
+
+      <!-- Chat broadcast -->
+      <rect x="880" y="568" width="380" height="60" rx="10" fill="#1a1726" stroke="#4b3a6b"/>
+      <text x="900" y="592" fill="#dccaf7" font-size="13" font-weight="700">Chat Model · 播报</text>
+      <text x="900" y="612" fill="#9aa7b8" font-size="10.5">基于 tool_feedback 生成话术（NLG）→ 缺口处易幻觉</text>
+      <rect x="1228" y="576" width="22" height="17" rx="4" fill="#a371f7"/><text x="1239" y="589" fill="#fff" font-size="10.5" font-weight="700" text-anchor="middle">B</text>
+      <path d="M1070,550 L1070,566" stroke="#7d8796" stroke-width="1.6" marker-end="url(#a1)"/>
+
+      <!-- Advisor + GoalList top-right -->
+      <rect x="880" y="20" width="380" height="270" rx="11" fill="#101c1a" stroke="#39c5cf"/>
+      <text x="900" y="44" fill="#7fd6d9" font-size="13.5" font-weight="800">Advisor 团队（深度思考 + 目标监控）</text>
+      <g font-size="10.6">
+        <rect x="900" y="56" width="84" height="40" rx="6" fill="#13242a" stroke="#39c5cf"/><text x="942" y="73" fill="#cfeef1" text-anchor="middle">舒适</text><text x="942" y="88" fill="#6b7686" font-size="9" text-anchor="middle">静态</text>
+        <rect x="990" y="56" width="84" height="40" rx="6" fill="#13242a" stroke="#39c5cf"/><text x="1032" y="73" fill="#cfeef1" text-anchor="middle">出行</text><text x="1032" y="88" fill="#6b7686" font-size="9" text-anchor="middle">静态</text>
+        <rect x="1080" y="56" width="84" height="40" rx="6" fill="#13242a" stroke="#39c5cf"/><text x="1122" y="73" fill="#cfeef1" text-anchor="middle">情感</text><text x="1122" y="88" fill="#6b7686" font-size="9" text-anchor="middle">静态</text>
+        <rect x="1170" y="56" width="80" height="40" rx="6" fill="#13242a" stroke="#39c5cf"/><text x="1210" y="73" fill="#cfeef1" text-anchor="middle">内容</text><text x="1210" y="88" fill="#6b7686" font-size="9" text-anchor="middle">静态</text>
+        <rect x="900" y="102" width="350" height="30" rx="6" fill="#13242a" stroke="#39c5cf" stroke-dasharray="4 3"/><text x="1075" y="121" fill="#9ee0e3" text-anchor="middle">+ 动态 Advisor（按情景临时生成）</text>
+      </g>
+      <!-- Goal list -->
+      <rect x="900" y="142" width="350" height="70" rx="8" fill="#1a1726" stroke="#a371f7"/>
+      <text x="915" y="162" fill="#dccaf7" font-size="12" font-weight="700">Goal List · 共享看板</text>
+      <text x="915" y="180" fill="#9aa7b8" font-size="10.3">Planner（快速响应+执行）与 Advisor（深度思考+监控）共享</text>
+      <text x="915" y="196" fill="#9aa7b8" font-size="10.3">承载 单步/多步/条件/持续 四种任务</text>
+      <rect x="1212" y="148" width="22" height="17" rx="4" fill="#6b7686"/><text x="1223" y="161" fill="#fff" font-size="10.5" font-weight="700" text-anchor="middle">D</text>
+      <text x="900" y="234" fill="#6b7686" font-size="10">演进：Planner 一人包揽 → 团队协作（竞态/双判是 Director↔Advisor 已知风险）</text>
+      <text x="900" y="252" fill="#6b7686" font-size="10">advisor 建议与 user query 以数组同时进入当前轮 UP</text>
+      <!-- advisor to planner -->
+      <path d="M1000,212 C940,250 760,300 700,360" stroke="#39c5cf" stroke-width="1.4" fill="none" stroke-dasharray="4 3" marker-end="url(#a1)"/>
+      <text x="840" y="312" fill="#6b7686" font-size="10" text-anchor="middle">advisor 注入</text>
+
+      <!-- 四种任务 footnote bar -->
+      <rect x="60" y="700" width="1200" height="96" rx="10" fill="#11161f" stroke="#293141"/>
+      <text x="80" y="722" fill="#9aa7b8" font-size="12" font-weight="700">四种任务类型（落在 Goal List）：</text>
+      <g font-size="10.6">
+        <rect x="80" y="732" width="280" height="52" rx="6" fill="#16263a"/><text x="92" y="750" fill="#cfe3f7" font-weight="700">单步复杂 (S7)</text><text x="92" y="766" fill="#9aa7b8">一句话拆多动作并行</text><text x="92" y="779" fill="#6b7686" font-size="9.5">"我好热"→查车况+开空调+调风量</text>
+        <rect x="372" y="732" width="280" height="52" rx="6" fill="#16263a"/><text x="384" y="750" fill="#cfe3f7" font-weight="700">多步 (S8)</text><text x="384" y="766" fill="#9aa7b8">串行依赖</text><text x="384" y="779" fill="#6b7686" font-size="9.5">"去昨天游泳馆"→查记忆→拿址→导航</text>
+        <rect x="664" y="732" width="280" height="52" rx="6" fill="#16263a"/><text x="676" y="750" fill="#cfe3f7" font-weight="700">条件 (S8)</text><text x="676" y="766" fill="#9aa7b8">设定触发条件</text><text x="676" y="779" fill="#6b7686" font-size="9.5">"10分钟后关座椅加热"</text>
+        <rect x="956" y="732" width="284" height="52" rx="6" fill="#16263a"/><text x="968" y="750" fill="#cfe3f7" font-weight="700">持续 (S9-S10)</text><text x="968" y="766" fill="#9aa7b8">持续运行</text><text x="968" y="779" fill="#6b7686" font-size="9.5">"帮我介绍沿途风景"</text>
+      </g>
+    </svg>
+    <div class="legend">
+      <span><span class="sq" style="background:var(--teal)"></span>L1 句法RAG</span>
+      <span><span class="sq" style="background:var(--purple)"></span>L2 情景RAG+仲裁</span>
+      <span><span class="sq" style="background:var(--blue)"></span>L3 Planner 大脑</span>
+      <span><span class="sq" style="background:var(--amber)"></span>下游26工具</span>
+      <span><span class="sq" style="background:var(--green)"></span>命中即走/KV缓存</span>
+      <span><span class="sq" style="background:var(--red)"></span>bug 注入点</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 图2 单次调用解剖（时间轴：一个请求三轮） ============ -->
+<section id="g2">
+  <h2><span class="n">图②</span>单次请求内"多轮调用"时间轴 · KV Cache 怎么省算力</h2>
+  <div class="howto">怎么看：一个用户需求往往要 Planner <b>连调 2-3 轮</b>（出工具→拿 feedback→再决策）。横轴是时间，每轮的 <b>蓝色=复用 KV 缓存（几乎不耗算力）</b>，<b>橙色=本轮新增需要现算的 token</b>。看出关键：<b>第 2、3 轮新增只有几百 token，所以同一请求内越往后越快</b>；但跨请求时只有 SP 固定段能命中。</div>
+  <div class="board">
+    <svg viewBox="0 0 1240 420" role="img">
+      <defs><marker id="a2" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#7d8796"/></marker></defs>
+      <!-- time axis -->
+      <line x1="60" y1="360" x2="1200" y2="360" stroke="#293141"/>
+      <text x="60" y="388" fill="#6b7686" font-size="11">时间 →（同一请求内）</text>
+
+      <!-- round 1 -->
+      <text x="230" y="40" fill="#bcd9f5" font-size="13" font-weight="700" text-anchor="middle">第 1 轮</text>
+      <rect x="80" y="56" width="300" height="40" rx="6" fill="#243a52" stroke="#4c9eeb"/><text x="230" y="81" fill="#cfe3f7" font-size="11" text-anchor="middle">SP 固定段 ~30K（首次现算）</text>
+      <rect x="80" y="100" width="300" height="30" rx="6" fill="#3a2f12" stroke="#e3a008"/><text x="230" y="120" fill="#f2dca0" font-size="10.5" text-anchor="middle">动态变量 + UP ~10K（现算）</text>
+      <rect x="80" y="134" width="300" height="26" rx="6" fill="#1a1726" stroke="#a371f7"/><text x="230" y="151" fill="#dccaf7" font-size="10.5" text-anchor="middle">Planner 输出决策①（出工具）</text>
+      <text x="230" y="186" fill="#9aa7b8" font-size="10.5" text-anchor="middle">现算 ≈ 40K token（最慢）</text>
+      <path d="M380,110 C430,110 430,250 470,250" stroke="#7d8796" stroke-width="1.5" fill="none" marker-end="url(#a2)"/>
+      <text x="430" y="200" fill="#6b7686" font-size="10" text-anchor="middle">工具执行→feedback</text>
+
+      <!-- round 2 -->
+      <text x="620" y="40" fill="#bcd9f5" font-size="13" font-weight="700" text-anchor="middle">第 2 轮</text>
+      <rect x="470" y="56" width="300" height="74" rx="6" fill="#243a52" stroke="#4c9eeb"/><text x="620" y="88" fill="#cfe3f7" font-size="11" text-anchor="middle">复用第1轮全部 KV</text><text x="620" y="106" fill="#7fb6e8" font-size="10" text-anchor="middle">SP+UP+决策① 不重算</text>
+      <rect x="470" y="134" width="120" height="26" rx="6" fill="#3a2f12" stroke="#e3a008"/><text x="530" y="151" fill="#f2dca0" font-size="10" text-anchor="middle">+feedback 增量</text>
+      <rect x="470" y="164" width="300" height="26" rx="6" fill="#1a1726" stroke="#a371f7"/><text x="620" y="181" fill="#dccaf7" font-size="10.5" text-anchor="middle">Planner 输出决策②</text>
+      <text x="620" y="216" fill="#9aa7b8" font-size="10.5" text-anchor="middle">现算 ≈ 几百 token（快）</text>
+      <path d="M770,150 C820,150 820,250 860,250" stroke="#7d8796" stroke-width="1.5" fill="none" marker-end="url(#a2)"/>
+
+      <!-- round 3 -->
+      <text x="1010" y="40" fill="#bcd9f5" font-size="13" font-weight="700" text-anchor="middle">第 3 轮</text>
+      <rect x="860" y="56" width="300" height="104" rx="6" fill="#243a52" stroke="#4c9eeb"/><text x="1010" y="100" fill="#cfe3f7" font-size="11" text-anchor="middle">复用前两轮全部 KV</text><text x="1010" y="118" fill="#7fb6e8" font-size="10" text-anchor="middle">只算第3轮增量</text>
+      <rect x="860" y="164" width="300" height="26" rx="6" fill="#1a1726" stroke="#a371f7"/><text x="1010" y="181" fill="#dccaf7" font-size="10.5" text-anchor="middle">Planner 输出最终决策③</text>
+      <text x="1010" y="216" fill="#9aa7b8" font-size="10.5" text-anchor="middle">现算 ≈ 几百 token（最快）</text>
+
+      <!-- bottom comparison bars -->
+      <text x="60" y="262" fill="#9aa7b8" font-size="11.5" font-weight="700">每轮"现算量"对比（越短越快）：</text>
+      <rect x="80" y="276" width="300" height="22" rx="5" fill="#e3a008"/><text x="230" y="292" fill="#0d1016" font-size="11" text-anchor="middle" font-weight="700">R1 ≈ 40K</text>
+      <rect x="470" y="276" width="40" height="22" rx="5" fill="#e3a008"/><text x="525" y="292" fill="#e3a008" font-size="11">R2 ≈ 0.x K</text>
+      <rect x="860" y="276" width="32" height="22" rx="5" fill="#e3a008"/><text x="905" y="292" fill="#e3a008" font-size="11">R3 ≈ 0.x K</text>
+
+      <!-- cross-request note -->
+      <rect x="80" y="316" width="1080" height="34" rx="8" fill="#11202c" stroke="#293141"/>
+      <text x="620" y="338" fill="#9aa7b8" font-size="11.5" text-anchor="middle">跨请求只有 <tspan fill="#4c9eeb" font-weight="700">SP 固定段 ~30K</tspan> 能命中缓存；<tspan fill="#e3a008" font-weight="700">动态变量(env_info/memory…)一变就断裂</tspan>；长对话&gt;20轮 → KV 被挤出 → 命中率↓ → 变慢（性能 vs 质量矛盾）</text>
+    </svg>
+  </div>
+</section>
+
+<!-- ============ 图3 流向图 Sankey ============ -->
+<section id="g3">
+  <h2><span class="n">图③</span>流向图 · 33个case → 5根因 → 7解法层（线越粗=条数越多）</h2>
+  <div class="howto">怎么看：<b>左列</b>是六大类 bug（括号=本次条数），<b>中列</b>是 5 条根因，<b>右列</b>是 7 个解法层。<b>跟着连线走</b>：每类 bug 由哪条根因驱动、该走哪层解。线越粗代表条数越多。一眼看出：<b>"分发&测试"和"模型能力"是两个最大的源头</b>，而 <b>L4 端状态改造 + L3 知识 是性价比最高的汇聚点</b>。</div>
+  <div class="board">
+    <svg viewBox="0 0 1240 640" role="img">
+      <defs><marker id="a3" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L7,4 L0,8 z" fill="#5a6472"/></marker></defs>
+      <!-- column headers -->
+      <text x="150" y="28" fill="#9aa7b8" font-size="13" font-weight="700" text-anchor="middle">六大类（条数）</text>
+      <text x="620" y="28" fill="#9aa7b8" font-size="13" font-weight="700" text-anchor="middle">5 根因</text>
+      <text x="1090" y="28" fill="#9aa7b8" font-size="13" font-weight="700" text-anchor="middle">7 解法层</text>
+
+      <!-- LEFT nodes (六大类) -->
+      <g font-size="12" font-weight="700">
+        <rect x="40" y="50" width="220" height="40" rx="7" fill="#16263a" stroke="#4c9eeb"/><text x="56" y="74" fill="#cfe3f7">A1 空间关系 <tspan fill="#7fb6e8">(9)</tspan></text>
+        <rect x="40" y="100" width="220" height="34" rx="7" fill="#16263a" stroke="#4c9eeb"/><text x="56" y="121" fill="#cfe3f7">A2 端状态 <tspan fill="#7fb6e8">(2)</tspan></text>
+        <rect x="40" y="144" width="220" height="34" rx="7" fill="#16263a" stroke="#4c9eeb"/><text x="56" y="165" fill="#cfe3f7">A3 上下文 <tspan fill="#7fb6e8">(4)</tspan></text>
+        <rect x="40" y="188" width="220" height="34" rx="7" fill="#1d1530" stroke="#a371f7"/><text x="56" y="209" fill="#dccaf7">B 幻觉 <tspan fill="#bda4f3">(2)</tspan></text>
+        <rect x="40" y="232" width="220" height="40" rx="7" fill="#251f10" stroke="#e3a008"/><text x="56" y="256" fill="#f2dca0">C 下游接不住 <tspan fill="#d8b860">(5)</tspan></text>
+        <rect x="40" y="282" width="220" height="46" rx="7" fill="#222a36" stroke="#6b7686"/><text x="56" y="309" fill="#cfd6df">D 非Planner <tspan fill="#9aa7b8">(8)</tspan></text>
+        <rect x="40" y="338" width="220" height="30" rx="7" fill="#13242a" stroke="#39c5cf"/><text x="56" y="357" fill="#cfeef1">E 低优 <tspan fill="#7fd6d9">(1批)</tspan></text>
+        <rect x="40" y="378" width="220" height="34" rx="7" fill="#2a1a26" stroke="#f778ba"/><text x="56" y="399" fill="#f6cfe4">F 误标 <tspan fill="#e89bc4">(4)</tspan></text>
+      </g>
+
+      <!-- MIDDLE nodes (根因) -->
+      <g font-size="11.5" font-weight="700">
+        <rect x="510" y="60" width="220" height="48" rx="7" fill="#16263a" stroke="#4c9eeb"/><text x="620" y="80" fill="#cfe3f7" text-anchor="middle">① 模型能力/常识不足</text><text x="620" y="97" fill="#7fb6e8" font-size="10" text-anchor="middle">空间·坚持事实·推理</text>
+        <rect x="510" y="124" width="220" height="44" rx="7" fill="#13242a" stroke="#39c5cf"/><text x="620" y="143" fill="#cfeef1" text-anchor="middle">② 端状态结构差</text><text x="620" y="159" fill="#7fd6d9" font-size="10" text-anchor="middle">表格人都读不懂</text>
+        <rect x="510" y="184" width="220" height="44" rx="7" fill="#1d1530" stroke="#a371f7"/><text x="620" y="203" fill="#dccaf7" text-anchor="middle">③ 上下文vs端状态权重</text><text x="620" y="219" fill="#bda4f3" font-size="10" text-anchor="middle">何时信历史没判据</text>
+        <rect x="510" y="244" width="220" height="44" rx="7" fill="#251f10" stroke="#e3a008"/><text x="620" y="263" fill="#f2dca0" text-anchor="middle">④ 下游/意图承接弱</text><text x="620" y="279" fill="#d8b860" font-size="10" text-anchor="middle">接不住合理改写</text>
+        <rect x="510" y="304" width="220" height="48" rx="7" fill="#222a36" stroke="#6b7686"/><text x="620" y="324" fill="#cfd6df" text-anchor="middle">⑤ 分发&amp;测试质量</text><text x="620" y="341" fill="#9aa7b8" font-size="10" text-anchor="middle">错分发·误标·钓鱼·无log</text>
+      </g>
+
+      <!-- RIGHT nodes (解法层) -->
+      <g font-size="11.3" font-weight="700">
+        <rect x="980" y="44" width="230" height="32" rx="7" fill="#222a36" stroke="#6b7686"/><text x="995" y="64" fill="#cfd6df">L0 流程治理</text>
+        <rect x="980" y="84" width="230" height="32" rx="7" fill="#13242a" stroke="#39c5cf"/><text x="995" y="104" fill="#cfeef1">L1 干预平台</text>
+        <rect x="980" y="124" width="230" height="32" rx="7" fill="#16263a" stroke="#4c9eeb"/><text x="995" y="144" fill="#cfe3f7">L2 提示/注意事项</text>
+        <rect x="980" y="164" width="230" height="32" rx="7" fill="#16263a" stroke="#4c9eeb"/><text x="995" y="184" fill="#cfe3f7">L3 知识/工具描述</text>
+        <rect x="980" y="204" width="230" height="34" rx="7" fill="#102a2e" stroke="#39c5cf" stroke-width="1.6"/><text x="995" y="225" fill="#9ee0e3">L4 端状态改造 ★治本</text>
+        <rect x="980" y="246" width="230" height="32" rx="7" fill="#251f10" stroke="#e3a008"/><text x="995" y="266" fill="#f2dca0">L5 下游/弋途协商</text>
+        <rect x="980" y="286" width="230" height="32" rx="7" fill="#1d1530" stroke="#a371f7"/><text x="995" y="306" fill="#dccaf7">L6 模型训练 SFT/RLHF</text>
+      </g>
+
+      <!-- LEFT -> MIDDLE links (stroke-width ~ count) -->
+      <g fill="none" opacity=".8">
+        <!-- A1(9) -> ①模型能力(part) + ②端状态(part); mostly ①/补知识 -->
+        <path d="M260,70 C400,70 380,84 510,84" stroke="#4c9eeb" stroke-width="7" marker-end="url(#a3)"/>
+        <!-- A2(2) -> ②端状态 -->
+        <path d="M260,117 C400,117 400,146 510,146" stroke="#39c5cf" stroke-width="4" marker-end="url(#a3)"/>
+        <!-- A1 small -> ②端状态 -->
+        <path d="M260,82 C420,90 400,140 510,150" stroke="#4c9eeb" stroke-width="2.5" opacity=".5" marker-end="url(#a3)"/>
+        <!-- A3(4) -> ③上下文 -->
+        <path d="M260,161 C400,170 400,200 510,206" stroke="#a371f7" stroke-width="5" marker-end="url(#a3)"/>
+        <!-- B(2) -> ①模型能力 -->
+        <path d="M260,205 C400,205 420,100 510,92" stroke="#a371f7" stroke-width="4" marker-end="url(#a3)"/>
+        <!-- C(5) -> ④下游 -->
+        <path d="M260,252 C400,252 400,262 510,266" stroke="#e3a008" stroke-width="6" marker-end="url(#a3)"/>
+        <!-- E(1) -> ④下游 -->
+        <path d="M260,353 C420,340 440,280 510,272" stroke="#39c5cf" stroke-width="2.5" marker-end="url(#a3)"/>
+        <!-- D(8) -> ⑤分发 -->
+        <path d="M260,305 C400,310 400,322 510,326" stroke="#6b7686" stroke-width="7.5" marker-end="url(#a3)"/>
+        <!-- F(4) -> ⑤分发 -->
+        <path d="M260,395 C420,390 440,340 510,336" stroke="#f778ba" stroke-width="5" marker-end="url(#a3)"/>
+      </g>
+
+      <!-- MIDDLE -> RIGHT links -->
+      <g fill="none" opacity=".82">
+        <!-- ①模型能力 -> L3知识 + L6训练 -->
+        <path d="M730,80 C860,80 880,140 980,140" stroke="#4c9eeb" stroke-width="5" marker-end="url(#a3)"/>
+        <path d="M730,92 C870,92 880,300 980,302" stroke="#4c9eeb" stroke-width="4" marker-end="url(#a3)"/>
+        <!-- ②端状态 -> L4 -->
+        <path d="M730,146 C860,146 880,218 980,221" stroke="#39c5cf" stroke-width="6" marker-end="url(#a3)"/>
+        <!-- ③上下文 -> L2提示 + L6训练 -->
+        <path d="M730,200 C860,200 880,140 980,140" stroke="#a371f7" stroke-width="4" marker-end="url(#a3)"/>
+        <path d="M730,212 C870,212 880,300 980,302" stroke="#a371f7" stroke-width="3" opacity=".6" marker-end="url(#a3)"/>
+        <!-- ④下游 -> L1干预 + L5下游 -->
+        <path d="M730,260 C860,260 880,100 980,100" stroke="#e3a008" stroke-width="3" marker-end="url(#a3)"/>
+        <path d="M730,268 C860,268 880,262 980,262" stroke="#e3a008" stroke-width="5" marker-end="url(#a3)"/>
+        <!-- ⑤分发 -> L0流程 + L1干预 -->
+        <path d="M730,322 C860,322 880,62 980,60" stroke="#6b7686" stroke-width="7" marker-end="url(#a3)"/>
+        <path d="M730,332 C870,332 880,100 980,100" stroke="#6b7686" stroke-width="3" opacity=".6" marker-end="url(#a3)"/>
+      </g>
+
+      <!-- bottom insight bar -->
+      <rect x="40" y="440" width="1170" height="180" rx="11" fill="#11161f" stroke="#293141"/>
+      <text x="60" y="465" fill="#9aa7b8" font-size="13" font-weight="700">读图三个结论：</text>
+      <g font-size="12">
+        <text x="60" y="492" fill="#cdd6e0">① 两个最大源头是 <tspan fill="#6b7686" font-weight="700">⑤ 分发&amp;测试(D8+F4=12)</tspan> 和 <tspan fill="#4c9eeb" font-weight="700">① 模型能力(A1+B等)</tspan> —— 前者靠流程治理(L0)，不烧模型。</text>
+        <text x="60" y="520" fill="#cdd6e0">② <tspan fill="#39c5cf" font-weight="700">L4 端状态改造</tspan> 是关键汇聚点：A2 全部 + A1 一部分都汇到它，一改解一片，还顺带让所有推理更准。</text>
+        <text x="60" y="548" fill="#cdd6e0">③ 真正需要 <tspan fill="#a371f7" font-weight="700">L6 模型训练</tspan> 的只剩顽固残留（方位映射/温度反/坚持事实）≈3-4 个，<tspan fill="#f85149">这才是该花算力的地方</tspan>。</text>
+        <text x="60" y="582" fill="#9aa7b8" font-size="11.5">你（产品 PM）能直接推动 L0–L4 的 80%；L5 协调弋途、L6 协调算法(李强)。剥离越靠前，留给训练的问题越纯、收敛越快。</text>
+        <text x="60" y="604" fill="#6b7686" font-size="11">case 编号对照：A1=V11-19 · A2=V20-21 · A3=N08/V22-23/M29 · B=M28/V27a · C=N04-05/M32-33 · D=N01-03/06-07/M30-31 · F=N09/V24-26</text>
+      </g>
+    </svg>
+    <div class="legend">
+      <span><span class="sq" style="background:var(--A)"></span>A 推理</span>
+      <span><span class="sq" style="background:var(--B)"></span>B 幻觉</span>
+      <span><span class="sq" style="background:var(--C)"></span>C 下游</span>
+      <span><span class="sq" style="background:var(--D)"></span>D 非Planner</span>
+      <span><span class="sq" style="background:var(--E)"></span>E 低优</span>
+      <span><span class="sq" style="background:var(--F)"></span>F 误标</span>
+      <span>线宽 ∝ 条数</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 图4 机制时序图 ============ -->
+<section id="g4">
+  <h2><span class="n">图④</span>机制时序图 ×3 · 逐帧拆解模型为什么犯错</h2>
+  <div class="howto">怎么看：每张是一次对话的<b>消息时序</b>（从上往下=时间），竖线是各角色，横向箭头是消息传递。<b>红色帧</b>就是出错的那一刻。这比文字更能看清"错在哪一步、为什么"。</div>
+
+  <div class="grid2">
+    <!-- 时序1 幻觉 -->
+    <div class="board">
+      <svg viewBox="0 0 560 420" role="img">
+        <defs><marker id="s1" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L7,4 L0,8 z" fill="#7d8796"/></marker><marker id="s1r" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L7,4 L0,8 z" fill="#f85149"/></marker></defs>
+        <text x="280" y="22" fill="#dccaf7" font-size="13.5" font-weight="800" text-anchor="middle">机制① 幻觉（M-28 歌名）</text>
+        <!-- lifelines -->
+        <g font-size="11" font-weight="700">
+          <rect x="40" y="38" width="90" height="30" rx="6" fill="#1b2230" stroke="#2a3242"/><text x="85" y="58" fill="#e6edf3" text-anchor="middle">用户</text>
+          <rect x="180" y="38" width="100" height="30" rx="6" fill="#16263a" stroke="#4c9eeb"/><text x="230" y="58" fill="#cfe3f7" text-anchor="middle">Planner</text>
+          <rect x="330" y="38" width="100" height="30" rx="6" fill="#2a2410" stroke="#e3a008"/><text x="380" y="58" fill="#f2dca0" text-anchor="middle">音乐工具</text>
+          <rect x="450" y="38" width="90" height="30" rx="6" fill="#1a1726" stroke="#a371f7"/><text x="495" y="58" fill="#dccaf7" text-anchor="middle">Chat播报</text>
+        </g>
+        <g stroke="#3a4254" stroke-dasharray="3 4"><line x1="85" y1="68" x2="85" y2="400"/><line x1="230" y1="68" x2="230" y2="400"/><line x1="380" y1="68" x2="380" y2="400"/><line x1="495" y1="68" x2="495" y2="400"/></g>
+        <!-- messages -->
+        <g font-size="10.3">
+          <path d="M85,92 L228,92" stroke="#7d8796" stroke-width="1.5" marker-end="url(#s1)"/><text x="150" y="86" fill="#cdd6e0">"放周杰伦的歌"</text>
+          <path d="M230,124 L378,124" stroke="#7d8796" stroke-width="1.5" marker-end="url(#s1)"/><text x="300" y="118" fill="#cdd6e0" text-anchor="middle">出工具:播周杰伦</text>
+          <rect x="330" y="142" width="100" height="34" rx="5" fill="#3a2f12" stroke="#e3a008"/><text x="380" y="156" fill="#f2dca0" text-anchor="middle" font-size="9.6">实际放《搁浅》</text><text x="380" y="170" fill="#9a8a52" text-anchor="middle" font-size="9.6">feedback=0</text>
+          <path d="M380,196 L497,196" stroke="#7d8796" stroke-width="1.5" marker-end="url(#s1)"/><text x="438" y="190" fill="#cdd6e0" text-anchor="middle" font-size="9.6">只回"成功"</text>
+          <rect x="360" y="214" width="190" height="48" rx="6" fill="#3a1f1f" stroke="#f85149"/><text x="455" y="232" fill="#f5b0ac" text-anchor="middle" font-size="9.8">缺口：没歌名！</text><text x="455" y="248" fill="#f5b0ac" text-anchor="middle" font-size="9.8">模型从先验编一个填空</text>
+          <path d="M495,286 L88,286" stroke="#f85149" stroke-width="1.8" marker-end="url(#s1r)"/><text x="290" y="280" fill="#f5b0ac" text-anchor="middle" font-size="10">播报"正在放《晴天》"❌</text>
+        </g>
+        <rect x="40" y="316" width="500" height="74" rx="8" fill="#101a14" stroke="#3fb950"/>
+        <text x="56" y="338" fill="#7fd693" font-size="11" font-weight="700">解法</text>
+        <text x="56" y="358" fill="#bcd6c2" font-size="10.4">堵缺口：让工具返回真实歌名 → 照抄不编</text>
+        <text x="56" y="376" fill="#bcd6c2" font-size="10.4">禁填空：成功类只说"已开始播放"，不提细节</text>
+      </svg>
+    </div>
+
+    <!-- 时序2 不调工具 -->
+    <div class="board">
+      <svg viewBox="0 0 560 420" role="img">
+        <defs><marker id="s2" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L7,4 L0,8 z" fill="#7d8796"/></marker><marker id="s2r" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L7,4 L0,8 z" fill="#f85149"/></marker></defs>
+        <text x="280" y="22" fill="#cfe3f7" font-size="13.5" font-weight="800" text-anchor="middle">机制② 不调工具（N-08 注意力衰减）</text>
+        <g font-size="11" font-weight="700">
+          <rect x="40" y="38" width="90" height="30" rx="6" fill="#1b2230" stroke="#2a3242"/><text x="85" y="58" fill="#e6edf3" text-anchor="middle">用户</text>
+          <rect x="200" y="38" width="120" height="30" rx="6" fill="#16263a" stroke="#4c9eeb"/><text x="260" y="58" fill="#cfe3f7" text-anchor="middle">Planner(长SP)</text>
+          <rect x="400" y="38" width="120" height="30" rx="6" fill="#2a2410" stroke="#e3a008"/><text x="460" y="58" fill="#f2dca0" text-anchor="middle">POI搜索工具</text>
+        </g>
+        <g stroke="#3a4254" stroke-dasharray="3 4"><line x1="85" y1="68" x2="85" y2="360"/><line x1="260" y1="68" x2="260" y2="360"/><line x1="460" y1="68" x2="460" y2="360"/></g>
+        <g font-size="10.3">
+          <path d="M85,92 L258,92" stroke="#7d8796" stroke-width="1.5" marker-end="url(#s2)"/><text x="160" y="86" fill="#cdd6e0">（几轮前）"附近好吃的?"</text>
+          <path d="M260,116 L458,116" stroke="#7d8796" stroke-width="1.5" marker-end="url(#s2)"/><text x="360" y="110" fill="#cdd6e0" text-anchor="middle" font-size="9.6">✅正常调工具</text>
+          <path d="M460,138 L262,138" stroke="#7d8796" stroke-width="1.5" marker-end="url(#s2)"/><text x="360" y="152" fill="#9aa7b8" text-anchor="middle" font-size="9.6">返回结果(进了历史)</text>
+          <path d="M85,180 L258,180" stroke="#7d8796" stroke-width="1.5" marker-end="url(#s2)"/><text x="160" y="174" fill="#cdd6e0">"附近哪些好吃?"(重复)</text>
+          <rect x="160" y="198" width="220" height="68" rx="6" fill="#3a1f1f" stroke="#f85149"/>
+          <text x="270" y="216" fill="#f5b0ac" text-anchor="middle" font-size="9.8">注意事项"该调工具"在SP中部</text>
+          <text x="270" y="232" fill="#f5b0ac" text-anchor="middle" font-size="9.8">→ 注意力衰减被看漏</text>
+          <text x="270" y="250" fill="#f5b0ac" text-anchor="middle" font-size="9.8">+ 历史已有答案=省力路径</text>
+          <path d="M260,290 L88,290" stroke="#f85149" stroke-width="1.8" marker-end="url(#s2r)"/><text x="174" y="284" fill="#f5b0ac" text-anchor="middle" font-size="10">直接用旧答案，不调工具❌</text>
+        </g>
+        <rect x="40" y="318" width="500" height="74" rx="8" fill="#101a14" stroke="#3fb950"/>
+        <text x="56" y="340" fill="#7fd693" font-size="11" font-weight="700">解法</text>
+        <text x="56" y="360" fill="#bcd6c2" font-size="10.4">规则挪到 SP 显著位置+具体化（实测中部10次错3-4）</text>
+        <text x="56" y="378" fill="#bcd6c2" font-size="10.4">长期：训练固化"依赖外部信息→必调工具"</text>
+      </svg>
+    </div>
+
+    <!-- 时序3 端状态读错 -->
+    <div class="board">
+      <svg viewBox="0 0 560 430" role="img">
+        <defs><marker id="s3" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L7,4 L0,8 z" fill="#7d8796"/></marker><marker id="s3r" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L7,4 L0,8 z" fill="#f85149"/></marker></defs>
+        <text x="280" y="22" fill="#9ee0e3" font-size="13.5" font-weight="800" text-anchor="middle">机制③ 端状态读错（V-20 风量）</text>
+        <g font-size="11" font-weight="700">
+          <rect x="40" y="38" width="90" height="30" rx="6" fill="#1b2230" stroke="#2a3242"/><text x="85" y="58" fill="#e6edf3" text-anchor="middle">用户</text>
+          <rect x="200" y="38" width="160" height="30" rx="6" fill="#13242a" stroke="#39c5cf"/><text x="280" y="58" fill="#cfeef1" text-anchor="middle">端状态(表格式)</text>
+          <rect x="420" y="38" width="110" height="30" rx="6" fill="#16263a" stroke="#4c9eeb"/><text x="475" y="58" fill="#cfe3f7" text-anchor="middle">Planner</text>
+        </g>
+        <g stroke="#3a4254" stroke-dasharray="3 4"><line x1="85" y1="68" x2="85" y2="370"/><line x1="280" y1="68" x2="280" y2="370"/><line x1="475" y1="68" x2="475" y2="370"/></g>
+        <rect x="150" y="84" width="260" height="56" rx="6" fill="#101a1e" stroke="#39c5cf"/>
+        <text x="280" y="102" fill="#9ee0e3" text-anchor="middle" font-size="9.4" font-family="monospace">车内空调状态:{温度:na,模式:na,</text>
+        <text x="280" y="116" fill="#9ee0e3" text-anchor="middle" font-size="9.4" font-family="monospace">状态:5档,开关:开,位置:主驾}{…副驾}</text>
+        <text x="280" y="132" fill="#6b7686" text-anchor="middle" font-size="9">表头-行靠位置对齐，实际风量=6</text>
+        <g font-size="10.3">
+          <path d="M85,164 L473,164" stroke="#7d8796" stroke-width="1.5" marker-end="url(#s3)"/><text x="280" y="158" fill="#cdd6e0" text-anchor="middle">"风量调高三档"</text>
+          <path d="M475,190 L282,190" stroke="#39c5cf" stroke-width="1.5" marker-end="url(#s3)"/><text x="378" y="184" fill="#9aa7b8" text-anchor="middle" font-size="9.6">去读端状态</text>
+          <rect x="180" y="208" width="290" height="64" rx="6" fill="#3a1f1f" stroke="#f85149"/>
+          <text x="325" y="226" fill="#f5b0ac" text-anchor="middle" font-size="9.8">模型不擅长读"表头在上/数值在下"</text>
+          <text x="325" y="242" fill="#f5b0ac" text-anchor="middle" font-size="9.8">的表格 → 跨行列对齐错位</text>
+          <text x="325" y="258" fill="#f5b0ac" text-anchor="middle" font-size="9.8">把当前档位读成了"9档"</text>
+          <path d="M475,296 L88,296" stroke="#f85149" stroke-width="1.8" marker-end="url(#s3r)"/><text x="280" y="290" fill="#f5b0ac" text-anchor="middle" font-size="10">不调工具就断言"现在9档"❌</text>
+        </g>
+        <rect x="40" y="326" width="500" height="76" rx="8" fill="#101a1e" stroke="#39c5cf"/>
+        <text x="56" y="348" fill="#9ee0e3" font-size="11" font-weight="700">解法 ★治本</text>
+        <text x="56" y="368" fill="#bcd6c2" font-size="10.4">端状态表格 → 自然语言："主驾空调开着、6档、22度"</text>
+        <text x="56" y="386" fill="#bcd6c2" font-size="10.4">一改解一片 A2，且所有依赖端状态的推理都更准</text>
+      </svg>
+    </div>
+
+    <!-- 时序4 空间关系 -->
+    <div class="board">
+      <svg viewBox="0 0 560 430" role="img">
+        <defs><marker id="s4" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L7,4 L0,8 z" fill="#7d8796"/></marker><marker id="s4r" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L7,4 L0,8 z" fill="#f85149"/></marker></defs>
+        <text x="280" y="22" fill="#cfe3f7" font-size="13.5" font-weight="800" text-anchor="middle">机制④ 空间关系（V-11 车窗调高）</text>
+        <g font-size="11" font-weight="700">
+          <rect x="40" y="38" width="90" height="30" rx="6" fill="#1b2230" stroke="#2a3242"/><text x="85" y="58" fill="#e6edf3" text-anchor="middle">用户</text>
+          <rect x="200" y="38" width="160" height="30" rx="6" fill="#13242a" stroke="#39c5cf"/><text x="280" y="58" fill="#cfeef1" text-anchor="middle">端状态:窗已100%</text>
+          <rect x="420" y="38" width="110" height="30" rx="6" fill="#16263a" stroke="#4c9eeb"/><text x="475" y="58" fill="#cfe3f7" text-anchor="middle">Planner</text>
+        </g>
+        <g stroke="#3a4254" stroke-dasharray="3 4"><line x1="85" y1="68" x2="85" y2="372"/><line x1="280" y1="68" x2="280" y2="372"/><line x1="475" y1="68" x2="475" y2="372"/></g>
+        <g font-size="10.3">
+          <path d="M85,96 L473,96" stroke="#7d8796" stroke-width="1.5" marker-end="url(#s4)"/><text x="280" y="90" fill="#cdd6e0" text-anchor="middle">"调高一点"（窗已全开）</text>
+          <path d="M475,122 L282,122" stroke="#39c5cf" stroke-width="1.5" marker-end="url(#s4)"/><text x="378" y="116" fill="#9aa7b8" text-anchor="middle" font-size="9.6">读到已100%</text>
+          <rect x="150" y="140" width="320" height="92" rx="6" fill="#3a1f1f" stroke="#f85149"/>
+          <text x="310" y="160" fill="#f5b0ac" text-anchor="middle" font-size="9.8">缺"车内三维物理常识"：</text>
+          <text x="310" y="178" fill="#f5b0ac" text-anchor="middle" font-size="9.8">满开时"调高"的真实含义=想关一点</text>
+          <text x="310" y="196" fill="#f5b0ac" text-anchor="middle" font-size="9.8">模型只按字面=继续往上 → 发现到顶</text>
+          <text x="310" y="214" fill="#f5b0ac" text-anchor="middle" font-size="9.8">→ 觉得"调不了"→ 干脆不调工具</text>
+          <path d="M475,256 L88,256" stroke="#f85149" stroke-width="1.8" marker-end="url(#s4r)"/><text x="280" y="250" fill="#f5b0ac" text-anchor="middle" font-size="10">"已全开，没法调高了"❌</text>
+        </g>
+        <rect x="40" y="286" width="500" height="90" rx="8" fill="#101a14" stroke="#3fb950"/>
+        <text x="56" y="308" fill="#7fd693" font-size="11" font-weight="700">解法</text>
+        <text x="56" y="328" fill="#bcd6c2" font-size="10.4">L3 知识：写清"车窗满开后'调高'应理解为调低开度"</text>
+        <text x="56" y="346" fill="#bcd6c2" font-size="10.4">同理：遮阳帘"向前"=变小、座椅"挤"=往前</text>
+        <text x="56" y="364" fill="#bcd6c2" font-size="10.4">顽固方位映射(主驾右=副驾)靠 L6 训练 · 高频干预兜</text>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 图5 决策树（保留增强） ============ -->
+<section id="g5">
+  <h2><span class="n">图⑤</span>分诊决策树 · 拿到 bug 怎么 6 步定责</h2>
+  <div class="howto">怎么看：从顶部进，沿黄框往下，<b>命中就向右拐到对应类型出口</b>（彩色，带本次条数），走到底没拐出去的才是真归大脑修的 <b>A 推理</b>。这是把"怎么定责"标准化 —— 泽民拿到任何新 bug 照走一遍即可。</div>
+  <div class="board">
+    <svg viewBox="0 0 940 700" role="img">
+      <defs><marker id="d2" markerWidth="9" markerHeight="9" refX="7.5" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#7d8796"/></marker></defs>
+      <rect x="290" y="14" width="220" height="40" rx="20" fill="#16263a" stroke="#4c9eeb" stroke-width="1.6"/><text x="400" y="39" fill="#bcd9f5" font-size="13.5" font-weight="700" text-anchor="middle">一个被分给 Planner 的 bug</text>
+      <g font-size="13">
+        <rect x="240" y="76" width="320" height="50" rx="9" fill="#1f1c10" stroke="#e3a008"/><text x="400" y="98" fill="#f2dca0" text-anchor="middle" font-weight="700">① 有 log、描述能看懂吗？</text><text x="400" y="116" fill="#9aa7b8" font-size="10.5" text-anchor="middle">不能 → 没法分析</text>
+        <rect x="240" y="166" width="320" height="50" rx="9" fill="#1f1c10" stroke="#e3a008"/><text x="400" y="188" fill="#f2dca0" text-anchor="middle" font-weight="700">② ASR错/UI界面/手动点击/FC错？</text><text x="400" y="206" fill="#9aa7b8" font-size="10.5" text-anchor="middle">是 → 别的节点的锅</text>
+        <rect x="240" y="256" width="320" height="50" rx="9" fill="#1f1c10" stroke="#e3a008"/><text x="400" y="278" fill="#f2dca0" text-anchor="middle" font-weight="700">③ 这功能有对应工具吗？</text><text x="400" y="296" fill="#9aa7b8" font-size="10.5" text-anchor="middle">没有 → 能力边界外</text>
+        <rect x="240" y="346" width="320" height="50" rx="9" fill="#1f1c10" stroke="#e3a008"/><text x="400" y="368" fill="#f2dca0" text-anchor="middle" font-weight="700">④ 需求已闭环、只是体验瑕疵？</text><text x="400" y="386" fill="#9aa7b8" font-size="10.5" text-anchor="middle">是 → 被标高了</text>
+        <rect x="240" y="436" width="320" height="50" rx="9" fill="#1f1c10" stroke="#e3a008"/><text x="400" y="458" fill="#f2dca0" text-anchor="middle" font-weight="700">⑤ 改写合理、是下游接不住？</text><text x="400" y="476" fill="#9aa7b8" font-size="10.5" text-anchor="middle">是 → 大脑没错，下游弱</text>
+        <rect x="240" y="526" width="320" height="50" rx="9" fill="#1f1c10" stroke="#e3a008"/><text x="400" y="548" fill="#f2dca0" text-anchor="middle" font-weight="700">⑥ 播报了工具没返回的信息？</text><text x="400" y="566" fill="#9aa7b8" font-size="10.5" text-anchor="middle">是 → 大脑在编</text>
+      </g>
+      <g stroke="#7d8796" stroke-width="1.5" fill="none">
+        <path d="M400,54 L400,76" marker-end="url(#d2)"/><path d="M400,126 L400,166" marker-end="url(#d2)"/><path d="M400,216 L400,256" marker-end="url(#d2)"/><path d="M400,306 L400,346" marker-end="url(#d2)"/><path d="M400,396 L400,436" marker-end="url(#d2)"/><path d="M400,486 L400,526" marker-end="url(#d2)"/><path d="M400,576 L400,614" marker-end="url(#d2)"/>
+      </g>
+      <g font-size="11" fill="#6b7686" font-weight="700"><text x="412" y="146">是↓</text><text x="412" y="236">否↓</text><text x="412" y="326">是↓</text><text x="412" y="416">否↓</text><text x="412" y="506">否↓</text><text x="412" y="596">否↓</text></g>
+      <g stroke="#7d8796" stroke-width="1.5" fill="none">
+        <path d="M560,101 L640,101" marker-end="url(#d2)"/><path d="M560,191 L640,191" marker-end="url(#d2)"/><path d="M560,281 L640,281" marker-end="url(#d2)"/><path d="M560,371 L640,371" marker-end="url(#d2)"/><path d="M560,461 L640,461" marker-end="url(#d2)"/><path d="M560,551 L640,551" marker-end="url(#d2)"/>
+      </g>
+      <g font-size="11" fill="#9aa7b8" font-weight="700"><text x="600" y="93" text-anchor="middle">否</text><text x="600" y="183" text-anchor="middle">是</text><text x="600" y="273" text-anchor="middle">否</text><text x="600" y="363" text-anchor="middle">是</text><text x="600" y="453" text-anchor="middle">是</text><text x="600" y="543" text-anchor="middle">是</text></g>
+      <g font-size="12.5" font-weight="700">
+        <rect x="640" y="80" width="270" height="42" rx="8" fill="#222a36" stroke="#6b7686"/><text x="652" y="100" fill="#fff" font-size="11">D</text><text x="780" y="100" fill="#cfd6df" text-anchor="middle">无法分析·要log</text><text x="780" y="115" fill="#6b7686" font-size="10" text-anchor="middle">N-01</text>
+        <rect x="640" y="170" width="270" height="42" rx="8" fill="#222a36" stroke="#6b7686"/><text x="652" y="190" fill="#fff" font-size="11">D</text><text x="780" y="190" fill="#cfd6df" text-anchor="middle">非Planner·转模块 (8)</text><text x="780" y="205" fill="#6b7686" font-size="10" text-anchor="middle">N-02/03/06 M-30/31 转FC</text>
+        <rect x="640" y="260" width="270" height="42" rx="8" fill="#13242a" stroke="#39c5cf"/><text x="652" y="280" fill="#39c5cf" font-size="11">E</text><text x="780" y="280" fill="#cfeef1" text-anchor="middle">低优·走干预 (1批)</text><text x="780" y="295" fill="#6b7686" font-size="10" text-anchor="middle">演示厅·蓝牙·录音·人脸</text>
+        <rect x="640" y="350" width="270" height="42" rx="8" fill="#2a1a26" stroke="#f778ba"/><text x="652" y="370" fill="#f778ba" font-size="11">F</text><text x="780" y="370" fill="#f6cfe4" text-anchor="middle">误标·降级 (4)</text><text x="780" y="385" fill="#6b7686" font-size="10" text-anchor="middle">钓鱼case·POI联网·V-24/26</text>
+        <rect x="640" y="440" width="270" height="42" rx="8" fill="#251f10" stroke="#e3a008"/><text x="652" y="460" fill="#e3a008" font-size="11">C</text><text x="780" y="460" fill="#f2dca0" text-anchor="middle">下游协商·转需求 (5)</text><text x="780" y="475" fill="#6b7686" font-size="10" text-anchor="middle">开始导航到XX·话术顺序</text>
+        <rect x="640" y="530" width="270" height="42" rx="8" fill="#1d1530" stroke="#a371f7"/><text x="652" y="550" fill="#a371f7" font-size="11">B</text><text x="780" y="550" fill="#dccaf7" text-anchor="middle">幻觉·堵缺口 (2)</text><text x="780" y="565" fill="#6b7686" font-size="10" text-anchor="middle">M-28歌名·V-27a坚持</text>
+      </g>
+      <rect x="250" y="614" width="300" height="44" rx="9" fill="#16263a" stroke="#4c9eeb" stroke-width="1.8"/><text x="400" y="635" fill="#bcd9f5" font-size="13.5" font-weight="800" text-anchor="middle">A 推理 — 大脑想错 (15)</text><text x="400" y="651" fill="#9aa7b8" font-size="10" text-anchor="middle">走到底没拐出去 = 真正归 Planner 修</text>
+      <g stroke="#4c9eeb" stroke-width="1.4" fill="none" opacity=".8"><path d="M300,658 L300,672" marker-end="url(#d2)"/><path d="M400,658 L400,672" marker-end="url(#d2)"/><path d="M500,658 L500,672" marker-end="url(#d2)"/></g>
+      <g font-size="11" font-weight="700">
+        <rect x="232" y="672" width="136" height="24" rx="6" fill="#16263a" stroke="#4c9eeb"/><text x="300" y="688" fill="#cfe3f7" text-anchor="middle">A1 空间(9)</text>
+        <rect x="332" y="672" width="136" height="24" rx="6" fill="#16263a" stroke="#4c9eeb"/><text x="400" y="688" fill="#cfe3f7" text-anchor="middle">A2 端状态(2)</text>
+        <rect x="432" y="672" width="136" height="24" rx="6" fill="#16263a" stroke="#4c9eeb"/><text x="500" y="688" fill="#cfe3f7" text-anchor="middle">A3 上下文(4)</text>
+      </g>
+    </svg>
+  </div>
+</section>
+
+<!-- ============ 解决方案实施篇 样式 ============ -->
+<style>
+  .sol-wrap h2{border-left-color:var(--green)}
+  .solcard{background:var(--panel);border:1px solid var(--border);border-radius:13px;margin:16px 0;overflow:hidden}
+  .solcard .sh{display:flex;align-items:center;gap:10px;padding:13px 18px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+  .solcard .sh .tg{display:inline-block;font-size:11.5px;font-weight:700;border-radius:6px;padding:2px 9px;color:#0d1016}
+  .solcard .sh .ttl{font-weight:800;font-size:16px;flex:1;min-width:200px}
+  .solcard .sh .own{font-size:11.5px;color:var(--sub);background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:3px 11px}
+  .solcard .sb{padding:8px 18px 18px}
+  .rootline{color:var(--sub);font-size:13.5px;margin:10px 0 6px;border-left:3px solid var(--red);padding-left:11px}
+  .rootline b{color:#f5b0ac}
+  .ideaLine{color:var(--sub);font-size:13.5px;margin:6px 0 12px;border-left:3px solid var(--blue);padding-left:11px}
+  .ideaLine b{color:#bcd9f5}
+  .steps{counter-reset:st;margin:10px 0;padding:0;list-style:none}
+  .steps li{position:relative;padding:7px 0 7px 42px;border-top:1px dashed var(--border);font-size:13.8px}
+  .steps li:before{counter-increment:st;content:counter(st);position:absolute;left:0;top:8px;width:26px;height:26px;border-radius:50%;background:#1d3b2a;border:1px solid var(--green);color:#7fd693;font-weight:700;font-size:12.5px;display:flex;align-items:center;justify-content:center}
+  .steps li .lyr{display:inline-block;font-size:10.5px;font-weight:700;color:#0d1016;border-radius:4px;padding:1px 6px;margin-right:6px;vertical-align:middle}
+  .steps li b{color:var(--ink)}
+  .accept{background:rgba(63,185,80,.07);border:1px solid #2b5c33;border-radius:8px;padding:9px 13px;margin:11px 0 4px;font-size:13px;color:#bcd6c2}
+  .accept b{color:#7fd693}
+  .artifact{background:#0c1118;border:1px solid #2a3a4d;border-radius:8px;padding:12px 14px;margin:10px 0;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:12.6px;color:#d4dbe6;white-space:pre-wrap;line-height:1.6;overflow-x:auto}
+  .artifact .lab{display:block;font-family:-apple-system,"PingFang SC";font-size:11.5px;color:var(--teal);font-weight:700;margin-bottom:7px}
+  .artifact .add{color:#7fd693} .artifact .del{color:#e8908a} .artifact .cm{color:#6b7686}
+  .ba{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin:11px 0}
+  @media(max-width:860px){.ba{grid-template-columns:1fr}}
+  .ba .col{border-radius:8px;padding:11px 13px;font-size:12.6px;font-family:"SF Mono",Menlo,monospace;white-space:pre-wrap;line-height:1.55}
+  .ba .bad{background:#1c1414;border:1px solid #5c2b2b;color:#e8b3b0}
+  .ba .good{background:#101c14;border:1px solid #2b5c33;color:#bcd6c2}
+  .ba .h{display:block;font-family:-apple-system;font-weight:700;margin-bottom:6px;font-size:12px}
+  .casechips{margin:8px 0;font-size:11.5px;color:var(--muted)}
+  .casechips b{color:var(--sub)}
+  .roadmap{display:flex;flex-direction:column;gap:12px;margin:14px 0}
+  .phase{display:grid;grid-template-columns:120px 1fr 150px;gap:14px;align-items:center;background:var(--panel2);border:1px solid var(--border);border-left-width:4px;border-radius:10px;padding:13px 16px}
+  @media(max-width:820px){.phase{grid-template-columns:1fr}}
+  .phase .pn{font-weight:800;font-size:15px}
+  .phase .pn .sub{display:block;font-size:11px;color:var(--muted);font-weight:400;margin-top:2px}
+  .phase .pbody{font-size:13.3px;color:var(--sub)}
+  .phase .pbody b{color:var(--ink)}
+  .phase .pcum{text-align:center}
+  .phase .pcum .big{font-size:26px;font-weight:800;line-height:1}
+  .phase .pcum .l{font-size:10.5px;color:var(--muted)}
+  table.raci{width:100%;border-collapse:collapse;font-size:13px;margin:12px 0}
+  table.raci th,table.raci td{border:1px solid var(--border);padding:8px 10px;text-align:center}
+  table.raci th{background:var(--panel2);color:var(--sub)}
+  table.raci td.tl{text-align:left}
+  .R{color:#f85149;font-weight:800} .Ac{color:#3fb950;font-weight:800} .Co{color:#e3a008;font-weight:700} .In{color:#6b7686}
+</style>
+
+<!-- ============ ⑥ 解法标准流程 ============ -->
+<section id="sop" class="sol-wrap">
+  <h2><span class="n" style="color:#6b7686">实施篇 ⑥</span>解一个 bug 的标准作业流程（SOP）</h2>
+  <div class="howto">怎么看：任何一个 bug 进来，都走这条<b>固定 5 步流水线</b>——先用图⑤定责，再按根因选解法层，落地实施，验收，最后回归防反弹。下面所有逐类解法都是这条流程的填充。</div>
+  <div class="board">
+    <svg viewBox="0 0 1200 220" role="img">
+      <defs><marker id="sp1" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#3fb950"/></marker></defs>
+      <g font-size="13">
+        <rect x="20" y="70" width="200" height="80" rx="11" fill="#1b2230" stroke="#e3a008"/><text x="120" y="100" fill="#f2dca0" font-weight="800" text-anchor="middle">1 定责</text><text x="120" y="120" fill="#9aa7b8" font-size="10.5" text-anchor="middle">图⑤决策树→A–F</text><text x="120" y="136" fill="#6b7686" font-size="9.5" text-anchor="middle">非Planner立即转走</text>
+        <rect x="262" y="70" width="200" height="80" rx="11" fill="#1b2230" stroke="#4c9eeb"/><text x="362" y="100" fill="#cfe3f7" font-weight="800" text-anchor="middle">2 选解法层</text><text x="362" y="120" fill="#9aa7b8" font-size="10.5" text-anchor="middle">图③根因→L0–L6</text><text x="362" y="136" fill="#6b7686" font-size="9.5" text-anchor="middle">能轻则轻·能本地不推下游</text>
+        <rect x="504" y="70" width="200" height="80" rx="11" fill="#1b2230" stroke="#3fb950"/><text x="604" y="100" fill="#a7e3b0" font-weight="800" text-anchor="middle">3 实施</text><text x="604" y="120" fill="#9aa7b8" font-size="10.5" text-anchor="middle">改提示/知识/端状态</text><text x="604" y="136" fill="#6b7686" font-size="9.5" text-anchor="middle">/干预/转需求/训练样本</text>
+        <rect x="746" y="70" width="200" height="80" rx="11" fill="#1b2230" stroke="#39c5cf"/><text x="846" y="100" fill="#9ee0e3" font-weight="800" text-anchor="middle">4 验收</text><text x="846" y="120" fill="#9aa7b8" font-size="10.5" text-anchor="middle">构造N条同型case</text><text x="846" y="136" fill="#6b7686" font-size="9.5" text-anchor="middle">通过率达标(Reward)</text>
+        <rect x="988" y="70" width="200" height="80" rx="11" fill="#1b2230" stroke="#a371f7"/><text x="1088" y="100" fill="#dccaf7" font-weight="800" text-anchor="middle">5 回归</text><text x="1088" y="120" fill="#9aa7b8" font-size="10.5" text-anchor="middle">纳入eval集</text><text x="1088" y="136" fill="#6b7686" font-size="9.5" text-anchor="middle">防下次反弹</text>
+      </g>
+      <g stroke="#3fb950" stroke-width="2" fill="none">
+        <path d="M220,110 L260,110" marker-end="url(#sp1)"/><path d="M462,110 L502,110" marker-end="url(#sp1)"/><path d="M704,110 L744,110" marker-end="url(#sp1)"/><path d="M946,110 L986,110" marker-end="url(#sp1)"/>
+      </g>
+      <text x="600" y="40" fill="#9aa7b8" font-size="13" font-weight="700" text-anchor="middle">每个 bug = 走一遍这条流水线；批量 bug = 同类合并走一遍</text>
+      <path d="M1088,150 C1088,195 120,195 120,152" stroke="#a371f7" stroke-width="1.4" fill="none" stroke-dasharray="4 3" marker-end="url(#sp1)" opacity=".6"/>
+      <text x="600" y="208" fill="#6b7686" font-size="10.5" text-anchor="middle">验收挂掉→回到第2步换更重的解法层</text>
+    </svg>
+  </div>
+</section>
+
+<!-- ============ ⑦ 三阶段路线 ============ -->
+<section id="road" class="sol-wrap">
+  <h2><span class="n" style="color:#6b7686">实施篇 ⑦</span>"如何全部解了"——三阶段实施路线图</h2>
+  <div class="howto">怎么看：不是一次性全解，是<b>按"见效快慢×成本"分三阶段滚动推进</b>。每阶段标了<b>解掉哪些类、累计解决占比</b>。核心节奏：阶段一先把"不该背的"剥光并解掉高频推理；阶段二做端状态治本；阶段三交给下游与训练收尾。</div>
+  <div class="roadmap">
+    <div class="phase" style="border-left-color:var(--green)">
+      <div class="pn">阶段一<span class="sub">本周 · 0–7 天</span></div>
+      <div class="pbody"><b>剥离 + 高频快解（不动模型）</b><br>① L0 流程治理：bug 必带 log、P0 误标回调、非 Planner 立即转走（D8+F4 出清）② L1 干预：冷门功能 + "开始导航" 关键词拦截（E、C 高频）③ L3 知识：车窗满开调高=调低、遮阳帘向前=变小、座椅挤=往前、调高X%语义（A1 大半）<br><span style="color:var(--muted);font-size:12px">关掉：D-8 · F-4 · E-1批 · C高频2 · A1可补6 = 约 21 个</span></div>
+      <div class="pcum"><div class="big" style="color:var(--green)">~60%</div><div class="l">累计解决</div></div>
+    </div>
+    <div class="phase" style="border-left-color:var(--teal)">
+      <div class="pn">阶段二<span class="sub">2–3 周</span></div>
+      <div class="pbody"><b>端状态治本 + 上下文策略（产品提需求·工程改造）</b><br>① L4 端状态表格→自然语言（A2 全部 + A1 残余受益）② L2 注意事项重定位+必调工具白名单（A3 不调工具）③ 端状态 vs 上下文优先级规则<br><span style="color:var(--muted);font-size:12px">关掉：A2-2 · A3-4 · A1残余3 = 约 9 个，且整体推理准确率抬升</span></div>
+      <div class="pcum"><div class="big" style="color:var(--teal)">~85%</div><div class="l">累计解决</div></div>
+    </div>
+    <div class="phase" style="border-left-color:var(--amber)">
+      <div class="pn">阶段三<span class="sub">迭代 · 跨团队</span></div>
+      <div class="pbody"><b>下游协商 + 模型训练收尾（协调弋途/算法）</b><br>① L5 弋途：单目的地导航转向意图、播报顺序对齐、避人吹原子能力（C 全部）② L6 训练：方位映射、温度反、坚持事实对抗样本（B + A 顽固）③ 评测缺口补 definition（情绪/emoji/TTS）<br><span style="color:var(--muted);font-size:12px">关掉：C-3 · B-2 · 顽固A 3-4 = 收尾残留</span></div>
+      <div class="pcum"><div class="big" style="color:var(--amber)">~100%</div><div class="l">收敛完成</div></div>
+    </div>
+  </div>
+  <div class="board">
+    <svg viewBox="0 0 1200 150" role="img">
+      <text x="20" y="26" fill="#9aa7b8" font-size="12.5" font-weight="700">累计解决进度（剥离越靠前，曲线起步越陡）</text>
+      <line x1="60" y1="120" x2="1160" y2="120" stroke="#293141"/>
+      <line x1="60" y1="120" x2="60" y2="40" stroke="#293141"/>
+      <text x="40" y="46" fill="#6b7686" font-size="10">100%</text><text x="46" y="124" fill="#6b7686" font-size="10">0</text>
+      <!-- curve points: start 0, P1 60%, P2 85%, P3 100% -->
+      <polyline points="60,120 420,72 780,49 1140,40" fill="none" stroke="#3fb950" stroke-width="2.5"/>
+      <circle cx="420" cy="72" r="5" fill="#3fb950"/><text x="420" y="60" fill="#7fd693" font-size="11" text-anchor="middle">阶段一 60%</text>
+      <circle cx="780" cy="49" r="5" fill="#39c5cf"/><text x="780" y="38" fill="#9ee0e3" font-size="11" text-anchor="middle">阶段二 85%</text>
+      <circle cx="1140" cy="40" r="5" fill="#e3a008"/><text x="1120" y="32" fill="#f2dca0" font-size="11" text-anchor="middle">阶段三 100%</text>
+      <text x="420" y="138" fill="#6b7686" font-size="10" text-anchor="middle">本周</text><text x="780" y="138" fill="#6b7686" font-size="10" text-anchor="middle">2-3周</text><text x="1140" y="138" fill="#6b7686" font-size="10" text-anchor="middle">迭代</text>
+    </svg>
+  </div>
+</section>
+
+<!-- ============ ⑧ 逐类解法+步骤 ============ -->
+<section id="play" class="sol-wrap">
+  <h2><span class="n" style="color:#6b7686">实施篇 ⑧</span>逐类解决方案 · 详细实施步骤</h2>
+  <div class="howto">怎么看：8 张解法卡，每张含 <b>🔴根因 → 🔵解法思路 → ✅可直接执行的编号步骤（标了用哪层L）→ 验收标准 → 涉及 case</b>。步骤里的具体文本/格式去⑨物料库取现成的。</div>
+  <div class="callout red"><b>⚠ 对照真实 SP 后的核心修正（把 SP 信息代入）：</b>很多 bug 在你给的真实 SP 里<b>其实已有依据，模型只是没连上</b>——① 车窗/座椅/遮阳帘的数值范围在《AI汽车能力边界》里都写了（车窗0~100%精度5%、座椅靠背正常20~30%、遮阳帘0%全关）；② 正在播放的歌名在<b>车端状态·当前播放音频</b>里有；③ "信端状态别信历史"<b>示例18 整篇都在演示</b>、注意事项第7条也写了。所以解法不是泛泛"把规则移到显著位置"，而是 <b>让工具 notice/tips 显式指向这些已有内容</b>，或 <b>补全 SP 没覆盖的场景（如重复检索类）</b>。下面每张卡都改成引用真实 SP 原文。</div>
+
+  <!-- A1 -->
+  <div class="solcard">
+    <div class="sh"><span class="tg" style="background:var(--A)">A1</span><span class="ttl">空间关系理解错误</span><span class="own">产品(你)出文案 · 算法收顽固</span></div>
+    <div class="sb">
+      <div class="rootline"><b>根因（代入真实SP）：</b>数值依据<b>《AI汽车能力边界》里其实都有</b>——"车窗 0~100% 精度5%"、"座椅靠背正常位置 20~30%"、"遮阳帘 0%全关/100%全开"。但 <code>vehicle_basic_control</code> 现有 tips 只写了<b>"可结合说话人位置推理…脚冷用热风吹脚，手冷用方向盘加热"</b>，<b>没把这些静态数值翻译成"动作语义"</b>：满开时"调高"该往哪、"靠背抬起来"该回到 20~30% 而非最前 0%。模型有数值、没动作规则（机制④）。</div>
+      <div class="ideaLine"><b>思路：</b>让 tips <b>显式指向能力边界并补动作语义</b>（不是新造常识，是把已有数值连成规则）；唯独"主驾右=副驾"能力边界里没有 → 干预(L1)+训练(L6)。</div>
+      <ol class="steps">
+        <li><span class="lyr" style="background:#4c9eeb">L3</span>给 <code>vehicle_basic_control.tips</code> 追加动作语义并<b>援引能力边界原文</b>（见⑨-1/⑭）：「车窗已100%(能力边界:满开)时'调高'=调低开度；'靠背抬起来/我要起来'→回到能力边界定义的正常坐姿20~30%，不是最前0%；遮阳帘已开时'向前'=减小开度；'调高X%'是相对量裁剪到[0,100]」。</li>
+        <li><span class="lyr" style="background:#39c5cf">L1</span>"主驾右=副驾、副驾左=主驾"<b>能力边界里没有方位换算</b> → 先写干预规则(见⑨-4)兜高频必现项。</li>
+        <li><span class="lyr" style="background:#a371f7">L6</span>V-13/15/16 方位 case 整理成训练样本（输入含 <code>speaker_position</code>，输出正确部位），交算法纳入下轮 SFT。</li>
+        <li><span class="lyr" style="background:#3fb950">验收</span>构造 10 条：车窗满开"调高"、遮阳帘"向前"、"靠背抬起来"、副驾说"左边"——核对是否落在能力边界定义的合理区间。</li>
+      </ol>
+      <div class="accept"><b>✅ 验收标准：</b>援引能力边界后 L3 可补类 ≥ 9/10（V-19 应回到 20~30% 而非 0%）；顽固方位干预后必现项消除，训练后裸模型 ≥ 7/10。</div>
+      <div class="casechips"><b>涉及 case：</b>V-11 V-12 V-14 V-18 V-19（能力边界已有依据·援引即可）· V-13 V-15 V-16（能力边界无方位换算·干预+训练）</div>
+    </div>
+  </div>
+
+  <!-- A2 -->
+  <div class="solcard">
+    <div class="sh"><span class="tg" style="background:var(--A)">A2</span><span class="ttl">端状态参考错误 ★治本项</span><span class="own">产品提需求 · 工程改造</span></div>
+    <div class="sb">
+      <div class="rootline"><b>根因（代入真实SP）：</b>真实端状态长这样——<code>车内空调状态: _参数顺序_:[模式,位置,状态,开关,温度]　主驾:[手动 主驾 2档 开启 27.5度]</code>。模型要把第3位"状态=2档"和表头对齐才知道是风量。V-20"说成9档"=对错位；而《能力边界》明明写了"风量 1~11 档"，模型有范围却读错当前值。<b>注意事项第7条 + 示例18 教的是"信端状态别信历史"，但都没解决"端状态本身长得读不懂"</b>（机制③）。</div>
+      <div class="ideaLine"><b>思路：</b>把端状态从 <code>_参数顺序_</code> 表格<b>改写成自然语言陈述句</b>（工程改渲染）。一次改造解 A2 全部，且所有依赖端状态的推理（A1/A3一部分）一起变准——性价比最高。</div>
+      <ol class="steps">
+        <li><span class="lyr" style="background:#39c5cf">L4</span>定义自然语言模板（before/after 见⑨-2/⑬发现1）：把 <code>主驾:[手动 主驾 2档 开启 27.5度]</code> → <b>"主驾空调：手动，开启，风量2档，27.5℃"</b>；每部件一句话、主体明确、含单位、关闭项也说明。</li>
+        <li><span class="lyr" style="background:#39c5cf">L4</span>工程在 <code>{{车端状态信息}}</code> 注入处把渲染由"拼 _参数顺序_ 表格"改为"拼自然语言"，灰度发布。</li>
+        <li><span class="lyr" style="background:#4c9eeb">L2</span><b>关键：示例18 里的车端状态块也要同步换成新格式</b>——否则 few-shot 还在用旧表格示范，模型学的是旧格式。</li>
+        <li><span class="lyr" style="background:#3fb950">验收</span>构造风量(对照能力边界1~11档)/温度/座位人员/开关读取 case，对比改造前后准确率。</li>
+      </ol>
+      <div class="accept"><b>✅ 验收标准：</b>端状态读取类准确率显著提升至 ≥ 9/10；V-20/V-21 直接关闭。</div>
+      <div class="casechips"><b>涉及 case：</b>V-20 V-21（直接）· V-22 V-25（受益）· 全场景推理准确率提升</div>
+    </div>
+  </div>
+
+  <!-- A3 -->
+  <div class="solcard">
+    <div class="sh"><span class="tg" style="background:var(--A)">A3</span><span class="ttl">上下文参考错误 / 该调工具不调</span><span class="own">产品(你) · 算法</span></div>
+    <div class="sb">
+      <div class="rootline"><b>根因（代入真实SP·已修正）：</b>之前说"规则在SP中部被衰减"<b>不准确</b>——真实<b>注意事项只有6条(1/2/4/5/6/7)很短，不存在中部埋没</b>。真相是：<b>示例18 整篇(4个input)已强力演示"以端状态为准、不受历史干扰"，但它全是『查询类』</b>（现在放什么歌/还有多久到/车窗关好没/空调开着没），都从端状态读、<b>不需要调工具</b>。而 N-08/M-29 是<b>『重复检索类』</b>（再问"附近好吃的"要重新 <code>poi_search</code>）——<b>18 个示例里一个都没覆盖</b>，注意事项也没写 → 模型默认复用历史(省力)。</div>
+      <div class="ideaLine"><b>思路（修正）：</b>不是"移动规则"，是<b>补全 SP 没覆盖的场景</b>——给"重复检索类"补一个参考示例(与示例18互补) + 注意事项补一条具体规则。</div>
+      <ol class="steps">
+        <li><span class="lyr" style="background:#4c9eeb">L2</span><b>在⑥参考示例补一个新示例</b>：用户几轮前问过"附近好吃的"，再问时 Planner <b>重新调 <code>poi_search</code></b>（不复用历史 answer）——正好补上示例18只讲查询、没讲重复检索的缺口。</li>
+        <li><span class="lyr" style="background:#4c9eeb">L2</span><b>注意事项第7条后补一条</b>（文案见⑨-3/⑭）：「依赖实时检索/执行的需求(POI/天气/媒体/车况)，即便历史出现过相似问答，也要重新调工具，禁止用历史 answer 直接回」。放在已有第7条旁，与之成对。</li>
+        <li><span class="lyr" style="background:#4c9eeb">L2</span>定义<b>必调工具白名单</b>：poi_search/weather_search/vehicle_status_search/music_search——命中时禁止复用历史答案。</li>
+        <li><span class="lyr" style="background:#3fb950">L2</span>端状态优先级<b>已有强支撑</b>(注意事项7+示例18)，<b>查询类不用改</b>，只需把上面"重复检索类"的缺口补齐即可。</li>
+        <li><span class="lyr" style="background:#a371f7">L6</span>N-08/M-29 做成训练样本，固化"重复检索需重新调工具"。</li>
+        <li><span class="lyr" style="background:#3fb950">验收</span>构造"重复问附近好吃的"等场景，统计重新调工具率；查询类沿用示例18应保持正确。</li>
+      </ol>
+      <div class="accept"><b>✅ 验收标准：</b>重复检索类调工具率从"10次错3-4次"提升至 ≥ 9/10；查询类(示例18覆盖)维持 100% 以端状态为准。</div>
+      <div class="casechips"><b>涉及 case：</b>N-08 M-29（重复检索·示例缺口）· V-22（查询·示例18已覆盖，验证别回退）· V-23（ASR带偏，偶现）</div>
+    </div>
+  </div>
+
+  <!-- B -->
+  <div class="solcard">
+    <div class="sh"><span class="tg" style="background:var(--B)">B</span><span class="ttl">幻觉（编造工具没返回的信息）</span><span class="own">产品+下游+算法</span></div>
+    <div class="sb">
+      <div class="rootline"><b>根因（代入真实SP）：</b><b>信息其实 SP 里都有，模型没用上</b>——① 正在放的歌名在<b>车端状态·当前播放音频</b>里就有(<code>音频名称:Faded, 作者:Alan Walker</code>)，而且<b>示例18 input1 已示范正确读法</b>("正在放周杰伦的《晴天》，QQ音乐播的")；可 <code>music_search.notice</code> 只写了"搜索后自动播第一首"，没让模型去读端状态 → M-28 编了歌名。② <b>《能力边界》写明"氛围灯256色"</b>，但 <code>ambient_light_control.notice</code> 没让模型坚持 → 被"我没有氛围灯"引导放弃(机制①)。</div>
+      <div class="ideaLine"><b>思路：</b>把已有信息<b>显式接进工具 notice</b>——歌名指向端状态当前播放音频(照示例18做)，氛围灯指向能力边界256色；成功类禁编。</div>
+      <ol class="steps">
+        <li><span class="lyr" style="background:#4c9eeb">L2</span><code>music_search.notice</code> 补："工具返回仅代表已开始播放、不含歌名；<b>需告知歌曲时以车端状态·当前播放音频为准</b>(参照示例18)，禁止凭记忆编造"(见⑭)。<b>改一行就生效。</b></li>
+        <li><span class="lyr" style="background:#4c9eeb">L2</span><code>ambient_light_control.notice</code> 补："<b>本车(D6X)确有氛围灯(能力边界:256色)</b>，用户说'我没有氛围灯'时以能力边界为准、不被引导否定"(见⑭)。</li>
+        <li><span class="lyr" style="background:#e3a008">L5</span>对工具<b>真没返回细节</b>的场景，向下游转需求让 <code>tool_feedback</code> 直接带歌名/颜色(模板见⑨-6)，从源头堵缺口。</li>
+        <li><span class="lyr" style="background:#a371f7">L6</span>构造"用户误导"对抗样本(如"我没有氛围灯")，训练模型坚持能力边界已写的事实。</li>
+        <li><span class="lyr" style="background:#3fb950">验收</span>媒体播报与端状态当前播放音频一致率；氛围灯对抗 case 坚持率。</li>
+      </ol>
+      <div class="accept"><b>✅ 验收标准：</b>music notice 改后 M-28 即止（端状态有歌名可读）；氛围灯不再被"我没有氛围灯"带偏；对抗坚持率 ≥ 8/10。</div>
+      <div class="casechips"><b>涉及 case：</b>M-28（歌名·端状态已有+示例18已示范）· V-27a（氛围灯·能力边界已写256色）</div>
+    </div>
+  </div>
+
+  <!-- C -->
+  <div class="solcard">
+    <div class="sh"><span class="tg" style="background:var(--C)">C</span><span class="ttl">改写合理但下游接不住</span><span class="own">产品提需求 · 弋途/下游</span></div>
+    <div class="sb">
+      <div class="rootline"><b>根因（代入真实SP）：</b>真实 SP 里导航是<b>两个工具分工</b>：<code>route_planning</code>（精确地点检索+发起导航，tips:"选择路线后会自动发起导航，无需再发开始导航") + <code>navi_basic_control</code>（开始/继续导航、途经点，notice:"<b>不涉及目的地搜索、全新路线规划</b>")。<b>示例1 就是标准流程</b>：route_planning"导航到莲花路321号"→返回路线→"选择路线1"→自动导航。N-04 的 bug 是 Planner 把"开始导航"改写成"开始导航到浦东机场"，<b>把 navi(开始) 和 route(目的地) 混在一句</b>，下游按字面分到算路 → 不支持。<b>navi 的 notice 已经写了"不涉及目的地"，只是没显式拦住这种混写。</b></div>
+      <div class="ideaLine"><b>思路：</b>强化 navi.notice 显式禁止补目的地（贴合它已有的"不涉及目的地"原则）+ 干预兜底 + 用 Planner 真实改写样本训下游 SFT(见⑮)。</div>
+      <ol class="steps">
+        <li><span class="lyr" style="background:#4c9eeb">L3</span><code>navi_basic_control.notice</code> 在现有"不涉及目的地搜索"后补一句（见⑭）："'开始导航/出发'应开启<b>当前已规划路线</b>，禁止改写成'开始导航到XX'补目的地；无路线时才先 route_planning"——是<b>把已有原则说细</b>，不是新规则。</li>
+        <li><span class="lyr" style="background:#39c5cf">L1</span>高频先上干预：命中"开始导航/出发/走吧"直接开启当前路线（见⑨-4）。</li>
+        <li><span class="lyr" style="background:#4c9eeb">L3</span>参考示例⑥已有示例1演示正确流程，可<b>再补一个反例对照</b>："开始导航"→走 navi 开启、不补目的地。</li>
+        <li><span class="lyr" style="background:#e3a008">L5</span>向弋途提需求+出 Planner 真实改写样本训下游 SFT(见⑮)；话术顺序(M-32/33)与弋途对齐"成功后再报完成"。</li>
+        <li><span class="lyr" style="background:#3fb950">验收</span>"开始导航/开始导航到X"闭环率；对照示例1的标准流程不回退。</li>
+      </ol>
+      <div class="accept"><b>✅ 验收标准：</b>干预上线后"开始导航"闭环率 100%；navi.notice 强化+下游SFT后撤干预仍 ≥ 9/10。</div>
+      <div class="casechips"><b>涉及 case：</b>N-04 N-05（开始导航·navi notice已有"不涉及目的地"基础）· V-17（避人吹·转需求）· M-32 M-33（话术顺序）</div>
+    </div>
+  </div>
+
+  <!-- D -->
+  <div class="solcard">
+    <div class="sh"><span class="tg" style="background:var(--D)">D</span><span class="ttl">非 Planner（被错误分配）</span><span class="own">产品(你)主导流程治理</span></div>
+    <div class="sb">
+      <div class="rootline"><b>根因（代入真实SP）：</b>分发流程混乱（无log/reopen回流/UI·FC错挂）外，<b>真实《能力边界》其实已经声明了一批"非语音可控"功能</b>——雨刮(方向盘拨杆)、档位P/D/N/R(换挡杆)、儿童锁/车门(物理)、危险警报灯、方向盘位置(物理手柄)、充电口盖(手动)、天窗(实体不支持)。测试报这些=<b>能力边界已白纸黑字写明不归 Planner</b>，可直接引用驳回，不该挂在我们名下。</div>
+      <div class="ideaLine"><b>思路：</b>靠流程治理 + <b>用能力边界原文做"驳回依据"</b>（不是嘴说，是引用 SP 已有声明）。</div>
+      <ol class="steps">
+        <li><span class="lyr" style="background:#6b7686">L0</span>立提单规范：bug 必带 log ID + 可复现（模板见⑨-7），缺失打回。</li>
+        <li><span class="lyr" style="background:#6b7686">L0</span>用图⑤分诊 SOP 过单；判为非 Planner（UI/ASR/手动点击/FC）立即转。<b>涉及能力边界"不支持语音控制"项的，直接引用能力边界原文驳回</b>（如"雨刮需方向盘拨杆操作"）。</li>
+        <li><span class="lyr" style="background:#6b7686">L0</span>推动改 reopen 流转规则：不自动回第一经办人，按当前归类走。</li>
+        <li><span class="lyr" style="background:#6b7686">L0</span>统计转出占比（导航40+仅2-3真问题、官方≈35%非自身）当"分发质量低"汇报证据。</li>
+      </ol>
+      <div class="accept"><b>✅ 验收标准：</b>新提单 100% 带 log；非 Planner 单 ≤ 24h 转走；能力边界已声明项可一句话驳回；月度输出占比表。</div>
+      <div class="casechips"><b>涉及 case：</b>N-01 N-02 N-03 N-06 N-07 · V-27d（转FC）· M-30 M-31 · 能力边界已声明的物理操作类</div>
+    </div>
+  </div>
+
+  <!-- E -->
+  <div class="solcard">
+    <div class="sh"><span class="tg" style="background:var(--E)">E</span><span class="ttl">低优功能 · 多数是"路由错"非"没工具"</span><span class="own">产品(你) · 工程</span></div>
+    <div class="sb">
+      <div class="rootline"><b>根因（代入真实SP·重要修正）：</b>之前归为"没工具"<b>不准确</b>——核对 28 个工具后，<b>大部分冷门功能其实都有工具</b>：蓝牙→<code>vehicle_system_settings</code>(param含"连接蓝牙设备")、录音→<code>audio_record</code>、智驾/泊车→<code>auto_drive</code>、人脸→<code>face_id_register</code>、打开APP→system_settings(param含"打开QQ音乐")。真问题是 <b>Planner 路由错</b>（会上原话：录音"它不调录音工具、会调车控工具"）。<b>真正"没工具"的只有第三方APP（演示厅/优盘视频）</b>——它们不在工具/能力边界里。</div>
+      <div class="ideaLine"><b>思路：</b>路由错→在对应工具 <code>tool_describe</code> 补关键词 + 补示例；真缺的(第三方APP)→干预/能力边界补 APP 清单。</div>
+      <ol class="steps">
+        <li><span class="lyr" style="background:#4c9eeb">L3</span><b>路由错类</b>：在 <code>audio_record.describe</code> 补"录音开关/打开关闭录像"关键词、system_settings 明确"蓝牙开关"归属——让 Planner 别把它们发给车控。</li>
+        <li><span class="lyr" style="background:#39c5cf">L1</span><b>真缺类</b>（演示厅/优盘视频等第三方APP）：干预兜底，命中→走 system_settings"打开XX"或明确告知不支持（见⑨-4）。</li>
+        <li><span class="lyr" style="background:#4c9eeb">L3</span>能力边界补"车上已装 APP 清单"——呼应能力边界已有的"未提及功能禁瞎判、应调工具看返回"。</li>
+        <li><span class="lyr" style="background:#39c5cf">L4</span>长期端状态上报 APP list，让 Planner 知道车上有什么。</li>
+        <li><span class="lyr" style="background:#3fb950">验收</span>录音/蓝牙等路由到正确工具的命中率；第三方APP有兜底响应；P1 误标回调。</li>
+      </ol>
+      <div class="accept"><b>✅ 验收标准：</b>录音/蓝牙/人脸不再误发车控（路由正确率 ≥ 9/10）；第三方APP 100% 有兜底；不再误报 P1。</div>
+      <div class="casechips"><b>涉及 case：</b>V-27c（录音/蓝牙/人脸=路由错·有工具 · 演示厅/优盘视频=真缺·第三方APP）</div>
+    </div>
+  </div>
+
+  <!-- F -->
+  <div class="solcard">
+    <div class="sh"><span class="tg" style="background:var(--F)">F</span><span class="ttl">严重性误标（P0 虚高）</span><span class="own">产品(你)主导 · 全员对齐</span></div>
+    <div class="sb">
+      <div class="rootline"><b>根因（代入真实SP）：</b>P0虚高(张坤要求"导航高优都标P0") + 钓鱼case。<b>钓鱼case的最强反驳证据就在SP里</b>：V-24"车里像冰窖"→开方向盘加热，而 <code>vehicle_basic_control.tips</code> <b>白纸黑字写着"手冷可以用方向盘加热"</b>——所以这是 SP 明确鼓励的贴心行为，铁证是 good case。POI/联网标准则是 SP 真没有(gap)，需补。</div>
+      <div class="ideaLine"><b>思路：</b>对齐 P 级定义 → 批量回调 → <b>钓鱼case用 SP tips 原文驳回</b> → POI/联网标准补进 web/poi 的 notice。</div>
+      <ol class="steps">
+        <li><span class="lyr" style="background:#6b7686">L0</span>全员对齐 P 级定义（见⑨-8）：P0=高频域阻塞不可闭环 / PR=能闭环体验差 / P2-3=能完成不够好。红线：只有不可用才算 bug。</li>
+        <li><span class="lyr" style="background:#6b7686">L0</span>批量回调误标 P0；<b>钓鱼case直接引用 SP 原文驳回</b>（如冰窖case→引用 tips"手冷用方向盘加热"，证明是 good case）。</li>
+        <li><span class="lyr" style="background:#4c9eeb">L0/L3</span>POI vs 联网标准（SP 缺）：写进 <code>web_search</code>/<code>poi_search</code> 的 notice（见⑭），同时给标注做降级依据（见⑨-8）。</li>
+        <li><span class="lyr" style="background:#a371f7">回归</span>P 级定义写进 Director Rewards 评测标准，让打分与 P 级一致。</li>
+      </ol>
+      <div class="accept"><b>✅ 验收标准：</b>P0 回调后只剩真阻塞项；钓鱼case有 SP 原文佐证标为非问题；POI/联网标准入 notice、口径统一。</div>
+      <div class="casechips"><b>涉及 case：</b>N-09（POI/联网）· V-24 V-25 V-26（钓鱼/矛盾）</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ⑨ 物料库 ============ -->
+<section id="kit" class="sol-wrap">
+  <h2><span class="n" style="color:#6b7686">实施篇 ⑨</span>可直接复制的落地物料库</h2>
+  <div class="howto">怎么看：上面步骤里引用的 <b>⑨-1～⑨-8</b> 全在这里，<b>都是可以直接拷进 SP / 干预平台 / 需求单 / 备注的成品文本</b>。复制→按你的实际工具名微调→提交。</div>
+
+  <div class="grid2">
+    <div>
+      <div class="artifact"><span class="lab">⑨-1 vehicle_basic_control.tips 追加（解A1·全部援引《能力边界》已有数值）</span><span class="cm"># 把能力边界的静态数值翻译成"动作语义"</span>
+<span class="add">- 车窗满开(能力边界:0~100%已到100)时说"调高一点"，应反向下调开度，不回"已满无法调"。</span>
+<span class="add">- 遮阳帘已开时"向前/往前"=减小开度、"向后"=增大(能力边界:0%全关/100%全开)。</span>
+<span class="add">- 座椅"有点挤"=向前留腿部空间；"靠背抬起来/我要起来"=回到能力边界的正常坐姿(靠背20~30%)，不是最前0%。</span>
+<span class="add">- "调高X%/调低X%"是相对增量，在当前值上加减并裁剪到[0,100](车窗精度5%/座椅10%)。</span>
+<span class="add">- 方位以说话人position为基准：主驾"右边"=副驾、副驾"左边"=主驾。(注:此条能力边界无,需训练/干预)</span></div>
+
+      <div class="artifact"><span class="lab">⑨-3 注意事项 · 补在【现有第7条】后(与之成对,非移动)</span><span class="cm"># 解A3·真实SP已有第7条管"查询"，这里补"重复检索"</span>
+<span class="cm">现有第7条：车端状态…比历史对话更新更准确（管"查询类"）</span>
+<span class="add">补 第8条：需求依赖实时检索/执行(POI/天气/媒体/实时车况)，</span>
+<span class="add">  即使历史对话出现过相似问答，也必须重新调用对应工具取最新结果，</span>
+<span class="add">  禁止直接用历史 answer 回复。</span>
+<span class="add">补 第9条：用户问当前实时状态("现在几档""放什么歌")，</span>
+<span class="add">  一律以车端状态为准，不引用历史旧数值。(已有示例18为范例)</span>
+<span class="cm"># 必调工具白名单(真实工具名)：poi_search / weather_search / vehicle_status_search / music_search</span>
+<span class="cm"># 另在⑥参考示例补一个"重复检索类"示例(再问附近好吃的→重新poi_search)，补示例18的缺口</span></div>
+
+      <div class="artifact"><span class="lab">⑨-5 幻觉抑制 · 话术约束（贴进 ④输出格式 / ⑩聊天风格）</span><span class="cm"># 解 B 幻觉</span>
+<span class="add">当 tool_feedback 仅表示执行成功(feedback=0)、未返回具体内容时：</span>
+<span class="add">talk_content 只播报"动作已完成"层面（如"已开始为你播放周杰伦的歌"），</span>
+<span class="del">禁止编造工具未返回的具体名称/数值（歌名、颜色、地址等）。</span>
+<span class="add">当用户陈述与系统已知能力矛盾（如"我没有氛围灯"），</span>
+<span class="add">以系统能力为准，不被用户引导否定自身功能。</span></div>
+    </div>
+
+    <div>
+      <div class="artifact"><span class="lab">⑨-4 干预平台规则清单（命中关键词→固定动作）</span><span class="cm"># 解 C / E / A1顽固</span>
+<span class="add">开始导航 / 出发 / 走吧        → 开启当前选中路线导航(忽略目的地补全)</span>
+<span class="add">主驾·右(车窗/座椅/通风)       → 映射到 副驾对应部位</span>
+<span class="add">副驾·左(车窗/座椅/通风)       → 映射到 主驾对应部位</span>
+<span class="add">打开/关闭 录音(开关)          → 调 recording_minutes，非车控</span>
+<span class="add">蓝牙 开/关                    → 系统设置工具</span>
+<span class="add">演示厅 / 优盘视频 / 泊车辅助    → 告知"暂不支持/转对应APP"</span>
+<span class="add">录入人脸 / 删除人脸           → face_id_register</span>
+<span class="add">关闭 荣威Pilot / 智驾         → auto_drive 控制</span></div>
+
+      <div class="artifact"><span class="lab">⑨-6 向下游/弋途的需求单模板</span><span class="cm"># 解 C / B</span>
+标题：[Planner转需求] {功能} 下游适配
+背景：Planner 改写为「{合理改写}」，逻辑合理，
+      但下游{意图/工具}{接不住/返回不含细节}。
+诉求：
+  1) {单目的地导航函数转向意图，支持"开始导航到XX"}
+  2) {tool_feedback 返回具体{歌名/颜色}供播报}
+验收：{该类query闭环率≥90% / 播报与实际一致}
+关联bug：{N-04, N-05, M-28...}
+负责对接：弋途{某人} / 媒体下游{某人}</div>
+
+      <div class="artifact"><span class="lab">⑨-7 Bug 提单规范（缺失直接打回）</span><span class="cm"># 解 D 流程</span>
+<span class="add">必填：log ID、可复现步骤、用户原始query、期望结果、当前优先级</span>
+<span class="add">分诊：先走"分诊决策树"(图⑤)定 A–F</span>
+<span class="del">禁止：无 log / 描述看不懂 / 未分析就塞 Planner</span>
+<span class="add">非 Planner(UI/ASR/手动/FC) → 24h 内转对应模块</span>
+<span class="add">reopen → 按当前归类走，不自动回第一经办人</span></div>
+
+      <div class="artifact"><span class="lab">⑨-8 P级定义 + POI/联网判定（备注模板）</span><span class="cm"># 解 F 误标</span>
+P0=高频域阻塞·需求无法闭环  PR=能闭环但体验差
+P2/P3=能完成只是不够好      红线：只有不可用才算bug
+<span class="cm">--- POI vs 联网 ---</span>
+有"附近"/指定地点 → POI ；  极致排名(top1) → 联网
+区级以上模糊找    → 联网OK；无地点诉求 → 两者皆可·非P0
+<span class="add">备注话术：参考豆包 POI查询/web_search 意图定义，本标准下不算问题</span></div>
+    </div>
+  </div>
+
+  <div class="artifact"><span class="lab">⑨-2 端状态改造 · before/after（A2 治本，给工程的格式样例）</span></div>
+  <div class="ba">
+    <div class="col bad"><span class="h">❌ 当前（表格式·模型读不懂）</span>车内空调状态:{温度:na,模式:na,状态:5档,
+开关:开启,位置:主驾}{温度:na,模式:na,
+状态:na,开关:关闭,位置:副驾}{...二排}
+座椅加热:{状态:3档,位置:主驾}...
+车窗:{开关:开启,开度:100,位置:副驾}</div>
+    <div class="col good"><span class="h">✅ 改造后（自然语言·主体明确含单位）</span>主驾空调：开启，风量 6 档，温度 22℃。
+副驾空调：关闭。二排空调：关闭。
+主驾座椅加热：已开，3 档（最高）。
+副驾车窗：已全开（开度 100%）。
+（关闭/无数据的项也明确说明，避免歧义）</div>
+  </div>
+</section>
+
+<!-- ============ ⑩ 全解终态 + RACI ============ -->
+<section id="done" class="sol-wrap">
+  <h2><span class="n" style="color:#6b7686">实施篇 ⑩</span>"全部解了"长什么样 + 责任分工(RACI)</h2>
+
+  <div class="board">
+    <svg viewBox="0 0 1200 250" role="img">
+      <text x="20" y="28" fill="#9aa7b8" font-size="13" font-weight="700">33 个 case 的最终归宿（全部有去向 = "全解"）</text>
+      <g font-size="11.5">
+        <rect x="20" y="50" width="276" height="180" rx="11" fill="#101c14" stroke="#3fb950"/>
+        <text x="158" y="74" fill="#7fd693" font-weight="800" text-anchor="middle" font-size="13">① Planner 侧解掉</text>
+        <text x="158" y="96" fill="#bcd6c2" text-anchor="middle">A1可补6 + A2端状态2 + A3上下文4</text>
+        <text x="158" y="114" fill="#bcd6c2" text-anchor="middle">+ B话术约束部分</text>
+        <text x="158" y="150" fill="#7fd693" text-anchor="middle" font-size="30" font-weight="800">~13</text>
+        <text x="158" y="172" fill="#9aa7b8" text-anchor="middle">提示/知识/端状态改造</text>
+        <text x="158" y="208" fill="#6b7686" text-anchor="middle" font-size="10">阶段一+二 · 产品+工程</text>
+
+        <rect x="312" y="50" width="276" height="180" rx="11" fill="#251f10" stroke="#e3a008"/>
+        <text x="450" y="74" fill="#f2dca0" font-weight="800" text-anchor="middle" font-size="13">② 转下游/弋途解</text>
+        <text x="450" y="96" fill="#d8c69a" text-anchor="middle">C下游5 + B堵缺口下游侧</text>
+        <text x="450" y="150" fill="#e3a008" text-anchor="middle" font-size="30" font-weight="800">~6</text>
+        <text x="450" y="172" fill="#9aa7b8" text-anchor="middle">转需求 + SFT适配</text>
+        <text x="450" y="208" fill="#6b7686" text-anchor="middle" font-size="10">阶段三 · 弋途/媒体下游</text>
+
+        <rect x="604" y="50" width="276" height="180" rx="11" fill="#222a36" stroke="#6b7686"/>
+        <text x="742" y="74" fill="#cfd6df" font-weight="800" text-anchor="middle" font-size="13">③ 流程剥离/兜底</text>
+        <text x="742" y="96" fill="#aeb6c0" text-anchor="middle">D非Planner8 + E低优1批 + F误标4</text>
+        <text x="742" y="150" fill="#9aa7b8" text-anchor="middle" font-size="30" font-weight="800">~13</text>
+        <text x="742" y="172" fill="#9aa7b8" text-anchor="middle">转走/干预/降级</text>
+        <text x="742" y="208" fill="#6b7686" text-anchor="middle" font-size="10">阶段一 · 产品流程治理</text>
+
+        <rect x="896" y="50" width="284" height="180" rx="11" fill="#2a1f3d" stroke="#a371f7"/>
+        <text x="1038" y="74" fill="#dccaf7" font-weight="800" text-anchor="middle" font-size="13">④ 训练长期收尾</text>
+        <text x="1038" y="96" fill="#c3b0e6" text-anchor="middle">方位映射 + 温度反 + 坚持事实</text>
+        <text x="1038" y="150" fill="#a371f7" text-anchor="middle" font-size="30" font-weight="800">3–4</text>
+        <text x="1038" y="172" fill="#9aa7b8" text-anchor="middle">SFT/RLHF 顽固残留</text>
+        <text x="1038" y="208" fill="#6b7686" text-anchor="middle" font-size="10">阶段三 · 算法(李强)</text>
+      </g>
+    </svg>
+  </div>
+  <div class="accept" style="font-size:13.5px"><b>✅ "全部解了"的定义：</b>不是 33 个都靠 Planner 改模型，而是 <b>每个 case 都有明确去向且验收通过</b>——13 个 Planner 侧解、6 个转下游、13 个流程剥离/兜底、3-4 个进训练队列。阶段一即可让<b>~60%</b> 的单子闭环或转走，阶段二 <b>~85%</b>，阶段三收敛到 <b>~100%</b>。</div>
+
+  <h3 style="margin-top:26px;font-size:17px">责任分工 RACI</h3>
+  <p class="howto" style="margin-top:4px"><b style="color:#f85149">R</b>=负责执行 · <b style="color:#3fb950">A</b>=最终担责 · <b style="color:#e3a008">C</b>=需协商 · <span style="color:#6b7686">I</span>=知会</p>
+  <table class="raci">
+    <thead><tr><th class="tl">解法项</th><th>产品(你/泽民)</th><th>晓伟/明骏</th><th>弋途/下游</th><th>算法(李强)</th><th>工程</th></tr></thead>
+    <tbody>
+      <tr><td class="tl">L0 流程治理（提单/分诊/回调）</td><td class="R">R/A</td><td class="Co">C</td><td class="In">I</td><td class="In">I</td><td class="In">I</td></tr>
+      <tr><td class="tl">L1 干预规则清单</td><td class="R">R</td><td class="Co">C</td><td class="In">I</td><td class="In">I</td><td class="Ac">A</td></tr>
+      <tr><td class="tl">L2/L3 提示·知识·工具描述</td><td class="R">R/A</td><td class="Co">C</td><td class="In">I</td><td class="Co">C</td><td class="In">I</td></tr>
+      <tr><td class="tl">L4 端状态改造 ★</td><td class="R">R(提需求)</td><td class="Co">C</td><td class="In">I</td><td class="Co">C</td><td class="Ac">A(改造)</td></tr>
+      <tr><td class="tl">L5 下游/弋途协商·转需求</td><td class="R">R(提)</td><td class="In">I</td><td class="Ac">A</td><td class="In">I</td><td class="In">I</td></tr>
+      <tr><td class="tl">L6 模型训练（样本+SFT/RLHF）</td><td class="Co">C(出样本)</td><td class="Co">C</td><td class="In">I</td><td class="R">R/A</td><td class="In">I</td></tr>
+      <tr><td class="tl">评测缺口补 definition（情绪/emoji/TTS）</td><td class="R">R</td><td class="R">R(雪晴/晓伟)</td><td class="Co">C(TTS)</td><td class="Ac">A(评测)</td><td class="In">I</td></tr>
+    </tbody>
+  </table>
+  <div class="accept" style="border-color:#4c4a1c;background:rgba(227,160,8,.06)"><b style="color:#f2dca0">⚠ 你的主战场：</b>作为 Planner 产品 PM，你直接 R/A 的是 <b>L0 流程 + L1 干预 + L2/L3 提示知识 + L4 提需求</b>——这覆盖了阶段一+二、约 85% 的解决量。L5 协调弋途、L6 给算法出样本。先把阶段一这周落地，明天汇报就能用"已剥离 D/F、高频推理本周解"作为行动项。</div>
+</section>
+
+<!-- ============ SP实修篇 样式 ============ -->
+<style>
+  .sp-wrap h2{border-left-color:#ffd9a0}
+  .toolname{font-family:"SF Mono",Menlo,monospace;color:#ffd9a0;font-size:12.6px}
+  .findcard{background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--red);border-radius:10px;padding:14px 18px;margin:12px 0}
+  .findcard h4{margin:0 0 6px;font-size:15.5px;color:#f5b0ac}
+  .findcard.ok{border-left-color:var(--green)} .findcard.ok h4{color:#7fd693}
+  .pin{display:inline-block;font-size:10.5px;border-radius:5px;padding:1px 7px;border:1px solid;margin-left:4px}
+  .pin.now{color:#3fb950;border-color:#2b5c33}.pin.eng{color:#e3a008;border-color:#5c4a1c}.pin.train{color:#a371f7;border-color:#4b3a6b}
+  .tg2{display:inline-block;font-size:10.5px;font-weight:700;border-radius:5px;padding:1px 7px;color:#0d1016}
+  .g-A{background:#4c9eeb}.g-B{background:#a371f7;color:#fff}.g-C{background:#e3a008}.g-D{background:#6b7686;color:#fff}.g-E{background:#39c5cf}.g-F{background:#f778ba;color:#fff}
+</style>
+
+<!-- ============ ⑪ 真实SP执行流程 ============ -->
+<section id="sp-flow" class="sp-wrap">
+  <h2><span class="n" style="color:#ffd9a0">真实SP篇 ⑪</span>基于你提供的真实 SP · 执行流程怎么流转</h2>
+  <div class="howto">怎么看：左边 <b>3 类输入</b>，中间是模型在 SP 里<b>依次参照的段落</b>，右边产出 <b>JSON 四字段</b>。工具执行后 <code>tool_feedback</code> 回流→同一需求常转 2-3 轮。<b>真实 SP 实为 28 个工具、4 个输出字段、14 个 emoji、18 个参考示例。</b></div>
+  <div class="board">
+    <svg viewBox="0 0 1240 530" role="img">
+      <defs><marker id="spf1" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#7d8796"/></marker><marker id="spf1g" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#3fb950"/></marker></defs>
+      <text x="120" y="26" fill="#9aa7b8" font-size="13" font-weight="700" text-anchor="middle">3 类输入</text>
+      <g font-size="11.5">
+        <rect x="20" y="42" width="200" height="44" rx="8" fill="#1b2230" stroke="#4c9eeb"/><text x="120" y="62" fill="#cfe3f7" text-anchor="middle" font-weight="700">user_query</text><text x="120" y="78" fill="#6b7686" font-size="10" text-anchor="middle">含 speaker/position/timestamp</text>
+        <rect x="20" y="96" width="200" height="40" rx="8" fill="#1b2230" stroke="#39c5cf"/><text x="120" y="114" fill="#cfeef1" text-anchor="middle" font-weight="700">advisor 建议</text><text x="120" y="129" fill="#6b7686" font-size="10" text-anchor="middle">专家智能体提示</text>
+        <rect x="20" y="146" width="200" height="40" rx="8" fill="#1b2230" stroke="#e3a008"/><text x="120" y="164" fill="#f2dca0" text-anchor="middle" font-weight="700">tool_feedback</text><text x="120" y="179" fill="#6b7686" font-size="10" text-anchor="middle">工具返回(可多轮)</text>
+      </g>
+      <path d="M220,114 L268,114" stroke="#7d8796" stroke-width="1.8" marker-end="url(#spf1)"/>
+      <rect x="270" y="38" width="560" height="430" rx="12" fill="#13202f" stroke="#4c9eeb" stroke-width="1.6"/>
+      <text x="550" y="62" fill="#bcd9f5" font-size="14" font-weight="800" text-anchor="middle">Planner 在 SP 里依次参照</text>
+      <g font-size="12">
+        <rect x="290" y="78" width="520" height="32" rx="6" fill="#16263a"/><text x="304" y="98" fill="#cdd6e0">①判断输入类型 → ②从【28个工具】选可用工具</text>
+        <rect x="290" y="116" width="520" height="54" rx="6" fill="#101a1e" stroke="#39c5cf"/><text x="304" y="135" fill="#9ee0e3">③读【动态情景】做依据：</text><text x="316" y="152" fill="#bcd6c2" font-size="11">车端状态·用户记忆·个性化skill·世界信息·成员·目标列表</text><text x="316" y="166" fill="#6b7686" font-size="10">← 每轮变,KV断裂点,也是大量bug源头</text>
+        <rect x="290" y="176" width="520" height="48" rx="6" fill="#16263a"/><text x="304" y="195" fill="#cdd6e0">④按【注意事项/能力边界/其他知识/18个示例】约束</text><text x="304" y="212" fill="#6b7686" font-size="10">能力边界=D6X能做不能做；示例=few-shot</text>
+        <rect x="290" y="230" width="520" height="32" rx="6" fill="#16263a"/><text x="304" y="251" fill="#cdd6e0">⑤按【聊天风格】组织话术(温柔高知+情绪[]标签)</text>
+        <rect x="290" y="270" width="520" height="36" rx="6" fill="#1a1726" stroke="#a371f7"/><text x="304" y="293" fill="#dccaf7">⑥输出 JSON 四字段</text>
+      </g>
+      <g font-size="11">
+        <rect x="300" y="316" width="240" height="120" rx="7" fill="#0f1822" stroke="#2a3a4d"/>
+        <text x="312" y="336" fill="#7fb6e8" font-weight="700">输出 JSON(真实SP)</text>
+        <text x="312" y="358" fill="#cdd6e0">"talk_or_not": yes/no</text>
+        <text x="312" y="378" fill="#cdd6e0">"talk_content":"[情绪]话"</text>
+        <text x="312" y="398" fill="#cdd6e0">"emoji_id":"14选1/空"</text>
+        <text x="312" y="418" fill="#cdd6e0">"action_list":[工具调用]</text>
+      </g>
+      <rect x="556" y="316" width="254" height="120" rx="7" fill="#101a14" stroke="#3fb950"/>
+      <text x="568" y="336" fill="#7fd693" font-size="11" font-weight="700">已存在的抓手(SP原文)</text>
+      <text x="568" y="356" fill="#bcd6c2" font-size="10.3">· 注意7:端状态比历史更新更准</text>
+      <text x="568" y="374" fill="#bcd6c2" font-size="10.3">· 能力边界:未提及功能禁瞎判</text>
+      <text x="568" y="392" fill="#bcd6c2" font-size="10.3">· 示例18:专示范"不受历史干扰"</text>
+      <text x="568" y="410" fill="#bcd6c2" font-size="10.3">· 串行约束:导航/POI/行程不并行</text>
+      <text x="568" y="428" fill="#6b7686" font-size="10">↑ 这些已有,是强化的支点</text>
+      <path d="M830,290 L880,290" stroke="#7d8796" stroke-width="1.8" marker-end="url(#spf1)"/>
+      <rect x="882" y="262" width="200" height="60" rx="9" fill="#1b2230" stroke="#e3a008"/><text x="982" y="287" fill="#f2dca0" font-weight="700" text-anchor="middle">下游执行工具</text><text x="982" y="305" fill="#6b7686" font-size="10" text-anchor="middle">车控/导航/媒体 真执行</text>
+      <path d="M982,322 L982,400 L240,400 L240,186" stroke="#3fb950" stroke-width="1.5" fill="none" stroke-dasharray="5 3" marker-end="url(#spf1g)"/>
+      <text x="610" y="416" fill="#7fd693" font-size="11" text-anchor="middle">tool_feedback 回流 → 下一轮（同一需求常 2-3 轮）</text>
+    </svg>
+  </div>
+  <div class="callout blue"><b>口径修正：</b>之前本图按 26 工具讲，<b>真实 SP 实为 28 个工具</b>（编号到29缺18）、<b>4 个输出字段</b>（非5字段/无独立情绪状态机）、<b>14 个 emoji</b>、<b>18 个参考示例</b>。下面全部贴真实 SP 字段。</div>
+</section>
+
+<!-- ============ ⑫ 28工具+缺口 ============ -->
+<section id="sp-tools" class="sp-wrap">
+  <h2><span class="n" style="color:#ffd9a0">⑫</span>真实 SP 的 28 个工具 · 缺口在哪（红=本次踩到）</h2>
+  <div class="howto">怎么看：<b>"缺口"列 = 当前 notice/tips 没写清、导致 bug 的地方</b>。本次过单真正踩到的就 8 个红字工具——改这 8 个的描述覆盖绝大多数 Planner 真问题。</div>
+  <table>
+    <thead><tr><th style="width:26px">#</th><th>tool_name</th><th>作用</th><th>当前缺口（导致 bug）</th><th>关联</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td class="toolname" style="color:#f5b0ac">vehicle_basic_control</td><td>车窗/空调/座椅/遮阳帘/灯等车控</td><td>tips没写"满开调高=调低""主驾右=副驾""调高X%是相对量"</td><td><span class="tg2 g-A">A1</span></td></tr>
+      <tr><td>2</td><td class="toolname">vehicle_system_settings</td><td>蓝牙/屏幕/音效/打开APP/退出语音</td><td>没枚举车上有哪些APP(演示厅等不知道)</td><td><span class="tg2 g-E">E</span></td></tr>
+      <tr><td>3</td><td class="toolname">vehicle_communication</td><td>蓝牙电话/视频通话</td><td>—</td><td>—</td></tr>
+      <tr><td>4</td><td class="toolname">vehicle_status_search</td><td>查车辆状态(温度/胎压/续航)</td><td>—</td><td>—</td></tr>
+      <tr><td>5</td><td class="toolname">weather_search</td><td>天气/路段气象预警</td><td>—</td><td>—</td></tr>
+      <tr><td>6</td><td class="toolname" style="color:#f5b0ac">poi_search</td><td>附近餐饮/景点 POI 搜索问答</td><td>POI vs web_search 选择标准没写</td><td><span class="tg2 g-F">F</span></td></tr>
+      <tr><td>7</td><td class="toolname" style="color:#f5b0ac">route_planning</td><td>精确地点检索+导航+选路线</td><td>与navi"开始导航"边界对口语区分不清</td><td><span class="tg2 g-C">C</span></td></tr>
+      <tr><td>8</td><td class="toolname" style="color:#f5b0ac">navi_basic_control</td><td>开始/继续导航、途经点、地图控制</td><td>没明确"开始导航不要补目的地"</td><td><span class="tg2 g-C">C</span></td></tr>
+      <tr><td>9</td><td class="toolname">video_search</td><td>抖音短视频/腾讯长视频</td><td>—</td><td>—</td></tr>
+      <tr><td>10</td><td class="toolname" style="color:#f5b0ac">music_search</td><td>音乐搜索(搜完自动播第一首)</td><td>notice没写"播报歌名以端状态为准,不编造"</td><td><span class="tg2 g-B">B</span></td></tr>
+      <tr><td>11</td><td class="toolname">media_basic_control</td><td>媒体播控/收藏/评论</td><td>—</td><td>—</td></tr>
+      <tr><td>12</td><td class="toolname">user_memory_search</td><td>查细节记忆/偏好</td><td>—</td><td>—</td></tr>
+      <tr><td>13</td><td class="toolname">face_id_register</td><td>人脸注册</td><td>—</td><td>—</td></tr>
+      <tr><td>14</td><td class="toolname">user_memory_operate</td><td>记录客观基础信息</td><td>—</td><td>—</td></tr>
+      <tr><td>15</td><td class="toolname" style="color:#f5b0ac">personal_skill_record</td><td>记录个性化交互技能</td><td>无去重/冲突约束→skill列表污染</td><td>污染</td></tr>
+      <tr><td>16</td><td class="toolname" style="color:#f5b0ac">web_search</td><td>联网搜索(新闻/榜单/实时)</td><td>POI vs 联网分界没写</td><td><span class="tg2 g-F">F</span></td></tr>
+      <tr><td>17</td><td class="toolname">goal_list_update</td><td>持续/条件/定时任务(触发器底座)</td><td>—</td><td>—</td></tr>
+      <tr><td>19</td><td class="toolname">ai_broadcast_generate</td><td>生成 AI 播客</td><td>—</td><td>—</td></tr>
+      <tr><td>20</td><td class="toolname">broadcast_search</td><td>播客/有声搜索播放</td><td>—</td><td>—</td></tr>
+      <tr><td>21</td><td class="toolname">auto_drive</td><td>泊车+智驾巡航/跟车/变道</td><td>低频可干预</td><td><span class="tg2 g-E">E</span></td></tr>
+      <tr><td>22</td><td class="toolname" style="color:#f5b0ac">ambient_light_control</td><td>氛围灯开关/模式/颜色</td><td>被"我没有氛围灯"引导放弃(坚持型幻觉)</td><td><span class="tg2 g-B">B</span></td></tr>
+      <tr><td>23</td><td class="toolname">car_log</td><td>用车报告</td><td>—</td><td>—</td></tr>
+      <tr><td>24</td><td class="toolname">car_care_qa</td><td>车况维养问答</td><td>—</td><td>—</td></tr>
+      <tr><td>25</td><td class="toolname">vehicle_manual_qa</td><td>车辆说明书问答</td><td>—</td><td>—</td></tr>
+      <tr><td>26</td><td class="toolname" style="color:#f5b0ac">audio_record</td><td>录音纪要</td><td>口语"录音/录像"易误判到车控</td><td><span class="tg2 g-A">A</span><span class="tg2 g-E">E</span></td></tr>
+      <tr><td>27</td><td class="toolname" style="color:#f5b0ac">trip_plan_record</td><td>行程预览/创建/修改</td><td>行程卡片与产品拉起(多为非Planner/低优)</td><td><span class="tg2 g-D">D</span></td></tr>
+      <tr><td>28</td><td class="toolname">image_generate</td><td>文生图/图生图</td><td>—</td><td>—</td></tr>
+      <tr><td>29</td><td class="toolname">visual_qa</td><td>车内外/屏幕视觉问答</td><td>—</td><td>—</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============ ⑬ 发现 + 干预平台 ============ -->
+<section id="sp-find" class="sp-wrap">
+  <h2><span class="n" style="color:#ffd9a0">⑬</span>读真实 SP 的 5 个关键发现 + "干预平台"是什么</h2>
+
+  <div class="findcard">
+    <h4>发现 1 · 端状态确实是"表格式"，实锤 A2 根因</h4>
+    <p>真实端状态带 <code>_参数顺序_</code> 表头 + 靠位置对齐的数组行，模型要逐位对齐才知道"2档=风量"。这正是机制③。</p>
+    <div class="ba"><div class="col bad"><span class="h">真实端状态原文</span>车内空调状态:
+  _参数顺序_: [模式,位置,状态,开关,温度]
+  副驾: [手动 副驾 2档 开启 27.5度]
+车窗状态:
+  _参数顺序_: [开启程度,位置,开关,透明度]
+  左后: [28% 左后 开启 未上报]</div><div class="col good"><span class="h">→ 应改成（A2治本）</span>主驾空调：手动，开启，风量2档，27.5℃。
+副驾空调：手动，开启，风量2档，27.5℃。
+左后车窗：开启，开度28%。
+其余车窗：关闭。</div></div>
+  </div>
+
+  <div class="findcard ok">
+    <h4>发现 2 · 歌名其实端状态里就有 → M-28 幻觉零成本修</h4>
+    <p>端状态里有 <code>当前播放音频：音频名称：Faded，作者：Alan Walker</code>。所以"播报正在放什么歌"根本不该编——读端状态即可。修法=在 music_search 的 notice 写"以端状态当前播放音频为准"。示例18 已示范正确做法。</p>
+  </div>
+
+  <div class="findcard ok">
+    <h4>发现 3 · 能力边界文档已存在且很详细 → E 类一半已覆盖</h4>
+    <p>SP 里有完整《AI汽车能力边界》：空调15.5–30.5℃精度0.5、车窗0–100%精度5%、座椅加热1–3档、遮阳帘0–100%、方向盘加热仅1档…还写明"未提及功能禁止瞎判，应调工具看返回"。A1 空间精度<b>有依据，只是没被工具 tips 引用</b>；冷门 APP 不在边界文档里 → 补这里。</p>
+  </div>
+
+  <div class="findcard">
+    <h4>发现 4 · skill 列表严重污染（会上没发现的新问题）</h4>
+    <p>真实注入的 <code>用户个性化需求</code> 有 40+ 条：<b>重复</b>(s-90=s-91邓紫棋、s-102=s-103爵士、s-144=s-145青花瓷)、<b>矛盾</b>(不同虚构用户的导航偏好堆一起)、<b>无效污染</b>(s-157/160/197/198/199全是"记录希望优化UI…后续反馈优化"，根本不是技能)。放大 KV 占用 + 注意力衰减，间接加重 A3。<b>需 personal_skill_record 加去重/冲突检测 + 按说话人过滤 + 清洗历史脏数据。</b></p>
+  </div>
+
+  <div class="findcard ok">
+    <h4>发现 5 · 注意事项只有 6 条且有空缺 → 有空间补关键规则</h4>
+    <p>真实注意事项编号 1/2/4/5/6/7（缺3）共6条，第7条已是"端状态比历史更新更准"。可直接在末尾补两条（显著位、避开机制②的中部衰减）："依赖外部实时信息必调工具""问实时状态以端状态为准"。</p>
+  </div>
+
+  <h3 style="margin-top:28px">"干预平台"到底是什么？（你问的）</h3>
+  <div class="howto">左=改SP(软引导,靠模型理解,会不稳)；右=干预平台(硬规则,绕过模型,100%稳)。配合用：先干预止血、再改SP/训练治本。</div>
+  <div class="board">
+    <svg viewBox="0 0 1240 340" role="img">
+      <defs><marker id="spi1" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#7d8796"/></marker></defs>
+      <rect x="40" y="36" width="150" height="48" rx="9" fill="#1b2230" stroke="#2a3242"/><text x="115" y="65" fill="#e6edf3" text-anchor="middle" font-weight="700">用户语音</text>
+      <rect x="240" y="36" width="220" height="48" rx="9" fill="#10202c" stroke="#39c5cf"/><text x="350" y="57" fill="#cfeef1" text-anchor="middle" font-weight="700">干预层/句法RAG</text><text x="350" y="75" fill="#9aa7b8" font-size="10.5" text-anchor="middle">命中关键词→固定动作(绕过模型)</text>
+      <rect x="510" y="36" width="220" height="48" rx="9" fill="#13202f" stroke="#4c9eeb"/><text x="620" y="57" fill="#bcd9f5" text-anchor="middle" font-weight="700">Planner(读SP)</text><text x="620" y="75" fill="#9aa7b8" font-size="10.5" text-anchor="middle">没被拦截的才进大脑</text>
+      <rect x="780" y="36" width="200" height="48" rx="9" fill="#1b2230" stroke="#e3a008"/><text x="880" y="65" fill="#f2dca0" text-anchor="middle" font-weight="700">下游执行</text>
+      <g stroke="#7d8796" stroke-width="1.8" fill="none"><path d="M190,60 L238,60" marker-end="url(#spi1)"/><path d="M460,60 L508,60" marker-end="url(#spi1)"/><path d="M730,60 L778,60" marker-end="url(#spi1)"/></g>
+      <path d="M350,84 L350,118 L880,118 L880,84" stroke="#39c5cf" stroke-width="1.6" fill="none" stroke-dasharray="5 3" marker-end="url(#spi1)"/>
+      <text x="615" y="112" fill="#7fd6d9" font-size="11" text-anchor="middle">干预命中：直接给固定结果，连 Planner 都不进</text>
+      <rect x="40" y="150" width="560" height="170" rx="11" fill="#13202f" stroke="#4c9eeb"/>
+      <text x="320" y="174" fill="#bcd9f5" font-size="14" font-weight="800" text-anchor="middle">改 SP（软引导）</text>
+      <g font-size="12" fill="#cdd6e0">
+        <text x="60" y="200">· 改模型"理解倾向"，仍可能不听</text>
+        <text x="60" y="222">· 适合：要推理/上下文(A1/A2/A3/B)</text>
+        <text x="60" y="244">· 优点泛化；缺点不100%稳(机制②)</text>
+        <text x="60" y="266" fill="#7fb6e8">· 怎么改：工具notice/tips、注意事项、示例、能力边界</text>
+        <text x="60" y="292" fill="#6b7686" font-size="10.5">例：给vehicle_basic_control补"满开调高=调低"</text>
+      </g>
+      <rect x="620" y="150" width="580" height="170" rx="11" fill="#101c1a" stroke="#39c5cf"/>
+      <text x="910" y="174" fill="#9ee0e3" font-size="14" font-weight="800" text-anchor="middle">干预平台（硬规则）</text>
+      <g font-size="12" fill="#bcd6c2">
+        <text x="640" y="200">· 模型之外的"关键词→固定动作"规则表</text>
+        <text x="640" y="222">· 命中直接出结果，<tspan fill="#9ee0e3">100%稳定、绕过模型</tspan></text>
+        <text x="640" y="244">· 适合：高频固定指令/冷门功能/顽固问题兜底</text>
+        <text x="640" y="266">· 优点立等可取；缺点不泛化、僵硬</text>
+        <text x="640" y="292" fill="#6b7686" font-size="10.5">例："开始导航"无论怎么说→开启当前路线</text>
+      </g>
+    </svg>
+  </div>
+  <div class="callout green"><b>一句话：</b>干预平台 = 给 Planner 加的"<b>快捷键/拦截器</b>"。能讲清、要应变的 → 改 SP；高频固定、或模型怎么训都掰不动的(如"主驾右=副驾"必现错) → 上干预立刻止血。<b>先干预止血、再改 SP/训练治本。</b></div>
+</section>
+
+<!-- ============ ⑭ 逐工具改 + 立即清单 ============ -->
+<section id="sp-fix" class="sp-wrap">
+  <h2><span class="n" style="color:#ffd9a0">⑭</span>逐工具描述强化 before/after + 立即可改清单</h2>
+  <div class="howto">怎么看：<b>左=真实 SP 现状原文，右=改后</b>（绿色是新增行），可直接复制替换。这就是"工具缺描述应该强化描述"的落地。</div>
+
+  <h3><span class="tg2 g-A">A1</span> 强化 <span class="toolname">vehicle_basic_control</span> 的 tips（解车窗/座椅/遮阳帘）</h3>
+  <div class="ba">
+    <div class="col bad"><span class="h">现状 tips（原文）</span>"tips":"可结合说话人位置推理出要调节控制的位置，减少询问。脚冷可以用热风吹脚，手冷可以用方向盘加热。"</div>
+    <div class="col good"><span class="h">改后 tips（追加 4 条）</span>"tips":"…脚冷用热风吹脚，手冷用方向盘加热。
+<span class="add">【方位换算】以说话人position为基准：主驾'右边'=副驾，副驾'左边'=主驾。
+【满值反向】部件已极值(车窗100%/座椅最前)仍说'再调高/再往前'，应反向小幅调，不回'已到极限无法调'。
+【相对增量】'调高/调低X%'在当前值上加减并裁剪[0,100]，'调高10%'≠'设为10'。
+【方向语义】遮阳帘/车窗'向前'=减小开度、'向后'=增大；座椅'挤/往前'=向前留腿部空间。</span>"</div>
+  </div>
+  <p style="color:var(--sub);font-size:13px">解 V-11/12/13/14/16/18/19。纯方位(V-13/15)仍不稳→配干预兜底+训练。</p>
+
+  <h3><span class="tg2 g-B">B</span> 强化 <span class="toolname">music_search</span> 的 notice（解歌名幻觉，零成本）</h3>
+  <div class="ba">
+    <div class="col bad"><span class="h">现状 notice</span>"notice":"搜索后就会自动播放第一首。"</div>
+    <div class="col good"><span class="h">改后 notice</span>"notice":"搜索后就会自动播放第一首。
+<span class="add">工具返回仅代表'已开始播放'，不含歌名。需告知正在播放的歌曲时，必须以【车端状态·当前播放音频】的真实歌名/歌手为准，禁止凭记忆编造。</span>"</div>
+  </div>
+  <p style="color:var(--sub);font-size:13px">解 M-28。依据=发现2。改一行就生效。</p>
+
+  <h3><span class="tg2 g-B">B</span> 强化 <span class="toolname">ambient_light_control</span> 的 notice（解坚持型幻觉）</h3>
+  <div class="ba">
+    <div class="col bad"><span class="h">现状 notice</span>"notice":"氛围灯调任何颜色，都请直接使用此工具"</div>
+    <div class="col good"><span class="h">改后 notice</span>"notice":"氛围灯调任何颜色都直接用此工具。
+<span class="add">本车(D6X)确有氛围灯(256色)。用户说'我没有氛围灯'时以能力边界为准，不被引导否定功能；控制失败应说明原因或重试，而非承认没有。</span>"</div>
+  </div>
+  <p style="color:var(--sub);font-size:13px">解 V-27a。能力边界已写"氛围灯256色"，notice 显式引用即可。</p>
+
+  <h3><span class="tg2 g-C">C</span> 强化 <span class="toolname">navi_basic_control</span> 的 notice（解"开始导航到XX"被分错）</h3>
+  <div class="ba">
+    <div class="col bad"><span class="h">现状 notice（节选）</span>"此工具用于导航过程中的基础控制…不涉及目的地搜索、全新路线规划，请使用路线规划和问答工具。"</div>
+    <div class="col good"><span class="h">改后 notice（追加）</span>…不涉及目的地搜索、全新路线规划。
+<span class="add">'开始导航/出发/走吧'属核心导航过程控制，应直接调本工具开启【当前已规划路线】，禁止改写成'开始导航到XX'补目的地。仅当无导航路线时才先用route_planning。</span>"</div>
+  </div>
+  <p style="color:var(--sub);font-size:13px">解 N-04/05。短期同时上干预拦"开始导航"；长期向弋途提需求。</p>
+
+  <h3><span class="tg2 g-F">F</span> 强化 <span class="toolname">web_search</span>/<span class="toolname">poi_search</span> notice（解 POI vs 联网误标）</h3>
+  <div class="ba">
+    <div class="col bad"><span class="h">现状 web_search notice</span>"notice":"对时间敏感，或涉及信息/数据总结类问题，可优先调用web_search，避免数据过时。"</div>
+    <div class="col good"><span class="h">改后 notice（追加标准）</span>"…避免数据过时。
+<span class="add">【POI还是联网】带'附近/指定地点'或要去某地→poi_search(有卡片可导航)；'排名第一/全城最好'榜单→web_search；区级以上模糊或无地点诉求→两者皆可、不算问题。</span>"</div>
+  </div>
+  <p style="color:var(--sub);font-size:13px">解 N-09。同时给评测/标注做降级依据。</p>
+
+  <h3><span class="tg2 g-A">A3</span> 强化 注意事项（解"该调不调/上下文压端状态"）</h3>
+  <div class="ba">
+    <div class="col bad"><span class="h">现状（共6条·节选末尾）</span>7. 车端状态的信息往往是车辆最新的状态，比历史对话更新更准确</div>
+    <div class="col good"><span class="h">改后（末尾补2条·显著位）</span>7. 车端状态…比历史对话更新更准确
+<span class="add">8. 需求依赖实时外部信息(POI/天气/车况/当前播放)，即便历史有相似问答，也必须重新调工具取最新结果，禁止用历史answer作答。
+9. 问当前实时状态('现在几档''放什么歌')，一律以车端状态为准，不引用历史旧值。(参照示例18)</span></div>
+  </div>
+  <p style="color:var(--sub);font-size:13px">解 N-08/V-22/M-29。放末尾避机制②中部衰减；示例18已是现成范例。</p>
+
+  <h3><span class="tg2 g-A">A2</span> 端状态结构改造（工程·治本）= 发现1 的 before/after</h3>
+  <div class="callout"><b>这条要工程改渲染</b>（非改 SP 文本）：把 <code>{{env_info}}</code> 从 <code>_参数顺序_</code> 表格拼接改为自然语言陈述句。你提需求、工程实现。一改解 V-20/21，并让所有读端状态的推理更准。</div>
+
+  <h3 style="margin-top:28px">⑭-末 · "今天就能改"清单（按能否立即落地排序）</h3>
+  <p class="howto" style="margin-top:4px"><span class="pin now">立即</span>=改SP纯文本，提交即生效；<span class="pin eng">工程</span>=改渲染/数据；<span class="pin train">训练</span>=给算法出样本。<b>先把所有"立即"项今天提交。</b></p>
+  <table>
+    <thead><tr><th style="width:26px">#</th><th>改动</th><th>改哪里（真实 SP 字段）</th><th>解的 case</th><th>类型</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>music_search notice 补"歌名以端状态为准"</td><td>工具③·music_search.notice</td><td>M-28</td><td><span class="pin now">立即</span></td></tr>
+      <tr><td>2</td><td>vehicle_basic_control tips 补 4 条空间规则</td><td>工具③·vehicle_basic_control.tips</td><td>V-11/12/14/16/18/19</td><td><span class="pin now">立即</span></td></tr>
+      <tr><td>3</td><td>navi_basic_control notice 补"开始导航不补目的地"</td><td>工具③·navi_basic_control.notice</td><td>N-04/05</td><td><span class="pin now">立即</span></td></tr>
+      <tr><td>4</td><td>注意事项补第8/9条</td><td>段⑤ 注意事项</td><td>N-08/V-22/M-29</td><td><span class="pin now">立即</span></td></tr>
+      <tr><td>5</td><td>ambient_light_control notice 补"本车有氛围灯"</td><td>工具③·ambient_light_control.notice</td><td>V-27a</td><td><span class="pin now">立即</span></td></tr>
+      <tr><td>6</td><td>web/poi notice 补 POI/联网标准</td><td>工具③·两个 notice</td><td>N-09</td><td><span class="pin now">立即</span></td></tr>
+      <tr><td>7</td><td>能力边界补 APP 清单/冷门功能归属</td><td>段⑦ 能力边界</td><td>V-27c(E)</td><td><span class="pin now">立即</span></td></tr>
+      <tr><td>8</td><td>高频 case 补参考示例</td><td>段⑥ 参考示例</td><td>V-11/N-04</td><td><span class="pin now">立即</span></td></tr>
+      <tr><td>9</td><td>干预平台规则清单</td><td>句法RAG层(SP外)</td><td>N-04/V-13/V-27c</td><td><span class="pin eng">工程</span></td></tr>
+      <tr><td>10</td><td>端状态表格→自然语言</td><td>段⑫ {{env_info}} 渲染</td><td>V-20/21/22</td><td><span class="pin eng">工程</span></td></tr>
+      <tr><td>11</td><td>skill 去重/冲突检测+清洗+按说话人过滤</td><td>段⑭+personal_skill_record</td><td>context污染</td><td><span class="pin eng">工程</span></td></tr>
+      <tr><td>12</td><td>方位映射/温度反/坚持事实 训练样本</td><td>算法 SFT/RLHF</td><td>V-13/15/27b/27a</td><td><span class="pin train">训练</span></td></tr>
+    </tbody>
+  </table>
+  <div class="callout green"><b>结论：12 项里 8 项是"改 SP 纯文本"，你今天就能整理成改动清单提交</b>——覆盖歌名幻觉、车控空间、开始导航、不调工具、POI/联网、坚持型幻觉。剩 4 项提需求给工程和算法。<b>这就是"如何全部解了"在真实 SP 上的落地路径。</b></div>
+</section>
+
+<!-- ============ ⑮ 下游 SFT/FC 链路 ============ -->
+<section id="sft" class="sp-wrap">
+  <h2><span class="n" style="color:#7fd6d9">⑮</span>被忽略的关键一环：下游 SFT / FC 链路 + 怎么训 SFT</h2>
+  <div class="howto">怎么看：Planner 输出改写后，<b>不是直接执行</b>，中间还要过一道 <b>SFT 路由模型 → FC 匹配 → 意图二次分类</b>。<b>C 类 bug 就发生在这一段</b>（Planner 改写合理，但 SFT/意图接不住）。这也是"以 Planner 为中心改造下游"的落点——<b>训 SFT 去适配 Planner 的输出习惯</b>。</div>
+
+  <div class="board">
+    <svg viewBox="0 0 1240 470" role="img">
+      <defs><marker id="sftA" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#7d8796"/></marker><marker id="sftR" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#f85149"/></marker></defs>
+
+      <text x="620" y="26" fill="#9aa7b8" font-size="13" font-weight="700" text-anchor="middle">Planner 输出之后，到真执行之间发生了什么</text>
+
+      <!-- Planner -->
+      <rect x="30" y="60" width="180" height="80" rx="11" fill="#13202f" stroke="#4c9eeb" stroke-width="1.6"/>
+      <text x="120" y="92" fill="#bcd9f5" font-size="13.5" font-weight="800" text-anchor="middle">Planner</text>
+      <text x="120" y="112" fill="#9aa7b8" font-size="10.5" text-anchor="middle">输出改写后的 query</text>
+      <text x="120" y="128" fill="#6b7686" font-size="10" text-anchor="middle">"开始导航到浦东机场"</text>
+
+      <!-- SFT 路由 -->
+      <rect x="270" y="50" width="220" height="100" rx="11" fill="#101c1a" stroke="#39c5cf" stroke-width="1.8"/>
+      <text x="380" y="78" fill="#9ee0e3" font-size="13.5" font-weight="800" text-anchor="middle">SFT 路由模型</text>
+      <text x="380" y="98" fill="#bcd6c2" font-size="10.5" text-anchor="middle">监督微调训出来的"分流员"</text>
+      <text x="380" y="114" fill="#bcd6c2" font-size="10.5" text-anchor="middle">判断这句改写该给哪个工具/</text>
+      <text x="380" y="130" fill="#bcd6c2" font-size="10.5" text-anchor="middle">哪些要再丢给"意图"做二次分类</text>
+
+      <!-- FC 匹配 -->
+      <rect x="550" y="60" width="180" height="80" rx="11" fill="#1b2230" stroke="#e3a008"/>
+      <text x="640" y="90" fill="#f2dca0" font-size="13" font-weight="800" text-anchor="middle">FC 匹配</text>
+      <text x="640" y="110" fill="#9aa7b8" font-size="10.5" text-anchor="middle">function call</text>
+      <text x="640" y="126" fill="#6b7686" font-size="10" text-anchor="middle">填工具名+参数的结构化调用</text>
+
+      <!-- 意图二次分类 -->
+      <rect x="790" y="60" width="200" height="80" rx="11" fill="#1b2230" stroke="#a371f7"/>
+      <text x="890" y="88" fill="#dccaf7" font-size="12.5" font-weight="800" text-anchor="middle">意图二次分类（弋途）</text>
+      <text x="890" y="108" fill="#9aa7b8" font-size="10.5" text-anchor="middle">把 query 再分到具体函数</text>
+      <text x="890" y="124" fill="#6b7686" font-size="10" text-anchor="middle">如"算路"vs"开启导航"</text>
+
+      <!-- 工具执行 -->
+      <rect x="1050" y="60" width="160" height="80" rx="11" fill="#1b2230" stroke="#3fb950"/>
+      <text x="1130" y="92" fill="#a7e3b0" font-size="13" font-weight="800" text-anchor="middle">工具执行</text>
+      <text x="1130" y="112" fill="#9aa7b8" font-size="10.5" text-anchor="middle">车控/导航/媒体</text>
+      <text x="1130" y="128" fill="#6b7686" font-size="10" text-anchor="middle">真正动作</text>
+
+      <!-- arrows -->
+      <g stroke="#7d8796" stroke-width="1.8" fill="none">
+        <path d="M210,100 L268,100" marker-end="url(#sftA)"/>
+        <path d="M490,100 L548,100" marker-end="url(#sftA)"/>
+        <path d="M730,100 L788,100" marker-end="url(#sftA)"/>
+        <path d="M990,100 L1048,100" marker-end="url(#sftA)"/>
+      </g>
+
+      <!-- C bug injection -->
+      <rect x="500" y="190" width="500" height="86" rx="10" fill="#3a1f1f" stroke="#f85149"/>
+      <text x="750" y="214" fill="#f5b0ac" font-size="13" font-weight="800" text-anchor="middle">C 类 bug 在这段注入（N-04 开始导航到XX）</text>
+      <text x="750" y="234" fill="#f5b0ac" font-size="11" text-anchor="middle">Planner 改写"开始导航到浦东机场"合理，但 SFT/意图把"开始导航+目的地"</text>
+      <text x="750" y="250" fill="#f5b0ac" font-size="11" text-anchor="middle">分到了"算路"工具 → 系统地图不支持 → 返回"功能不支持"</text>
+      <text x="750" y="268" fill="#e8908a" font-size="10.5" text-anchor="middle">不是 Planner 想错，是下游 SFT/意图接不住合理改写</text>
+      <path d="M380,150 L600,188" stroke="#f85149" stroke-width="1.5" stroke-dasharray="4 3" fill="none" marker-end="url(#sftR)"/>
+      <path d="M890,140 L850,188" stroke="#f85149" stroke-width="1.5" stroke-dasharray="4 3" fill="none" marker-end="url(#sftR)"/>
+
+      <!-- 现状 vs 目标 -->
+      <rect x="30" y="190" width="440" height="86" rx="10" fill="#11161f" stroke="#293141"/>
+      <text x="50" y="214" fill="#9aa7b8" font-size="12" font-weight="700">SFT 现状 → 目标（会上原话）</text>
+      <text x="50" y="236" fill="#cdd6e0" font-size="11">现状：SFT 主要训来"<tspan fill="#e8908a">接人说的话</tspan>"（人类口语）</text>
+      <text x="50" y="254" fill="#cdd6e0" font-size="11">目标：改训成"<tspan fill="#7fd693">接 Planner 的话</tspan>"（适配改写习惯）</text>
+      <text x="50" y="270" fill="#6b7686" font-size="10">= 以 Planner 为中心改造下游</text>
+
+      <!-- 解法 -->
+      <rect x="30" y="300" width="1180" height="150" rx="11" fill="#101c1a" stroke="#39c5cf"/>
+      <text x="50" y="326" fill="#9ee0e3" font-size="13.5" font-weight="800">怎么训 SFT（C 类的治本解，对应 L5 跨团队）</text>
+      <g font-size="12" fill="#bcd6c2">
+        <text x="50" y="352">① <tspan fill="#9ee0e3" font-weight="700">收集 Planner 的真实改写样本</tspan>：把"开始导航到XX""车控的各种改写"等 Planner 实际输出，整理成"输入(Planner改写)→正确工具/函数"的训练对。</text>
+        <text x="50" y="376">② <tspan fill="#9ee0e3" font-weight="700">提需求给弋途/下游</tspan>：用这批样本重训下游 SFT/意图，让它学会接住 Planner 的表达（如"开始导航到XX"应路由到开启导航而非算路）。</text>
+        <text x="50" y="400">③ <tspan fill="#9ee0e3" font-weight="700">扩兼容性而非缩 Planner</tspan>：判定红线=只要 Planner 改写逻辑合理、在工具可承接范围内，接不住就是下游要加强，不是把锅按 Planner 上。</text>
+        <text x="50" y="424">④ <tspan fill="#9ee0e3" font-weight="700">短期干预兜底、长期 SFT 收敛</tspan>：训练周期长，期间用干预平台拦"开始导航"等高频，等下游 SFT 训好再撤干预。</text>
+      </g>
+    </svg>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h4 style="margin-top:0;color:var(--teal)">SFT 到底是什么（给初级 PM）</h4>
+      <p style="margin:6px 0;font-size:13.6px;color:var(--sub)"><b>SFT = Supervised Fine-Tuning（监督微调）。</b>用大量"输入→正确输出"的标注样本去训练一个模型，把某种<b>固定的输入输出习惯"教"给它</b>。在本链路里，下游有一个 SFT 训出来的"分流模型"，负责把 Planner 改写后的 query 路由到正确的工具/意图。</p>
+      <p style="margin:6px 0;font-size:13.6px;color:var(--sub)">关键点：它现在主要是<b>按"人类怎么说"训的</b>（接人话），而 Planner 的改写措辞和人不完全一样 → 接不住 → 产生 C 类 bug。解法就是<b>用 Planner 的改写样本重训它</b>。</p>
+    </div>
+    <div class="card">
+      <h4 style="margin-top:0;color:var(--teal)">SFT vs FC vs 意图 三者区别</h4>
+      <table style="font-size:12.8px">
+        <tr><td style="width:70px"><b>SFT 模型</b></td><td>下游的"分流/承接模型"，决定 query 走哪条路、能不能接住 Planner 的表达。<b>可训练</b>。</td></tr>
+        <tr><td><b>FC</b></td><td>function call，最终<b>填工具名+参数</b>的结构化调用格式。"FC 不对"= 调用格式/参数错（转 FC 团队，属 D 类）。</td></tr>
+        <tr><td><b>意图</b></td><td>弋途负责的<b>二次分类器</b>，把 query 再细分到具体函数（算路 vs 开启导航）。</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="callout green"><b>把 SFT 接回解法体系：</b>它就是第 ⑦/⑧/⑩ 节里 <b>L5（下游/弋途协商）+ L6（训练）</b> 的具体抓手——<b>C 类（N-04/05 开始导航、车控接人改成接 Planner）的根治路径</b>。你（产品）的活是<b>① 出 Planner 真实改写样本 ② 提需求给弋途/算法</b>；训练由下游/算法做。短期先用 ⑭ 的干预 + navi notice 兜，长期靠 SFT 收敛。</div>
+</section>
+
+<footer>
+  <p>系统深度大图 + 解决方案实施篇 + 真实SP实修篇 + 下游SFT链路 · 贴合 Driver Agent 2.0 真实架构（三层漏斗 / 真实SP 28工具+4字段+14emoji+18示例 / SFT路由+FC+意图 / Advisor+GoalList / KV Cache）+ 33 个逐例 case + Director Badcases(177条) 聚合。</p>
+  <p>配套：《全量Bug逐例详细分析》查 case、《全量Bug聚合分析报告》看框架、《流程图全景》看简版。图中百分比/条数为本次过单量级，正式数据以最终统计表为准。</p>
+</footer>
+
+</div>
+</body>
+</html>

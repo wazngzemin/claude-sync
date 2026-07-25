@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>端云触发器 · Case 驱动版 v5</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; line-height: 1.85; color: #1f2937; max-width: 1000px; margin: 0 auto; padding: 32px 24px 80px; background: #fafaf9; }
+  h1 { font-size: 1.7rem; border-bottom: 3px solid #dc2626; padding-bottom: 12px; color: #b91c1c; }
+  h2 { font-size: 1.32rem; margin-top: 48px; padding: 12px 16px; background: #1f2937; color: #fff; border-radius: 8px; }
+  h3 { font-size: 1.1rem; margin-top: 28px; color: #b91c1c; border-left: 4px solid #dc2626; padding-left: 10px; }
+  h4 { font-size: 1rem; margin-top: 22px; color: #92400e; background: #fff7ed; padding: 6px 12px; border-radius: 6px; display: inline-block; }
+  p { margin: 10px 0; }
+  ul, ol { margin: 8px 0; padding-left: 26px; } li { margin: 5px 0; }
+  code { background: #fef3c7; padding: 1px 6px; border-radius: 4px; font-size: 0.92em; color: #92400e; }
+  .cloud { color: #2563eb; font-weight: 700; } .edge { color: #ea580c; font-weight: 700; } .pm { color: #dc2626; font-weight: 700; }
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 0.9rem; background: #fff; }
+  th { background: #1f2937; color: #fff; padding: 8px 9px; text-align: left; } td { border: 1px solid #e5e7eb; padding: 8px 9px; vertical-align: top; }
+  tr:nth-child(even) { background: #f9fafb; }
+  .box { padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+  .red { background: #fef2f2; border-left: 4px solid #dc2626; } .blue { background: #eff6ff; border-left: 4px solid #2563eb; }
+  .orange { background: #fff7ed; border-left: 4px solid #ea580c; } .green { background: #f0fdf4; border-left: 4px solid #16a34a; }
+  .gray { background: #f3f4f6; border-left: 4px solid #6b7280; }
+  .tag { display: inline-block; padding: 1px 7px; border-radius: 4px; font-size: 0.8em; font-weight: 700; }
+  .tag.c { background: #dbeafe; color: #1e40af; } .tag.e { background: #ffedd5; color: #9a3412; }
+  .en { color: #6b7280; font-size: 0.88em; }
+  .up { background: #ecfdf5; border: 1px solid #6ee7b7; border-radius: 6px; padding: 8px 12px; margin: 6px 0; }
+  .down { background: #fef9c3; border: 1px solid #fde047; border-radius: 6px; padding: 8px 12px; margin: 6px 0; }
+  .scene { background: #fff; border: 2px solid #dc2626; padding: 16px 20px; border-radius: 10px; margin: 16px 0; }
+  .lead { font-size: 1.05rem; background: #fff; border: 1px solid #fecaca; padding: 16px 20px; border-radius: 10px; }
+</style>
+</head>
+<body>
+
+<h1>端云触发器 · Case 驱动版 v5</h1>
+<p class="en">2026-06-23 · case 驱动结构：每个场景走完端到端链路 → 下面展开链路上每个模块（含精确上下游）· 严格依据 6.22 会议 + 系统架构 · v5 新增 Case 3-5 + 静态/动态 Advisor 全量 Case 清单 + VLM 三者关系一页纸</p>
+
+<div class="lead">
+<b>这份文档怎么看：</b>不是按模块罗列（㉔、⑮、VLM 一块块堆），而是<b>按真实场景（case）走</b>——先抛一个用户场景，走完它从"用户开口"到"车执行"的<b>端到端链路</b>，再在链路下面，把这条链路上经过的每个模块<b>逐个展开</b>（前因→不防会怎样→怎么干→上游是谁→下游是谁）。<br/>
+<b>每个模块都标了精确上下游：</b>谁给它数据、它给谁数据、经什么通道、什么格式。<br/>
+5 个 case + 3 份附录：① 定时任务 ② 动态 Advisor + VLM ③ 静态 Advisor + always-on ④ 即时 VQA ⑤ 阈值穿越经典 · 附录 A 静态 10 例 · 附录 B 动态 12 例 · 附录 C VLM 三者关系一页纸。
+</div>
+
+<!-- ==================== Case 1 ==================== -->
+<h2>Case 1："十分钟后关座椅加热" —— 定时任务</h2>
+
+<div class="scene">
+<b>场景：</b>用户上车，觉得座椅有点烫，说了一句"十分钟后帮我关掉座椅加热"。然后开上高速，<b>第 8 分钟车进了隧道，断网了</b>。问题：这十分钟到了，座椅加热还能不能准时关？
+</div>
+
+<h3>① 完整链路（从头走到尾）</h3>
+
+<table>
+<tr><th style="width:4%">步</th><th style="width:11%">模块</th><th style="width:7%">在哪</th><th style="width:46%">干什么（含上下游）</th><th>为什么在这侧</th></tr>
+<tr><td>1</td><td><b>用户说话</b></td><td><span class="tag e">车端</span></td><td>"十分钟后帮我关掉座椅加热" → 麦克风收音</td><td>麦克风在车上</td></tr>
+<tr><td>2</td><td><b>①② ASR</b><br/><span class="en">语音识别</span></td><td><span class="tag e">车端</span></td><td><b>上游：</b>麦克风音频 → <b>ASR</b>（Automatic Speech Recognition，把语音转成文字）→ <b>下游：</b>文字串"十分钟后帮我关掉座椅加热"</td><td>语音识别在端侧做（低延迟、省流量）</td></tr>
+<tr><td>3</td><td><b>⑨ 意图分流</b></td><td><span class="tag e">车端</span></td><td><b>上游：</b>ASR 文字 → <b>⑨</b>判断这句话是哪类：车控（蓝线）/ 对话查询（绿线）/ <b>条件任务（橙线）</b>。"十分钟后关加热"含时间条件 → <b>判为橙线·条件任务</b> → <b>下游：</b>送 ⑩ 解析</td><td>分流规则在端侧（句法 RAG，毫秒级）</td></tr>
+<tr><td>4</td><td><b>⑩ 意图解析</b></td><td><span class="tag c">云端</span></td><td><b>上游：</b>⑨ 送来的条件任务 → <b>⑩ 用 LLM 拆解</b> → 拆成结构化：<code>condition={type:timer, delay:600秒}</code> + <code>action={tool:vehicle_control, cmd:seat_heater_off, seat:driver}</code> → <b>下游：</b>送 ⑬ 配置平台生成场景</td><td>拆解自然语言要 LLM（在云端）</td></tr>
+<tr><td>5</td><td><b>⑬ 配置平台</b></td><td><span class="tag c">云端</span></td><td><b>上游：</b>⑩ 拆好的条件+动作 → <b>⑬ 生成场景</b> scene_id=PLN-T-023，配执行策略 <code>{max_count:1}</code>（一次性） → <b>下游：</b>送 ⑮ 注册校验</td><td>场景配置在云端</td></tr>
+<tr><td>6</td><td><b>⑮ 15-1 校验</b></td><td><span class="tag c">云端</span></td><td><b>上游：</b>⑬ 的场景 → <b>15-1 iCanDo 查能力</b>："这车有没有 seat_heater 这个车控？" → 有 ✅ → <b>15-2 入库</b></td><td>全局能力清单在云端</td></tr>
+<tr><td>7</td><td><b>⑮ 15-9 端云分类</b></td><td><span class="tag c">云端</span></td><td><b>判定这条规则该云端还是车端跑：</b>这是纯定时任务 → <b>必须车端</b>（断网要能跑）→ 标 <code>target=edge</code> → <b>下游：</b>15-14 打包下发</td><td>分类决策要全局信息</td></tr>
+<tr><td>8</td><td><b>⑮ 15-14 打包下发</b></td><td><span class="tag c">云端→车端</span></td><td>打成规则包：<code>{scene_id:"PLN-T-023", conditions:[{type:timer,delay:600}], actions:[{cmd:seat_heater_off}], priority:4, execute_policy:{max_count:1}}</code> → <b>经 L14 链路</b>（云端→端侧下发通道）→ <b>下游：</b>㉔ 24-1</td><td>端侧只吃规则包</td></tr>
+<tr style="background:#fff7ed"><td>9</td><td><b>㉔ 24-1 接收</b></td><td><span class="tag e">车端</span></td><td><b>上游：</b>L14 下发的规则包 → <b>24-1 接住</b> → <b>下游：</b>24-2 持久化</td><td>规则落地到车端</td></tr>
+<tr><td>10</td><td><b>㉔ 24-2 持久化</b></td><td><span class="tag e">车端</span></td><td>规则存进车机硬盘（flash/eMMC）：scene_id + 到期时间点 + status=active → <b>下游：</b>24-4 定时器</td><td>防重启丢失</td></tr>
+<tr><td>11</td><td><b>㉔ 24-4 本地定时器</b></td><td><span class="tag e">车端</span></td><td><b>设到期时间 = 当前时间 + 600 秒，开始倒计时。</b> <b class="pm">【第 8 分钟进隧道断网】</b>——倒计时在本地，<b>不受影响，继续倒数</b></td><td>本地计时不依赖网络 ← ㉔ 存在的核心理由</td></tr>
+<tr style="background:#fef3c7"><td colspan="5" style="text-align:center;font-weight:700;color:#92400e">—— 第 10 分钟到，倒计时归零，车仍在隧道（断网）——</td></tr>
+<tr><td>12</td><td><b>㉔ 24-4 命中</b></td><td><span class="tag e">车端</span></td><td>定时器到期 → 输出 scene_id=PLN-T-023 命中 → <b>下游：</b>24-9 执行</td><td>本地触发</td></tr>
+<tr><td>13</td><td><b>㉔ 24-9 白名单执行</b></td><td><span class="tag e">车端</span></td><td><b>查白名单：</b>seat_heater_off（关座椅加热）∈ 低风险车控白名单 ✅ → <b>端侧直接执行</b>，发车控指令给硬件 → 座椅加热关闭。→ <b>下游：</b>24-8 回写</td><td>白名单内=低风险=可直执，不绕云端</td></tr>
+<tr><td>14</td><td><b>㉔ 24-8 回写</b></td><td><span class="tag e">车端</span></td><td>结果写信号库④：<code>{task:"PLN-T-023_completed", value:true, timestamp:...}</code>。<b class="pm">【断网！】</b>无法上报云端 → <b>存进本地缓存队列</b></td><td>结果先存本地</td></tr>
+<tr style="background:#dcfce7"><td colspan="5" style="text-align:center;font-weight:700;color:#16a34a">—— 30 秒后出隧道，网络恢复 ——</td></tr>
+<tr><td>15</td><td><b>24-8 补传</b></td><td><span class="tag e">车端→云</span></td><td>网络恢复 → 24-8 把缓存结果补传到 ⑫ 云端信号库 → ㉑ Context 更新 → Director 知道"已经关了" → 对用户说"座椅加热已经帮你关啦~"</td><td>云端需最终一致</td></tr>
+</table>
+
+<div class="box green">
+<b>这个 case 证明的：</b>定时器放车端，断网照样准时关。要是放云端，进隧道就废，出隧道才关，早烫够了。<b>这就是㉔ 端侧触发器存在的全部理由——四个字：断网能跑。</b>
+</div>
+
+<h3>② 链路模块逐个展开（前因→不防会怎样→怎么干→上下游）</h3>
+
+<!-- ===== ⑨ ===== -->
+<h4>⑨ 意图分流（端侧）</h4>
+<p><b>【前因】</b>用户说一句话，系统得先判断它是哪类，才能决定走哪条线——是马上控车（"打开车窗"）、还是回答问题（"今天天气怎样"）、还是<b>设个条件任务</b>（"十分钟后关加热"）。三类走的链路完全不同。</p>
+<p><b>【不分流会怎样】</b>所有话都一股脑送给云端 LLM 推理 → 云端扛不住、延迟高、还浪费（"打开车窗"这种明确指令根本不需要 LLM）。</p>
+<p><b>【怎么干】</b>⑨ 用句法 RAG（规则匹配，毫秒级）做第一道筛——含车控关键词走蓝线、含查询走绿线、<b>含时间/条件词（"十分钟后""到了…时候"）走橙线·条件任务</b>。筛不了的才往上送第二层、第三层。</p>
+<div class="up"><b>上游：</b>①② ASR 转出来的文字串</div>
+<div class="down"><b>下游：</b>橙线·条件任务 → 送 ⑩ 意图解析；蓝线 → ⑤ 车控；绿线 → ⑲ Director</div>
+
+<!-- ===== ⑩ ===== -->
+<h4>⑩ 意图解析（云端）</h4>
+<p><b>【前因】</b>"十分钟后关座椅加热"是人话，端侧看不懂，得拆成机器能懂的结构化条件+动作。</p>
+<p><b>【不拆会怎样】</b>端侧触发器只吃规则包（结构化 JSON），不吃自然语言。不拆，规则包生成不了。</p>
+<p><b>【怎么干】</b>⑩ 用云端 LLM 拆解：识别出时间条件"十分钟后"→ <code>delay:600秒</code>；识别出动作"关座椅加热"→ <code>cmd:seat_heater_off, seat:driver</code>。</p>
+<div class="up"><b>上游：</b>⑨ 分流过来的条件任务（橙线）</div>
+<div class="down"><b>下游：</b>拆好的 condition + action → 送 ⑬ 配置平台生成场景</div>
+
+<!-- ===== ⑬ ===== -->
+<h4>⑬ 配置平台（云端）</h4>
+<p><b>【前因】</b>拆好的条件+动作，得变成一条"可注册、可下发、可执行"的场景记录。</p>
+<p><b>【怎么干】</b>⑬ 生成 scene_id（唯一编号），配执行策略（这条是一次性，max_count=1，触发后自动清理）。</p>
+<p class="en">⑬ 也是产品同学在火山后台手动配预设场景的地方（"新建场景"页：基础信息/发布范围/条件/动作/执行策略）。</p>
+<div class="up"><b>上游：</b>⑩ 拆好的 condition+动作；或产品手动配置</div>
+<div class="down"><b>下游：</b>场景记录 → 送 ⑮ 注册校验</div>
+
+<!-- ===== ⑰ 15-1/15-2/15-9/15-14 ===== -->
+<h4>⑮ 云端触发器（15-1 校验 → 15-2 入库 → 15-9 分类 → 15-14 下发）</h4>
+<p><b>【前因】</b>场景生成后，得校验合法性、决定下发到哪、打包成端侧能执行的格式。这套"登记+拍板"的活必须在云端。</p>
+<p><b>【为什么必须在云端】</b>① 校验要查全局能力清单（这车有没有这个硬件），清单在云端；② 分类要全局信息（这条该云端还是车端跑）；③ 自然语言解析要 LLM。</p>
+<p><b>【怎么干】</b></p>
+<ul>
+<li><b>15-1 iCanDo 校验：</b>查"这车支持 seat_heater_off 吗"→ 支持 ✅</li>
+<li><b>15-2 入库：</b>规则存进云端规则库（带 active 状态）</li>
+<li><b>15-9 端云分类：</b>纯定时任务 → 判定<b>必须车端</b>（断网要能跑）→ 标 <code>target=edge</code></li>
+<li><b>15-14 打包下发：</b>打成规则包 JSON，经 <b>L14 链路</b>下发到端侧</li>
+</ul>
+<div class="up"><b>上游：</b>⑬ 的场景记录</div>
+<div class="down"><b>下游：</b>规则包 JSON → 经 L14 链路 → ㉔ 24-1 接收</div>
+
+<!-- ===== ㉔ 24-1/24-2 ===== -->
+<h4>㉔ 24-1 接收 + 24-2 持久化（车端）</h4>
+<p><b>【前因】</b>规则到了车端，得接住、还得存住——因为车每次熄火上电都会重启，内存会清空。</p>
+<p><b>【不存会怎样】</b>规则只放内存，用户设完关车走人，明天上车发现规则没了。</p>
+<p><b>【怎么干】</b>24-1 接收规则包；24-2 存进车机硬盘（flash/eMMC），存的是"到期时间点"（不是剩余秒数，这样重启后倒计时不会从头开始）。</p>
+<div class="up"><b>上游：</b>L14 下发的规则包</div>
+<div class="down"><b>下游：</b>存好的规则 → 24-4 定时器读取</div>
+
+<!-- ===== ㉔ 24-4 ===== -->
+<h4>㉔ 24-4 本地定时器（车端）—— ㉔ 的头号价值</h4>
+<p><b>【前因】</b>倒计时如果放云端：车进隧道断网，云端到点了想发"关加热"指令，发不下来。</p>
+<p><b>【不本地跑会怎样】</b>用户进隧道，十分钟到了也不关，出隧道五分钟后才关，早烫够了。</p>
+<p><b>【怎么干】</b>倒计时在车机本地跑，纯本地计时，不依赖网络。断网也照倒数，到点自己触发。</p>
+<div class="up"><b>上游：</b>24-2 存好的规则（含到期时间）</div>
+<div class="down"><b>下游：</b>到期命中 → 24-9 执行</div>
+<div class="box orange"><b>支持能力：</b>倒计时（秒级）/ 定时（"每天早 8 点"）/ 日期（"周末"）/ 节日。最小间隔 1 分钟、最多同时 30 个、倒计时可显示在车机屏。</div>
+
+<!-- ===== ㉔ 24-9 ===== -->
+<h4>㉔ 24-9 白名单执行（车端）</h4>
+<p><b>【前因】</b>触发的动作，有的风险低（关座椅加热、调空调）可以本地直接干；有的风险高（解锁车门）必须大脑确认。</p>
+<p><b>【不分会怎样】</b>全绕云端 → 断网时低风险动作也干不了；全本地直执 → 误触发危险动作就是安全事故。</p>
+<p><b>【怎么干】</b>查白名单：seat_heater_off ∈ 低风险白名单 ✅ → 端侧直接发车控指令执行。涉及安全/确认的，送回 Director。</p>
+<div class="up"><b>上游：</b>24-4 命中的 scene_id</div>
+<div class="down"><b>下游：</b>执行结果 → 24-8 回写</div>
+
+<!-- ===== ㉔ 24-8 ===== -->
+<h4>㉔ 24-8 结果回写（车端 → 云端）</h4>
+<p><b>【前因】</b>端侧干完活，上面（云端 Director/Advisor）得知道结果，否则云端不知道"已经关了"。</p>
+<p><b>【断网时怎么办】</b>结果先存本地缓存队列（最多 100 条、单条<1KB、超 24 小时丢弃），网络恢复后按时间戳排序补传。</p>
+<div class="up"><b>上游：</b>24-9 的执行结果</div>
+<div class="down"><b>下游：</b>写信号库④ → 同步 ⑫ 云端信号库 → ㉑ Context 更新 → Director 消费</div>
+<div class="box red"><b>铁律②：</b>㉔ 结果<b>绝不直接捅给</b> Advisor/Director，统一写信号库→上报 Context。为啥？直接通知这个那个，十个模块各收各的，状态就乱了。统一进一个记事本（Context），永远一致。</div>
+
+<hr style="margin-top:40px;border:none;border-top:2px dashed #cbd5e1"/>
+
+<!-- ==================== Case 2 ==================== -->
+<h2>Case 2："帮我照顾一下二排宝宝" —— 动态 Advisor + VLM + 触发器，三者怎么协作</h2>
+
+<div class="scene">
+<b>场景：</b>用户开车带娃，上车说了一句"帮我照顾一下二排宝宝"。然后专心开车。<b>系统要自己持续盯二排——宝宝睡着了主动调暗灯光降音量，宝宝哭了主动提醒家长。</b>这个 case 会把<b>动态 Advisor（⑰）、触发器（⑮）、VLM（㉕）三者到底是什么关系</b>，通过每一步的数据流彻底拆开。
+</div>
+
+<h3>① 先把三个角色的关系讲死（这是整个 case 的地基）</h3>
+
+<table>
+<tr><th style="width:14%">角色</th><th style="width:24%">是谁</th><th>在这个 case 里干啥</th><th style="width:18%">一句话定位</th></tr>
+<tr><td><b>动态 Advisor ⑰</b></td><td>Director 临时派出来的"专属监工"，用完销毁</td><td><b>提需求</b>："我要盯二排宝宝" <b>+ 消费结果</b>："宝宝哭了→该降音量调暗灯"。但它<b>自己没眼睛，看不见二排</b></td><td>提需求的 + 拿到结果想怎么办的</td></tr>
+<tr><td><b>VLM ㉕</b></td><td>端侧视觉模型（看图说话的小模型），装在 AIBOX 上</td><td><b>只负责"看 + 描述"</b>：每 5 秒看一眼二排，输出"宝宝在哭/在睡/醒了"。<b>不判断该不该报警、不决定降不降音量</b></td><td>干活的眼睛（只看，不判断）</td></tr>
+<tr><td><b>触发器 ⑮</b></td><td>云端触发器</td><td><b>中间的中介·翻译·路由</b>：把 Advisor 的人话翻译成 VLM 能懂的指令；把 VLM 吐的状态、在发生变化那一刻变成"事件"推给 Advisor</td><td>Advisor 和 VLM 之间的翻译+事件化层</td></tr>
+</table>
+
+<div class="box red">
+<b>为什么 Advisor 不能直接调 VLM（两个原因，都要靠触发器兜）：</b><br/>
+<b>① 语言对不上。</b>Advisor 说人话"盯二排宝宝"，VLM 要的是结构化指令（7 字段：看哪个摄像头/哪个座位/查什么/多久看一次/超时多久…）。<b>触发器 15-5 就是这个翻译层。</b><br/>
+<b>② Advisor 要"事件"、VLM 只吐"状态"。</b>VLM 每 5 秒输出"宝宝哭/没哭"（状态）。但 Advisor 不可能每 5 秒被叫醒问一次"现在哭没哭"。Advisor 要的是<b>"宝宝刚哭"这个变化（事件）</b>——把状态变事件（阈值穿越：上次没哭→这次哭了，那一刻才触发）<b>是触发器 15-10 干的</b>，然后 15-11 把事件 push 给 Advisor。
+</div>
+
+<h3>② 完整链路（12 步，从头走到尾，每步带上下游）</h3>
+
+<table>
+<tr><th style="width:4%">步</th><th style="width:12%">模块</th><th style="width:6%">在哪</th><th style="width:50%">干什么（含上下游 + 字段）</th><th>为什么在这侧</th></tr>
+<tr><td>1</td><td><b>用户说话</b><br/>→ ASR → ⑨</td><td><span class="tag e">车端</span></td><td>"帮我照顾一下二排宝宝" → ASR 转文字 → ⑨ 判为<b>对话（绿线）</b> → 送 Director</td><td>语音+分流在端侧</td></tr>
+<tr><td>2</td><td><b>⑳ Director 识别</b></td><td><span class="tag c">云端</span></td><td>Director 推理：这是<b>持续任务</b>（要一直盯，不是一次性），静态 Advisor（⑯ 那 4 个常驻参谋）管不了 → 决定<b>派个专属监工</b> → <b>下游：</b>建目标 + 建动态 Advisor</td><td>判断任务类型要 LLM</td></tr>
+<tr><td>3</td><td><b>⑳ 建目标</b><br/>Goal List ⑱</td><td><span class="tag c">云端</span></td><td>Director 用 goal_list_update 工具，在 ⑱ Goal List（共享看板）新建目标：<code>{goal_id:"G-007", desc:"监控二排宝宝安全舒适", owner:"动态Advisor-07", status:"active"}</code> → <b>下游：</b>建动态 Advisor</td><td>目标看板在云端</td></tr>
+<tr><td>4</td><td><b>⑳ 建动态 Advisor ⑰</b></td><td><span class="tag c">云端</span></td><td>Director 创建动态 Advisor⑰，给它目标 + SP（System Prompt 工作说明）："你负责盯二排宝宝，定期查状态，有异常给我建议"。Director <b>做完这两步就撒手</b>，之后 ⑰ 自己循环盯 → <b>下游：</b>⑰ 提感知需求</td><td>Advisor 推理在云端</td></tr>
+<tr><td>5</td><td><b>⑰ 提视觉需求</b></td><td><span class="tag c">云端</span></td><td><b>【动态 Advisor 的活】</b>⑰ 根据目标，输出要感知的内容："定时查看二排宝宝是否睡着/哭闹/温度是否适宜"——这是<b>人话需求</b> → <b>下游：</b>送触发器注册（<b>不能直接捅给 VLM</b>）</td><td>需求是 Advisor 推理出来的</td></tr>
+<tr><td>6</td><td><b>⑮ 15-5 编译</b><br/>人话→VLM指令</td><td><span class="tag c">云端</span></td><td><b>【触发器的翻译活】</b>把 ⑰ 的人话"盯二排宝宝"编译成 VLM task（7 字段）：<code>{camera_group:"CABIN" 舱内摄像头, seat:"rear" 二排, query:"宝宝状态(睡/哭/醒)", interval:5 每5秒看一次, timeout:30 超30秒没返回算超时, priority:"P1", mutex_group:"CABIN" 舱内摄像头互斥组}</code> → <b>下游：</b>15-9 分类</td><td>翻译要查 VLM 能力清单（在云端）</td></tr>
+<tr><td>7</td><td><b>⑮ 15-9 分类<br/>+ 15-14 下发</b></td><td><span class="tag c">云端</span></td><td>15-9 判定：视觉任务 + 赛力斯有端侧 VLM → <b>下发端侧</b>（上汽没有端侧 VLM → 这步走路 A 云端 VQA，见下方对比）。15-14 打成规则包，经 L14 下发 → <b>下游：</b>㉔ 24-6</td><td>分类要全局信息</td></tr>
+<tr><td>8</td><td><b>㉔ 24-6 调度<br/>→ ㉕ VLM 看</b></td><td><span class="tag e">车端</span></td><td><b>【VLM 的活】</b>24-6 把 VLM task 转成运行指令下发给 ㉕。㉕ 开始<b>每 5 秒看一眼二排</b>，输出状态："宝宝醒着""宝宝醒着""宝宝睡了"… → <b>下游：</b>24-7 归一 → 写信号库④</td><td>摄像头+模型在车端</td></tr>
+<tr><td>9</td><td><b>㉕ 结果<br/>→ ④ 信号库</b></td><td><span class="tag e">车端</span></td><td>㉕ 每次结果写进 ④ 端侧信号库：<code>{signal:"rear_baby_status", value:"sleeping", source:"VLM", timestamp:..., ttl:5}</code> → ④ 同步到 ⑫ 云端信号库 → <b>下游：</b>⑮ 监听</td><td>状态先存信号库（铁律②：不直接推 Advisor）</td></tr>
+<tr style="background:#fef3c7"><td>10</td><td><b>⑮ 15-10<br/>阈值穿越</b></td><td><span class="tag c">云端</span></td><td><b class="pm">【6.22 核心·状态变事件】</b>⑮ 监听 ⑫ 信号库变化。第 N 次：value="sleeping"，第 N-1 次：value="awake" → <b>last=awake → this=sleeping → 穿越！</b>"宝宝刚睡着"才算事，持续 sleeping 不再触发 → <b>下游：</b>15-11 组装事件</td><td>放云端统一判，避免端云标准打架（6.22 从端侧上收）</td></tr>
+<tr style="background:#fef3c7"><td>11</td><td><b>⑮ 15-11<br/>事件 push ⑰</b></td><td><span class="tag c">云端</span></td><td><b class="pm">【6.22 核心·事件 push，不轮询】</b>把穿越结果组装成事件：<code>{event:"宝宝刚睡着", source:"cloud_trigger", triggered_at:...}</code> → <b>主动 push 给订阅了"二排宝宝状态"的 ⑰</b>（⑰ 之前注册过订阅，现在等推过来就行，<b>不轮询 Context</b>）→ <b>下游：</b>⑰ 收到</td><td>Advisor 订阅事件等 push（6.22 佳杰纠正）</td></tr>
+<tr><td>12</td><td><b>⑰ 推理<br/>→ ⑲ → ⑳</b></td><td><span class="tag c">云端</span></td><td><b>【动态 Advisor 的活】</b>⑰ 收到"宝宝刚睡着"事件 → 推理："该降低音量、调暗氛围灯、关掉副驾直吹" → 产出 advice → 进 ⑲ Director 汇入 → ⑳ 拍板：降音量到 20% + 调暗灯 + 对用户说"宝宝好像睡着了，帮你把音乐调小了~" → 执行。⑰ 在 ⑱ Goal List 更新进展"已识别宝宝入睡"</td><td>建议是 Advisor 推理，执行是 Director 拍板</td></tr>
+</table>
+
+<p><b>（循环）</b>⑰ 继续监控——下次有新事件（宝宝醒了、哭了）再走第 8~12 步。直到用户说"不用管了" → Director 删 ⑱ 目标 → ⑰ 自我注销 → 取消感知订阅 → 触发器删除对应 VLM task 规则 → ㉕ 停止看二排。</p>
+
+<h3>③ 三者在这个 case 里的协作，用数据流再串一遍（谁给谁、什么格式）</h3>
+
+<div class="box blue">
+<b>动态 Advisor ⑰ → 触发器 ⑮：</b>给的是<b>人话需求</b>"盯二排宝宝"（自然语言）。<br/>
+<b>触发器 ⑮ → VLM ㉕：</b>翻译成<b>结构化指令</b>（7 字段 VLM task：camera_group/seat/query/interval/timeout/priority/mutex_group），经 L14 链路下发。<br/>
+<b>VLM ㉕ → 信号库 ④：</b>每 5 秒吐<b>状态</b>（sleeping/awake/crying），写进信号库。<br/>
+<b>信号库 ④ → 触发器 ⑮：</b>⑮ 监听状态变化。<br/>
+<b>触发器 ⑮ → 动态 Advisor ⑰：</b>状态穿越那一刻，组装成<b>事件</b>（"宝宝刚睡着"），push 给 ⑰。<br/>
+<b>动态 Advisor ⑰ → Director：</b>基于事件推理出<b>建议</b>（advice）。
+</div>
+<div class="box red"><b>看这条数据流就明白了：</b>Advisor 和 VLM <b>从头到尾没有直接对话</b>。Advisor 给的是人话、VLM 吐的是状态，中间<b>全靠触发器翻译+事件化</b>。这就是三者的关系——触发器是 Advisor（人话/要事件）和 VLM（指令/吐状态）之间<b>不可省的中间层</b>。</div>
+
+<h3>④ 链路模块逐个展开</h3>
+
+<h4>⑰ 动态 Advisor（云端）—— 提需求 + 消费结果，自己没眼睛</h4>
+<p><b>【是什么】</b>Director 在对话中临时创建的独立推理实体，带一个具体目标。不是预置的（静态 Advisor 是预置 4 个），是"派活"派出来的。一个目标建一个，用完销毁。</p>
+<p><b>【和静态 Advisor 的区别】</b>静态 Advisor（⑯ 舒适/出行/情感/内容）常驻、被动消费 Context 里已有的信号；动态 Advisor 是临时、<b>主动注册新的感知订阅</b>（"订阅"行为 = 注册一个触发器）。</p>
+<p><b>【它干两件事】</b>① 提视觉需求（第 5 步，人话）；② 收到事件后推理出建议（第 12 步）。<b>它不直接调 VLM、不直接控车、不直接对用户说话</b>——建议要送 Director 拍板。</p>
+<div class="up"><b>上游：</b>Director 创建它、给目标+SP；事件由触发器 push 给它</div>
+<div class="down"><b>下游：</b>视觉需求 → 触发器注册；建议 advice → ⑲ Director 汇入</div>
+
+<h4>⑮ 触发器（云端）—— Advisor 和 VLM 之间的中介</h4>
+<p><b>【在视觉里干两件翻译+路由的活】</b></p>
+<ul>
+<li><b>15-5 编译（人话→指令）：</b>Advisor 说"盯宝宝"，编译成 VLM task 7 字段。没有这层，Advisor 的人话下发不到 VLM。</li>
+<li><b>15-10 阈值穿越 + 15-11 事件 push（状态→事件）：</b>VLM 吐的是状态（一直在睡），Advisor 要的是事件（刚睡着）。<b class="pm">这是 6.22 最大的纠正</b>——原来 Advisor 要轮询 Context 等事件，6.22 改成触发器组装事件后 push。</li>
+</ul>
+<p><b>【为什么不能让 Advisor 直接轮询 Context】</b>（6.22 佳杰 25:48 原话逻辑）：Advisor 不可能 24 小时反复去翻记事本等"宝宝醒了没"——浪费算力、不实时。事件必须是发生那一刻被推过来的。</p>
+<div class="up"><b>上游：</b>Advisor 的视觉需求（人话）；VLM 的状态（经信号库）</div>
+<div class="down"><b>下游：</b>VLM task（经 L14）→ ㉔；事件 → push 给 Advisor</div>
+
+<h4>㉕ VLM（车端）—— 只管看的眼睛</h4>
+<p><b>【是什么】</b>端侧视觉语言模型，装在 AIBOX 上。被调用方——不主动看，要外部指令告诉它看什么。</p>
+<p><b>【它干一件事】</b>收到 24-6 的运行指令后，按 query（"宝宝状态"）持续看指定摄像头（CABIN 舱内）、指定座位（二排），每 interval（5 秒）输出一次状态描述。<b>不判断该不该报警、不决定调不调音量</b>——只描述"宝宝在哭/在睡"。</p>
+<p><b>【6.22 丁彬补充·端模输出规范】</b>端模应<b>纯客观描述此时此刻的状态</b>（"坛子在地上"），<b>不描述"是或否"</b>（不说"坛子掉没掉"）。判断交给上层（触发器阈值穿越 + Advisor 推理）。</p>
+<div class="up"><b>上游：</b>24-6 的运行指令（7 字段翻译来的）</div>
+<div class="down"><b>下游：</b>状态 → 24-7 归一 → 写信号库④（不直接给 Advisor）</div>
+<div class="box orange"><b>端模能力边界（6.22 丁彬 40:58，最大不确定性）：</b>端模能不能做"看到 X 才告诉我"的条件式注意力？① 有限集内（只看毯子/毛巾）prompt 限制应该行；② 发散了（手绢/小方巾）是问号——<b>没测过</b>；③ prompt 有渠道改到端上就 OK。<b>这条链路能不能成立，前提是先验证端模能力，7 月中拿结论。</b></div>
+
+<h3>⑤ 两条视觉路的对比（为什么你会乱）</h3>
+<p>动态 Advisor 要"看"东西，有两条路，<b>都叫视觉，但链路完全不同</b>：</p>
+<table>
+<tr><th>对比</th><th>路 A·即时视觉（云端 VQA）</th><th>路 B·持续视觉（端侧 VLM）← 本 case 走的</th></tr>
+<tr><td><b>场景</b></td><td>偶尔看一眼："副驾笑了吗""前面有加油站吗"</td><td>一直盯着："盯二排宝宝""盯副驾打瞌睡"</td></tr>
+<tr><td><b>经过触发器吗</b></td><td class="pm"><b>不经过</b>。Advisor 自己有定时器，直接调云端 VQA</td><td class="pm"><b>经过</b>。Advisor→触发器编译→下发端侧 VLM</td></tr>
+<tr><td><b>用的是 VLM ㉕ 吗</b></td><td>不是，用云端 VQA（取一帧图问一个问题）</td><td>是，端侧 VLM ㉕ 持续看</td></tr>
+<tr><td><b>在哪跑</b></td><td>全程云端</td><td>端侧（仅赛力斯有端侧算力）</td></tr>
+<tr><td><b>上汽能用吗</b></td><td>能（只要有摄像头抓帧上传）</td><td>不能（没端侧 VLM，上汽走路 A 顶）</td></tr>
+</table>
+<div class="box gray"><b>所以你乱，是因为：</b>"VLM（端侧㉕）"和"VQA（云端）"都叫视觉能力，动态 Advisor 都能用，但<b>一条 Advisor 直连 VQA、一条经触发器调 VLM</b>。本 case（照顾宝宝，要持续盯）走的是路 B。</div>
+
+<hr style="margin-top:40px;border:none;border-top:2px dashed #cbd5e1"/>
+
+<!-- ==================== Case 3 ==================== -->
+<h2>Case 3："主驾一直在看手机" — 静态 Advisor + always-on（不需要用户开口）</h2>
+
+<div class="scene">
+<b>场景：</b>没人说话。系统自己一直在跑 always-on 看舱内。突然发现主驾在看手机已经 15 秒了，车速 80。<b>问题：这个提醒是谁发起的？和 Case 2"照看宝宝"走的是同一条路吗？</b>
+</div>
+
+<h3>① 和 Case 2 的核心区别（先讲死，再走链路）</h3>
+
+<table>
+<tr><th>对比</th><th>Case 2 "照看宝宝"（动态）</th><th>Case 3 "打电话提醒"（静态）</th></tr>
+<tr><td><b>谁发起</b></td><td>用户主动开口 → Director 建动态 Advisor</td><td><b>没人说话</b>——出厂预设规则，always-on 一直在看</td></tr>
+<tr><td><b>观测怎么来的</b></td><td>动态 Advisor → 触发器注册 → 下发端模新 SP</td><td><b>不需要注册</b>——"检测打电话"是 always-on 出厂 SP 里的一项，一直在跑</td></tr>
+<tr><td><b>谁消费事件</b></td><td>动态 Advisor ⑰（临时建的，用完销毁）</td><td><b>静态 Advisor ⑯（安全类）</b>，常驻不销毁</td></tr>
+<tr><td><b>触发器做什么</b></td><td>翻译 SP + 下发 + 阈值穿越 + 事件 push（全套）</td><td><b>只做阈值穿越 + 事件 push</b>（SP 不用翻译，已经预设好了）</td></tr>
+</table>
+
+<h3>② 完整链路</h3>
+
+<table>
+<tr><th style="width:4%">步</th><th style="width:12%">模块</th><th style="width:6%">在哪</th><th style="width:52%">干什么</th><th>和 Case 2 的差异</th></tr>
+<tr><td>1</td><td><b>㉕ always-on<br/>舱内</b></td><td><span class="tag e">车端</span></td><td>always-on VLM 持续看舱内，按<b>出厂预设 SP</b> 每 3 秒输出状态。本轮：<code>"主驾右手持手机，视线偏离前方"</code></td><td>Case 2 是<b>动态下发的新 SP</b>；这里是<b>出厂就有的 SP</b>，always-on 一直在跑</td></tr>
+<tr><td>2</td><td><b>④ 信号库</b></td><td><span class="tag e">车端</span></td><td>VLM 结果写入信号库：<code>{signal:"cabin_driver_action", value:"holding_phone_15s"}</code> → 同步到 ⑫ 云端信号库</td><td>一样</td></tr>
+<tr><td>3</td><td><b>⑮ 阈值穿越</b></td><td><span class="tag c">云端</span></td><td>上次 value="normal_driving"，这次 value="holding_phone_15s" → <b>穿越！</b>组装事件：<code>{event:"主驾持手机超15秒"}</code></td><td>逻辑一样——但这条<b>穿越规则是预设的</b>（⑬ 配置平台配好的），不是 Advisor 临时注册的</td></tr>
+<tr><td>4</td><td><b>⑮ 事件 push</b></td><td><span class="tag c">云端</span></td><td>事件 push 给<b>静态 Advisor ⑯（安全类）</b>——⑯ 出厂就订阅了"驾驶安全类事件"</td><td>Case 2 push 给<b>动态</b> Advisor；这里 push 给<b>静态</b></td></tr>
+<tr><td>5</td><td><b>⑯ 安全 Advisor</b></td><td><span class="tag c">云端</span></td><td>收到事件 + 读 Context（车速 80km/h，高速行驶）→ 推理：高速看手机危险 → 建议：温和提醒</td><td>Case 2 是动态 Advisor 推理；这里是<b>静态常驻 Advisor</b></td></tr>
+<tr><td>6</td><td><b>⑲→⑳ 执行</b></td><td><span class="tag c">云端</span></td><td>advice → Director 拍板 → TTS："诶，开车别看手机啦，需要我帮你打电话吗？"</td><td>一样</td></tr>
+</table>
+
+<div class="box green">
+<b>这个 case 证明的：</b>静态 Advisor 的视觉 case <b>不需要用户开口、不需要动态注册</b>。always-on 一直在看，触发器一直在监听信号变化，静态 Advisor 出厂就订阅了事件。<b>整个链路零用户参与。</b><br/>
+和 Case 2 的区别一句话：Case 2 是<b>临时派的监工</b>（动态），Case 3 是<b>常驻值班的保安</b>（静态）。
+</div>
+
+<hr style="margin-top:40px;border:none;border-top:2px dashed #cbd5e1"/>
+
+<!-- ==================== Case 4 ==================== -->
+<h2>Case 4："前面有没有加油站" — 即时 VQA（完全不经触发器）</h2>
+
+<div class="scene">
+<b>场景：</b>用户随口问了一句"前面有没有加油站"。不是让系统持续盯，就是<b>问这一次</b>。<b>问题：这走触发器吗？用的是端侧 VLM 吗？</b>
+</div>
+
+<div class="box red">
+<b>答案：不走触发器，不用端侧 VLM。</b>这是 Case 2 里提到的<b>路 A · 即时视觉</b>——Planner 调 <code>search_visual_info</code> 工具 → 端侧取一帧图 → 云端 VQA 模型看一眼 → 回答。<b>从头到尾触发器没碰。</b>
+</div>
+
+<h3>完整链路</h3>
+
+<table>
+<tr><th style="width:4%">步</th><th style="width:12%">模块</th><th style="width:6%">在哪</th><th>干什么</th></tr>
+<tr><td>1</td><td><b>用户说话</b><br/>→ ASR → ⑨</td><td><span class="tag e">车端</span></td><td>"前面有没有加油站" → ⑨ 判为<b>对话查询（绿线）</b> → 送 Director/Planner</td></tr>
+<tr><td>2</td><td><b>⑲→⑳ Director<br/>→ Planner</b></td><td><span class="tag c">云端</span></td><td>Planner 判断：一次性视觉查询 → 不需要持续盯 → 工具选择：<code>search_visual_info</code></td></tr>
+<tr><td>3</td><td><b>㉒ 工具执行<br/>search_visual_info</b></td><td><span class="tag c">云端</span></td><td>调端侧前摄<b>抓一帧图片</b> → 上传云端 → 送云端 VQA 模型，附带 query："前方有没有加油站？"</td></tr>
+<tr><td>4</td><td><b>云端 VQA</b></td><td><span class="tag c">云端</span></td><td>VQA 看图回答："前方约 200 米处右侧有中石化加油站" → 结果返回 Planner</td></tr>
+<tr><td>5</td><td><b>Planner → TTS</b></td><td><span class="tag c">云端</span></td><td>Planner 拿到结果 → 生成话术 → TTS："前面 200 米右边有个中石化，要帮你导航过去吗？"</td></tr>
+</table>
+
+<div class="box gray">
+<b>这个 case 证明的：</b>"看一眼"和"盯着看"是<b>两条完全不同的路</b>。<br/><br/>
+<table>
+<tr><th></th><th>路 A · 即时 VQA（本 case）</th><th>路 B · 持续 VLM（Case 2）</th></tr>
+<tr><td><b>触发词区别</b></td><td>"<b>有没有</b>加油站"（问一次）</td><td>"<b>看到</b>加油站<b>告诉我</b>"（一直盯）</td></tr>
+<tr><td><b>经触发器？</b></td><td class="pm"><b>不经过</b></td><td><b>经过</b>（注册+翻译+阈值穿越+push）</td></tr>
+<tr><td><b>用端侧 VLM？</b></td><td>不用，用云端 VQA</td><td>用（端侧 VLM 持续看）</td></tr>
+<tr><td><b>谁消费</b></td><td>Planner 直接拿结果回答</td><td>动态 Advisor 消费事件后推理</td></tr>
+</table>
+<br/>用户说"有没有" = <b>问一次</b> = 路 A。用户说"看到了告诉我" = <b>一直盯</b> = 路 B。<b>一字之差，链路天壤之别。</b>
+</div>
+
+<hr style="margin-top:40px;border:none;border-top:2px dashed #cbd5e1"/>
+
+<!-- ==================== Case 5 ==================== -->
+<h2>Case 5："毯子掉了提醒我" — 动态注册 + 阈值穿越经典案例</h2>
+
+<div class="scene">
+<b>场景：</b>后排宝宝盖着毯子睡觉，用户说"毯子掉了提醒我"。<b>问题：系统怎么区分"毯子在"和"毯子掉了"？毯子一直在地上，会不会一直报警？</b>
+</div>
+
+<h3>① 完整链路</h3>
+
+<table>
+<tr><th style="width:4%">步</th><th style="width:12%">模块</th><th style="width:6%">在哪</th><th>干什么</th></tr>
+<tr><td>1</td><td><b>用户说话</b><br/>→ ⑲→⑳</td><td><span class="tag c">云端</span></td><td>"毯子掉了提醒我" → Director 判断：持续监控 + 条件触发 → 建动态 Advisor ⑰</td></tr>
+<tr><td>2</td><td><b>⑰ 拆解需求</b></td><td><span class="tag c">云端</span></td><td>动态 Advisor 拆解：需要视觉观测"后排毯子位置状态" → 向 ⑮ 注册感知订阅</td></tr>
+<tr><td>3</td><td><b>⑮ 编译 + 下发</b></td><td><span class="tag c">云端</span></td><td>15-5 编译：<code>{camera_group:"CABIN", seat:"rear", query:"后排毯子位置状态(盖着/滑落/在地上)", interval:10}</code> → 15-14 经 L14 下发端侧</td></tr>
+<tr><td>4</td><td><b>㉕ VLM 观测</b></td><td><span class="tag e">车端</span></td><td>每 10 秒看一眼，<b>纯客观描述</b>（6.22 西钺铁律）：<br/>
+• 第 1 轮："毯子盖在宝宝身上"<br/>
+• 第 2 轮："毯子盖在宝宝身上"<br/>
+• 第 3 轮：<b>"毯子在座椅和地板之间"</b><br/>
+• 第 4 轮："毯子在地上"<br/>
+• 第 5 轮："毯子在地上"</td></tr>
+<tr><td>5</td><td><b>④ 信号库</b></td><td><span class="tag e">车端</span></td><td>每轮状态写入：<code>{signal:"rear_blanket_pos", value:"on_floor"}</code> → 同步云端 ⑫</td></tr>
+<tr style="background:#fef3c7"><td>6</td><td><b>⑮ 阈值穿越</b></td><td><span class="tag c">云端</span></td><td><b class="pm">核心：</b><br/>
+• 第 2→3 轮："on_baby" → "sliding_off" → <b>穿越！</b>组装事件"毯子正在滑落"<br/>
+• 第 3→4 轮："sliding_off" → "on_floor" → 又穿越，但类型相近 → 合并/冷却<br/>
+• <b>第 4→5 轮："on_floor" → "on_floor" → 没穿越 → 不触发</b> ← 这就是"毯子一直在地上不会反复报警"的原因</td></tr>
+<tr><td>7</td><td><b>⑮ 事件 push → ⑰</b></td><td><span class="tag c">云端</span></td><td>push 给 ⑰：<code>{event:"毯子掉了"}</code></td></tr>
+<tr><td>8</td><td><b>⑰ → Director</b></td><td><span class="tag c">云端</span></td><td>⑰ 推理：毯子掉了 + Context（车内 22℃，宝宝在睡）→ advice："提醒用户" → Director 拍板 → TTS："宝宝的毯子好像掉了，方便的时候帮 ta 盖一下~"</td></tr>
+</table>
+
+<div class="box red">
+<b>这个 case 的核心设计点——阈值穿越为什么管用：</b><br/>
+<b>① 只在状态<u>变化</u>那一刻触发，不在状态<u>持续</u>时触发。</b>"毯子在地上"说十遍也只触发第一遍。<br/>
+<b>② 端模只报客观状态，不判断"掉没掉"。</b>端模说"毯子在地上"，判断"这算掉了"是云端触发器 + Advisor 的事。<br/>
+<b>③ 这就是"状态 ≠ 事件"的经典例子。</b>"毯子在地上"是状态（一直是），"毯子<u>刚</u>掉了"是事件（只发生一次）。Advisor 要的是事件，VLM 吐的是状态，触发器把状态变成事件。
+</div>
+
+<h3>② 端模能力卡点（6.22 未定，7 月中必须验证）</h3>
+
+<div class="box orange">
+<b>丁彬 40:58 原话逻辑：</b>端模现在只能做"看啥"（客观输出），做不了"看到 X 就做 Y"的后半步。"毯子掉了"对端模来说是：<br/>
+• <b>能做的：</b>输出"毯子在地上"（客观状态，有限集内，prompt 限制可保证）<br/>
+• <b>做不了的：</b>"如果毯子掉了就上报"（条件判断+主动上报 ← 这步在触发器/云端做）<br/>
+• <b>不确定的：</b>如果要看的东西太发散（小方巾、手绢、围巾…），识别准确率未知 ← <b>需要 7 月中验证</b>
+</div>
+
+<hr style="margin-top:50px;border:none;border-top:3px solid #1f2937"/>
+
+<!-- ==================== 附录 A ==================== -->
+<h2>附录 A：静态 Advisor 全量 Case 清单（系统预设，不需用户开口）</h2>
+
+<p>以下 case 来自<b>益红/佳杰整理的静态 Advisor 事件清单</b>+ 补充。共同特征：always-on 一直在看 → 触发器阈值穿越 → push 静态 Advisor → 推理执行。<b>用户全程不参与。</b></p>
+
+<table>
+<tr><th style="width:3%">#</th><th style="width:12%">场景</th><th style="width:20%">触发事件（视觉信号）</th><th style="width:14%">条件（Context）</th><th style="width:20%">执行动作</th><th style="width:8%">VLM 类型</th><th>备注</th></tr>
+<tr><td>S1</td><td><b>主驾疲劳</b></td><td>闭眼 / 打哈欠 / 频繁点头</td><td>车辆行驶中，车速 &gt; 30</td><td>语音提醒 + 推荐最近休息区导航</td><td>舱内静态</td><td>always-on 出厂 SP 项</td></tr>
+<tr><td>S2</td><td><b>主驾看手机</b></td><td>手持手机 + 视线偏离 &gt; 10s</td><td>车辆行驶中</td><td>提醒"别看手机" + 询问是否帮打电话</td><td>舱内动态</td><td><b>→ Case 3 详解</b></td></tr>
+<tr><td>S3</td><td><b>驶出地库</b></td><td>光线明显变亮 / 地库出口标识</td><td>此前处于地下空间</td><td>播报天气 + 推荐导航目的地</td><td>舱外</td><td>益红提的 case（6.22 03:29）</td></tr>
+<tr><td>S4</td><td><b>副驾/后排睡着</b></td><td>闭眼 + 头部倾斜 &gt; 30s</td><td>有乘客在座</td><td>降低音量 / 调暗氛围灯 / 调节空调</td><td>舱内静态</td><td>always-on 出厂 SP 项</td></tr>
+<tr><td>S5</td><td><b>下车安全提醒</b></td><td>后方有来车 / 骑车人 / 行人</td><td>车辆停止 + 车门开启信号</td><td>紧急提醒"后方有车，小心开门"</td><td>舱外</td><td>优先级 P0（安全类）</td></tr>
+<tr><td>S6</td><td><b>Face ID 上车</b></td><td>识别到特定人员入座（匹配记忆库）</td><td>车辆解锁 / 开门</td><td>个性化座椅+后视镜+音乐+欢迎语</td><td>舱内静态</td><td>6.22 结论：可回 CDC 底软闭环</td></tr>
+<tr><td>S7</td><td><b>安全带未系</b></td><td>乘员未系安全带（视觉+传感器双校验）</td><td>车辆启动 / 行驶中</td><td>语音提醒系安全带</td><td>舱内静态</td><td>6.22 结论：固定功能建议回 CDC</td></tr>
+<tr><td>S8</td><td><b>主驾抽烟</b></td><td>手持烟 / 烟雾</td><td>车内有其他乘客（尤其儿童）</td><td>提醒通风 / 询问是否打开车窗</td><td>舱内动态</td><td>有限集内</td></tr>
+<tr><td>S9</td><td><b>前方事故/拥堵</b></td><td>前方车辆刹车灯密集 / 事故车</td><td>车辆行驶中</td><td>播报前方路况 + 推荐绕行</td><td>舱外</td><td>需结合导航数据</td></tr>
+<tr><td>S10</td><td><b>雨天/雾天</b></td><td>挡风玻璃雨滴 / 能见度下降</td><td>行驶中 + 雨刮未开</td><td>提醒开雨刮 / 减速 / 开雾灯</td><td>舱外</td><td>可结合雨量传感器双校验</td></tr>
+</table>
+
+<div class="box gray">
+<b>6.22 边界线：</b>S6（Face ID）、S7（安全带）这类<b>常驻固定标配</b>功能，仁杰/西钺建议回<b>赛力斯 CDC 底软</b>自己做，不走触发器（链路更短、更稳定）。只有<b>涉及 LLM 推理、可运营、有生命周期</b>的才走触发器。
+</div>
+
+<!-- ==================== 附录 B ==================== -->
+<h2>附录 B：动态 Advisor 全量 Case 清单（用户开口触发，有生命周期）</h2>
+
+<p>以下 case 来自<b>6.22 会议讨论 + 益红/佳杰整理</b>+ 补充。共同特征：用户开口 → Director 建动态 Advisor → 注册感知订阅 → 触发器翻译+下发 → VLM 持续看 → 阈值穿越 → 事件 push → 推理执行。</p>
+
+<table>
+<tr><th style="width:3%">#</th><th style="width:14%">用户 query</th><th style="width:20%">触发事件（视觉信号）</th><th style="width:11%">条件</th><th style="width:20%">执行动作</th><th style="width:8%">VLM 类型</th><th>难度 / 备注</th></tr>
+<tr><td>D1</td><td>"帮我照看<br/>后排宝宝"</td><td>宝宝哭闹 / 踢被 / 翻身 / 从睡→醒</td><td>后排有婴儿座椅</td><td>提醒 / 调暗灯 / 降音量</td><td>舱内动态</td><td><b>→ Case 2 详解</b></td></tr>
+<tr><td>D2</td><td>"毯子掉了<br/>提醒我"</td><td>毯子从"盖着"→"在地上"（状态翻转）</td><td>后排有乘客+毯子</td><td>提醒"毯子掉了"</td><td>舱内动态</td><td><b>→ Case 5 详解</b>；阈值穿越经典</td></tr>
+<tr><td>D3</td><td>"看到加油站<br/>告诉我"</td><td>舱外视觉检测到加油站标识</td><td>车辆行驶中</td><td>播报"前方有加油站" + 询问导航</td><td>舱外</td><td>有限集内（加油站标识明确）</td></tr>
+<tr><td>D4</td><td>"看到星巴克<br/>提醒我"</td><td>舱外视觉检测到特定品牌门店招牌</td><td>车辆行驶中</td><td>播报 + 询问导航</td><td>舱外</td><td>品牌识别，有限集边缘</td></tr>
+<tr><td>D5</td><td>"帮我看着副驾<br/>有没有睡着"</td><td>副驾从清醒→闭眼（状态翻转）</td><td>副驾有乘客</td><td>提醒 + 调节空调温度</td><td>舱内动态</td><td>有限集内，端模可做</td></tr>
+<tr><td>D6</td><td>"后排小孩爬到<br/>前排来告诉我"</td><td>小孩从后排→前排位置变化</td><td>后排有小孩</td><td>紧急提醒</td><td>舱内动态</td><td><b class="pm">6.22 西钺 45:01：物体+位置，不一定搞得定</b></td></tr>
+<tr><td>D7</td><td>"看到好看的<br/>风景告诉我"</td><td>风景变化（山/湖/日落）</td><td>车辆行驶中</td><td>播报 + 截图保存</td><td>舱外</td><td><b class="pm">高度发散，靠基模泛化，效果未知</b></td></tr>
+<tr><td>D8</td><td>"下雨了<br/>帮我关车窗"</td><td>挡风玻璃雨滴 / 雨量传感器</td><td>车窗开启</td><td>自动关窗</td><td>舱外</td><td>6.22 仁杰举例：端侧可直接闭环</td></tr>
+<tr><td>D9</td><td>"宝宝醒了<br/>叫我"</td><td>后排婴儿从 sleeping→awake</td><td>正在照看宝宝任务中</td><td>语音提醒</td><td>舱内动态</td><td>6.22 佳杰核心 case：事件 ≠ 状态</td></tr>
+<tr><td>D10</td><td>"停车后看看后方<br/>有没有充电桩"</td><td>P 档 + 后摄检测充电桩</td><td>车辆驻车</td><td>自动开充电盖</td><td>舱外</td><td>6.22 丁彬"充电大师"case；结论：<b>回 CDC</b></td></tr>
+<tr><td>D11</td><td>"帮我留意车位"</td><td>舱外检测到空车位标识/空位</td><td>低速/进入停车场</td><td>播报"右前方有空车位"</td><td>舱外</td><td>通用视觉通道</td></tr>
+<tr><td>D12</td><td>"有人靠近车子<br/>提醒我"</td><td>哨兵模式检测到人形靠近</td><td>驻车 + 人离车</td><td>推送通知到手机</td><td>舱外</td><td>6.22 结论：端侧闭环回 CDC/哨兵</td></tr>
+</table>
+
+<div class="box orange">
+<b>通用视觉事件通道（6.22 佳杰 01:01:02 提出）：</b>上面 D6、D7、D11 这类长尾场景，预设穷举不完。佳杰主张触发器里支持一个<b>通用视觉事件通道</b>——动态 Advisor 输入一条泛化 query，直接透传给 AIBox，"它能做成啥样就是啥样"。分三个子通道：<b>舱内静态</b>（性别等慢变化）/ <b>舱内动态</b>（动作等快变化）/ <b>舱外</b>（前摄）。增量式 prompt 更新（新增不覆盖原有 SP）。<br/>
+<b>西钺 01:02:09 补充：</b>预设能穷举的先做死（有限集），通用通道做兜底（泛化），但效果要打问号。
+</div>
+
+<!-- ==================== 附录 C ==================== -->
+<h2>附录 C：VLM · 动态 Advisor · 触发器 — 三者关系一页纸</h2>
+
+<h3>① 一句话定性</h3>
+<div class="box red">
+三者<b>不是并列模块</b>，是同一条链路上的三个角色——<b>动态 Advisor 是大脑</b>（决定看什么、看到了怎么办），<b>触发器是神经系统</b>（注册/翻译/信号监听/事件组装+push），<b>VLM 是眼睛</b>（实际去看，输出客观状态）。<b>没有触发器，Advisor 的视觉需求下不去端侧；没有 Advisor，触发器不知道该看什么。</b>
+</div>
+
+<h3>② 数据流全链路（每一步给什么、什么格式）</h3>
+<table>
+<tr><th style="width:4%">步</th><th style="width:18%">从 → 到</th><th style="width:18%">给什么</th><th style="width:16%">什么格式</th><th>例子</th></tr>
+<tr><td>①</td><td>用户 → Director</td><td>自然语言 query</td><td>文字</td><td>"帮我照看宝宝"</td></tr>
+<tr><td>②</td><td>Director → 动态 Advisor ⑰</td><td>目标 + SP</td><td>JSON + 自然语言</td><td>goal_id="G-007", desc="监控二排宝宝"</td></tr>
+<tr><td>③</td><td>⑰ → 触发器 ⑮</td><td>感知订阅（人话需求）</td><td>自然语言</td><td>"定时查看二排宝宝是否睡着/哭闹"</td></tr>
+<tr><td>④</td><td>⑮ → VLM ㉕</td><td>VLM task（结构化指令）</td><td>JSON 7 字段</td><td><code>{camera:"CABIN", seat:"rear", query:"宝宝状态", interval:5}</code></td></tr>
+<tr><td>⑤</td><td>VLM ㉕ → 信号库 ④</td><td>客观状态</td><td>key-value</td><td><code>{signal:"rear_baby_status", value:"sleeping"}</code></td></tr>
+<tr><td>⑥</td><td>信号库 ④ → 触发器 ⑮</td><td>信号变化</td><td>信号库同步</td><td>value 从 "awake" 变成 "sleeping"</td></tr>
+<tr><td>⑦</td><td>触发器 ⑮ → ⑰</td><td>事件（阈值穿越后）</td><td>event push</td><td><code>{event:"宝宝刚睡着"}</code></td></tr>
+<tr><td>⑧</td><td>⑰ → Director → 执行</td><td>建议 advice</td><td>自然语言</td><td>"建议降低音量、调暗灯光"</td></tr>
+</table>
+
+<h3>③ 三者对比表</h3>
+<table>
+<tr><th></th><th>动态 Advisor ⑰</th><th>触发器 ⑮ / ㉔</th><th>VLM ㉕（端模/VQA）</th></tr>
+<tr><td><b>角色</b></td><td>决策大脑</td><td>调度 + 事件组装</td><td>视觉执行（眼睛）</td></tr>
+<tr><td><b>职责</b></td><td>知道"看什么" + "看到了做什么"</td><td>注册 / 翻译 / 下发 / 信号监听 / 事件 push</td><td>实际去"看"，输出客观状态</td></tr>
+<tr><td><b>有模型吗</b></td><td>有（Advisor 推理，云端 LLM）</td><td>当前规则驱动，后续加模型</td><td>有（视觉语言模型）</td></tr>
+<tr><td><b>谁调谁</b></td><td>⑰ → ⑮ 注册</td><td>⑮ → ㉔/AIBox 下发</td><td>被 ㉔ 调度执行</td></tr>
+<tr><td><b>输出什么</b></td><td>advice（建议）</td><td>组装好的事件（push）</td><td>客观状态（"毯子在地上"）</td></tr>
+<tr><td><b>生命周期</b></td><td>临时创建，用完销毁</td><td>常驻运行</td><td>常驻 + 动态任务随注册增删</td></tr>
+</table>
+
+<h3>④ 6.22 定下的三条铁律</h3>
+<table>
+<tr><th style="width:5%">#</th><th style="width:30%">铁律</th><th>为什么</th><th style="width:14%">谁当场纠的</th></tr>
+<tr><td>1</td><td><b>Advisor 订阅事件等 push，不轮询 Context</b></td><td>轮询浪费算力、不实时。事件发生那一刻被推过来才对</td><td>佳杰 25:48</td></tr>
+<tr><td>2</td><td><b>端模只报客观状态，不做是否判断</b></td><td>"坛子在地上"而非"坛子掉了"。判断交给云端模块</td><td>西钺 46:12</td></tr>
+<tr><td>3</td><td><b>视觉信号统一走触发器，不各自抢摄像头</b></td><td>多模块各自去 AIBox 取图会资源竞争、重复造轮子</td><td>佳杰 39:07</td></tr>
+</table>
+
+<h3>⑤ 三个未定卡点（7 月中必须定）</h3>
+<table>
+<tr><th style="width:5%">#</th><th style="width:28%">卡点</th><th>问题</th><th>影响</th></tr>
+<tr><td>1</td><td><b>SP 下发路径</b></td><td>动态注意力 SP 走触发器下发？还是 Advisor 直给端模？</td><td>决定触发器是否承接 SP 分发</td></tr>
+<tr><td>2</td><td><b>端模能否做条件式注意力</b></td><td>"看到 X 就告诉我"——丁彬：有限集内应该行，发散不确定，<b>没试过</b></td><td>决定链路是端侧判定还是云端判定</td></tr>
+<tr><td>3</td><td><b>视觉判定放哪</b></td><td>端模自己判"毯子掉了" vs 云端模块从端模输出里判</td><td>决定事件组装的位置</td></tr>
+</table>
+
+<h3>⑥ 三条视觉路总对比（为什么记不住就看这张表）</h3>
+<table>
+<tr><th></th><th>路 A · 即时 VQA</th><th>路 B · 动态持续 VLM</th><th>路 C · 静态预设 VLM</th></tr>
+<tr><td><b>用户说</b></td><td>"前面<b>有没有</b>加油站"</td><td>"<b>看到</b>加油站<b>告诉我</b>"</td><td><b>没人说话</b></td></tr>
+<tr><td><b>看几次</b></td><td>看一次</td><td>持续看</td><td>持续看</td></tr>
+<tr><td><b>经触发器？</b></td><td class="pm"><b>不经过</b></td><td><b>经过</b>（注册+翻译+push）</td><td><b>经过</b>（阈值穿越+push）</td></tr>
+<tr><td><b>用端侧 VLM？</b></td><td>不用，用云端 VQA</td><td>用（需端模能力）</td><td>用（always-on）</td></tr>
+<tr><td><b>谁消费</b></td><td>Planner 直接拿结果</td><td>动态 Advisor（临时的）</td><td>静态 Advisor（常驻的）</td></tr>
+<tr><td><b>对应 Case</b></td><td><b>Case 4</b></td><td><b>Case 2 / Case 5</b></td><td><b>Case 3</b></td></tr>
+</table>
+
+<div class="box blue">
+<b>记法：</b>用户说"<b>有没有</b>" = 问一次 = 路 A（即时 VQA，不经触发器）。用户说"<b>看到了告诉我</b>" = 一直盯 = 路 B（动态 VLM + 触发器）。<b>没人说话</b>系统自己盯 = 路 C（静态预设 always-on + 触发器）。
+</div>
+
+<hr style="margin-top:40px;border:none;border-top:2px dashed #cbd5e1"/>
+<p class="en">v5 · 2026-06-23 · 在 v4 基础上新增：Case 3（静态 AD + always-on）/ Case 4（即时 VQA，不经触发器）/ Case 5（毯子掉了，阈值穿越经典）/ 附录 A（静态 Advisor 10 例）/ 附录 B（动态 Advisor 12 例）/ 附录 C（VLM·动态Advisor·触发器三者关系一页纸：数据流+对比表+6.22三条铁律+三个卡点+三条视觉路总对比）</p>
+
+</body>
+</html>

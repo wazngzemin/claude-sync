@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>豆包上车架构讲义·终版下篇</title>
+<style>
+:root{--bg:#020617;--panel:rgba(15,23,42,.82);--ink:#e8eef9;--muted:#9fb0c7;--line:#26344b;--blue:#60a5fa;--cyan:#22d3ee;--green:#34d399;--amber:#fbbf24;--orange:#fb923c;--rose:#fb7185;--violet:#a78bfa;}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;color:var(--ink);line-height:1.75;font-family:ui-sans-serif,system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:linear-gradient(rgba(20,30,55,.18) 1px,transparent 1px),linear-gradient(90deg,rgba(20,30,55,.18) 1px,transparent 1px),radial-gradient(circle at 10% 2%,rgba(34,211,238,.10),transparent 22%),radial-gradient(circle at 90% 0,rgba(96,165,250,.10),transparent 28%),var(--bg);background-size:48px 48px,48px 48px,auto,auto,auto;}
+.wrap{max-width:920px;margin:0 auto;padding:28px 22px 100px}
+.hero{border:1px solid var(--line);border-radius:14px;background:var(--panel);backdrop-filter:blur(10px);padding:28px 30px;margin-bottom:24px}
+.eyebrow{color:var(--cyan);font-weight:800;font-size:12px;margin-bottom:10px}
+h1{margin:0;font-size:28px;line-height:1.3}
+.hero p{color:#cbd5e1;margin:14px 0 0;font-size:15px}
+section{border:1px solid var(--line);border-radius:14px;background:var(--panel);backdrop-filter:blur(8px);padding:26px 30px;margin-bottom:22px}
+h2{margin:0 0 6px;font-size:22px;color:#f1f5f9}
+.sub{color:var(--muted);font-size:14px;margin:0 0 16px}
+h3{font-size:17px;margin:26px 0 8px;color:var(--cyan);border-left:4px solid var(--cyan);padding-left:10px}
+h4{font-size:15px;margin:18px 0 6px;color:#cbd5e1}
+p{margin:9px 0;font-size:15px}
+svg{max-width:100%;height:auto;display:block;margin:14px 0}
+.legend{display:flex;flex-wrap:wrap;gap:10px;font-size:12px;color:var(--muted);margin:6px 0 14px}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{width:11px;height:11px;border-radius:3px;display:inline-block}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13px}
+th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+th{background:rgba(30,41,59,.7);color:#e2e8f0;font-weight:700}
+td code,p code,li code{color:#7dd3fc;background:rgba(8,47,73,.5);border:1px solid rgba(34,211,238,.18);border-radius:4px;padding:1px 5px;font-size:12px}
+tr:nth-child(even) td{background:rgba(15,23,42,.4)}
+pre{background:#040a18;border:1px solid var(--line);border-radius:8px;padding:12px 14px;overflow:auto;font-size:12.5px;color:#cbd5e1;margin:10px 0}
+ul,ol{margin:8px 0;padding-left:20px}li{margin:4px 0}
+blockquote{margin:12px 0;padding:12px 16px;border-left:4px solid var(--blue);background:rgba(30,64,175,.12);border-radius:0 8px 8px 0;color:#bfdbfe;font-size:14px}
+.warn{margin:12px 0;padding:12px 16px;border-left:4px solid var(--orange);background:rgba(124,45,18,.16);border-radius:0 8px 8px 0;color:#fed7aa;font-size:14px}
+.eg{margin:12px 0;padding:12px 16px;border:1px solid rgba(52,211,153,.3);background:rgba(6,78,59,.16);border-radius:8px;font-size:14px}
+.key{margin:12px 0;padding:12px 16px;border:1px solid rgba(34,211,238,.3);background:rgba(8,47,73,.25);border-radius:8px;font-size:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="hero">
+<div class="eyebrow">终版 · 下篇 · 4 个静态 Advisor + 动态 Advisor + 感知订阅 + VLM</div>
+<h1>豆包上车架构讲义 · 下篇：Advisor 体系与感知订阅全拆解</h1>
+<p>每个 advisor 都讲清：为什么做 → 怎么想的（推理逻辑/SP结构）→ 输入输出 → 真实 case → 做到什么程度 → 坑点。动态 advisor 的 9 套 prompt、生命周期状态机、感知订阅的 VLM 阈值穿越全部覆盖。</p>
+</div>
+
+<!-- ====================== 1. 舒适Advisor ====================== -->
+<section>
+<h2>一、舒适 Advisor——车内的"体感管家"</h2>
+<p class="sub">关注6+1个舒适维度（温度/空气/光线/声音/乘坐/空间/其他），不直接控车只给Director建议。对应知识专家COM。PRD v1.0。</p>
+
+<h3>1.1 流程图：舒适advisor的推理链</h3>
+<svg viewBox="0 0 860 180" style="background:#0b1222;border-radius:10px;padding:8px">
+<defs><marker id="ac1" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6Z" fill="#94a3b8"/></marker></defs>
+<rect x="20" y="60" width="130" height="60" rx="7" fill="rgba(52,211,153,.12)" stroke="#34d399"/>
+<text x="85" y="80" fill="#e8eef9" font-size="10" text-anchor="middle">触发</text>
+<text x="85" y="96" fill="#9fb0c7" font-size="9" text-anchor="middle">事件(上车/温度变)</text>
+<text x="85" y="110" fill="#9fb0c7" font-size="9" text-anchor="middle">或1min定时review</text>
+<rect x="175" y="50" width="140" height="80" rx="7" fill="rgba(96,165,250,.12)" stroke="#60a5fa"/>
+<text x="245" y="70" fill="#e8eef9" font-size="10" text-anchor="middle">读context</text>
+<text x="245" y="86" fill="#9fb0c7" font-size="9" text-anchor="middle">{{attention}}事件</text>
+<text x="245" y="100" fill="#9fb0c7" font-size="9" text-anchor="middle">{{watcher}}VLM描述</text>
+<text x="245" y="114" fill="#9fb0c7" font-size="9" text-anchor="middle">{{car_condition}}端信号</text>
+<text x="245" y="126" fill="#9fb0c7" font-size="9" text-anchor="middle">{{memory}}记忆</text>
+<rect x="340" y="55" width="170" height="70" rx="7" fill="rgba(96,165,250,.15)" stroke="#60a5fa"/>
+<text x="425" y="76" fill="#bfdbfe" font-size="11" text-anchor="middle" font-weight="700">5条knowhow推理</text>
+<text x="425" y="94" fill="#9fb0c7" font-size="9" text-anchor="middle">温度/空气/光线/声音/空间</text>
+<text x="425" y="110" fill="#9fb0c7" font-size="9" text-anchor="middle">if-then决策树式判断</text>
+<rect x="535" y="55" width="160" height="70" rx="7" fill="rgba(251,191,36,.12)" stroke="#fbbf24"/>
+<text x="615" y="76" fill="#e8eef9" font-size="11" text-anchor="middle">输出JSON</text>
+<text x="615" y="94" fill="#9fb0c7" font-size="9" text-anchor="middle">{舒适性问题, 应对建议}</text>
+<text x="615" y="110" fill="#9fb0c7" font-size="9" text-anchor="middle">→ 给Director执行</text>
+<rect x="720" y="65" width="110" height="50" rx="7" fill="rgba(167,139,250,.12)" stroke="#a78bfa"/>
+<text x="775" y="85" fill="#e8eef9" font-size="10" text-anchor="middle">写goal list</text>
+<text x="775" y="101" fill="#9fb0c7" font-size="9" text-anchor="middle">舒适子目标(P1)</text>
+<line x1="150" y1="90" x2="173" y2="90" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ac1)"/>
+<line x1="315" y1="90" x2="338" y2="90" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ac1)"/>
+<line x1="510" y1="90" x2="533" y2="90" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ac1)"/>
+<line x1="695" y1="90" x2="718" y2="90" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ac1)"/>
+</svg>
+
+<h3>1.2 讲解</h3>
+
+<p><b>为什么做</b>：车内环境时刻在变，靠用户说"我好热"太被动。好的体验是系统自己发现不舒适、主动建议调整。</p>
+
+<p><b>触发</b>：两种——① 事件触发（有人上车、温度变化、VLM看到有人阅读→检查光线）；② <b>1分钟内无新事件+有未完成舒适子目标→自动定时review</b>（如"刚才开了急速制冷，1分钟后看降到没"）。</p>
+
+<p><b>输入</b>（5类模板变量注入SP）：<code>{{attention}}</code>事件 / <code>{{watcher}}</code>VLM描述 / <code>{{car_condition}}</code>端信号 / <code>{{web_information}}</code>世界信息 / <code>{{memory}}</code>记忆。</p>
+
+<p><b>推理逻辑</b>：SP内置5条knowhow（决策树式if-then）——温度超标→快速调温；空气超标→恢复空气质量；人员变动→检查空间；有人阅读/睡觉→检查光线/声音。核心模式：<b>感知异常→诊断维度→生成方案</b>。</p>
+
+<p><b>输出</b>：JSON{当前舒适性问题, 应对建议}→给Director。<b>不直接控车</b>。</p>
+
+<div class="eg"><b>38度上车(P0)</b>：VLM"乘客额头有汗"+端信号"车内38度空调关闭"→"温度不舒适"→"开空调20度+座椅通风3档+通风2分钟后关窗"→Director执行。1分钟后定时review："降到26度但风速还在7档"→"降到3档"→Director再调。</div>
+
+<p><b>做到什么程度</b>：核心场景（上车高/低温、多人分区、睡眠调节）P0已定义。结合视觉的高感场景（如擤鼻涕→调小风量）标TBD依赖VLM。反思机制P1待讨论。</p>
+</section>
+
+<!-- ====================== 2. 出行Advisor ====================== -->
+<section>
+<h2>二、出行 Advisor——"理解你去哪、为什么去"</h2>
+<p class="sub">覆盖全出行生命周期（行前/行中/行后），核心能力=出行目的预测。对应知识专家DRV。PRD v0.4。</p>
+
+<h3>2.1 流程图：出行目的预测链</h3>
+<svg viewBox="0 0 860 160" style="background:#0b1222;border-radius:10px;padding:8px">
+<defs><marker id="ac2" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6Z" fill="#94a3b8"/></marker></defs>
+<rect x="20" y="50" width="120" height="60" rx="7" fill="rgba(52,211,153,.12)" stroke="#34d399"/>
+<text x="80" y="72" fill="#e8eef9" font-size="10" text-anchor="middle">触发：有人上车</text>
+<text x="80" y="88" fill="#9fb0c7" font-size="9" text-anchor="middle">或导航变更/堵车</text>
+<text x="80" y="102" fill="#9fb0c7" font-size="9" text-anchor="middle">或接近目的地</text>
+<rect x="165" y="45" width="150" height="70" rx="7" fill="rgba(96,165,250,.12)" stroke="#60a5fa"/>
+<text x="240" y="66" fill="#e8eef9" font-size="10" text-anchor="middle">融合10+数据源</text>
+<text x="240" y="82" fill="#9fb0c7" font-size="9" text-anchor="middle">历史偏好/车内人员</text>
+<text x="240" y="96" fill="#9fb0c7" font-size="9" text-anchor="middle">携带物品/时间/位置</text>
+<text x="240" y="108" fill="#9fb0c7" font-size="9" text-anchor="middle">常去地点/日程...</text>
+<rect x="340" y="50" width="160" height="60" rx="7" fill="rgba(96,165,250,.15)" stroke="#60a5fa"/>
+<text x="420" y="72" fill="#bfdbfe" font-size="11" text-anchor="middle" font-weight="700">多因素融合推理</text>
+<text x="420" y="90" fill="#9fb0c7" font-size="9" text-anchor="middle">概率排序→预测+置信度</text>
+<text x="420" y="104" fill="#9fb0c7" font-size="9" text-anchor="middle">低置信→主动确认</text>
+<rect x="525" y="50" width="150" height="60" rx="7" fill="rgba(251,191,36,.12)" stroke="#fbbf24"/>
+<text x="600" y="70" fill="#e8eef9" font-size="10" text-anchor="middle">输出</text>
+<text x="600" y="86" fill="#9fb0c7" font-size="9" text-anchor="middle">{目的预测,需求分析,建议}</text>
+<text x="600" y="100" fill="#9fb0c7" font-size="9" text-anchor="middle">→Director/路线/缴费/订座</text>
+<line x1="140" y1="80" x2="163" y2="80" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ac2)"/>
+<line x1="315" y1="80" x2="338" y2="80" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ac2)"/>
+<line x1="500" y1="80" x2="523" y2="80" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ac2)"/>
+</svg>
+
+<h3>2.2 讲解</h3>
+
+<p><b>为什么做</b>：用户上车还没说去哪，系统如果能猜出来并推荐路线、顺手帮缴停车费、提前订座，就从"导航工具"升级成"出行管家"。</p>
+
+<p><b>核心推理</b>：出行目的预测，靠10+数据源——历史偏好、车内人员、<b>携带物品</b>（带书包→上学）、时间（周二早上→通勤）、位置、常去地点、导航、日程。推理模式：多因素融合→概率排序→输出预测+置信度→低置信主动确认。</p>
+
+<div class="eg">"12月3日周二8:31，益红和依依已上车，车在长江小区。依依带了书包应在8:30出发去光启小学，益红通常8:45去平金中心上班。预测：1.送依依上学 2.益红上班。"</div>
+
+<p><b>场景覆盖</b>：行前（目的预测/缴停车费通过GUIAgent/路线推荐）→行中（堵车绕行/充电推荐/POI推荐/订座取号）→行后（最后一公里指引/停车记位）。</p>
+
+<p><b>做到什么程度</b>：PRD v0.4成熟度偏低。核心场景已定义但生态服务（订座/取号）、POI推荐等标P2未实现。输出格式"需要和planner详细沟通"。</p>
+</section>
+
+<!-- ====================== 3. 内容Advisor ====================== -->
+<section>
+<h2>三、内容 Advisor——"克制比推荐更重要"</h2>
+<p class="sub">核心设计哲学："先判断该不该推，再判断推什么"。默认不工作，没Trigger就没内容。对应知识专家ENT。PRD V0.4。</p>
+
+<h3>3.1 流程图：L0-L3介入等级判定</h3>
+<svg viewBox="0 0 860 200" style="background:#0b1222;border-radius:10px;padding:8px">
+<defs><marker id="ac3" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6Z" fill="#94a3b8"/></marker></defs>
+<rect x="20" y="75" width="110" height="50" rx="7" fill="rgba(52,211,153,.12)" stroke="#34d399"/>
+<text x="75" y="96" fill="#e8eef9" font-size="10" text-anchor="middle">Trigger唤醒</text>
+<text x="75" y="112" fill="#9fb0c7" font-size="9" text-anchor="middle">事件/定时/协同信号</text>
+<rect x="155" y="75" width="100" height="50" rx="7" fill="rgba(96,165,250,.12)" stroke="#60a5fa"/>
+<text x="205" y="96" fill="#e8eef9" font-size="10" text-anchor="middle">Context汇聚</text>
+<text x="205" y="112" fill="#9fb0c7" font-size="9" text-anchor="middle">状态快照</text>
+<rect x="280" y="55" width="160" height="90" rx="8" fill="rgba(96,165,250,.15)" stroke="#60a5fa" stroke-width="1.4"/>
+<text x="360" y="76" fill="#bfdbfe" font-size="11" text-anchor="middle" font-weight="700">介入判断(核心)</text>
+<text x="360" y="94" fill="#fb7185" font-size="9" text-anchor="middle">L0隐形(0%):愤怒/暴雨/冲突</text>
+<text x="360" y="108" fill="#9fb0c7" font-size="9" text-anchor="middle">L1氛围(&lt;5%):疲惫/发呆</text>
+<text x="360" y="122" fill="#9fb0c7" font-size="9" text-anchor="middle">L2碎片(30%):通勤/短途</text>
+<text x="360" y="136" fill="#34d399" font-size="9" text-anchor="middle">L3沉浸(&gt;80%):长途/充电</text>
+<rect x="470" y="30" width="120" height="40" rx="7" fill="rgba(251,113,133,.12)" stroke="#fb7185"/>
+<text x="530" y="48" fill="#e8eef9" font-size="10" text-anchor="middle">L0→回到静默</text>
+<text x="530" y="62" fill="#9fb0c7" font-size="9" text-anchor="middle">一个字都不说</text>
+<rect x="470" y="85" width="120" height="50" rx="7" fill="rgba(251,191,36,.12)" stroke="#fbbf24"/>
+<text x="530" y="104" fill="#e8eef9" font-size="10" text-anchor="middle">L1~L3→生成策略</text>
+<text x="530" y="120" fill="#9fb0c7" font-size="9" text-anchor="middle">内容形态+表达风格</text>
+<rect x="620" y="85" width="130" height="50" rx="7" fill="rgba(96,165,250,.12)" stroke="#60a5fa"/>
+<text x="685" y="104" fill="#e8eef9" font-size="10" text-anchor="middle">分发给Director</text>
+<text x="685" y="120" fill="#9fb0c7" font-size="9" text-anchor="middle">话术+指令+等级</text>
+<line x1="130" y1="100" x2="153" y2="100" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ac3)"/>
+<line x1="255" y1="100" x2="278" y2="100" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ac3)"/>
+<path d="M440,80 L468,50" fill="none" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ac3)"/><text x="455" y="58" fill="#fb7185" font-size="8">L0</text>
+<path d="M440,110 L468,110" fill="none" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ac3)"/><text x="455" y="104" fill="#fbbf24" font-size="8">L1+</text>
+<line x1="590" y1="110" x2="618" y2="110" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ac3)"/>
+</svg>
+
+<h3>3.2 讲解</h3>
+
+<p><b>核心机制</b>：被触发后第一件事不是"推什么"而是"该不该推"，输出唯一的<b>介入等级L0-L3</b>：L0隐形（愤怒/暴雨/冲突→0%认知→一个字不说）/ L1氛围（疲惫/发呆→白噪声）/ L2碎片（通勤→笑话/新闻）/ L3沉浸（长途巡航→专家讲坛）。原文设计哲学："<b>车上夫妻正在吵架，即使满足Trigger条件也不要推送</b>"。</p>
+
+<p><b>8步推理Flow</b>：静默→唤醒→Context→介入判断→策略→分发→反馈感知→Review回收。反馈闭环：连续跳过3次→归因（不喜歌手还是曲风？）→修正；拥堵>5min→自动降认知。</p>
+
+<p><b>独特协同</b>：情感advisor判断"用户适合陪伴"时发信号给内容advisor触发推荐——<b>4个advisor之间唯一明确的跨advisor协同接口</b>。</p>
+</section>
+
+<!-- ====================== 4. 情感Advisor ====================== -->
+<section>
+<h2>四、情感 Advisor——推理最精细、红线最严格</h2>
+<p class="sub">纯情感层察言观色，不控车不推内容不提醒物品。有两套完整SP（Event+Review），含大量正反例。对应知识专家EMO。PRD v1.0。</p>
+
+<h3>4.1 流程图：Event Prompt 的4步推理链</h3>
+<svg viewBox="0 0 860 180" style="background:#0b1222;border-radius:10px;padding:8px">
+<defs><marker id="ac4" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6Z" fill="#94a3b8"/></marker></defs>
+<rect x="15" y="55" width="160" height="70" rx="7" fill="rgba(52,211,153,.12)" stroke="#34d399"/>
+<text x="95" y="74" fill="#e8eef9" font-size="10" text-anchor="middle">Step1 事件解析</text>
+<text x="95" y="90" fill="#9fb0c7" font-size="9" text-anchor="middle">多情感优先级规则:</text>
+<text x="95" y="104" fill="#9fb0c7" font-size="8" text-anchor="middle">安全>节日>人物状态>情绪</text>
+<text x="95" y="116" fill="#9fb0c7" font-size="8" text-anchor="middle">>人物>场景>着装</text>
+<rect x="195" y="55" width="160" height="70" rx="7" fill="rgba(251,113,133,.12)" stroke="#fb7185"/>
+<text x="275" y="74" fill="#e8eef9" font-size="10" text-anchor="middle">Step2 即时建议</text>
+<text x="275" y="90" fill="#fda4af" font-size="9" text-anchor="middle">6条红线:</text>
+<text x="275" y="104" fill="#9fb0c7" font-size="8" text-anchor="middle">不推内容/不控车/不猜测</text>
+<text x="275" y="116" fill="#9fb0c7" font-size="8" text-anchor="middle">不预测/不提醒物品/不维持现状</text>
+<rect x="375" y="55" width="180" height="70" rx="7" fill="rgba(167,139,250,.12)" stroke="#a78bfa"/>
+<text x="465" y="74" fill="#e8eef9" font-size="10" text-anchor="middle">Step3 子目标管理</text>
+<text x="465" y="90" fill="#9fb0c7" font-size="9" text-anchor="middle">A目标达成型(安抚到不愤怒)</text>
+<text x="465" y="104" fill="#9fb0c7" font-size="9" text-anchor="middle">B条件响应型(轻柔到睡醒)</text>
+<text x="465" y="116" fill="#9fb0c7" font-size="9" text-anchor="middle">create/update/delete·上限10</text>
+<rect x="575" y="55" width="150" height="70" rx="7" fill="rgba(251,191,36,.12)" stroke="#fbbf24"/>
+<text x="650" y="74" fill="#e8eef9" font-size="10" text-anchor="middle">Step4 输出整合</text>
+<text x="650" y="90" fill="#9fb0c7" font-size="9" text-anchor="middle">{reason,advice,</text>
+<text x="650" y="104" fill="#9fb0c7" font-size="9" text-anchor="middle"> goal_operations}</text>
+<text x="650" y="116" fill="#9fb0c7" font-size="9" text-anchor="middle">→Director</text>
+<line x1="175" y1="90" x2="193" y2="90" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ac4)"/>
+<line x1="355" y1="90" x2="373" y2="90" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ac4)"/>
+<line x1="555" y1="90" x2="573" y2="90" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ac4)"/>
+</svg>
+
+<h3>4.2 讲解</h3>
+
+<p><b>两套SP</b>：Event Prompt（事件触发用，4步推理链）+ Review Prompt（10分钟定时复查，3步推理链：评估进展→调整/恢复/完成仅删除不建议）。</p>
+
+<p><b>Step1 多情感优先级</b>：启动方式>安全>节日>人物状态>情绪>人物>场景>着装。安全类强制执行——后排儿童睡着(子目标B"轻柔语气")+主驾分心(安全事件)→安全优先用严肃语气提醒。</p>
+
+<p><b>Step2 即时建议6条红线</b>（4个advisor里最严格）：不推具体内容(越界给内容advisor)/不控车(越界给舒适advisor)/不猜测未发生的/不预测曾发生的/不提醒物品/禁止"维持现状"。SP里有大量反例："建议播放轻音乐"→✘越界；"建议调低空调"→✘越界。</p>
+
+<p><b>Step3 子目标状态机</b>：A目标达成型（"安抚主驾直到不再愤怒"）和B条件响应型（"轻柔语气直到右后排睡醒"）。create需同时满足5条件（有服务对象+情感可建议+非即时闭环+可判定+不重复）。上限10个。</p>
+
+<p><b>输出</b>：<code>{reason, advice, goal_operations:[{action,fields,reason}]}</code>。动作空间：DO_NOTHING/CONVO_STRATEGY(沟通策略)/CONVO_INITIATE(主动搭话)/EMOJI_SUGGESTION/TOOL_CALL(self ReACT查车况)。</p>
+
+<div class="eg"><b>被超车</b>：用户"卧槽"→事件触发→判定"愤怒/受挫"→输出：语气=共情吐槽→Director："那个开车也太横了吧。不过你没事就好。"</div>
+
+<p><b>做到什么程度</b>：v1.0，两套完整SP全文已写。打扰预算自适应(P2)未实现。主动搭话默认3次/天。</p>
+</section>
+
+<!-- ====================== 5. 动态Advisor ====================== -->
+<section>
+<h2>五、动态 Advisor——9套Prompt · 4类任务 · 完整生命周期</h2>
+<p class="sub">临时冒出来的持续任务（照顾宝宝/介绍风景/点咖啡），静态advisor管不了，需要动态创建专属监工。</p>
+
+<h3>5.1 流程图：创建流程（Director→分类→4条流水线）</h3>
+<svg viewBox="0 0 860 220" style="background:#0b1222;border-radius:10px;padding:8px">
+<defs><marker id="ac5" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6Z" fill="#94a3b8"/></marker></defs>
+<rect x="20" y="85" width="120" height="50" rx="7" fill="rgba(96,165,250,.12)" stroke="#60a5fa"/>
+<text x="80" y="106" fill="#e8eef9" font-size="10" text-anchor="middle">Director→CreateGoal</text><text x="80" y="122" fill="#9fb0c7" font-size="9" text-anchor="middle">GoalText</text>
+<rect x="170" y="75" width="130" height="70" rx="7" fill="rgba(96,165,250,.15)" stroke="#60a5fa"/>
+<text x="235" y="95" fill="#bfdbfe" font-size="11" text-anchor="middle" font-weight="700">任务分类(LLM)</text>
+<text x="235" y="112" fill="#9fb0c7" font-size="9" text-anchor="middle">优先级判定→type</text>
+<text x="235" y="126" fill="#9fb0c7" font-size="9" text-anchor="middle">{type,vlm_use,cycle,</text>
+<text x="235" y="138" fill="#9fb0c7" font-size="9" text-anchor="middle"> max_execution}</text>
+<rect x="340" y="20" width="150" height="40" rx="6" fill="rgba(167,139,250,.12)" stroke="#a78bfa"/>
+<text x="415" y="38" fill="#e8eef9" font-size="10" text-anchor="middle">type=1 长时</text><text x="415" y="52" fill="#9fb0c7" font-size="8" text-anchor="middle">加载Skill(二期)+Knowhow</text>
+<rect x="340" y="68" width="150" height="40" rx="6" fill="rgba(167,139,250,.12)" stroke="#a78bfa"/>
+<text x="415" y="86" fill="#e8eef9" font-size="10" text-anchor="middle">type=2 持续/GUI</text><text x="415" y="100" fill="#9fb0c7" font-size="8" text-anchor="middle">绑定GUI Agent</text>
+<rect x="340" y="116" width="150" height="40" rx="6" fill="rgba(167,139,250,.12)" stroke="#a78bfa"/>
+<text x="415" y="134" fill="#e8eef9" font-size="10" text-anchor="middle">type=3 条件</text><text x="415" y="148" fill="#9fb0c7" font-size="8" text-anchor="middle">注册触发器(5-8s)</text>
+<rect x="340" y="164" width="150" height="40" rx="6" fill="rgba(167,139,250,.12)" stroke="#a78bfa"/>
+<text x="415" y="182" fill="#e8eef9" font-size="10" text-anchor="middle">type=4 定时</text><text x="415" y="196" fill="#9fb0c7" font-size="8" text-anchor="middle">APScheduler+是否VLM</text>
+<rect x="540" y="85" width="150" height="50" rx="7" fill="rgba(52,211,153,.12)" stroke="#34d399"/>
+<text x="615" y="106" fill="#e8eef9" font-size="10" text-anchor="middle">Goal生命周期开始</text><text x="615" y="122" fill="#9fb0c7" font-size="9" text-anchor="middle">任务中心Widget卡片</text>
+<line x1="140" y1="110" x2="168" y2="110" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ac5)"/>
+<path d="M300,95 L338,40" fill="none" stroke="#94a3b8" stroke-width="1.1" marker-end="url(#ac5)"/>
+<path d="M300,100 L338,88" fill="none" stroke="#94a3b8" stroke-width="1.1" marker-end="url(#ac5)"/>
+<path d="M300,110 L338,136" fill="none" stroke="#94a3b8" stroke-width="1.1" marker-end="url(#ac5)"/>
+<path d="M300,120 L338,184" fill="none" stroke="#94a3b8" stroke-width="1.1" marker-end="url(#ac5)"/>
+<line x1="490" y1="110" x2="538" y2="110" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ac5)"/>
+</svg>
+
+<h3>5.2 讲解</h3>
+
+<p><b>分类优先级</b>：① 调用点单/缴费→type=2(持续GUI) ② 明确时间/周期→type=4(定时) ③ 条件表达→type=3(条件) ④ 其他→type=1(长时)。</p>
+
+<p><b>9套prompt模板</b>：任务分类 / VLM分类+query生成 / 通用长时任务(SYSTEM+USER) / 持续任务GUI / 视觉感知advisor(3类策略：风险监控/信息讲解/状态陪伴) / 事件定时触发advice(≤20字口语化) / 定时器生成(interval/cron/once/none) / 视觉理解(true|reason或false|reason) / 触发器脚本生成。</p>
+
+<p><b>长时任务输出JSON</b>（最完整）：<code>{goal, goal_status(active/achieved/terminated_by_user/blocked_by_system), goal_progress, need_advice, advice_timing_confidence(0~1), goal_achieve_advise, completion_rate(0~1), exec_state(normal/suppressed/recoverable/short_circuit)}</code></p>
+
+<p><b>exec_state状态机</b>：normal(可输出)→suppressed(抑制,强制不输出)→suppressed_attention_shift(用户注意力偏移)→recoverable(可解除)→short_circuit(上轮有效跳过本轮)。</p>
+
+<p><b>销毁</b>：max_execution达上限/用户删除/goal_status=terminated或blocked/触发器注册失败。</p>
+
+<p><b>数量上限</b>：定时≤6·条件≤6·GUI≤1·长时≤2·<b>VLM视觉仅1</b>（照顾宝宝和介绍风景不能同时）。循环最大30次；最小间隔1分钟；>365天不创建。</p>
+
+<p><b>二期变化</b>：Skill系统+Workflow编排(长时从特调到通用)；端侧定时器(弱网也能触发)；策略预生成(触发时不再现场推理)；导航POI距离触发。</p>
+</section>
+
+<!-- ====================== 6. 感知订阅 ====================== -->
+<section>
+<h2>六、感知订阅——把"帮我盯着"翻译成可执行的触发器</h2>
+<p class="sub">把advisor的自然语言订阅拆成"看什么/什么条件/多久一次"三个槽位，配置到VLM/触发器/定时器。</p>
+
+<h3>6.1 流程图：VLM阈值穿越检测</h3>
+<svg viewBox="0 0 860 160" style="background:#0b1222;border-radius:10px;padding:8px">
+<defs><marker id="ac6" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6Z" fill="#94a3b8"/></marker></defs>
+<rect x="15" y="55" width="120" height="50" rx="7" fill="rgba(251,191,36,.12)" stroke="#fbbf24"/>
+<text x="75" y="76" fill="#e8eef9" font-size="10" text-anchor="middle">定时器触发</text><text x="75" y="92" fill="#9fb0c7" font-size="9" text-anchor="middle">演示5s/量产30-60s</text>
+<rect x="155" y="55" width="120" height="50" rx="7" fill="rgba(34,211,238,.12)" stroke="#22d3ee"/>
+<text x="215" y="76" fill="#e8eef9" font-size="10" text-anchor="middle">拍照→获取URL</text><text x="215" y="92" fill="#9fb0c7" font-size="9" text-anchor="middle">OMS摄像头</text>
+<rect x="295" y="55" width="120" height="50" rx="7" fill="rgba(96,165,250,.12)" stroke="#60a5fa"/>
+<text x="355" y="76" fill="#e8eef9" font-size="10" text-anchor="middle">请求VLM</text><text x="355" y="92" fill="#9fb0c7" font-size="9" text-anchor="middle">输出true|reason</text>
+<rect x="435" y="45" width="180" height="70" rx="7" fill="rgba(96,165,250,.15)" stroke="#60a5fa" stroke-width="1.4"/>
+<text x="525" y="66" fill="#bfdbfe" font-size="11" text-anchor="middle" font-weight="700">阈值穿越检测</text>
+<text x="525" y="84" fill="#e8eef9" font-size="9" text-anchor="middle">last==False AND this==True</text>
+<text x="525" y="100" fill="#34d399" font-size="9" text-anchor="middle">→ 触发！（上升沿）</text>
+<text x="525" y="112" fill="#9fb0c7" font-size="8" text-anchor="middle">持续True不重复触发</text>
+<rect x="640" y="55" width="130" height="50" rx="7" fill="rgba(52,211,153,.12)" stroke="#34d399"/>
+<text x="705" y="76" fill="#e8eef9" font-size="10" text-anchor="middle">请求advisor</text><text x="705" y="92" fill="#9fb0c7" font-size="9" text-anchor="middle">生成advice→Director</text>
+<line x1="135" y1="80" x2="153" y2="80" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ac6)"/>
+<line x1="275" y1="80" x2="293" y2="80" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ac6)"/>
+<line x1="415" y1="80" x2="433" y2="80" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ac6)"/>
+<line x1="615" y1="80" x2="638" y2="80" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ac6)"/>
+</svg>
+
+<h3>6.2 讲解</h3>
+
+<p><b>三个子模块</b>：① 动态感知("看什么"→调VLM sp/attention让视觉模型关注特定对象) ② 条件("什么条件"→注册触发器监控) ③ 定时("多久一次"→APScheduler四种格式interval/cron/once/none)。第四能力：信号组装+触发advisor带最新感知。</p>
+
+<p><b>VLM阈值穿越</b>（触发的真实机制）：VLM每轮只输出一行<code>true|reason</code>或<code>false|reason</code>。对比上次(last)和这次(this)——<b>只有last==False and this==True才触发</b>（状态从"未发生"变"发生"的上升沿）。持续True不重复触发。</p>
+
+<div class="eg">"照顾宝宝"→VLM query:<code>{"type":"state","query":"二排存在宝宝"}</code><br>
+第1轮:<code>false|宝宝没睡</code>→不触发。第2轮:<code>true|宝宝睡着了</code>→<b>last=F,this=T→触发！</b>第3轮:<code>true|还在睡</code>→不触发(没变化)。</div>
+
+<p><b>3类视觉策略</b>：风险监控(异常才说一次)/信息讲解(新内容间隔≥60-90s)/状态陪伴(明显信号才触发冷却≥5min)。</p>
+
+<p><b>触发优先级</b>：订阅事件(最高)>qa结束>定时(最低)。高优打断低优。</p>
+</section>
+
+<!-- ====================== 7. VLM ====================== -->
+<section>
+<h2>七、VLM/Watcher——让文本大脑"看见"</h2>
+<p class="sub">端侧Always on，大小LLM融合，把摄像头画面转成自然语言写回context。</p>
+
+<h3>7.1 流程图</h3>
+<svg viewBox="0 0 860 120" style="background:#0b1222;border-radius:10px;padding:8px">
+<defs><marker id="ac7" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6Z" fill="#94a3b8"/></marker></defs>
+<rect x="15" y="35" width="120" height="50" rx="7" fill="rgba(34,211,238,.12)" stroke="#22d3ee"/>
+<text x="75" y="56" fill="#e8eef9" font-size="10" text-anchor="middle">OMS摄像头</text><text x="75" y="72" fill="#9fb0c7" font-size="9" text-anchor="middle">video 10-15s</text>
+<rect x="155" y="35" width="130" height="50" rx="7" fill="rgba(96,165,250,.12)" stroke="#60a5fa"/>
+<text x="220" y="56" fill="#e8eef9" font-size="10" text-anchor="middle">小模型(图像→token)</text><text x="220" y="72" fill="#9fb0c7" font-size="9" text-anchor="middle">兜底识别高优标签</text>
+<rect x="305" y="35" width="160" height="50" rx="7" fill="rgba(96,165,250,.15)" stroke="#60a5fa"/>
+<text x="385" y="56" fill="#e8eef9" font-size="10" text-anchor="middle">大模型(按SP看画面)</text><text x="385" y="72" fill="#9fb0c7" font-size="9" text-anchor="middle">SP=识别目标(可动态拼)</text>
+<rect x="485" y="35" width="150" height="50" rx="7" fill="rgba(52,211,153,.12)" stroke="#34d399"/>
+<text x="560" y="56" fill="#e8eef9" font-size="10" text-anchor="middle">自然语言描述</text><text x="560" y="72" fill="#9fb0c7" font-size="9" text-anchor="middle">流式写回context</text>
+<rect x="660" y="35" width="160" height="50" rx="7" fill="rgba(167,139,250,.12)" stroke="#a78bfa"/>
+<text x="740" y="56" fill="#e8eef9" font-size="10" text-anchor="middle">事件发现→触发advisor</text><text x="740" y="72" fill="#9fb0c7" font-size="9" text-anchor="middle">哭闹/咳嗽/大货车/手势</text>
+<line x1="135" y1="60" x2="153" y2="60" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ac7)"/>
+<line x1="285" y1="60" x2="303" y2="60" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ac7)"/>
+<line x1="465" y1="60" x2="483" y2="60" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ac7)"/>
+<line x1="635" y1="60" x2="658" y2="60" stroke="#94a3b8" stroke-width="1.2" marker-end="url(#ac7)"/>
+</svg>
+
+<h3>7.2 讲解</h3>
+
+<p><b>Watcher三功能</b>：①细致描述场景(人/位置/衣着/动作/物品) ②全时多模聆听 ③事件发现(小孩哭闹/咳嗽/前方大货车/OK手势→触发advisor主动服务)。</p>
+
+<p><b>VLM原理</b>：大小LLM融合。小模型把图像编码成token(兜底)；大模型按SP(识别目标)看画面输出自然语言。"<b>影响感知器sp/attention</b>"=改VLM的SP——同一VLM拼不同SP切换关注对象（无订阅→通用观察；收到"关注二排宝宝"→拼新SP重点关注后排婴儿）。</p>
+
+<p><b>约束</b>：VLM视觉持续任务<b>同时仅1个</b>。事件发现一期纯工程触发，二期多模态+工程混合。</p>
+</section>
+
+<!-- ====================== 8. 收口 ====================== -->
+<section>
+<h2>八、四类任务→架构承接（全篇收口）</h2>
+<table>
+<tr><th>任务类型</th><th>卡片</th><th>动态advisor</th><th>怎么承接</th></tr>
+<tr><td>简单即时/单步复杂</td><td>无</td><td>❌</td><td>Director当场闭环</td></tr>
+<tr><td>多步</td><td>无</td><td>❌</td><td>Director ReAct串联tool_feedback</td></tr>
+<tr><td>条件</td><td>✅</td><td>❌</td><td>条件触发器注册→trigger回灌Director</td></tr>
+<tr><td>长时/持续</td><td>✅</td><td>✅</td><td>建goal+advisor+感知订阅持续触发</td></tr>
+</table>
+<div class="key"><b>一句话</b>：能当场做完→Director闭环；要等条件→触发器；要长期盯→goal+advisor+订阅。恢复靠advisor读看板，不靠Director记忆。</div>
+</section>
+
+<section>
+<p style="text-align:center;color:var(--muted);font-size:14px;margin:16px 0"><b>上下篇合计覆盖 planner 架构/ 和 advisor 架构/ 全部 21 份文档的核心业务逻辑。每个模块 = 流程图 + 讲解（为什么做/怎么做/输入输出/做到什么程度/坑点）。</b></p>
+</section>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,1480 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>7.8 VLM评审会议复盘 · 七维诊断</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #232733;
+    --border: #2e3345;
+    --text: #e2e4eb;
+    --text2: #9ba1b5;
+    --accent: #6c8cff;
+    --accent2: #4a6adf;
+    --red: #ff6b6b;
+    --red-bg: rgba(255,107,107,0.08);
+    --red-border: rgba(255,107,107,0.25);
+    --orange: #ffa94d;
+    --orange-bg: rgba(255,169,77,0.08);
+    --orange-border: rgba(255,169,77,0.25);
+    --green: #69db7c;
+    --green-bg: rgba(105,219,124,0.08);
+    --green-border: rgba(105,219,124,0.25);
+    --yellow: #ffd43b;
+    --yellow-bg: rgba(255,212,59,0.08);
+    --yellow-border: rgba(255,212,59,0.25);
+    --purple: #b197fc;
+    --purple-bg: rgba(177,151,252,0.08);
+    --purple-border: rgba(177,151,252,0.25);
+    --cyan: #66d9e8;
+    --cyan-bg: rgba(102,217,232,0.08);
+    --cyan-border: rgba(102,217,232,0.25);
+    --pink: #f783ac;
+    --pink-bg: rgba(247,131,172,0.08);
+    --pink-border: rgba(247,131,172,0.25);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, "SF Pro Text", "Helvetica Neue", "PingFang SC", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    padding: 0;
+  }
+
+  /* Header */
+  .header {
+    background: linear-gradient(135deg, #1a1d27 0%, #232733 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 48px 0 40px;
+    text-align: center;
+  }
+  .header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+  }
+  .header .meta {
+    color: var(--text2);
+    font-size: 14px;
+  }
+  .header .meta span { margin: 0 8px; }
+  .header .verdict {
+    margin-top: 20px;
+    display: inline-block;
+    background: var(--red-bg);
+    border: 1px solid var(--red-border);
+    color: var(--red);
+    padding: 8px 24px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  /* TOC */
+  .toc {
+    max-width: 900px;
+    margin: 32px auto;
+    padding: 0 24px;
+  }
+  .toc-title {
+    font-size: 13px;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 16px;
+  }
+  .toc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 10px;
+  }
+  .toc-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+    color: var(--text);
+  }
+  .toc-item:hover { border-color: var(--accent); background: var(--surface2); }
+  .toc-num {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  /* Content */
+  .content { max-width: 900px; margin: 0 auto; padding: 0 24px 80px; }
+
+  /* Section */
+  .section {
+    margin-top: 48px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--surface);
+  }
+  .section-header {
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-num {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 800;
+    flex-shrink: 0;
+  }
+  .section-title { font-size: 18px; font-weight: 700; }
+  .section-subtitle { font-size: 13px; color: var(--text2); margin-top: 2px; }
+  .section-body { padding: 24px; }
+
+  /* Color themes per section */
+  .theme-red .section-header { background: var(--red-bg); }
+  .theme-red .section-num { background: var(--red); color: var(--bg); }
+  .theme-red .toc-num { background: var(--red); color: var(--bg); }
+
+  .theme-orange .section-header { background: var(--orange-bg); }
+  .theme-orange .section-num { background: var(--orange); color: var(--bg); }
+  .theme-orange .toc-num { background: var(--orange); color: var(--bg); }
+
+  .theme-yellow .section-header { background: var(--yellow-bg); }
+  .theme-yellow .section-num { background: var(--yellow); color: var(--bg); }
+  .theme-yellow .toc-num { background: var(--yellow); color: var(--bg); }
+
+  .theme-purple .section-header { background: var(--purple-bg); }
+  .theme-purple .section-num { background: var(--purple); color: var(--bg); }
+  .theme-purple .toc-num { background: var(--purple); color: var(--bg); }
+
+  .theme-cyan .section-header { background: var(--cyan-bg); }
+  .theme-cyan .section-num { background: var(--cyan); color: var(--bg); }
+  .theme-cyan .toc-num { background: var(--cyan); color: var(--bg); }
+
+  .theme-pink .section-header { background: var(--pink-bg); }
+  .theme-pink .section-num { background: var(--pink); color: var(--bg); }
+  .theme-pink .toc-num { background: var(--pink); color: var(--bg); }
+
+  .theme-green .section-header { background: var(--green-bg); }
+  .theme-green .section-num { background: var(--green); color: var(--bg); }
+  .theme-green .toc-num { background: var(--green); color: var(--bg); }
+
+  /* Sub headings */
+  h3 {
+    font-size: 15px;
+    font-weight: 700;
+    margin: 28px 0 12px;
+    padding-left: 12px;
+    border-left: 3px solid var(--accent);
+    color: var(--text);
+  }
+  h3:first-child { margin-top: 0; }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 20px;
+    font-size: 13px;
+  }
+  th {
+    background: var(--surface2);
+    padding: 10px 14px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text2);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(108,140,255,0.03); }
+
+  /* Quote blocks for original speech */
+  .speech {
+    background: var(--surface2);
+    border-left: 3px solid var(--accent);
+    padding: 12px 16px;
+    margin: 10px 0;
+    border-radius: 0 8px 8px 0;
+    font-size: 13px;
+    color: var(--text2);
+  }
+  .speech .speaker {
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 12px;
+    margin-bottom: 4px;
+  }
+  .speech .time {
+    color: var(--text2);
+    font-size: 11px;
+    opacity: 0.6;
+    margin-left: 8px;
+  }
+
+  /* Comparison blocks */
+  .compare {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin: 12px 0 20px;
+  }
+  .compare-bad, .compare-good {
+    padding: 14px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+  }
+  .compare-bad {
+    background: var(--red-bg);
+    border: 1px solid var(--red-border);
+  }
+  .compare-good {
+    background: var(--green-bg);
+    border: 1px solid var(--green-border);
+  }
+  .compare-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+  .compare-bad .compare-label { color: var(--red); }
+  .compare-good .compare-label { color: var(--green); }
+
+  /* Callout */
+  .callout {
+    padding: 16px 18px;
+    border-radius: 8px;
+    margin: 16px 0;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .callout-red { background: var(--red-bg); border: 1px solid var(--red-border); }
+  .callout-green { background: var(--green-bg); border: 1px solid var(--green-border); }
+  .callout-yellow { background: var(--yellow-bg); border: 1px solid var(--yellow-border); }
+  .callout-title {
+    font-weight: 700;
+    margin-bottom: 6px;
+    font-size: 13px;
+  }
+  .callout-red .callout-title { color: var(--red); }
+  .callout-green .callout-title { color: var(--green); }
+  .callout-yellow .callout-title { color: var(--yellow); }
+
+  /* Timeline */
+  .timeline {
+    position: relative;
+    padding-left: 28px;
+    margin: 16px 0;
+  }
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--border);
+  }
+  .tl-item {
+    position: relative;
+    margin-bottom: 16px;
+    font-size: 13px;
+  }
+  .tl-item::before {
+    content: '';
+    position: absolute;
+    left: -24px;
+    top: 6px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--border);
+    border: 2px solid var(--surface);
+  }
+  .tl-item.tl-red::before { background: var(--red); }
+  .tl-item.tl-orange::before { background: var(--orange); }
+  .tl-item.tl-green::before { background: var(--green); }
+  .tl-item.tl-silent::before { background: var(--text2); opacity: 0.3; }
+  .tl-time {
+    font-size: 11px;
+    color: var(--text2);
+    font-family: "SF Mono", monospace;
+  }
+  .tl-who {
+    font-weight: 600;
+    margin: 0 4px;
+  }
+  .tl-action { color: var(--text2); }
+
+  /* Tag */
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .tag-red { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
+  .tag-green { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+  .tag-orange { background: var(--orange-bg); color: var(--orange); border: 1px solid var(--orange-border); }
+  .tag-purple { background: var(--purple-bg); color: var(--purple); border: 1px solid var(--purple-border); }
+
+  /* Stats bar */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin: 16px 0;
+  }
+  .stat {
+    text-align: center;
+    padding: 16px 12px;
+    background: var(--surface2);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+  .stat-num {
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 1;
+  }
+  .stat-label {
+    font-size: 11px;
+    color: var(--text2);
+    margin-top: 6px;
+  }
+
+  /* Severity indicator */
+  .severity {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 8px 0 16px;
+    font-size: 12px;
+    color: var(--text2);
+  }
+  .severity-dots {
+    display: flex;
+    gap: 3px;
+  }
+  .severity-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--border);
+  }
+  .severity-dot.active-red { background: var(--red); }
+  .severity-dot.active-orange { background: var(--orange); }
+  .severity-dot.active-yellow { background: var(--yellow); }
+
+  p { margin: 8px 0; font-size: 14px; color: var(--text); }
+  strong { color: var(--text); }
+  .text-red { color: var(--red); }
+  .text-green { color: var(--green); }
+  .text-orange { color: var(--orange); }
+  .text-muted { color: var(--text2); font-size: 13px; }
+
+  /* Summary card at bottom */
+  .summary-card {
+    margin-top: 48px;
+    border: 2px solid var(--accent);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--surface);
+  }
+  .summary-card .section-header {
+    background: rgba(108,140,255,0.1);
+    border-bottom: 1px solid var(--accent);
+  }
+
+  /* Version */
+  .version {
+    text-align: center;
+    padding: 32px 0;
+    font-size: 12px;
+    color: var(--text2);
+    opacity: 0.5;
+  }
+
+  @media (max-width: 640px) {
+    .compare { grid-template-columns: 1fr; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .header { padding: 32px 16px; }
+    .content { padding: 0 16px 60px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ==================== HEADER ==================== -->
+<div class="header">
+  <h1>7.8 VLM 评审会议 · 复盘诊断</h1>
+  <div class="meta">
+    <span>会议：804端侧触发至VLM数据上报context评审（第三轮）</span><br>
+    <span>2026-07-08 13:58–14:54</span>
+    <span>·</span>
+    <span>55 分钟</span>
+    <span>·</span>
+    <span>泽民发言 18 句</span>
+  </div>
+  <div class="verdict">最终结果：端侧触发器 P0 需求被取消</div>
+</div>
+
+<!-- ==================== STATS ==================== -->
+<div class="content">
+
+<div class="stats">
+  <div class="stat">
+    <div class="stat-num text-red">0 / 6</div>
+    <div class="stat-label">"为什么走触发器"<br>被问 6 次 · 你正面回答 0 次</div>
+  </div>
+  <div class="stat">
+    <div class="stat-num text-orange">10 min</div>
+    <div class="stat-label">关键决策时段<br>你的沉默时长</div>
+  </div>
+  <div class="stat">
+    <div class="stat-num text-orange">7 次</div>
+    <div class="stat-label">发言中"可能"<br>出现次数</div>
+  </div>
+  <div class="stat">
+    <div class="stat-num text-green">6 / 18</div>
+    <div class="stat-label">有效发言<br>（讲方案/划边界）</div>
+  </div>
+</div>
+
+<!-- ==================== TOC ==================== -->
+<div class="toc">
+  <div class="toc-title">七维诊断目录</div>
+  <div class="toc-grid">
+    <a class="toc-item theme-red" href="#s1">
+      <div class="toc-num">1</div>
+      <div>方案根基 · 核心假设未验证</div>
+    </a>
+    <a class="toc-item theme-orange" href="#s2">
+      <div class="toc-num">2</div>
+      <div>技术深度 · 关键概念说不清</div>
+    </a>
+    <a class="toc-item theme-yellow" href="#s3">
+      <div class="toc-num">3</div>
+      <div>表达方式 · 语气削弱了内容</div>
+    </a>
+    <a class="toc-item theme-purple" href="#s4">
+      <div class="toc-num">4</div>
+      <div>应对质疑 · 不回应不暴露不引导</div>
+    </a>
+    <a class="toc-item theme-cyan" href="#s5">
+      <div class="toc-num">5</div>
+      <div>会议主导 · 三次丢失控制权</div>
+    </a>
+    <a class="toc-item theme-pink" href="#s6">
+      <div class="toc-num">6</div>
+      <div>图的问题 · 缺为什么、假信号、无异常</div>
+    </a>
+    <a class="toc-item theme-green" href="#s7">
+      <div class="toc-num">7</div>
+      <div>角色定位 · 模块代言人 vs 需求解决者</div>
+    </a>
+  </div>
+</div>
+
+<!-- ==================== 你的全部发言 ==================== -->
+<div class="section" style="margin-top:40px; border-color: var(--accent);">
+  <div class="section-header" style="background: rgba(108,140,255,0.08);">
+    <div class="section-num" style="background: var(--accent); color: var(--bg);">📋</div>
+    <div>
+      <div class="section-title">你的全部发言（18 句）</div>
+      <div class="section-subtitle">每一句的性质判定 + 问题标注</div>
+    </div>
+  </div>
+  <div class="section-body">
+    <table>
+      <tr>
+        <th style="width:36px">#</th>
+        <th style="width:50px">时间</th>
+        <th>你说了什么</th>
+        <th style="width:100px">性质</th>
+        <th style="width:100px">评价</th>
+      </tr>
+      <tr>
+        <td>1</td>
+        <td>18:18</td>
+        <td>"帅哥你是指现在的系统上电的状态，我们端侧触发器是拿不到的，是吗？"</td>
+        <td><span class="tag tag-orange">确认问题</span></td>
+        <td class="text-muted">开口太晚（韩杰11:05质疑后7分钟）</td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td>18:37</td>
+        <td>"那如果系统上电拿不到的话，可能舱内就只能判断一个 AlwaysOn Button 了"</td>
+        <td><span class="tag tag-green">快速适配</span></td>
+        <td class="text-muted">不纠缠，但用了"可能"和"只能"——被动而非主动</td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td>22:40</td>
+        <td>"端侧触发器主要两块事情：一块是判断舱内舱外 AlwaysOn 开关，第二块是给 VLM 发推理指令，最后是拿到状态回调…"</td>
+        <td><span class="tag tag-green">主动讲解</span></td>
+        <td class="text-muted"><strong class="text-green">好：</strong>主动抢屏<br><strong class="text-red">差：</strong>只说"是什么"没说"为什么"；"可能它主要是"用了两个弱化词</td>
+      </tr>
+      <tr>
+        <td>4</td>
+        <td>23:42</td>
+        <td>"舱内需要判断两块：上电 + AlwaysOn Button。上电后默认开着，下发两条任务"</td>
+        <td><span class="tag tag-green">方案阐述</span></td>
+        <td class="text-muted"><strong class="text-green">好：</strong>逻辑清晰<br><strong class="text-red">差：</strong>没解释"上电"具体指什么信号</td>
+      </tr>
+      <tr>
+        <td>5</td>
+        <td>24:25</td>
+        <td>"你是指 VLM 没起来，它是后置的，是吧？"</td>
+        <td><span class="tag tag-orange">确认问题</span></td>
+        <td class="text-muted">汪帅指出时序漏洞（上电时VLM进程可能没起来），你的回答暴露了你没考虑过这个场景</td>
+      </tr>
+      <tr>
+        <td>6</td>
+        <td>24:45</td>
+        <td>"我们可以分两条进行判断吗？第一个判断上电，第二个判断 VLM 是否有开启状态"</td>
+        <td><span class="tag tag-orange">提方案</span></td>
+        <td class="text-muted">临场凑方案，用的是<strong class="text-red">疑问句</strong>"可以吗"——向被评审方请示，而非你作为 PM 给出方案</td>
+      </tr>
+      <tr>
+        <td>7</td>
+        <td>28:56</td>
+        <td>"两个条件同时满足就下发开启，缺任意一个就下发停止"</td>
+        <td><span class="tag tag-green">逻辑阐述</span></td>
+        <td class="text-muted">AND/OR 逻辑讲清了，内容没问题</td>
+      </tr>
+      <tr>
+        <td>8</td>
+        <td>29:38</td>
+        <td>"行驶中 Button 变更需要 CDC 通知…下电时不管按钮状态全都停掉"</td>
+        <td><span class="tag tag-green">情况枚举</span></td>
+        <td class="text-muted"><strong class="text-green">好：</strong>系统枚举了5种情况<br><strong class="text-red">差：</strong>"可能需要 CDC 那边通知"——Button 来源你没跟 CDC 确认过</td>
+      </tr>
+      <tr>
+        <td>9</td>
+        <td>30:25</td>
+        <td>"帅哥这边有没有问题？"</td>
+        <td><span class="tag tag-purple">征求意见</span></td>
+        <td class="text-muted">可以，但你问完了没有引导讨论方向</td>
+      </tr>
+      <tr>
+        <td>10</td>
+        <td>30:56</td>
+        <td>"我目前和丁彬聊的就上电，车机上电，整车上电，我理解是算是上电状态"</td>
+        <td><span class="tag tag-red">回答失败</span></td>
+        <td class="text-muted">左晓杰问"不踩刹车算上电吗"，你用"上电"解释"上电"——<strong class="text-red">同义反复</strong>，没回答任何新信息</td>
+      </tr>
+      <tr>
+        <td>11</td>
+        <td>33:13</td>
+        <td>"帅哥帮忙看看这边有没有问题"</td>
+        <td><span class="tag tag-purple">征求意见</span></td>
+        <td class="text-muted">同 #9，被动等人找茬</td>
+      </tr>
+      <tr>
+        <td>12</td>
+        <td>33:23</td>
+        <td>"好"</td>
+        <td><span class="tag tag-purple">确认</span></td>
+        <td class="text-muted">—</td>
+      </tr>
+      <tr>
+        <td>13</td>
+        <td>33:30</td>
+        <td>"端侧触发器总共两块事情：判断上电和 Button，接收 VLM SDK 回调"</td>
+        <td><span class="tag tag-orange">重复总结</span></td>
+        <td class="text-muted">与 #3 说的基本一样，重复而非递进</td>
+      </tr>
+      <tr>
+        <td>14</td>
+        <td>34:13</td>
+        <td>"任务管理不在我这块做，全都是 AIBox 那边做的，对吧丁彬？"</td>
+        <td><span class="tag tag-green">边界划分</span></td>
+        <td class="text-muted"><strong class="text-green">好：</strong>PM 能说"什么不做"<br><strong class="text-orange">弱：</strong>"对吧丁彬"又在确认，显得不确定</td>
+      </tr>
+      <tr>
+        <td>15</td>
+        <td>37:26</td>
+        <td>"大家还有什么问题吗？关于触发器的"</td>
+        <td><span class="tag tag-purple">主持过渡</span></td>
+        <td class="text-muted">你以为讲完了，但 Walter 38:07 马上开炮——你没预判到还有质疑</td>
+      </tr>
+      <tr>
+        <td>16</td>
+        <td>37:42</td>
+        <td>"如果没有的话，荣姐看一下呢？"</td>
+        <td><span class="tag tag-red">交棒</span></td>
+        <td class="text-muted"><strong class="text-red">主动让出主导权</strong>，后面10分钟你再没拿回来</td>
+      </tr>
+      <tr>
+        <td>17</td>
+        <td>48:14</td>
+        <td>"OK，那下边在订阅这块，下周评预设任务时，在订阅数据中心可能需要"</td>
+        <td><span class="tag tag-orange">挽 scope</span></td>
+        <td class="text-muted">试图保住后续需求，但"可能需要"太模糊，被丁彬"再单聊"截断</td>
+      </tr>
+      <tr>
+        <td>18</td>
+        <td>49:38</td>
+        <td>"关于停车驻车…是不是需要早点提出来？"</td>
+        <td><span class="tag tag-orange">前瞻问题</span></td>
+        <td class="text-muted">问了但没人接，因为用了"是不是"的疑问形式</td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+<!-- ==================== §1 方案根基 ==================== -->
+<div class="section theme-red" id="s1">
+  <div class="section-header">
+    <div class="section-num">1</div>
+    <div>
+      <div class="section-title">方案根基 · 核心假设未验证</div>
+      <div class="section-subtitle">你整张图的前提——"AlwaysOn 开关由触发器管"——从未被验证</div>
+    </div>
+  </div>
+  <div class="section-body">
+    <div class="severity">
+      <span>严重程度</span>
+      <div class="severity-dots">
+        <div class="severity-dot active-red"></div>
+        <div class="severity-dot active-red"></div>
+        <div class="severity-dot active-red"></div>
+        <div class="severity-dot active-red"></div>
+        <div class="severity-dot active-red"></div>
+      </div>
+      <span>致命 — 这个问题导致了最终结果</span>
+    </div>
+
+    <h3>被质疑的完整链条</h3>
+    <p>从 11:05 到 47:35，"为什么需要触发器"这个问题被不同人问了 6 次。你 0 次正面回答。</p>
+
+    <table>
+      <tr><th>时间</th><th>谁</th><th>说了什么</th><th>杀伤力</th></tr>
+      <tr>
+        <td>11:05</td>
+        <td>韩杰</td>
+        <td>"为啥需要触发器？AIBox 自己上电后直接拍不就行了？"</td>
+        <td><span class="tag tag-orange">质疑存在必要性</span></td>
+      </tr>
+      <tr>
+        <td>12:26</td>
+        <td>汪帅</td>
+        <td>"AIBox 上电之后能不能默认打开舱外？"</td>
+        <td><span class="tag tag-orange">暗示最简方案不需要你</span></td>
+      </tr>
+      <tr>
+        <td>15:27</td>
+        <td>汪帅</td>
+        <td>"我初始化 VLM SDK 时就可以告诉它 Button 状态，不需要过触发器"</td>
+        <td><span class="tag tag-red">给出技术替代方案</span></td>
+      </tr>
+      <tr>
+        <td>16:04</td>
+        <td>汪帅</td>
+        <td>"我们不能为了说有一个触发器，而把一个功能<strong>强加</strong>在它里面"</td>
+        <td><span class="tag tag-red">直接否定模块存在意义</span></td>
+      </tr>
+      <tr>
+        <td>38:07</td>
+        <td>Walter</td>
+        <td>"上电没意义，程序跑起来车子肯定上电了"</td>
+        <td><span class="tag tag-red">否定你的第一个条件节点</span></td>
+      </tr>
+      <tr>
+        <td>47:35</td>
+        <td>汪帅</td>
+        <td>"单纯一个按钮的状态，我没觉得过触发器能有十足的理由说服我自己"</td>
+        <td><span class="tag tag-red">终审判决</span></td>
+      </tr>
+    </table>
+
+    <h3>谁在替你挡子弹</h3>
+    <p><strong>全部由丁彬回答</strong>，不是你。丁彬给了三条理由：</p>
+    <table>
+      <tr><th>时间</th><th>丁彬替你说的</th><th>其实有没有说服力</th></tr>
+      <tr>
+        <td>11:25</td>
+        <td>"AIBox 全是被动式任务，需要外部调用方"</td>
+        <td><span class="tag tag-green">有</span> 解释了技术架构约束</td>
+      </tr>
+      <tr>
+        <td>12:32</td>
+        <td>"为了统一整体的控制逻辑"</td>
+        <td><span class="tag tag-orange">中</span> 汪帅直接反驳"不能为了统一而强加"</td>
+      </tr>
+      <tr>
+        <td>16:51</td>
+        <td>"后面还有动态任务，需要停+换prompt+重启"</td>
+        <td><span class="tag tag-green">有</span> 未来需求的预留理由</td>
+      </tr>
+    </table>
+
+    <div class="callout callout-red">
+      <div class="callout-title">根因</div>
+      你在画图之前，跟丁彬对了方案，但没有问过自己一个问题：<strong>"如果没有触发器，这件事做不做得了？做得了的话，走触发器的理由是什么？"</strong> 如果提前问过这个问题，你就能准备好答案（丁彬替你说的那三条理由），而不是在会上 36 分钟被追问 6 次、自己 0 次正面回答。
+    </div>
+
+    <h3>预对齐缺失</h3>
+    <table>
+      <tr><th>该对齐的人</th><th>该问的问题</th><th>如果对了会怎样</th></tr>
+      <tr>
+        <td>汪帅</td>
+        <td>"AlwaysOn 的开关走触发器，你觉得有没有必要？"</td>
+        <td>他大概率当场说"没必要"，你就能在评审前调整方案</td>
+      </tr>
+      <tr>
+        <td>Walter / 斯华</td>
+        <td>"VLM SDK 能不能自己感知上电并默认启动？"</td>
+        <td>他会告诉你"程序启动就等于上电"，你就不会画 power_state 节点</td>
+      </tr>
+      <tr>
+        <td>赛力斯/汪帅</td>
+        <td>"Button 状态信号从哪来？有 SDK 吗？"</td>
+        <td>你会知道走赛力斯 SDK → 端侧 → VLM SDK，不需要绕触发器</td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+<!-- ==================== §2 技术深度 ==================== -->
+<div class="section theme-orange" id="s2">
+  <div class="section-header">
+    <div class="section-num">2</div>
+    <div>
+      <div class="section-title">技术深度 · 关键概念说不清</div>
+      <div class="section-subtitle">图上画的条件，你自己解释不了它的技术含义</div>
+    </div>
+  </div>
+  <div class="section-body">
+    <div class="severity">
+      <span>严重程度</span>
+      <div class="severity-dots">
+        <div class="severity-dot active-red"></div>
+        <div class="severity-dot active-red"></div>
+        <div class="severity-dot active-red"></div>
+        <div class="severity-dot active-red"></div>
+        <div class="severity-dot"></div>
+      </div>
+      <span>严重 — 直接导致技术方失去信任</span>
+    </div>
+
+    <h3>2.1 "上电"说不清</h3>
+    <p>你图的第一个节点是 <code>power_state</code>，但你对"上电"的理解停留在日常用语层面。</p>
+
+    <table>
+      <tr><th>时间</th><th>别人问的</th><th>你回答的</th><th>暴露了什么</th></tr>
+      <tr>
+        <td>30:39</td>
+        <td>左晓杰："我解锁了坐车上没踩刹车，算上电吗？"</td>
+        <td>（沉默，丁彬接了：<em>"这叫ACC，附件上电"</em>）</td>
+        <td class="text-red">你不知道 ACC 和 IG ON 的区别</td>
+      </tr>
+      <tr>
+        <td>30:56</td>
+        <td>左晓杰追问具体含义</td>
+        <td>"我目前和丁彬聊的就上电，车机上电，整车上电，<strong>我理解是算是上电状态</strong>"</td>
+        <td class="text-red">用"上电"解释"上电"= 同义反复</td>
+      </tr>
+      <tr>
+        <td>31:28</td>
+        <td>左晓杰："蓄电池电量问题，AIBox 能运行多久？"</td>
+        <td>（沉默，丁彬接了）</td>
+        <td class="text-red">对硬件供电逻辑完全没准备</td>
+      </tr>
+      <tr>
+        <td>31:54</td>
+        <td>左晓杰："电不足了我们的逻辑是什么？车企对功耗有约束吗？"</td>
+        <td>（沉默，丁彬接了）</td>
+        <td class="text-red">同上</td>
+      </tr>
+    </table>
+
+    <div class="compare">
+      <div class="compare-bad">
+        <div class="compare-label">你说的</div>
+        "我目前和丁彬聊的就上电，车机上电，整车上电，我理解是算是上电状态"
+      </div>
+      <div class="compare-good">
+        <div class="compare-label">应该说的</div>
+        "我们定义的触发条件对应 ACC ON（附件上电），即蓄电池开始给 AIBox 供电的时刻。具体信号名和上报方式我还没跟赛力斯确认，这个我记下来会后对齐"
+      </div>
+    </div>
+
+    <div class="callout callout-yellow">
+      <div class="callout-title">PM 对技术的理解边界</div>
+      PM 不需要写代码，但<strong>你图上画的每一个判断节点，你必须能回答三个问题</strong>：这个信号叫什么名字？值是什么？谁上报？回答不了就不要画成实线菱形——标红写"待确认 @某人"。
+    </div>
+
+    <h3>2.2 VLM 启动时序没考虑</h3>
+
+    <div class="speech">
+      <div class="speaker">汪帅 <span class="time">24:17</span></div>
+      "假如上电之后 VLM 自己还没起来呢？在端上发了就算？上电很早啊，你一加电立刻就有信号了，VLM 毕竟是个进程，启动是需要时间的。"
+    </div>
+
+    <p>这是一个真实的工程问题：上电信号可能来得比 VLM 进程启动早，你的触发器发了 start，对面没进程接。</p>
+
+    <div class="compare">
+      <div class="compare-bad">
+        <div class="compare-label">你的回应</div>
+        "你是指 VLM 没起来，它是后置的，是吧？"（确认问题）<br>
+        → "我们可以分两条进行判断吗？"（用疑问句向被评审方征求方案）
+      </div>
+      <div class="compare-good">
+        <div class="compare-label">应该说的</div>
+        "这个时序问题我的方案没覆盖到，我认为应该在 VLM SDK 内部做保证——SDK 启动后主动 get 一次当前状态，补齐启动前错过的信号。汪帅你们能做到吗？"
+      </div>
+    </div>
+
+    <h3>2.3 Button 来源搞错</h3>
+    <p>你在 29:38 说："可能需要 CDC 那边给通知到我们 Button 按钮的状态变更"。</p>
+    <p>但会议后半段揭示的真实链路是：</p>
+
+    <div class="compare">
+      <div class="compare-bad">
+        <div class="compare-label">你以为的</div>
+        CDC → 端侧触发器 → VLM SDK
+      </div>
+      <div class="compare-good">
+        <div class="compare-label">实际的</div>
+        赛力斯 HMI 上的 Button → 赛力斯 SDK → 汪帅团队接听 → VLM SDK
+      </div>
+    </div>
+    <p class="text-muted">Button 状态根本不经过 CDC，也不经过触发器。你对信号来源的假设是错的，意味着你画图之前没跟任何上游确认过 Button 的技术实现路径。</p>
+  </div>
+</div>
+
+<!-- ==================== §3 表达方式 ==================== -->
+<div class="section theme-yellow" id="s3">
+  <div class="section-header">
+    <div class="section-num">3</div>
+    <div>
+      <div class="section-title">表达方式 · 语气削弱了内容</div>
+      <div class="section-subtitle">你是需求定义者，但用了信息接收者的语气</div>
+    </div>
+  </div>
+  <div class="section-body">
+    <div class="severity">
+      <span>严重程度</span>
+      <div class="severity-dots">
+        <div class="severity-dot active-orange"></div>
+        <div class="severity-dot active-orange"></div>
+        <div class="severity-dot active-orange"></div>
+        <div class="severity-dot"></div>
+        <div class="severity-dot"></div>
+      </div>
+      <span>中等 — 削弱可信度，但不致命</span>
+    </div>
+
+    <h3>3.1 弱化词统计</h3>
+    <table>
+      <tr><th>用词</th><th>次数</th><th>出现位置举例</th></tr>
+      <tr>
+        <td><strong class="text-red">"可能"</strong></td>
+        <td>7 次</td>
+        <td>"<strong>可能</strong>它主要是两块事情<strong>吧</strong>"  /  "<strong>可能</strong>需要CDC那边通知"  /  "在订阅数据中心<strong>可能</strong>需要"</td>
+      </tr>
+      <tr>
+        <td><strong class="text-red">"我理解"</strong></td>
+        <td>3 次</td>
+        <td>"<strong>我理解</strong>是算是上电状态"  /  "<strong>我理解</strong>端侧触发器主要…"</td>
+      </tr>
+      <tr>
+        <td><strong class="text-orange">"是吧？" / "对吧？"</strong></td>
+        <td>4 次</td>
+        <td>"这个是没有问题的<strong>吧</strong>？"  /  "全都是AIBox那边做的，<strong>对吧</strong>丁彬？"</td>
+      </tr>
+      <tr>
+        <td><strong class="text-orange">"可以吗？"</strong></td>
+        <td>1 次</td>
+        <td>"我们<strong>可以</strong>分两条进行判断<strong>吗</strong>？"</td>
+      </tr>
+    </table>
+
+    <h3>3.2 改写对照</h3>
+    <table>
+      <tr><th>你说的</th><th>Owner 应该说的</th><th>区别在哪</th></tr>
+      <tr>
+        <td>"<strong>可能</strong>它主要是两块事情<strong>吧</strong>"</td>
+        <td>"触发器在 0804 做三件事"</td>
+        <td>去掉不确定，直接陈述</td>
+      </tr>
+      <tr>
+        <td>"<strong>我理解</strong>是算是上电状态"</td>
+        <td>"我们定义的触发条件是 ACC ON 信号"</td>
+        <td>"我理解"变成"我们定义的"</td>
+      </tr>
+      <tr>
+        <td>"<strong>可能</strong>需要CDC那边给通知"</td>
+        <td>"Button 变更需要一个上游通知渠道，目前计划走 CDC，但我还没跟赛力斯确认"</td>
+        <td>"可能"变成"计划+还没确认"——坦诚但不模糊</td>
+      </tr>
+      <tr>
+        <td>"我们<strong>可以</strong>分两条判断<strong>吗</strong>？"</td>
+        <td>"我建议分两个事件判断：一是上电，二是 VLM 就绪"</td>
+        <td>疑问句变陈述句——你是提方案的人</td>
+      </tr>
+      <tr>
+        <td>"是不是需要早点提出来？"</td>
+        <td>"停车驻车场景如果要走触发器，我需要在 0816 前完成方案，今天先记下"</td>
+        <td>把模糊问题变成有时间节点的行动项</td>
+      </tr>
+    </table>
+
+    <h3>3.3 重复而非递进</h3>
+    <p>你在三个不同时间点说了几乎一样的话：</p>
+    <table>
+      <tr><th>时间</th><th>你说的</th><th>问题</th></tr>
+      <tr>
+        <td>22:40</td>
+        <td>"端侧触发器主要两块事情：判断开关 + 给 VLM 发推理指令"</td>
+        <td>第一遍，OK</td>
+      </tr>
+      <tr>
+        <td>28:56</td>
+        <td>"两个条件同时满足就下发开启，缺任意一个就下发停止"</td>
+        <td>在复述开关逻辑，内容跟第一遍重叠</td>
+      </tr>
+      <tr>
+        <td>33:30</td>
+        <td>"端侧触发器总共两块事情：判断上电和Button，接收回调"</td>
+        <td class="text-red">跟 22:40 几乎一字不差——你在"总结"但没有"推进"</td>
+      </tr>
+    </table>
+    <p class="text-muted">评审会不是教学。说一遍说清楚就够了，说三遍反而让人觉得你在兜圈子、没有新信息可讲。</p>
+  </div>
+</div>
+
+<!-- ==================== §4 应对质疑 ==================== -->
+<div class="section theme-purple" id="s4">
+  <div class="section-header">
+    <div class="section-num">4</div>
+    <div>
+      <div class="section-title">应对质疑 · 不回应、不暴露、不引导</div>
+      <div class="section-subtitle">被追问时的反应模式：沉默 → 丁彬接 → 你继续讲原来的</div>
+    </div>
+  </div>
+  <div class="section-body">
+    <div class="severity">
+      <span>严重程度</span>
+      <div class="severity-dots">
+        <div class="severity-dot active-red"></div>
+        <div class="severity-dot active-red"></div>
+        <div class="severity-dot active-red"></div>
+        <div class="severity-dot active-red"></div>
+        <div class="severity-dot"></div>
+      </div>
+      <span>严重 — 让人觉得"这个PM没想过边界情况"</span>
+    </div>
+
+    <h3>4.1 你对质疑的固定反应模式</h3>
+    <p>你面对质疑有一个固定模式：<strong>确认对方说的 → 做最小适配 → 继续讲原来的东西</strong>，从不正面解释"为什么"。</p>
+
+    <table>
+      <tr><th>质疑</th><th>你的反应</th><th>更好的做法</th></tr>
+      <tr>
+        <td>汪帅 14:42："上电信号谁吐？AIBox 上电能吐对外事件吗？"</td>
+        <td><strong class="text-red">沉默</strong>（丁彬答了）</td>
+        <td>"这个信号来源我还没跟赛力斯确认，我来跟进"</td>
+      </tr>
+      <tr>
+        <td>汪帅 24:17："上电之后 VLM 还没起来呢"</td>
+        <td>"你是指后置的是吧？"→"可以分两条判断吗？"</td>
+        <td>"这个时序问题我方案里没覆盖，我认为应该在 VLM SDK 内部保证。汪帅你们能做到吗？"</td>
+      </tr>
+      <tr>
+        <td>左晓杰 30:39："不踩刹车算上电吗？"</td>
+        <td><strong class="text-red">沉默</strong>（丁彬接了 ACC 的解释）</td>
+        <td>"这个我需要查具体的信号定义，ACC ON 还是 IG ON"</td>
+      </tr>
+      <tr>
+        <td>左晓杰 31:28："蓄电池能支撑多久？"</td>
+        <td><strong class="text-red">沉默</strong></td>
+        <td>"功耗约束我没对过赛力斯，这个我记下来会后确认。不影响今天评审链路可行性"</td>
+      </tr>
+      <tr>
+        <td>左晓杰 31:54："电不足逻辑是什么？车企对功耗有约束吗？"</td>
+        <td><strong class="text-red">沉默</strong></td>
+        <td>同上</td>
+      </tr>
+    </table>
+
+    <h3>4.2 不会主动暴露弱点</h3>
+    <p>左晓杰连问了 4 个关于"上电"的具体问题。每个都是合理的、你应该提前想过的。你全部沉默让丁彬接。</p>
+
+    <div class="compare">
+      <div class="compare-bad">
+        <div class="compare-label">你的策略：沉默</div>
+        <strong>表面上</strong>：不说 = 不暴露弱点<br>
+        <strong>实际效果</strong>：别人替你答 = 大家都知道你不会 + 你失去了控制讨论的机会
+      </div>
+      <div class="compare-good">
+        <div class="compare-label">正确策略：主动暴露</div>
+        "晓杰问的功耗约束和蓄电池续航我确实没对过赛力斯，这个我记下来会后确认。不影响今天评审链路本身的可行性。"<br>
+        <strong>效果</strong>：坦诚 + 控制话题回主线 + 大家知道你记下了不用再追
+      </div>
+    </div>
+
+    <div class="callout callout-yellow">
+      <div class="callout-title">为什么"主动暴露"比"沉默"好？</div>
+      主动说不知道 → 表明你知道自己不知道什么 → 这叫<strong>元认知</strong>，是信任的来源。<br>
+      沉默 → 别人不知道你是"不知道"还是"没想过" → 默认往最差解读 → 信任崩塌。
+    </div>
+  </div>
+</div>
+
+<!-- ==================== §5 会议主导权 ==================== -->
+<div class="section theme-cyan" id="s5">
+  <div class="section-header">
+    <div class="section-num">5</div>
+    <div>
+      <div class="section-title">会议主导 · 三次丢失控制权</div>
+      <div class="section-subtitle">你是需求 owner，但结论由张荣宣布，方案由丁彬修改</div>
+    </div>
+  </div>
+  <div class="section-body">
+    <div class="severity">
+      <span>严重程度</span>
+      <div class="severity-dots">
+        <div class="severity-dot active-red"></div>
+        <div class="severity-dot active-red"></div>
+        <div class="severity-dot active-red"></div>
+        <div class="severity-dot active-red"></div>
+        <div class="severity-dot"></div>
+      </div>
+      <span>严重 — owner 变成了旁观者</span>
+    </div>
+
+    <h3>第一次丢失 · 16:52 张荣 cue 你，你没接</h3>
+    <div class="speech">
+      <div class="speaker">张荣 <span class="time">16:52</span></div>
+      "泽泽民，你那边也看看这一块吧，泽民。"
+    </div>
+    <p>此时韩杰和汪帅已经质疑了5分钟"为什么需要触发器"。张荣点名让你发言——<strong class="text-red">你没接话</strong>。又过了 1 分 26 秒，到 18:18 你才开口，说的还是一个确认性问题。</p>
+    <p class="text-muted">PM lead 在所有人面前 cue 你，你沉默了，这让张荣后面不得不自己来主导结论。</p>
+
+    <h3>第二次丢失 · 37:42 主动交棒</h3>
+    <div class="speech">
+      <div class="speaker">你 <span class="time">37:26</span></div>
+      "大家还有什么问题吗？关于触发器的。"
+    </div>
+    <div class="speech">
+      <div class="speaker">你 <span class="time">37:42</span></div>
+      "如果没有的话，荣姐看一下呢？"
+    </div>
+    <p>你以为讲完了，主动把话筒交给了张荣。<strong>但 Walter 38:07 马上开炮</strong>——"上电没意义"。如果你没交棒，这个讨论还在你的主持下进行，你至少能引导方向。交了之后，主导权再也没回来。</p>
+
+    <h3>第三次丢失 · 38:00-48:14 沉默 10 分钟</h3>
+    <p>这是最致命的 10 分钟。你的 P0 需求被取消的全过程，你一句话没说：</p>
+
+    <div class="timeline">
+      <div class="tl-item tl-red">
+        <div><span class="tl-time">38:07</span> <span class="tl-who">Walter</span> <span class="tl-action">"上电没意义，程序跑起来就已经上电了"</span></div>
+      </div>
+      <div class="tl-item tl-red">
+        <div><span class="tl-time">38:07</span> <span class="tl-who">汪帅</span> <span class="tl-action">"舱外默认就跑起来呗"</span></div>
+      </div>
+      <div class="tl-item tl-orange">
+        <div><span class="tl-time">38:34</span> <span class="tl-who">左晓杰</span> <span class="tl-action">追问蓄电池/功耗约束</span></div>
+      </div>
+      <div class="tl-item tl-red">
+        <div><span class="tl-time">39:59</span> <span class="tl-who">张荣</span> <span class="tl-action">"触发条件没有形成共识"</span></div>
+      </div>
+      <div class="tl-item tl-red">
+        <div><span class="tl-time">40:40</span> <span class="tl-who">张荣</span> <span class="tl-action">"需求来源于哪里？找源头吧"← <strong class="text-red">直接问你和丁彬的，你没回答</strong></span></div>
+      </div>
+      <div class="tl-item tl-red">
+        <div><span class="tl-time">41:27</span> <span class="tl-who">Walter</span> <span class="tl-action">"甚至可能都不需要到触发器了"</span></div>
+      </div>
+      <div class="tl-item tl-orange">
+        <div><span class="tl-time">41:57</span> <span class="tl-who">丁彬</span> <span class="tl-action">开始实时改文档，去掉触发器</span></div>
+      </div>
+      <div class="tl-item tl-red">
+        <div><span class="tl-time">43:07</span> <span class="tl-who">汪帅</span> <span class="tl-action">"我初始化SDK时传个enable字段就行"</span></div>
+      </div>
+      <div class="tl-item tl-red">
+        <div><span class="tl-time">45:40</span> <span class="tl-who">汪帅</span> <span class="tl-action">"这不是个触发器，就是接听一个东西转发"</span></div>
+      </div>
+      <div class="tl-item tl-red">
+        <div><span class="tl-time">47:35</span> <span class="tl-who">汪帅</span> <span class="tl-action">"单纯一个按钮，我没觉得过触发器有十足理由"</span></div>
+      </div>
+      <div class="tl-item tl-red">
+        <div><span class="tl-time">48:06</span> <span class="tl-who">张荣</span> <span class="tl-action">"泽民，把触发器P0需求删了吧"</span></div>
+      </div>
+      <div class="tl-item tl-silent">
+        <div><span class="tl-time">48:14</span> <span class="tl-who text-red">你</span> <span class="tl-action">"OK"</span></div>
+      </div>
+    </div>
+
+    <div class="callout callout-red">
+      <div class="callout-title">40:40 是你最不该沉默的一秒</div>
+      张荣问"需求来源于哪里"——这是直接问你和丁彬的。<strong>这是关于你自己需求的起源问题，你应该是最有资格回答的人。</strong>但丁彬替你答了（"我们希望一上车就打开"）。这个瞬间，在所有人眼里，需求 owner 已经不是你了。
+    </div>
+
+    <h3>角色错位对照</h3>
+    <table>
+      <tr><th>角色</th><th>这场会议中谁在做</th><th>本该谁做</th></tr>
+      <tr>
+        <td>方案讲解者</td>
+        <td>你（22:40-34:13，这部分没问题）+ 丁彬（实时改文档）</td>
+        <td>你</td>
+      </tr>
+      <tr>
+        <td>质疑回应者</td>
+        <td class="text-red">丁彬（替你挡了3次核心质疑）</td>
+        <td>你</td>
+      </tr>
+      <tr>
+        <td>讨论引导者</td>
+        <td class="text-red">张荣（追问、挖风险、推结论）</td>
+        <td>你</td>
+      </tr>
+      <tr>
+        <td>结论宣布者</td>
+        <td class="text-red">张荣（"端侧触发器需求取消…评审通过"）</td>
+        <td>你</td>
+      </tr>
+      <tr>
+        <td>行动项分配者</td>
+        <td class="text-red">张荣（"帅哥跟李鑫对方案…斯华加需求…"）</td>
+        <td>你</td>
+      </tr>
+    </table>
+
+    <div class="callout callout-green">
+      <div class="callout-title">即使结论不变，你也应该自己宣布</div>
+      结论可能确实是对的——AlwaysOn 不需要走触发器。但作为 owner，你至少应该自己说出来：<br><br>
+      "帅哥说得对，如果 Button 状态可以在初始化 SDK 时直接传入，确实不需要额外过触发器。那我确认一下结论：舱外 AIBox 启动即默认开启，不需要条件判断；舱内只依赖 Button 状态，由 AI Service 传给 VLM SDK。触发器在 AlwaysOn 这块没有依赖了，P0 需求取消。后续 OneShot 预设任务和动态任务还是需要触发器，下周评。"<br><br>
+      <strong>同样的结论，由你来说，你就还是 owner。由张荣来说，你就变成了被通知方。</strong>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== §6 图的问题 ==================== -->
+<div class="section theme-pink" id="s6">
+  <div class="section-header">
+    <div class="section-num">6</div>
+    <div>
+      <div class="section-title">图本身的问题</div>
+      <div class="section-subtitle">缺"为什么"、假信号、无异常路径、差异没突出</div>
+    </div>
+  </div>
+  <div class="section-body">
+    <div class="severity">
+      <span>严重程度</span>
+      <div class="severity-dots">
+        <div class="severity-dot active-orange"></div>
+        <div class="severity-dot active-orange"></div>
+        <div class="severity-dot active-orange"></div>
+        <div class="severity-dot"></div>
+        <div class="severity-dot"></div>
+      </div>
+      <span>中等 — 图本身不差，但有几个硬伤</span>
+    </div>
+
+    <h3>6.1 没有"为什么走触发器"的说明</h3>
+    <p>图打开就是流程。没有一页、甚至一行字解释"为什么 AlwaysOn 的开关需要走触发器而不是 AIBox 自己管"。</p>
+    <p><strong>这直接导致了韩杰 11:05 的第一个质疑。</strong>如果图的顶部有一行前提说明，韩杰可能就不会问"为什么需要触发器"了。</p>
+    <div class="compare">
+      <div class="compare-bad">
+        <div class="compare-label">你的图顶部</div>
+        （直接就是流程图，没有前提说明）
+      </div>
+      <div class="compare-good">
+        <div class="compare-label">应该有的</div>
+        <strong>前提假设：</strong>AIBox 为被动式架构，不主动感知外部信号，所有任务启停需外部调用方。触发器作为统一调用方管理开关，同时为后续动态任务切换预留接口。<br>
+        <em style="color: var(--text2);">——韩杰和汪帅的质疑，这两句话就能覆盖 80%</em>
+      </div>
+    </div>
+
+    <h3>6.2 power_state 画成了确定的菱形，但定义是模糊的</h3>
+    <table>
+      <tr><th>图上画的</th><th>技术理解的</th><th>实际情况</th></tr>
+      <tr>
+        <td>一个实线菱形判断框 <code>power_state?</code></td>
+        <td>"这个信号已经跟上游确认过了"</td>
+        <td class="text-red">你不知道信号叫什么、谁上报、赛力斯是否提供、汪帅说"拿不到"</td>
+      </tr>
+    </table>
+    <p class="text-muted">你把一个<strong>未确认的假设</strong>画成了<strong>已确认的判断节点</strong>。技术看到菱形判断框会默认你已经跟上游对过了。发现你没对过，信任就崩了。</p>
+
+    <h3>6.3 舱外和舱内的差异没有在图上突出</h3>
+    <p>你的图里舱外和舱内并排画，视觉上平等。但实际差异很大：</p>
+    <table>
+      <tr><th></th><th>舱外</th><th>舱内</th></tr>
+      <tr><td>条件数量</td><td>1 个（上电）</td><td>2 个（上电 AND Button）</td></tr>
+      <tr><td>Button</td><td>无</td><td>有</td></tr>
+      <tr><td>隐私问题</td><td>无</td><td>有（舱内摄像头）</td></tr>
+      <tr><td>实际复杂度</td><td class="text-green">极低——默认打开就行</td><td class="text-orange">中等</td></tr>
+    </table>
+    <p>会议最终证明：舱外简单到"默认打开就行"，根本不需要任何条件判断。你的图给一个<strong>不需要条件判断的东西</strong>画了一套条件判断流程——这就是过度设计的视觉体现。</p>
+
+    <h3>6.4 没有异常路径</h3>
+    <p>你的 5 个情况（A~E）全部是 Button 开/关的排列组合，全是正常流程的变体。但以下异常场景全部缺失：</p>
+    <table>
+      <tr><th>异常场景</th><th>谁在会上提出了这个</th><th>你的图里有没有</th></tr>
+      <tr>
+        <td>VLM 进程未启动，start 发了对面没人接</td>
+        <td>汪帅 24:17</td>
+        <td class="text-red">没有</td>
+      </tr>
+      <tr>
+        <td>start 发了但 VLM 执行失败</td>
+        <td>（会上没人问，但你的 §4 状态回调部分应该覆盖）</td>
+        <td class="text-red">没有</td>
+      </tr>
+      <tr>
+        <td>Button 状态信号丢失 / 延迟</td>
+        <td>（隐含在汪帅关于 SDK init 的讨论中）</td>
+        <td class="text-red">没有</td>
+      </tr>
+      <tr>
+        <td>AIBox 崩溃重启后状态恢复</td>
+        <td>丁彬 27:30 + 汪帅 28:13</td>
+        <td class="text-red">没有</td>
+      </tr>
+      <tr>
+        <td>蓄电池供电不足导致 AIBox 掉电</td>
+        <td>左晓杰 31:28</td>
+        <td class="text-red">没有</td>
+      </tr>
+    </table>
+    <p class="text-muted">如果你的图里提前画了哪怕一条异常路径，技术会觉得"这个 PM 想过边界情况"。全部没有 → "这个 PM 只想过 happy path"。</p>
+
+    <h3>6.5 你的图做对了什么</h3>
+    <table>
+      <tr><th>做对的</th><th>为什么好</th></tr>
+      <tr>
+        <td>舱内/舱外分区</td>
+        <td>结构清晰，两个场景的差异一目了然</td>
+      </tr>
+      <tr>
+        <td>AND/OR 逻辑标注</td>
+        <td>开/关条件的对称性讲清了</td>
+      </tr>
+      <tr>
+        <td>5 种情况枚举（A~E）</td>
+        <td>比大多数 PM 的图要系统——不是只画一条线</td>
+      </tr>
+      <tr>
+        <td>步骤级文字说明</td>
+        <td>每种情况都有 1-5 步详细走法，不是空流程框</td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+<!-- ==================== §7 角色定位 ==================== -->
+<div class="section theme-green" id="s7">
+  <div class="section-header">
+    <div class="section-num">7</div>
+    <div>
+      <div class="section-title">角色定位 · 模块代言人 vs 需求解决者</div>
+      <div class="section-subtitle">这是最根本的问题，前面六个问题都是它的症状</div>
+    </div>
+  </div>
+  <div class="section-body">
+    <div class="severity">
+      <span>严重程度</span>
+      <div class="severity-dots">
+        <div class="severity-dot active-red"></div>
+        <div class="severity-dot active-red"></div>
+        <div class="severity-dot active-red"></div>
+        <div class="severity-dot active-red"></div>
+        <div class="severity-dot active-red"></div>
+      </div>
+      <span>根因 — 这是所有问题的源头</span>
+    </div>
+
+    <p>你在会上的自我定位是：<strong>"我是触发器的 PM，我来讲触发器在这个场景里怎么工作。"</strong></p>
+    <p>正确的定位应该是：<strong>"我是 AlwaysOn 开关这个需求的 owner，我来讲这个需求怎么实现最合理。"</strong></p>
+
+    <h3>两种定位的差异</h3>
+    <table>
+      <tr><th>场景</th><th>模块代言人（你现在）</th><th>需求解决者（应该的）</th></tr>
+      <tr>
+        <td>开场</td>
+        <td>"触发器主要两块事情"</td>
+        <td>"AlwaysOn 开关需求是这样的，我评估过三种实现方式，推荐走触发器，原因是 X"</td>
+      </tr>
+      <tr>
+        <td>被质疑时</td>
+        <td>让丁彬解释为什么要走触发器</td>
+        <td>自己说清 trade-off："走触发器的好处是统一管理+预留动态任务接口，代价是多一层调用"</td>
+      </tr>
+      <tr>
+        <td>被推翻时</td>
+        <td>沉默 10 分钟 + "OK"</td>
+        <td>"帅哥说的方案更简单，我同意。AlwaysOn 不走触发器，P0 取消。后续 OneShot 和动态任务仍需触发器，下周评"</td>
+      </tr>
+      <tr>
+        <td>结论</td>
+        <td>张荣替你宣布</td>
+        <td>你自己宣布结论 + 影响范围 + 后续计划</td>
+      </tr>
+    </table>
+
+    <div class="callout callout-red">
+      <div class="callout-title">为什么这是根因</div>
+      <strong>当你把自己绑定在"触发器"这个模块上时，模块被否掉 = 你被否掉。</strong><br><br>
+      但如果你把自己定位为"需求解决者"——走触发器你 own，不走触发器你也 own。因为你 own 的是需求本身，不是某个模块。方案变了，你依然是 owner，因为是你在推动这个需求走向最优解。<br><br>
+      这就是为什么你在方案被推翻后只能"OK"——你觉得你的东西被否了。但如果你是需求解决者，你应该觉得"方案被优化了，我来宣布新方案"。
+    </div>
+
+    <h3>你的第一句话决定了一切</h3>
+
+    <div class="speech">
+      <div class="speaker">你 <span class="time">22:40</span></div>
+      "我理解端侧触发器<strong>可能</strong>它主要现在，在目前这个阶段，<strong>可能</strong>它主要是两块事情<strong>吧</strong>。"
+    </div>
+
+    <p>你开场的第一句话就暴露了定位问题：</p>
+    <table>
+      <tr><th>问题</th><th>具体表现</th></tr>
+      <tr>
+        <td>主语是"触发器"不是"需求"</td>
+        <td>"端侧触发器主要两块事情"——你在介绍你的模块做什么，不是需求怎么解决</td>
+      </tr>
+      <tr>
+        <td>两个"可能"</td>
+        <td>你自己都不确定你的模块该做什么</td>
+      </tr>
+      <tr>
+        <td>"吧"结尾</td>
+        <td>请求对方确认，不是陈述事实</td>
+      </tr>
+      <tr>
+        <td>没有说"为什么"</td>
+        <td>直接跳到了"怎么做"，没有铺垫"为什么要这样做"</td>
+      </tr>
+    </table>
+
+    <div class="compare">
+      <div class="compare-bad">
+        <div class="compare-label">你说的</div>
+        "我理解端侧触发器可能它主要现在，在目前这个阶段，可能它主要是两块事情吧。一块是判断它的舱内舱外的 AlwaysOn 的开关…"
+      </div>
+      <div class="compare-good">
+        <div class="compare-label">需求解决者会说的</div>
+        "AlwaysOn 开关的需求是：三个常驻任务（舱外3s/舱内动态5s/舱内静态5min）需要一个启停控制机制。我拉过方案，建议走端侧触发器来管，原因有两个：第一，AIBox 是被动式架构，不自己感知外部信号，需要一个外部调用方；第二，后续 0818 有动态任务切换需求，提前用触发器统一管理可以复用。如果大家觉得更简单的方式可行，我也开放讨论。"
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== SUMMARY ==================== -->
+<div class="summary-card">
+  <div class="section-header">
+    <div class="section-num" style="background: var(--accent); color: var(--bg);">∑</div>
+    <div>
+      <div class="section-title">一句话总结 + 下次评审前 Checklist</div>
+    </div>
+  </div>
+  <div class="section-body">
+    <div class="callout callout-yellow">
+      <div class="callout-title">总结</div>
+      你不是菜在"不会做"——图是结构化的、逻辑是可枚举的、边界也划得出来。<br>
+      <strong>你菜在三件事：</strong><br>
+      ① 不会"卖"——方案讲了怎么做没讲为什么做<br>
+      ② 不会"扛"——被质疑时让丁彬替你回答<br>
+      ③ 不会"收"——方案被改时让张荣替你宣布结论<br><br>
+      <strong>根因是角色定位错了</strong>：你把自己当"触发器的代言人"，模块被砍你就哑了。应该当"需求的解决者"，方案怎么变你都是 owner。
+    </div>
+
+    <h3>下次评审前 Checklist</h3>
+    <table>
+      <tr><th>#</th><th>阶段</th><th>动作</th><th>消灭什么问题</th></tr>
+      <tr>
+        <td>1</td>
+        <td>评审前 48h</td>
+        <td>跟每个关键技术方 1:1 过核心链路（汪帅、斯华、赛力斯接口人）</td>
+        <td>消灭"大会上被翻盘"</td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td>评审前 24h</td>
+        <td>自问"不经过我的模块能不能做？能做的话理由是什么？"——准备好回答</td>
+        <td>消灭"为什么需要触发器"0回答</td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td>画图时</td>
+        <td>每个条件节点标清：信号名 + 值 + 谁上报 + 已确认/待确认</td>
+        <td>消灭"上电是什么意思"</td>
+      </tr>
+      <tr>
+        <td>4</td>
+        <td>画图时</td>
+        <td>至少画一条异常路径（失败/超时/信号丢失/进程崩溃）</td>
+        <td>消灭"只想过 happy path"的印象</td>
+      </tr>
+      <tr>
+        <td>5</td>
+        <td>图第一页</td>
+        <td>写清"为什么选这个方案"（2-3句话 trade-off）</td>
+        <td>消灭"只讲怎么做不讲为什么"</td>
+      </tr>
+      <tr>
+        <td>6</td>
+        <td>开场前</td>
+        <td>准备 3 个你自己知道的薄弱点，主动说出来</td>
+        <td>消灭被动沉默——主动暴露 > 被动被挖</td>
+      </tr>
+      <tr>
+        <td>7</td>
+        <td>讲完后</td>
+        <td>自己来说结论（"今天要拍的是 X，行动项是 Y"），别交给别人</td>
+        <td>消灭角色错位——owner 发结论</td>
+      </tr>
+      <tr>
+        <td>8</td>
+        <td>语言习惯</td>
+        <td>把"可能""我理解""是吧"替换成"我们定义的""计划是""还没确认，会后跟进"</td>
+        <td>消灭语气弱化</td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+<!-- ==================== VERSION ==================== -->
+<div class="version">
+  7.8 VLM评审会议复盘 v1 · 2026-07-10
+</div>
+
+</div><!-- /content -->
+</body>
+</html>

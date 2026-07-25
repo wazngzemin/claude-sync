@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>动态示例详解 v2 · 图文版</title>
+<style>
+  :root{
+    --ink:#1f2329; --sub:#646a73; --line:#e5e6eb; --bg:#f7f8fa;
+    --brand:#3370ff; --brand-bg:#eef2ff;
+    --good:#00875a; --goodbg:#e3f5ec;
+    --bad:#d4380d; --badbg:#fff1e8;
+    --warn:#ad6800; --warnbg:#fffbe6;
+    --purple:#8a5cff; --purplebg:#f0eafe;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+    line-height:1.8;font-size:15px;}
+  .wrap{max-width:960px;margin:0 auto;padding:40px 26px 120px;}
+  .doc-head{background:linear-gradient(135deg,#3370ff,#8a5cff);color:#fff;border-radius:16px;
+    padding:32px 36px;margin-bottom:28px;}
+  .doc-head h1{margin:0 0 8px;font-size:27px;}
+  .doc-head .subtitle{opacity:.92;font-size:14px;}
+  .doc-head .ver{margin-top:10px;font-size:12.5px;opacity:.75;}
+  section{background:#fff;border:1px solid var(--line);border-radius:12px;padding:26px 30px;margin-bottom:22px;}
+  h2{font-size:20px;margin:0 0 6px;padding-bottom:12px;border-bottom:2px solid var(--brand-bg);
+    display:flex;align-items:center;gap:10px;}
+  h2 .num{background:var(--brand);color:#fff;width:28px;height:28px;border-radius:8px;
+    display:inline-flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
+  h2 .en{font-size:13px;color:var(--sub);font-weight:400;}
+  h3{font-size:16px;margin:22px 0 10px;}
+  p{margin:8px 0;}
+  ul,ol{margin:8px 0;padding-left:22px;}
+  li{margin:6px 0;}
+  code{background:#f2f3f5;padding:1px 6px;border-radius:4px;font-size:13px;
+    font-family:"SF Mono",Menlo,Consolas,monospace;color:#d4380d;}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px;}
+  th,td{border:1px solid var(--line);padding:8px 11px;text-align:left;vertical-align:top;}
+  th{background:var(--bg);font-weight:600;color:var(--sub);}
+  .callout{border-radius:10px;padding:14px 18px;margin:16px 0;font-size:14px;border-left:4px solid;}
+  .c-key{background:var(--brand-bg);border-color:var(--brand);}
+  .c-warn{background:var(--warnbg);border-color:var(--warn);}
+  .c-good{background:var(--goodbg);border-color:var(--good);}
+  .c-bad{background:var(--badbg);border-color:var(--bad);}
+  .callout .c-title{font-weight:700;margin-bottom:4px;}
+  .fig{margin:18px 0;background:#fbfcfd;border:1px solid var(--line);border-radius:12px;padding:16px;}
+  .fig .fig-title{font-size:14px;font-weight:700;color:var(--ink);margin-bottom:4px;}
+  .fig .fig-sub{font-size:12.5px;color:var(--sub);margin-bottom:8px;}
+  .explain{background:#fafbff;border-left:3px solid var(--brand);padding:10px 16px;margin:10px 0 4px;font-size:14px;border-radius:0 8px 8px 0;}
+  .explain b{color:var(--brand);}
+  .walk{counter-reset:step;}
+  .walk li{list-style:none;position:relative;padding-left:34px;margin:10px 0;}
+  .walk li::before{counter-increment:step;content:counter(step);position:absolute;left:0;top:2px;
+    width:22px;height:22px;background:var(--brand);color:#fff;border-radius:50%;font-size:12px;
+    display:flex;align-items:center;justify-content:center;font-weight:700;}
+  .footnote{color:var(--sub);font-size:13px;}
+  .src{font-size:12.5px;color:var(--sub);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="doc-head">
+  <h1>动态示例详解 · 图文版</h1>
+  <div class="subtitle">是什么 → 什么时候用 → 怎么写 → 写到什么程度 → 为什么 → 怎么落地</div>
+  <div class="ver">v2 · 5 张流程图全配讲解 · 例子全部来自我们真实写的 30 条 case</div>
+</div>
+
+<!-- ============ 1 是什么 ============ -->
+<section>
+<h2><span class="num">1</span>动态示例到底是什么 <span class="en">先把它在车里的完整流转看明白</span></h2>
+
+<p><b>一句话：动态示例 = 一条「用户 query + 决策分析」的参考答案，平时躺在示例库里；用户一说话，系统拿这句话去库里检索，最像的示例被挑出来塞进 SP（系统提示词），模型这轮就照着它做决策。</b></p>
+
+<div class="fig">
+  <div class="fig-title">图 1 · 动态示例的完整运行机制（以"空调改到快速制冷模式"为例）</div>
+  <div class="fig-sub">注意菱形判断框和每条线上标的原因</div>
+  <svg viewBox="0 0 900 660" width="100%" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#8a94a6"/>
+      </marker>
+      <marker id="arp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#8a5cff"/>
+      </marker>
+    </defs>
+    <!-- 用户语音 -->
+    <rect x="250" y="14" width="340" height="48" rx="10" fill="#eef2ff" stroke="#3370ff" stroke-width="1.5"/>
+    <text x="420" y="34" text-anchor="middle" font-size="14" font-weight="700" fill="#1f2329">用户语音："空调改到快速制冷模式"</text>
+    <text x="420" y="52" text-anchor="middle" font-size="11.5" fill="#646a73">ASR 转写后变成 query（查询文本）</text>
+    <!-- arrow 1 -->
+    <line x1="420" y1="62" x2="420" y2="98" stroke="#8a94a6" stroke-width="1.5" marker-end="url(#ar)"/>
+    <text x="432" y="84" font-size="11.5" fill="#646a73">拿 query 去匹配</text>
+    <!-- 检索 -->
+    <rect x="250" y="102" width="340" height="48" rx="10" fill="#fff" stroke="#3370ff" stroke-width="1.5"/>
+    <text x="420" y="123" text-anchor="middle" font-size="14" font-weight="700" fill="#3370ff">检索动态示例库</text>
+    <text x="420" y="141" text-anchor="middle" font-size="11.5" fill="#646a73">按语义相似度找最像的示例</text>
+    <!-- 库侧卡 -->
+    <rect x="620" y="88" width="262" height="86" rx="10" fill="#f7f8fa" stroke="#d0d5dd" stroke-dasharray="4 3"/>
+    <text x="751" y="108" text-anchor="middle" font-size="12" font-weight="700" fill="#646a73">示例库里有什么</text>
+    <text x="630" y="128" font-size="11" fill="#646a73">· 快速制冷→无此模式,给替代</text>
+    <text x="630" y="146" font-size="11" fill="#646a73">· 吹热风→结合温度分支…</text>
+    <text x="630" y="164" font-size="11" fill="#646a73">·（就是我们写的那些行）</text>
+    <line x1="620" y1="130" x2="592" y2="128" stroke="#b6bdc9" stroke-width="1.2" stroke-dasharray="4 3"/>
+    <!-- diamond -->
+    <polygon points="420,170 520,215 420,260 320,215" fill="#fffbe6" stroke="#ad6800" stroke-width="1.5"/>
+    <text x="420" y="211" text-anchor="middle" font-size="13" font-weight="700" fill="#ad6800">命中相似</text>
+    <text x="420" y="227" text-anchor="middle" font-size="13" font-weight="700" fill="#ad6800">示例？</text>
+    <!-- 是 down -->
+    <line x1="420" y1="260" x2="420" y2="298" stroke="#8a5cff" stroke-width="2" marker-end="url(#arp)"/>
+    <text x="432" y="284" font-size="12" font-weight="700" fill="#8a5cff">是 → 注入</text>
+    <!-- 否 right -->
+    <line x1="520" y1="215" x2="660" y2="215" stroke="#d4380d" stroke-width="1.5" marker-end="url(#ar)"/>
+    <text x="556" y="206" font-size="12" font-weight="700" fill="#d4380d">否</text>
+    <rect x="664" y="192" width="218" height="46" rx="10" fill="#fff1e8" stroke="#d4380d"/>
+    <text x="773" y="211" text-anchor="middle" font-size="12" font-weight="700" fill="#d4380d">不注入，SP 原样</text>
+    <text x="773" y="228" text-anchor="middle" font-size="11" fill="#d4380d">模型自由发挥 → 容易踩坑</text>
+    <!-- 注入槽位 -->
+    <rect x="250" y="302" width="340" height="48" rx="10" fill="#f0eafe" stroke="#8a5cff" stroke-width="2"/>
+    <text x="420" y="323" text-anchor="middle" font-size="14" font-weight="700" fill="#8a5cff">塞进 SP 的 {{scenario_sample}} 槽位</text>
+    <text x="420" y="341" text-anchor="middle" font-size="11.5" fill="#646a73">"场景示例"位置，和工具清单、注意事项并列</text>
+    <!-- SP组成 -->
+    <rect x="120" y="382" width="600" height="78" rx="10" fill="#fff" stroke="#3370ff" stroke-width="1.5"/>
+    <text x="420" y="402" text-anchor="middle" font-size="13.5" font-weight="700" fill="#1f2329">本轮 SP（系统提示词）= 角色 + 工具 + 注意事项 + 车辆知识 + <tspan fill="#8a5cff" font-weight="800">场景示例</tspan></text>
+    <rect x="150" y="414" width="540" height="34" rx="6" fill="#f0eafe" stroke="#8a5cff" stroke-dasharray="4 3"/>
+    <text x="420" y="436" text-anchor="middle" font-size="11.5" fill="#5b3ab8">场景示例：快速制冷→车辆无此模式，告知用户+给替代（温度调最低15.5℃、风量最大11档）</text>
+    <line x1="420" y1="350" x2="420" y2="378" stroke="#8a5cff" stroke-width="2" marker-end="url(#arp)"/>
+    <!-- arrow to 模型 -->
+    <line x1="420" y1="460" x2="420" y2="494" stroke="#8a94a6" stroke-width="1.5" marker-end="url(#ar)"/>
+    <text x="432" y="482" font-size="11.5" fill="#646a73">模型逐字读到这条示范</text>
+    <!-- 模型推理 -->
+    <rect x="250" y="498" width="340" height="48" rx="10" fill="#fff" stroke="#3370ff" stroke-width="1.5"/>
+    <text x="420" y="519" text-anchor="middle" font-size="14" font-weight="700" fill="#3370ff">Planner（云端大模型）做决策</text>
+    <text x="420" y="537" text-anchor="middle" font-size="11.5" fill="#646a73">模仿示例的推理路径，而不是瞎编</text>
+    <line x1="420" y1="546" x2="420" y2="580" stroke="#8a94a6" stroke-width="1.5" marker-end="url(#ar)"/>
+    <!-- 输出 -->
+    <rect x="220" y="584" width="400" height="56" rx="10" fill="#e3f5ec" stroke="#00875a" stroke-width="2"/>
+    <text x="420" y="606" text-anchor="middle" font-size="13.5" font-weight="700" fill="#00875a">输出：告知无快速制冷模式</text>
+    <text x="420" y="626" text-anchor="middle" font-size="12" fill="#00875a">并给替代：温度调 15.5℃ + 风量 11 档（调车控工具）</text>
+    <!-- 左注1 -->
+    <rect x="14" y="170" width="190" height="90" rx="10" fill="#fff" stroke="#d0d5dd"/>
+    <text x="109" y="190" text-anchor="middle" font-size="12" font-weight="700" fill="#1f2329">为什么每条要自包含</text>
+    <text x="24" y="210" font-size="11" fill="#646a73">检索是"单条命中"：</text>
+    <text x="24" y="228" font-size="11" fill="#646a73">模型只看得到被挑中的</text>
+    <text x="24" y="246" font-size="11" fill="#646a73">这一条，看不到其他行</text>
+    <line x1="204" y1="215" x2="316" y2="215" stroke="#b6bdc9" stroke-width="1.2" stroke-dasharray="4 3"/>
+    <!-- 左注2 -->
+    <rect x="14" y="376" width="190" height="96" rx="10" fill="#fff" stroke="#d0d5dd"/>
+    <text x="109" y="396" text-anchor="middle" font-size="12" font-weight="700" fill="#1f2329">为什么只写正确做法</text>
+    <text x="24" y="416" font-size="11" fill="#646a73">这段文字原样进 SP，</text>
+    <text x="24" y="434" font-size="11" fill="#646a73">模型会模仿看到的一切——</text>
+    <text x="24" y="452" font-size="11" fill="#646a73">写入故障描述=教它复述故障</text>
+    <line x1="204" y1="420" x2="246" y2="420" stroke="#b6bdc9" stroke-width="1.2" stroke-dasharray="4 3"/>
+  </svg>
+</div>
+
+<div class="explain">
+<b>看完图记三句话：</b>① 它不是常驻 SP 的，是<b>用完即走</b>——这轮命中这轮在，下轮没命中就不在；② 它是<b>参考答案</b>不是命令——模型参考它的推理路径自己决策；③ 它治的是"这<b>一</b>条 case"，所以叫"授模型以鱼"。
+</div>
+
+<h3>和静态示例的区别（一张表）</h3>
+<table>
+  <tr><th style="width:100px"></th><th>动态示例</th><th>静态示例</th></tr>
+  <tr><td><b>比喻</b></td><td>授模型以<b>鱼</b>——这条照做</td><td>授模型以<b>渔</b>——这类都会做</td></tr>
+  <tr><td><b>在哪</b></td><td>示例库里躺着，<b>检索命中才注入</b></td><td><b>常驻 SP</b>，每轮都在</td></tr>
+  <tr><td><b>治什么</b></td><td>低频、无法归类的<b>单点 bug</b></td><td>某一<b>类</b>问题的通用能力（如多轮任务拆解）</td></tr>
+  <tr><td><b>长什么样</b></td><td>query + 决策分析，<b>不要</b>完整 input/output</td><td>完整的多轮 input + output 示范</td></tr>
+</table>
+<p class="src">依据：《动态示例解bug指南》原文定义。</p>
+</section>
+
+<!-- ============ 2 什么时候用 ============ -->
+<section>
+<h2><span class="num">2</span>拿到一个 bug，怎么判断该不该写动态示例</h2>
+
+<div class="fig">
+  <div class="fig-title">图 2 · bug 分流判断流程（三个菱形，走到绿框才写动态示例）</div>
+  <svg viewBox="0 0 900 500" width="100%" xmlns="http://www.w3.org/2000/svg">
+    <defs><marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#8a94a6"/></marker></defs>
+    <rect x="30" y="205" width="150" height="56" rx="10" fill="#fff1e8" stroke="#d4380d" stroke-width="1.5"/>
+    <text x="105" y="228" text-anchor="middle" font-size="13.5" font-weight="700" fill="#d4380d">来一个 badcase</text>
+    <text x="105" y="246" text-anchor="middle" font-size="11" fill="#646a73">（含评测未通过项）</text>
+    <line x1="180" y1="233" x2="246" y2="233" stroke="#8a94a6" stroke-width="1.5" marker-end="url(#ar2)"/>
+    <!-- d1 -->
+    <polygon points="330,173 440,233 330,293 220,233" fill="#fffbe6" stroke="#ad6800" stroke-width="1.5"/>
+    <text x="330" y="222" text-anchor="middle" font-size="12.5" font-weight="700" fill="#ad6800">能提炼出一类</text>
+    <text x="330" y="238" text-anchor="middle" font-size="12.5" font-weight="700" fill="#ad6800">共性规律吗？</text>
+    <text x="330" y="256" text-anchor="middle" font-size="10.5" fill="#ad6800">（"还有几天""啥节气"=时间类）</text>
+    <!-- d1 是 -->
+    <line x1="330" y1="173" x2="330" y2="120" stroke="#8a94a6" stroke-width="1.5" marker-end="url(#ar2)"/>
+    <text x="342" y="150" font-size="12" font-weight="700" fill="#646a73">能</text>
+    <rect x="240" y="50" width="180" height="66" rx="10" fill="#e3f5ec" stroke="#00875a" stroke-width="1.5"/>
+    <text x="330" y="73" text-anchor="middle" font-size="13.5" font-weight="700" fill="#00875a">→ 写静态示例</text>
+    <text x="330" y="91" text-anchor="middle" font-size="11" fill="#646a73">一条教一类，常驻 SP</text>
+    <text x="330" y="107" text-anchor="middle" font-size="11" fill="#646a73">（别塞进动态示例库）</text>
+    <!-- d1 否 -->
+    <line x1="440" y1="233" x2="506" y2="233" stroke="#8a94a6" stroke-width="1.5" marker-end="url(#ar2)"/>
+    <text x="452" y="224" font-size="12" font-weight="700" fill="#646a73">不能，是孤例</text>
+    <!-- d2 -->
+    <polygon points="590,173 700,233 590,293 480,233" fill="#fffbe6" stroke="#ad6800" stroke-width="1.5"/>
+    <text x="590" y="222" text-anchor="middle" font-size="12.5" font-weight="700" fill="#ad6800">模型本来有能力、</text>
+    <text x="590" y="238" text-anchor="middle" font-size="12.5" font-weight="700" fill="#ad6800">只是走错路了吗？</text>
+    <text x="590" y="256" text-anchor="middle" font-size="10.5" fill="#ad6800">（工具用错/该拒没拒/参数越界）</text>
+    <!-- d2 是 -->
+    <line x1="700" y1="233" x2="766" y2="233" stroke="#8a94a6" stroke-width="1.5" marker-end="url(#ar2)"/>
+    <text x="712" y="224" font-size="12" font-weight="700" fill="#646a73">是</text>
+    <rect x="770" y="200" width="120" height="66" rx="10" fill="#e3f5ec" stroke="#00875a" stroke-width="2"/>
+    <text x="830" y="225" text-anchor="middle" font-size="14" font-weight="700" fill="#00875a">✓ 动态示例</text>
+    <text x="830" y="243" text-anchor="middle" font-size="10.5" fill="#646a73">单点纠偏最快</text>
+    <text x="830" y="259" text-anchor="middle" font-size="10.5" fill="#646a73">下轮就生效</text>
+    <!-- d2 否 down -->
+    <line x1="590" y1="293" x2="590" y2="340" stroke="#8a94a6" stroke-width="1.5" marker-end="url(#ar2)"/>
+    <text x="602" y="322" font-size="12" font-weight="700" fill="#646a73">不是能力选路问题</text>
+    <!-- d3 -->
+    <polygon points="590,344 700,399 590,454 480,399" fill="#fffbe6" stroke="#ad6800" stroke-width="1.5"/>
+    <text x="590" y="391" text-anchor="middle" font-size="12.5" font-weight="700" fill="#ad6800">是不是缺上下文？</text>
+    <text x="590" y="409" text-anchor="middle" font-size="10.5" fill="#ad6800">（蓝牙/童锁等端状态没上报，</text>
+    <text x="590" y="424" text-anchor="middle" font-size="10.5" fill="#ad6800">模型想分支也没数据）</text>
+    <!-- d3 是 -->
+    <line x1="480" y1="399" x2="300" y2="399" stroke="#8a94a6" stroke-width="1.5" marker-end="url(#ar2)"/>
+    <text x="352" y="390" font-size="12" font-weight="700" fill="#646a73">是</text>
+    <rect x="106" y="368" width="190" height="62" rx="10" fill="#fffbe6" stroke="#ad6800" stroke-width="1.5"/>
+    <text x="201" y="391" text-anchor="middle" font-size="13" font-weight="700" fill="#ad6800">先推端状态字段上报</text>
+    <text x="201" y="409" text-anchor="middle" font-size="11" fill="#646a73">字段有了，示例才写得动分支</text>
+    <text x="201" y="424" text-anchor="middle" font-size="11" fill="#646a73">（治本）</text>
+    <!-- d3 否 -->
+    <line x1="700" y1="399" x2="780" y2="399" stroke="#8a94a6" stroke-width="1.5" marker-end="url(#ar2)"/>
+    <text x="716" y="390" font-size="12" font-weight="700" fill="#646a73">也不是</text>
+    <rect x="784" y="368" width="106" height="62" rx="10" fill="#f2f3f5" stroke="#646a73" stroke-width="1.5"/>
+    <text x="837" y="391" text-anchor="middle" font-size="13" font-weight="700" fill="#646a73">→ SFT 训练</text>
+    <text x="837" y="409" text-anchor="middle" font-size="10.5" fill="#646a73">模型能力问题</text>
+    <text x="837" y="424" text-anchor="middle" font-size="10.5" fill="#646a73">示例治不了本</text>
+  </svg>
+</div>
+
+<div class="explain">
+<b>对照我们写的 case 走一遍：</b>"查看前方路况"走错工具→第二个菱形"有能力只是走错路"=是→动态示例；"离6月18日还有几天"这类→第一个菱形"能提炼共性"=是→静态示例（时间类一律先用 timestamp 时间戳）；"信息给全了还是推错"→走到灰框→SFT。
+</div>
+</section>
+
+<!-- ============ 3 怎么写 ============ -->
+<section>
+<h2><span class="num">3</span>怎么写：三种句式，先选句式再落笔</h2>
+
+<div class="fig">
+  <div class="fig-title">图 3 · 句式选择流程（两个菱形定句式，每种句式右边挂了真实 case）</div>
+  <svg viewBox="0 0 900 520" width="100%" xmlns="http://www.w3.org/2000/svg">
+    <defs><marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#8a94a6"/></marker></defs>
+    <rect x="30" y="215" width="140" height="52" rx="10" fill="#eef2ff" stroke="#3370ff" stroke-width="1.5"/>
+    <text x="100" y="237" text-anchor="middle" font-size="13.5" font-weight="700" fill="#3370ff">拿到一个 case</text>
+    <text x="100" y="255" text-anchor="middle" font-size="11" fill="#646a73">（query 定了）</text>
+    <line x1="170" y1="241" x2="226" y2="241" stroke="#8a94a6" stroke-width="1.5" marker-end="url(#ar3)"/>
+    <!-- d1 -->
+    <polygon points="310,183 410,241 310,299 210,241" fill="#fffbe6" stroke="#ad6800" stroke-width="1.5"/>
+    <text x="310" y="233" text-anchor="middle" font-size="12.5" font-weight="700" fill="#ad6800">这事车机</text>
+    <text x="310" y="249" text-anchor="middle" font-size="12.5" font-weight="700" fill="#ad6800">办得到吗？</text>
+    <!-- d1 办不到 up -->
+    <line x1="310" y1="183" x2="310" y2="130" stroke="#8a94a6" stroke-width="1.5" marker-end="url(#ar3)"/>
+    <text x="322" y="160" font-size="12" font-weight="700" fill="#646a73">办不到</text>
+    <rect x="150" y="40" width="320" height="86" rx="10" fill="#fff1e8" stroke="#d4380d" stroke-width="1.5"/>
+    <text x="310" y="60" text-anchor="middle" font-size="13.5" font-weight="700" fill="#d4380d">句式 C：拒答 + 替代引导</text>
+    <text x="160" y="80" font-size="11.5" fill="#646a73">模板：车辆无XX/无法查询：直接告知用户，</text>
+    <text x="160" y="97" font-size="11.5" fill="#646a73">可提议XX替代，<tspan font-weight="700" fill="#d4380d">不调用工具、不追问细节往下做</tspan></text>
+    <text x="160" y="115" font-size="11" fill="#8a94a6">真实 case：玻璃水 / 后备箱 / 脚托 / 浏览器 / 视频生成 / 香氛</text>
+    <!-- d1 办得到 right -->
+    <line x1="410" y1="241" x2="466" y2="241" stroke="#8a94a6" stroke-width="1.5" marker-end="url(#ar3)"/>
+    <text x="418" y="232" font-size="12" font-weight="700" fill="#646a73">办得到</text>
+    <!-- d2 -->
+    <polygon points="550,183 650,241 550,299 450,241" fill="#fffbe6" stroke="#ad6800" stroke-width="1.5"/>
+    <text x="550" y="225" text-anchor="middle" font-size="12.5" font-weight="700" fill="#ad6800">怎么做要看</text>
+    <text x="550" y="241" text-anchor="middle" font-size="12.5" font-weight="700" fill="#ad6800">当时状态吗？</text>
+    <text x="550" y="259" text-anchor="middle" font-size="10.5" fill="#ad6800">（温度/蓝牙/童锁/谁在说）</text>
+    <!-- d2 不依赖 up -->
+    <line x1="550" y1="183" x2="550" y2="130" stroke="#8a94a6" stroke-width="1.5" marker-end="url(#ar3)"/>
+    <text x="562" y="160" font-size="12" font-weight="700" fill="#646a73">不看，指令明确</text>
+    <rect x="510" y="40" width="330" height="86" rx="10" fill="#e3f5ec" stroke="#00875a" stroke-width="1.5"/>
+    <text x="675" y="60" text-anchor="middle" font-size="13.5" font-weight="700" fill="#00875a">句式 A：无需改写，调用 X 即可</text>
+    <text x="520" y="80" font-size="11.5" fill="#646a73">模板：无需改写，调用 X 工具（+做什么）即可；</text>
+    <text x="520" y="97" font-size="11.5" fill="#646a73">在范围内就<tspan font-weight="700" fill="#00875a">直接执行，不多问</tspan></text>
+    <text x="520" y="115" font-size="11" fill="#8a94a6">真实 case：切换壁纸 / 结束录音 / 风量3档 / 能量回收调高</text>
+    <!-- d2 依赖 down -->
+    <line x1="550" y1="299" x2="550" y2="346" stroke="#8a94a6" stroke-width="1.5" marker-end="url(#ar3)"/>
+    <text x="562" y="328" font-size="12" font-weight="700" fill="#646a73">要看状态分支</text>
+    <rect x="360" y="350" width="380" height="100" rx="10" fill="#f0eafe" stroke="#8a5cff" stroke-width="2"/>
+    <text x="550" y="371" text-anchor="middle" font-size="13.5" font-weight="700" fill="#8a5cff">句式 B：结合 XX 状态：情况 A…；情况 B…</text>
+    <text x="372" y="391" font-size="11.5" fill="#646a73">模板：结合 env_info/speaker_position（说话人位置）/对话历史：</text>
+    <text x="372" y="408" font-size="11.5" fill="#646a73">情况 A 就…；情况 B 则…。调用 X 工具。</text>
+    <text x="372" y="426" font-size="11" fill="#8a94a6">真实 case：吹热风(温度)/打电话(蓝牙)/车窗(童锁)/按摩(speaker_position)</text>
+    <text x="372" y="442" font-size="11" fill="#8a94a6">/ 巡航83(参数规整) / 高速高架(支持一半告知一半)</text>
+  </svg>
+</div>
+
+<h3>三种句式各看一条完整成品</h3>
+<table>
+  <tr><th style="width:80px">句式</th><th style="width:170px">Query</th><th>决策分析（入库原文）</th></tr>
+  <tr>
+    <td><b>A 直接执行</b></td><td>空调风量调到3档</td><td>3档在风量 1~11 档可调节范围内：直接调用 vehicle_basic_control（车控工具）调节，无需额外确认或改写。</td>
+  </tr>
+  <tr>
+    <td><b>B 状态分支</b></td><td>吹热风</td><td>结合 env_info（端状态）空调 A/C 状态和当前温度："吹热风"=制热，制热需 A/C 开启且温度≥27℃；若当前温度已≥27℃（如28℃），只需打开 A/C 即可，不得把温度调低到 27℃；若当前温度低于 27℃，则打开 A/C 并将温度调至 27℃。调用 vehicle_basic_control。</td>
+  </tr>
+  <tr>
+    <td><b>C 拒答</b></td><td>生成个小狗视频</td><td>视频生成超出车机能力（仅支持图片生成）：直接告知用户做不了视频生成，可提议生成一张小狗图片作为替代，不要追问视频风格继续往下做。</td>
+  </tr>
+</table>
+
+<div class="callout c-warn">
+  <div class="c-title">句式 B 是被点名最多、也最容易写废的一种</div>
+  罗丽批"必须结合 context（上下文）+说话人方位+对话历史"、郝晓伟批"模糊指令这么写有问题"——批的都是该写 B 却写成了 A（给个脱离状态的固定答案）。"我有点冷"没有标准答案：得写成"结合空调温度和座椅加热状态：温度低就调高空调；温度正常但座椅加热开着，先关加热看看"。
+</div>
+</section>
+
+<!-- ============ 4 case归类总览 ============ -->
+<section>
+<h2><span class="num">4</span>我们写的 30 条真实 case 归类总览 <span class="en">（拿来当模板库）</span></h2>
+
+<table>
+  <tr><th style="width:110px">类别</th><th style="width:60px">句式</th><th>真实 case（Query）</th><th style="width:280px">这条教模型什么</th></tr>
+  <tr><td rowspan="4"><b>无此模式<br>→告知+替代</b></td><td>C/B</td><td>空调改到快速制冷模式</td><td>无极速制冷：告知+温度15.5℃+风量11档替代</td></tr>
+  <tr><td>B</td><td>打开座椅的泰式按摩模式</td><td>8种模式内无"泰式"+结合 speaker_position 后排无按摩</td></tr>
+  <tr><td>B</td><td>按摩改成深层舒缓模式</td><td>"深层舒缓"就近归并到"舒缓"模式并告知</td></tr>
+  <tr><td>C/B</td><td>氛围灯 K 歌模式 / 驾驶模式越野</td><td>无此模式→告知+音乐律动/7种驾驶模式内推荐</td></tr>
+  <tr><td rowspan="5"><b>无此功能<br>→直接拒答</b></td><td>C</td><td>打开脚托</td><td>无脚托硬件，告知+提议腿托替代</td></tr>
+  <tr><td>C</td><td>打开香氛</td><td>无香氛硬件，告知无法控制</td></tr>
+  <tr><td>C</td><td>关闭浏览器</td><td>不支持，告知，不下发任何指令</td></tr>
+  <tr><td>C</td><td>生成个小狗视频</td><td>只能生成图片，拒答+图片替代，不追问</td></tr>
+  <tr><td>C</td><td>后备箱有什么 / 玻璃水余量</td><td>看不到/读不了，告知，不调用工具</td></tr>
+  <tr><td rowspan="3"><b>前置依赖<br>→先查状态</b></td><td>B</td><td>给妈妈打电话</td><td>结合 env_info 蓝牙：未连接先提示连接</td></tr>
+  <tr><td>B</td><td>把龙之梦加成途经点</td><td>需先有导航路线，没有就先提示发起导航</td></tr>
+  <tr><td>B</td><td>全部车窗打开</td><td>结合 env_info 童锁：开了就提示手动关童锁</td></tr>
+  <tr><td rowspan="3"><b>权限<br>→看谁在说</b></td><td>B</td><td>跟车距离调到2档</td><td>智驾功能仅主驾，结合 speaker_position</td></tr>
+  <tr><td>B</td><td>给10086打电话</td><td>拨打电话仅主驾</td></tr>
+  <tr><td>B</td><td>驾驶模式调到运动 / 能量回收 / Autohold</td><td>驾驶类控制仅主驾</td></tr>
+  <tr><td rowspan="2"><b>参数越界<br>→限幅/规整</b></td><td>B</td><td>空调温度调到35度</td><td>上限 30.5℃，告知+按上限调</td></tr>
+  <tr><td>B</td><td>巡航速度调到83</td><td>5 的整数倍：就近调 80 或澄清</td></tr>
+  <tr><td><b>部分支持</b></td><td>B</td><td>要不走高速高架的路</td><td>高速支持"不走"、高架不支持：执行一半+告知一半</td></tr>
+  <tr><td><b>范围内直执</b></td><td>A</td><td>风量3档 / 能量回收调高 / Autohold 打开</td><td>范围内直接调，不多问</td></tr>
+  <tr><td><b>问答非指令</b></td><td>A/C</td><td>孙燕姿都发表过哪些热门歌曲</td><td>问清单≠让播放，talk_content 直接答，不调工具</td></tr>
+  <tr><td><b>串行任务</b></td><td>B</td><td>删掉男洗手间和公共厕所两个途经点</td><td>一个一个删，等成功再删下一个，禁并行</td></tr>
+  <tr><td><b>物理操作项</b></td><td>C</td><td>打开雨刮器 / 前排遮光帘 / 方向盘往上调</td><td>有硬件不可语音：告知手动方式（拨杆/拉拽/手柄）</td></tr>
+</table>
+<p class="footnote">用法：以后来了新 case，先在这张表里找到它属于哪一行，照同类的决策分析套句式，比从零写快得多。</p>
+</section>
+
+<!-- ============ 5 实例走一遍 ============ -->
+<section>
+<h2><span class="num">5</span>一条示例在模型脑子里是怎么起作用的 <span class="en">（吹热风实例：有/无示例对比）</span></h2>
+
+<div class="fig">
+  <div class="fig-title">图 4 · 同一句"吹热风"，有没有动态示例，模型走的两条路</div>
+  <svg viewBox="0 0 900 430" width="100%" xmlns="http://www.w3.org/2000/svg">
+    <defs><marker id="ar4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#8a94a6"/></marker></defs>
+    <!-- 泳道标签 -->
+    <rect x="8" y="30" width="96" height="150" rx="10" fill="#fff1e8" stroke="#d4380d"/>
+    <text x="56" y="98" text-anchor="middle" font-size="13" font-weight="700" fill="#d4380d">没有示例</text>
+    <text x="56" y="118" text-anchor="middle" font-size="13" font-weight="700" fill="#d4380d">（实际踩的坑）</text>
+    <rect x="8" y="230" width="96" height="170" rx="10" fill="#e3f5ec" stroke="#00875a"/>
+    <text x="56" y="305" text-anchor="middle" font-size="13" font-weight="700" fill="#00875a">有示例</text>
+    <text x="56" y="325" text-anchor="middle" font-size="13" font-weight="700" fill="#00875a">（正确路径）</text>
+    <!-- 泳道A -->
+    <rect x="120" y="40" width="180" height="52" rx="10" fill="#fff" stroke="#d0d5dd"/>
+    <text x="210" y="62" text-anchor="middle" font-size="13" font-weight="700">用户："吹热风"</text>
+    <text x="210" y="80" text-anchor="middle" font-size="10.5" fill="#646a73">env_info：A/C 关、车内 28℃</text>
+    <line x1="300" y1="66" x2="356" y2="66" stroke="#8a94a6" stroke-width="1.5" marker-end="url(#ar4)"/>
+    <rect x="360" y="40" width="200" height="52" rx="10" fill="#fff" stroke="#d0d5dd"/>
+    <text x="460" y="62" text-anchor="middle" font-size="12.5" font-weight="700">模型想当然：</text>
+    <text x="460" y="80" text-anchor="middle" font-size="11" fill="#646a73">"制热=温度调到27℃"</text>
+    <line x1="560" y1="66" x2="616" y2="66" stroke="#8a94a6" stroke-width="1.5" marker-end="url(#ar4)"/>
+    <rect x="620" y="30" width="260" height="72" rx="10" fill="#fff1e8" stroke="#d4380d" stroke-width="1.5"/>
+    <text x="750" y="52" text-anchor="middle" font-size="12.5" font-weight="700" fill="#d4380d">把温度从 28℃ 调到 27℃</text>
+    <text x="750" y="70" text-anchor="middle" font-size="11" fill="#d4380d">越调越冷，还没开 A/C——</text>
+    <text x="750" y="88" text-anchor="middle" font-size="11" fill="#d4380d">评测判定：未通过 ✗</text>
+    <!-- 泳道B -->
+    <rect x="120" y="240" width="180" height="52" rx="10" fill="#fff" stroke="#d0d5dd"/>
+    <text x="210" y="262" text-anchor="middle" font-size="13" font-weight="700">用户："吹热风"</text>
+    <text x="210" y="280" text-anchor="middle" font-size="10.5" fill="#646a73">检索命中我们写的那条示例</text>
+    <line x1="300" y1="266" x2="336" y2="266" stroke="#8a94a6" stroke-width="1.5" marker-end="url(#ar4)"/>
+    <!-- diamond -->
+    <polygon points="420,222 510,266 420,310 330,266" fill="#fffbe6" stroke="#ad6800" stroke-width="1.5"/>
+    <text x="420" y="260" text-anchor="middle" font-size="12" font-weight="700" fill="#ad6800">读 env_info：</text>
+    <text x="420" y="276" text-anchor="middle" font-size="12" font-weight="700" fill="#ad6800">温度≥27℃？</text>
+    <!-- 是 -->
+    <line x1="510" y1="252" x2="580" y2="216" stroke="#00875a" stroke-width="1.5" marker-end="url(#ar4)"/>
+    <text x="520" y="222" font-size="11.5" font-weight="700" fill="#00875a">是（现在28℃）</text>
+    <rect x="584" y="186" width="296" height="56" rx="10" fill="#e3f5ec" stroke="#00875a" stroke-width="1.5"/>
+    <text x="732" y="208" text-anchor="middle" font-size="12.5" font-weight="700" fill="#00875a">只打开 A/C，温度不动</text>
+    <text x="732" y="226" text-anchor="middle" font-size="11" fill="#646a73">（制热=A/C开+温度≥27℃，已满足）</text>
+    <!-- 否 -->
+    <line x1="510" y1="282" x2="580" y2="330" stroke="#8a94a6" stroke-width="1.5" marker-end="url(#ar4)"/>
+    <text x="520" y="316" font-size="11.5" font-weight="700" fill="#646a73">否（比如22℃）</text>
+    <rect x="584" y="306" width="296" height="56" rx="10" fill="#fff" stroke="#00875a" stroke-width="1.5"/>
+    <text x="732" y="328" text-anchor="middle" font-size="12.5" font-weight="700" fill="#00875a">开 A/C + 温度调到 27℃</text>
+    <text x="732" y="346" text-anchor="middle" font-size="11" fill="#646a73">（升到制热门槛，不是越调越冷）</text>
+    <!-- 汇合 -->
+    <line x1="732" y1="242" x2="732" y2="386" stroke="#00875a" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#ar4)"/>
+    <line x1="732" y1="362" x2="732" y2="386" stroke="#00875a" stroke-width="1.5" marker-end="url(#ar4)"/>
+    <rect x="584" y="388" width="296" height="36" rx="10" fill="#e3f5ec" stroke="#00875a" stroke-width="2"/>
+    <text x="732" y="411" text-anchor="middle" font-size="12.5" font-weight="700" fill="#00875a">调 vehicle_basic_control，评测通过 ✓</text>
+  </svg>
+</div>
+
+<div class="explain">
+<b>这张图就是"教推理不硬背"的全部含义：</b>示例里没有写死"吹热风就开 A/C"，而是写了<b>怎么判断</b>（读温度、比 27℃）。所以换个温度（22℃）模型照样做对——它学到的是判断路径，不是固定答案。上面那条红泳道就是李强说的"死记硬背"：没有判断路径，模型只能瞎猜。
+</div>
+</section>
+
+<!-- ============ 6 写到什么程度 ============ -->
+<section>
+<h2><span class="num">6</span>写到什么程度：四要素验收线</h2>
+
+<table>
+  <tr><th style="width:140px">要素</th><th>合格标准</th><th>不合格长什么样</th></tr>
+  <tr><td><b>① 工具名准确</b></td><td>用线上真实工具名：route_planning / music_search / auto_drive / vehicle_communication_control / vehicle_basic_control / ambient_light_control</td><td>凭印象写 route_planning_qa、search_and_control_music，甚至虚构 media_search</td></tr>
+  <tr><td><b>② 状态分支具体</b></td><td>写明结合哪个字段、分几种情况、每种怎么办</td><td>只写"结合车机端状态"——结合什么状态？不知道</td></tr>
+  <tr><td><b>③ 改写措辞给出</b></td><td>需要改写 query 的，改写后的句子完整写出</td><td>"改写一下再搜"——改成什么？没说</td></tr>
+  <tr><td><b>④ 边界口径正确</b></td><td>数字/清单严格按 0706 边界：温度 15.5~30.5℃、按摩 8 种仅主副驾、风量 1~11 档、驾驶模式 7 种、巡航 30~130 且 5 的倍数</td><td>凭旧 SP 印象写 31℃、写"极速制冷"</td></tr>
+</table>
+
+<div class="callout c-warn">
+  <div class="c-title">不用写的（写了反而错）</div>
+  完整 talk_content 话术逐字稿（静态示例的活）；bug 复盘"之前错在哪"（放"其他说明"列，不进 SP）；多轮完整 input/output（指南明确不需要）。
+</div>
+</section>
+
+<!-- ============ 7 落地流程 ============ -->
+<section>
+<h2><span class="num">7</span>怎么落地：从 badcase 到入库五步</h2>
+
+<div class="fig">
+  <div class="fig-title">图 5 · 完整工作流程（每步下面是这步要干的具体事）</div>
+  <svg viewBox="0 0 900 210" width="100%" xmlns="http://www.w3.org/2000/svg">
+    <defs><marker id="ar5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#8a94a6"/></marker></defs>
+    <!-- step boxes -->
+    <g font-size="12">
+      <rect x="10" y="30" width="158" height="60" rx="10" fill="#eef2ff" stroke="#3370ff" stroke-width="1.5"/>
+      <text x="89" y="55" text-anchor="middle" font-size="14" font-weight="700" fill="#3370ff">① 归因</text>
+      <text x="89" y="75" text-anchor="middle" font-size="10.5" fill="#646a73">走错链路？工具描述？</text>
+      <line x1="168" y1="60" x2="186" y2="60" stroke="#8a94a6" stroke-width="1.5" marker-end="url(#ar5)"/>
+      <rect x="190" y="30" width="158" height="60" rx="10" fill="#eef2ff" stroke="#3370ff" stroke-width="1.5"/>
+      <text x="269" y="55" text-anchor="middle" font-size="14" font-weight="700" fill="#3370ff">② 判定</text>
+      <text x="269" y="75" text-anchor="middle" font-size="10.5" fill="#646a73">走图 2 三个菱形</text>
+      <line x1="348" y1="60" x2="366" y2="60" stroke="#8a94a6" stroke-width="1.5" marker-end="url(#ar5)"/>
+      <rect x="370" y="30" width="158" height="60" rx="10" fill="#eef2ff" stroke="#3370ff" stroke-width="1.5"/>
+      <text x="449" y="55" text-anchor="middle" font-size="14" font-weight="700" fill="#3370ff">③ 写条目</text>
+      <text x="449" y="75" text-anchor="middle" font-size="10.5" fill="#646a73">走图 3 选句式 A/B/C</text>
+      <line x1="528" y1="60" x2="546" y2="60" stroke="#8a94a6" stroke-width="1.5" marker-end="url(#ar5)"/>
+      <rect x="550" y="30" width="158" height="60" rx="10" fill="#eef2ff" stroke="#3370ff" stroke-width="1.5"/>
+      <text x="629" y="55" text-anchor="middle" font-size="14" font-weight="700" fill="#3370ff">④ 自查</text>
+      <text x="629" y="75" text-anchor="middle" font-size="10.5" fill="#646a73">过四要素验收线</text>
+      <line x1="708" y1="60" x2="726" y2="60" stroke="#8a94a6" stroke-width="1.5" marker-end="url(#ar5)"/>
+      <rect x="730" y="30" width="158" height="60" rx="10" fill="#e3f5ec" stroke="#00875a" stroke-width="2"/>
+      <text x="809" y="55" text-anchor="middle" font-size="14" font-weight="700" fill="#00875a">⑤ 入库复测</text>
+      <text x="809" y="75" text-anchor="middle" font-size="10.5" fill="#646a73">拿原 badcase 验证</text>
+    </g>
+    <!-- 每步细节 -->
+    <g font-size="10.5" fill="#646a73">
+      <text x="14" y="118">· 看 trace（调用链）</text>
+      <text x="14" y="136">· 对照工具定义</text>
+      <text x="14" y="154">· 定位错在哪一环</text>
+      <text x="194" y="118">· 单点→动态示例</text>
+      <text x="194" y="136">· 一类→静态示例</text>
+      <text x="194" y="154">· 能力差→SFT</text>
+      <text x="374" y="118">· query 用用户原话</text>
+      <text x="374" y="136">· 决策分析一句话</text>
+      <text x="374" y="154">· 复盘放"其他说明"</text>
+      <text x="554" y="118">· 工具名对线上</text>
+      <text x="554" y="136">· 边界数字对 0706</text>
+      <text x="554" y="154">· 单条自包含</text>
+      <text x="734" y="118">· 入动态示例库</text>
+      <text x="734" y="136">· 原 case 重放验证</text>
+      <text x="734" y="154">· 不过则改写法</text>
+    </g>
+  </svg>
+</div>
+
+<h3>最常见的五种死法（都是真实踩过的）</h3>
+<table>
+  <tr><th style="width:50%">死法</th><th>后果/教训</th></tr>
+  <tr><td>用【定位】【查】【分支】五要素符号框架写决策分析</td><td>被批"瞎写乱七八糟"，全部推翻重写——保持一句话人话</td></tr>
+  <tr><td>评测集只挑"未通过"的转，跳过"已通过"的</td><td>28 条漏了 13 条——评测集不管通过与否全量转</td></tr>
+  <tr><td>决策分析里写"并行会打断、只删成一个"等故障描述</td><td>被批"决策分析还是有些问题"——复盘挪到"其他说明"列</td></tr>
+  <tr><td>工具名凭印象写 route_planning_qa</td><td>线上叫 route_planning——先对主表/trace 再落笔</td></tr>
+  <tr><td>边界凭旧 SP 印象写（温度 31℃、极速制冷）</td><td>家越 07 是 30.5℃、无极速制冷——先查 0706 边界文档</td></tr>
+</table>
+
+<div class="callout c-key">
+  <div class="c-title">往后看一步：动态示例 → SFT</div>
+  团队现在的策略是 bug 统一转 SFT（监督微调）解决。动态示例在这个阶段的角色：<b>先快速验证"这条决策路径对不对"，验证过的条目就是现成的训练数据</b>。所以现在每条都按"query+决策分析"规范写，将来转 SFT 时直接可用，不用返工。
+</div>
+</section>
+
+</div>
+</body>
+</html>

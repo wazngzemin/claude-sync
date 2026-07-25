@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>触发器 PRD v9 · 超详版（参照 导航POI-PRD v4 格式）</title>
+<style>
+:root{--ink:#1e293b;--grey:#64748b;--line:#e2e8f0;--cloud:#2563eb;--edge:#ea580c;--user:#7c3aed;--exit:#16a34a;--warn:#dc2626;--gold:#b45309}
+*{box-sizing:border-box}
+body{margin:0;background:#f1f5f9;color:var(--ink);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;line-height:1.78;font-size:14.5px}
+.wrap{max-width:1040px;margin:0 auto;padding:34px 22px 140px}
+h1{font-size:1.7rem;margin:0 0 4px}
+.sub{color:var(--grey);font-size:.98rem;margin-bottom:18px}
+h2{font-size:1.35rem;margin:44px 0 8px;padding:18px 0 6px;border-top:2px solid var(--ink);color:var(--ink)}
+h3{font-size:1.12rem;margin:28px 0 4px;color:#334155;padding-left:8px;border-left:3px solid var(--user)}
+h4{font-size:1rem;margin:18px 0 4px;color:#475569}
+p{margin:6px 0}.mini{color:var(--grey);font-size:.84rem}
+table{border-collapse:collapse;width:100%;margin:10px 0;font-size:.86rem;background:#fff;border-radius:8px;overflow:hidden}
+th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+th{background:#f8fafc;font-weight:700}
+.k{font-family:ui-monospace,Menlo,monospace;background:#f1f5f9;padding:1px 5px;border-radius:3px;font-size:.88em}
+pre{background:#1e293b;color:#e2e8f0;padding:11px 14px;border-radius:7px;font-size:.8rem;overflow-x:auto;font-family:ui-monospace,Menlo,monospace;line-height:1.5;margin:8px 0}
+.note{border-radius:8px;padding:10px 14px;margin:10px 0;font-size:.92rem}
+.nb{background:#eff6ff;border:1px solid #bfdbfe}.nr{background:#fef2f2;border:1px solid #fecaca}
+.ng{background:#fffbeb;border:1px solid #fde68a}.nx{background:#f0fdf4;border:1px solid #bbf7d0}
+.big{background:var(--ink);color:#fff;border-radius:10px;padding:13px 18px;margin:12px 0}.big b{color:#fcd34d}
+/* case card */
+.case-card{border:2px solid var(--user);border-radius:11px;padding:13px 17px;margin:14px 0;background:#fdfbff}
+.case-tag{display:inline-block;background:var(--user);color:#fff;font-size:.74rem;font-weight:700;padding:2px 10px;border-radius:11px;margin-bottom:7px}
+.case-quote{font-size:1.05rem;font-weight:700;color:#1e1b4b;margin:3px 0 6px}
+.case-meta{font-size:.86rem;color:#475569}
+.case-meta b{color:var(--ink)}
+/* walkthrough table */
+.wt{font-size:.85rem}
+.wt .step{background:var(--user);color:#fff;font-weight:800;text-align:center;width:34px;font-size:.95rem}
+.wt .mod{font-weight:700;color:var(--cloud);width:130px;background:#f8fafc}
+.wt .mod.edge{color:var(--edge)}.wt .mod.exit{color:var(--exit)}
+.wt .do b{color:var(--ink)}
+.wt tr.star td{background:#fffbeb}.wt .star-mark{color:var(--gold);font-weight:800}
+.toc{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px 20px;margin:12px 0;font-size:.86rem;columns:2;column-gap:30px}
+.toc a{color:#334155;text-decoration:none;display:block;padding:2px 0;break-inside:avoid}.toc a:hover{color:var(--user)}
+.toc .h{font-weight:800;color:var(--ink);margin-top:5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Driver Agent 2.0 触发器系统 PRD v9 · 超详版</h1>
+<div class="sub">参照《导航POI靠近触发-PRD v4》格式 · 三大类场景 × 每 case 逐 step 走查（注册段+触发段）· 时刻表 · 状态机 · 逐模块 owner · 基于 7.2 / 7.3 / 7.4 三场评审纪要</div>
+
+<div class="big">读法：每个 case 都是<b>两段走查</b>——第一段"注册+配置"（用户说话或运营配置那一刻的几秒～十几秒），第二段"判定+触发+执行"（可能是很久之后）。每段是<b>带序号的 step 表</b>，标清①②③模块图标、owner、做什么、JSON 输出、⭐决策点。前 6 节是地基（定位/分工/主链路/状态机），§7 是四个代表 case 的完整走查，§8 起是契约/异常/依赖/验收。</div>
+
+<div class="toc">
+<a class="h" href="#s1">§1 背景 · 痛点 · 决策记录</a>
+<a class="h" href="#s2">§2 目标 · 典型场景</a>
+<a class="h" href="#s3">§3 技术方案：云端触发器+端侧触发器</a>
+<a class="h" href="#s4">§4 核心难点：为什么不能"信号一变就触发"</a>
+<a href="#s41">4.1 数字走查 · 4.2 闸门链状态机 · 4.3 三个坑</a>
+<a class="h" href="#s5">§5 三类Case区别（静态/动态/预设）</a>
+<a class="h" href="#s6">§6 完整链路：四阶段闭环</a>
+<a class="h" href="#s7">§7 四个Case完整走查（核心）</a>
+<a href="#c1">Case1 低电量推荐·已导航(静态)</a>
+<a href="#c2">Case2 照看宝宝哭了(动态)</a>
+<a href="#c3">Case3 充电桩开盖(预设A)</a>
+<a href="#c4">Case4 雾天雾灯(预设A·双向)</a>
+<a class="h" href="#s8">§8 信号清单 + 事件定义</a>
+<a class="h" href="#s9">§9 异常 · 降级 · 安全红线</a>
+<a class="h" href="#s10">§10 各方依赖与分工</a>
+<a class="h" href="#s11">§11 验收标准 · 待确认 · 风险</a>
+</div>
+
+<!-- ============= §1 ============= -->
+<h2 id="s1">§1 背景 · 痛点 · 决策记录</h2>
+<h3>1.1 现状与痛点</h3>
+<p>豆包上车系统里会"动脑子"的东西（Director / Advisor / VLM）都是模型，模型有个物理限制——<b>只在你叫它的那一秒活着</b>。你不问 Director 不想，不触发 Advisor 不出主意，不给画面 VLM 不看。可现实世界一直在变：电量在掉、车在接近目的地、宝宝随时会醒、用户 10 分钟前说的事到点了要办。</p>
+<table>
+<tr><th>痛点</th><th>具体表现</th><th>没有触发器时会怎样</th></tr>
+<tr><td>模型不会自己盯世界</td><td>Director/Advisor/VLM 都是被动的</td><td>"10分钟后关加热""电量低了推荐充电"这类条件任务没人盯</td></tr>
+<tr><td>条件任务已达 90+ 条</td><td>静态 45 + 动态视觉 35 + 预设 20+</td><td>各场景各写一套逻辑不可维护</td></tr>
+<tr><td>端云必须协同</td><td>定时器要本地（断网不停）、VLM 在端侧（隐私）、判定在云端（算力）</td><td>纯云断网就瘫、纯端没算力判语义</td></tr>
+<tr><td>Context 不会主动通知</td><td>7.4 庆磊/超然/刘正伟三方确认 Context 是只读存储</td><td>Advisor 想知道"宝宝哭没哭"只能自己轮询，1 万辆车成本爆炸</td></tr>
+</table>
+
+<h3>1.2 方案演进历程</h3>
+<table>
+<tr><th>时间</th><th>事件</th><th>结论</th></tr>
+<tr><td>5/28</td><td>触发器边界大吵</td><td>定调：云端负责注册+仲裁，端侧负责触发判断，不双判</td></tr>
+<tr><td>6/22</td><td>西钺警告"别开发两个触发器"</td><td>逻辑上一个触发器、物理上拆两半</td></tr>
+<tr><td>6/30</td><td>端侧 VLM 会议</td><td>SP 拼接归云端触发器；事件判断能力要新增</td></tr>
+<tr><td>7/2</td><td>第一次 VLM 评审</td><td><b>紫线不通过</b>（依赖下游消费链路未定）；超然质疑"为啥绕端状态"</td></tr>
+<tr><td>7/3</td><td>晓伟动态 Advisor 设计会</td><td>动态 Advisor 主链路 tap 通过；VLM 只描述不判断；视觉条件降级成定时任务</td></tr>
+<tr><td>7/4</td><td>第二次 VLM 评审（紫线续评）</td><td><b>仍不通过</b>；回传"绕Context"被仁杰+超然+庆磊三人推翻；红黄线挂泽民名下</td></tr>
+</table>
+
+<h3>1.3 关键决策记录</h3>
+<table>
+<tr><th>决策点</th><th>结论</th><th>谁拍的</th><th>来源</th></tr>
+<tr><td>触发器分云端+端侧</td><td>逻辑一个、物理两半（断网/掐表/摄像头 vs 解冲突/懂人话/登记）</td><td>6.22 全员</td><td>6.22 会</td></tr>
+<tr><td>SP 谁拼</td><td><b>云端触发器拼</b>（纯字符串拼接+管槽位，非语义理解）</td><td>6.30 西钺</td><td>6.30 会</td></tr>
+<tr><td>VLM 做不做判断</td><td><b>不做</b>，只客观描述；判断放云端 Advisor</td><td>7.3 晓伟拍板</td><td>7.3 会</td></tr>
+<tr><td>视觉条件任务怎么落</td><td><b>降级成定时任务</b>（端上不支持条件任务）</td><td>7.3 庆磊+晓伟</td><td>7.3 会</td></tr>
+<tr><td>回传走哪条路</td><td><b>混合：原路返回为主 + 异步落 Context 审计</b></td><td>泽民带方案（仁杰/超然/庆磊推翻纯绕Context后）</td><td>7.4 会</td></tr>
+<tr><td>红黄线归谁</td><td><b>黄线+红线都归泽民</b>（"黄色和红色都是你这"）</td><td>7.4 张荣</td><td>7.4 会</td></tr>
+<tr><td>异常策略</td><td>周期压包丢弃/one_shot暂存续发/TTL有效期/timeout红线</td><td>7.4 全场无异议</td><td>7.4 会</td></tr>
+</table>
+
+<!-- ============= §2 ============= -->
+<h2 id="s2">§2 目标 · 典型场景</h2>
+<h3>2.1 本期（云端触发器评审）要达成</h3>
+<ol>
+<li><b>注册校验 + iCanDo 能力清单</b>：所有任务先过云端这道关口（查能力/查重/内容审查）</li>
+<li><b>判定闸门链</b>：条件判定 → 穿越 → 防抖 → 冷却 → 仲裁（12 种运算符 + AND/OR）</li>
+<li><b>事件判断三层</b>：L1 枚举零成本 / L2 提槽极低 / L3 模型限流（回应"1 万辆车"）</li>
+<li><b>出口路由</b>：白名单车控 / push Advisor / callback Director 四出口</li>
+<li><b>回传混合方案带审</b>：B 为主 + 异步落 A 档（§7 Case2 详）</li>
+</ol>
+<p class="mini"><b>不含</b>：端侧触发器（嘉锋口径 P1/818，本次不评）；动态 Advisor 视觉订阅细节（DNA-616 专题）。</p>
+
+<h3>2.2 典型场景（四类代表）</h3>
+<table>
+<tr><th>场景</th><th>用户/来源</th><th>系统行为</th><th>背后能力</th><th>分类</th></tr>
+<tr><td>低电量推荐沿途充电</td><td>电量降到阈值（系统主动）</td><td>结合导航路线推荐沿途充电站作途经点</td><td>云端判定+出行Advisor推理</td><td>静态 Advisor</td></tr>
+<tr><td>照看后排宝宝哭了告诉我</td><td>"照看宝宝，哭了告诉我"</td><td>持续盯梢，哭了主动提醒</td><td>动态Advisor+拼SP+VLM周期看</td><td>动态 Advisor</td></tr>
+<tr><td>充电桩自动开充电口盖</td><td>挂P档+视觉确认有充电桩</td><td>白名单直执开盖免下车</td><td>端侧配置+车况穿越+oneshot VLM回证</td><td>预设·车况A</td></tr>
+<tr><td>雾天自动开后雾灯</td><td>识别到雾天（系统主动）</td><td>开雾灯，雾散了自动关</td><td>天气信号contains+双向触发</td><td>预设·车况A</td></tr>
+</table>
+
+<!-- ============= §3 ============= -->
+<h2 id="s3">§3 技术方案：云端触发器 + 端侧触发器</h2>
+<h3>3.1 核心原理</h3>
+<p>触发器 = 门口的保安 + 床头的闹钟。便宜的、不用模型的判断（等于/大于/变更为）由它 7×24 做；贵的、要模型的语义推理只在条件命中那一秒被叫醒。用"运算符"挡住 99% 的噪音，让模型只处理 1% 值得处理的时刻。</p>
+
+<h3>3.2 两半各自干什么（模块组件表）</h3>
+<table>
+<tr><th>组件</th><th>谁</th><th>干什么</th><th>频率/触发</th></tr>
+<tr><td><b>☁️ 注册校验</b></td><td>云端触发器</td><td>查 iCanDo 能力清单 + 内容审查 + 查重 → 放行/驳回</td><td>注册时一次</td></tr>
+<tr><td><b>☁️ 场景库</b></td><td>云端触发器</td><td>持久化所有生效规则，带 TTL/状态/last_result</td><td>持续</td></tr>
+<tr><td><b>☁️ 信号扫描</b></td><td>云端触发器</td><td>变更驱动为主（信号变了才动）+ 5s 心跳兜底；反向索引 key→场景</td><td>变更即触发</td></tr>
+<tr><td><b>☁️ 条件判定引擎</b></td><td>云端触发器</td><td>12 运算符 + AND/OR 复合，取信号快照求值</td><td>每次候选</td></tr>
+<tr><td><b>☁️ 穿越/防抖/冷却/仲裁</b></td><td>云端触发器</td><td>只认 F→T 边沿 / 连续 K 帧稳定 / 频控四维 / 多事件按优先级</td><td>每次 True</td></tr>
+<tr><td><b>☁️ 事件判断三层</b></td><td>云端触发器</td><td>L1 枚举直接判 / L2 caption 抠词 / L3 大模型限流</td><td>caption 类才走</td></tr>
+<tr><td><b>☁️ SP 拼接</b></td><td>云端触发器</td><td>动态 Advisor 临时想看的拼进端侧 always-on 槽位（最多3）</td><td>动态任务</td></tr>
+<tr><td><b>☁️ 出口路由</b></td><td>云端触发器</td><td>按 source+action 路由：白名单车控 / push Advisor / callback Director</td><td>每次命中</td></tr>
+<tr><td><b>🚗 AlwaysOn 点火</b></td><td>端侧触发器</td><td>开关 AI Box 周期任务：舱外3s / 舱内动态5s / 舱内静态更慢</td><td>上电/下电/Button</td></tr>
+<tr><td><b>🚗 本地定时器</b></td><td>端侧触发器</td><td>"10分钟后关加热"本地掐表，断网也准，最多循环30次</td><td>注册时启</td></tr>
+<tr><td><b>🚗 VLM 调度</b></td><td>端侧触发器</td><td>调摄像头、跑哪个任务、优先级、超时释放</td><td>按 SP 周期</td></tr>
+<tr><td><b>🚗 判死规矩</b></td><td>端侧触发器</td><td>只认硬条件（R变P、超30度），不判语义</td><td>信号变更</td></tr>
+<tr><td><b>🚗 白名单车控直执</b></td><td>端侧触发器</td><td>断网下本地直接触发简单车控，不绕云</td><td>命中即执</td></tr>
+<tr><td><b>🚗 透传上报</b></td><td>端侧触发器</td><td>VLM 结果按端状态协议往上送（走混合回传方案）</td><td>每周期</td></tr>
+</table>
+
+<h3>3.3 三个最容易串台的名词（先分清）</h3>
+<table>
+<tr><th>名词</th><th>是什么</th><th>关键界定</th></tr>
+<tr><td><b>感知器/触发器</b></td><td>调度器，不是模型</td><td>VLM 每 5 秒是触发器的逻辑，不是模型自己</td></tr>
+<tr><td><b>VLM</b></td><td>端侧视觉大模型</td><td><b>只客观描述、不判断、不给时序</b>；"宝宝闭眼安静"是描述，"哭了没"是判断</td></tr>
+<tr><td><b>VQA</b></td><td>拍一张问一次答一次</td><td>能联网、单次排队、不走端状态、用完即走不落 Context</td></tr>
+</table>
+
+<h3>3.4 交接铁律 + 上下行链路</h3>
+<div class="note nr"><b>铁律：不许上游直接捅端侧。</b>Advisor/Planner 想让端侧看点什么，必须先经云端触发器（6.30 西钺"不行，先到云端"）。<br/>
+<b>下行</b>（任务下发）：Planner/Advisor → 云端触发器(校验+拼SP) → 端侧触发器(注入 AI Box 周期任务)<br/>
+<b>上行</b>（结果回云）：定版=混合方案，详见 §6.4 / §7 Case2</div>
+
+<!-- ============= §4 ============= -->
+<h2 id="s4">§4 核心难点：为什么不能"信号一变就触发"</h2>
+<h3 id="s41">4.1 数字走查：低电量场景的真实数据</h3>
+<p>假设直接配"<span class="k">battery_level ≤ 20%</span>"就触发，看会怎样：</p>
+<table>
+<tr><th>时刻</th><th>电量</th><th>如果配"≤20%就触发"</th><th>正确行为</th></tr>
+<tr><td>8:00</td><td>25%</td><td>不触发 ✅</td><td>不触发 ✅</td></tr>
+<tr><td>8:15</td><td>21%</td><td>不触发 ✅</td><td>不触发 ✅</td></tr>
+<tr><td>8:20</td><td>20%（首次跨阈）</td><td><b>触发 ✅</b></td><td><b>触发 ✅</b></td></tr>
+<tr><td>8:21</td><td>20%（持续）</td><td><b>又触发 ❌ 重复弹窗</b></td><td>不触发（穿越自锁）</td></tr>
+<tr><td>8:25</td><td>19%</td><td><b>又触发 ❌</b></td><td>不触发</td></tr>
+<tr><td>8:30</td><td>22%（充了点）</td><td>不触发</td><td>不触发</td></tr>
+<tr><td>8:35</td><td>20%（又降回来）</td><td><b>触发 ❌ 二次骚扰</b></td><td>不触发（冷却：本次上电已推过）</td></tr>
+</table>
+<div class="note ng"><b>所以不能只判"≤20%"，要有完整闸门链：</b>① 条件判定（≤20%）② <b>穿越</b>（只认 F→T 边沿，持续为真不重触）③ <b>冷却/频控</b>（本次上电推过一次就不再推）。三道闸门缺一不可。</div>
+
+<h3 id="s42">4.2 闸门链状态机（云端运行，每次信号变更执行）</h3>
+<table>
+<tr><th>当前状态</th><th>转换条件</th><th>目标状态</th><th>产出</th><th>云端动作</th></tr>
+<tr><td><b>未命中</b>（初始）</td><td>条件求值=True 且 last_result=False</td><td>候选</td><td>—</td><td>进穿越判定</td></tr>
+<tr><td><b>候选</b></td><td>last=F 且 this=T（首次 F→T）</td><td>已穿越</td><td>—</td><td>进防抖判定</td></tr>
+<tr><td><b>候选</b></td><td>last=T 且 this=T（持续为真）</td><td>未命中</td><td>—</td><td>不触发（穿越自锁）</td></tr>
+<tr><td><b>已穿越</b></td><td>连续 K 帧稳定 True</td><td>防抖通过</td><td>—</td><td>进冷却判定</td></tr>
+<tr><td><b>已穿越</b></td><td>第 n&lt;K 帧变 False</td><td>未命中</td><td>—</td><td>计数清零（排除误识别）</td></tr>
+<tr><td><b>防抖通过</b></td><td>频控未触顶（如 per_power_cycle 0/1）</td><td><b>触发</b></td><td><b>事件</b></td><td>出口路由 → push 下游</td></tr>
+<tr><td><b>防抖通过</b></td><td>频控已触顶</td><td>未命中</td><td>—</td><td>本周期忽略，下次上电重置</td></tr>
+<tr><td><b>触发</b></td><td>下游已消费</td><td>未命中（last=T）</td><td>—</td><td>等下次 F→T</td></tr>
+</table>
+
+<h3 id="s43">4.3 三个必须处理的坑</h3>
+<table>
+<tr><th>坑</th><th>具体场景</th><th>处理方案</th></tr>
+<tr><td><b>坑1 · 持续为真反复触发</b></td><td>电量持续 1 小时低于 20%</td><td><b>穿越闸门</b>：只认 F→T 边沿，T→T 不触发（见上表"候选→未命中"）</td></tr>
+<tr><td><b>坑2 · 单帧误识别</b></td><td>VLM 某一帧误报"宝宝哭了"，下一帧又"安静"</td><td><b>防抖闸门</b>：连续 K=3 帧 True 才算，单帧误报被清零</td></tr>
+<tr><td><b>坑3 · 频控维度不一</b></td><td>"本次上电1次"vs"本次行程1次"vs"每日1次"</td><td><b>冷却四维</b>：per_power_cycle / per_day / per_lifecycle / min_interval，配置表里每个场景标清（找益红定口径）</td></tr>
+</table>
+
+<!-- ============= §5 ============= -->
+<h2 id="s5">§5 三类 Case 区别（静态 / 动态 / 预设）</h2>
+<table>
+<tr><th>维度</th><th>静态 Advisor（黄线）</th><th>动态 Advisor（红线）</th><th>预设条件任务</th></tr>
+<tr><td><b>条件从哪来</b></td><td>配置平台预配（车况+视觉+导航+时间组合）</td><td>用户对话即时拆解（开放需求）</td><td>车企出厂预配（A车况/B视觉/C组合）</td></tr>
+<tr><td><b>VLM 信号有没有约定</b></td><td>有（已精调枚举：年龄/位置/情绪）</td><td><b>没有</b>（毯子掉没掉从没约定过）</td><td>A无 / B有（welcome_composite）/ C看子类</td></tr>
+<tr><td><b>要不要拼 SP</b></td><td>不用（直接订阅 Context 已有信号）</td><td><b>要</b>（临时拼一句让 VLM 顺便看）</td><td>A不用 / B不用 / C看子类</td></tr>
+<tr><td><b>出口给谁</b></td><td>push 静态 Advisor（出行/情感/舒适/内容）</td><td>push 动态 Advisor</td><td>A白名单车控直执 / B+C push Director</td></tr>
+<tr><td><b>为什么这么分</b></td><td>推荐什么要 Advisor 查 Context 想</td><td>开放需求没现成信号，必须拼 SP 临时看</td><td>A动作预设明确可直执；B/C分发执行</td></tr>
+<tr><td><b>成本量级</b></td><td>低（条件大都是枚举，L1 直判）</td><td><b>高</b>（caption 多，可能走 L3）→ 三层漏斗+限流</td><td>低（A/B 都是 L1）</td></tr>
+<tr><td><b>代表 case</b></td><td>低电量推荐、低温暖手、单人问候</td><td>照看宝宝、留意小狗、OK手势仪式</td><td>充电桩开盖、雾天雾灯、迎宾空间</td></tr>
+<tr><td><b>评审状态</b></td><td>本次评（45条）</td><td>DNA-616 专题（35条）</td><td>7.2 P0/确认（20条）</td></tr>
+</table>
+
+<!-- ============= §6 ============= -->
+<h2 id="s6">§6 完整链路：四阶段闭环</h2>
+<table>
+<tr><th>阶段</th><th>什么时候</th><th>干什么</th><th>在哪里</th></tr>
+<tr><td><b>Phase A · 注册+配置</b></td><td>运营配规则 / 用户说话那一刻（几秒～十几秒）</td><td>配置平台配场景 / 动态 Advisor 拆解需求 → 云端注册校验 → 入库</td><td>云端（动态含端侧 ASR）</td></tr>
+<tr><td><b>Phase B · 信号监听+判定</b></td><td>持续运行（可能很久）</td><td>信号变更驱动扫描 → 闸门链判定（穿越/防抖/冷却/仲裁）</td><td>云端（视觉信号来自端侧）</td></tr>
+<tr><td><b>Phase C · 触发+执行</b></td><td>命中那一刻（事件后 1～5 秒）</td><td>出口路由 → 白名单车控直执 / push Advisor 推理 / callback Director</td><td>云端（A 类车控在端侧直执）</td></tr>
+<tr><td><b>Phase D · 生命周期管理</b></td><td>触发后/取消/过期</td><td>one_shot 自锁 / frozen（用户拒绝）/ TTL 过期清理 / 动态任务还原 SP</td><td>云端</td></tr>
+</table>
+<h3>6.5 回传通道（上行）定版：混合方案</h3>
+<div class="note nb"><b>★ 定版 = 方案 B（原路返回）为主 + 异步落 A 档（Context 审计）</b><br/>
+方案 A（6.30）：端侧结果→信号库→Context→云端轮询监听 → 被仁杰/超然/庆磊三人推翻（"绕"、两小时无效计算）<br/>
+方案 B（仁杰7.4）：谁下发 SP 谁原路返回 → 实时低延迟，但纯 B 不落 Context 丢审计<br/>
+<b>混合</b>：实时触发走原路返回（回应"绕"），同时异步落 Context（守铁律②审计+多消费方）。<b>关键话术：原路返回的终点仍是云端触发器，判断权没变</b>，变的只是不再轮询 Context。要找仁杰+意图 SDK 侧定"谁调返回给谁"的改造。</div>
+
+<!-- ============= §7 四个 Case 走查 ============= -->
+<h2 id="s7">§7 四个 Case 完整走查（核心 · 参照 POI-PRD v4 §7 颗粒度）</h2>
+
+<!-- ===== Case 1 静态 ===== -->
+<h3 id="c1">Case 1：低电量推荐-已发起导航（静态 Advisor · 出行）</h3>
+<div class="case-card">
+<div class="case-tag">静态 Advisor · 出行服务 · P0</div>
+<div class="case-quote">"电量低于 20% 了，车主动推荐沿途充电站作途经点"</div>
+<div class="case-meta"><b>分类理由</b>：条件=车况(battery)+导航(nav.status)双信号，已在配置平台预配 → 静态类<br/><b>触发条件</b>：battery ≤ X% AND nav=导航中 · L1 枚举零成本<br/><b>触发后动作</b>：push 出行 Advisor → 查沿途站 → Director 弹窗+TTS → 用户确认 → 加途经点<br/><b>频控</b>：一次上电周期仅一次 · 3min 失效</div>
+</div>
+
+<h4>第一段：配置 + 注册（运营配场景的那一刻，一次性）</h4>
+<table class="wt">
+<tr><th>Step</th><th>模块/谁</th><th>做什么 + 输出</th></tr>
+<tr><td class="step">1</td><td class="mod">⑬ 配置平台<br/>益红</td><td>运营在火山后台配场景"低电量推荐-已发起导航"：功能1-条件=`battery≤X% AND nav=导航中` / 功能1-执行=`TTS+弹窗` / 功能2-条件=`用户确认` / 功能2-执行=`加途经点` / 推荐间隔=`一次上电1次` / 失效时长=`3min`</td></tr>
+<tr><td class="step">2</td><td class="mod">⑮-1 注册校验<br/>云端触发器</td><td>校验：<span class="k">battery_level</span> 在 CAN 表 ✅ / <span class="k">nav.status</span> 在端状态 ✅ / 加途经点动作在能力清单 ✅ → 放行</td></tr>
+<tr><td class="step">3</td><td class="mod">⑮-2 入库<br/>云端触发器</td><td>持久化场景规则，初始 status=1 / last_result=false / per_power_cycle=0/1。反向索引建立：key=<span class="k">battery_level</span> → 本场景；key=<span class="k">nav.status</span> → 本场景</td></tr>
+</table>
+<p class="mini">配置完成，触发器持有一条生效规则，等信号变化。</p>
+
+<h4>第二段：判定 + 推理 + 执行（用户开车导航中，电量持续下降，半小时后）</h4>
+<table class="wt">
+<tr><th>Step</th><th>模块/谁</th><th>做什么 + 输出</th></tr>
+<tr><td class="step">4</td><td class="mod edge">端侧 CAN<br/>CDC</td><td>用户开车导航中，电量从 25% 持续下降。CDC 每秒上报 <span class="k">battery_level</span> 到云端端状态：<br/>25% → 24% → ... → 21% → <b>20%</b> @t=0</td></tr>
+<tr><td class="step">5</td><td class="mod">⑮-3 信号扫描<br/>云端触发器</td><td>检测到 <span class="k">battery_level</span> 变更（变更驱动，非轮询）→ 反向索引命中本场景 → 取当前所有信号快照</td></tr>
+<tr><td class="step">6</td><td class="mod">⑮-4 条件判定<br/>云端触发器</td><td>取快照做 AND：① battery_level=20 ≤ X(20) ✅ ② nav.status="导航中" ✅ → raw_result=True。<b>L1 枚举直接比较，零模型成本</b></td></tr>
+<tr><td class="step star">7 ⭐</td><td class="mod">⑮-5 穿越<br/>云端触发器</td><td>查 last_result：25%时=False，20%时=True → <b>F→T 首次穿越</b>！状态翻转 → 进防抖。<br/>（若 21%→20%→21%→20% 抖动，防抖 K=1 帧即过；车况信号不做 K=3 防抖，因为 CAN 信号本身稳定）</td></tr>
+<tr><td class="step">8</td><td class="mod">⑮-7 冷却<br/>云端触发器</td><td>查 per_power_cycle 计数：0/1 → 未触顶 → 通过，计数变 1/1。<b>本次上电即使电量再降也不再触发</b></td></tr>
+<tr><td class="step">9</td><td class="mod exit">⑮-11 出口路由<br/>云端触发器</td><td>按 source=static_advisor → <b>push 出行 Advisor</b>，同时<b>启动 3min 计时器</b>（到期发 <span class="k">event_expired</span>）<br/>事件 payload：<pre>{event_type:"low_battery_navigating", payload:{battery:20, dest:"浦东机场", remain_km:68}, scene_id:"..."}</pre></td></tr>
+<tr><td class="step">10</td><td class="mod">⑯ 出行 Advisor<br/>云端推理</td><td>Advisor 收到事件 → <b>查 Context</b>（导航路线上 5km 内的充电站 POI + 用户偏好 + 历史充电记录）→ 选评分 4.8 + 顺路 +3min 的站 → 生成建议：<pre>{suggestion:"XX充电站", detour:"+3min", talk:"电量偏低，沿途有充电站，要不要顺路补个能？"}</pre></td></tr>
+<tr><td class="step">11</td><td class="mod exit">⑳ Director<br/>云端</td><td>收到建议 → 弹窗（标题"电量偏低"/文案"沿途有充电站可补能"）+ TTS「要不要顺路补个能？」→ <b>3min 响应窗口开始倒数</b></td></tr>
+<tr><td class="step">12 ⭐</td><td class="mod">用户响应<br/>三种走向</td><td><b>✅ 用户说"好的"</b>（t+2.5s）→ 功能2 触发：<span class="k">route_add_waypoint("XX充电站")</span> → 导航重算 ETA+3min → 播报"已添加途经点" → <b>闭环完成</b><br/><b>🚫 用户说"不用了"</b> → 记 <span class="k">user_rejected</span> → 本行程 frozen（下次上电重置）<br/><b>⏳ 3min 沉默</b> → ⑮ 计时器到期发 <span class="k">event_expired</span> → 弹窗自动消失（Advisor 无状态不计时，所以计时在触发器侧）</td></tr>
+</table>
+<h4>边界 case 与异常</h4>
+<table>
+<tr><th>情况</th><th>处理</th></tr>
+<tr><td>附近/沿途无充电站（搜索空）</td><td>Advisor 降级改生成纯提示"附近暂无充电站，建议留意电量" → 只 TTS 不弹窗（无可执行动作就不弹）</td></tr>
+<tr><td>用户突然取消导航</td><td><span class="k">nav.status</span> 变"未发起" → 条件② False → 场景自然失效，无需专门处理</td></tr>
+<tr><td>3min 计时在哪做</td><td><b>触发器侧</b>（push 时启计时器）。理由：Advisor 无状态不维护计时。这条 7.4 评审确认</td></tr>
+<tr><td>battery 信号 TTL 过期</td><td>场景 frozen，不拿过期数据误触发</td></tr>
+</table>
+
+<!-- ===== Case 2 动态 ===== -->
+<h3 id="c2">Case 2：照看后排宝宝哭了告诉我（动态 Advisor · 红线）</h3>
+<div class="case-card">
+<div class="case-tag">动态 Advisor · 红线 · DNA-616</div>
+<div class="case-quote">"帮我照看后排宝宝，哭了告诉我"</div>
+<div class="case-meta"><b>分类理由</b>：用户对话即时拆解的开放需求，"哭没哭"VLM 没约定过 → 动态类，要拼 SP<br/><b>触发条件</b>：baby_emotion change_to "crying" · L1 枚举（已精调）零成本<br/><b>触发后动作</b>：push 动态 Advisor → 结合 Context 出建议 → Director TTS+调低音量<br/><b>防抖</b>：连续 3 帧 · <b>过期</b>：30min · 频控：min_interval=60s</div>
+</div>
+
+<h4>第一段：拆解 + 拼 SP + 下发（用户说话的那 ~10 秒）</h4>
+<table class="wt">
+<tr><th>Step</th><th>模块/谁</th><th>做什么 + 输出</th></tr>
+<tr><td class="step">1</td><td class="mod">①用户语音 ②ASR<br/>端侧</td><td>用户说"帮我照看后排宝宝，哭了告诉我"。ASR 转文字：<br/><span class="k">text = "帮我照看后排宝宝，哭了告诉我"</span></td></tr>
+<tr><td class="step">2</td><td class="mod">⑳ Director<br/>云端</td><td>Director 判断这是<b>长时任务</b>（要持续盯，不是马上办）→ 调 <span class="k">goal_list_update</span> 工具创建目标 + 创建动态 Advisor ⑰。<br/>注：视觉条件类任务<b>必须降级成定时任务</b>注册（7.3 拍板，端上不支持条件任务）</td></tr>
+<tr><td class="step">3</td><td class="mod">⑰ 动态 Advisor<br/>云端推理</td><td>Advisor 拆解感知订阅请求（给的是<b>人话</b>不是 SP）：<pre>{source:"dynamic_advisor", scene_id:"DYN-D-BABY-031",
+conditions:[{signal_key:"baby_emotion", operator:"change_to", threshold:"crying"}],
+actions:[{type:"push_advisor", target:"dynamic_advisor"}],
+debounce:{type:"frame", value:3}, expire_at:now+30min,
+original_query:"帮我照看宝宝", min_interval:60}</pre></td></tr>
+<tr><td class="step">4</td><td class="mod">⑮-1 注册校验<br/>云端触发器</td><td>校验 <span class="k">baby_emotion</span> 在 VLM 表（舱内动态 AlwaysOn）✅ → 放行。入库 last_result=false / debounce_count=0 / expire_at=now+30min</td></tr>
+<tr><td class="step">5 ⭐</td><td class="mod">⑮-10 SP 拼接<br/>云端触发器</td><td><b>查端侧空闲槽位</b>（舱内 always-on 有固定槽，最多拼3个动态）→ 拼入槽位 1：<br/>SP = 原 always-on SP + "请特别注意后排婴儿情绪，如看到哭泣/不适请在 emotion 字段标注"<br/>task_name = <span class="k">baby_emotion</span><br/><b>为什么触发器拼不是 Advisor 拼</b>：只有触发器知道端侧现在有几个槽、都被谁占了（资源调度归管资源的）</td></tr>
+<tr><td class="step">6</td><td class="mod">⑮-12 下发端侧<br/>云端→端</td><td>规则包 incremental 推送 ㉔：<pre>{type:"incremental", rules:[{scene_id:"DYN-D-BABY-031",
+sp_content:"...", slot_id:1, task_name:"baby_emotion",
+debounce:{type:"frame",value:3}, expire_at:now+30min}]}</pre></td></tr>
+<tr><td class="step">7</td><td class="mod edge">㉔ 24-8 SP 注入<br/>端侧</td><td>注入 AI Box always-on 槽位 1 → AI Box 下个 5s 周期开始观测 <span class="k">baby_emotion</span></td></tr>
+</table>
+<p class="mini">注册完成。端侧 VLM 多了一个观察任务"看宝宝情绪"，每 5 秒跑一次。</p>
+
+<h4>第二段：观测 + 判定 + 触发（用户开车，宝宝安静，20 分钟后哭了）</h4>
+<table class="wt">
+<tr><th>Step</th><th>模块/谁</th><th>做什么 + 输出</th></tr>
+<tr><td class="step">8</td><td class="mod edge">AI Box 观测<br/>端侧</td><td><b>端侧 5 秒 = 生产端</b>（7.3 庆磊确认）。VLM 每 5 秒看一次后排，<b>只描述不判断</b>：<br/>前 19 分钟（240 帧）输出 <span class="k">{emotion:"calm", desc:"后排婴儿安静"}</span> → 上云写 Context</td></tr>
+<tr><td class="step">9</td><td class="mod edge">㉔ 回传<br/>端侧→云</td><td><b>走混合方案</b>：AI Box → ㉔ → <b>原路返回云端触发器</b>（1 RTT）+ 同时落 Context 审计</td></tr>
+<tr><td class="step">10</td><td class="mod">⑮-14 L1 判定<br/>云端触发器</td><td>第 1～240 帧：baby_emotion 是已精调枚举 → <b>L1 直接 eq "crying"? → False</b>（是 calm）→ 不穿越。<b>零模型成本</b></td></tr>
+<tr><td class="step">11 ⭐</td><td class="mod edge">AI Box 第 241 帧<br/>端侧</td><td>第 20 分钟，宝宝哭了 → 输出 <span class="k">{emotion:"crying", desc:"后排婴儿面部有泪痕在哭泣"}</span></td></tr>
+<tr><td class="step">12 ⭐</td><td class="mod">⑮-14 L1 判定<br/>云端触发器</td><td>emotion eq "crying" → True（L1 零成本，已精调字段直接比较）</td></tr>
+<tr><td class="step">13</td><td class="mod">⑮-5 穿越</td><td>last=False（前 240 帧）→ this=True → <b>F→T 首次穿越</b>！状态翻转</td></tr>
+<tr><td class="step">14</td><td class="mod">⑮-6 防抖</td><td>需连续 3 帧 True（K=3，排除单帧误识别）。当前第 1/3 帧 → 等 5s 后第 2 帧、第 3 帧<br/>（oneshot 插队丢帧时防抖容忍空窗、计数不清零——西钺 7.4）</td></tr>
+<tr><td class="step">15</td><td class="mod">⑮-7 冷却</td><td>min_interval=60s，last_triggered=null → 通过</td></tr>
+<tr><td class="step">16</td><td class="mod exit">⑮-11 出口</td><td>source=dynamic_advisor → <b>push 动态 Advisor</b>：<pre>{event_type:"baby_crying", payload:{desc:"...", duration:"刚开始"}, scene_id:"DYN-D-BABY-031"}</pre></td></tr>
+<tr><td class="step">17</td><td class="mod">⑰ 动态 Advisor<br/>云端推理</td><td>结合 Context（车速 60 + 高速）→ 推理"不建议停车，先语音安抚" → 出 advice</td></tr>
+<tr><td class="step">18</td><td class="mod exit">⑳ Director</td><td>TTS「宝宝好像在哭呢，要不要回头看看？」+ 调低媒体音量 20%</td></tr>
+</table>
+<h4>两个频率别混（评审必问 · 7.3 庆磊反复确认）</h4>
+<table>
+<tr><th>频率</th><th>是什么</th><th>谁定的</th></tr>
+<tr><td><b>端侧 5 秒</b></td><td><b>生产端</b>：VLM always-on 循环，不管云端要不要，SP 拼进来就每 5 秒跑、上报文本（"没哭没哭…直到哭了"）</td><td>VLM 识别能力</td></tr>
+<tr><td><b>云端 30 秒</b></td><td><b>消费端</b>：触发器注册的定时器，到点踢 Advisor 一下让它去 Context 取最新文本判一次（<b>本 case 走原路返回不走这条</b>，但兜底方案走这条）</td><td>任务需要</td></tr>
+</table>
+<p class="mini">两者解耦。庆磊原话："触发器每 30 秒去检查最新宝宝情绪；VLM 按自己频率定时上报文本，就像空调温度、车窗状态那种。"</p>
+<h4>边界 case 与异常</h4>
+<table>
+<tr><th>情况</th><th>处理</th></tr>
+<tr><td>30min 到期</td><td>⑮-2 标 expire → 通知 ㉔ 删 SP → 槽位 1 还原 → push Advisor "任务已结束"</td></tr>
+<tr><td>用户提前说"不用了"</td><td>Director 解析取消 → ⑮-11 发 <span class="k">task_cancelled</span> → 删场景 + SP 还原</td></tr>
+<tr><td><b>🚨 VLM timeout</b></td><td>写 <span class="k">{status:"timeout"}</span> 进 Context（<b>安全红线，绝不写"正常"</b>）→ Advisor 自决是否告警"视觉系统暂不可用，建议留意后排"</td></tr>
+<tr><td>L3 模型不可用（caption 类）</td><td>场景 frozen + 告警，<b>不降级为默认 True</b>（防误触发）。本 case baby_emotion 走 L1 不受影响</td></tr>
+<tr><td>用户在 HMI 删任务</td><td>走"模拟 query"/notification（第四种消息）回传 Director，不能只在 trigger 删（7.3 晓伟）</td></tr>
+</table>
+
+<!-- ===== Case 3 充电桩 ===== -->
+<h3 id="c3">Case 3：充电桩自动开充电口盖（预设 · 车况 A · P0）</h3>
+<div class="case-card">
+<div class="case-tag">预设条件 · 车况A · P0 · 链式触发 · 白名单直执</div>
+<div class="case-quote">"倒车入库停好，视觉确认有充电桩，自动开充电口盖免下车"</div>
+<div class="case-meta"><b>分类理由</b>：赛力斯提的需求、车出厂预配在<b>端侧配置平台</b>，条件=车况(档位)+视觉(充电桩)<br/><b>触发条件</b>：① vehicle.states change_to P ② charging_pile eq 有（oneshot VLM 回证）· 均 L1<br/><b>触发后动作</b>：白名单车控直执 open_charging_port<br/><b>频控</b>：一次停车周期仅一次</div>
+</div>
+<h4>第一段：配置（车企出厂预配，一次性）</h4>
+<table class="wt">
+<tr><th>Step</th><th>模块/谁</th><th>做什么</th></tr>
+<tr><td class="step">1</td><td class="mod edge">端侧配置平台<br/>刘杨+泽民</td><td>赛力斯提需求，车出厂预配 <span class="k">PRESET-A-CHARGING-001</span>：<br/>条件①=<span class="k">vehicle.states change_to P</span> / 条件②=<span class="k">charging_pile eq 有</span>（oneshot）/ 动作=<span class="k">open_charging_port</span> / per_power_cycle=1<br/><b>这条从静态 watcher 拆出来给端侧触发器管</b>（带视觉的预设条件）</td></tr>
+</table>
+<h4>第二段：车况穿越 → 视觉回证 → 白名单开盖（用户停车那一刻）</h4>
+<table class="wt">
+<tr><th>Step</th><th>模块/谁</th><th>做什么 + 输出</th></tr>
+<tr><td class="step">2</td><td class="mod edge">用户挂 P 档<br/>端侧 CAN</td><td>用户倒车入库，档位 R → P @t=0。CDC 上报 <span class="k">vehicle.states: R→P</span></td></tr>
+<tr><td class="step">3 ⭐</td><td class="mod">⑮-4 判定①+穿越</td><td>change_to P：R=F→P=T <b>首次穿越</b>（不是 ==P，避免每 5s 扫描都触）→ 通过条件①</td></tr>
+<tr><td class="step">4 ⭐</td><td class="mod">⑮-10 派发 oneshot</td><td>条件②需 VLM 确认"有没有充电桩" → 下发端侧 oneshot VQA 任务（非周期，按需调用）<br/><b>为什么要回证</b>：光挂 P 不代表在充电桩旁（可能只是倒车），必须看一眼防车控幻觉</td></tr>
+<tr><td class="step">5</td><td class="mod edge">㉔ 24-9 点火派发<br/>端侧</td><td>调度 VLM 做单次识别（优先级插队 always-on）→ VLM 看车位后视</td></tr>
+<tr><td class="step">6</td><td class="mod edge">AI Box VQA<br/>端侧</td><td>识别车位有没有充电桩 → 输出 <span class="k">{charging_pile:"有"}</span>（端侧即用即弃不留前帧）</td></tr>
+<tr><td class="step">7</td><td class="mod edge">㉔ 回传<br/>端侧→云</td><td><b>oneshot 走原路返回</b>（可靠优先：网络波动暂存续发一次，不像周期类压包丢弃）</td></tr>
+<tr><td class="step">8 ⭐</td><td class="mod">⑮-14 判定②</td><td>charging_pile eq "有" → True（L1 枚举，丁彬表"舱外元素识别"行）</td></tr>
+<tr><td class="step">9</td><td class="mod">⑮-7 冷却</td><td>per_power_cycle 0/1 → 通过，计数变 1/1</td></tr>
+<tr><td class="step">10</td><td class="mod exit">⑮-11 出口<br/>白名单直执</td><td>source=preset_vehicle + action=vehicle_control + <span class="k">open_charging_port</span> 在白名单 ✅ → <b>白名单车控直执</b>（端侧直接调车控，不经 Advisor/Director，最快路径 &lt;1s）+ 可选 TTS「已为您打开充电口盖」</td></tr>
+</table>
+<h4>边界 case 与异常</h4>
+<table>
+<tr><th>情况</th><th>处理</th></tr>
+<tr><td>VLM timeout</td><td>写 <span class="k">charging_pile:timeout</span> → 不开盖 → 可选 TTS「未确认到充电桩，如需开盖请说一声」（不重试，下轮自然覆盖）</td></tr>
+<tr><td>VLM 返回"无"</td><td>条件② False → 不触发（用户只是倒车不在充电桩旁）</td></tr>
+<tr><td>白名单查不到</td><td>降级 push Director 问"要不要开盖"</td></tr>
+<tr><td>车控失败</td><td>重试 1 次仍失败 → TTS 报错 + push Director</td></tr>
+<tr><td>性能</td><td>oneshot VLM 按需调用约 1.5s（1080P，丁彬 7.2），挂 P 后 1.5s 开盖体感"立即"</td></tr>
+</table>
+<div class="note ng"><b>评审接招（庆磊 7.4 把丁彬问懵的那条）</b>：庆磊"这任务哪来的？存哪？"→ 答：<b>系统预设任务，赛力斯提、车出厂配在端侧配置平台</b>（不是云端）；<b>端侧触发器盯两个条件</b>；<b>端侧只出"有没有充电桩"结果，开不开的综合决策不在端上</b>（要参考别的信息+语音确认，但本 case 决策简单可直接白名单直执）。<br/>庆磊接着问"那不就是静态 watcher 吗"→ 把"带视觉的预设条件"从 watcher 拆出来给端侧触发器，是<b>端侧触发器的系统预设任务</b>。</div>
+
+<!-- ===== Case 4 雾灯 ===== -->
+<h3 id="c4">Case 4：天气路况保护-雾天后雾灯（预设 · 车况 A · P0 · 双向触发）</h3>
+<div class="case-card">
+<div class="case-tag">预设条件 · 车况A · P0 · 双向触发 · 白名单直执</div>
+<div class="case-quote">"识别到雾天自动开后雾灯，雾散了自动关"</div>
+<div class="case-meta"><b>分类理由</b>：车企预配，条件=天气信号（舱外 always-on 3s 周期）<br/><b>触发条件</b>（拆两个独立场景）：开启=weather_type 含"雾" / 恢复=weather_type 变更为不含"雾" · L1 contains<br/><b>触发后动作</b>：白名单车控 open/close_rear_fog_light<br/><b>频控</b>：双向各自独立 · 默认 per_day=2</td></tr></div>
+</div>
+<h4>第一段：配置（略，同 Case3 在端侧配置平台预配 A2-1 开启 + A2-2 恢复两条独立场景）</h4>
+<h4>第二段：天气变化 → 双向触发（用户开车遇到雾段）</h4>
+<table class="wt">
+<tr><th>Step</th><th>模块/谁</th><th>做什么</th></tr>
+<tr><td class="step">1</td><td class="mod edge">AI Box 舱外 always-on<br/>端侧 3s</td><td>舱外 always-on 每 3 秒识别天气路况 → 输出 <span class="k">weather_type</span>（enum：晴/多云/雨/雾/大雾/雪…）</td></tr>
+<tr><td class="step">2 ⭐</td><td class="mod">⑮-4 判定（开启方向）</td><td>weather_type contains [雾,大雾] → 从"晴"变为"雾" → <b>contains 首次命中</b>（A2-1 场景）</td></tr>
+<tr><td class="step">3</td><td class="mod">⑮-5 穿越+冷却</td><td>F→T 穿越 · per_day 0/2 → 通过计数 1/2</td></tr>
+<tr><td class="step">4</td><td class="mod exit">白名单直执</td><td><span class="k">open_rear_fog_light</span> + TTS「已为您开启后雾灯」</td></tr>
+<tr><td class="step">5 ⭐</td><td class="mod">⑮-4 判定（恢复方向）</td><td>半小时后雾散了，weather_type 变更为"多云"（不含雾）→ A2-2 场景 contains 反向命中</td></tr>
+<tr><td class="step">6</td><td class="mod exit">白名单直执</td><td><span class="k">close_rear_fog_light</span> + TTS「已关闭后雾灯」</td></tr>
+</table>
+<h4>边界 case 与异常</h4>
+<table>
+<tr><th>情况</th><th>处理</th></tr>
+<tr><td><b>用户手动关雾灯（意图优先）</b></td><td>检测到 <span class="k">fog_light_switch=off</span> → 标"用户意图" → 本周期 frozen 不再自动开 → 直到下次 weather_type 变更（写在场景"暂停推荐"字段）</td></tr>
+<tr><td>天气数据源失效</td><td>降级用 VLM 舱外 always-on（"天气描述"enum 含"浓雾"，3s 周期）。外部天气为主、VLM 为备</td></tr>
+<tr><td>多源冲突</td><td>触发器只看配置指定的一个信号源，多源融合不在触发器层解决</td></tr>
+<tr><td>持续雾天反复触发</td><td>per_day=2 频控拦截（冷却闸门）</td></tr>
+</table>
+
+<h3>§7.5 四个 Case 对比总结</h3>
+<table>
+<tr><th>维度</th><th>Case1 低电量(静态)</th><th>Case2 照看宝宝(动态)</th><th>Case3 充电桩(预设A)</th><th>Case4 雾灯(预设A·双向)</th></tr>
+<tr><td>条件来源</td><td>配置平台预配</td><td>用户对话即时拆解</td><td>端侧配置平台预配</td><td>端侧配置平台预配</td></tr>
+<tr><td>拼 SP 吗</td><td>不拼</td><td><b>拼（槽位1）</b></td><td>不拼（oneshot VQA）</td><td>不拼</td></tr>
+<tr><td>VLM 角色</td><td>无</td><td>周期观测（5s）</td><td>oneshot 回证（1次）</td><td>舱外 always-on（3s）</td></tr>
+<tr><td>出口</td><td>push 出行 Advisor</td><td>push 动态 Advisor</td><td>白名单车控直执</td><td>白名单车控直执</td></tr>
+<tr><td>判定层</td><td>L1（battery+nav）</td><td>L1（baby_emotion 已精调）</td><td>L1（charging_pile enum）</td><td>L1（weather contains）</td></tr>
+<tr><td>成本</td><td>零模型</td><td>零模型（已精调）</td><td>oneshot 1.5s/次</td><td>零模型</td></tr>
+<tr><td>关键风险</td><td>无站/拒绝/沉默</td><td>timeout 安全红线</td><td>VLM 误判开错盖</td><td>用户意图优先</td></tr>
+</table>
+
+<!-- ============= §8 ============= -->
+<h2 id="s8">§8 信号清单 + 事件定义</h2>
+<h3>8.1 已有信号（端状态 ✅）</h3>
+<table>
+<tr><th>来源</th><th>key</th><th>类型</th><th>供方</th></tr>
+<tr><td>CAN 车控</td><td><span class="k">vehicle.states</span>(D/P/R/N) / <span class="k">battery_level</span> / temperature / speed</td><td>enum/数值</td><td>CDC 韩杰</td></tr>
+<tr><td>导航</td><td><span class="k">nav.status</span> / <span class="k">nav.distance</span> / <span class="k">nav.destination_type</span></td><td>enum/数值</td><td>韩杰</td></tr>
+<tr><td>VLM 舱内低频 5min</td><td>位置/性别/年龄/造型/物品/不安全因素</td><td>enum+caption</td><td>丁彬 7.5</td></tr>
+<tr><td>VLM 舱内高频 5s</td><td>动作神态/<span class="k">baby_emotion</span>/动态查询结果</td><td>caption+enum</td><td>丁彬 7.5</td></tr>
+<tr><td>VLM 舱外 3s</td><td><span class="k">weather_type</span> / 路面情况 / <span class="k">charging_pile</span></td><td>enum</td><td>丁彬 7.5</td></tr>
+<tr><td>舱外迎宾</td><td><span class="k">welcome_composite</span>（大件-婴儿-行动不便 三段拼）</td><td>enum</td><td>丁彬 7.5</td></tr>
+<tr><td>外部天气</td><td>weather_type / AQI / PM2.5</td><td>enum/数值</td><td>天气服务</td></tr>
+</table>
+<h3>8.2 新增信号缺口 N1-N7（🟠 待建，不阻塞主链路）</h3>
+<table>
+<tr><th>#</th><th>信号</th><th>供场景</th><th>供方</th><th>状态</th></tr>
+<tr><td>N1</td><td>familiar_route（熟路标识+route_id）</td><td>熟路PLUS</td><td>赛力斯识别</td><td>待定协议</td></tr>
+<tr><td>N2</td><td>page_id+behavior+次数</td><td>用车助手</td><td>赛力斯研发埋点</td><td>阈值待定</td></tr>
+<tr><td>N3</td><td>exhibit_mode（展销开关）</td><td>AI 展销</td><td>车机模式系统</td><td>待新增</td></tr>
+<tr><td>N4</td><td>test_drive（试驾路线）</td><td>试驾小结</td><td>展销应用/导航</td><td>可与N3合并</td></tr>
+<tr><td>N5/N6</td><td>行程日程 + 结构化 ETA</td><td>行程异常提醒</td><td>行程管家/导航</td><td>核心堵点</td></tr>
+<tr><td>N7</td><td>语音 query 意图</td><td>试驾语言条件</td><td>待定</td><td>另拉会</td></tr>
+</table>
+<h3>8.3 事件判断三层（回应"1 万辆车"成本战）</h3>
+<table>
+<tr><th>层</th><th>判什么</th><th>怎么判</th><th>延迟</th><th>成本</th><th>覆盖</th></tr>
+<tr><td>L1 枚举</td><td>已精调结构化字段</td><td>直接 eq/change_to/contains</td><td>&lt;1ms</td><td><b>0</b></td><td>~80%</td></tr>
+<tr><td>L2 承诺词提槽</td><td>caption 字符串</td><td>关键词/正则/小模型</td><td>&lt;10ms</td><td>极低</td><td>~15%</td></tr>
+<tr><td>L3 模型兜底+限流</td><td>caption 复杂语义</td><td>云端大模型</td><td>200-500ms</td><td>有（限流）</td><td>~5%</td></tr>
+</table>
+<p class="mini"><b>限流</b>：1 次/分钟/辆，1 万辆=167 QPS 可接受。<b>降级</b>：L3 不可用→场景 frozen+告警，不降级默认True。<b>接招</b>：庆磊/刘杨"挪触发器不还是云端推理"→对，<b>挪模块不省钱，省钱靠分层+限流</b>。仁杰"端模输出Y/N"被西钺否（端模没精调控不住格式）。</p>
+
+<!-- ============= §9 ============= -->
+<h2 id="s9">§9 异常 · 降级 · 安全红线</h2>
+<h3>9.1 异常处理总表（7.4 评审通过 + 各 case 特有）</h3>
+<table>
+<tr><th>异常</th><th>处理</th><th>设计原则</th><th>来源</th></tr>
+<tr><td>网络波动·端到云积压</td><td>周期类压包丢弃只传最新 / one_shot 暂存续发一次</td><td>周期=时效优先 / one_shot=可靠优先</td><td>7.4 通过</td></tr>
+<tr><td>VLM 推理超时</td><td>写 <span class="k">timeout</span> 进 Context（<b>绝不写"正常"</b>）</td><td>不重试，下轮自然覆盖</td><td>—</td></tr>
+<tr><td>VLM 模型崩溃 failed</td><td>重试 1 次 → 仍失败 → 告警 + 标 degraded</td><td>有限重试不死循环</td><td>—</td></tr>
+<tr><td>信号源离线（TTL 过期）</td><td>信号作废 → 依赖场景 frozen</td><td>防过期数据触发错误逻辑</td><td>7.4 通过</td></tr>
+<tr><td>云端触发器不可用</td><td>端侧定时器照跑（断网容错）</td><td>端侧独立性</td><td>—</td></tr>
+<tr><td>L3 模型不可用</td><td>场景 frozen + 告警（<b>不降级默认True</b>）</td><td>宁可不触发不误触发</td><td>—</td></tr>
+<tr><td>时序脏数据（人换座位）</td><td>切换时先上报空数据清前值</td><td>防旧 face_id 误判</td><td>超然 7.4</td></tr>
+<tr><td>用户拒绝推荐</td><td>记 user_rejected → 本行程 frozen</td><td>不打扰用户</td><td>配置表</td></tr>
+<tr><td>3min 失效（弹窗类）</td><td>触发器启 3min 计时器 → 到期发 event_expired</td><td>避免弹窗长期挂起</td><td>配置表</td></tr>
+<tr><td>HMI 删任务</td><td>走模拟query/notification 回传 Director</td><td>不能只在 trigger 删</td><td>7.3 晓伟</td></tr>
+</table>
+<h3>9.2 安全红线（永不执行）</h3>
+<div class="note nr">行驶中开门窗（speed&gt;0 拦截）/ 行驶中调座椅 / 智驾中接管 / 儿童在座儿童锁需二次确认。<br/><b>三条不变式</b>：① 宁可不触发不误触发 ② 异常必须可见不静默吞 ③ 端侧断网也要活（已下发承诺端侧独立兑现）</div>
+
+<!-- ============= §10 ============= -->
+<h2 id="s10">§10 各方依赖与分工</h2>
+<table>
+<tr><th>人</th><th>角色</th><th>干什么</th><th>优先级</th></tr>
+<tr><td>泽民</td><td>触发器 PM</td><td>云端触发器主链路 + 黄红线 + 回传混合方案带审</td><td>P0</td></tr>
+<tr><td>嘉锋</td><td>触发器 owner</td><td>① 跟泽民对齐黄红线 P0/P1 + 端侧排期 ② 背书统一口径</td><td>P0（最先办）</td></tr>
+<tr><td>丁彬</td><td>VLM/端状态</td><td>紫线评审 + VLM 信号表 7.5 定版 + AI service→云端归属</td><td>P0</td></tr>
+<tr><td>庆磊</td><td>动态 Advisor 研发</td><td>动态 Advisor 自研（弋途拿回）+ 事件判断 + 视觉条件降级定时</td><td>P0</td></tr>
+<tr><td>仁杰/超然</td><td>Context/黑线</td><td>黑线打通 + 周一下班前给信号表结论 + 意图 SDK"谁调返回给谁"改造</td><td>P0</td></tr>
+<tr><td>刘杨</td><td>触发器算法</td><td>运算符引擎 + 充电桩/雾灯预设实现 + SP 拼接研发</td><td>P0</td></tr>
+<tr><td>益红</td><td>静态 Advisor 配置</td><td>45 条场景配置表 + 频控口径统一</td><td>本次评</td></tr>
+<tr><td>晓伟</td><td>动态 Advisor 产品</td><td>DNA-616 专题 + 种子数据 + 动态Advisor自研拍板</td><td>专题</td></tr>
+<tr><td>韩杰</td><td>端状态 owner</td><td>端状态协议 + AI service→云端归属确认</td><td>P0</td></tr>
+</table>
+
+<!-- ============= §11 ============= -->
+<h2 id="s11">§11 验收标准 · 待确认 · 风险</h2>
+<h3>11.1 验收标准（抽样）</h3>
+<table>
+<tr><th>Case</th><th>预期行为</th><th>验收通过标准</th></tr>
+<tr><td>Case1 低电量</td><td>导航中电量≤20% 推荐沿途站</td><td>本次上电仅触发1次 · 拒绝后本行程 frozen · 3min 无响应自动消失 · 无站降级纯TTS</td></tr>
+<tr><td>Case2 照看宝宝</td><td>哭了主动提醒</td><td>防抖 3 帧排除误识别 · 30min 过期自动结束 · timeout 不写"正常" · 60s 内不重复</td></tr>
+<tr><td>Case3 充电桩</td><td>挂P+有桩 自动开盖</td><td>挂P后~1.5s 开盖 · 无桩不开 · VLM timeout 不开 · 本周期仅1次</td></tr>
+<tr><td>Case4 雾灯</td><td>雾天开/雾散关</td><td>双向各自 per_day≤2 · 用户手动关后本周期 frozen · 天气源失效降级 VLM</td></tr>
+</table>
+<h3>11.2 待确认项</h3>
+<table>
+<tr><th>#</th><th>待确认</th><th>找谁</th></tr>
+<tr><td>1</td><td>黄红线 P0/P1 + 端侧排期口径</td><td>嘉锋</td></tr>
+<tr><td>2</td><td>事件×状态混合 AND 语义 + "本次上电"vs"本次行程"频控口径</td><td>益红 + 庆磊</td></tr>
+<tr><td>3</td><td>哪些视觉字段是 enum 可直接用、哪些要拼 SP + 前帧表</td><td>丁彬 + 庆磊 + 刘杨</td></tr>
+<tr><td>4</td><td>回传混合方案的意图 SDK"谁调返回给谁"改造</td><td>仁杰 + 意图 SDK 侧</td></tr>
+<tr><td>5</td><td>L1 覆盖率精确数（已精调字段数 ~15）</td><td>丁彬</td></tr>
+<tr><td>6</td><td>timestamp 信号有效期（ttl 已落地，timestamp 待确认）</td><td>仁杰</td></tr>
+</table>
+<h3>11.3 风险与对策</h3>
+<table>
+<tr><th>风险</th><th>影响</th><th>对策</th></tr>
+<tr><td>回传通道改造延期</td><td>原路返回要改意图 SDK，工期不确定</td><td>先按混合方案带审，纯 A 兜底可跑（轮询）</td></tr>
+<tr><td>L1 覆盖率不足</td><td>大量走 L3 → 成本超限</td><td>推方舟精调高频字段（位置/年龄/情绪/物品）</td></tr>
+<tr><td>端侧触发器排期 818</td><td>0804 前没有端触发器</td><td>嘉锋口径：先做云端，端侧 P1</td></tr>
+<tr><td>VLM 误判（如充电桩误识）</td><td>误开车控</td><td>oneshot 回证 + 白名单 + 用户语音确认（高敏感动作）</td></tr>
+</table>
+
+<p class="mini" style="margin-top:26px">素材来源：7.2《第一次 VLM 视觉感知需求评审》、7.3《晓伟动态 Advisor 设计会》、7.4《第二次端侧 VLM 会议纪要》逐字纪要；静态 Advisor 场景配置表（45 条）；丁彬《AI-Box 视觉感知信号上传端状态》7.5；导航POI-PRD v4（格式参照）。文中引用均为会上原话。</p>
+
+</div>
+</body>
+</html>

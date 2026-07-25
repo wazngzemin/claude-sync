@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>静态Advisor案例走查 · 亲子出行 · 从配置到播放全链路 v1</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; line-height: 1.85; color: #1f2937; max-width: 1120px; margin: 0 auto; padding: 32px 24px 80px; background: #fafaf9; }
+  h1 { font-size: 1.6rem; border-bottom: 3px solid #dc2626; padding-bottom: 12px; color: #b91c1c; }
+  h2 { font-size: 1.26rem; margin-top: 50px; padding: 12px 16px; background: #1f2937; color: #fff; border-radius: 8px; }
+  h2 .qmark { color: #fbbf24; margin-right: 8px; }
+  h3 { font-size: 1.05rem; margin-top: 26px; color: #b91c1c; border-left: 4px solid #dc2626; padding-left: 10px; }
+  p { margin: 10px 0; }
+  ul, ol { margin: 8px 0; padding-left: 26px; }
+  li { margin: 5px 0; }
+  code { background: #fef3c7; padding: 1px 6px; border-radius: 4px; font-size: 0.92em; color: #92400e; }
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 0.9rem; background: #fff; }
+  th { background: #1f2937; color: #fff; padding: 8px 10px; text-align: left; }
+  td { border: 1px solid #e5e7eb; padding: 8px 10px; vertical-align: top; }
+  tr:nth-child(even) { background: #f9fafb; }
+  .box { padding: 14px 18px; border-radius: 8px; margin: 14px 0; }
+  .red { background: #fef2f2; border-left: 4px solid #dc2626; }
+  .orange { background: #fff7ed; border-left: 4px solid #ea580c; }
+  .green { background: #f0fdf4; border-left: 4px solid #16a34a; }
+  .cyan { background: #ecfeff; border-left: 4px solid #06b6d4; }
+  .lead { font-size: 1.02rem; background: #fff; border: 1px solid #fecaca; padding: 16px 20px; border-radius: 10px; }
+  pre.data { background:#0b0f17; color:#a7f3d0; padding:14px 18px; border-radius:10px; font-size:0.82rem; line-height:1.6; overflow-x:auto; font-family:"SF Mono",Menlo,Consolas,monospace; margin:8px 0; }
+  pre.data b { color:#fbbf24; }
+  .step { background:#fff; border:1px solid #e5e7eb; border-left:5px solid #16a34a; border-radius:0 10px 10px 0; padding:14px 20px; margin:16px 0; }
+  .step-title { font-weight:700; font-size:1.02rem; margin-bottom:6px; }
+  .step-title .t { display:inline-block; background:#1f2937; color:#fbbf24; font-size:0.82rem; padding:1px 10px; border-radius:4px; margin-right:8px; font-family:Menlo,monospace; }
+  .who { display:inline-block; background:#ede9fe; color:#5b21b6; font-size:0.8rem; font-weight:700; padding:1px 8px; border-radius:4px; margin-left:6px; }
+  .risk { background: #fff; border: 1.5px solid #ef4444; border-radius: 10px; padding: 12px 18px; margin: 12px 0; }
+  .risk-title { font-weight: 700; color: #dc2626; }
+  .toc { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px 22px; margin: 18px 0; }
+  .toc a { color: #2563eb; text-decoration: none; }
+  .kv { font-family:Menlo,monospace; font-size:0.86em; background:#f3f4f6; padding:1px 6px; border-radius:4px; }
+</style>
+</head>
+<body>
+
+<h1>静态Advisor案例走查 · 上车内容预编排推荐-亲子出行</h1>
+<p style="color:#6b7280;font-size:0.9em">2026-07-03 · 案例来源=益红《静态advisor-场景配置表》· 配置平台结构=火山后台「触发器→场景管理→新建场景」真实UI（节点⑬）· 信号全部来自触发器条件库+丁彬7.2格式表</p>
+
+<div class="lead">
+<b>这篇文档演示什么：</b>拿"亲子出行"这一行配置（益红表21列），从<b>你在配置平台上敲下每一个字段</b>开始，到<b>车里响起"小朋友也在车上，帮你准备了一些儿童节目，要放吗？"</b>为止——每一跳数据从哪来、长什么样、谁消费、在哪转弯。走完你会发现：<b>益红这一行配置，实际上要拆给四个系统</b>（触发器管条件和频控、Advisor管建议、Director管话术和动作、卡片系统管失效），而中间有3个阻塞级的坑，不提前拍会直接翻车。
+</div>
+
+<div class="toc">
+<b>目录</b>：
+<a href="#s1">一、先把这行配置翻译成人话（21列逐字段）</a> ·
+<a href="#s2">二、配置平台上到底配什么（照真实UI逐区填）</a> ·
+<a href="#s3">三、运行时全链路演示 T0→T9（每跳带真实数据）</a> ·
+<a href="#s4">四、数据形式速查表（7跳payload）</a> ·
+<a href="#s5">五、坑清单（3阻塞+4待拍+3注意）</a> ·
+<a href="#s6">六、对抗式审查</a>
+</div>
+
+
+<!-- ================= 一 ================= -->
+<h2 id="s1"><span class="qmark">一</span>先把这行配置翻译成人话</h2>
+
+<p>你贴的这一行，按益红表的21列拆开，每个字段是给<b>哪个系统</b>的指令：</p>
+
+<table>
+<tr><th>益红表字段</th><th>值</th><th>人话</th><th>最终落到谁头上</th></tr>
+<tr><td>场景名称</td><td>上车内容预编排推荐-亲子出行</td><td>这个场景叫什么</td><td>配置平台·基础信息</td></tr>
+<tr><td>场景类型</td><td>内容服务</td><td>业务分类</td><td>配置平台·基础信息</td></tr>
+<tr><td>场景简介</td><td>检测到亲子出行场景（主驾+儿童），预编排适合亲子的内容</td><td>产品意图描述</td><td>文档，不进系统</td></tr>
+<tr><td>所属Feature / 关联Advisor</td><td>【上车】内容预编排推荐 / 内容</td><td>命中后叫醒<b>内容Advisor</b></td><td>配置平台·执行动作（下拉选"内容Advisor"）</td></tr>
+<tr><td><b>推荐条件</b></td><td>1. 乘车离车-主驾入座<br/>2. 视觉感知-车内检测到儿童</td><td><b>触发器要判的条件（本案核心）</b>：条件①是端状态信号，条件②是VLM视觉信号，AND组合</td><td><b>触发器</b>（配置平台·触发条件区：静态条件+动态条件）</td></tr>
+<tr><td>功能1-执行条件 / 执行功能</td><td>无 / 语音播报"小朋友也在车上，帮你准备了一些儿童节目，要放吗？"</td><td>命中后第一步：直接播报询问</td><td>Advisor出建议 → <b>Director</b>生成talk → TTS</td></tr>
+<tr><td>功能2-执行条件 / 执行功能</td><td>用户确认 / 内容-播放预编排的亲子内容清单（儿歌/故事/互动问答）</td><td>用户说"放吧"才执行第二步</td><td><b>Director</b>（用户确认走对话链路，不回触发器）</td></tr>
+<tr><td>推荐时间间隔</td><td>满足条件即触发</td><td>不做时间压制（但见坑K6）</td><td>触发器·执行策略</td></tr>
+<tr><td>弹窗标题 / 显示文案 / 样式</td><td>亲子内容 / 检测到亲子出行，为您推荐儿童内容 / 模版一</td><td>屏幕上弹的卡片长什么样</td><td><b>卡片系统</b>（经Director的action_list下发）</td></tr>
+<tr><td>推荐失效时长</td><td>超过3min后推荐失效,自动消失</td><td>卡片3分钟没人理就收走</td><td><b>卡片系统</b>的TTL，触发器不管</td></tr>
+<tr><td><b>暂停推荐</b></td><td>用户拒绝后本次上电不再推荐</td><td>说了"不用"这趟车就闭嘴</td><td><b>坑K3</b>：触发器频控挡不住"拒绝"语义，需要结果回流——详见坑清单</td></tr>
+<tr><td>场景优先级</td><td>0</td><td>仲裁优先级</td><td>配置平台·基础信息</td></tr>
+</table>
+
+<div class="box cyan"><b>第一性拆解：</b>一行产品配置 = <b>条件（触发器）+ 建议（Advisor）+ 交互（Director+卡片）+ 策略（触发器频控+卡片TTL+拒绝屏蔽）</b>四块。你作为触发器产品，只对"推荐条件、推荐时间间隔、暂停推荐"这三列负责——但走查要走全程，因为坑都在交界处。</div>
+
+
+<!-- ================= 二 ================= -->
+<h2 id="s2"><span class="qmark">二</span>配置平台上到底配什么（照真实UI逐区填）</h2>
+
+<p>火山后台「触发器→场景管理→新建场景」五个分区，逐区给出这个case的填法：</p>
+
+<h3>区1 基础信息</h3>
+<table>
+<tr><th>UI字段</th><th>本案填什么</th><th>说明</th></tr>
+<tr><td>场景名称</td><td><code>【正式】-【内容Advisor】-【上车内容预编排-亲子出行】</code></td><td>按平台命名规范：【测试/正式】-【使用方】-【场景】</td></tr>
+<tr><td>优先级</td><td><code>0</code></td><td>照抄益红表"场景优先级"；命中撞车时给15-8仲裁用</td></tr>
+</table>
+
+<h3>区2 发布范围（effective_scope）</h3>
+<table>
+<tr><th>UI字段</th><th>本案填什么</th><th>说明</th></tr>
+<tr><td>渠道</td><td>赛力斯（量产渠道）</td><td>——</td></tr>
+<tr><td>指定车辆VIN</td><td>先填测试车VIN（灰度）→ 验证后全量</td><td>灰度是配置平台既有能力，用起来</td></tr>
+<tr><td>适用车型 / 软件版本</td><td>按项目填；软件版本用运算符 ≥ 支持VLM低频任务的版本</td><td>老版本没有乘客列表信号，配了也永不命中</td></tr>
+</table>
+
+<h3>区3 触发条件（本案核心）</h3>
+<p>两个条件分属两个配置子区——<b>条件①是"静态条件"（车状态24类信号），条件②是"动态条件"（vlm信号）</b>：</p>
+<table>
+<tr><th></th><th>子区</th><th>信号</th><th>字段key</th><th>运算符</th><th>值</th><th>信号出处</th></tr>
+<tr><td><b>条件①</b><br/>主驾入座</td><td>静态条件</td><td>座位占座信息</td><td><span class="kv">position</span>=主驾<br/><span class="kv">states</span></td><td><b>变更为</b></td><td>已占用</td><td>端状态·车控信号表✅已有（24类字段里的"座位占座"）</td></tr>
+<tr><td><b>条件②</b><br/>车内有儿童</td><td>动态条件（vlm信号）</td><td>舱内AlwaysOn静态任务·乘客列表</td><td><span class="kv">乘客列表[*].年龄</span></td><td><b>等于</b>（对列表语义=任一乘客命中）</td><td>儿童</td><td>VLM·丁彬7.2格式表✅已有（低频任务，值域：婴儿/儿童/青中年/老年）</td></tr>
+<tr><td>组合</td><td colspan="5">条件① <b>且</b> 条件②（UI支持多组且/或）</td><td>——</td></tr>
+</table>
+<div class="box orange"><b>⚠ 配置时的语义注意：</b>条件①用"变更为"（事件沿：从未占用→已占用那一刻），条件②用"等于"（状态：只要有儿童在）。<b>为什么必须这样配</b>——大人先上车、VLM最长5分钟后才报出儿童，两个条件不会同时"变更"；正确语义是"主驾入座事件发生时或之后，儿童状态成立即命中"。这要求触发器条件引擎支持<b>事件×状态混合AND</b>，这是坑K2，PRD要写清楚。</div>
+
+<h3>区4 执行动作</h3>
+<table>
+<tr><th>UI字段</th><th>本案填什么</th><th>说明</th></tr>
+<tr><td>执行动作下拉</td><td><code>内容Advisor</code></td><td>命中后push谁。6.24佳杰确认过下游可配置（Director或Advisor），本案按益红表配内容Advisor</td></tr>
+<tr><td>事件/注意力信息 + 下游输入(prompt)</td><td>事件名=<code>亲子出行上车</code>；下游输入=场景意图+弹窗要素：<code>{"scene":"亲子出行","push_title":"亲子内容","push_text":"检测到亲子出行，为您推荐儿童内容","push_template":"模版一","push_ttl":"3min"}</code></td><td>弹窗标题/文案/模版/失效时长<b>不是触发器的能力</b>，作为下游输入透传，由Advisor→Director→卡片系统落地</td></tr>
+</table>
+
+<h3>区5 执行策略（execute_policy）</h3>
+<table>
+<tr><th>UI字段（默认）</th><th>本案填什么</th><th>对应益红表哪一列</th></tr>
+<tr><td>执行总次数</td><td>不限</td><td>——</td></tr>
+<tr><td><b>单次上电周期</b></td><td><b>1</b></td><td>"满足条件即触发"+"拒绝后本次上电不再推荐"的<b>近似实现</b>——但语义有损（见坑K3/K6）：上电1次意味着"没拒绝、只是3min失效没理"也不再推</td></tr>
+<tr><td>自然日内总次数</td><td>不限</td><td>——</td></tr>
+<tr><td>执行最小间隔（默认30秒）</td><td>30秒（默认）</td><td>防抖兜底</td></tr>
+</table>
+<p>最后点<b>「新建场景」= 完成注册</b>（15-1校验车辆能力 → 15-2入库带版本+灰度）。</p>
+
+
+<!-- ================= 三 ================= -->
+<h2 id="s3"><span class="qmark">三</span>运行时全链路演示：一家三口上车，T0→T9</h2>
+
+<p>设定：爸爸（主驾）、妈妈（副驾）、5岁娃（后排右）。时间从上电开始。</p>
+
+<div class="step">
+<div class="step-title"><span class="t">T0 00:00</span>车辆上电，感知系统就位<span class="who">SLS→端侧触发器→AIBox</span></div>
+SLS舱内AlwaysOn开关（开启态）→ <b>端侧触发器点火</b>AlwaysOn周期任务（6.30静态会定版：点火权统一收口端侧触发器；0804前过渡期=SLS直触）→ AIBox开始跑两个循环：<b>低频任务</b>（每5分钟：位置/性别/年龄/物品）+ <b>高频任务</b>（每5秒：动作/神态）。同时上电事件重置execute_policy的"单次上电周期"计数。
+</div>
+
+<div class="step">
+<div class="step-title"><span class="t">T1 00:10</span>爸爸坐进主驾<span class="who">座椅传感器→端状态客户端→云端</span></div>
+座椅压力/安全带传感器 → CAN → 端状态信号变更。<b>数据形式（端状态·车控类）：</b>
+<pre class="data">{ "信号": "座位占座信息", "position": "主驾", "states": "已占用",   <b>// enum: 已占用/未占用</b>
+  "prev": "未占用", "capture_ts": "T1" }                              <b>// "变更为"判定就靠prev→current这个沿</b></pre>
+端状态客户端<b>纯透传</b>（李鑫，不处理不存储）→ 云端端状态/Context。<b>此刻条件①已成立，但条件②还没影——VLM低频任务还没轮到。</b>
+</div>
+
+<div class="step">
+<div class="step-title"><span class="t">T2 00:20</span>妈妈副驾入座、娃进后排右</div>
+两条占座信号同上（副驾/右后 变更为 已占用）。系统此刻只知道"三个座位有人"，<b>不知道谁是儿童</b>。
+</div>
+
+<div class="step" style="border-left-color:#ef4444">
+<div class="step-title"><span class="t">T3 ≤05:00</span>VLM低频任务出结果（🔴本案最大的坑就在这一跳）<span class="who">VLM→端侧信号库→云端Context</span></div>
+低频任务轮到（最坏等5分钟），输出乘客列表。<b>数据形式（丁彬7.2格式表·舱内AlwaysOn静态，主key=位置）：</b>
+<pre class="data">{ "乘客列表": [
+    { "位置": "主驾区域",     "性别": "男", "年龄": "青中年", "动态": "端正坐姿…", "造型描述": "…" },
+    { "位置": "副驾区域",     "性别": "女", "年龄": "青中年", … },
+    { "位置": "<b>副驾后方区域</b>", "性别": "女", "年龄": "<b>儿童</b>", … } ],
+  "物品或动物类型": "粉色书包" }                                   <b>// 每5分钟全量输出一次</b></pre>
+→ 写<b>端侧信号库</b>（标准化：key/value/source=VLM/capture_ts/ttl=5min）→ <b>全量上传</b>云端Context（图A蓝线："任何一次触发结果都上传，无论触发源是谁"）。<br/>
+<b>🔴 坑K1：</b>"上车即推荐"的场景，靠5分钟低频任务兜底=最坏5分钟后才响起推荐，一家人可能歌都自己点好了。<b>正确做法：条件①的占座变更事件，同时触发一次oneshot插队识别</b>（静态会丁彬确认插队机制："你只管请求，哪怕多个任务都丢进来，它里头来管"——高优oneshot抢一个窗口，AlwaysOn轮空一次）。这个"事件触发oneshot"和充电桩case（R→P→看充电桩）完全同构，是同一个触发器能力的两次复用。
+</div>
+
+<div class="step">
+<div class="step-title"><span class="t">T3+5s</span>云端触发器判定命中<span class="who">⑮ 15-3→15-4→15-6→15-7</span></div>
+15-3信号扫描（5s心跳）读Context快照 → <b>15-4条件判定</b>：条件①主驾占座=已占用（T1的变更沿已记录，状态持续成立）<b>AND</b> 条件②乘客列表中任一成员 年龄=儿童（T3成立）→ <b>命中</b> → 15-6防抖（年龄字段连续K帧一致？见坑K8）→ 15-7频控（本上电周期第1次 ✓、距上次触发>30s ✓、拒绝屏蔽表无记录 ✓）→ 放行。
+</div>
+
+<div class="step">
+<div class="step-title"><span class="t">T3+6s</span>组装事件，push内容Advisor<span class="who">15-13 → L17</span></div>
+<b>数据形式（触发器→Advisor标准事件）：</b>
+<pre class="data">{ "event_id": "evt_20260703_0001", "scene_id": "content_family_boarding",
+  "scene_name": "上车内容预编排推荐-亲子出行", "priority": 0,
+  "hit_conditions": [ {"signal":"座位占座信息.主驾","op":"变更为","value":"已占用","ts":"T1"},
+                      {"signal":"乘客列表.年龄","op":"等于","value":"儿童","position":"副驾后方区域","ts":"T3"} ],
+  "下游输入": { "scene":"亲子出行", "push_title":"亲子内容",
+               "push_text":"检测到亲子出行，为您推荐儿童内容",
+               "push_template":"模版一", "push_ttl":"3min" } }</pre>
+铁律④：这是<b>事件</b>，走⑮组装push，不写Context；Advisor<b>不轮询</b>，等这一下。
+</div>
+
+<div class="step">
+<div class="step-title"><span class="t">T3+8s</span>内容Advisor推理出建议<span class="who">⑯内容Advisor → L19</span></div>
+Advisor被事件叫醒，推理时<b>固定拼接Context</b>（车内人员构成、当前时间、用户内容偏好、历史建议——Feature list P0"各adv的历史建议"防重复）→ 调内容服务预编排清单 → 产出advice给Director：
+<pre class="data">{ "advisor": "content", "advice": "亲子出行场景，建议播报推荐预编排儿童内容",
+  "playlist_preview": ["儿歌精选", "睡前故事", "亲子互动问答"],
+  "interaction": "语音确认",              <b>// Feature list"交互策略选择与分发": 本案=语音确认，非静默执行</b>
+  "push_card": { …透传下游输入… } }</pre>
+</div>
+
+<div class="step">
+<div class="step-title"><span class="t">T3+10s</span>Director拍板，车里出声<span class="who">⑳ → L29 TTS + 卡片</span></div>
+<pre class="data">{ "talk_or_not": true,
+  "talk_content": "小朋友也在车上，帮你准备了一些儿童节目，要放吗？",
+  "action_list": [ { "tool": "push_card", "params": { "title":"亲子内容",
+      "text":"检测到亲子出行，为您推荐儿童内容", "template":"模版一", "ttl_min":3 } } ] }</pre>
+TTS播报 + 屏幕弹模版一卡片。<b>3分钟倒计时从此刻开始（卡片系统管，触发器不管）。</b>
+</div>
+
+<div class="step">
+<div class="step-title"><span class="t">T4a</span>分支一：用户说"放吧"<span class="who">①→②ASR→⑨→Director</span></div>
+确认语音走正常对话链路（<b>不回触发器</b>）：⑨分流→Director（带上一轮上下文"刚推荐了亲子内容"）→ action：内容-播放预编排清单 → 儿歌响起 ✅ 场景闭环。播放动作照常回写信号库→Context（全量上传铁律），供后续"内容Advisor历史建议"去重。
+</div>
+
+<div class="step" style="border-left-color:#ef4444">
+<div class="step-title"><span class="t">T4b</span>分支二：用户说"不用"（🔴坑K3现场）<span class="who">Director→？？？</span></div>
+Director识别拒绝 → 回复"好的~" → <b>然后呢？"本次上电不再推荐"谁来保证？</b>触发器的execute_policy只会数次数，<b>它不知道"用户拒绝了"</b>。必须有一条结果回流：Director/Advisor把拒绝结果落下去 → 调用触发器的<b>场景屏蔽接口</b>（任务中心enable/disable 或 update_status，作用域=本上电周期）→ 15-7频控下次直接拦。<b>这条回流线目前配置平台和接口清单里都没有明确落点——待改造点，必须提给刘杨排进接口集。</b>（临时兜底：execute_policy上电周期=1，副作用见K6。）
+</div>
+
+<div class="step">
+<div class="step-title"><span class="t">T4c</span>分支三：没人理，3分钟后卡片消失</div>
+卡片系统按ttl收走推荐。<b>要拍的口径（K6）：</b>此时条件依然满足（人还在车上），触发器要不要再推？按execute_policy上电1次=不再推。若产品想"失效后隔10分钟再提醒一次"，现有策略字段表达不了，需要"失效重试"语义——跟益红确认预期再说。
+</div>
+
+<div class="step">
+<div class="step-title"><span class="t">T9</span>下电清场<span class="who">车辆下电事件</span></div>
+益红事件库"车辆下电"事件（备注：用于删除所有未完成的子目标）→ Advisor清子目标；触发器"单次上电周期"计数、拒绝屏蔽记录一并重置。下次上电，一切重新开始。
+</div>
+
+
+<!-- ================= 四 ================= -->
+<h2 id="s4"><span class="qmark">四</span>数据形式速查表（7跳）</h2>
+
+<table>
+<tr><th>#</th><th>跳</th><th>数据形式</th><th>关键字段</th><th>谁定义格式</th></tr>
+<tr><td>1</td><td>座椅传感器→端状态客户端→云端</td><td>端状态信号（enum）</td><td><span class="kv">座位占座信息.position/states</span> + 变更沿 + capture_ts</td><td>端状态协议（韩杰/李鑫）</td></tr>
+<tr><td>2</td><td>VLM→端侧信号库</td><td>低频任务全量JSON（每5分钟一包）</td><td><span class="kv">乘客列表[].位置/性别/年龄</span>（位置=主key，6区域）</td><td>丁彬7.2格式表</td></tr>
+<tr><td>3</td><td>端侧信号库→云端Context</td><td>标准化快照全量上传</td><td>key/value/source/capture_ts/ttl</td><td>信号库规范（你的PRD）</td></tr>
+<tr><td>4</td><td>触发器→内容Advisor（L17 push）</td><td>标准事件JSON</td><td>event_id/scene_id/hit_conditions/下游输入</td><td><b>触发器（你）</b>——15-10标准事件打包</td></tr>
+<tr><td>5</td><td>Advisor→Director（L19）</td><td>advice</td><td>建议+清单预览+交互策略(语音确认)</td><td>Advisor侧（益红/西钺）</td></tr>
+<tr><td>6</td><td>Director→端（L29/L30）</td><td>talk_or_not/talk_content/action_list</td><td>push_card(标题/文案/模版一/ttl=3min)</td><td>Director协议</td></tr>
+<tr><td>7</td><td>用户确认→播放</td><td>正常对话链路query</td><td>上下文承接"刚推荐了什么"</td><td>对话系统</td></tr>
+</table>
+
+
+<!-- ================= 五 ================= -->
+<h2 id="s5"><span class="qmark">五</span>坑清单</h2>
+
+<div class="risk"><div class="risk-title">🔴 K1（阻塞）时效坑：儿童识别挂在5分钟低频任务上，"上车即推荐"最坏要等5分钟</div>
+方案：把条件①占座变更事件同时配置为<b>oneshot插队识别的触发源</b>——上车瞬间插队跑一次乘客识别，不等低频周期。依据：静态会丁彬确认的插队机制（"高优one shot会把当前alwayson抢一次"）。<b>这需要在配置平台把"事件→oneshot识别→再判条件"配成链</b>，和充电桩case（R→P→看充电桩）同构——两个case一起提，链式触发就是通用能力而不是特例。</div>
+
+<div class="risk"><div class="risk-title">🔴 K2（阻塞）事件×状态混合AND的判定语义没定义</div>
+条件①是事件（变更为，瞬时沿），条件②是状态（等于，持续），两者到达时间差最长5分钟。若15-4把AND实现成"同一时刻两个都在变更"→永不命中；若实现成"两个都是当前状态"→主驾一直坐着，中途儿童被抱上车也会触发（可能是对的？也可能不是产品预期）。<b>PRD必须写清：AND组合里事件条件的"有效窗口"（如事件发生后N分钟内状态补齐算命中）</b>。这是所有"上车+X"类场景（事件库里挂了30个场景）的共性问题，一次定义全家受益。</div>
+
+<div class="risk"><div class="risk-title">🔴 K3（阻塞）"拒绝后本次上电不再推荐"没有实现闭环</div>
+execute_policy只数次数不懂"拒绝"。需要：Director/Advisor拒绝结果 → 调触发器<b>场景屏蔽接口</b>（scope=本上电周期）→ 15-7拦截。接口清单（订阅/取消/callback/能力描述…）里目前没有这个"运行时屏蔽"，要提给刘杨。临时方案=上电周期1次，副作用：没拒绝只是没理的用户也永远失去本次推荐。</div>
+
+<div class="risk" style="border-color:#f59e0b"><div class="risk-title">🟡 K4（待拍）"儿童"值域怎么圈：婴儿算不算亲子？</div>
+VLM值域=婴儿/儿童/青中年/老年。婴儿要的是摇篮曲不是互动问答。跟益红拍：条件配 等于[儿童]，还是 包含[婴儿,儿童] 且内容清单按年龄分流。</div>
+
+<div class="risk" style="border-color:#f59e0b"><div class="risk-title">🟡 K5（待拍）儿童位置要不要约束</div>
+现在配的是"任一位置年龄=儿童"。要不要排除主驾区域（VLM误识成儿童的脏数据防线）？建议条件加 位置≠主驾区域，或依赖K8防抖兜底。</div>
+
+<div class="risk" style="border-color:#f59e0b"><div class="risk-title">🟡 K6（待拍）频控语义三连问</div>
+①用户<b>接受</b>后，本次上电中途又上来一个小孩，还推吗？②3min失效没人理，条件仍满足，重试吗？③服务区下电再上电，重新推吗（"本次上电"字面=会重推）？——三问都拿去问益红，答案写进execute_policy配置和PRD。注意益红表里同类场景有两种口径："本次上电不再"（本案）vs"本次行程不再"（AI导演案）——<b>频控维度要同时支持上电周期和行程周期两种作用域</b>。</div>
+
+<div class="risk" style="border-color:#f59e0b"><div class="risk-title">🟡 K7（待拍）配置平台动态条件区还是"vlm信号"占位</div>
+待改造点①：VLM条件的7字段（camera_group/seat/query/interval/timeout/priority/mutex_group）UI还没实现。0804链路打通用什么配"乘客列表.年龄=儿童"？确认过渡方案（后台直配JSON？），别让配置平台成为这个case的排期卡点。</div>
+
+<div class="risk" style="border-color:#16a34a"><div class="risk-title">🟢 K8（注意）年龄识别抖动</div>
+儿童↔青中年在边界年龄（12-15岁）可能抖，张兰若的glitch警告适用 → 15-6防抖：连续K帧一致才认，K值本案建议2（低频任务K=2即10分钟，太久——如果走了K1的oneshot方案，K帧按oneshot重试实现）。</div>
+
+<div class="risk" style="border-color:#16a34a"><div class="risk-title">🟢 K9（注意）3min失效是卡片系统的TTL，别揽</div>
+触发器的责任到push事件为止。评审时有人问"3分钟失效你怎么做"，答案是"卡片系统按ttl_min收走，触发器透传该参数、不实现倒计时"。</div>
+
+<div class="risk" style="border-color:#16a34a"><div class="risk-title">🟢 K10（注意）合规安全</div>
+舱内图不上云，链路里上云的只有标签JSON（乘客列表），合规OK。播报话术不点名不描述外貌（"小朋友也在车上"而非"后排的小女孩"），Director话术规范兜底。</div>
+
+
+<!-- ================= 六 ================= -->
+<h2 id="s6"><span class="qmark">六</span>对抗式审查（我自己先挑的4处）</h2>
+
+<table>
+<tr><th>#</th><th>可挑战点</th><th>核对结论</th></tr>
+<tr><td>1</td><td>"主驾入座"我选了端状态占座信号，而不是VLM的action=上车或车门信号</td><td>三选一里占座最可靠（压力传感器，无视觉误识、无网络依赖），且是配置平台24类既有字段——符合你自己定的P0原则"端状态能拿到的先用"。VLM action=上车 留作交叉验证，不做主条件</td></tr>
+<tr><td>2</td><td>T3+6s的事件JSON是我设计的示意，不是已定协议</td><td>字段结构基于15-10"标准事件打包"的PRD方向+图A"下游输入"概念，<b>具体schema还没和刘杨/佳杰对过</b>——这份JSON可以直接当接口定义初稿的素材，但对外讲时说"示意格式"</td></tr>
+<tr><td>3</td><td>"点火权在端侧触发器"与0804现状矛盾</td><td>T0写了过渡口径：0804=SLS直触，818=触发器接管（A5分阶段方案）。本案若在0804演示，T0一步换成SLS直触即可，后续全链路不变</td></tr>
+<tr><td>4</td><td>弹窗文案是配置死的，TTS话术却是Director生成的——两者会不会打架？</td><td>真实风险：配置文案"检测到亲子出行，为您推荐儿童内容"（卡片）vs Director话术"小朋友也在车上…"（TTS）不同源。若Director改写发挥，卡片和语音可能说得不一样。<b>要跟益红对：话术是"照稿念"（下游输入里带死话术）还是允许Director风格化改写</b>——这决定下游输入JSON里是giving话术模板还是意图</td></tr>
+</table>
+
+<div class="box green">
+<b>走查完的三个带走结论：</b><br/>
+① 这个case的触发器部分只有两条条件+一条频控，<b>真正的工程量在三个交界处</b>：oneshot插队链（K1）、事件×状态AND语义（K2）、拒绝回流接口（K3）——三个都是通用能力，借这个case立项，后面30个"上车了"系列场景全部受益；<br/>
+② 拿它当<b>标杆走查模板</b>：任何一行益红的配置，都按"21列翻译→五区配置→T0-T9走时序→四系统分工→坑"这套打法过一遍；<br/>
+③ 下一个该走动态的了——同一个五岁娃，换成用户说"帮我盯着后排宝宝别踢被子"，走⑰动态Advisor+SP拼接链路，两相对照，静态/动态的差异一目了然。
+</div>
+
+<hr style="margin-top:50px;border:none;border-top:3px solid #dc2626"/>
+<p style="text-align:center;color:#6b7280;font-size:0.9rem;margin-top:16px">
+静态Advisor案例走查 · 亲子出行全链路 v1 · 2026-07-03<br/>
+素材：益红《静态advisor-场景配置表》第14行（21列）× 火山后台真实UI五分区（节点⑬）× 触发器条件库 × 丁彬7.2格式表 × 6.30静态会链路定版
+</p>
+
+</body>
+</html>

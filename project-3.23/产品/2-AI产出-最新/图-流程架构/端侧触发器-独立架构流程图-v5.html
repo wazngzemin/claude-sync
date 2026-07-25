@@ -1,0 +1,550 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>端侧VLM整条链路 · 详细架构流程图 v5 · 2026-07-06</title>
+<style>
+body{margin:0;background:#f1f5f9;font-family:-apple-system,"PingFang SC",sans-serif;color:#1e293b;line-height:1.7}
+.wrap{max-width:1500px;margin:0 auto;padding:24px 20px 160px}
+h1{font-size:1.6rem;text-align:center;margin:0 0 4px}
+.sub{text-align:center;color:#64748b;font-size:.88rem;margin-bottom:24px}
+h2{font-size:1.2rem;margin:40px 0 8px;padding:14px 0 4px;border-top:3px solid #ea580c;color:#ea580c}
+h3{font-size:1rem;margin:20px 0 6px;color:#334155}
+p{margin:6px 0;font-size:.92rem}
+.mermaid{background:#fff;border-radius:12px;padding:28px 20px;box-shadow:0 2px 12px rgba(0,0,0,.06);margin:14px 0;overflow-x:auto}
+.note{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;font-size:.86rem;margin:10px 0}
+.nb{background:#eff6ff;border:1px solid #bfdbfe}
+.nr{background:#fef2f2;border:1px solid #fecaca}
+.ng{background:#f0fdf4;border:1px solid #bbf7d0}
+.toc{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:14px 20px;margin:16px 0;font-size:.86rem}
+.toc a{color:#334155;text-decoration:none;display:block;padding:2px 0}.toc a:hover{color:#ea580c}
+.toc b{color:#ea580c}
+.legend{display:flex;flex-wrap:wrap;gap:16px;margin:10px 0;font-size:.84rem;align-items:center}
+.legend span{display:flex;align-items:center;gap:6px}
+.legend .bar{width:32px;height:4px;border-radius:2px;flex-shrink:0}
+table{width:100%;border-collapse:collapse;margin:10px 0;font-size:.88rem}
+th{background:#f8fafc;text-align:left;padding:8px 10px;border:1px solid #e2e8f0;font-weight:600;color:#475569}
+td{padding:8px 10px;border:1px solid #e2e8f0;vertical-align:top}
+tr:hover{background:#f8fafc}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>端侧VLM整条链路 · 详细架构流程图 v5</h1>
+<div class="sub">基于丁彬架构图 + 7.6下午VLM链路专项会定版 · 2026-07-06</div>
+
+<div class="note nr">
+<b>7.6下午会定版核心结论</b><br/>
+1. VLM数据<b>不经触发器</b>，VLM SDK 直送数据中心（数据通道），触发器只收状态回调（控制通道）<br/>
+2. 数据中心（李鑫）订阅VLM SDK topic → 整包缓存 → 按端状态格式透传云端<br/>
+3. 触发器保证"发送成功"，VLM SDK保证"收到后执行成功"（AlwaysOn由SDK内部轮询保证）<br/>
+4. OneShot数据回传路径<b>待后续评审</b>（丁彬原话: "one shot 等需求导入再聊"）<br/>
+5. 端云必须基于同一份规则，否则就是bug（汪帅原话）
+</div>
+
+<div class="toc">
+<b>图 1</b> <a href="#fig1">端侧VLM整条链路 · 总体架构（对应丁彬原图，含双通道定版）</a>
+<b>图 2</b> <a href="#fig2">AlwaysOn 完整链路 · 从上电到云端消费（舱外天气感知示例）</a>
+<b>图 3</b> <a href="#fig3">OneShot 完整链路 · 从条件命中到云端执行（充电桩识别示例）</a>
+<b>附表</b> <a href="#tab1">各模块职责边界 · 谁保证什么 · 异常处理机制</a>
+</div>
+
+<!-- ============================================================ -->
+<!--   图 1：总体架构                                              -->
+<!-- ============================================================ -->
+<h2 id="fig1">图 1 · 端侧VLM整条链路 · 总体架构</h2>
+
+<p>对应丁彬原图的端侧/云侧分区布局，叠加7.6下午双通道定版结论。</p>
+
+<div class="legend">
+<span><span class="bar" style="background:#ea580c"></span>① 触发推理（触发器 → VLM SDK，运行指令）</span>
+<span><span class="bar" style="background:#2563eb"></span>② 控制通道（VLM SDK → 触发器，状态回调）</span>
+<span><span class="bar" style="background:#16a34a"></span>③ 数据通道（VLM SDK → 数据中心，VLM原始输出）</span>
+<span><span class="bar" style="background:#94a3b8"></span>订阅 / 信号流</span>
+</div>
+
+<div class="mermaid">
+flowchart TB
+    QUERY(("query\n(云端下发)"))
+
+    subgraph DEVICE["─── 端 侧 ───"]
+        direction TB
+
+        subgraph SLS["SLS闭环业务"]
+            SLS_T["SLS闭环/触发\n─────────\n触发 oneshot or 周期推理\n① oneshot 由条件满足触发\n② 周期的 AlwaysOn 任务\n─────────\nsls触发 → 调用 → 结果返回给sls"]
+        end
+
+        SWITCH["SLS 舱内 AlwaysOn 开关\n─────────\n触发VLM的唤醒按钮\n(打开后)\n舱内动态+静态 AlwaysOn\n开始周期推理"]
+
+        subgraph TRIGGER["端侧触发器 ㉔"]
+            M8["㉔-8 AlwaysOn 点火\n─────────\n读 power_state + awake_button\n舱外: power=on → 开启\n（前视摄像头·3s周期）\n舱内: power=on AND button=on → 开启\n（舱内摄像头·动态5s/静态5min）\n─────────\n开=AND（两条件同时满足）\n关=OR（任一不满足就关）"]
+
+            MJ["㉔-J 硬条件判定\n─────────\n从信号库拉取信号快照\n12种运算符匹配\n(=·≠·>·<·包含·变更为…)\nAND/OR复合条件组合\nF→T穿越检测 + 防抖\n─────────\n命中后三关:\n优先级标记(P0-P4)\n互斥组检查\n冷却检查"]
+
+            M9["㉔-9 VLM调度 + 状态管理\n─────────\n优先级排队: P0(安全不可延迟)\nP1(体验高优) P2(增值)\nP3(背景) P4(动态最低)\n互斥组: VLM_CABIN / VLM_FRONT\n（冲突时高优抢占低优）\n冷却·超时守卫\n─────────\n组装运行指令(9字段):\ntask_id · task_goal · camera\npriority · timeout · mutex_group\ntrigger_source · expire_at\nexecution_type\n─────────\n接收VLM SDK状态回调\n更新任务状态·释放互斥"]
+
+            SL[("信号库\n─────────\nkey-value · 带TTL\n覆盖写·同key只存最新\n旧timestamp拒绝\n过期自动作废\n─────────\n事件订阅 + 快照读取")]
+
+            M7["㉔-7 本地定时器\n倒计时/循环\n断网不停·掉电持久化"]
+
+            MU["㉔-U 触发器事件上报\n─────────\n上报触发器自身事件:\n开关变更·异常告警·心跳\n（不承载VLM数据）"]
+        end
+
+        VIDEO["视频流处理\n─────────\n前视/舱内/后视摄像头\n提供视频帧给VLM"]
+
+        subgraph AIBOX["AIBox"]
+            PRI["任务优先级管理\n─────────\nOneShot(P0)抢占AlwaysOn(P3)\n高优完成后自动恢复低优\n闲时常驻原则"]
+            VLMSDK["端侧感知模块 VLM\n（VLM SDK）\n─────────\n封装VLM引擎\n管理推理执行\n数据发布到 topic\n状态回调给调用方\n─────────\nAlwaysOn由SDK内部\n轮询保证（闲时常驻）"]
+        end
+
+        subgraph AISVC["AI Service"]
+            DC["数据中心（李鑫）\n─────────\n订阅 VLM SDK topic\n接收 VLM 原始输出\n整包缓存（按需存储）\n按端状态格式上传\n整包透传云端\n─────────\n端侧触发器可向数据中心\n订阅信号变更事件"]
+        end
+    end
+
+    subgraph CLOUD["─── 云 侧 ───"]
+        direction TB
+        CT["云端触发器 ⑮\n─────────\n全量/增量规则下发\n动态任务注册\n灰度/回滚"]
+        CS["云端 端状态\n─────────\n接收端侧上报\n模型原始输出包\n按端状态格式存储"]
+        CONTEXT["Context / Advisor\n─────────\n消费VLM数据\n注入Planner\n触发后续决策"]
+        DT["DT\n─────────\n决策执行\n下发车控指令"]
+    end
+
+    CDC["赛力斯 CDC\n车控执行"]
+
+    %% === query入口 ===
+    QUERY --> DT
+    QUERY -->|"sls触发调用"| SLS_T
+    SLS_T -->|"sls触发调用\n结果返回给sls"| AIBOX
+
+    %% === 开关 → 触发器 ===
+    SWITCH -->|"触发VLM唤醒开关\n打开/关闭舱内AlwaysOn"| M8
+
+    %% === 信号源 → 信号库 ===
+    VIDEO -->|"视频流"| VLMSDK
+
+    %% === 云端 → 端侧 ===
+    CT -->|"全量/增量规则下发"| MJ
+    CT -->|"注册定时任务"| M7
+    CT -->|"动态VLM任务"| M9
+
+    %% === 信号库 ↔ 触发器 ===
+    SL -->|"读 power_state\n+ awake_button"| M8
+    SL -->|"信号快照\n所有相关key当前值"| MJ
+    M7 -->|"到期事件\n写入信号库"| SL
+    VLMSDK -.->|"VLM状态写回信号库"| SL
+
+    %% === 触发器内部 ===
+    M8 -->|"注册AlwaysOn任务\n舱外3s/舱内5s/静态5min"| M9
+    MJ -->|"VLM任务命中\noneshot或周期"| M9
+    MJ -->|"车控任务命中\n（如天气→开雾灯）"| CDC
+
+    %% === ① 触发推理 ===
+    M9 -->|"① 触发推理\n运行指令(9字段)"| VLMSDK
+
+    %% === ② 控制通道 ===
+    VLMSDK -->|"② 状态回调【控制通道】\nsuccess · empty\ntimeout · failed"| M9
+
+    %% === ③ 数据通道 ===
+    VLMSDK -->|"③ VLM原始输出\n【数据通道】\n发布到topic"| DC
+
+    %% === 数据中心 → 云端 ===
+    DC -->|"模型原始输出包上传\n按端状态格式\n整包透传"| CS
+
+    %% === 触发器 ↔ 数据中心 ===
+    DC -.->|"订阅\n（触发器可向数据中心\n订阅信号变更事件）"| MJ
+
+    %% === 触发器事件上报 ===
+    MU -->|"触发器事件上报\n开关变更·异常·心跳"| CS
+
+    %% === 云端内部 ===
+    CS --> DT
+    CS -->|"VLM数据"| CONTEXT
+    CONTEXT -->|"注入Planner\n触发后续决策"| DT
+
+    classDef src fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef trig fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#7c2d12
+    classDef vlm fill:#e9d5ff,stroke:#7c3aed,stroke-width:2px,color:#4c1d95
+    classDef aibox fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#78350f
+    classDef dc fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#075985
+    classDef cld fill:#f3e8ff,stroke:#9333ea,stroke-width:2px,color:#581c87
+    classDef exec fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef sig fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef sls fill:#fdf4ff,stroke:#a855f7,stroke-width:2px,color:#6b21a8
+    classDef sw fill:#fef9c3,stroke:#ca8a04,stroke-width:1.5px,color:#713f12
+
+    class SLS_T sls
+    class SWITCH sw
+    class M8,MJ,M9,M7,MU trig
+    class SL sig
+    class VLMSDK,PRI vlm
+    class DC dc
+    class CT,CS,CONTEXT,DT cld
+    class CDC exec
+    class VIDEO src
+
+    linkStyle 9 stroke:#ea580c,stroke-width:3px
+    linkStyle 10 stroke:#2563eb,stroke-width:3px
+    linkStyle 11 stroke:#16a34a,stroke-width:3px
+</div>
+
+<div class="note ng">
+<b>对照丁彬原图的变更点（7.6下午定版）</b><br/>
+• <b>原图</b>：VLM结果 → 触发器 → 数据中心（串行，触发器承担数据透传）<br/>
+• <b>定版</b>：VLM SDK → ③数据直送数据中心（数据通道）+ ②状态回调给触发器（控制通道）→ <b>并行双通道</b>，触发器不碰VLM数据<br/>
+• <b>原因</b>：触发器是信号处理模块，不该承担数据透传职责；VLM数据量大、频率高，经触发器中转增加延迟且触发器无法解析利用
+</div>
+
+<div class="note nb">
+<b>图中各模块归属</b><br/>
+• <b>端侧触发器㉔</b>：汪帅（在豆包 AI Service 进程内）<br/>
+• <b>VLM SDK</b>：斯华/Walter（封装在豆包APK中）<br/>
+• <b>数据中心</b>：李鑫（AI Service 进程内，做端中台上报）<br/>
+• <b>云端触发器⑮</b>：云端<br/>
+• <b>端状态</b>：韩杰
+</div>
+
+<!-- ============================================================ -->
+<!--   图 2：AlwaysOn 完整链路                                     -->
+<!-- ============================================================ -->
+<h2 id="fig2">图 2 · AlwaysOn 完整链路 · 舱外天气感知示例（双通道已定版）</h2>
+
+<p>以舱外天气感知AlwaysOn场景走完整链路：从上电 → 开关判断 → 注册任务 → VLM推理 → 双通道回传 → 云端消费 → 周期循环。</p>
+
+<div class="legend">
+<span><span class="bar" style="background:#ea580c"></span>① 触发推理</span>
+<span><span class="bar" style="background:#2563eb"></span>② 控制通道 · 状态回调</span>
+<span><span class="bar" style="background:#16a34a"></span>③ 数据通道 · VLM原始输出直送数据中心</span>
+<span><span class="bar" style="background:#94a3b8"></span>周期循环</span>
+</div>
+
+<div class="mermaid">
+flowchart TB
+    subgraph STEP_A["第一阶段：上电 → 开关判断 → 注册任务"]
+        A1(("系统上电"))
+        A2["端侧触发器启动\n加载全量预置规则\n恢复持久化定时器\n初始化信号订阅"]
+        A3["㉔-8 从信号库读取\npower_state"]
+        A4{"power = on ?"}
+        A5["开启舱外AlwaysOn\n─────────\n㉔-8 向 ㉔-9 注册任务:\ntask_id = outdoor_weather\ncamera = 前视\n周期 = 3s\npriority = P3(背景)\nmutex_group = VLM_FRONT"]
+        A6["舱外不开启\n（等待上电信号）"]
+    end
+
+    subgraph STEP_B["第二阶段：㉔-9 调度 → 组装运行指令 → 发送VLM SDK"]
+        B1["㉔-9 收到AlwaysOn注册\n─────────\n检查互斥组VLM_FRONT\n当前无冲突 → 可执行\n组装运行指令(9字段)"]
+        B2["① 触发推理\n─────────\n运行指令发送给VLM SDK:\ntask_id=outdoor_weather\ntask_goal=识别前方天气路况\ncamera=前视\npriority=P3\ntimeout=3000ms\nmutex_group=VLM_FRONT\ntrigger_source=alwayson\nexpire_at=无(常驻)\nexecution_type=periodic"]
+    end
+
+    subgraph STEP_C["第三阶段：VLM SDK 执行推理"]
+        C1["VLM SDK 接收运行指令\n─────────\n任务优先级管理:\n当前无高优oneshot → 直接执行\n（若有P0 oneshot排队 →\nAlwaysOn挂起·让出摄像头·\noneshot完成后自动恢复）"]
+        C2["调用前视摄像头\n获取视频帧"]
+        C3["VLM引擎推理\n─────────\n识别结果: 大雾+湿滑路面\n输出: 原始JSON字符串"]
+    end
+
+    subgraph STEP_D["第四阶段：双通道分离 · 结果回传（7.6定版）"]
+        D_SPLIT{"VLM SDK\n执行完成\n分两条通道"}
+
+        subgraph CTRL["② 控制通道"]
+            D_CTRL["状态回调 → ㉔-9\n─────────\nstatus = success\n（只传状态，不传数据）\n─────────\n㉔-9 收到后:\n• 更新任务状态=success\n• VLM_FRONT互斥保持\n  （AlwaysOn常驻不释放）\n• 等待3s → 进入下一周期"]
+        end
+
+        subgraph DATA["③ 数据通道"]
+            D_DATA["VLM原始输出 → topic\n─────────\n发布到VLM SDK的topic\n触发器全程不经手\n─────────\n数据中心(李鑫)订阅该topic\n→ 接收VLM原始JSON"]
+        end
+    end
+
+    subgraph STEP_E["第五阶段：数据中心 → 云端消费"]
+        E1["数据中心(李鑫)\n─────────\n订阅topic → 收到VLM原始输出\n整包缓存\nkey=outdoor_weather\nvalue=原始JSON"]
+        E2["按端状态格式上传\n整包透传云端\n（不解析·不拆字段）"]
+        E3["云端 端状态\n─────────\n接收并存储"]
+        E4["Context 注入 Planner\n─────────\n当前路况: 大雾+湿滑\nAdvisor可能建议:\n提醒用户减速 / 开雾灯"]
+    end
+
+    subgraph STEP_F["第六阶段：周期循环"]
+        F1["3s后 → ㉔-9 触发下一周期\n回到 ① 触发推理\n─────────\n持续运行直到:\n• power → off（下电）\n• 被P0 oneshot打断（挂起）\n• 系统异常"]
+    end
+
+    A1 --> A2 --> A3 --> A4
+    A4 -->|"是"| A5
+    A4 -->|"否"| A6
+    A5 --> B1 --> B2
+    B2 --> C1 --> C2 --> C3
+    C3 --> D_SPLIT
+    D_SPLIT --> D_CTRL
+    D_SPLIT --> D_DATA
+    D_DATA --> E1 --> E2 --> E3 --> E4
+    D_CTRL --> F1
+    F1 -->|"下一周期 → 回到①"| B2
+
+    classDef phase fill:#f8fafc,stroke:#94a3b8,stroke-width:1px
+    classDef init fill:#e0f2fe,stroke:#0284c7,stroke-width:1.5px
+    classDef trig fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#7c2d12
+    classDef vlm fill:#e9d5ff,stroke:#7c3aed,stroke-width:2px,color:#4c1d95
+    classDef ctrl fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#1e3a5f
+    classDef data fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef dc fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#075985
+    classDef cld fill:#f3e8ff,stroke:#9333ea,stroke-width:2px,color:#581c87
+    classDef loop fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#78350f
+
+    class A1 init
+    class A2,A3,A4,A5,A6 trig
+    class B1,B2 trig
+    class C1,C2,C3 vlm
+    class D_CTRL ctrl
+    class D_DATA data
+    class E1,E2 dc
+    class E3,E4 cld
+    class F1 loop
+</div>
+
+<div class="note">
+<b>AlwaysOn 关键逻辑（7.6会议确认）</b>
+</div>
+
+<table>
+<tr><th width="20%">环节</th><th width="40%">机制</th><th width="40%">会议原话 / 结论</th></tr>
+<tr>
+  <td><b>谁负责周期调度</b></td>
+  <td>触发器只负责"上电开、下电关"，3s/5s/5min的周期循环由VLM SDK内部控制</td>
+  <td>丁彬："端侧开关，但不负责里头的小的周期处理"<br/>斯华/Walter："周期性我们肯定是内部保证的，只要你告诉我让我干活，我就自闭环"</td>
+</tr>
+<tr>
+  <td><b>被高优打断</b></td>
+  <td>P0 oneshot（如VQA、下车安全）到达时，AlwaysOn(P3)自动挂起让出摄像头；oneshot完成后VLM SDK自行恢复AlwaysOn</td>
+  <td>斯华："有那个状态回调，中间一直被打断，也会有结果的返回"<br/>丁彬："它是个低优的任务"</td>
+</tr>
+<tr>
+  <td><b>数据通道</b></td>
+  <td>VLM SDK将原始输出发布到topic → 数据中心(李鑫)订阅 → 整包缓存 → 整包透传云端。触发器全程不经手VLM数据</td>
+  <td>汪帅："AI Box产生的事件，结果返回是直接到数据中心"<br/>丁彬确认："数据中心订阅斯华...斯华就把结果给到李鑫，李鑫整包全部给到云端"</td>
+</tr>
+<tr>
+  <td><b>控制通道</b></td>
+  <td>VLM SDK同时回调触发器㉔-9，只传status（success/empty/timeout/failed），㉔-9据此更新任务状态、安排下一周期</td>
+  <td>张兰若总结："VLM应该既返回给触发器，又返回给AI Service，只是返回的信息不同——一个是任务成功性保证，一个是结果下传"</td>
+</tr>
+<tr>
+  <td><b>AIBox异常</b></td>
+  <td>如果AIBox坏了/未启动，VLM SDK内部做鲁棒处理（如初始化时AIBox未起来，SDK内部等它起来后自动启动任务）</td>
+  <td>汪帅："AI Box内部要保证鲁棒性，自己做重试。不能要求触发器不断重试，我只通知一遍"<br/>丁彬："内部轮询保证"</td>
+</tr>
+<tr>
+  <td><b>订阅方式</b></td>
+  <td>数据中心通过具体topic订阅，不是全量订阅。目前只订阅3个AlwaysOn任务的topic</td>
+  <td>斯华："有topic的，具体的topic"<br/>丁彬："数据中心就订阅这三个就行，别的就不要订阅了"</td>
+</tr>
+</table>
+
+<!-- ============================================================ -->
+<!--   图 3：OneShot 完整链路                                      -->
+<!-- ============================================================ -->
+<h2 id="fig3">图 3 · OneShot 完整链路 · 充电桩识别示例（数据回传路径待评审）</h2>
+
+<p>以R切P档 → 检测后方充电桩的OneShot场景走完整链路。注意：OneShot的数据回传路径在7.6会上<b>未定版</b>。</p>
+
+<div class="legend">
+<span><span class="bar" style="background:#ea580c"></span>① 触发推理</span>
+<span><span class="bar" style="background:#2563eb"></span>② 控制通道 · 状态回调（已确认）</span>
+<span><span class="bar" style="background:#16a34a;opacity:.4"></span>③ 数据回传（路径待评审，虚线表示）</span>
+</div>
+
+<div class="mermaid">
+flowchart TB
+    subgraph STEP_A["第一阶段：信号变更 → 条件命中"]
+        A1["赛力斯CDC上报信号\n─────────\ngear_state: R → P\n（挡位从R倒车切到P停车）"]
+        A2["写入信号库\n覆盖旧值·更新timestamp"]
+        A3["信号库发出变更通知\n通知订阅了 gear_state 的规则"]
+        A4["㉔-J 收到变更通知\n─────────\n拉取信号快照:\ngear_state = P (当前值)\nprev_gear_state = R (上一轮值)\nTTL = 有效"]
+        A5["条件匹配:\ngear_state 变更为 P\nAND prev = R\n→ True"]
+        A6["穿越检测:\n上一轮 = False\n本轮 = True\n→ F→T 穿越成功"]
+        A7["防抖通过（默认N=1）\n→ 正式命中"]
+        A8["命中后三关:\n─────────\n优先级: P0（安全不可延迟）\n互斥组: VLM_FRONT（检查无冲突）\n冷却: P0不设冷却·每次必触发\n→ 全部通过"]
+    end
+
+    subgraph STEP_B["第二阶段：㉔-9 调度 → 触发VLM"]
+        B1["㉔-J → ㉔-9 VLM调度\n─────────\n任务类型: oneshot\n如果当前有AlwaysOn(P3)运行\n→ AlwaysOn挂起·让出摄像头\n→ P0 oneshot 优先执行"]
+        B2["① 触发推理\n─────────\n运行指令:\ntask_id = charging_port\ntask_goal = 检测后方充电桩\ncamera = 后视\npriority = P0\ntimeout = 5000ms\nmutex_group = VLM_FRONT\ntrigger_source = condition_match\nexpire_at = 无\nexecution_type = oneshot"]
+    end
+
+    subgraph STEP_C["第三阶段：VLM SDK 执行"]
+        C1["VLM SDK 接收运行指令\n调用后视摄像头"]
+        C2["VLM引擎推理\n识别后方是否有充电桩"]
+        C3{"执行结果?"}
+        C4["success\n有充电桩"]
+        C5["empty\n没看到充电桩\n（有效结论·非异常）"]
+        C6["timeout / failed\n执行超时或失败"]
+    end
+
+    subgraph STEP_D["第四阶段：结果处理（双通道 · OneShot待评审）"]
+        D1["② 控制通道（已确认）\n─────────\n状态回调 → ㉔-9\nstatus = success/empty\n─────────\n㉔-9 收到后:\n• 更新任务状态\n• 释放VLM_FRONT互斥\n• 单次任务标记完成\n• 恢复被挂起的AlwaysOn"]
+
+        D2["③ 数据回传（待评审）\n─────────\nOneShot数据如何到云端?\n7.6会上未定版\n─────────\n方案A: 走数据中心直通\n（同AlwaysOn·架构一致·\n触发器不碰数据）\n方案B: 经触发器中转\n（触发器能知道结果·\n可做本地决策·增加耦合）\n─────────\n丁彬原话:\none shot等需求导入再聊"]
+
+        D3["异常处理\n─────────\n超时/失败:\n• 不写伪结果（红线）\n• ㉔-U 上报异常事件\n• 触发器进行一次重试\n• 二次失败 → 停止触发"]
+    end
+
+    subgraph STEP_E["第五阶段：云端执行（数据到达后）"]
+        E1["数据中心(待定)\n接收VLM输出"]
+        E2["云端 端状态\n存储识别结果"]
+        E3["云端触发器⑮\n条件满足:\n充电桩=有"]
+        E4["下发车控指令\n→ 赛力斯CDC\n打开充电口盖"]
+    end
+
+    A1 --> A2 --> A3 --> A4 --> A5 --> A6 --> A7 --> A8
+    A8 --> B1 --> B2
+    B2 --> C1 --> C2 --> C3
+    C3 -->|"success"| C4
+    C3 -->|"empty"| C5
+    C3 -->|"timeout/failed"| C6
+    C4 --> D1
+    C5 --> D1
+    C4 --> D2
+    C5 --> D2
+    C6 --> D3
+    D2 -.->|"数据回传\n路径待定"| E1
+    E1 --> E2 --> E3 --> E4
+    D3 -->|"一次重试"| B2
+
+    classDef sig fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px
+    classDef trig fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#7c2d12
+    classDef vlm fill:#e9d5ff,stroke:#7c3aed,stroke-width:2px,color:#4c1d95
+    classDef ctrl fill:#dbeafe,stroke:#2563eb,stroke-width:2px,color:#1e3a5f
+    classDef data fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef err fill:#fef2f2,stroke:#dc2626,stroke-width:2px,color:#991b1b
+    classDef cld fill:#f3e8ff,stroke:#9333ea,stroke-width:2px,color:#581c87
+    classDef tbd fill:#fefce8,stroke:#ca8a04,stroke-width:2px,stroke-dasharray:5 5,color:#713f12
+
+    class A1,A2,A3 sig
+    class A4,A5,A6,A7,A8 trig
+    class B1,B2 trig
+    class C1,C2,C3,C4,C5 vlm
+    class C6 err
+    class D1 ctrl
+    class D2 tbd
+    class D3 err
+    class E1,E2,E3,E4 cld
+</div>
+
+<div class="note">
+<b>OneShot 关键逻辑（7.6会议确认）</b>
+</div>
+
+<table>
+<tr><th width="20%">环节</th><th width="40%">机制</th><th width="40%">会议原话 / 结论</th></tr>
+<tr>
+  <td><b>触发失败重试</b></td>
+  <td>OneShot触发失败 → 触发器进行<b>一次</b>重试 → 二次失败停止触发</td>
+  <td>丁彬："触发失败由触发器进行一次重试"<br/>汪帅确认："触发器进行一次重试就行"</td>
+</tr>
+<tr>
+  <td><b>同步 vs 异步</b></td>
+  <td>调用VLM SDK接口：<b>发送状态同步返回</b>（立刻知道发送成功/失败），<b>推理结果异步回调</b>（模型推理需要1-2秒）</td>
+  <td>斯华："调用成功会给你结果的，最后的结果是异步回调回去"<br/>丁彬："结果异步，状态是同步的"</td>
+</tr>
+<tr>
+  <td><b>OneShot抢占</b></td>
+  <td>P0 oneshot到达 → AlwaysOn(P3)自动挂起让出摄像头 → oneshot完成后AlwaysOn恢复</td>
+  <td>斯华："oneshot来了，周期性的就会被搁置"<br/>丁彬："它是个低优的任务"</td>
+</tr>
+<tr>
+  <td><b>数据回传路径</b></td>
+  <td><b>待评审</b>。AlwaysOn双通道已定版，但OneShot的数据如何到云端还没定</td>
+  <td>丁彬："one shot等需求导入再聊"<br/>汪帅："先定一种逻辑，AI Box数据直接给数据中心，触发器找他订阅"</td>
+</tr>
+<tr>
+  <td><b>empty不是异常</b></td>
+  <td>VLM"看了没看到"是有效结论（如后方确实没有充电桩），不算执行失败</td>
+  <td>产品逻辑：empty上报云端后，云端不触发开充电口盖动作</td>
+</tr>
+</table>
+
+<!-- ============================================================ -->
+<!--   附表：各模块职责边界                                        -->
+<!-- ============================================================ -->
+<h2 id="tab1">附表 · 各模块职责边界 · 谁保证什么 · 异常处理</h2>
+
+<table>
+<tr><th width="15%">模块</th><th width="12%">归属</th><th width="30%">职责</th><th width="25%">保证什么</th><th width="18%">异常处理</th></tr>
+<tr>
+  <td><b>端侧触发器 ㉔</b></td>
+  <td>汪帅</td>
+  <td>• 接收云端规则<br/>• 信号变更 → 条件匹配 → 任务命中<br/>• AlwaysOn开关（上电开/下电关）<br/>• 组装运行指令 → 发送VLM SDK<br/>• 接收状态回调 → 更新任务状态<br/>• 触发器自身事件上报</td>
+  <td>保证"调用请求发送成功"<br/>OneShot失败 → 一次重试</td>
+  <td>发送失败: 一次重试<br/>二次失败: 停止+告警<br/>AIBox未启动: 不补发</td>
+</tr>
+<tr>
+  <td><b>VLM SDK</b></td>
+  <td>斯华/Walter</td>
+  <td>• 封装VLM引擎<br/>• 管理任务优先级（oneshot抢占alwayson）<br/>• 调用摄像头 → 模型推理<br/>• 数据发布到topic（数据通道）<br/>• 状态回调给调用方（控制通道）</td>
+  <td>保证"收到后内部执行成功"<br/>AlwaysOn由SDK内部轮询保证</td>
+  <td>AIBox未起来: SDK内部等待启动后自动执行<br/>推理失败: 状态回调failed<br/>被抢占: 状态回调告知</td>
+</tr>
+<tr>
+  <td><b>数据中心</b></td>
+  <td>李鑫</td>
+  <td>• 订阅VLM SDK topic<br/>• 整包缓存（按需存储）<br/>• 按端状态格式透传云端<br/>• 提供订阅接口给触发器（按需）</td>
+  <td>保证"收到的VLM数据完整透传云端"</td>
+  <td>订阅后直接透传<br/>不解析·不拆字段<br/>（后续触发器按需提订阅需求）</td>
+</tr>
+<tr>
+  <td><b>云端 端状态</b></td>
+  <td>韩杰</td>
+  <td>• 接收端侧上报<br/>• 存储模型原始输出<br/>• 供Context/Advisor消费</td>
+  <td>保证"存储和分发"</td>
+  <td>—</td>
+</tr>
+<tr>
+  <td><b>云端触发器 ⑮</b></td>
+  <td>云端</td>
+  <td>• 规则下发（全量/增量）<br/>• 动态任务注册<br/>• 灰度/回滚</td>
+  <td>保证"端云规则一致"</td>
+  <td>汪帅："端云必须基于同一份规则，否则就是bug"</td>
+</tr>
+</table>
+
+<div class="note nr">
+<b>7.6会议遗留待解决</b><br/>
+1. <b>OneShot数据回传路径</b>：走数据中心直通（同AlwaysOn）还是经触发器中转？→ 待丁彬需求导入后评审<br/>
+2. <b>数据中心存储策略</b>：全量存还是按需存？汪帅建议先全量（四五百个事件约10M内存），李鑫倾向按需 → 暂定按需，触发器有新需求时提给李鑫<br/>
+3. <b>端云规则一致性</b>：规则由云端下发 → 端侧执行，如何保证判定结果一致？→ 需产品定义差异化策略<br/>
+4. <b>VLM原始输出拆解</b>：目前整包透传不解析。如果触发器未来要依赖VLM输出中的某个字段做条件判断，该字段必须拆为独立key → 需提需求给数据中心
+</div>
+
+<div class="note nb">
+<b>SLS闭环业务说明</b><br/>
+• query从云端下来 → SLS闭环/触发 → 触发oneshot或周期推理<br/>
+• oneshot由条件满足触发（如R→P档），周期的是AlwaysOn任务<br/>
+• sls触发 → 调用AIBox → 结果返回给sls（闭环）<br/>
+• SLS 舱内 AlwaysOn 开关：用户侧的唤醒按钮，打开后触发舱内动态+静态AlwaysOn周期推理
+</div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+mermaid.initialize({
+  startOnLoad: true,
+  theme: 'base',
+  themeVariables: {
+    primaryColor: '#fff7ed',
+    primaryBorderColor: '#ea580c',
+    primaryTextColor: '#1e293b',
+    lineColor: '#64748b',
+    secondaryColor: '#f0fdf4',
+    tertiaryColor: '#dbeafe',
+    fontSize: '13px',
+    fontFamily: '-apple-system, PingFang SC, sans-serif'
+  },
+  flowchart: {
+    htmlLabels: true,
+    curve: 'basis',
+    rankSpacing: 50,
+    nodeSpacing: 30,
+    padding: 10,
+    useMaxWidth: true
+  }
+});
+</script>
+</body>
+</html>

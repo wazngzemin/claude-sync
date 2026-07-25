@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>AlwaysOn 开关链路详解 v1 · 舱内舱外全流程 · 2026-07-08</title>
+<style>
+:root{--ink:#1e293b;--grey:#64748b;--line:#e2e8f0;--edge:#ea580c;--cloud:#2563eb;--green:#16a34a;--warn:#dc2626;--gold:#b45309;--purple:#7c3aed}
+*{box-sizing:border-box}
+body{margin:0;background:#f1f5f9;color:var(--ink);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;line-height:1.8;font-size:14.5px}
+.wrap{max-width:1080px;margin:0 auto;padding:34px 28px 160px}
+h1{font-size:1.75rem;margin:0 0 4px;text-align:center}
+.sub{color:var(--grey);font-size:.95rem;margin-bottom:20px;text-align:center}
+h2{font-size:1.34rem;margin:44px 0 8px;padding:16px 0 6px;border-top:3px solid var(--edge);color:var(--edge)}
+h3{font-size:1.1rem;margin:26px 0 6px;color:#334155;padding-left:8px;border-left:3px solid var(--edge)}
+h4{font-size:1rem;margin:18px 0 4px;color:#475569}
+p{margin:7px 0}
+table{border-collapse:collapse;width:100%;margin:10px 0;font-size:.86rem;background:#fff;border-radius:8px;overflow:hidden}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+th{background:#f8fafc;font-weight:700}
+tr:nth-child(even){background:#fcfcfd}
+code,.k{font-family:ui-monospace,Menlo,monospace;font-size:.86em;background:#f1f5f9;padding:1px 5px;border-radius:3px;color:#7c3aed}
+.mermaid{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px;margin:16px 0;text-align:center;overflow-x:auto}
+.note{border-radius:8px;padding:11px 15px;margin:12px 0;font-size:.92rem}
+.nb{background:#eff6ff;border:1px solid #bfdbfe}
+.nr{background:#fef2f2;border:1px solid #fecaca}
+.ng{background:#fffbeb;border:1px solid #fde68a}
+.nx{background:#f0fdf4;border:1px solid #bbf7d0}
+.np{background:#f5f3ff;border:1px solid #ddd6fe}
+.big{background:var(--ink);color:#fff;border-radius:10px;padding:14px 18px;margin:12px 0}.big b{color:#fcd34d}
+.redline{background:#fef2f2;border-left:4px solid var(--warn);padding:8px 13px;margin:8px 0;font-size:.9rem}
+.step{background:#fff;border:1px solid var(--line);border-left:3px solid var(--edge);border-radius:7px;padding:6px 13px;margin:6px 0;font-size:.9rem}
+.toc{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px 22px;margin:16px 0;font-size:.86rem}
+.toc a{color:#334155;text-decoration:none;display:block;padding:2px 0}.toc a:hover{color:var(--edge)}
+.toc .h{font-weight:800;color:var(--ink);margin-top:6px}
+.tag{display:inline-block;font-size:.74rem;font-weight:700;padding:2px 9px;border-radius:99px;margin-right:6px}
+.t-out{background:#ffedd5;color:#c2410c}
+.t-in{background:#dbeafe;color:#1d4ed8}
+.ok{color:var(--green);font-weight:700}
+.no{color:var(--warn);font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>AlwaysOn 开关链路详解</h1>
+<div class="sub">舱内 / 舱外 · 上电下电 · Button 开关 · 全流程逐段说清 · v1 · 2026-07-08</div>
+
+<div class="big">
+<b>本文只讲一件事</b>：端侧触发器怎么<b>开关</b> AI-Box 上的 AlwaysOn 周期任务。<br/><br/>
+覆盖：<b>舱外 AlwaysOn</b>（只看上下电）+ <b>舱内 AlwaysOn</b>（看上下电 <b>AND</b> Button）+ <b>开关机制</b>（start/stop 怎么走）+ <b>开=AND 关=OR 的逻辑本质</b> + <b>Button 的作用范围</b>（关着时用户 query 和系统预设任务分别怎么走）。<br/><br/>
+每张流程图下面都有一段逐步说明。不涉及动态感知/焦点描述任务（那是另一条链路）。
+</div>
+
+<div class="toc">
+<a class="h">§0 先读懂三根线</a>
+<a href="#s0">开关动作全走这三根线</a>
+<a class="h">§1 舱外 AlwaysOn</a>
+<a href="#s1a">决策流程图 + 状态机</a>
+<a href="#s1b">上电（开）逐步 / 下电（关）逐步</a>
+<a class="h">§2 舱内 AlwaysOn</a>
+<a href="#s2a">AND/OR 决策流程图</a>
+<a href="#s2b">三状态机（覆盖5个场景）</a>
+<a href="#s2c">情况 A~E 逐个走清楚</a>
+<a class="h">§3 开=AND 关=OR 的逻辑本质</a>
+<a class="h">§4 开关机制（start/stop 时序）</a>
+<a class="h">§5 Button 的作用范围</a>
+<a href="#s5a">任务分流决策树</a>
+<a href="#s5b">Button 关时：用户 query 怎么走</a>
+<a href="#s5c">Button 关时：系统预设任务怎么走</a>
+<a href="#s5d">总表 + A/B 决策点</a>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s0">§0 先读懂三根线</h2>
+
+<p>丁彬架构图上，跟"开关"直接相关的就三根线。所有开关动作都在这三根线上来回，先把它们认清楚，后面全程用它们：</p>
+
+<pre class="mermaid">
+flowchart LR
+    BTN["SLS舱内<br/>always on开关"]
+    TRIG["端侧触发器<br/>（你）"]
+    PRIO(("任务优先级<br/>管理"))
+    VLM["端侧感知模块<br/>VLM"]
+    DC[("AI Service<br/>数据中心")]
+    CLOUD["云端 端状态"]
+    BTN -->|"① Button 使能信号（你只读，不碰）"| TRIG
+    TRIG -->|"② 触发推理：下发 start / stop"| PRIO
+    PRIO --> VLM
+    VLM -->|"③ 触发&工作状态返回：状态回调"| TRIG
+    VLM -.->|"订阅结果返回（数据通道·另一条）"| DC
+    DC -.->|"整包透传"| CLOUD
+</pre>
+
+<table>
+<tr><th style="width:8%">线</th><th style="width:28%">方向</th><th style="width:34%">是什么</th><th>你要记住</th></tr>
+<tr><td><b>①</b></td><td>Button → 端侧触发器</td><td>用户的舱内使能开关，作为一个信号进来</td><td>你<b>只读</b>它，永远不去操作这个按钮</td></tr>
+<tr><td><b>②</b></td><td>端侧触发器 → 任务优先级管理</td><td>你下发的 <span class="k">start</span> / <span class="k">stop</span> 指令</td><td><b>你所有"开关"动作都走这根线</b>——开就 start，关就 stop</td></tr>
+<tr><td><b>③</b></td><td>VLM → 端侧触发器</td><td>VLM 回给你的状态（开没开成 / 每轮成功）</td><td>你靠它知道任务到底跑起来没</td></tr>
+</table>
+
+<div class="note nb">
+第③行下面那条虚线（VLM → 数据中心 → 云端）是<b>数据通道</b>，走 VLM 的识别结果，跟"开关"是两码事。本文只聊开关（①②③实线），数据通道不展开。
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s1">§1 舱外 AlwaysOn</h2>
+
+<p><span class="tag t-out">舱外</span>前视摄像头 · 3 秒周期 · <b>只看一个条件：上下电</b>。跟 Button 完全无关——这是它和舱内最大的区别。</p>
+
+<h3 id="s1a">决策流程图</h3>
+
+<pre class="mermaid">
+flowchart TD
+    S([系统电源状态变化]) --> Q{"power_state = ?"}
+    Q -->|"on 上电"| OPEN["开条件成立<br/>（单条件：只看 power）"]
+    OPEN --> C1["沿『触发推理』下发<br/>start（舱外AlwaysOn · 前视 · 3s）"]
+    C1 --> R["VLM 每 3 秒看一次前方<br/>天气 / 路况 / 障碍物"]
+    R -.->|每 3 秒循环一次| R
+    Q -->|"off 下电"| CLOSE["关条件成立<br/>（单条件：只看 power）"]
+    CLOSE --> C2["沿『触发推理』下发<br/>stop（舱外AlwaysOn）"]
+    C2 --> STOP["VLM 停止舱外任务"]
+</pre>
+
+<h4>状态机</h4>
+<pre class="mermaid">
+stateDiagram-v2
+    [*] --> OFF
+    OFF --> ON: 上电 power=on
+    ON --> OFF: 下电 power=off
+    ON --> ON: 每 3 秒周期推理
+    OFF: 关闭 舱外不跑
+    ON: 运行中 每3秒一帧
+</pre>
+
+<h3 id="s1b">逐步说明</h3>
+
+<h4>🔌 上电（开）</h4>
+<div class="step">1. 用户上车，整车上电 → 信号库里 <span class="k">power_state</span> 变成 <b>on</b></div>
+<div class="step">2. 【端侧触发器】读到 <span class="k">power_state = on</span></div>
+<div class="step">3. 判断舱外开条件 = <span class="k">power=on</span>（<b>单条件</b>）→ 满足 <span class="ok">✅</span></div>
+<div class="step">4. 【端侧触发器】沿 <b>② 触发推理</b> 线，向【任务优先级管理】下发：<br/><span class="k">start(task_id=舱外AlwaysOn, camera=前视, 周期=3s)</span></div>
+<div class="step">5. 【任务优先级管理】排好优先级 → 交给【端侧感知模块 VLM】</div>
+<div class="step">6. 【VLM】开始每 3 秒看一次前方（天气/路况/障碍物），进入周期循环</div>
+<div class="step">7. 【VLM】沿 <b>③ 触发&工作状态返回</b> 线，回给你"已启动 / 本轮 success"</div>
+
+<h4>🔌 下电（关）</h4>
+<div class="step">1. 用户熄火，整车下电 → <span class="k">power_state</span> 变成 <b>off</b></div>
+<div class="step">2. 【端侧触发器】读到 <span class="k">power_state = off</span></div>
+<div class="step">3. 判断舱外关条件 = <span class="k">power=off</span>（<b>单条件</b>）→ 满足 <span class="ok">✅</span></div>
+<div class="step">4. 【端侧触发器】沿 <b>② 触发推理</b> 线下发：<span class="k">stop(舱外AlwaysOn)</span></div>
+<div class="step">5. 【VLM】停止舱外周期任务，不再跑</div>
+
+<div class="note nx">
+<b>舱外结论</b>：开 = 上电，关 = 下电，一根 <span class="k">power</span> 说了算，<b>Button 完全不参与</b>。
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s2">§2 舱内 AlwaysOn</h2>
+
+<p><span class="tag t-in">舱内</span>舱内摄像头 · 动态 5 秒 + 静态 5 分钟 · <b>要看两个条件：上下电 AND Button</b>。这是全文最核心的一块。</p>
+
+<div class="note ng">
+规矩：<b>开 = <span class="k">power=on AND button=on</span></b>（两个都要满足）；<b>关 = <span class="k">power=off OR button=off</span></b>（任一不满足就关）。
+</div>
+
+<h3 id="s2a">AND / OR 决策流程图</h3>
+
+<pre class="mermaid">
+flowchart TD
+    S([电源 或 Button 状态变化]) --> READ["读 power_state + awake_button"]
+    READ --> Q{"power=on 且 button=on ?<br/>【开 = AND】"}
+    Q -->|"是：两个都满足"| OPEN["开条件成立"]
+    OPEN --> C1["下发 start（舱内动态·5s）<br/>+ start（舱内静态·5min）"]
+    C1 --> RUN["VLM 按 5s / 5min 周期跑"]
+    Q -->|"否：缺任意一个【关 = OR】"| CLOSE["关条件成立"]
+    CLOSE --> C2["下发 stop（舱内动态）<br/>+ stop（舱内静态）"]
+    C2 --> STOP["舱内不跑<br/>（舱外只看 power，不受影响）"]
+</pre>
+
+<h3 id="s2b">三状态机（一张图看全 5 个场景）</h3>
+
+<pre class="mermaid">
+stateDiagram-v2
+    [*] --> A0
+    A0 --> A2: 上电 且 button=on（情况A）
+    A0 --> A1: 上电 但 button=off（情况B）
+    A1 --> A2: 用户开 button（情况C）
+    A2 --> A1: 用户关 button（情况D）
+    A2 --> A0: 下电（情况E）
+    A1 --> A0: 下电
+    A0: 全关 舱外✗ 舱内✗
+    A1: 仅舱外 舱外✓ 舱内✗
+    A2: 全开 舱外✓ 舱内✓
+</pre>
+
+<p>三个状态：<b>全关</b>（下电，什么都不跑）、<b>仅舱外</b>（上电但 Button 关：舱外跑，舱内不跑）、<b>全开</b>（上电且 Button 开：舱外+舱内都跑）。下面把每条转移线（情况 A~E）走清楚。</p>
+
+<h3 id="s2c">情况 A~E 逐个走清楚</h3>
+
+<h4>情况 A：上电，且 Button 本来就是开的 → 开</h4>
+<div class="step">1. 上车上电 → <span class="k">power=on</span></div>
+<div class="step">2. 【触发器】读 <span class="k">power=on</span>，再读【SLS舱内always on开关】→ <span class="k">button=on</span></div>
+<div class="step">3. 开条件 = <span class="k">power=on AND button=on</span> → 两个都满足 <span class="ok">✅</span></div>
+<div class="step">4. 沿 ② 触发推理下发<b>两条</b> start：<span class="k">start(舱内动态,5s)</span> + <span class="k">start(舱内静态,5min)</span></div>
+<div class="step">5. 【VLM】按 5s / 5min 两个节奏跑，状态沿 ③ 回给你</div>
+
+<h4>情况 B：上电，但 Button 关着 → 不开</h4>
+<div class="step">1. 上车上电 → <span class="k">power=on</span></div>
+<div class="step">2. 【触发器】读 <span class="k">button=off</span></div>
+<div class="step">3. 开条件 = <span class="k">power=on AND button=off</span> → <b>AND 不满足</b> <span class="no">❌</span></div>
+<div class="step">4. 【触发器】<b>不下发</b>舱内的 start，舱内两个任务都不启动（舱外该开还是开）</div>
+
+<h4>情况 C：行驶中，用户把 Button 打开（power 早已 on）→ 开</h4>
+<div class="step">1. 当前 <span class="k">power=on</span>，舱内没跑</div>
+<div class="step">2. 用户在设置页开 Button → 【SLS舱内always on开关】把 <span class="k">button: off→on</span> 的变更通知你</div>
+<div class="step">3. 【触发器】重算开条件 = <span class="k">power=on AND button=on</span> → 现在满足了 <span class="ok">✅</span></div>
+<div class="step">4. 下发 <span class="k">start(舱内动态)</span> + <span class="k">start(舱内静态)</span></div>
+
+<h4>情况 D：行驶中，用户把 Button 关掉 → 关舱内（舱外不动）</h4>
+<div class="step">1. 当前 <span class="k">power=on</span>，舱内正在跑</div>
+<div class="step">2. 用户关 Button → <span class="k">button: on→off</span>，通知你</div>
+<div class="step">3. 【触发器】算关条件 = <span class="k">power=off OR button=off</span> → <b>button=off 满足 OR</b> <span class="ok">✅</span></div>
+<div class="step">4. 下发 <span class="k">stop(舱内动态)</span> + <span class="k">stop(舱内静态)</span></div>
+<div class="step">5. <b>舱外不受影响</b>——舱外只看 power，power 还是 on，继续跑</div>
+
+<h4>情况 E：下电（不管 Button 是开是关）→ 全关</h4>
+<div class="step">1. 熄火下电 → <span class="k">power=off</span></div>
+<div class="step">2. 【触发器】算舱内关条件 = <span class="k">power=off OR button=off</span> → <b>power=off 满足 OR</b> <span class="ok">✅</span></div>
+<div class="step">3. 下发 <span class="k">stop(舱内动态)</span> + <span class="k">stop(舱内静态)</span></div>
+<div class="step">4. 同时舱外也因 <span class="k">power=off</span> 被关</div>
+<div class="step">5. <b>三个 AlwaysOn 全停</b></div>
+
+<div class="note nb">
+<b>短暂下电再上电</b>（熄火重启）：先全关（下电时）→ 再次上电重走点火时序。若此时 Button 仍为 on，则三个全开；若 Button 为 off，则只开舱外。下电不管时长，一律先关。
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s3">§3 开=AND 关=OR 的逻辑本质</h2>
+
+<p>为什么开要 AND、关要 OR？不是随便定的，背后是"权限 + 授权"的逻辑：</p>
+
+<table>
+<tr><th style="width:14%"></th><th style="width:30%">含义</th><th>为什么这么设计</th></tr>
+<tr><td><b>开 = AND</b></td><td>power 和 button <b>都</b>满足才开</td><td>要<b>开始</b>看舱内，得同时具备两样东西：<b>前提</b>（power=on，车在用）+ <b>授权</b>（button=on，用户允许）。缺一不可——车没上电没法看，用户不允许也不能看</td></tr>
+<tr><td><b>关 = OR</b></td><td><b>任一</b>不满足就关</td><td>要<b>停下来</b>，只要一个理由就够：<b>要么断电</b>（车不用了）<b>要么用户撤回授权</b>（关 button）。满足一个就该立刻停，不能等两个都不满足</td></tr>
+</table>
+
+<div class="big">
+一句话记牢：<b>开舱内，要凑齐两把钥匙</b>（power + button）；<b>关舱内，丢一把就够了</b>。<b>舱外只有一把钥匙</b>（power）。
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s4">§4 开关机制（start / stop 时序）</h2>
+
+<p>前面反复说"下发 start / stop"，这里把这个动作在时间轴上展开，看清楚你和 VLM 之间来回几趟：</p>
+
+<pre class="mermaid">
+sequenceDiagram
+    autonumber
+    participant T as 端侧触发器（你）
+    participant P as 任务优先级管理
+    participant V as VLM
+    participant D as 数据中心
+    Note over T: 开条件成立（上电 / Button开）
+    T->>P: ② 触发推理：start(task_id, camera, 周期)
+    P->>V: 排优先级后启动任务
+    V-->>T: ③ 状态返回：已启动
+    loop 每个周期（3s / 5s / 5min）
+        V->>V: 推理一帧
+        V-->>T: ③ 状态回调：success / empty
+        V->>D: 订阅结果返回（数据通道）
+        D->>D: 整包透传云端
+    end
+    Note over T: 关条件成立（下电 / Button关）
+    T->>P: ② 触发推理：stop(task_id)
+    P->>V: 停止任务
+    V-->>T: ③ 状态回调：已停止
+</pre>
+
+<table>
+<tr><th style="width:14%">动作</th><th style="width:30%">你下发什么</th><th>发生什么</th></tr>
+<tr><td><b>开</b></td><td><span class="k">start(task_id, camera, 周期)</span></td><td>VLM 启动该任务并进入周期循环，每轮回一个状态给你</td></tr>
+<tr><td><b>关</b></td><td><span class="k">stop(task_id)</span></td><td>VLM 中止该任务，回一个"已停止"状态</td></tr>
+</table>
+
+<div class="note nb">
+关键：这个开关是<b>按任务（task_id）分别开关</b>的，不是一个总闸。所以 Button 关的时候，你能精准只 <span class="k">stop</span> 舱内那两个、留着舱外继续跑——因为你是对着具体的 task_id 喊 stop。
+</div>
+
+<div class="note np">
+会议依据：斯华——VLM SDK 提供 <b>init / start / stop</b> 控制接口；丁彬 7.7——"他有一个接口就把这个任务停就行了，我任务注销了就可以了……他就不跑了"。
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s5">§5 Button 的作用范围</h2>
+
+<div class="big">
+核心原则：<b>Button 只是"舱内 AlwaysOn"这一个任务的开关，不是"舱内摄像头总闸"。</b>其他舱内任务各有各的使能条件，Button 一律不管。
+</div>
+
+<p>为什么？因为它就叫 <b>AlwaysOn Button</b>——名字写死了它管的是 AlwaysOn，不是"所有用舱内摄像头的事"。下面用决策树看它到底管到哪。</p>
+
+<h3 id="s5a">任务分流决策树</h3>
+
+<pre class="mermaid">
+flowchart TD
+    S([一个要用舱内摄像头的任务来了]) --> Q{"这个任务是什么类型？"}
+    Q -->|"系统自发背景扫描<br/>舱内AlwaysOn 5s/5min"| B1{"button = on ?"}
+    B1 -->|是| R1["跑"]
+    B1 -->|否| X1["停 ★ Button 只在这里生效"]
+    Q -->|"用户主动 query<br/>『帮我看宝宝』"| R2["跑<br/>用户开口=授权，不看 Button"]
+    Q -->|"系统预设·儿童照看 4-6"| B2{"儿童照看开关 = on ?"}
+    B2 -->|是| R3["跑（看它自己的开关，不看 Button）"]
+    B2 -->|否| X3["不跑"]
+    Q -->|"系统预设·安全类<br/>遗留物品P0 / 安全提醒"| R4["建议跑<br/>安全兜底，不受 Button 约束"]
+</pre>
+
+<p>整棵树里，<b>只有最左边那条分支（舱内 AlwaysOn）会去问 Button</b>。其余每条分支都有自己的判断，Button 管不着。</p>
+
+<h3 id="s5b">Button 关时：用户主动 query 怎么走</h3>
+
+<p><b>场景：Button 关着，用户说"帮我看看后排宝宝坐好没"</b></p>
+<div class="step">1. 用户开口 → 语音上云 → 识别为<b>一次性视觉问答（VQA）</b></div>
+<div class="step">2. 系统判断：这是<b>用户主动请求</b>，不是系统自发的背景扫描</div>
+<div class="step">3. 走 VQA 链路 → 直接调 VLM：<span class="k">camera=舱内</span>，看一眼宝宝</div>
+<div class="step">4. VLM 执行 → 结果返回给用户</div>
+
+<div class="note nx">
+<b>关键：全程不看 Button，照样执行。</b> Button 管的是"系统偷偷一直看"，而这是"用户明确开口要你看一眼"。用户自己开口 = 自己授权，Button 管不着。总不能因为用户关了背景监控，就拒绝他"帮我看看宝宝"的直接请求。
+</div>
+
+<h3 id="s5c">Button 关时：系统预设任务怎么走</h3>
+
+<p>系统预设的舱内任务不止一个，每个有<b>自己的使能条件</b>。Button 关着时它们各走各的：</p>
+
+<h4>儿童照看（4-6）</h4>
+<div class="step">使能条件 = <b>用户单独开启"儿童照看"功能</b>（它有自己的开关）</div>
+<div class="step">Button 关 + 用户开了儿童照看 → <b>跑</b>（用它自己的开关，跟 AlwaysOn Button 无关）</div>
+<div class="step">Button 关 + 用户没开儿童照看 → 不跑（是它自己没开，不是 Button 拦的）</div>
+
+<h4>遗留物品检测（1-5，P0 安全）</h4>
+<div class="step">使能条件 = <b>用户离车（下电锁车）自动触发</b>，一次性检查</div>
+<div class="step">这是 <b>P0 安全兜底</b>——防止把孩子/宠物/贵重物品落在车里</div>
+<div class="step">Button 关 → <b>建议照跑</b>。安全类不该被隐私开关关掉（把孩子落车里是人命）</div>
+
+<h4>安全提醒（4-5）</h4>
+<div class="step">使能条件 = 行车中首次 P→D 自动触发，持续观察舱内不安全行为</div>
+<div class="step">这个性质<b>最接近 AlwaysOn</b>（持续舱内监控），是唯一有争议的 → 见下方决策点</div>
+
+<h3 id="s5d">总表 + A/B 决策点</h3>
+
+<table>
+<tr><th style="width:26%">舱内任务</th><th style="width:24%">谁使能它</th><th style="width:14%">Button 关时</th><th>为什么</th></tr>
+<tr><td><b>舱内 AlwaysOn（动5s/静5min）</b></td><td>就是 Button 自己</td><td class="no">停</td><td>Button 就是它的开关</td></tr>
+<tr><td><b>用户 query（看宝宝）</b></td><td>用户开口</td><td class="ok">跑</td><td>用户主动 = 授权</td></tr>
+<tr><td><b>儿童照看（4-6）</b></td><td>它自己的开关</td><td>看自己开关</td><td>独立 toggle，与 Button 无关</td></tr>
+<tr><td><b>遗留物品（1-5,P0）</b></td><td>离车自动·安全</td><td class="ok">建议跑</td><td>安全兜底，防落孩子</td></tr>
+<tr><td><b>安全提醒（4-5）</b></td><td>P→D 自动·安全</td><td>决策点</td><td>性质接近 AlwaysOn</td></tr>
+</table>
+
+<p><b>规律</b>：表里只有第一行受 Button 管，因为只有它是"纯背景 always on 扫描"。其余每个都有自己的使能条件。</p>
+
+<h4>你要拍板的一个点：Button 是"AlwaysOn 专用开关"还是"舱内摄像头总闸"？</h4>
+
+<table>
+<tr><th style="width:26%">定义</th><th style="width:30%">Button 关 = </th><th>影响</th></tr>
+<tr><td><b>A. AlwaysOn 专用开关（推荐）</b></td><td>只停那 3 个 AlwaysOn</td><td>安全类（遗留物品/安全提醒）、用户 query、儿童照看照常</td></tr>
+<tr><td><b>B. 舱内摄像头总闸</b></td><td>舱内摄像头一律禁用</td><td>连遗留物品（防落孩子）都不看了 —— <b>安全风险</b></td></tr>
+</table>
+
+<div class="redline">
+<b>强烈建议 A</b>。若选 B，用户关了 Button 后，连"把孩子落车里"这种 P0 安全兜底都失效，是拿隐私换人命，不划算。Button 应只管"系统别一直闲着盯我"，不该把安全功能一起关掉。<br/>
+<b>唯一模糊的是"安全提醒（4-5）"</b>——它是持续舱内监控，归"安全类不受约束"还是"持续监控类受约束"，建议评审时跟安全/隐私团队单独确认，写进 PRD。
+</div>
+
+<div class="note nb" style="margin-top:40px">
+<b>版本记录</b><br/>
+v1 · 2026-07-08 · 首版。7 张 Mermaid 图（3根线架构 / 舱外决策流程+状态机 / 舱内AND-OR决策+三状态机 / 开关时序 / Button分流决策树）+ 逐段说明。覆盖舱外上下电、舱内 A~E 五场景、开=AND关=OR逻辑、start/stop机制、Button作用范围（用户query vs 系统预设任务）+ A/B决策点。
+</div>
+
+</div>
+
+<script type="module">
+import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+mermaid.initialize({ startOnLoad: true, theme: 'default', securityLevel: 'loose', flowchart: { curve: 'basis', useMaxWidth: true }, themeVariables: { fontFamily: '-apple-system, PingFang SC, Microsoft YaHei, sans-serif' } });
+</script>
+</body>
+</html>

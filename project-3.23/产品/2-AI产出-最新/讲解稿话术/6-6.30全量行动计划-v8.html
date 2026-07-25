@@ -1,0 +1,916 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>端云触发器 · 从零讲透 v8（含架构图）</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0b0f17;color:#e6edf3;font-family:"PingFang SC","Heiti SC",-apple-system,sans-serif;line-height:2;padding:28px 24px 80px;max-width:1440px;margin:0 auto;font-size:14.5px}
+h1{font-size:26px;margin-bottom:4px;color:#f87171}
+h2{font-size:20px;margin:52px 0 16px;padding:12px 18px;background:#161d2e;border-left:5px solid #f59e0b;border-radius:0 8px 8px 0;color:#ffce6e}
+h3{font-size:15.5px;margin:28px 0 12px;color:#7dd3fc;border-bottom:1px solid #1e3050;padding-bottom:6px}
+h4{font-size:14px;margin:18px 0 8px;color:#c4b5fd}
+.sub{color:#8b9bb0;font-size:13px;margin-bottom:28px}
+table{width:100%;border-collapse:collapse;margin:14px 0 22px;font-size:13.5px}
+th{background:#1a2236;color:#ffce6e;padding:10px 12px;text-align:left;border:1px solid #2a3650;font-weight:700}
+td{padding:10px 12px;border:1px solid #222c3c;vertical-align:top;line-height:1.85}
+tr:nth-child(even) td{background:#0d1420}
+tr:nth-child(odd) td{background:#101828}
+.en{color:#93c5fd;font-weight:700}.enzh{color:#6ee7b7;font-size:12px;font-weight:400}
+.tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;margin:0 2px}
+.t-cloud{background:#1e3a5f;color:#93c5fd}.t-edge{background:#064e3b;color:#6ee7b7}.t-cdc{background:#78350f;color:#fde68a}
+.box{background:#101725;border:1px solid #222c3c;border-radius:10px;padding:18px 20px;margin:14px 0;line-height:1.95}
+.red{color:#f87171}.org{color:#f59e0b}.grn{color:#5eecc0}.blu{color:#7dd3fc}.pur{color:#c4b5fd}.pnk{color:#f472b6}
+.teach{background:#0c1e30;border:1px solid #1e4a7a;border-radius:8px;padding:16px 20px;margin:14px 0;font-size:14px;line-height:2.1;color:#c8ddf0}
+.teach b{color:#7dd3fc}
+.todo{background:#1a2a0a;border:2px solid #22c55e;border-radius:10px;padding:18px 22px;margin:18px 0}
+.todo-title{font-size:16px;font-weight:700;color:#5eecc0;margin-bottom:12px;border-bottom:1px solid #22c55e40;padding-bottom:8px}
+.iron{background:#1a0a0a;border:2px solid #dc2626;border-radius:10px;padding:16px 20px;margin:12px 0}
+.warn{background:#2a1a0a;border:2px solid #f59e0b;border-radius:10px;padding:16px 20px;margin:12px 0}
+.card{background:#161d2e;border:1px solid #2a3650;border-radius:10px;padding:18px 20px;margin:14px 0}
+.step{background:#0a1020;border-left:3px solid #a855f7;padding:12px 16px;margin:10px 0;border-radius:0 6px 6px 0;line-height:1.95}
+.person{background:#064e3b;color:#6ee7b7}
+pre{background:#0a0e16;border:1px solid #2a3650;border-radius:8px;padding:14px 16px;font-size:12.5px;overflow-x:auto;line-height:1.7;color:#e2c98a;margin:10px 0;white-space:pre-wrap}
+hr{border:none;border-top:1px solid #222c3c;margin:28px 0}
+.toc{background:#101725;border:1px solid #2a3650;border-radius:10px;padding:18px 22px;margin:18px 0}
+.toc a{color:#7dd3fc;text-decoration:none;display:block;padding:4px 0;font-size:13.5px}
+.toc a:hover{color:#f59e0b}
+.example{background:#0f1a2e;border:1px solid #334155;border-radius:8px;padding:16px 20px;margin:12px 0;line-height:2}
+.example-title{color:#f59e0b;font-weight:700;font-size:14px;margin-bottom:8px}
+.deep{background:#0a1520;border:1px solid #1e4060;border-radius:8px;padding:16px 20px;margin:12px 0;line-height:2}
+.deep b{color:#93c5fd}
+.diagram-box{background:#080c14;border:2px solid #334155;border-radius:12px;padding:20px;margin:20px 0;text-align:center;overflow-x:auto}
+.diagram-box img{max-width:100%;border-radius:8px;border:1px solid #2a3650}
+.diagram-title{color:#f59e0b;font-weight:700;font-size:15px;margin-bottom:12px;text-align:center}
+.diagram-note{color:#8b9bb0;font-size:12.5px;margin-top:10px;text-align:center;line-height:1.7}
+svg text{font-family:"PingFang SC","Heiti SC",sans-serif}
+</style></head><body>
+
+<h1>端云触发器 · 从零讲透 v8（含架构图）</h1>
+<p class="sub">
+v8在v7基础上新增：全景架构原图嵌入 + 7张关键流程图。<br/>
+每个概念都展开解释 · 所有英文标注中文 · 所有待办写清做什么/为什么/怎么做/给谁。<br/>
+v8 · 2026-07-01 ｜ 触发器PM：王泽民
+</p>
+
+<!-- ================ 全景大图嵌入 ================ -->
+<h2 id="c0">零、全景架构图（你的原图）</h2>
+
+<div class="teach">
+下面这两张图是整个系统的<b>全景架构图</b>。第一张是你在飞书白板上画的30节点原图（全模块大图），第二张是核对修正版（对齐PRD v2.2 + Advisor讲义后修正的版本）。<br/><br/>
+<b>怎么看这张图</b>：<br/>
+· 图的<b>左侧</b>是"端侧"（车上的东西）——信号源、AIBox、VLM<br/>
+· 图的<b>中间偏右</b>是"云端"（字节服务器）——触发器引擎⑮、Advisor、Director<br/>
+· <b>线</b>代表数据流向（L1~L38），每条线上标了"传什么数据"和"为什么需要这条线"<br/>
+· <b>颜色</b>区分不同流程：橙色=触发器主链路、蓝色=Director链路、绿色=Advisor链路、红色=VLM链路<br/><br/>
+可以点击图片放大查看。后面每一章都会对应到图上的某个区域。
+</div>
+
+<div class="diagram-box">
+<div class="diagram-title">图0-1：全模块大图（飞书白板原图）</div>
+<a href="../图-流程架构/触发器全景大图-高清5000px.png" target="_blank">
+<img src="../图-流程架构/触发器全景大图-高清5000px.png" alt="端云触发器全景大图" />
+</a>
+<div class="diagram-note">点击图片可放大查看 · 30个模块节点 + 38条连线 + 颜色分流程</div>
+</div>
+
+<div class="diagram-box">
+<div class="diagram-title">图0-2：核对修正版（对齐PRD v2.2 + Advisor讲义）</div>
+<a href="../图-流程架构/触发器架构-核对修正版-高清.png" target="_blank">
+<img src="../图-流程架构/触发器架构-核对修正版-高清.png" alt="端云触发器核对修正版" />
+</a>
+<div class="diagram-note">修正了Context→Advisor→Director的顺序 + Director↔Advisor流连闭环</div>
+</div>
+
+<div class="diagram-box">
+<div class="diagram-title">图0-3：原图增强评审版（带全部子模块编号）</div>
+<a href="../../_待归类/端云触发器架构图-原图增强评审版.png" target="_blank">
+<img src="../../_待归类/端云触发器架构图-原图增强评审版.png" alt="端云触发器原图增强评审版" />
+</a>
+<div class="diagram-note">每个模块带编号（15-1 到 15-18 / 24-1 到 24-9）· 评审用详细版</div>
+</div>
+
+<div class="toc">
+<b style="color:#ffce6e;font-size:15px;display:block;margin-bottom:8px">目 录</b>
+<a href="#c0">零、全景架构图（你的原图）</a>
+<a href="#c1">一、触发器是什么？为什么需要它？</a>
+<a href="#c2">二、三方架构：云端 / 端侧AIBox / CDC底软</a>
+<a href="#c3">三、信号系统：6类信号 + 信号库 + 真实格式</a>
+<a href="#c4">四、DSL到底是什么？（用真实例子走一遍）</a>
+<a href="#c5">五、配置平台⑬：你在火山后台能做什么</a>
+<a href="#c6">六、6个API接口：每个接口做什么用的</a>
+<a href="#c7">七、CTA框架：条件-触发-执行 怎么运作</a>
+<a href="#c8">八、云端触发器引擎⑮：18个子模块完整讲解</a>
+<a href="#c9">九、端侧触发器引擎㉔：收窄后的9个子模块</a>
+<a href="#c10">十、四条铁律</a>
+<a href="#c11">十一、VLM（视觉模型）：最复杂最重要的一块</a>
+<a href="#c12">十二、Advisor（顾问）系统</a>
+<a href="#c13">十三、38条连线：数据到底怎么流的</a>
+<a href="#c14">十四、SP（系统提示词）生命周期</a>
+<a href="#c15">十五、上汽 vs 赛力斯：两个项目有什么不同</a>
+<a href="#c16">十六、导航触发器：围栏 + POI接近</a>
+<a href="#c17">十七、6个完整Case</a>
+<a href="#c18">十八、你的完整行动清单</a>
+<a href="#c19">十九、风险清单</a>
+<a href="#c20">二十、人员地图</a>
+</div>
+
+<!-- ================================================================ -->
+<h2 id="c1">一、触发器是什么？为什么需要它？</h2>
+<!-- ================================================================ -->
+
+<div class="teach">
+你在做的产品叫"豆包上车"（<span class="en">Driver Agent 2.0</span> <span class="enzh">驾驶代理2.0版本，简称DA2</span>），是装在上汽荣威D6X车上的AI助手。<br/><br/>
+
+这个AI助手有一个"大脑"叫 <span class="en">Director</span> <span class="enzh">导演/总决策者</span>。用户说话的时候，Director负责理解意思、做决策、调工具执行。<br/><br/>
+
+<b>但Director有一个致命的缺陷：它只有用户说话的时候才工作。</b><br/><br/>
+
+用户不说话的时候呢？比如：<br/>
+· 副驾驶睡着了——谁来自动调小音量？<br/>
+· 车里温度超了28度——谁来自动开空调？<br/>
+· 用户10分钟前说了"10分钟后关座椅加热"——10分钟到了谁来执行？<br/>
+· 车后面有只小狗——谁来通知系统调整环境？<br/><br/>
+
+Director做不了这些事。它需要一个"值班哨兵"——<b>24小时不停地盯着车上的所有传感器和摄像头，一旦发现某个预设的条件满足了，就主动去通知该通知的人</b>。<br/><br/>
+
+<b class="red">这个哨兵 = 触发器 = <span class="en">Trigger</span> <span class="enzh">触发器</span> = 你负责的产品。</b>
+</div>
+
+<!-- ▶ 图1：CTA三步示意 -->
+<div class="diagram-box">
+<div class="diagram-title">图1：触发器干的3件事（CTA）</div>
+<svg viewBox="0 0 900 200" xmlns="http://www.w3.org/2000/svg" style="max-width:800px">
+<defs><marker id="ah1" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#f59e0b"/></marker></defs>
+<!-- C -->
+<rect x="30" y="50" width="220" height="100" rx="12" fill="#1e3a5f" stroke="#93c5fd" stroke-width="2"/>
+<text x="140" y="85" text-anchor="middle" fill="#93c5fd" font-size="18" font-weight="bold">C = Condition</text>
+<text x="140" y="110" text-anchor="middle" fill="#c8ddf0" font-size="13">条件：盯着信号</text>
+<text x="140" y="132" text-anchor="middle" fill="#6ee7b7" font-size="12">温度多少？有人睡觉吗？</text>
+<!-- arrow -->
+<line x1="260" y1="100" x2="330" y2="100" stroke="#f59e0b" stroke-width="3" marker-end="url(#ah1)"/>
+<text x="295" y="88" text-anchor="middle" fill="#f59e0b" font-size="11">满足了</text>
+<!-- T -->
+<rect x="340" y="50" width="220" height="100" rx="12" fill="#422006" stroke="#f59e0b" stroke-width="2"/>
+<text x="450" y="85" text-anchor="middle" fill="#f59e0b" font-size="18" font-weight="bold">T = Trigger</text>
+<text x="450" y="110" text-anchor="middle" fill="#c8ddf0" font-size="13">触发：条件达标</text>
+<text x="450" y="132" text-anchor="middle" fill="#6ee7b7" font-size="12">温度>28度了！穿越检测✓</text>
+<!-- arrow -->
+<line x1="570" y1="100" x2="640" y2="100" stroke="#f59e0b" stroke-width="3" marker-end="url(#ah1)"/>
+<text x="605" y="88" text-anchor="middle" fill="#f59e0b" font-size="11">push</text>
+<!-- A -->
+<rect x="650" y="50" width="220" height="100" rx="12" fill="#064e3b" stroke="#5eecc0" stroke-width="2"/>
+<text x="760" y="85" text-anchor="middle" fill="#5eecc0" font-size="18" font-weight="bold">A = Action</text>
+<text x="760" y="110" text-anchor="middle" fill="#c8ddf0" font-size="13">执行：通知相关人</text>
+<text x="760" y="132" text-anchor="middle" fill="#6ee7b7" font-size="12">→ 通知舒适Advisor开空调</text>
+</svg>
+</div>
+
+<div class="deep">
+<b>类比：如果把整个系统比作一个公司</b><br/><br/>
+· <span class="en">Director</span>（导演） = CEO。用户说话的时候CEO亲自接待。<br/>
+· 4个静态 <span class="en">Advisor</span>（顾问） = 4个VP。舒适VP管温度灯光、出行VP管导航充电、情感VP管打招呼安慰、内容VP管音乐视频。<br/>
+· 动态 <span class="en">Advisor</span> = 临时项目经理。CEO安排的临时任务（"盯着宝宝毯子"），做完就走。<br/>
+· <b>触发器 = 7×24小时值班的安保监控中心</b>。盯着公司所有的监控摄像头和传感器，发现异常（有人闯入/温度过高/烟雾报警）就<b>立刻通知</b>VP或CEO。<br/><br/>
+安保不做决策（"要不要报警"不是安保决定的，是VP/CEO决定的），安保只负责<b>发现+通知</b>。触发器也一样——它不决定"要不要给用户开空调"，它只负责"温度超了28度我通知舒适VP，VP你自己决定怎么办"。
+</div>
+
+<div class="box">
+<b class="org">触发器在整个系统里的位置</b>（对应原图中间偏左的橙色区域）<br/><br/>
+用户说话时走的是一个"三层漏斗"：<br/>
+第1层：<span class="en">RAG</span>（<span class="en">Retrieval-Augmented Generation</span> <span class="enzh">检索增强生成</span>）——用已有的规则快速匹配，处理"打开车窗"这种指令<br/>
+第2层：情景RAG + <span class="en">Arbitration Model</span>（<span class="enzh">仲裁模型</span>）——注入用户记忆和车况，判断是简单需求还是复杂需求<br/>
+第3层：<span class="en">Director</span>（导演）——云端大模型深度推理，处理复杂需求<br/><br/>
+
+<b>触发器不在这个漏斗里。</b>它是漏斗之外的一个独立系统。<br/><br/>
+
+唯一和漏斗交叉的地方：用户说了一句带条件的话（"10分钟后关座椅加热"）→ 漏斗处理 → Director把这个条件<b>注册到触发器</b>（L33连线）→ 触发器自己计时 → 10分钟到了通知Director执行。
+</div>
+
+<!-- ================================================================ -->
+<h2 id="c2">二、三方架构</h2>
+<!-- ================================================================ -->
+
+<div class="teach">
+整个系统的代码和功能不是全跑在一个地方的。它分散在<b>3个物理位置</b>上。你设计一个功能的时候，第一件事就是想清楚：<b>这个功能在哪里跑？</b>因为不同位置有不同的限制。<br/><br/>
+<b>对应原图</b>：图的上半部分是云端（蓝色底），下半部分偏左是端侧AIBox（绿色底），最下方是CDC底软（黄色底）。
+</div>
+
+<!-- ▶ 图2：三方架构分区 -->
+<div class="diagram-box">
+<div class="diagram-title">图2：三方架构分区</div>
+<svg viewBox="0 0 960 420" xmlns="http://www.w3.org/2000/svg" style="max-width:900px">
+<defs>
+<marker id="ah2" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#f59e0b"/></marker>
+<marker id="ah2r" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#f87171"/></marker>
+</defs>
+<!-- Cloud zone -->
+<rect x="10" y="10" width="940" height="170" rx="14" fill="#0d1a2e" stroke="#93c5fd" stroke-width="2" stroke-dasharray="6,3"/>
+<text x="30" y="35" fill="#93c5fd" font-size="14" font-weight="bold">☁️ 云端（字节跳动服务器） — 约80%逻辑</text>
+<rect x="30" y="50" width="120" height="50" rx="8" fill="#1e3a5f" stroke="#93c5fd"/><text x="90" y="80" text-anchor="middle" fill="#e6edf3" font-size="11">⑮ 触发器引擎</text>
+<rect x="170" y="50" width="110" height="50" rx="8" fill="#1e3a5f" stroke="#93c5fd"/><text x="225" y="80" text-anchor="middle" fill="#e6edf3" font-size="11">⑬ 配置平台</text>
+<rect x="300" y="50" width="110" height="50" rx="8" fill="#1e3a5f" stroke="#93c5fd"/><text x="355" y="80" text-anchor="middle" fill="#e6edf3" font-size="11">⑫ 云端信号库</text>
+<rect x="430" y="50" width="110" height="50" rx="8" fill="#1e3a5f" stroke="#93c5fd"/><text x="485" y="80" text-anchor="middle" fill="#e6edf3" font-size="11">⑯ 静态Advisor×4</text>
+<rect x="560" y="50" width="110" height="50" rx="8" fill="#1e3a5f" stroke="#93c5fd"/><text x="615" y="80" text-anchor="middle" fill="#e6edf3" font-size="11">⑰ 动态Advisor×N</text>
+<rect x="690" y="50" width="110" height="50" rx="8" fill="#1e3a5f" stroke="#93c5fd"/><text x="745" y="80" text-anchor="middle" fill="#e6edf3" font-size="11">⑲⑳ Director</text>
+<rect x="820" y="50" width="110" height="50" rx="8" fill="#1e3a5f" stroke="#93c5fd"/><text x="875" y="80" text-anchor="middle" fill="#e6edf3" font-size="11">㉑ Context</text>
+<rect x="30" y="120" width="120" height="45" rx="8" fill="#1e3a5f" stroke="#93c5fd"/><text x="90" y="148" text-anchor="middle" fill="#e6edf3" font-size="11">㉒ 工具库(23个)</text>
+<rect x="170" y="120" width="110" height="45" rx="8" fill="#1e3a5f" stroke="#93c5fd"/><text x="225" y="148" text-anchor="middle" fill="#e6edf3" font-size="11">VQA(云端视觉)</text>
+
+<!-- Edge zone -->
+<rect x="10" y="200" width="630" height="120" rx="14" fill="#061a14" stroke="#5eecc0" stroke-width="2" stroke-dasharray="6,3"/>
+<text x="30" y="225" fill="#5eecc0" font-size="14" font-weight="bold">📦 端侧 AIBox（字节车机盒子，在车上） — 约20%逻辑</text>
+<rect x="30" y="240" width="120" height="50" rx="8" fill="#064e3b" stroke="#5eecc0"/><text x="90" y="270" text-anchor="middle" fill="#e6edf3" font-size="11">㉔ 端侧触发器</text>
+<rect x="170" y="240" width="110" height="50" rx="8" fill="#064e3b" stroke="#5eecc0"/><text x="225" y="270" text-anchor="middle" fill="#e6edf3" font-size="11">④ 端侧信号库</text>
+<rect x="300" y="240" width="100" height="50" rx="8" fill="#064e3b" stroke="#5eecc0"/><text x="350" y="270" text-anchor="middle" fill="#e6edf3" font-size="11">㉕ VLM</text>
+<rect x="420" y="240" width="80" height="50" rx="8" fill="#064e3b" stroke="#5eecc0"/><text x="460" y="270" text-anchor="middle" fill="#e6edf3" font-size="11">② ASR</text>
+<rect x="520" y="240" width="100" height="50" rx="8" fill="#064e3b" stroke="#5eecc0"/><text x="570" y="270" text-anchor="middle" fill="#e6edf3" font-size="11">㉖TTS ㉗机器人</text>
+
+<!-- CDC zone -->
+<rect x="10" y="340" width="940" height="70" rx="14" fill="#1a1408" stroke="#fde68a" stroke-width="2" stroke-dasharray="6,3"/>
+<text x="30" y="365" fill="#fde68a" font-size="14" font-weight="bold">🚗 CDC底软（赛力斯） — 固定功能，不走触发器</text>
+<text x="30" y="392" fill="#c8ddf0" font-size="12">起步安全 · 上下车安全 · 睡眠提醒 · 无感迎宾 · 充电大师 · 哨兵模式</text>
+
+<!-- Key arrows -->
+<line x1="225" y1="240" x2="355" y2="105" stroke="#f59e0b" stroke-width="2" marker-end="url(#ah2)"/>
+<text x="310" y="175" fill="#f59e0b" font-size="10" transform="rotate(-30,310,175)">L9 信号同步上云</text>
+
+<line x1="90" y1="100" x2="90" y2="235" stroke="#f87171" stroke-width="2" marker-end="url(#ah2r)"/>
+<text x="100" y="175" fill="#f87171" font-size="10">L14 规则包+SP下发</text>
+
+<!-- Privacy warning -->
+<rect x="660" y="200" width="280" height="120" rx="14" fill="#1a0505" stroke="#f87171" stroke-width="2"/>
+<text x="800" y="230" text-anchor="middle" fill="#f87171" font-size="13" font-weight="bold">⚠️ 舱内图片不能上云！</text>
+<text x="800" y="258" text-anchor="middle" fill="#c8ddf0" font-size="11">赛力斯合规要求：</text>
+<text x="800" y="278" text-anchor="middle" fill="#c8ddf0" font-size="11">车内摄像头照片涉及隐私</text>
+<text x="800" y="298" text-anchor="middle" fill="#c8ddf0" font-size="11">→ 舱内视觉只能在端侧VLM处理</text>
+</svg>
+</div>
+
+<h3>2.1 三个物理位置</h3>
+
+<table>
+<tr><th style="width:150px">物理位置</th><th style="width:130px">是谁的设备</th><th>跑什么</th><th>限制</th></tr>
+<tr>
+<td><span class="tag t-cloud">☁️ 云端</span><br/>字节跳动的服务器<br/>（在机房里，不在车上）</td>
+<td>字节跳动</td>
+<td>约<b>80%</b>的逻辑（仁杰估计）：⑮引擎/⑬配置平台/⑫信号库/⑯⑰Advisor/⑲⑳Director/㉑Context/㉒工具库/VQA</td>
+<td>需要网络连接。可以做复杂推理。延迟稍高。</td>
+</tr>
+<tr>
+<td><span class="tag t-edge">📦 端侧 AIBox</span><br/>字节跳动的车机盒子</td>
+<td>字节跳动</td>
+<td>约<b>20%</b>的逻辑：㉔端侧触发器/④信号库/㉕VLM/②ASR/㉖TTS/㉗机器人</td>
+<td><b class="red">舱内图片不能上云！</b>算力有限。断网需独立工作。</td>
+</tr>
+<tr>
+<td><span class="tag t-cdc">🚗 CDC底软</span></td>
+<td>赛力斯</td>
+<td>固定功能（起步安全/上下车安全/睡眠提醒/无感迎宾/充电大师/哨兵模式）</td>
+<td>仁杰三问法：功能不变/不需用户创建/不需AI → CDC做</td>
+</tr>
+</table>
+
+<div class="iron">
+<b class="red">6.22会议最大的变化：端侧scope大幅收窄</b><br/><br/>
+6.22之前：端侧㉔什么都做——信号扫描、条件判定、防抖、优先级仲裁、穿越检测。<br/>
+<b>6.22之后</b>：复杂逻辑<b>全部搬回云端⑮</b>。端侧只保留3件事：①接收云端下发的规则包 ②本地定时器（断网也能倒计时）③VLM结果转发。<br/>
+仁杰原话："放在触发器里面专门去配，反而还要让触发器去接所有底层信号，还要考虑稳定性和延时，不如直接底软就做了。"
+</div>
+
+<!-- ================================================================ -->
+<h2 id="c3">三、信号系统</h2>
+<!-- ================================================================ -->
+
+<div class="teach">
+触发器要知道车上发生了什么，靠的是<b>信号</b>（<span class="en">Signal</span>）。信号就是"把车上发生的一件事变成一条数据"。<br/><br/>
+<b>对应原图</b>：图的左侧从下到上——信号源（①②③④⑤⑥⑦⑧）→ ④端侧信号库 → L9同步 → ⑫云端信号库 → L12 → ⑮引擎读取。
+</div>
+
+<!-- ▶ 图3：信号流转路径 -->
+<div class="diagram-box">
+<div class="diagram-title">图3：信号从产生到被触发器读取的完整路径</div>
+<svg viewBox="0 0 960 340" xmlns="http://www.w3.org/2000/svg" style="max-width:900px">
+<defs><marker id="ah3" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#f59e0b"/></marker></defs>
+<!-- 6 signal sources -->
+<text x="80" y="25" text-anchor="middle" fill="#8b9bb0" font-size="12">6类原始信号源（格式各异）</text>
+<rect x="10" y="35" width="130" height="38" rx="6" fill="#1a0a0a" stroke="#f87171"/><text x="75" y="59" text-anchor="middle" fill="#f87171" font-size="11">① CAN车态（二进制）</text>
+<rect x="10" y="80" width="130" height="38" rx="6" fill="#1a0a0a" stroke="#f87171"/><text x="75" y="104" text-anchor="middle" fill="#f87171" font-size="11">② VLM视觉（JSON）</text>
+<rect x="10" y="125" width="130" height="38" rx="6" fill="#1a0a0a" stroke="#f87171"/><text x="75" y="149" text-anchor="middle" fill="#f87171" font-size="11">③ App埋点</text>
+<rect x="10" y="170" width="130" height="38" rx="6" fill="#1a0a0a" stroke="#f87171"/><text x="75" y="194" text-anchor="middle" fill="#f87171" font-size="11">④ 围栏Geofence</text>
+<rect x="10" y="215" width="130" height="38" rx="6" fill="#1a0a0a" stroke="#f87171"/><text x="75" y="239" text-anchor="middle" fill="#f87171" font-size="11">⑤ 音频Audio</text>
+<rect x="10" y="260" width="130" height="38" rx="6" fill="#1a0a0a" stroke="#f87171"/><text x="75" y="284" text-anchor="middle" fill="#f87171" font-size="11">⑥ 定时器Timer</text>
+
+<!-- arrows to signal lib -->
+<line x1="145" y1="55" x2="220" y2="150" stroke="#666" stroke-width="1.5" marker-end="url(#ah3)"/>
+<line x1="145" y1="100" x2="220" y2="150" stroke="#666" stroke-width="1.5" marker-end="url(#ah3)"/>
+<line x1="145" y1="145" x2="220" y2="155" stroke="#666" stroke-width="1.5" marker-end="url(#ah3)"/>
+<line x1="145" y1="190" x2="220" y2="165" stroke="#666" stroke-width="1.5" marker-end="url(#ah3)"/>
+<line x1="145" y1="235" x2="220" y2="170" stroke="#666" stroke-width="1.5" marker-end="url(#ah3)"/>
+<line x1="145" y1="280" x2="220" y2="175" stroke="#666" stroke-width="1.5" marker-end="url(#ah3)"/>
+
+<!-- 端侧信号库 -->
+<rect x="225" y="120" width="160" height="80" rx="10" fill="#064e3b" stroke="#5eecc0" stroke-width="2"/>
+<text x="305" y="152" text-anchor="middle" fill="#5eecc0" font-size="14" font-weight="bold">④ 端侧信号库</text>
+<text x="305" y="175" text-anchor="middle" fill="#c8ddf0" font-size="11">在AIBox上（车里）</text>
+<text x="305" y="192" text-anchor="middle" fill="#6ee7b7" font-size="10">统一格式：id/key/value/source/ts/ttl</text>
+
+<!-- L9 arrow -->
+<line x1="390" y1="160" x2="500" y2="160" stroke="#f59e0b" stroke-width="3" marker-end="url(#ah3)"/>
+<rect x="410" y="135" width="70" height="22" rx="4" fill="#422006"/><text x="445" y="151" text-anchor="middle" fill="#f59e0b" font-size="11" font-weight="bold">L9同步</text>
+
+<!-- 云端信号库 -->
+<rect x="505" y="120" width="160" height="80" rx="10" fill="#1e3a5f" stroke="#93c5fd" stroke-width="2"/>
+<text x="585" y="152" text-anchor="middle" fill="#93c5fd" font-size="14" font-weight="bold">⑫ 云端信号库</text>
+<text x="585" y="175" text-anchor="middle" fill="#c8ddf0" font-size="11">在字节服务器（全集）</text>
+<text x="585" y="192" text-anchor="middle" fill="#6ee7b7" font-size="10">端侧信号+云端自产信号</text>
+
+<!-- L12 arrow -->
+<line x1="670" y1="160" x2="780" y2="160" stroke="#f59e0b" stroke-width="3" marker-end="url(#ah3)"/>
+<rect x="690" y="135" width="75" height="22" rx="4" fill="#422006"/><text x="727" y="151" text-anchor="middle" fill="#f59e0b" font-size="11" font-weight="bold">L12读取</text>
+
+<!-- 触发器引擎 -->
+<rect x="785" y="110" width="160" height="100" rx="10" fill="#422006" stroke="#f59e0b" stroke-width="2"/>
+<text x="865" y="145" text-anchor="middle" fill="#f59e0b" font-size="14" font-weight="bold">⑮ 触发器引擎</text>
+<text x="865" y="170" text-anchor="middle" fill="#c8ddf0" font-size="11">从⑫读标准化信号</text>
+<text x="865" y="190" text-anchor="middle" fill="#c8ddf0" font-size="11">做条件判断+穿越检测</text>
+
+<!-- 铁律③标注 -->
+<rect x="505" y="230" width="440" height="40" rx="6" fill="#1a0a0a" stroke="#f87171" stroke-dasharray="4"/>
+<text x="725" y="255" text-anchor="middle" fill="#f87171" font-size="12">铁律③：⑮只读⑫信号库，不直接读原始信号源（解耦）</text>
+
+<!-- 翻译中心标注 -->
+<rect x="225" y="230" width="160" height="40" rx="6" fill="#0a1520" stroke="#334155"/>
+<text x="305" y="255" text-anchor="middle" fill="#8b9bb0" font-size="11">"翻译中心"：统一格式</text>
+</svg>
+</div>
+
+<h3>3.1 六类信号源详解</h3>
+<table>
+<tr><th style="width:35px">#</th><th style="width:140px">信号类型</th><th>到底是什么（讲透）</th><th style="width:200px">具体包含哪些信号</th></tr>
+<tr><td>1</td><td><b>端状态</b><br/><span class="en">CAN</span>总线<br/>（<span class="en">Controller Area Network</span> <span class="enzh">控制器局域网——车辆内部各零部件之间通信的电缆总线，像人体神经系统</span>）</td><td>车上所有<b>硬件传感器</b>产生的数据。CAN总线=车的神经系统，24大类车态字段（见3.3）。</td><td>四门/车速/档位/占座/安全带/上下电/充电/胎压/空调/车窗/车灯/温度</td></tr>
+<tr><td>2</td><td><b>视觉VLM</b><br/>（<span class="en">Vision Language Model</span> <span class="enzh">视觉语言模型</span>）</td><td>装在AIBox里的"AI眼睛"。每5秒拍舱内、每3秒拍舱外。<b>大部分输出是str自由文本</b>——这是最头疼的问题。VLM看舱内（端侧），VQA看舱外（云端）。</td><td>舱内：人物位置/性别/年龄/动作/物品<br/>舱外：天气/路面/充电桩</td></tr>
+<tr><td>3</td><td><b>埋点</b>（<span class="en">App Event</span> <span class="enzh">应用事件</span>）</td><td>用户在车机界面上的操作行为记录。"埋点"=在关键操作上"埋"代码自动记录。</td><td>App打开关闭/按钮点击/导航/切歌</td></tr>
+<tr><td>4</td><td><b>电子围栏</b>（<span class="en">Geofence</span> <span class="enzh">地理围栏</span>）</td><td>在地图上画一个圈，车进入/离开圈子时产生信号。6.25决定优先走端侧围栏（合规+实时性）。</td><td>进入/离开/接近/到达POI</td></tr>
+<tr><td>5</td><td><b>音频</b></td><td>车内音频相关的信号。</td><td>音量/切歌/循环播放/TTS状态</td></tr>
+<tr><td>6</td><td><b>时间</b>（<span class="en">Timer</span> <span class="enzh">定时器</span>）</td><td>端侧最核心的不可替代信号源。<b>定时器必须在端侧跑</b>——断网也要能倒计时。最小精度1分钟，最多30个。<span class="en">Cron</span>=定时表达式。</td><td>倒计时/Cron周期/日期触发</td></tr>
+</table>
+
+<h3>3.2 信号库统一格式</h3>
+<table>
+<tr><th style="width:120px">字段名</th><th>是什么意思</th><th style="width:250px">举例</th></tr>
+<tr><td><b><span class="en">id</span></b> <span class="enzh">唯一编号</span></td><td>前缀区分来源：SIG-C(CAN)/SIG-V(VLM)/SIG-T(Timer)/SIG-G(围栏)/SIG-A(音频)/SIG-E(事件)</td><td><code>SIG-C-017</code></td></tr>
+<tr><td><b><span class="en">key</span></b> <span class="enzh">字段名</span></td><td>"这条信号说的是什么"的机器名。配置平台选条件时选的就是这个key。命名："设备_位置_属性"</td><td><code>belt_fr</code>=安全带_前右</td></tr>
+<tr><td><b><span class="en">value</span></b> <span class="enzh">值</span></td><td>3种类型：<b>enum</b>（枚举=下拉菜单，可直接==判断）/ <b>number</b>（数值，可>/<比较）/ <b>str</b>（自由文本，<span class="red">没法直接判断</span>）</td><td>enum:<code>buckled</code> number:<code>28</code> str:<code>"闭眼休息"</code><br/>单位规则(6/20确认)：米/秒/hh:mm，距离带单位"200m"</td></tr>
+<tr><td><b><span class="en">source</span></b> <span class="enzh">来源</span></td><td>信号从哪来。CDC来的≈100%准确，VLM可能有误差。</td><td>7种：CDC/VLM/App/GPS/Audio/Timer/Seres_CDC</td></tr>
+<tr><td><b><span class="en">timestamp</span></b> <span class="enzh">时间戳</span></td><td>信号<b>产生</b>的时间（不是写入信号库的时间）</td><td><code>2026-07-01T15:30:45.123</code></td></tr>
+<tr><td><b><span class="en">ttl</span></b> = <span class="en">Time To Live</span> <span class="enzh">保质期</span></td><td>"过期了就失效"。VLM每5秒出一帧，如果某帧延迟15秒才到→TTL=5→到了就过期→触发器忽略这个旧结果。<br/>车速=1秒 / 车门=5秒 / VLM=3~5秒 / 占座=30秒</td><td><code>5</code>（5秒后过期）</td></tr>
+<tr><td><b><span class="en">confidence</span></b> <span class="enzh">置信度</span></td><td>VLM对自己判断的确信程度(0~1)。CDC没有这个字段。</td><td><code>0.82</code></td></tr>
+</table>
+
+<h3>3.3 24类车态字段</h3>
+<table>
+<tr><th style="width:50px">编号</th><th style="width:180px">类别</th><th>包含什么</th><th>子字段举例</th></tr>
+<tr><td>0004</td><td>车速</td><td>当前车速</td><td>velocity</td></tr>
+<tr><td>0006</td><td>档位</td><td>P/D/R/N</td><td>gear_position</td></tr>
+<tr><td>0013</td><td>空调</td><td>开关/模式/风量</td><td>switch/mode/fan_level</td></tr>
+<tr><td>0014</td><td>空调温度</td><td>设定温度/实际温度</td><td>set_temperature/actual_temperature</td></tr>
+<tr><td>0017</td><td>方向盘加热</td><td>加热开关</td><td>switch</td></tr>
+<tr><td>0018</td><td>座椅加热/通风</td><td>每个座位的加热通风</td><td>position/heat_level/vent_level</td></tr>
+<tr><td>0021</td><td>温度</td><td>舱内/舱外温度</td><td>cabin_temperature/outside_temperature</td></tr>
+<tr><td>0022</td><td>座椅占座</td><td>哪个座位有人</td><td>position/occupied</td></tr>
+<tr><td>0023</td><td>安全带</td><td>系没系</td><td>position/status(buckled/unbuckled)</td></tr>
+<tr><td>0024</td><td>车窗</td><td>车窗位置</td><td>position/open_ratio(0~100%)</td></tr>
+<tr><td>0025</td><td>天窗</td><td>天窗状态</td><td>position/status</td></tr>
+<tr><td>0026</td><td>后备箱</td><td>开关</td><td>status</td></tr>
+<tr><td>0027</td><td>充电口盖</td><td>开关</td><td>status</td></tr>
+<tr><td>0028</td><td>车门</td><td>四门状态</td><td>position(fl/fr/rl/rr)/switch</td></tr>
+<tr><td>0029</td><td>车灯</td><td>大灯/示宽灯/雾灯</td><td>light_type/status</td></tr>
+<tr><td>0030</td><td>上下电</td><td>车辆电源</td><td>power_status(on/off)</td></tr>
+<tr><td>0031</td><td>充电状态</td><td>是否充电/功率</td><td>charging_status/power</td></tr>
+<tr><td>0032</td><td>电量/续航</td><td>电池电量/剩余续航</td><td>soc(%)/range_km</td></tr>
+<tr><td>0033</td><td>胎压</td><td>四轮胎压</td><td>position/pressure_kpa</td></tr>
+<tr><td>0034</td><td>雨刮</td><td>雨刮状态</td><td>status/speed</td></tr>
+<tr><td>0035</td><td>氛围灯</td><td>颜色和亮度</td><td>color/brightness</td></tr>
+<tr><td>0036</td><td>中控锁</td><td>全车锁</td><td>lock_status</td></tr>
+<tr><td>0037</td><td>蓝牙钥匙</td><td>连接状态</td><td>connected/distance</td></tr>
+<tr><td>0038</td><td>智驾状态</td><td>自动驾驶</td><td>autopilot_status/level</td></tr>
+</table>
+
+<!-- ================================================================ -->
+<h2 id="c4">四、DSL到底是什么</h2>
+<!-- ================================================================ -->
+
+<div class="teach">
+<span class="en">DSL</span> = <span class="en">Domain Specific Language</span> <span class="enzh">领域特定语言</span>。<b>就是一套"填表格的规范"</b>——你在配置平台上填的每一个条件和动作，后台存成的结构化格式就叫DSL。DSL一共有<b>5个部分</b>。
+</div>
+
+<!-- ▶ 图4：DSL 5结构关系 -->
+<div class="diagram-box">
+<div class="diagram-title">图4："超25度开空调" → DSL 5个结构的关系</div>
+<svg viewBox="0 0 960 380" xmlns="http://www.w3.org/2000/svg" style="max-width:900px">
+<defs><marker id="ah4" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#f59e0b"/></marker></defs>
+<!-- 人话输入 -->
+<rect x="330" y="10" width="300" height="45" rx="10" fill="#422006" stroke="#f59e0b" stroke-width="2"/>
+<text x="480" y="38" text-anchor="middle" fill="#f59e0b" font-size="15" font-weight="bold">用户说："超过25度开空调"</text>
+<line x1="480" y1="58" x2="480" y2="85" stroke="#f59e0b" stroke-width="2" marker-end="url(#ah4)"/>
+<text x="490" y="78" fill="#8b9bb0" font-size="10">后台自动翻译成DSL ↓</text>
+
+<!-- Condition -->
+<rect x="20" y="90" width="280" height="120" rx="10" fill="#1e3a5f" stroke="#93c5fd" stroke-width="2"/>
+<text x="160" y="115" text-anchor="middle" fill="#93c5fd" font-size="15" font-weight="bold">① Condition 条件</text>
+<text x="160" y="140" text-anchor="middle" fill="#c8ddf0" font-size="12">"什么情况下触发"</text>
+<text x="160" y="162" text-anchor="middle" fill="#e6edf3" font-size="11">Code: vehicle_control_0021（温度）</text>
+<text x="160" y="182" text-anchor="middle" fill="#e6edf3" font-size="11">Operator: >（大于）</text>
+<text x="160" y="200" text-anchor="middle" fill="#6ee7b7" font-size="11">Logic: AND / GroupIndex: 0</text>
+
+<!-- Option -->
+<rect x="20" y="230" width="280" height="80" rx="10" fill="#1e3a5f" stroke="#7dd3fc" stroke-width="1.5"/>
+<text x="160" y="255" text-anchor="middle" fill="#7dd3fc" font-size="14" font-weight="bold">② Option 选项/值</text>
+<text x="160" y="278" text-anchor="middle" fill="#c8ddf0" font-size="12">"和什么比"</text>
+<text x="160" y="298" text-anchor="middle" fill="#e6edf3" font-size="11">Type: number（数值）  Value: 25</text>
+<!-- arrow from Condition to Option -->
+<line x1="160" y1="213" x2="160" y2="228" stroke="#7dd3fc" stroke-width="1.5" marker-end="url(#ah4)"/>
+<text x="180" y="224" fill="#7dd3fc" font-size="9">包含</text>
+
+<!-- Action -->
+<rect x="340" y="90" width="280" height="120" rx="10" fill="#064e3b" stroke="#5eecc0" stroke-width="2"/>
+<text x="480" y="115" text-anchor="middle" fill="#5eecc0" font-size="15" font-weight="bold">③ Action 动作</text>
+<text x="480" y="140" text-anchor="middle" fill="#c8ddf0" font-size="12">"触发后做什么"</text>
+<text x="480" y="162" text-anchor="middle" fill="#e6edf3" font-size="11">Code: comfort_advisor</text>
+<text x="480" y="182" text-anchor="middle" fill="#e6edf3" font-size="11">（通知舒适顾问）</text>
+<text x="480" y="200" text-anchor="middle" fill="#6ee7b7" font-size="11">Type: advisor</text>
+
+<!-- Param -->
+<rect x="340" y="230" width="280" height="80" rx="10" fill="#064e3b" stroke="#6ee7b7" stroke-width="1.5"/>
+<text x="480" y="255" text-anchor="middle" fill="#6ee7b7" font-size="14" font-weight="bold">④ Param 参数</text>
+<text x="480" y="278" text-anchor="middle" fill="#c8ddf0" font-size="12">"附加信息"</text>
+<text x="480" y="298" text-anchor="middle" fill="#e6edf3" font-size="11">attention: "舱内温度超过25度"</text>
+<!-- arrow -->
+<line x1="480" y1="213" x2="480" y2="228" stroke="#6ee7b7" stroke-width="1.5" marker-end="url(#ah4)"/>
+<text x="500" y="224" fill="#6ee7b7" font-size="9">包含</text>
+
+<!-- ExecuteInfo -->
+<rect x="660" y="90" width="280" height="120" rx="10" fill="#2a1a0a" stroke="#f59e0b" stroke-width="2"/>
+<text x="800" y="115" text-anchor="middle" fill="#f59e0b" font-size="15" font-weight="bold">⑤ ExecuteInfo 执行策略</text>
+<text x="800" y="140" text-anchor="middle" fill="#c8ddf0" font-size="12">"频率怎么控制"</text>
+<text x="800" y="165" text-anchor="middle" fill="#e6edf3" font-size="11">RepeatNum: 10（每天最多10次）</text>
+<text x="800" y="188" text-anchor="middle" fill="#e6edf3" font-size="11">RepeatInterval: 300（间隔5分钟）</text>
+
+<!-- 连接线：Condition ← → Action -->
+<line x1="303" y1="150" x2="337" y2="150" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4"/>
+<text x="320" y="143" fill="#f59e0b" font-size="9">+</text>
+
+<!-- 连接线：Action ← → ExecuteInfo -->
+<line x1="623" y1="150" x2="657" y2="150" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4"/>
+<text x="640" y="143" fill="#f59e0b" font-size="9">+</text>
+
+<!-- 合起来读 -->
+<rect x="140" y="335" width="680" height="38" rx="8" fill="#101725" stroke="#f59e0b"/>
+<text x="480" y="360" text-anchor="middle" fill="#f59e0b" font-size="13">合起来读：温度>25度 → 通知舒适Advisor（"舱内温度超25度"）→ 每天最多10次，间隔5分钟</text>
+</svg>
+</div>
+
+<div class="teach">
+DSL<b>不是编程语言</b>，就是一套"填表格的规范"——告诉机器"什么条件触发"、"触发后做什么"、"做多少次"。详细字段说明见v7第四章。
+</div>
+
+<div class="todo">
+<div class="todo-title">📌 DSL待办</div>
+运算符需要加 <code>change_to</code>（变更为，"从D变成P的那一瞬间"）/ <code>range</code>（区间）/ <code>duration</code>（持续时长）→ 写进配置平台改造需求文档。
+</div>
+
+<!-- ================================================================ -->
+<h2 id="c5">五、配置平台⑬</h2>
+<!-- ================================================================ -->
+<div class="teach">
+配置平台=触发器的"管理后台"（火山引擎后台的"新建场景"页面）。<b>对应原图中的⑬节点</b>。8个区域：基础信息→发布范围→动态条件(VLM)→静态条件(车态)→DSL编译→执行动作→执行策略→创建部署。<br/><br/>
+详细字段说明见v7第五章。4点待改造：①VLM 7字段 ②运算符扩展 ③端直执白名单 ④端云分类字段。
+</div>
+
+<!-- ================================================================ -->
+<h2 id="c6">六、6个API接口</h2>
+<!-- ================================================================ -->
+<div class="teach">
+<span class="en">API</span>=<span class="en">Application Programming Interface</span> <span class="enzh">应用程序接口="程序之间说话的方式"</span>。你在配置平台点按钮，背后就是调API。6个API详细说明见v7第六章。
+</div>
+
+<!-- ================================================================ -->
+<h2 id="c7">七、CTA框架</h2>
+<!-- ================================================================ -->
+
+<div class="teach">
+<b>对应原图</b>：从⑮引擎内部的橙色子模块区域——15-3(条件判定) → 15-6(防抖) → 15-5(频控) → 15-10(穿越) → 15-7(仲裁) → 15-8(事件组装) → 输出。
+</div>
+
+<!-- ▶ 图5：CTA两级匹配 -->
+<div class="diagram-box">
+<div class="diagram-title">图5：CTA两级匹配流程</div>
+<svg viewBox="0 0 960 320" xmlns="http://www.w3.org/2000/svg" style="max-width:900px">
+<defs><marker id="ah5" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#f59e0b"/></marker>
+<marker id="ah5g" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#5eecc0"/></marker>
+<marker id="ah5r" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#f87171"/></marker>
+</defs>
+
+<!-- 信号进来 -->
+<rect x="10" y="100" width="120" height="60" rx="8" fill="#1e3a5f" stroke="#93c5fd"/>
+<text x="70" y="125" text-anchor="middle" fill="#93c5fd" font-size="12" font-weight="bold">⑫ 信号库</text>
+<text x="70" y="143" text-anchor="middle" fill="#c8ddf0" font-size="10">信号快照</text>
+<line x1="135" y1="130" x2="185" y2="130" stroke="#f59e0b" stroke-width="2" marker-end="url(#ah5)"/>
+
+<!-- 第一级：运行时段 -->
+<rect x="190" y="60" width="180" height="140" rx="12" fill="#1a0a2a" stroke="#c4b5fd" stroke-width="2"/>
+<text x="280" y="85" text-anchor="middle" fill="#c4b5fd" font-size="13" font-weight="bold">第一级：运行时段</text>
+<text x="280" y="105" text-anchor="middle" fill="#c8ddf0" font-size="10">"先刷工卡进大楼"</text>
+<rect x="205" y="115" width="150" height="22" rx="4" fill="#1e1040"/><text x="280" y="131" text-anchor="middle" fill="#e6edf3" font-size="10">① 离车后：下电+P+锁</text>
+<rect x="205" y="140" width="150" height="22" rx="4" fill="#1e1040"/><text x="280" y="156" text-anchor="middle" fill="#e6edf3" font-size="10">② 上车前：P+钥匙连接</text>
+<rect x="205" y="165" width="150" height="22" rx="4" fill="#2a1040"/><text x="280" y="181" text-anchor="middle" fill="#e6edf3" font-size="10">③ 停车时：D→P+解锁</text>
+
+<!-- 通过 -->
+<line x1="375" y1="130" x2="430" y2="130" stroke="#5eecc0" stroke-width="2" marker-end="url(#ah5g)"/>
+<text x="403" y="120" text-anchor="middle" fill="#5eecc0" font-size="10">时段✓</text>
+
+<!-- 第二级：具体条件 -->
+<rect x="435" y="60" width="200" height="140" rx="12" fill="#0a2020" stroke="#5eecc0" stroke-width="2"/>
+<text x="535" y="85" text-anchor="middle" fill="#5eecc0" font-size="13" font-weight="bold">第二级：具体条件</text>
+<text x="535" y="105" text-anchor="middle" fill="#c8ddf0" font-size="10">"再刷指纹进房间"</text>
+<text x="535" y="130" text-anchor="middle" fill="#e6edf3" font-size="11">温度>28度？ ✓</text>
+<text x="535" y="150" text-anchor="middle" fill="#e6edf3" font-size="11">VLM有人睡觉？ ✓</text>
+<text x="535" y="170" text-anchor="middle" fill="#e6edf3" font-size="11">安全带没系？ ✓</text>
+<text x="535" y="190" text-anchor="middle" fill="#6ee7b7" font-size="10">DSL Condition匹配</text>
+
+<!-- 通过 -->
+<line x1="640" y1="130" x2="695" y2="130" stroke="#5eecc0" stroke-width="2" marker-end="url(#ah5g)"/>
+<text x="668" y="120" text-anchor="middle" fill="#5eecc0" font-size="10">条件✓</text>
+
+<!-- 防抖+穿越 -->
+<rect x="700" y="70" width="130" height="120" rx="10" fill="#2a1a0a" stroke="#f59e0b" stroke-width="1.5"/>
+<text x="765" y="95" text-anchor="middle" fill="#f59e0b" font-size="12" font-weight="bold">防抖+穿越</text>
+<text x="765" y="118" text-anchor="middle" fill="#c8ddf0" font-size="10">15-6 防抖过滤</text>
+<text x="765" y="138" text-anchor="middle" fill="#c8ddf0" font-size="10">15-10 穿越检测</text>
+<text x="765" y="158" text-anchor="middle" fill="#c8ddf0" font-size="10">15-5 频控检查</text>
+<text x="765" y="178" text-anchor="middle" fill="#6ee7b7" font-size="10">F→T才算穿越</text>
+
+<!-- 输出 -->
+<line x1="835" y1="130" x2="890" y2="130" stroke="#5eecc0" stroke-width="2" marker-end="url(#ah5g)"/>
+<rect x="893" y="105" width="60" height="50" rx="8" fill="#064e3b" stroke="#5eecc0"/>
+<text x="923" y="125" text-anchor="middle" fill="#5eecc0" font-size="11" font-weight="bold">触发!</text>
+<text x="923" y="143" text-anchor="middle" fill="#c8ddf0" font-size="9">push事件</text>
+
+<!-- 被拦截的路径 -->
+<line x1="280" y1="205" x2="280" y2="265" stroke="#f87171" stroke-width="1.5" marker-end="url(#ah5r)"/>
+<rect x="200" y="268" width="160" height="35" rx="6" fill="#1a0a0a" stroke="#f87171"/>
+<text x="280" y="291" text-anchor="middle" fill="#f87171" font-size="11">时段不对 → 不触发</text>
+<text x="280" y="250" text-anchor="middle" fill="#f87171" font-size="9">例：离车后+温度>28→×</text>
+</svg>
+</div>
+
+<div class="deep">
+<b>穿越检测</b>（<span class="en">Threshold Crossing</span> <span class="enzh">阈值穿越</span>）：你家温度报警器设"超30度报警"，29→31度的<b>那一瞬间</b>响一次。之后一直31度不再响（T→T不重复触发）。只有降到29以下再升到31以上，才再响一次。<br/><br/>
+<b>防抖</b>（<span class="en">Jitter Filtering</span>）：车速在128~132之间波动，不是真超速——设"死区"（<span class="en">dead zone</span>），只有穿越整个死区才算。VLM抖动更严重：前一帧"有小狗"后一帧"没有"——需要"连续N帧一致才算数"。
+</div>
+
+<!-- ================================================================ -->
+<h2 id="c8">八、云端触发器引擎⑮：18个子模块</h2>
+<!-- ================================================================ -->
+
+<div class="teach">
+⑮是整个触发器系统的<b>心脏</b>。18个子模块按功能分成<b>6组</b>，像一条流水线。<br/>
+<b>对应原图</b>：图中间的大橙色区域，标了"⑮ 触发器引擎"的方块里面的15-1到15-18。
+</div>
+
+<!-- ▶ 图6：⑮引擎6组流水线 -->
+<div class="diagram-box">
+<div class="diagram-title">图6：⑮引擎18个子模块的6组流水线</div>
+<svg viewBox="0 0 960 500" xmlns="http://www.w3.org/2000/svg" style="max-width:900px">
+<defs><marker id="ah6" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#f59e0b"/></marker></defs>
+
+<!-- Group 1: 注册组 -->
+<rect x="10" y="20" width="280" height="140" rx="10" fill="#1e1040" stroke="#c4b5fd" stroke-width="2"/>
+<text x="150" y="45" text-anchor="middle" fill="#c4b5fd" font-size="14" font-weight="bold">第1组：注册</text>
+<text x="150" y="62" text-anchor="middle" fill="#8b9bb0" font-size="10">"规则进来→检查→存→开始盯"</text>
+<rect x="25" y="75" width="120" height="30" rx="5" fill="#2a1050" stroke="#c4b5fd"/><text x="85" y="95" text-anchor="middle" fill="#e6edf3" font-size="10">15-1 场景校验</text>
+<rect x="155" y="75" width="120" height="30" rx="5" fill="#2a1050" stroke="#c4b5fd"/><text x="215" y="95" text-anchor="middle" fill="#e6edf3" font-size="10">15-2 订阅管理</text>
+<rect x="25" y="115" width="250" height="30" rx="5" fill="#2a1050" stroke="#c4b5fd"/><text x="150" y="135" text-anchor="middle" fill="#e6edf3" font-size="10">15-15 规则缓存（5000场景上限）</text>
+
+<!-- Arrow -->
+<line x1="295" y1="90" x2="330" y2="90" stroke="#f59e0b" stroke-width="2" marker-end="url(#ah6)"/>
+
+<!-- Group 2: 判定组 -->
+<rect x="335" y="20" width="290" height="140" rx="10" fill="#1a2006" stroke="#5eecc0" stroke-width="2"/>
+<text x="480" y="45" text-anchor="middle" fill="#5eecc0" font-size="14" font-weight="bold">第2组：判定</text>
+<text x="480" y="62" text-anchor="middle" fill="#8b9bb0" font-size="10">"信号变了→条件满足？→防抖→频控"</text>
+<rect x="350" y="75" width="120" height="30" rx="5" fill="#0a2010" stroke="#5eecc0"/><text x="410" y="95" text-anchor="middle" fill="#e6edf3" font-size="10">15-3 条件判定</text>
+<rect x="490" y="75" width="120" height="30" rx="5" fill="#0a2010" stroke="#5eecc0"/><text x="550" y="95" text-anchor="middle" fill="#e6edf3" font-size="10">15-6 防抖过滤</text>
+<rect x="350" y="115" width="120" height="30" rx="5" fill="#0a2010" stroke="#5eecc0"/><text x="410" y="135" text-anchor="middle" fill="#e6edf3" font-size="10">15-5 频控</text>
+<rect x="490" y="115" width="120" height="30" rx="5" fill="#0a2010" stroke="#5eecc0"/><text x="550" y="135" text-anchor="middle" fill="#e6edf3" font-size="10">15-10 穿越检测</text>
+
+<!-- Arrow -->
+<line x1="630" y1="90" x2="665" y2="90" stroke="#f59e0b" stroke-width="2" marker-end="url(#ah6)"/>
+
+<!-- Group 3: 仲裁组 -->
+<rect x="670" y="20" width="280" height="140" rx="10" fill="#2a1a0a" stroke="#f59e0b" stroke-width="2"/>
+<text x="810" y="45" text-anchor="middle" fill="#f59e0b" font-size="14" font-weight="bold">第3组：仲裁</text>
+<text x="810" y="62" text-anchor="middle" fill="#8b9bb0" font-size="10">"多个同时触发→排队→在哪执行"</text>
+<rect x="685" y="75" width="120" height="30" rx="5" fill="#1a0a00" stroke="#f59e0b"/><text x="745" y="95" text-anchor="middle" fill="#e6edf3" font-size="10">15-7 优先级仲裁</text>
+<rect x="815" y="75" width="120" height="30" rx="5" fill="#1a0a00" stroke="#f59e0b"/><text x="875" y="95" text-anchor="middle" fill="#e6edf3" font-size="10">15-9 端云分类</text>
+<rect x="685" y="115" width="250" height="30" rx="5" fill="#1a0a00" stroke="#f59e0b"/><text x="810" y="135" text-anchor="middle" fill="#e6edf3" font-size="10">15-16 互斥锁（VLM_CABIN / VLM_FRONT）</text>
+
+<!-- Arrow down -->
+<line x1="810" y1="165" x2="810" y2="200" stroke="#f59e0b" stroke-width="2" marker-end="url(#ah6)"/>
+
+<!-- Group 4: 事件感知组 -->
+<rect x="670" y="205" width="280" height="110" rx="10" fill="#0a1a20" stroke="#7dd3fc" stroke-width="2"/>
+<text x="810" y="230" text-anchor="middle" fill="#7dd3fc" font-size="14" font-weight="bold">第4组：事件感知</text>
+<text x="810" y="247" text-anchor="middle" fill="#8b9bb0" font-size="10">"状态变化→打包成事件→推送"</text>
+<rect x="685" y="260" width="120" height="30" rx="5" fill="#0a1520" stroke="#7dd3fc"/><text x="745" y="280" text-anchor="middle" fill="#e6edf3" font-size="10">15-4 状态变化感知</text>
+<rect x="815" y="260" width="120" height="30" rx="5" fill="#0a1520" stroke="#7dd3fc"/><text x="875" y="280" text-anchor="middle" fill="#e6edf3" font-size="10">15-8 事件组装</text>
+
+<!-- Arrow left -->
+<line x1="665" y1="260" x2="630" y2="260" stroke="#f59e0b" stroke-width="2" marker-end="url(#ah6)"/>
+
+<!-- Group 5: 输出组 -->
+<rect x="335" y="205" width="290" height="110" rx="10" fill="#1a0a2a" stroke="#f472b6" stroke-width="2"/>
+<text x="480" y="230" text-anchor="middle" fill="#f472b6" font-size="14" font-weight="bold">第5组：输出</text>
+<text x="480" y="247" text-anchor="middle" fill="#8b9bb0" font-size="10">"打包→路由→下发端侧"</text>
+<rect x="350" y="260" width="120" height="30" rx="5" fill="#1a0520" stroke="#f472b6"/><text x="410" y="280" text-anchor="middle" fill="#e6edf3" font-size="10">15-11 路由分发</text>
+<rect x="490" y="260" width="120" height="30" rx="5" fill="#1a0520" stroke="#f472b6"/><text x="550" y="280" text-anchor="middle" fill="#e6edf3" font-size="10">15-12 规则包封装</text>
+
+<!-- Arrow left -->
+<line x1="330" y1="260" x2="295" y2="260" stroke="#f59e0b" stroke-width="2" marker-end="url(#ah6)"/>
+
+<!-- Group 6: VLM处理组 -->
+<rect x="10" y="205" width="280" height="180" rx="10" fill="#1a0a0a" stroke="#f87171" stroke-width="2"/>
+<text x="150" y="230" text-anchor="middle" fill="#f87171" font-size="14" font-weight="bold">第6组：VLM处理</text>
+<text x="150" y="247" text-anchor="middle" fill="#8b9bb0" font-size="10">"分流→判方向→拼SP→下发VLM"</text>
+<rect x="25" y="260" width="120" height="28" rx="5" fill="#200505" stroke="#f87171"/><text x="85" y="279" text-anchor="middle" fill="#e6edf3" font-size="9">15-13 VLM条件分流</text>
+<rect x="155" y="260" width="120" height="28" rx="5" fill="#200505" stroke="#f87171"/><text x="215" y="279" text-anchor="middle" fill="#e6edf3" font-size="9">15-14 描述→标签映射</text>
+<rect x="25" y="295" width="120" height="28" rx="5" fill="#200505" stroke="#f87171"/><text x="85" y="314" text-anchor="middle" fill="#e6edf3" font-size="9">15-17 提槽→方向判断</text>
+<rect x="155" y="295" width="120" height="28" rx="5" fill="#200505" stroke="#f87171"/><text x="215" y="314" text-anchor="middle" fill="#e6edf3" font-size="9">15-18 SP拼接引擎</text>
+<rect x="25" y="330" width="250" height="28" rx="5" fill="#200505" stroke="#f87171"/><text x="150" y="349" text-anchor="middle" fill="#e6edf3" font-size="9">15-4b VLM结果解析 / 15-6b VLM防抖</text>
+<text x="150" y="380" text-anchor="middle" fill="#f87171" font-size="11">→ L14下发SP给㉔ → L22转发给㉕VLM</text>
+
+<!-- 总输出标注 -->
+<rect x="200" y="435" width="560" height="45" rx="8" fill="#101725" stroke="#f59e0b"/>
+<text x="480" y="455" text-anchor="middle" fill="#f59e0b" font-size="12">输出方向：L17→⑯静态Advisor / L18→⑰动态Advisor / L21→⑲Director / L14→㉔端侧</text>
+<text x="480" y="472" text-anchor="middle" fill="#8b9bb0" font-size="10">穿越事件push给Advisor · 规则包+SP下发端侧</text>
+</svg>
+</div>
+
+<!-- ================================================================ -->
+<h2 id="c9">九、端侧触发器引擎㉔</h2>
+<!-- ================================================================ -->
+<div class="teach">
+㉔有9个子模块（6.22收窄后）。核心功能：接收规则包+本地定时器+VLM结果转发+白名单直执。<br/>
+<b>白名单</b>（<span class="en">whitelist</span>）= 简单动作可以不请示Director直接在端侧执行：TTS播报/音量/温度/车窗/氛围灯/AI PUSH。<br/>
+详细说明见v7第九章。
+</div>
+
+<!-- ================================================================ -->
+<h2 id="c10">十、四条铁律</h2>
+<!-- ================================================================ -->
+
+<div class="iron">
+<b class="red" style="font-size:15px">铁律一：所有动态注册必须经过⑮中转</b><br/>
+不管谁注册规则，只能 → ⑮ → ㉔。不许绕过⑮直接给㉔。<b>为什么</b>：⑮是唯一的规则管理者，绕过就没法仲裁和冲突检测。
+</div>
+<div class="iron">
+<b class="red" style="font-size:15px">铁律二：端侧结果不直推Advisor，必须走信号库</b><br/>
+㉔ → ④信号库 → L9 → ⑫ → ㉑Context。不许㉔直推Advisor。<b>为什么</b>：信号库是Single Source of Truth（<span class="enzh">单一事实来源</span>），绕过会出不一致。
+</div>
+<div class="iron">
+<b class="red" style="font-size:15px">铁律三：触发器只读信号库，不直接监听原始信号源</b><br/>
+⑮只读⑫云端信号库标准化后的数据。<b>为什么</b>：解耦（<span class="en">Decoupling</span> <span class="enzh">让两个模块互不依赖</span>），原始格式千差万别。
+</div>
+<div class="iron">
+<b class="red" style="font-size:15px">铁律四：condition→Context，event→⑮主动push</b><br/>
+状态（"车里有小朋友"）→写Context。事件（"小朋友刚上车"）→⑮push给Advisor。Advisor不许自己轮询（<span class="en">polling</span> <span class="enzh">反复问"有变化吗？"</span>）。
+</div>
+
+<!-- ================================================================ -->
+<h2 id="c11">十一、VLM（视觉模型）</h2>
+<!-- ================================================================ -->
+
+<div class="teach">
+VLM是你当前最复杂最重要的一块。<b>对应原图</b>：左下角的㉕VLM节点 + ⑮里面的第6组VLM处理子模块。
+</div>
+
+<!-- ▶ 图7：VLM四条路径 -->
+<div class="diagram-box">
+<div class="diagram-title">图7：VLM输出的4条处理路径</div>
+<svg viewBox="0 0 960 350" xmlns="http://www.w3.org/2000/svg" style="max-width:900px">
+<defs><marker id="ah7" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#f59e0b"/></marker></defs>
+
+<!-- VLM输出 -->
+<rect x="10" y="130" width="140" height="80" rx="10" fill="#064e3b" stroke="#5eecc0" stroke-width="2"/>
+<text x="80" y="160" text-anchor="middle" fill="#5eecc0" font-size="14" font-weight="bold">㉕ VLM输出</text>
+<text x="80" y="180" text-anchor="middle" fill="#c8ddf0" font-size="11">10个字段</text>
+<text x="80" y="198" text-anchor="middle" fill="#6ee7b7" font-size="10">3个enum + 7个str</text>
+
+<!-- 分支判断 -->
+<line x1="155" y1="170" x2="220" y2="170" stroke="#f59e0b" stroke-width="2" marker-end="url(#ah7)"/>
+<polygon points="250,170 225,145 225,195" fill="#422006" stroke="#f59e0b" stroke-width="2"/>
+<text x="250" y="175" text-anchor="middle" fill="#f59e0b" font-size="10">分流</text>
+
+<!-- 路径A -->
+<line x1="275" y1="150" x2="350" y2="50" stroke="#5eecc0" stroke-width="2" marker-end="url(#ah7)"/>
+<rect x="355" y="20" width="240" height="70" rx="8" fill="#064e3b" stroke="#5eecc0" stroke-width="1.5"/>
+<text x="475" y="42" text-anchor="middle" fill="#5eecc0" font-size="13" font-weight="bold">路径A：enum枚举</text>
+<text x="475" y="62" text-anchor="middle" fill="#c8ddf0" font-size="11">位置/性别/年龄 = 固定标签</text>
+<text x="475" y="78" text-anchor="middle" fill="#6ee7b7" font-size="10">可直接== → 15-3判定 → 触发</text>
+<rect x="620" y="33" width="80" height="28" rx="6" fill="#0a2010"><text x="660" y="52" text-anchor="middle" fill="#5eecc0" font-size="11">直接可用</text></rect>
+
+<!-- 路径B -->
+<line x1="275" y1="160" x2="350" y2="130" stroke="#f87171" stroke-width="2" marker-end="url(#ah7)"/>
+<rect x="355" y="100" width="240" height="70" rx="8" fill="#1a0a0a" stroke="#f87171" stroke-width="1.5"/>
+<text x="475" y="122" text-anchor="middle" fill="#f87171" font-size="13" font-weight="bold">路径B：str需SFT</text>
+<text x="475" y="142" text-anchor="middle" fill="#c8ddf0" font-size="11">动态/物品 = 自由文本</text>
+<text x="475" y="158" text-anchor="middle" fill="#6ee7b7" font-size="10">"闭眼休息"→需训练成sleep=true标签</text>
+<rect x="620" y="113" width="120" height="28" rx="6" fill="#200505"><text x="680" y="132" text-anchor="middle" fill="#f87171" font-size="10">需丁彬做SFT</text></rect>
+
+<!-- 路径C -->
+<line x1="275" y1="180" x2="350" y2="220" stroke="#c4b5fd" stroke-width="2" marker-end="url(#ah7)"/>
+<rect x="355" y="190" width="240" height="70" rx="8" fill="#1e1040" stroke="#c4b5fd" stroke-width="1.5"/>
+<text x="475" y="212" text-anchor="middle" fill="#c4b5fd" font-size="13" font-weight="bold">路径C：动态SP</text>
+<text x="475" y="232" text-anchor="middle" fill="#c8ddf0" font-size="11">AlwaysOn没在看的东西</text>
+<text x="475" y="248" text-anchor="middle" fill="#6ee7b7" font-size="10">"毯子掉没掉"→追加SP让VLM特别去看</text>
+<rect x="620" y="203" width="120" height="28" rx="6" fill="#1a0520"><text x="680" y="222" text-anchor="middle" fill="#c4b5fd" font-size="10">需你写SP方案</text></rect>
+
+<!-- 路径D -->
+<line x1="275" y1="190" x2="350" y2="300" stroke="#8b9bb0" stroke-width="2" marker-end="url(#ah7)"/>
+<rect x="355" y="280" width="240" height="55" rx="8" fill="#101725" stroke="#8b9bb0" stroke-width="1.5"/>
+<text x="475" y="302" text-anchor="middle" fill="#8b9bb0" font-size="13" font-weight="bold">路径D：非VLM信号</text>
+<text x="475" y="322" text-anchor="middle" fill="#c8ddf0" font-size="11">车态/定时器/围栏 → 直接走CTA</text>
+<rect x="620" y="293" width="80" height="28" rx="6" fill="#0a1520"><text x="660" y="312" text-anchor="middle" fill="#8b9bb0" font-size="11">已就绪</text></rect>
+
+<!-- 汇总标签 -->
+<rect x="760" y="60" width="180" height="230" rx="10" fill="#0a0e16" stroke="#334155"/>
+<text x="850" y="88" text-anchor="middle" fill="#f59e0b" font-size="12" font-weight="bold">你该做什么</text>
+<text x="850" y="115" text-anchor="middle" fill="#5eecc0" font-size="11">A：无需动</text>
+<text x="850" y="145" text-anchor="middle" fill="#f87171" font-size="11">B：给丁彬标签清单</text>
+<text x="850" y="165" text-anchor="middle" fill="#f87171" font-size="10">（12条事件全卡在这）</text>
+<text x="850" y="195" text-anchor="middle" fill="#c4b5fd" font-size="11">C：写SP拼接方案</text>
+<text x="850" y="215" text-anchor="middle" fill="#c4b5fd" font-size="10">（给刘杨开发）</text>
+<text x="850" y="250" text-anchor="middle" fill="#8b9bb0" font-size="11">D：无需动</text>
+</svg>
+</div>
+
+<div class="teach">
+<b>AlwaysOn SP</b> = 永远开着的系统提示词，VLM按它每5秒自动观察舱内。<b>动态SP</b> = 追加（不是替换！）一段额外指令让VLM临时去看某个东西（"毯子掉没掉"）。最多同时3个动态SP。<br/><br/>
+<b>KV槽位</b> = VLM输出的第10个字段"动态查询结果"。临时任务答案写在这里。只有1个字段，3个SP同时跑时怎么区分→你需要问丁彬。<br/><br/>
+VLM真实JSON输出详细标注、12条路径B事件清单、5种VLM结果状态 → 见v7第十一章。
+</div>
+
+<!-- ================================================================ -->
+<h2 id="c12">十二、Advisor系统</h2>
+<!-- ================================================================ -->
+<div class="teach">
+Advisor=触发器的"客户"。触发器检测到事件后push给Advisor，Advisor决定怎么响应。<br/>
+<b>对应原图</b>：右上方的⑯静态Advisor(4个)和⑰动态Advisor(N个)节点。<br/><br/>
+静态4个：舒适/出行/情感/内容。动态N个：Director安排的临时任务。<br/>
+固定拼接（推理时自动带上Context）。Advisor发人话需求（L34），SP翻译/管理归触发器⑮。<br/>
+详细说明见v7第十二章。
+</div>
+
+<!-- ================================================================ -->
+<h2 id="c13">十三、38条连线</h2>
+<!-- ================================================================ -->
+<div class="teach">
+<b>对应原图</b>：图上所有的带箭头的线。每条线有编号（L1~L38），标了"传什么"和"为什么"。<br/><br/>
+和触发器直接相关的18条关键连线详细表格见v7第十三章。核心5条：<br/>
+· <b>L9</b>（④→⑫信号同步）/ <b>L12</b>（⑫→⑮引擎读取）/ <b>L14</b>（⑮→㉔规则+SP下发）/ <b>L17/L18</b>（⑮→Advisor事件push）
+</div>
+
+<!-- ================================================================ -->
+<h2 id="c14">十四、SP生命周期</h2>
+<!-- ================================================================ -->
+
+<!-- ▶ 图8：SP生命周期 -->
+<div class="diagram-box">
+<div class="diagram-title">图8：动态视觉感知SP的8步生命周期</div>
+<svg viewBox="0 0 960 200" xmlns="http://www.w3.org/2000/svg" style="max-width:900px">
+<defs><marker id="ah8" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><path d="M0,0 L7,2.5 L0,5" fill="#f59e0b"/></marker></defs>
+
+<rect x="10" y="60" width="90" height="70" rx="6" fill="#1e1040" stroke="#c4b5fd"/><text x="55" y="85" text-anchor="middle" fill="#c4b5fd" font-size="9" font-weight="bold">①Advisor</text><text x="55" y="100" text-anchor="middle" fill="#c8ddf0" font-size="8">发人话需求</text><text x="55" y="115" text-anchor="middle" fill="#6ee7b7" font-size="8">L34</text>
+<line x1="104" y1="95" x2="125" y2="95" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#ah8)"/>
+
+<rect x="128" y="60" width="90" height="70" rx="6" fill="#2a1a0a" stroke="#f59e0b"/><text x="173" y="85" text-anchor="middle" fill="#f59e0b" font-size="9" font-weight="bold">②15-17</text><text x="173" y="100" text-anchor="middle" fill="#c8ddf0" font-size="8">提槽→判方向</text><text x="173" y="115" text-anchor="middle" fill="#6ee7b7" font-size="8">舱内/舱外?</text>
+<line x1="222" y1="95" x2="243" y2="95" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#ah8)"/>
+
+<rect x="246" y="60" width="90" height="70" rx="6" fill="#2a1a0a" stroke="#f59e0b"/><text x="291" y="85" text-anchor="middle" fill="#f59e0b" font-size="9" font-weight="bold">③15-18</text><text x="291" y="100" text-anchor="middle" fill="#c8ddf0" font-size="8">SP拼接引擎</text><text x="291" y="115" text-anchor="middle" fill="#6ee7b7" font-size="8">人话→SP</text>
+<line x1="340" y1="95" x2="361" y2="95" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#ah8)"/>
+
+<rect x="364" y="60" width="90" height="70" rx="6" fill="#1a0a0a" stroke="#f87171"/><text x="409" y="85" text-anchor="middle" fill="#f87171" font-size="9" font-weight="bold">④L14下发</text><text x="409" y="100" text-anchor="middle" fill="#c8ddf0" font-size="8">SP→㉔端侧</text><text x="409" y="115" text-anchor="middle" fill="#6ee7b7" font-size="8">云→端</text>
+<line x1="458" y1="95" x2="479" y2="95" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#ah8)"/>
+
+<rect x="482" y="60" width="90" height="70" rx="6" fill="#064e3b" stroke="#5eecc0"/><text x="527" y="85" text-anchor="middle" fill="#5eecc0" font-size="9" font-weight="bold">⑤㉔→VLM</text><text x="527" y="100" text-anchor="middle" fill="#c8ddf0" font-size="8">L22追加到</text><text x="527" y="115" text-anchor="middle" fill="#6ee7b7" font-size="8">AlwaysOn SP</text>
+<line x1="576" y1="95" x2="597" y2="95" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#ah8)"/>
+
+<rect x="600" y="60" width="90" height="70" rx="6" fill="#064e3b" stroke="#5eecc0"/><text x="645" y="85" text-anchor="middle" fill="#5eecc0" font-size="9" font-weight="bold">⑥VLM推理</text><text x="645" y="100" text-anchor="middle" fill="#c8ddf0" font-size="8">看到结果</text><text x="645" y="115" text-anchor="middle" fill="#6ee7b7" font-size="8">写KV槽位</text>
+<line x1="694" y1="95" x2="715" y2="95" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#ah8)"/>
+
+<rect x="718" y="60" width="90" height="70" rx="6" fill="#1e3a5f" stroke="#93c5fd"/><text x="763" y="85" text-anchor="middle" fill="#93c5fd" font-size="9" font-weight="bold">⑦结果回传</text><text x="763" y="100" text-anchor="middle" fill="#c8ddf0" font-size="8">L23→④→L9→⑫</text><text x="763" y="115" text-anchor="middle" fill="#6ee7b7" font-size="8">→Context</text>
+<line x1="812" y1="95" x2="833" y2="95" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#ah8)"/>
+
+<rect x="836" y="60" width="110" height="70" rx="6" fill="#1e1040" stroke="#c4b5fd"/><text x="891" y="85" text-anchor="middle" fill="#c4b5fd" font-size="9" font-weight="bold">⑧任务结束</text><text x="891" y="100" text-anchor="middle" fill="#c8ddf0" font-size="8">Advisor通知⑮</text><text x="891" y="115" text-anchor="middle" fill="#6ee7b7" font-size="8">删SP→恢复</text>
+
+<!-- 时间标注 -->
+<text x="480" y="170" text-anchor="middle" fill="#8b9bb0" font-size="11">SP管理全归触发器⑮——Advisor只发人话，不碰SP（铁律①）</text>
+<text x="480" y="190" text-anchor="middle" fill="#8b9bb0" font-size="11">6.30确认：最多同时3个动态SP · 舱内和舱外SP不互斥</text>
+</svg>
+</div>
+
+<!-- ================================================================ -->
+<h2 id="c15">十五、上汽 vs 赛力斯</h2>
+<!-- ================================================================ -->
+<div class="teach">
+核心差异：赛力斯舱内图片不能上云（合规）→端侧VLM为此设计。信号单位上汽确认=米/秒/hh:mm。提槽工具两个项目统一。详细表格见v7第十五章。
+</div>
+
+<!-- ================================================================ -->
+<h2 id="c16">十六、导航触发器</h2>
+<!-- ================================================================ -->
+<div class="teach">
+围栏（<span class="en">Geofence</span> <span class="enzh">地理围栏</span>）= 在地图上画圈。三种状态：approaching(接近)/arrived(到达)/left(离开)。<b>one-shot状态机</b>=每个状态变化只触发一次，防止在围栏边界来回穿越反复触发。6.25优先走端侧围栏（合规+实时性）。详细说明见v7第十六章。
+</div>
+
+<!-- ================================================================ -->
+<h2 id="c17">十七、6个完整Case</h2>
+<!-- ================================================================ -->
+<div class="teach">
+详细Case走通过程见v7第十七章。Case包括：舱内高温自动调温 / 副驾睡觉降音量 / 10分钟后关座椅加热 / 宝宝毯子监护 / 接近外婆家提醒 / 低电量自动规划充电。
+</div>
+
+<!-- ================================================================ -->
+<h2 id="c18">十八、你的完整行动清单</h2>
+<!-- ================================================================ -->
+
+<table>
+<tr><th style="width:70px">时间</th><th style="width:35px">P</th><th style="width:160px">做什么</th><th>为什么做</th><th>怎么做</th><th style="width:70px">给谁</th><th>他拿到后做什么</th></tr>
+<tr><td colspan="7" style="background:#1a2a0a;color:#5eecc0;font-weight:700">今天 7/1 — 两条飞书消息，5分钟</td></tr>
+<tr><td>7/1</td><td><b class="red">P0</b></td><td>问丁彬：端状态表备注"睡觉、打电话"含义</td><td>确认丁彬是否已在做SFT。不问不知道现状。</td><td>飞书消息："端状态表里'动态'字段备注写了'睡觉、打电话'。A已计划SFT？B只是标注？如果A，大概什么时候能出？"</td><td><span class="tag person">丁彬</span></td><td>回答A或B→给排期</td></tr>
+<tr><td>7/1</td><td><b class="red">P0</b></td><td>问兰若3个问题</td><td>标签清单怎么填取决于VLM能力+年龄分割+抖动数据。</td><td>"①VLM能识别'打哈欠''抽烟'吗？②年龄'儿童'分割线？③连续推理同一场景输出不一致概率？有测试数据吗？"</td><td><span class="tag person">兰若</span></td><td>回答能力+分割+抖动</td></tr>
+<tr><td colspan="7" style="background:#1a2a0a;color:#5eecc0;font-weight:700">7/2 — 30分钟整理表格</td></tr>
+<tr><td>7/2</td><td><b class="red">P0</b></td><td><b>VLM标签需求清单</b></td><td><b class="red">路径B的12条事件全卡着。</b>丁彬没清单→不做SFT→主动服务场景全做不了。</td><td>飞书表格：事件名/当前字段/类型/真实输出/建议标签/值域/穿越条件/优先级 → @丁彬+西钺</td><td><span class="tag person">丁彬</span><span class="tag person">西钺</span></td><td>丁彬评估SFT排期。西钺确认提槽配合。</td></tr>
+<tr><td colspan="7" style="background:#1a2a0a;color:#5eecc0;font-weight:700">7/8 — 30分钟小会</td></tr>
+<tr><td>7/8</td><td><b class="org">P1</b></td><td><b>约西钺+施佳杰定4个接口</b></td><td>Advisor↔触发器接口不定→两边没法开发。</td><td>定：A)L34人话需求格式 B)L17/L18 push格式 C)删SP通知 D)枚举订阅协议 → 会后出文档发刘杨</td><td><span class="tag person">西钺</span><span class="tag person">施佳杰</span></td><td>确认→刘杨按格式开发</td></tr>
+<tr><td colspan="7" style="background:#1a2a0a;color:#5eecc0;font-weight:700">7/10 — 半天写方案</td></tr>
+<tr><td>7/10</td><td><b class="org">P1</b></td><td><b>SP拼接引擎方案</b></td><td>15-18是6.30新模块。没方案→刘杨没法写代码→动态视觉全做不了。</td><td>先问丁彬SP格式/KV区分/清理→写飞书文档：SP格式/KV槽位/生命周期/合并规则/端云协议</td><td><span class="tag person">丁彬</span>评审<br/><span class="tag person">刘杨</span>开发</td><td>丁彬确认对齐→刘杨写代码</td></tr>
+<tr><td colspan="7" style="background:#1a2a0a;color:#5eecc0;font-weight:700">7/15 — 收尾</td></tr>
+<tr><td>7/15</td><td><b class="blu">P2</b></td><td>配置平台4点改造需求</td><td>4点不改→运营没法配VLM/不支持关键运算符/不能端直执/不能选端云。</td><td>飞书文档：VLM 7字段/运算符/端直执白名单/端云分类 → 发刘杨</td><td><span class="tag person">刘杨</span></td><td>评估工时→排Sprint</td></tr>
+</table>
+
+<h3>4份文档产出</h3>
+<table>
+<tr><th>#</th><th>文档名</th><th>核心内容</th><th>给谁</th><th>Deadline</th></tr>
+<tr><td><b class="red">A</b></td><td>VLM标签需求清单（飞书表格）</td><td>12条路径B事件→建议SFT标签</td><td>丁彬+西钺</td><td>7/2</td></tr>
+<tr><td><b class="org">B</b></td><td>Advisor↔触发器接口协议</td><td>4个接口定义</td><td>西钺+施佳杰→刘杨</td><td>7/8</td></tr>
+<tr><td><b class="org">C</b></td><td>SP拼接引擎产品方案</td><td>SP格式/KV/生命周期/合并/协议</td><td>丁彬+刘杨</td><td>7/10</td></tr>
+<tr><td><b class="blu">D</b></td><td>配置平台4点改造需求</td><td>VLM字段/运算符/白名单/端云分类</td><td>刘杨</td><td>7/15</td></tr>
+</table>
+
+<!-- ================================================================ -->
+<h2 id="c19">十九、风险清单</h2>
+<!-- ================================================================ -->
+<table>
+<tr><th>#</th><th style="width:110px">风险</th><th>会出什么问题</th><th style="width:60px">影响</th><th>你能做什么</th></tr>
+<tr><td class="red">R1</td><td>VLM抖动</td><td>前一帧"有小狗"后一帧"没有"→误触发</td><td><b class="red">高</b></td><td>问兰若要抖动数据→设防抖帧数</td></tr>
+<tr><td class="red">R2</td><td>str解析不靠谱</td><td>12条事件只能关键词匹配→"安静休息"漏检</td><td><b class="red">高</b></td><td>推标签清单→推SFT</td></tr>
+<tr><td class="org">R3</td><td>KV槽位并发</td><td>1个字段3个SP同时写→答案混在一起</td><td><b class="org">中</b></td><td>问丁彬KV机制</td></tr>
+<tr><td class="org">R4</td><td>SP长度上限</td><td>多个SP→总SP太长→推理质量下降</td><td><b class="org">中</b></td><td>问丁彬/兰若SP限制</td></tr>
+<tr><td class="org">R5</td><td>提槽工具排期</td><td>西钺说"随时"但没定→路径C全卡</td><td><b class="org">中</b></td><td>7/8会上确认</td></tr>
+<tr><td class="blu">R6</td><td>后处理模型归属</td><td>嘉锋方案2归谁没定</td><td><b>低</b></td><td>等丁彬回复</td></tr>
+<tr><td class="blu">R7</td><td>围栏SDK能力</td><td>高德Auto版下架(750)</td><td><b>低</b></td><td>等丽萍/俊龙调研</td></tr>
+</table>
+
+<!-- ================================================================ -->
+<h2 id="c20">二十、人员地图</h2>
+<!-- ================================================================ -->
+<table>
+<tr><th style="width:90px">人</th><th style="width:120px">角色</th><th>管什么</th><th>什么时候找他</th></tr>
+<tr><td><span class="tag person">丁彬</span></td><td>AIBox/VLM负责人</td><td>VLM模型/AlwaysOn/SFT</td><td>标签需求/SP格式/KV机制/端状态表</td></tr>
+<tr><td><span class="tag person">西钺</span></td><td>端侧VLM实现</td><td>AIBox模型/提槽工具/VQA</td><td>提槽接口/VQA路由/Context拼接</td></tr>
+<tr><td><span class="tag person">兰若</span></td><td>VLM SP/Prompt</td><td>SP质量/输出稳定性</td><td>抖动数据/SP格式/年龄分割线</td></tr>
+<tr><td><span class="tag person">施佳杰</span></td><td>动态Advisor</td><td>事件类型/任务中心</td><td>接口协议/事件定义</td></tr>
+<tr><td><span class="tag person">仁杰</span></td><td>端状态/Context</td><td>④信号库/㉑Context/格式</td><td>信号格式/Context拼接/端云同步</td></tr>
+<tr><td><span class="tag person">刘杨</span></td><td>触发器工程开发</td><td>⑮/㉔工程实现</td><td>你写方案→他写代码</td></tr>
+<tr><td><span class="tag person">赵益红</span></td><td>静态Advisor</td><td>4个静态Advisor</td><td>事件清单/action参数</td></tr>
+<tr><td><span class="tag person">嘉锋</span></td><td>上级决策</td><td>架构方向/跨团队协调</td><td>方向性问题/优先级冲突</td></tr>
+<tr><td><span class="tag person">丽萍/俊龙</span></td><td>地图/导航</td><td>导航SDK/围栏</td><td>POI围栏技术方案</td></tr>
+</table>
+
+<hr/>
+<div class="box" style="border-left:4px solid #f59e0b">
+<b class="org" style="font-size:16px">全文总结</b><br/><br/>
+<b>核心</b> = ⑮云端引擎(18模块) + ㉔端侧(9模块) + ⑬配置平台<br/>
+<b>最紧急</b> = VLM标签清单(7/2) → <b>最重要方案</b> = SP拼接引擎(7/10) → <b>最需对齐</b> = Advisor↔触发器接口(7/8)
+</div>
+
+<div class="box" style="border-left:4px solid #f472b6">
+<b style="color:#f472b6">v8 vs v7 新增内容</b><br/>
+· 全景架构原图3张嵌入（可点击放大）<br/>
+· 图1：CTA三步示意 · 图2：三方架构分区 · 图3：信号流转路径<br/>
+· 图4：DSL 5结构关系 · 图5：CTA两级匹配 · 图6：⑮引擎6组流水线<br/>
+· 图7：VLM四条路径 · 图8：SP生命周期8步<br/>
+· 每章开头标注"对应原图哪个区域"
+</div>
+
+</body></html>

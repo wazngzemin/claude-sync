@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>workflow 规则工作台 · 产品方案（可提交版）</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,"PingFang SC","Noto Sans SC",sans-serif;background:#f4f5f7;color:#1f2430;line-height:1.8;padding:44px 18px 120px}
+.pg{max-width:900px;margin:0 auto}
+.hdr{border-bottom:3px solid #2c5178;padding-bottom:14px;margin-bottom:8px}
+h1{font-size:1.5em;font-weight:700;color:#1a1a1a}
+.meta{font-size:.85em;color:#8a8f9a;margin-top:6px}
+.toc{background:#fff;border:1px solid #e2e5ec;border-radius:9px;padding:13px 20px;margin:20px 0;font-size:.88em;columns:2}
+.toc a{color:#2f6fb0;text-decoration:none;display:block;padding:2px 0}
+h2{font-size:1.22em;font-weight:700;color:#fff;background:#2c5178;padding:9px 16px;border-radius:7px;margin-top:38px;margin-bottom:14px}
+h2 .n{color:#8fc0e8;margin-right:8px}
+h3{font-size:1.05em;font-weight:700;color:#2c5178;margin-top:22px;margin-bottom:9px;border-left:4px solid #2c5178;padding-left:10px}
+h4{font-size:.98em;font-weight:600;color:#3a4150;margin-top:16px;margin-bottom:6px}
+p{margin-bottom:12px;font-size:.95em}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:.85em}
+th,td{border:1px solid #dfe3ea;padding:7px 10px;text-align:left;vertical-align:top}
+th{background:#eef1f6;font-weight:600}
+tr:nth-child(even){background:#fafbfc}
+.box{border-radius:8px;padding:12px 16px;margin:13px 0;font-size:.92em}
+.box-g{background:#eef4ee;border-left:4px solid #6a9e6a}
+.box-b{background:#eaf1f7;border-left:4px solid #5a8ab0}
+.box-a{background:#fdf4e7;border-left:4px solid #d0942a}
+.flow{background:#1a1f28;color:#d8dce4;border-radius:8px;padding:12px 16px;margin:10px 0;font-size:.82em;line-height:1.9;font-family:"SF Mono",Menlo,monospace;overflow-x:auto}
+.flow .tr{color:#f0b866}.flow .co{color:#7ec8e8}.flow .ac{color:#8ce0a8}.flow .no{color:#e89b9b}.flow .ar{color:#888}
+.tag{display:inline-block;font-size:.72em;padding:1px 6px;border-radius:4px;font-weight:600;margin:0 1px}
+.t-t{background:#fde7cf;color:#a35a12}.t-c{background:#d6ebf5;color:#1a5f85}.t-a{background:#d8efdc;color:#256b30}
+.off-y{color:#1a7a44;font-weight:700}.off-n{color:#b04a2a;font-weight:700}
+ol,ul{margin:6px 0 12px 22px}li{font-size:.93em;margin-bottom:5px}
+.src{font-size:.72em;padding:0 5px;border-radius:3px;font-weight:600}
+.sf{background:#d8efdc;color:#256b30}.sa{background:#fde7cf;color:#a35a12}
+strong{color:#111}
+.end{margin-top:44px;padding-top:18px;border-top:1px solid #ddd;color:#9098a5;font-size:.82em}
+</style>
+</head>
+<body>
+<div class="pg">
+
+<div class="hdr">
+<h1>workflow 规则工作台 · 产品方案</h1>
+<div class="meta">可提交版 v1 · 产品负责人：王泽民 · 基于 7.15 会议方向 + 配置平台真实结构 + 「Signal Hub 规则工作台」原型</div>
+</div>
+
+<div class="toc">
+<a href="#c1">一、背景与目标</a>
+<a href="#c2">二、产品定位与边界</a>
+<a href="#c3">三、核心概念</a>
+<a href="#c4">四、画布功能规格</a>
+<a href="#c5">五、原子能力库</a>
+<a href="#c6">六、场景剧本（含节点连线）</a>
+<a href="#c7">七、端云同步机制</a>
+<a href="#c8">八、运营能力</a>
+<a href="#c9">九、分工与依赖</a>
+<a href="#c10">十、排期与下一步</a>
+</div>
+
+<!-- 一 -->
+<h2 id="c1"><span class="n">一</span>背景与目标</h2>
+<h3>1.1 现状问题</h3>
+<p>目前车上的业务规则（"什么情况下车做什么"）以两种方式存在：一是硬编码在各模块代码里，二是散落在配置平台的表单式场景里。带来三个问题：</p>
+<ul>
+<li><strong>迭代慢：</strong>加一条规则或改一处逻辑，要走研发开发—测试—发版，周期以周计，产品无法自助。</li>
+<li><strong>表达弱：</strong>现配置平台是表单式，只能表达"多条件 AND 后执行"，无法表达"先判断 A、满足走一条、不满足走另一条"这类带流程和分支的复杂逻辑（7.15 韩杰明确指出"中间一定有复杂条件逻辑，不是触发了就直接执行"）。</li>
+<li><strong>重复建设：</strong>触发器、事件日志、Director 条件/定时任务各自开发一套条件判断逻辑，成本高、口径不一。</li>
+</ul>
+<h3>1.2 目标</h3>
+<div class="box box-g">
+把全系统的业务规则，从"埋在代码里、每条要研发写"，升级为<strong>"一个可视化画布，产品/运营自己拖积木即可配置、发布、运营"</strong>的规则引擎。一次搭好，触发器、Director、主动服务、各 Advisor 共用，不再各建一套。
+</div>
+
+<!-- 二 -->
+<h2 id="c2"><span class="n">二</span>产品定位与边界</h2>
+<h3>2.1 定位</h3>
+<p>本工作台是<strong>端云统一的规则编排引擎</strong>——系统的"规则中枢"。它消费信号中枢提供的信号原料，产出可执行的规则（剧本），下发端/云执行。对应 7.9 白板会给触发器的定位："规则引擎，走 workflow 画布"。</p>
+<h3>2.2 边界（关键，避免重复建设）</h3>
+<table>
+<tr><th>归本工作台（编排层）</th><th>归信号中枢（原料层）</th><th>归研发/下游（执行层）</th></tr>
+<tr><td>可视化画布、原子能力库、事件+条件编排、K2 时间窗、频控、优先级仲裁、callback 出口路由、运营（版本/灰度/统计）</td><td>信号接入、原子状态监控、事件生成（穿越检测）、缓存</td><td>端云同步下发、端侧离线执行、动作真正落地（TTS/车控/Advisor）</td></tr>
+</table>
+<div class="box box-a"><strong>原则（引 7.9 白板会共识）：</strong>"原料归信号中枢，编排归工作台，不开发两个条件引擎。"信号原料只建一处（信号中枢），规则编排只建一处（本工作台），两边通过标准接口对接。</div>
+
+<!-- 三 -->
+<h2 id="c3"><span class="n">三</span>核心概念</h2>
+<p>一条规则 = <span class="tag t-t">触发</span> + <span class="tag t-c">条件</span> + <span class="tag t-a">动作</span>，三段式：</p>
+<table>
+<tr><th>段</th><th>含义</th><th>类比（闹钟）</th></tr>
+<tr><td><span class="tag t-t">触发</span></td><td>规则的起点。某信号事件发生时唤醒规则</td><td>到 7 点</td></tr>
+<tr><td><span class="tag t-c">条件</span></td><td>唤醒后的过滤。查此刻状态是否满足，可多条件 且/或，可分支</td><td>如果是工作日</td></tr>
+<tr><td><span class="tag t-a">动作</span></td><td>条件通过后执行。播报/车控/触发 Advisor/记日志</td><td>就响铃</td></tr>
+</table>
+<p>执行模型为<strong>漏斗</strong>：事件（起点）→ 条件（过滤）→ 动作（出口）。对应 7.9 韩杰的"事件 + 条件"漏斗，替代旧的"多条件并行 AND"。</p>
+
+<!-- 四 -->
+<h2 id="c4"><span class="n">四</span>画布功能规格</h2>
+<h3>4.1 节点类型</h3>
+<table>
+<tr><th>节点</th><th>作用</th><th>参数</th></tr>
+<tr><td>Start</td><td>规则入口</td><td>无</td></tr>
+<tr><td><span class="tag t-t">Trigger 触发</span></td><td>规则起点，绑定触发信号</td><td>显示名、信号源、运算符（变更为/有变更）、目标值（可多选）、去抖动(ms)、仅点火触发(开关)、记录事件日志(开关)</td></tr>
+<tr><td><span class="tag t-c">Condition 条件</span></td><td>状态过滤判断</td><td>信号、位置（至少1个/全部，多选 key）、运算符（等于/不等于/大于/大于等于/小于/小于等于/包含/不包含）、目标值、多条件 且/或</td></tr>
+<tr><td><span class="tag t-a">Action 动作</span></td><td>执行动作</td><td>动作类型 + 类型对应参数（TTS：音色+文本；车控：指令；Advisor：场景）</td></tr>
+<tr><td>Branch 分支</td><td>条件的 Yes/No 出边</td><td>Yes→下一节点；No→结束 或 另一分支</td></tr>
+<tr><td>End</td><td>规则结束</td><td>无</td></tr>
+</table>
+<div class="box box-a"><strong>运算符约束（避坑）：</strong>事件类仅"变更为、有变更"两个；条件类仅上述 8 个。画布上档位可显示"切入/切出"作友好包装，底层映射为"变更为/有变更"。<strong>与研发对接一律用底层运算符，不用"切入/切出/穿越"等口头说法</strong>（7.10 曾因此产生分歧）。数值信号的"越阈值"由条件运算符"大于/小于"+ 触发引擎抓边沿实现，非独立运算符。</p></div>
+<h3>4.2 连线与分支</h3>
+<p>节点自上而下连线；Condition 节点必有 Yes/No 两条出边；支持多条件串联、多级分支；支持一条规则挂多个动作出口（callback 路由到不同下游）。</p>
+<h3>4.3 自然语言预览</h3>
+<p>画布自动将规则翻译为一句自然语言（如"当档位切入 D 档，且至少 1 个车窗打开，TTS 播报…"），用于评审、汇报、审核。</p>
+<h3>4.4 草稿 / 试运行 / 发布 / 版本</h3>
+<ul>
+<li><strong>草稿：</strong>编辑中，不生效。</li>
+<li><strong>试运行：</strong>在 mock/联调环境验证规则逻辑。</li>
+<li><strong>发布上线：</strong>规则生效，按发布范围下发。</li>
+<li><strong>版本：</strong>每次发布产生版本号（v0.x），可回滚；展示触发次数、命中率等统计。</li>
+</ul>
+
+<!-- 五 -->
+<h2 id="c5"><span class="n">五</span>原子能力库</h2>
+<p class="box box-a" style="font-size:.85em"><span class="src sf">图</span> = 原型图确认；<span class="src sa">补</span> = 按配置平台 24 类车态字段 + 会议场景补充，需与真实平台核对。</p>
+<h3>5.1 触发信号库（目标 12）</h3>
+<table>
+<tr><th>触发信号</th><th>信号名</th><th>运算符</th><th>源</th></tr>
+<tr><td>档位切换</td><td>GEAR_STATE</td><td>变更为(P/R/N/D/S/M)、有变更</td><td><span class="src sf">图</span></td></tr>
+<tr><td>车速变化</td><td>VEHICLE_SPEED</td><td>大于/小于（引擎抓边沿）</td><td><span class="src sf">图</span></td></tr>
+<tr><td>车门开启</td><td>DOOR_STATE</td><td>变更为(开/关)</td><td><span class="src sf">图</span></td></tr>
+<tr><td>转向灯</td><td>TURN_SIGNAL</td><td>变更为(左/右/关)</td><td><span class="src sf">图</span></td></tr>
+<tr><td>上电/点火</td><td>IGN_STATE</td><td>变更为(ON/OFF)</td><td><span class="src sa">补</span></td></tr>
+<tr><td>充电状态</td><td>CHARGE_STATE</td><td>变更为(充电/断开)</td><td><span class="src sa">补</span></td></tr>
+<tr><td>导航事件</td><td>NAVI_EVENT</td><td>变更为(接近/到达/离开)</td><td><span class="src sa">补</span></td></tr>
+<tr><td>时间/日历</td><td>TIME</td><td>等于(公历/农历某日)</td><td><span class="src sa">补</span></td></tr>
+<tr><td>车窗</td><td>WINDOW_STATE</td><td>变更为(开/关)</td><td><span class="src sa">补</span></td></tr>
+<tr><td>车门锁</td><td>DOOR_LOCK</td><td>变更为(解锁/落锁)</td><td><span class="src sa">补</span></td></tr>
+<tr><td>座椅占用</td><td>OCCUPANCY</td><td>无变有/有变无</td><td><span class="src sa">补</span></td></tr>
+<tr><td>舱外视觉</td><td>VLM_OUT</td><td>变更为(可枚举值)</td><td><span class="src sa">补</span></td></tr>
+</table>
+<h3>5.2 条件判断库（目标 18，列核心）</h3>
+<table>
+<tr><th>条件</th><th>典型判法</th><th>源</th></tr>
+<tr><td>车窗 ×4</td><td>至少1个/全部 = 开（多选）</td><td><span class="src sf">图</span></td></tr>
+<tr><td>车内温度</td><td>大于/小于 某度</td><td><span class="src sf">图</span></td></tr>
+<tr><td>安全带 ×4</td><td>某座 = 未系（多选）</td><td><span class="src sf">图</span></td></tr>
+<tr><td>乘员在位</td><td>某座 = 有人（多选）</td><td><span class="src sf">图</span></td></tr>
+<tr><td>驾驶模式</td><td>等于/不等于(经济/运动/泥泞)</td><td><span class="src sa">补</span></td></tr>
+<tr><td>电量</td><td>大于/小于 某%</td><td><span class="src sa">补</span></td></tr>
+<tr><td>导航状态/道路类型</td><td>等于(导航中/国道/高速)</td><td><span class="src sa">补</span></td></tr>
+<tr><td>充电口盖</td><td>等于(开/关)</td><td><span class="src sa">补</span></td></tr>
+<tr><td>预设模式是否开启</td><td>等于(开/关)</td><td><span class="src sa">补</span> 7.15 泽民提</td></tr>
+<tr><td>空调 / 座椅加热通风 / 氛围灯 / 音量 / 灯光 / 车门锁 / 胎压 …</td><td>等于/大于/小于</td><td><span class="src sa">补</span> 凑够 18</td></tr>
+</table>
+<h3>5.3 执行动作库（目标 9）</h3>
+<table>
+<tr><th>动作</th><th>类型</th><th>参数</th><th>源</th></tr>
+<tr><td>TTS 播报</td><td>HMI</td><td>音色、文本</td><td><span class="src sf">图</span></td></tr>
+<tr><td>触发舒适 Advisor</td><td>Scene</td><td>场景</td><td><span class="src sf">图</span></td></tr>
+<tr><td>生成事件日志</td><td>Cloud</td><td>话术 → 上报 Context</td><td><span class="src sf">图</span></td></tr>
+<tr><td>Toast 提示</td><td>HMI</td><td>文案</td><td><span class="src sf">图</span></td></tr>
+<tr><td>车控执行</td><td>车控接口</td><td>空调/座椅/车窗/驾驶模式/氛围灯</td><td><span class="src sa">补</span></td></tr>
+<tr><td>触发情感/出行/内容 Advisor</td><td>Advisor</td><td>对应 Advisor</td><td><span class="src sa">补</span></td></tr>
+<tr><td>主动推荐</td><td>主动服务</td><td>推荐内容</td><td><span class="src sa">补</span></td></tr>
+<tr><td>延时执行</td><td>调度</td><td>延时 + 后续动作</td><td><span class="src sa">补</span></td></tr>
+<tr><td>请求云端 API</td><td>Cloud</td><td>节日/天气等</td><td><span class="src sa">补</span></td></tr>
+</table>
+
+<!-- 六 -->
+<h2 id="c6"><span class="n">六</span>场景剧本（含节点连线）</h2>
+<p>每条规则画出完整节点流程，可直接对照录入。"离线要求"决定端云归属（见第七章）。</p>
+
+<h4>剧本① · D 档车窗未关提醒</h4>
+<div class="flow"><span class="ar">Start ▸</span> <span class="tr">[触发 档位·变更为 D·去抖300ms·仅点火]</span> <span class="ar">▸</span> <span class="co">[条件 车窗·至少1个·=开]</span> <span class="ar">─Yes▸</span> <span class="ac">[动作 TTS "关窗省电"]</span> <span class="ar">▸ End</span>
+<br><span class="ar">　　　　　　　　　　　　　　　　　　　　　　</span><span class="no">└─No▸ End</span>　　离线：<span class="off-y">要 → 端侧</span></div>
+
+<h4>剧本② · 挂 P 看充电桩</h4>
+<div class="flow"><span class="ar">Start ▸</span> <span class="tr">[触发 档位·变更为 P]</span> <span class="ar">▸</span> <span class="co">[条件 充电口盖=关 且 电量&lt;30%]</span> <span class="ar">─Yes▸</span> <span class="ac">[动作 触发出行Advisor·推荐充电]</span> <span class="ar">▸ End</span>
+<br><span class="ar">　　　　　　　　　　　　　　　　　　　　　　　　　　　</span><span class="no">└─No▸ End</span>　　离线：<span class="off-n">不强求 → 云端</span></div>
+
+<h4>剧本③ · 导航接近目的地</h4>
+<div class="flow"><span class="ar">Start ▸</span> <span class="tr">[触发 导航·变更为 接近(&lt;500m)]</span> <span class="ar">▸</span> <span class="co">[条件 导航中 且 POI=目的地]</span> <span class="ar">─Yes▸</span> <span class="ac">[动作 TTS + 生成事件日志]</span> <span class="ar">▸ End</span>
+<br><span class="ar">　　　　　　　　　　　　　　　　　　　　　　　　　</span><span class="no">└─No▸ End</span>　　离线：<span class="off-n">云端 + 端侧 one_shot 防重复</span></div>
+
+<h4>剧本④ · 驻车降频省电</h4>
+<div class="flow"><span class="ar">Start ▸</span> <span class="tr">[触发 档位·变更为 P]</span> <span class="ar">▸</span> <span class="co">[条件 舱外AlwaysOn=运行中]</span> <span class="ar">─Yes▸</span> <span class="ac">[动作 VLM 降低频]</span> <span class="ar">▸ End</span>
+<br><span class="ar">　　　　　　　　　　　　　　　　　　　　　　　</span><span class="no">└─No▸ End</span>　　离线：<span class="off-y">要 → 端侧</span></div>
+
+<h4>剧本⑤ · 国道超速提醒</h4>
+<div class="flow"><span class="ar">Start ▸</span> <span class="tr">[触发 车速·大于120·抓边沿]</span> <span class="ar">▸</span> <span class="co">[条件 道路类型=国道]</span> <span class="ar">─Yes▸</span> <span class="ac">[动作 TTS "开慢点"]</span> <span class="ar">▸ End</span>
+<br><span class="ar">　　　　　　　　　　　　　　　　　　　　　　　</span><span class="no">└─No▸ End</span>　　离线：半 → 研发定（倾向云端判道路）</div>
+
+<h4>剧本⑥ · 雨雪切驾驶模式</h4>
+<div class="flow"><span class="ar">Start ▸</span> <span class="tr">[触发 舱外视觉·变更为 雨雪]</span> <span class="ar">▸</span> <span class="co">[条件 当前≠泥泞 且 电量足]</span> <span class="ar">─Yes▸</span> <span class="ac">[动作 车控·切泥泞模式]</span> <span class="ar">▸ End</span>
+<br><span class="ar">　　　　　　　　　　　　　　　　　　　　　　　　　</span><span class="no">└─No▸ End</span>　　离线：<span class="off-n">不能（舱外VLM缺）→ 云端，先搁置</span></div>
+
+<h4>剧本⑦ · 宝宝看护</h4>
+<div class="flow"><span class="ar">Start ▸</span> <span class="tr">[触发 用户设置·动态下发]</span> <span class="ar">▸</span> <span class="co">[条件 舱内VLM 命中"宝宝醒了"]</span> <span class="ar">─Yes▸</span> <span class="ac">[动作 通知用户 + 达成后注销任务]</span> <span class="ar">▸ End</span>
+<br><span class="ar">　　　　　　　　　　　　　　　　　　　　　　　　　</span><span class="no">└─No▸ 继续监测</span>　　离线：<span class="off-y">舱内VLM在车上 → 端侧</span></div>
+
+<h4>剧本⑧ · 节日彩蛋</h4>
+<div class="flow"><span class="ar">Start ▸</span> <span class="tr">[触发 时间·=农历节日]</span> <span class="ar">▸</span> <span class="co">[条件 上电 且 首次上车]</span> <span class="ar">─Yes▸</span> <span class="ac">[动作 请求云端API → 特定效果]</span> <span class="ar">▸ End</span>
+<br><span class="ar">　　　　　　　　　　　　　　　　　　　　　　　　</span><span class="no">└─No▸ End</span>　　离线：<span class="off-n">不能（API在云端）→ 云端</span></div>
+
+<!-- 七 -->
+<h2 id="c7"><span class="n">七</span>端云同步机制</h2>
+<h3>7.1 离线要求驱动端云归属</h3>
+<p>每条规则由产品标注一个<strong>离线要求（断网是否必须执行）</strong>，作为研发判定端云归属的输入：</p>
+<table>
+<tr><th>规则特征</th><th>端云归属</th></tr>
+<tr><td>断网必须执行 + 信号均为端侧本地（档位/车窗/车速/舱内 VLM）</td><td class="off-y">下发端侧执行</td></tr>
+<tr><td>依赖云端数据/API（POI/天气/节日/舱外 VLM）</td><td class="off-n">云端执行</td></tr>
+<tr><td>信号端侧有但逻辑复杂/需问用户</td><td>研发权衡</td></tr>
+</table>
+<div class="box box-b"><strong>分工声明：</strong>产品提供"离线要求 + 实时性要求"，研发据此结合端侧数据可用性与性能，判定端云归属并回填。产品不预先指定端云实现。（依据 7.15 韩杰"产品定义场景，研发定端云"。）</div>
+<h3>7.2 下发与执行</h3>
+<p>云端配好规则（剧本）→ 按归属下发端侧或留云端 → 端侧规则支持断网离线执行 → 执行结果按需回写信号库/上报 Context。</p>
+
+<!-- 八 -->
+<h2 id="c8"><span class="n">八</span>运营能力</h2>
+<ul>
+<li><strong>发布范围（灰度）：</strong>渠道 / 指定车辆 VIN（多选）/ 车型 / 软件版本，支持灰度发布。</li>
+<li><strong>执行策略（频控）：</strong>执行总次数 / 单次上电周期内次数 / 自然日内次数 / 最小间隔（默认 30s）。</li>
+<li><strong>统计：</strong>触发次数、命中率、版本对比。</li>
+<li><strong>优先级仲裁：</strong>多规则冲突时按优先级仲裁。</li>
+</ul>
+
+<!-- 九 -->
+<h2 id="c9"><span class="n">九</span>分工与依赖</h2>
+<table>
+<tr><th>方</th><th>负责</th><th>本方案对其依赖</th></tr>
+<tr><td>本工作台（泽民）</td><td>画布、原子库、编排、频控仲裁、callback、运营</td><td>—</td></tr>
+<tr><td>信号中枢（韩杰）</td><td>信号接入、监控、事件生成、缓存</td><td>提供触发信号/事件/状态查询接口（三表）</td></tr>
+<tr><td>端侧研发（汪帅/赵衍）</td><td>端云同步、端侧离线执行</td><td>确认端侧数据可用性、离线执行能力</td></tr>
+<tr><td>云端研发（刘杨）</td><td>云端触发器执行规则</td><td>确认云端执行、运算符落地</td></tr>
+<tr><td>VLM（丁彬/西钺）</td><td>舱内外视觉能力</td><td>提供可枚举输出清单（决定视觉类条件范围）</td></tr>
+<tr><td>下游（HMI/车控/Advisor）</td><td>动作落地</td><td>提供动作执行接口</td></tr>
+</table>
+
+<!-- 十 -->
+<h2 id="c10"><span class="n">十</span>排期与下一步</h2>
+<ol>
+<li><strong>P0（本周）：</strong>与韩杰确认画布产品设计归属；三张原子库与信号中枢三表对齐；本方案评审。</li>
+<li><strong>P0（本周）：</strong>8 条场景剧本录入试运行，跑通剧本① 作样板。</li>
+<li><strong>P1：</strong>与研发（丁彬/刘杨/端侧）对端云归属，回填离线归属；VLM 可枚举清单补入条件库。</li>
+<li><strong>P2：</strong>画布运营能力（灰度/统计/仲裁）细化；接入 Director 条件/定时任务、主动服务、各 Advisor。</li>
+</ol>
+
+<div class="box box-a"><strong>待确认项（评审时需拍板）：</strong>① 画布产品 owner 与信号中枢的边界（原料/编排分界）；② 平台前后端开发排期与资源；③ 三表运算符列是否采用统一枚举；④ 舱外 VLM 能力时间表（决定视觉类场景可用性）。</div>
+
+<div class="end">
+workflow 规则工作台 · 产品方案 · 可提交版 v1 · 十章 · 8 条剧本含节点连线 · 原子库 12+18+9<br>
+来源：7.15 会议方向 / 配置平台 24 字段结构 / 真实 10 运算符 / 「Signal Hub 规则工作台」原型 / 7.9 边界共识
+</div>
+
+</div>
+</body>
+</html>

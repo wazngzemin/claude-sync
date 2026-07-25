@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>整条流程详解 + 待办深度展开 v1</title>
+<style>
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; color:#1f2937; background:#f4f5f7; padding:30px 22px 90px; line-height:1.7; }
+  .wrap { max-width:1200px; margin:0 auto; }
+  h1 { font-size:1.55rem; color:#b91c1c; border-bottom:3px solid #dc2626; padding-bottom:10px; }
+  .sub { color:#6b7280; font-size:0.88rem; margin:6px 0 20px; }
+  h2 { font-size:1.26rem; margin-top:46px; padding:11px 16px; border-radius:8px; background:#1f2937; color:#fff; }
+  h2 .ic { color:#fbbf24; margin-right:8px; }
+  h2.flow { background:#1e40af; } h2.todo { background:#166534; } h2.check { background:#7c2d12; }
+  p { margin:9px 0; }
+  .lead { font-size:1.02rem; background:#fff; border:1px solid #fecaca; padding:16px 20px; border-radius:10px; }
+  .toc { background:#fff; border:1px solid #e5e7eb; border-radius:8px; padding:14px 22px; margin:18px 0; }
+  .toc a { color:#2563eb; text-decoration:none; display:block; margin:3px 0; }
+
+  /* 流程步骤 */
+  .step { display:flex; gap:14px; margin:0; padding:14px 0; border-bottom:1px dashed #d1d5db; }
+  .step-n { flex-shrink:0; width:44px; height:44px; border-radius:50%; background:#1e40af; color:#fff; font-weight:700; font-size:1.05rem; display:flex; align-items:center; justify-content:center; }
+  .step.mine .step-n { background:#16a34a; }
+  .step-body { flex:1; }
+  .step-t { font-weight:700; font-size:1rem; }
+  .step-t .who { font-size:0.75rem; font-weight:700; padding:1px 8px; border-radius:4px; margin-left:8px; background:#ede9fe; color:#5b21b6; vertical-align:middle; }
+  .step-t .whome { background:#dcfce7; color:#166534; }
+  .step-d { font-size:0.9rem; color:#374151; margin:4px 0; }
+  .step-data { background:#0b0f17; color:#a7f3d0; padding:6px 11px; border-radius:6px; font-size:0.76rem; font-family:"SF Mono",Menlo,Consolas,monospace; margin:5px 0; white-space:pre-wrap; }
+  .step-data .c { color:#6b7280; }
+  .step-you { background:#f0fdf4; border-left:3px solid #16a34a; border-radius:0 5px 5px 0; padding:5px 11px; font-size:0.86rem; margin:5px 0; }
+  .step-you::before { content:"👉 你在这步:"; font-weight:700; color:#166534; }
+  .step-warn { background:#fef2f2; border-left:3px solid #dc2626; border-radius:0 5px 5px 0; padding:5px 11px; font-size:0.84rem; color:#991b1b; margin:5px 0; }
+
+  /* 待办深度卡 */
+  .task { background:#fff; border:1px solid #e5e7eb; border-radius:12px; margin:20px 0; overflow:hidden; }
+  .task-h { background:#166534; color:#fff; padding:12px 18px; font-weight:700; font-size:1.06rem; }
+  .task-h .p { font-size:0.72rem; padding:1px 8px; border-radius:4px; margin-left:8px; }
+  .task-h .p0 { background:#fee2e2; color:#b91c1c; } .task-h .p1 { background:#fef3c7; color:#92400e; }
+  .task-b { padding:16px 20px; }
+  .task-sub { font-weight:700; color:#166534; font-size:0.94rem; margin:14px 0 6px; padding-left:9px; border-left:3px solid #16a34a; }
+  .task-sub:first-child { margin-top:0; }
+  table { width:100%; border-collapse:collapse; margin:9px 0; font-size:0.86rem; background:#fff; }
+  th { background:#374151; color:#fff; padding:7px 9px; text-align:left; }
+  td { border:1px solid #e5e7eb; padding:7px 9px; vertical-align:top; }
+  ol.steps { margin:6px 0 6px 22px; } ol.steps li { margin:4px 0; font-size:0.9rem; }
+  .checklist { background:#f7fef9; border:1px solid #86efac; border-radius:8px; padding:10px 15px; margin:8px 0; }
+  .checklist-h { font-weight:700; color:#166534; font-size:0.9rem; margin-bottom:6px; }
+  .ci { display:flex; gap:8px; padding:4px 0; font-size:0.88rem; align-items:flex-start; }
+  .ci .cb { flex-shrink:0; width:16px; height:16px; border:2px solid #16a34a; border-radius:3px; margin-top:3px; }
+  .ask { background:#eff6ff; border-left:3px solid #2563eb; border-radius:0 6px 6px 0; padding:8px 13px; font-size:0.88rem; margin:8px 0; }
+  .ask::before { content:"📞 找谁·问什么具体问题:"; font-weight:700; color:#1e40af; display:block; margin-bottom:3px; }
+  .out { background:#fffbeb; border-left:3px solid #f59e0b; border-radius:0 6px 6px 0; padding:7px 13px; font-size:0.88rem; margin:8px 0; }
+  .out::before { content:"📄 产出物:"; font-weight:700; color:#92400e; }
+  code { background:#fef3c7; padding:1px 5px; border-radius:4px; font-size:0.9em; color:#92400e; }
+  .box { padding:12px 16px; border-radius:8px; margin:12px 0; }
+  .green { background:#f0fdf4; border-left:4px solid #16a34a; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>整条流程详解 + 待办深度展开</h1>
+<p class="sub">2026-07-05 · 深度版 · 第一部分把"宝宝毯子掉了提醒我"从头到尾走17步(每步:谁做/数据/你的动作)· 第二部分把5件核心待办拆到可勾选的验收清单</p>
+
+<div class="lead">
+<b>这份和前面的区别:够细。</b>第一部分——用一个真实case(宝宝毯子掉了)把整条链路<b>17步逐步走完</b>,每一步标清:谁做的、传的数据长什么样、<b>你在这一步具体做什么</b>、交接给谁。你会看到第5步到第16步几乎全是你的动作——这就是"你要做什么"在运行时的真实样子。第二部分——把5件核心待办每件<b>拆成:要解决的子问题 → 现状vs目标 → 具体步骤 → 产出物 → 完成验收清单(可勾选,每项具体可验证)→ 找谁问什么</b>。"做到什么程度"不再是"群里说一句",而是一张能逐条打勾的清单。
+</div>
+
+<div class="toc">
+<b>目录</b>
+<a href="#s1">一、整条流程走一遍:宝宝毯子掉了(17步·你在哪几步)</a>
+<a href="#s2">二、核心待办深度展开(5件·拆到验收清单)</a>
+<a href="#s2t2">　T2 端侧触发器怎么触发云端/拼SP(评审核心)</a>
+<a href="#s2t3">　T3 触发方≠接收方(你截图问的那个)</a>
+<a href="#s2t1">　T1 紫线指向</a>
+<a href="#s2t5">　T5 回传通道守图/改图</a>
+<a href="#s2t2b">　T2b 黄红线优先级</a>
+</div>
+
+
+<!-- ==================== 一 流程 ==================== -->
+<h2 id="s1" class="flow"><span class="ic">一</span>整条流程走一遍:"宝宝毯子掉了提醒我"(17步)</h2>
+<p>这是最复杂的一类任务(动态视觉观测),经过你最多的节点。<span style="color:#16a34a;font-weight:700">绿色圆圈=你的动作</span>,蓝色=别人。</p>
+
+<div class="step">
+<div class="step-n">1</div>
+<div class="step-body">
+<div class="step-t">用户说话 → ASR转文字<span class="who">丁彬·端</span></div>
+<div class="step-d">用户在车里说"宝宝毯子掉了提醒我",端侧ASR转成文字。</div>
+</div></div>
+
+<div class="step">
+<div class="step-n">2</div>
+<div class="step-body">
+<div class="step-t">拒识分流<span class="who">斯华·意图</span></div>
+<div class="step-d">⑨判定这句话是"非车控query/条件话"(不是"开车窗"那种直接指令),送给Director。</div>
+</div></div>
+
+<div class="step">
+<div class="step-n">3</div>
+<div class="step-body">
+<div class="step-t">Director拆解 → 创建动态Advisor<span class="who">仁杰/庆磊</span></div>
+<div class="step-d">Director判断这是"持续视觉观测任务"(要一直盯着毯子),创建一个动态Advisor专门管这件事。</div>
+</div></div>
+
+<div class="step">
+<div class="step-n">4</div>
+<div class="step-body">
+<div class="step-t">动态Advisor先查:毯子状态是现成的吗?<span class="who">庆磊</span></div>
+<div class="step-d">动态Advisor先看Context里有没有"毯子"信息(官方图的第一个菱形"是否预先对齐的enum")。<b>毯子状态不是enum</b>(AIBox没有"毯子掉没掉"这种现成标签)→ 走"拼SP"这条路(路2)。</div>
+<div class="step-data"><span class="c">// 对比:如果是"宝宝睡着了吗",睡觉是enum → 走路1,你直接监听信号,不用拼SP</span>
+<span class="c">// 毯子不是enum → 走路2,要拼SP让VLM去看</span></div>
+</div></div>
+
+<div class="step mine">
+<div class="step-n">5</div>
+<div class="step-body">
+<div class="step-t">动态Advisor把"人话需求"给你的云端触发器<span class="who whome">你·云端触发器</span></div>
+<div class="step-d">动态Advisor给你的是<b>一句人话</b>:"观察毯子状态/毯子掉没掉"——<b>不是SP</b>。拼SP是你的事。</div>
+<div class="step-you">你的云端触发器接收这个观察需求,准备把它变成VLM能执行的SP。</div>
+</div></div>
+
+<div class="step mine">
+<div class="step-n">6</div>
+<div class="step-body">
+<div class="step-t">15-16 判枚举/描述 → 15-17 提槽判舱内/舱外<span class="who whome">你·云端触发器</span></div>
+<div class="step-d">你先判:毯子是"描述类"(不是enum)→ 需要拼SP。再判方向:"毯子"在舱内 → 走端侧VLM(舱内图不上云,合规)。</div>
+</div></div>
+
+<div class="step mine">
+<div class="step-n">7</div>
+<div class="step-body">
+<div class="step-t">15-18 拼SP + 定KV槽位<span class="who whome">你·云端触发器·核心动作</span></div>
+<div class="step-d">你把"观察毯子"这句需求,拼进当前正在跑的AlwaysOn SP里,并给它分配一个KV槽位(用任务名称当key)。</div>
+<div class="step-data">原生SP:  "prompt: aaaa, bbbb"        <span class="c">(舱内AlwaysOn本来在看的)</span>
++ 你拼入: "cccc = 观察后排宝宝毯子状态"
+= 合并SP: "prompt: aaaa, bbbb, cccc"
+KV槽位:  answer_毯子任务 ← cccc的结果   <span class="c">(key=任务名,不是SP1/SP2)</span></div>
+<div class="step-you">拼字符串 + 定槽位 + 记录"这个任务对应哪个answer"。这是你整个流程里最核心的技术动作。</div>
+</div></div>
+
+<div class="step mine">
+<div class="step-n">8</div>
+<div class="step-body">
+<div class="step-t">合并SP下发给端侧触发器<span class="who whome">你·云端触发器→端侧触发器</span></div>
+<div class="step-d">拼好的新SP,从云端触发器下发给端侧触发器。</div>
+<div class="step-warn">⚠ 这里就是张荣缺席时点名你回答的"端侧触发器怎么跟云端拼接SP"——你要在PRD讲清:云端触发器用什么接口把SP下发给端侧触发器(见T2)。</div>
+</div></div>
+
+<div class="step mine">
+<div class="step-n">9</div>
+<div class="step-body">
+<div class="step-t">端侧触发器触发VLM推理<span class="who whome">你·端侧触发器</span></div>
+<div class="step-d">端侧触发器接到SP,调AIBox让VLM按这个新SP去推理(绿线)。</div>
+<div class="step-you">端侧触发器是VLM的"触发方"——它调AIBox,让VLM每5秒按合并SP看一次。</div>
+</div></div>
+
+<div class="step">
+<div class="step-n">10</div>
+<div class="step-body">
+<div class="step-t">VLM推理,输出客观描述<span class="who">丁彬/兰若·AIBox</span></div>
+<div class="step-d">VLM每5秒看一次,输出<b>客观描述</b>(不判断"掉没掉")。</div>
+<div class="step-data">{ "answer_毯子任务": "毯子滑落在脚底" }   <span class="c">// 注意:VLM只说"在脚底",不说"掉了"</span></div>
+</div></div>
+
+<div class="step mine">
+<div class="step-n">11</div>
+<div class="step-body">
+<div class="step-t">端侧触发器接收VLM结果<span class="who whome">你·端侧触发器</span></div>
+<div class="step-d">VLM结果回到端侧触发器(紫线的起点)。</div>
+<div class="step-warn">⚠ 这里是丁彬第③点、你截图问的T3:VLM结果<b>不回给"触发者"了,而是要给AI service</b>。触发方(端侧触发器)≠最终接收方(AI service)。你要和斯华对齐这个改动(见T3)。</div>
+</div></div>
+
+<div class="step mine">
+<div class="step-n">12</div>
+<div class="step-body">
+<div class="step-t">端侧触发器透传给AI service → 云端<span class="who whome">你·端侧触发器</span></div>
+<div class="step-d">端侧触发器以端状态协议,把结果透传给AI service数据中心 → 上云进云端端状态/Context。</div>
+<div class="step-you">你负责"接收VLM结果 + 以端状态协议透传AI service"这一段(紫线)。AI service→云端是韩杰的(蓝线)。</div>
+</div></div>
+
+<div class="step mine">
+<div class="step-n">13</div>
+<div class="step-body">
+<div class="step-t">云端触发器监听新SP的结果,检测变化<span class="who whome">你·云端触发器</span></div>
+<div class="step-d">你的云端触发器一直盯着那个KV槽位(<code>answer_毯子任务</code>),检测它变了没。</div>
+<div class="step-data">上一次: "毯子盖在宝宝身上"  →  这一次: "毯子滑落在脚底"   <span class="c">// 变了!</span></div>
+<div class="step-warn">⚠ 这一步就是回传通道争议(T5):官方图画的是"结果绕到云端触发器监听"(现在这样);7.4研发提"原路返回,不绕"。要和丁彬西钺定守图还是改。</div>
+</div></div>
+
+<div class="step mine">
+<div class="step-n">14</div>
+<div class="step-body">
+<div class="step-t">把结果返回给动态Advisor<span class="who whome">你·云端触发器→Advisor</span></div>
+<div class="step-d">你把"毯子滑落在脚底"这个变化,返回给动态Advisor,让它判断。</div>
+</div></div>
+
+<div class="step">
+<div class="step-n">15</div>
+<div class="step-body">
+<div class="step-t">动态Advisor判断:满足退出条件吗?<span class="who">庆磊</span></div>
+<div class="step-d">动态Advisor判断"毯子滑落在脚底"= 毯子确实掉了 → 满足退出条件。<b>"掉没掉"的判断在Advisor,不在你、不在VLM。</b></div>
+</div></div>
+
+<div class="step mine">
+<div class="step-n">16</div>
+<div class="step-body">
+<div class="step-t">Advisor通知你删SP → 你还原AlwaysOn<span class="who whome">你·云端触发器</span></div>
+<div class="step-d">动态Advisor告诉你"任务完成,删掉观察毯子的SP"。你把cccc从合并SP里删掉,还原成原生SP(aaaa,bbbb)。</div>
+<div class="step-data">删除前: "prompt: aaaa, bbbb, cccc"
+删除后: "prompt: aaaa, bbbb"   <span class="c">// 还原,VLM下一轮不再看毯子</span></div>
+<div class="step-you">你负责"接收删除通知 + 删SP + 还原AlwaysOn"——这是拼SP的收尾,漏了VLM会一直白看毯子。</div>
+</div></div>
+
+<div class="step">
+<div class="step-n">17</div>
+<div class="step-body">
+<div class="step-t">Advisor出建议 → Director出话术 → TTS<span class="who">庆磊/仁杰</span></div>
+<div class="step-d">动态Advisor出建议 → Director生成话术"宝宝的毯子掉了哦,要不要帮您调高空调?" → TTS播报。流程闭环。</div>
+</div></div>
+
+<div class="box green">
+<b>🎯 看完这17步,"你要做什么"就具体了:</b>运行时你负责第5-9步(接需求→判枚举描述→提槽→拼SP定槽位→下发→触发VLM)+ 第11-14步(接结果→透传→监听变化→返回Advisor)+ 第16步(删SP还原)。<b>整条链路一半的步骤是你的动作。</b>而你现在要做的"待办",本质就是把这些运行时动作背后的<b>接口、协议、归属</b>定下来——下面5件待办,就是把第7、8、11、13步的技术细节拍死。</div>
+
+
+<!-- ==================== 二 待办深度 ==================== -->
+<h2 id="s2" class="todo"><span class="ic">二</span>核心待办深度展开(拆到验收清单)</h2>
+
+
+<!-- T2 -->
+<div class="task" id="s2t2">
+<div class="task-h">T2 · 端侧触发器怎么触发云端、怎么拼SP<span class="p p0">P0·评审核心·对应流程第7-9步</span></div>
+<div class="task-b">
+
+<div class="task-sub">① 要解决什么(拆成4个子问题)</div>
+<table>
+<tr><th>子问题</th><th>为什么要定</th></tr>
+<tr><td>a. 云端触发器用什么接口把拼好的SP<b>下发</b>给端侧触发器?push还是端侧pull?</td><td>流程第8步。张荣缺席时点名你回答的正是这个</td></tr>
+<tr><td>b. 端侧触发器接收的SP<b>数据结构</b>长什么样?(SP文本 + KV槽位定义 + 任务ID)</td><td>流程第9步,端侧要照这个结构解析</td></tr>
+<tr><td>c. 端侧触发器用什么接口<b>调AIBox</b>触发VLM推理?</td><td>触发方式,复用现有VLM SDK还是新接口</td></tr>
+<tr><td>d. 弱网/断网时,端侧触发器怎么处理已下发的SP?本地缓存吗?</td><td>断网兜底是端侧触发器的核心价值</td></tr>
+</table>
+
+<div class="task-sub">② 现状 vs 目标</div>
+<table>
+<tr><th>子问题</th><th>现状</th><th>目标(你要定成什么)</th></tr>
+<tr><td>a.下发接口</td><td>官方图画了"云端触发器→端侧触发器"有这条线,但接口未定义</td><td>定义接口:如 <code>deploySP(task_id, sp_text, kv_slot)</code>,云端push</td></tr>
+<tr><td>b.SP数据结构</td><td>只有底部示意图(aaaa+cccc)</td><td>定死JSON结构:<code>{task_id, sp_content, kv_key, ttl}</code></td></tr>
+<tr><td>c.调AIBox</td><td>VLM SDK现有"谁调谁拿"接口</td><td>确认复用哪个接口 + 结果回哪(见T3)</td></tr>
+<tr><td>d.断网</td><td>无</td><td>定:SP本地持久化,断网继续按SP推理,结果缓存待网络恢复上传</td></tr>
+</table>
+
+<div class="task-sub">③ 具体做法</div>
+<ol class="steps">
+<li>画一张时序图:<b>云端触发器 →(下发SP接口)→ 端侧触发器 →(调AIBox接口)→ VLM →(结果)→ 端侧触发器 →(透传)→ AI service</b>,每条箭头标接口名+数据结构</li>
+<li>找丁彬确认c(调AIBox用哪个接口)、找斯华确认结果回传(见T3)</li>
+<li>把这张时序图放进端侧触发器PRD,作为下周评审的核心页</li>
+</ol>
+
+<div class="out">端侧触发器PRD里的一张"端侧触发器↔云端触发器"完整时序图 + 4个接口的数据结构定义</div>
+
+<div class="checklist">
+<div class="checklist-h">✅ 完成 = 以下全部有明确答案并落进PRD:</div>
+<div class="ci"><span class="cb"></span><span>a. 下发SP的接口名 + 方向(云端push/端侧pull) + 触发时机定义了</span></div>
+<div class="ci"><span class="cb"></span><span>b. 端侧触发器接收的SP数据结构(JSON字段)定死了</span></div>
+<div class="ci"><span class="cb"></span><span>c. 端侧触发器调AIBox的接口确认了(复用现有 or 新增),和丁彬对齐</span></div>
+<div class="ci"><span class="cb"></span><span>d. 断网时SP本地缓存+结果续传的处理写清了</span></div>
+<div class="ci"><span class="cb"></span><span>时序图能在评审上直接回答张荣缺席时挂起的"端侧触发器怎么触发云端/拼SP"</span></div>
+</div>
+
+<div class="ask"><span class="who">丁彬</span>:端侧触发器调AIBox触发VLM,复用现有VLM SDK的哪个接口?结果同步返回还是异步回调?<br/><span class="who">刘杨</span>:云端触发器下发SP的接口,你(研发)倾向push还是pull?数据结构你能接受这个JSON吗?</div>
+</div>
+</div>
+
+
+<!-- T3 -->
+<div class="task" id="s2t3">
+<div class="task-h">T3 · 触发方≠接收方(你截图问的那个)<span class="p p0">P0·对应流程第11步</span></div>
+<div class="task-b">
+
+<div class="task-sub">① 要解决什么</div>
+<p style="font-size:0.9rem">丁彬第③点:原来VLM SDK是"谁触发谁接收"(端侧触发器调VLM,结果就回给端侧触发器自己用)。<b>现在变成:端侧触发器触发VLM,但结果不是给触发器自己,而是要透传给AI service上云</b>。这个"触发方和接收方分离"的改动,落在你的端侧触发器和斯华的意图SDK之间。要解决3个子问题:</p>
+<table>
+<tr><th>子问题</th><th>说明</th></tr>
+<tr><td>a. VLM结果回来,先回到端侧触发器,还是直接进AI service?</td><td>官方文档:先回端侧触发器,再由它透传AI service</td></tr>
+<tr><td>b. 斯华的意图SDK在这条链路的位置?它原来"返回调用方"的逻辑要改成什么?</td><td>意图SDK包着VLM,原来谁调返回给谁</td></tr>
+<tr><td>c. oneshot任务(如充电桩)和周期任务(如毯子),回传走不走同一条路?</td><td>两类任务回传机制可能不同</td></tr>
+</table>
+
+<div class="task-sub">② 现状 vs 目标</div>
+<table>
+<tr><th></th><th>现状(原VLM SDK)</th><th>目标(AIVA新要求)</th></tr>
+<tr><td>触发</td><td>端侧触发器调VLM</td><td>不变:端侧触发器调VLM</td></tr>
+<tr><td>结果回哪</td><td>回给调用方(端侧触发器自己)</td><td><b>回端侧触发器 → 透传AI service上云</b>(给下游所有消费方,不只自己)</td></tr>
+<tr><td>意图SDK</td><td>谁调返回给谁</td><td>要支持"结果导向AI service"这条新出口</td></tr>
+</table>
+
+<div class="task-sub">③ 具体做法</div>
+<ol class="steps">
+<li>拉斯华(意图SDK)+ AI service链路同学(赵衍/董均那边)开个小会</li>
+<li>对齐上面a/b/c三个子问题,画出"触发方(端侧触发器)→VLM→结果→端侧触发器→AI service"的时序,标清意图SDK的改动点</li>
+<li>把结论并进T2的时序图(它们是同一张图的两半)</li>
+</ol>
+
+<div class="out">"触发-接收分离"的时序图(可并入T2)+ 斯华意图SDK的改动点清单</div>
+
+<div class="checklist">
+<div class="checklist-h">✅ 完成 = 以下全部有结论:</div>
+<div class="ci"><span class="cb"></span><span>a. 结果回传路径定了:VLM→端侧触发器→AI service(每跳协议标清)</span></div>
+<div class="ci"><span class="cb"></span><span>b. 斯华意图SDK的具体改动点列出来了(原"返回调用方"→新"导向AI service")</span></div>
+<div class="ci"><span class="cb"></span><span>c. oneshot vs 周期任务是否同一条回传路,明确了</span></div>
+<div class="ci"><span class="cb"></span><span>三方(你/斯华/AI service)在文档或群里确认了这个时序,丁彬能看到</span></div>
+</div>
+
+<div class="ask"><span class="who">斯华</span>:意图SDK现在"谁调返回给谁",要改成"结果导向AI service",具体改哪个回调?工作量多大?<br/><span class="who">赵衍/董均</span>:AI service接收端侧触发器透传的结果,用什么协议?你们准备好接了吗?</div>
+</div>
+</div>
+
+
+<!-- T1 -->
+<div class="task" id="s2t1">
+<div class="task-h">T1 · 紫线指向(会上挂起,最快能关的)<span class="p p0">P0·对应流程第11-12步</span></div>
+<div class="task-b">
+<div class="task-sub">① 要解决什么</div>
+<p style="font-size:0.9rem">董均缺席时问、张荣点名你回答:VLM上报的结果,<b>紫线指向AI service数据中心,还是返回端侧触发器?</b>——这个官方文档已经答了,你只需确认+回复,是5件里最快能关的。</p>
+
+<div class="task-sub">② 答案(官方文档现成)</div>
+<div class="box green" style="font-size:0.9rem"><b>紫线 = VLM结果 → 端侧触发器接收 → 端侧触发器以端状态协议透传AI service。</b>不是VLM直接进数据中心,也不是简单"返回触发器就完"——是"回到触发器,再由触发器透传上云"。(丁彬文档"上云通道"章)</div>
+
+<div class="task-sub">③ 具体做法</div>
+<ol class="steps">
+<li>在评审群回复董均/张荣挂起的问题,引官方文档口径</li>
+<li>把这条画进T2的时序图(第11-12步)</li>
+</ol>
+
+<div class="checklist">
+<div class="checklist-h">✅ 完成 = </div>
+<div class="ci"><span class="cb"></span><span>群里/会上明确回复:"紫线=端侧触发器接收VLM结果→透传AI service,见文档上云通道章",挂起问题关闭</span></div>
+<div class="ci"><span class="cb"></span><span>这条路径体现在T2时序图里</span></div>
+</div>
+<div class="ask"><span class="who">丁彬/张荣</span>:确认我这个回复口径对不对——紫线就是"端侧触发器接收→透传AI service",对吧?</div>
+</div>
+</div>
+
+
+<!-- T5 -->
+<div class="task" id="s2t5">
+<div class="task-h">T5 · 回传通道守图/改图(别一个人扛)<span class="p p0">P0·对应流程第13步</span></div>
+<div class="task-b">
+<div class="task-sub">① 要解决什么</div>
+<p style="font-size:0.9rem">流程第13步:动态任务的VLM结果,是"绕到云端触发器监听"(官方图现在这样),还是"原路直接返回给Advisor"(7.4仁杰/庆磊主张)?这个争议7.4没定,而且仁杰line590直接点你名说"链路不确定"。</p>
+
+<div class="task-sub">② 两个方案</div>
+<table>
+<tr><th></th><th>方案A·绕(官方图现状)</th><th>方案B·原路返回(7.4研发提)</th></tr>
+<tr><td>路径</td><td>VLM结果→AI service→云端端状态→云端触发器监听KV→返回Advisor</td><td>VLM结果→端侧触发器→(不上云绕)→直接回Advisor</td></tr>
+<tr><td>好处</td><td>结果落Context有审计;判断权在触发器</td><td>时延低;不绕</td></tr>
+<tr><td>坏处</td><td>绕一大圈,时延高(庆磊嫌)</td><td>不落库,判断权模糊</td></tr>
+</table>
+
+<div class="task-sub">③ 具体做法(关键:别自己拍)</div>
+<ol class="steps">
+<li><b>先拉丁彬+西钺</b>——官方图是他们画的(方案A),7.4研发要改成B,这不是你一个人能改的</li>
+<li>三人定:守A还是改B?<b>可能的折中</b>:实时判断走B(快),结果副本异步落Context(保审计)</li>
+<li>三人有一致口径后,再上评审,别让你一个人当靶子</li>
+</ol>
+
+<div class="out">你+丁彬+西钺三人对回传通道的一致口径(守A/改B/折中)+ 时延对比数据</div>
+
+<div class="checklist">
+<div class="checklist-h">✅ 完成 = </div>
+<div class="ci"><span class="cb"></span><span>拉丁彬西钺开了会,三人对"守图还是改图"有一致口径</span></div>
+<div class="ci"><span class="cb"></span><span>如果改B,官方图更新;如果守A,准备好向研发解释为什么绕</span></div>
+<div class="ci"><span class="cb"></span><span>评审时是"三个产品的共识",不是泽民一个人的主张</span></div>
+</div>
+<div class="ask"><span class="who">丁彬+西钺</span>:官方图现在画的是绕云端触发器,7.4仁杰他们要原路返回,咱们仨得定个统一口径——守图还是改图?能不能实时走原路、副本落Context折中?</div>
+</div>
+</div>
+
+
+<!-- T2b 黄红线 -->
+<div class="task" id="s2t2b">
+<div class="task-h">T2b · 黄红线优先级(荣姐要你确认)<span class="p p0">P0</span></div>
+<div class="task-b">
+<div class="task-sub">① 要解决什么</div>
+<p style="font-size:0.9rem">荣姐挂你名下,要你确认黄红线是P0还是P1、什么时候能确认。庆磊的技术方案在等这个。</p>
+
+<div class="task-sub">② 关键:先搞清"黄红线"到底指你负责的哪部分</div>
+<table>
+<tr><th>线</th><th>整条</th><th>你负责的部分</th><th>不归你的</th></tr>
+<tr><td>黄线</td><td>Context→云端触发器监听→触发静态Advisor→播报</td><td><b>云端触发器监听+触发这段</b></td><td>静态Advisor本身=益红</td></tr>
+<tr><td>红线</td><td>Advisor下发→云端触发器拼SP→端侧下发VLM→返回→还原</td><td><b>拼SP+端侧下发+还原全流程</b></td><td>动态Advisor本身=庆磊</td></tr>
+</table>
+<p style="font-size:0.86rem;color:#6b7280">官方文档口径:静态Adv"触发源=云端context+云端触发器,被触发者=静态Adv"——证实黄线里触发器部分是你、Advisor是益红。<b>你不用整条背。</b></p>
+
+<div class="task-sub">③ 具体做法</div>
+<ol class="steps">
+<li>找嘉锋:①黄红线(触发器部分)是P0还是P1?②和"先搞定云端触发器"的关系?</li>
+<li>用官方切分跟嘉锋说清:你只背触发器那段,Advisor是益红/庆磊</li>
+<li>拿到结论回复荣姐+丁彬:黄红线X月能确认,紫线的依赖X时间点解</li>
+</ol>
+
+<div class="checklist">
+<div class="checklist-h">✅ 完成 = </div>
+<div class="ci"><span class="cb"></span><span>嘉锋给了黄红线(触发器部分)P0/P1的明确结论</span></div>
+<div class="ci"><span class="cb"></span><span>和嘉锋厘清:你只背触发器段,Advisor归益红/庆磊,不整条背</span></div>
+<div class="ci"><span class="cb"></span><span>回复了荣姐+丁彬:黄红线确认时间点,解开紫线依赖</span></div>
+</div>
+<div class="ask"><span class="who">嘉锋</span>:黄红线里"云端触发器监听/触发/拼SP"这部分,是P0还是P1?它和"先搞定云端触发器"是不是一回事?静态/动态Advisor本身不归我对吧?</div>
+</div>
+</div>
+
+
+<!-- ==================== 三 总览 ==================== -->
+<h2 id="s3" class="check"><span class="ic">三</span>完成度总览(一眼看哪些能勾了)</h2>
+<table>
+<tr><th>待办</th><th>对应流程步</th><th>找谁</th><th>完成的核心标志</th></tr>
+<tr><td>T1 紫线指向</td><td>11-12</td><td>丁彬/张荣</td><td>群里回复+进时序图(最快能关)</td></tr>
+<tr><td>T2 端侧触发器触发云端/拼SP</td><td>7-9</td><td>丁彬/刘杨</td><td>PRD有完整时序图+4接口定义</td></tr>
+<tr><td>T3 触发方≠接收方</td><td>11</td><td>斯华/赵衍</td><td>回传路径+意图SDK改动点定了</td></tr>
+<tr><td>T5 回传通道守图/改图</td><td>13</td><td>丁彬/西钺</td><td>三人一致口径,不一个人扛</td></tr>
+<tr><td>T2b 黄红线优先级</td><td>3-16全程</td><td>嘉锋</td><td>P0/P1结论+只背触发器段</td></tr>
+</table>
+
+<div class="box green" style="margin-top:16px">
+<b>🎯 顺序建议:</b>先做T1(最快,官方文档现成答案,群里一句关闭挂起)→ 再做T2b(约嘉锋,解庆磊阻塞)→ 然后T3(找斯华,丁彬在盯)→ 这三件清完,T2(评审核心时序图)和T5(拉丁彬西钺)是下周评审的准备,可以并行推。<b>T2和T3其实是同一张时序图的两半(触发+回传),一起画最省事。</b>
+</div>
+
+<p style="text-align:center;color:#9ca3af;font-size:0.85rem;margin-top:24px">整条流程详解+待办深度展开 v1 · 2026-07-05 · 流程=宝宝毯子掉了17步 · 待办=5件拆到验收清单</p>
+
+</div>
+</body>
+</html>

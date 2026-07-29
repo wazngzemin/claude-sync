@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>韩杰7.24 AI编排引擎评审 · 对触发器影响详解 v2（增量篇）</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,"PingFang SC","Noto Sans SC",sans-serif;background:#f5f6f8;color:#1f2430;line-height:1.8;padding:44px 16px 120px}
+.pg{max-width:1060px;margin:0 auto}
+h1{font-size:1.42em;font-weight:700;color:#111;margin-bottom:4px}
+.sub{font-size:.85em;color:#8a8f9a;margin-bottom:22px}
+.ver{background:#eef2f9;border:1px solid #ccd8ea;border-radius:8px;padding:8px 14px;font-size:.8em;color:#2c5178;display:inline-block;margin-bottom:16px}
+.alert{background:#fdecea;border:1px solid #f5c6c0;border-radius:10px;padding:15px 20px;margin:16px 0;font-size:.95em;line-height:1.8}
+.alert b{color:#c0392b}
+.pos{background:#eaf4ec;border:1px solid #cfe4d3;border-radius:10px;padding:15px 20px;margin:16px 0;font-size:.95em;line-height:1.8}
+.pos b{color:#1a7a44}
+.warn{background:#fdf6e8;border:1px solid #edd9ae;border-radius:10px;padding:14px 18px;margin:16px 0;font-size:.93em}
+.warn b{color:#a35a12}
+h2{font-size:1.14em;font-weight:700;color:#fff;padding:9px 16px;border-radius:7px;margin-top:36px;margin-bottom:14px}
+.h1{background:linear-gradient(100deg,#c0392b,#98271d)}
+.h2{background:linear-gradient(100deg,#2c5178,#1f3a57)}
+.h3{background:linear-gradient(100deg,#b0662f,#8a4e22)}
+.h4{background:linear-gradient(100deg,#5a4a8a,#413468)}
+.h5{background:linear-gradient(100deg,#1a6b6b,#115050)}
+.h6{background:linear-gradient(100deg,#333,#111)}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:.86em;background:#fff}
+th,td{border:1px solid #dfe3ea;padding:8px 11px;text-align:left;vertical-align:top}
+th{background:#eef1f6;font-weight:600;white-space:nowrap}
+tr:nth-child(even){background:#fafbfc}
+.quote{background:#f7f8fa;border-left:3px solid #98a2b3;padding:8px 14px;margin:8px 0;font-size:.88em;color:#475467;border-radius:0 6px 6px 0}
+.quote b{color:#344054}
+.say{background:#eef4ee;border:1px solid #cfe4d6;border-radius:6px;padding:12px 16px;margin:8px 0;font-size:.92em;color:#1a5f3a;line-height:1.8}
+.say b{color:#0f5c30}
+.id{display:inline-block;background:#eef2f9;border:1px solid #ccd8ea;border-radius:4px;padding:0 6px;font-family:ui-monospace,Menlo,monospace;font-size:.86em;color:#2c5178;white-space:nowrap}
+.step{background:#fff;border:1px solid #dfe3ea;border-radius:10px;padding:14px 18px;margin:12px 0}
+.step .no{display:inline-block;background:#1a6b6b;color:#fff;font-weight:700;border-radius:6px;padding:2px 10px;font-size:.85em;margin-right:8px}
+.step b.ti{font-size:1.02em;color:#111}
+.end{margin-top:42px;padding-top:18px;border-top:1px solid #ddd;color:#9098a5;font-size:.82em}
+strong{color:#111}
+.note{font-size:.8em;color:#9098a5;margin-top:4px}
+</style>
+</head>
+<body>
+<div class="pg">
+
+<h1>韩杰 7.24 AI 编排引擎评审 · 对触发器影响详解 v2（增量篇）</h1>
+<div class="sub">基于 47 分钟评审纪要 +《座舱 AI 编排引擎需求文档》逐行精读 · v2 · 2026-07-24</div>
+
+<div class="ver">v1 已完整覆盖：五大影响（触发器被原子化拆解 / 从业务模块变基础设施 / VLM语义匹配被"AI判断"收编 / 端云分工重定义 / 你的PRD被"规整"）+ 韩杰动机 + 四件事 + 三个话术。本篇 v2 不重复，只补 v1 逐行精读后漏掉的 5 个点——其中第 1、3、5 点比 v1 说的更急。</div>
+
+<div class="pos">
+<b>先给你一句定心话：</b>v1 说你要"去认领原子能力的业务定义权"——<b>其实你昨天已经在干了</b>。你昨天拿益红 8 条真实场景核对韩杰的《原子能力清单》、核出 2 块缺积木 + 1 个缺 ID 的那件事，<b>就是"原子能力的业务定义"本身</b>。你比你自己以为的，早了一步。
+</div>
+
+<!-- ============ 增量一 ============ -->
+<h2 class="h1">增量一 · 你没上会——这次比前四次更危险</h2>
+
+<table>
+<tr><th style="width:20%">层</th><th>事实（纪要原文溯源）</th></tr>
+<tr>
+<td><b>这是第几次了</b></td>
+<td>7.8 你在场没抢到话、7.9 你全程没发言、7.10 你只说"在的在的"、7.15 你被分到零活——<b>7.24 是第五次，而且这次你连会都没上</b>。前四次好歹人在场，这次是"物理缺席"。</td>
+</tr>
+<tr>
+<td><b>当场被抓</b></td>
+<td><div class="quote">陈婧文 29:34：「今天我看泽铭和谁都没上，和仁杰都没上。张航你觉得，你这今天这样评行吗？还是说单独组一个……」</div>你不在场这件事，是被人在会上<b>点名发现</b>的，不是悄悄过去的。</td>
+</tr>
+<tr>
+<td><b>领导替你找了理由</b></td>
+<td><div class="quote">张航 30:33：「单独拉我，就小范围吧，拉韩杰跟泽民和仁杰同步一下……他们那边应该这两天都在<b>改动态示例</b>，估计在那边弄没上。」</div>张航亲自帮你打了掩护——但<b>掩护只能用一次</b>。下次小范围会你再不到，就没有理由可找了。</td>
+</tr>
+<tr>
+<td><b>缺席的直接代价</b></td>
+<td>陈婧文当着你不在的面，给你的端侧 PRD 下了判词：<div class="quote">陈婧文 28:58：「泽铭的端侧触发器的需求……写得非常的针对 VLM，他并不是一个更能 general 一些囊括各种端侧情况的架构，他更多的是解决了 VLM 的单点需求。」</div>这句话是在你零申辩机会的情况下说出的，而且<b>没人替你反驳</b>——它现在已经成了会上默认结论。</td>
+</tr>
+<tr>
+<td><b>韩杰要"再讲一遍"</b></td>
+<td><div class="quote">陈婧文 31:39：「但这样你可能会又讲两遍……到时候让泽铭和仁杰也提前看一下录屏。」韩杰 31:35：「我开了录屏。」</div><b>小范围会前你必须看完录屏</b>——你今天要是对着韩杰说"我还没看"，等于当着张航的面确认"你两次都不在"。</td>
+</tr>
+</table>
+
+<div class="alert">
+<b>这章的行动只有一条，且不可商量：</b>小范围对齐会（泽民+仁杰+嘉锋+韩杰，张航发起）<b>你必须到场、必须提前看完录屏、必须带着主张去</b>。张航的原话是"把刚才说的几个点，让他们知道就好了"——领导给这次会的定位是"同步"，不是"讨论"。你要是不提前消化，会就真的只是"被同步"——而"被同步"的意思，就是别人已经定完了，通知你一声。
+</div>
+
+<!-- ============ 增量二 ============ -->
+<h2 class="h2">增量二 · 嘉锋当场给韩杰划了边界——这条边界是你的护身符</h2>
+
+<p style="font-size:.92em">评审里有一段 v1 没展开的争论，是全场含金量最高的 3 分钟：</p>
+
+<table>
+<tr><th style="width:16%">谁</th><th>原话（纪要溯源）</th><th style="width:30%">含义</th></tr>
+<tr>
+<td><b>张嘉锋<br>23:37</b></td>
+<td><div class="quote">「这种判断需要依赖当前的情景、用户的偏好、记忆，以及 Advisor 给他设定的目标、knowhow 来做综合判断。所以这种就不适合在这里做编排……人为预设的 A、B、C，我觉得这种可能并不是合适的。」</div></td>
+<td>嘉锋在防一件事：<b>编排引擎把手伸进 Director 的判断逻辑</b>。复杂推理（要情景+记忆+偏好的）归 Director，不归编排。</td>
+</tr>
+<tr>
+<td><b>陈婧文<br>24:37</b></td>
+<td><div class="quote">「他这个是不是区别是在用规则限定掉多少？韩杰现在这个 workflow，他就是走一个事件描述的上报，你的逻辑是在 Director 里做的嘛。」</div></td>
+<td>陈婧文帮双方翻译：编排=事件上报，逻辑=Director 做。</td>
+</tr>
+<tr>
+<td><b>韩杰<br>24:59</b></td>
+<td><div class="quote">「婧文你说的是对的。这一套逻辑只是负责一些<b>简单的分发</b>，由模型快速基于不同状态去推理的，其实还是会走到 Director 或者 Advisor，<b>不是说我这里直接把所有的节点判断都完成</b>。」</div></td>
+<td><b>韩杰当场让了步</b>——编排引擎自己认领的边界是"简单分发"，不是"全流程判断"。</td>
+</tr>
+<tr>
+<td><b>张嘉锋<br>25:25</b></td>
+<td><div class="quote">「那他就只是一个触发，而不是触发完他再决定第二步怎么触发、第三步怎么触发的流程脚本了，对吧？」</div></td>
+<td>嘉锋确认边界：<b>编排=一次触发+分发，不是多步推理链</b>。</td>
+</tr>
+</table>
+
+<div class="pos">
+<b>这条边界为什么是你的护身符：</b>它把三层分清楚了——<b>编排层（触发+条件+简单分发）= 触发器底座的地盘；推理判断层 = Director/Advisor 的地盘；信号原料层 = 韩杰信号中枢的地盘</b>。这和 7.9 白板会定的"编排归触发器、不开发两个条件引擎"是同一条线。小范围会上你可以直接引用嘉锋的话来固定你的位置：<b>嘉锋划的这条线，正好把你和韩杰各归各位</b>——他管原子能力（积木），你管场景的业务定义（积木怎么用），Director 管推理。谁也抢不走谁的。
+</div>
+
+<!-- ============ 增量三 ============ -->
+<h2 class="h3">增量三 · 你昨天的活正好踩在点上——别去"要"定义权，去"亮"成果</h2>
+
+<table>
+<tr><th style="width:30%">对照</th><th>内容</th></tr>
+<tr>
+<td><b>韩杰评审里说的</b></td>
+<td>「原子能力清单以《火山_信号中枢全功能清单》为准……各个项目无论是上汽还是赛力斯，都以这个清单为准。」（评审 14:15 / PRD 原子能力清单章节）——<b>他正在把自己定义成原子能力的 owner</b>。</td>
+</tr>
+<tr>
+<td><b>你昨天干的</b></td>
+<td>拿益红 8 条真实场景，逐条核对了这份清单（状态查询113行/条件34行/触发事件38行/动作9行），核出：<b>缺"途经点变更"事件（tri_passbyPoint）、缺"充电口盖状态"上架（chargePortCoverState+con_chargePortCover）、电量条件缺唯一标识（con_battery）</b>，还抓出益红表 2 个逻辑漏洞——每一条都带 Excel 行号溯源。</td>
+</tr>
+<tr>
+<td><b>这说明什么</b></td>
+<td>v1 让你"去认领原子能力的业务定义权"——<b>错了，你已经在干了</b>。"什么场景需要什么触发事件/条件/动作、清单里缺什么"，这就是原子能力的业务定义。而且你是<b>用真实场景反推</b>的，比韩杰自己空想的全集更经得起问。</td>
+</tr>
+<tr>
+<td><b>小范围会上怎么用</b></td>
+<td>不要空手说"原子能力的业务定义归我"（这是要权，会激起防御）。要说：<b>"我昨天已经拿益红 8 条场景把原子能力清单核了一遍，核出 2 块缺积木 + 1 个缺 ID，每条带行号，已经发给韩杰了——原子能力的业务定义这块，我已经在按这个方式做，后面我持续按场景往里补。"</b>——这不是要权，这是<b>宣布你已经坐在那个位置上了</b>。</td>
+</tr>
+</table>
+
+<!-- ============ 增量四 ============ -->
+<h2 class="h4">增量四 · 刘扬的平台被点名了——而且"触发器"在平台剧本类型里消失了</h2>
+
+<table>
+<tr><th style="width:30%">细节</th><th>含义</th></tr>
+<tr>
+<td><b>平台有原型，但优先级低</b></td>
+<td>PRD 可视化配置平台章节有原型链接（aime-app.bytedance.net），韩杰说「现在已经有一个平台，这个只是平台的升级能力，<b>优先级没那么高</b>」。三个 P0 需求（规则脚本/事件日志/端侧自闭环）全是"<b>先无平台、代码实现</b>"。</td>
+</tr>
+<tr>
+<td><b>⚠️ 关键发现：平台"新建剧本"的类型枚举是——事件日志 / 静态advisor / 动态advisor / 预置场景。<b>没有"触发器"</b></b></td>
+<td>在韩杰画的平台蓝图里，<b>"触发器"作为独立业务类型消失了</b>，变成了四类业务的底层积木。这和 v1 说的"从业务模块变基础设施"是同一个事，但落到了产品形态上：将来业务方建的是"事件日志剧本""预置场景剧本"，<b>没有一个剧本叫"触发器剧本"</b>。你要想清楚：你接受这个形态，还是要争取触发器作为一类可见的业务存在。</td>
+</tr>
+<tr>
+<td><b>你昨天问刘扬的频次策略，现在更急了</b></td>
+<td>既然平台是远期、三个 P0 都是代码实现——<b>那 804/818 这两个版本里，频次策略（一次上电周期仅一次等）就没有平台承载，只能写在脚本里</b>。写在脚本里 = 研发写死 = 产品以后改一次频次要发版。你问刘扬的"频次在平台哪配"，答案现在大概率是"平台上还没有，得先在脚本里定"——那<b>脚本里的频次规则由谁定，就是你这周要钉死的</b>。</td>
+</tr>
+</table>
+
+<!-- ============ 增量五 ============ -->
+<h2 class="h5">增量五 · 小范围对齐会作战手册（张航发起：韩杰+泽民+仁杰+嘉锋）</h2>
+
+<table>
+<tr><th style="width:22%">参会人</th><th>他想要什么</th><th>对你意味着什么</th></tr>
+<tr><td><b>张航</b></td><td>端云架构统一、别内耗、赛力斯 P0 按时交</td><td>他要的是"你们对齐"，不是听你喊冤。别在会上争旧账。</td></tr>
+<tr><td><b>张嘉锋</b></td><td>编排别碰 Director 的推理；场景集（专家任务集）是大脑</td><td>他是你天然的盟友——他划的边界正好保你。引用他的话，比你自己说十句都有用。</td></tr>
+<tr><td><b>韩杰</b></td><td>原子能力标准化快速落地、清单以他的为准、别有人挑战架构</td><td>别挑战他的架构（方向你本来就认同），只钉两件事：业务定义归产品、AI 判断逻辑归你。</td></tr>
+<tr><td><b>仁杰</b></td><td>context 事件日志链路打通（他也有缺席的包袱，和你一样被陈婧文点了名）</td><td>他和你同病相怜——都缺席、PRD 都被"规整"。拉他结盟："咱俩的 PRD 都被说成是'侧重一面'，小范围会前咱俩先对对口径。"</td></tr>
+<tr><td><b>你</b></td><td>触发器的产品定义权：原子能力的业务定义 + AI 判断的判断逻辑</td><td>你不是去要权的——你是带着昨天的核对成果去宣布位置的。</td></tr>
+</table>
+
+<div class="step"><span class="no">第1句</span><b class="ti">先表态对齐，不反对架构</b>
+<div class="say">「韩杰这个原子化方向我认同——陈婧文那天也说了，我端侧 PRD 和这个的大思路是一致的，三段式拆解没问题。我不挑战架构，我只对齐两件事。」</div>
+<span class="note">为什么先这句：嘉锋挑战架构时韩杰的应激反应是"也可以编排"——你别触发那个防御。你和嘉锋的角色不一样，他是挑战者，你是共建者。</span></div>
+
+<div class="step"><span class="no">第2句</span><b class="ti">亮成果上桌，不要去权</b>
+<div class="say">「原子能力的业务定义这块，我已经在做了——昨天我拿了益红 8 条真实场景把原子能力清单核了一遍：缺'途经点变更'事件、缺'充电口盖状态'上架、电量条件缺唯一标识，每条我都标了 Excel 行号，已经发给韩杰了。后面场景侧的原子能力缺口，我持续按这个方式往里补。」</div>
+<span class="note">为什么这句是核心：这叫"宣布位置"，不叫"要权"。你手里有带行号的核对成果，全场只有你有。</span></div>
+
+<div class="step"><span class="no">第3句</span><b class="ti">引嘉锋的边界，固你的位置</b>
+<div class="say">「嘉锋那天说的边界我很认同——编排引擎只做触发和简单分发，复杂推理走 Director。那编排这一层正好就是触发器的位置：积木归韩杰的信号中枢，积木怎么用、场景要什么能力，归产品定义，我这边持续做；推理判断归 Director，谁也别伸手。」</div>
+<span class="note">为什么引嘉锋：你借的是他的势。他自己说的话，他不会在会上反对自己。</span></div>
+
+<div class="step"><span class="no">第4句</span><b class="ti">收口：AI 判断的定义权明确归你</b>
+<div class="say">「最后一件事——'AI 判断'这块。我的 VLM 语义匹配 PRD 就是它的第一个落地 case：判断逻辑（什么算'宝宝哭了'、matched/unmatched 的判定标准、阈值）是产品定义，由我 own；端侧 VLM 采集 + 云端小模型判断的端云分工，也是我这边定的边界。技术实现听研发的，但'什么算达成'不能让研发自己调。」</div>
+<span class="note">为什么必须收口到这一句：前三句都是铺垫，这句才是你要从会上带走的东西。</span></div>
+
+<div class="warn">
+<b>兜底问答——如果被问"你的 PRD 和韩杰的 PRD，到底谁为准"：</b>
+<div class="say">「不冲突，两层：韩杰的是<b>架构底座</b>——原子能力怎么封装、协议怎么打通、端云怎么协同，以他为准；我的是<b>业务定义</b>——什么场景需要什么能力、AI 判断的判断逻辑，以我为准。陈婧文说我那份'太针对 VLM'——对，因为 VLM 条件任务就是第一个要落地的场景，我把它写深不是写窄，是先打一个样。」</div>
+这句把陈婧文的判词（"太针对VLM不够general"）直接翻转：<b>"写深不是写窄，先打一个样"</b>——练熟这半句，它是你这次唯一的负面包袱。
+</div>
+
+<div class="end">
+7.24 韩杰 AI 编排引擎评审 · 对触发器影响详解 v2（增量篇）<br>
+v1 = 五大影响 + 韩杰动机 + 四件事 + 话术（保留，见 v1 文件）<br>
+v2 增量 = ①你没上会的危险性升级（第五次+张航替你找理由+陈婧文零申辩判词）②嘉锋划的边界=你的护身符 ③你昨天的核对=已在做的业务定义（别要权，亮成果）④平台剧本类型里没有"触发器"+频次策略更急 ⑤小范围对齐会作战手册（四句话+兜底问答）<br>
+核心变化：v1 教你"去认领"，v2 告诉你"你已经坐在那个位置上了——带着昨天的行号核对成果去宣布"。
+</div>
+
+</div>
+</body>
+</html>

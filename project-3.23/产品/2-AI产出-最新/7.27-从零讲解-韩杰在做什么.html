@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>从零讲解 · 韩杰到底在做什么？</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,"PingFang SC","Noto Sans SC",sans-serif;background:#0d1117;color:#c9d1d9;line-height:1.9;padding:28px 14px 80px}
+.pg{max-width:1000px;margin:0 auto}
+h1{font-size:1.35em;font-weight:700;color:#f0f6fc;text-align:center;margin-bottom:4px}
+h2{font-size:1em;font-weight:700;color:#f0f6fc;margin:32px 0 12px;padding:7px 15px;border-radius:6px;display:inline-block}
+.hb{background:#1f6feb}.hr{background:#da3633}.hy{background:#d2991d}.hg{background:#238636}
+
+.bk{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:18px 22px;margin:12px 0}
+
+.tb{width:100%;border-collapse:collapse;margin:8px 0;font-size:.82em}
+.tb th,.tb td{border:1px solid #30363d;padding:8px 10px;text-align:left;vertical-align:top;line-height:1.7}
+.tb th{background:#161b22;color:#8b949e;font-weight:600;font-size:.75em}
+
+.hl{background:#2a2010;border-left:3px solid #d2991d;padding:10px 15px;margin:10px 0;font-size:.84em;line-height:2;border-radius:0 6px 6px 0}
+.hl b{color:#ffe29c}
+.gg{background:#0d2e1a;border-left:3px solid #238636;padding:10px 15px;margin:10px 0;font-size:.84em;line-height:2;border-radius:0 6px 6px 0}
+.gg b{color:#a5e6b5}
+
+.ii{display:inline-block;background:#1a1f2a;border:1px solid #30363d;border-radius:4px;padding:1px 5px;font-family:ui-monospace,monospace;font-size:.82em}
+
+.tag{display:inline-block;font-size:.7em;font-weight:700;padding:1px 6px;border-radius:4px;margin-right:2px}
+.tr{background:#3d1212;color:#ffb1af}.tg{background:#0d2e1a;color:#a5e6b5}.ty{background:#3d2a0d;color:#ffe29c}
+
+.step{margin:6px 0;padding:5px 0;font-size:.84em;line-height:2;display:flex;gap:8px}
+.sn{min-width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:.68em;font-weight:700;flex-shrink:0;margin-top:4px}
+.sb{background:#1f6feb;color:#fff}.sr{background:#da3633;color:#fff}.sg{background:#238636;color:#fff}
+
+.fr{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:10px 0}
+.fn{padding:8px 14px;border-radius:5px;font-size:.76em;font-weight:600;text-align:center}
+.fb{background:#0d1f3d;border:2px solid #1f6feb;color:#a5c9ff}
+.frd{background:#3d1212;border:2px solid #da3633;color:#ffb1af}
+.fg{background:#0d2e1a;border:2px solid #238636;color:#a5e6b5}
+.fy{background:#3d2a0d;border:2px solid #d2991d;color:#ffe29c}
+.ar{color:#484f58;font-size:1.3em;font-weight:700}
+
+ul,ol{padding-left:20px}li{margin:2px 0}
+</style>
+</head>
+<body>
+<div class="pg">
+
+<h1>从零讲解：韩杰到底在做什么？</h1>
+<div class="sub" style="color:#8b949e;font-size:.82em;margin-bottom:28px">用"低电量提醒"一个场景从头串到尾 · 每一步都写清楚 · 你不需要任何技术背景</div>
+
+<!-- ============ 一 ============ -->
+<h2 class="hb">一、先忘掉所有术语。看一个真实的场景。</h2>
+
+<div class="bk">
+
+<p style="font-size:.88em;margin-bottom:10px"><b>益红想要的功能：</b>用户开车时，如果电量低于 20%，而且用户没在导航，车机自动弹一张卡片，推荐附近的充电站。</p>
+
+<p style="font-size:.88em;margin-bottom:10px">就这么简单一个功能。现在我们看，韩杰怎么把它"拆开"。</p>
+
+</div>
+
+<!-- ============ 二 ============ -->
+<h2 class="hb">二、车上每时每刻都在产生"信号"</h2>
+
+<div class="bk">
+
+<p style="font-size:.88em;margin-bottom:12px">车子开起来之后，很多传感器在不停地汇报数据。这些数据就是<b>"端状态"（端 = 车端，状态 = 当前是什么值）</b>。比如：</p>
+
+<table class="tb">
+<tr><th style="width:16%">信号名</th><th style="width:24%">什么意思</th><th style="width:20%">可能的值</th><th style="width:40%">什么时候变</th></tr>
+<tr><td>车速</td><td>车现在开多快</td><td>0, 1, 2 ... 120 ...</td><td>踩油门/刹车时，每秒都在变</td></tr>
+<tr><td>档位</td><td>车现在挂什么档</td><td>P, R, N, D</td><td>司机换挡时</td></tr>
+<tr><td>电量</td><td>电池还剩多少</td><td>100% → 99% → ... → 0%</td><td>开车耗电时，慢慢下降</td></tr>
+<tr><td>导航状态</td><td>导航是否在运行</td><td>未发起、导航中、巡航中</td><td>用户开始/结束导航时</td></tr>
+<tr><td>座位占用</td><td>座位上有没有人</td><td>已占用、未占用</td><td>人上车/下车时</td></tr>
+</table>
+
+<div class="hl">
+<b>关键理解：</b>车上的每一个传感器、每一个状态，都在韩杰的 Excel 里有记录。比如"档位"这个信号在"状态查询"sheet 第 13 行，编号叫 <span class="ii">VehDriveState</span>，它可以取 P / R / N / D 四个值。韩杰把这些信号全部列在一张表里——总共 113 行。<b>这 113 行就是所有他能用的"原材料"。</b>
+</div>
+
+</div>
+
+<!-- ============ 三 ============ -->
+<h2 class="hr">三、但"有信号"不等于"能用"——需要把信号包装成"积木"</h2>
+
+<div class="bk">
+
+<p style="font-size:.88em;margin-bottom:12px">韩杰做的事情，就像<b>把一堆散装零件（端状态信号）打包成可以直接用的乐高积木</b>。他打了三种包：</p>
+
+<div style="display:flex;gap:12px;flex-wrap:wrap;margin:12px 0">
+<div style="flex:1;min-width:200px;background:#0d1f3d;border:2px solid #1f6feb;border-radius:8px;padding:12px 14px">
+<div style="font-weight:700;color:#a5c9ff;font-size:.84em;margin-bottom:6px">积木类型一：触发事件</div>
+<div style="font-size:.8em;line-height:1.9;color:#c9d1d9">
+<b>= "XX 变了"</b><br><br>
+只做一件事：<b>监听信号的变化</b>。一旦变了，就叫醒流程。<br><br>
+例：<span class="ii">tri_gear</span> = "档位变了"<br>
+当档位从 D 变成 P，这个积木就叫醒。<br><br>
+例：<span class="ii">tri_battery</span> = "电量变了"<br>
+当电量从 21% 变成 20%，这个积木就叫醒。<br><br>
+<b>它不管是变成什么值，只管"变了"这件事。</b>
+</div>
+</div>
+<div style="flex:1;min-width:200px;background:#3d1212;border:2px solid #da3633;border-radius:8px;padding:12px 14px">
+<div style="font-weight:700;color:#ffb1af;font-size:.84em;margin-bottom:6px">积木类型二：条件</div>
+<div style="font-size:.8em;line-height:1.9;color:#c9d1d9">
+<b>= "现在 XX 是不是 YY？"</b><br><br>
+被触发事件叫醒后，<b>检查当前状态</b>。<b>只能回答"是"或"否"</b>。<br><br>
+例：<span class="ii">con_battery</span> = "电量是不是低于 20%？"<br>
+当前电量 19% → 是。<br>当前电量 25% → 否。<br><br>
+例：<span class="ii">con_navState</span> = "导航是不是未发起？"<br>
+没开导航 → 是。<br>正在导航 → 否。<br><br>
+<b>它不管"什么时候变的"，只管"现在是什么"。</b>
+</div>
+</div>
+<div style="flex:1;min-width:200px;background:#0d2e1a;border:2px solid #238636;border-radius:8px;padding:12px 14px">
+<div style="font-weight:700;color:#a5e6b5;font-size:.84em;margin-bottom:6px">积木类型三：动作</div>
+<div style="font-size:.8em;line-height:1.9;color:#c9d1d9">
+<b>= "去做 XX"</b><br><br>
+条件全部通过后，<b>执行具体操作</b>。<br><br>
+例：<span class="ii">Advisor(舒适)</span> = "推一张舒适类建议卡片"<br>
+卡片上写："电量较低，附近有充电站，要导航过去吗？"<br><br>
+例：生成事件日志 = "记一条日志给 AI 大脑"<br>
+记录："18:30，电量降至 19%，档位 P，未导航"<br><br>
+<b>它是流程的终点——条件都满足了，就去做这件事。</b>
+</div>
+</div>
+</div>
+
+</div>
+
+<!-- ============ 四 ============ -->
+<h2 class="hy">四、把三种积木串起来 = 一个场景</h2>
+
+<div class="bk">
+
+<p style="font-size:.88em;margin-bottom:12px">现在我们把"低电量提醒"用这三种积木拼出来：</p>
+
+<div class="fr" style="justify-content:flex-start">
+<div class="fn fb">tri_battery<br>电量变了</div>
+<div class="ar">→</div>
+<div class="fn frd">con_battery<br>电量 < 20%？</div>
+<div class="ar">→</div>
+<div class="fn frd">con_navState<br>未发起导航？</div>
+<div class="ar">→</div>
+<div class="fn fg">Advisor(舒适)<br>推充电站卡片</div>
+</div>
+
+<p style="font-size:.84em;color:#8b949e;margin-top:10px"><b>翻译成人话：</b>当车发现电量发生了变化 → 去检查：电量是不是低于 20%？同时是不是没在导航？→ 如果两个都是"是" → 弹充电站推荐卡片。</p>
+
+<div class="hl">
+<b>这就是"场景编排"。</b>把积木按顺序串起来 = 一个完整的功能。韩杰管积木的生产（原子能力清单），产品管积木的拼法（画流程图）。你现在触发器里做的事，就是"积木怎么拼"——什么信号触发、什么条件判断、什么动作执行。韩杰只是把它拆成了更细的三步，然后说"积木我来管，拼法你来画"。
+</div>
+
+</div>
+
+<!-- ============ 五 ============ -->
+<h2 class="hb">五、为什么触发事件和条件要分开？用真实例子讲。</h2>
+
+<div class="bk">
+
+<p style="font-size:.88em;margin-bottom:12px"><b>你现在在触发器里，"电量变了"和"电量<20%"是混在一起的。</b>你直接配一个条件说"电量 < 20%"，触发器引擎自己判断。韩杰说这样不对，应该拆开。为什么？</p>
+
+<p style="font-size:.88em;margin-bottom:6px"><b>因为"电量变了"这件事可以被很多场景共同使用：</b></p>
+
+<table class="tb">
+<tr><th style="width:25%">场景</th><th style="width:25%">触发事件（共用）</th><th style="width:25%">条件（各不一样）</th><th style="width:25%">动作（各不一样）</th></tr>
+<tr><td>低电量提醒</td><td><span class="ii">tri_battery</span> 电量变了</td><td>电量 < 20% + 未导航</td><td>推充电站卡片</td></tr>
+<tr><td>充电完成提醒</td><td><span class="ii">tri_battery</span> 电量变了</td><td>电量 ≥ 80% + 在充电</td><td>推"充电完成"通知</td></tr>
+<tr><td>续航预警</td><td><span class="ii">tri_battery</span> 电量变了</td><td>剩余续航 < 50km + 在导航</td><td>推沿途充电站</td></tr>
+<tr><td>省电模式</td><td><span class="ii">tri_battery</span> 电量变了</td><td>电量 < 10%</td><td>自动关空调、降屏幕亮度</td></tr>
+</table>
+
+<p style="font-size:.84em;color:#8b949e;margin-top:10px"><b>拆开前：</b>每个场景都要独立监听"电量"这个信号。4 个场景 = 监听 4 次 = 4 套代码。</p>
+<p style="font-size:.84em;color:#8b949e"><b>拆开后：</b>"电量变了"这个触发事件只监听一次。4 个场景各自订阅这个事件，各自判断自己的条件。1 套监听 = 4 个场景共用。</p>
+
+<div class="gg">
+<b>这就是韩杰说的"一次开发，所有模块都可以去用"。</b>他把"监听"和"判断"分开了——监听做一次，判断各自做。省了研发工作量。这个逻辑本身是合理的。
+</div>
+
+</div>
+
+<!-- ============ 六 ============ -->
+<h2 class="hr">六、真实 Excel 长什么样？用你核过的真实数据看。</h2>
+
+<div class="bk">
+
+<p style="font-size:.88em;margin-bottom:12px">韩杰的大表有 4 个 sheet。我们拿"低电量提醒"需要的 3 个积木，看它们在 Excel 里真实的样子：</p>
+
+<table class="tb">
+<tr><th style="width:10%">Sheet</th><th style="width:12%">在哪一行</th><th style="width:14%">积木 ID</th><th style="width:64%">每一列填什么</th></tr>
+<tr>
+<td rowspan="8" style="text-align:center"><b>触发事件</b></td>
+<td rowspan="8" style="text-align:center">第 8 行</td>
+<td rowspan="8" style="text-align:center"><span class="ii">tri_battery</span></td>
+<td>分类 = 车况</td>
+</tr>
+<tr><td>事件名称 = 电量变化</td></tr>
+<tr><td>关联状态查询 = <span class="ii">rangeState</span>（状态查询第 14 行）</td></tr>
+<tr><td>参数名 = 百分比电量（<span class="ii">percentage_ev</span>）</td></tr>
+<tr><td>参数值范围 = [0-1]（0% 到 100%，用小数表示：0.2 = 20%）</td></tr>
+<tr><td>事件描述模板 = 【触发时间】电量由【percentage_ev-触发前】变为【percentage_ev-触发后】</td></tr>
+<tr><td>（无切换类型字段——电量事件不区分"切入/切出"，只要变了就触发）</td></tr>
+<tr><td style="color:#8b949e">→ 研发看这行就知道：要监听 rangeState.percentage_ev，值一变就通知我。</td></tr>
+
+<tr style="background:#1a1f2a"><td colspan="4"></td></tr>
+
+<tr>
+<td rowspan="6" style="text-align:center"><b>条件</b></td>
+<td rowspan="6" style="text-align:center">第 30 行<span class="tag ty">⚠ 缺 ID</span></td>
+<td rowspan="6" style="text-align:center"><span class="ii">con_battery</span><br><span style="color:#d2991d;font-size:.72em">（待韩杰补）</span></td>
+<td>分类 = 车况</td>
+</tr>
+<tr><td>条件名称 = 电量</td></tr>
+<tr><td>关联状态查询 = <span class="ii">rangeState.percentage_ev</span></td></tr>
+<tr><td>判断方式 = 数值比较（≤）</td></tr>
+<tr><td>参数值范围 = [0-1]（笔误：Excel 里写了"速度:[0-1]"，应该是"电量:[0-1]"）</td></tr>
+<tr><td style="color:#8b949e">→ 研发看这行就知道：拿 rangeState.percentage_ev 的值，判断是不是 ≤ 0.2。</td></tr>
+
+<tr style="background:#1a1f2a"><td colspan="4"></td></tr>
+
+<tr>
+<td rowspan="5" style="text-align:center"><b>条件</b></td>
+<td rowspan="5" style="text-align:center">第 8 行</td>
+<td rowspan="5" style="text-align:center"><span class="ii">con_navState</span></td>
+<td>分类 = 导航</td>
+</tr>
+<tr><td>条件名称 = 导航状态</td></tr>
+<tr><td>关联状态查询 = <span class="ii">navState</span>（状态查询第 113 行）</td></tr>
+<tr><td>判断方式 = 状态匹配（等于）</td></tr>
+<tr><td>枚举值 = 未发起导航 / 导航中 / 巡航中</td></tr>
+
+<tr style="background:#1a1f2a"><td colspan="4"></td></tr>
+
+<tr>
+<td rowspan="4" style="text-align:center"><b>动作</b></td>
+<td rowspan="4" style="text-align:center">第 3 行</td>
+<td rowspan="4" style="text-align:center"><span class="ii">Advisor</span></td>
+<td>分类 = 云端</td>
+</tr>
+<tr><td>动作名称 = 智能顾问</td></tr>
+<tr><td>动作类型 = 调 Advisor（舒适/出行/内容/情感）</td></tr>
+<tr><td>输入参数 = Advisor 类型：舒适</td></tr>
+</table>
+
+<div class="hl">
+<b>研发拿着这三张表，就能把"低电量提醒"做出来：</b><br>
+① 读"触发事件"sheet → 知道要监听 <span class="ii">rangeState.percentage_ev</span> 的变化<br>
+② 读"条件"sheet → 知道要判断 "percentage_ev ≤ 0.2" 且 "navState = 未发起导航"<br>
+③ 读"动作"sheet → 知道要调 Advisor（舒适）<br>
+④ 把这三步串起来 = 完整功能<br><br>
+<b>以前没有这个表的时候：</b>你口头告诉刘杨"帮我监听电量，低于 20% 且没导航时调 Advisor"。刘杨自己理解、自己写代码。下次益红要"电量低于 10% 关空调"，你又得跟刘杨再说一遍。<br>
+<b>现在有了这个表：</b>刘杨看表就知道要监听什么。新场景只需要产品在表里勾选不同的条件和参数值——不用每次都解释。
+</div>
+
+</div>
+
+<!-- ============ 七 ============ -->
+<h2 class="hy">七、"场景编排"到底怎么编？画流程图。</h2>
+
+<div class="bk">
+
+<p style="font-size:.88em;margin-bottom:12px">淘宝杰说的"场景编排"，就是<b>产品画一张流程图，研发照着做。</b>以低电量提醒为例：</p>
+
+<div class="fr" style="justify-content:flex-start;margin:16px 0">
+<div style="text-align:center">
+<div class="fn fb" style="font-size:.8em">开始：电量变化<br><span style="font-weight:400;font-size:.75em">监听 rangeState.percentage_ev<br>值从 A 变成 B</span></div>
+</div>
+<div class="ar" style="font-size:1em">→</div>
+<div style="text-align:center">
+<div class="fn frd" style="font-size:.8em">条件 1：电量 < 20%？<br><span style="font-weight:400;font-size:.75em">percentage_ev ≤ 0.2</span></div>
+<div style="font-size:.7em;color:#8b949e;margin-top:2px">否 → 流程终止，不做任何事</div>
+</div>
+<div class="ar" style="font-size:1em">→</div>
+<div style="text-align:center">
+<div class="fn frd" style="font-size:.8em">条件 2：未发起导航？<br><span style="font-weight:400;font-size:.75em">navState = 未发起导航</span></div>
+<div style="font-size:.7em;color:#8b949e;margin-top:2px">否 → 流程终止，不做任何事</div>
+</div>
+<div class="ar" style="font-size:1em">→</div>
+<div style="text-align:center">
+<div class="fn fg" style="font-size:.8em">执行动作<br>调 Advisor（舒适）<br><span style="font-weight:400;font-size:.75em">推"附近有充电站"卡片</span></div>
+</div>
+</div>
+
+<p style="font-size:.84em;color:#8b949e;margin:12px 0"><b>这张图就是"场景编排"。</b>韩杰的意思：以后每个新场景，产品就画这么一张图。积木（触发事件、条件、动作）从大表里挑，连线（串行还是并行、AND 还是 OR）由产品决定。</p>
+
+<div class="gg">
+<b>这就是你 7.24 下午会上被派活的内容：</b>"基于这个表，你画流程图，然后判断一下能力在这个表里在不在，主要就是触发时间和条件。"<br><br>
+翻译：你把益红的 8 条场景，每条画成上面这样的流程图。从韩杰的大表里找积木——有就勾上，没有就标"缺"。<b>你在做的是"产品定义场景规则"——这就是你的位置。</b>
+</div>
+
+</div>
+
+<!-- ============ 八 ============ -->
+<h2 class="hb">八、韩杰为什么要做这一整套东西？</h2>
+
+<div class="bk">
+
+<p style="font-size:.88em;margin-bottom:12px"><b>不是因为你的触发器做得不好。是因为各模块在重复造轮子。</b></p>
+
+<table class="tb">
+<tr><th style="width:30%">问题</th><th style="width:35%">现在的状况</th><th style="width:35%">韩杰想变成什么样</th></tr>
+<tr>
+<td>同一个"档位变化"被写了 3 遍</td>
+<td>静态 Advisor 要监听档位 → 刘杨写一遍<br>事件日志也要监听档位 → 刘杨再写一遍<br>端侧主动服务也要监听档位 → 赵衍写一遍</td>
+<td>档位变化做成一个积木 <span class="ii">tri_gear</span>，只开发一次。三个业务各自订阅这个积木。</td>
+</tr>
+<tr>
+<td>上汽和赛力斯的信号不一样</td>
+<td>上汽的档位叫 <span class="ii">gearPosition</span>，赛力斯的叫 <span class="ii">driveMode</span>。每次换车型都要重新适配。</td>
+<td>积木统一叫 <span class="ii">tri_gear</span>。底层信号不同？做一次映射就行。积木不变，业务不感知。</td>
+</tr>
+<tr>
+<td>端侧和云端代码不一致</td>
+<td>刘杨云端写的判断逻辑和赵衍端侧写的不一样。同一个场景，端和云可能行为不同。</td>
+<td>同一份流程图，端和云各自解析。协议统一，不会出现端云不一致的 bug。</td>
+</tr>
+<tr>
+<td>产品提场景要改代码</td>
+<td>益红要新场景 → 你告诉刘杨 → 刘杨改代码 → 测试 → 上线。周期长。</td>
+<td>益红要新场景 → 产品画流程图 → 勾选已有的积木 → 不改代码 → 配置上线（远期在平台上拖拽）。</td>
+</tr>
+</table>
+
+<div class="hl">
+<b>总结：韩杰做这件事的动机是工程效率，不是针对你。</b>问题是他的方案自然把你的触发器模块变成了他的底座的一个"子集"——你的工作被重新定义为"给编排引擎提供场景规则"。这不是阴谋，但结果对你不利。
+</div>
+
+</div>
+
+<!-- ============ 九 ============ -->
+<h2 class="hg">九、这对你意味着什么？（用一句话）</h2>
+
+<div class="bk">
+
+<div class="gg">
+<b>你以前做的事 = 在触发器平台上直接配条件 → 找研发实现。你是整个链条的中心。</b><br><br>
+<b>以后你做的事 = 从韩杰大表里挑积木 → 画流程图 → 标缺口 → 发给韩杰。韩杰审核 → 韩杰派活给研发。</b><br><br>
+<b>核心变化：</b>研发接口从"你→研发"变成"你→韩杰→研发"。中间多了一层。<br><br>
+<b>你没丢的：</b>场景需要什么触发、什么条件、怎么组合、频次怎么定——这些韩杰不懂，只有你知道。你现在要做的就是把"你懂的"写成规则表、发出去——证明填规则的人是你。
+</div>
+
+</div>
+
+</div>
+</body>
+</html>

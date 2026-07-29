@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>韩杰 AI 编排引擎 · 完整解析</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,"PingFang SC","Noto Sans SC",sans-serif;background:#0d1117;color:#c9d1d9;line-height:1.9;padding:30px 14px 80px}
+.pg{max-width:1040px;margin:0 auto}
+h1{font-size:1.3em;font-weight:700;color:#f0f6fc;text-align:center;margin-bottom:4px}
+.sub{text-align:center;color:#8b949e;font-size:.8em;margin-bottom:30px}
+
+h2{font-size:1.05em;font-weight:700;color:#f0f6fc;margin:36px 0 14px;padding:8px 16px;border-radius:6px;display:inline-block}
+.h1{background:#1f6feb}.h2{background:#da3633}.h3{background:#d2991d}.h4{background:#238636}.h5{background:#8957e5}
+
+.block{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:20px 22px;margin:14px 0}
+
+/* flow */
+.fr{display:flex;align-items:center;gap:0;flex-wrap:wrap;justify-content:center;margin:10px 0}
+.fn{padding:9px 14px;border-radius:5px;font-size:.78em;font-weight:600;text-align:center;white-space:nowrap}
+.fb{background:#0d1f3d;border:2px solid #1f6feb;color:#a5c9ff}
+.fred{background:#3d1212;border:2px solid #da3633;color:#ffb1af}
+.fg{background:#0d2e1a;border:2px solid #238636;color:#a5e6b5}
+.fy{background:#3d2a0d;border:2px solid #d2991d;color:#ffe29c}
+.arr{color:#484f58;font-size:1.4em;font-weight:700;padding:0 4px}
+
+/* big arrow between before/after */
+.ba{display:grid;grid-template-columns:1fr auto 1fr;gap:0;align-items:center;margin:14px 0}
+.ba-l{background:#0d1f3d;border:1px solid #1f6feb;border-radius:10px;padding:14px 18px}
+.ba-r{background:#3d1212;border:1px solid #da3633;border-radius:10px;padding:14px 18px}
+.ba-m{font-size:2em;color:#484f58;padding:0 10px}
+.ba-box h4{font-size:.85em;font-weight:700;margin-bottom:8px}
+.ba-l h4{color:#a5c9ff}.ba-r h4{color:#ffb1af}
+
+/* tables */
+.tb{width:100%;border-collapse:collapse;margin:8px 0;font-size:.82em}
+.tb th,.tb td{border:1px solid #30363d;padding:9px 12px;text-align:left;vertical-align:top;line-height:1.8}
+.tb th{background:#161b22;color:#8b949e;font-weight:600;font-size:.78em}
+
+/* highlight */
+.hl{background:#2a2010;border-left:3px solid #d2991d;padding:10px 16px;margin:10px 0;font-size:.84em;border-radius:0 6px 6px 0;line-height:2}
+.hl b{color:#ffe29c}
+.gg{background:#0d2e1a;border-left:3px solid #238636;padding:10px 16px;margin:10px 0;font-size:.84em;border-radius:0 6px 6px 0;line-height:2}
+.gg b{color:#a5e6b5}
+
+/* steps */
+.step{margin:8px 0;padding:6px 0;font-size:.84em;line-height:2;display:flex;gap:8px}
+.sn{min-width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:.7em;font-weight:700;flex-shrink:0;margin-top:4px}
+.sb{background:#1f6feb;color:#fff}.sr{background:#da3633;color:#fff}
+
+ul,ol{padding-left:20px}
+li{margin:2px 0}
+
+.tag{display:inline-block;font-size:.72em;font-weight:700;padding:1px 7px;border-radius:4px;margin-right:3px}
+.tr{background:#3d1212;color:#ffb1af}.tg{background:#0d2e1a;color:#a5e6b5}.ty{background:#3d2a0d;color:#ffe29c}
+
+/* card grid */
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:10px 0}
+.card{border-radius:8px;padding:14px 16px}
+.card h4{font-size:.82em;font-weight:700;margin-bottom:6px}
+.card p{font-size:.78em;line-height:2}
+.c1{background:#0d1f3d;border:1px solid #1f6feb}.c1 h4{color:#a5c9ff}
+.c2{background:#3d1212;border:1px solid #da3633}.c2 h4{color:#ffb1af}
+.c3{background:#0d2e1a;border:1px solid #238636}.c3 h4{color:#a5e6b5}
+@media(max-width:700px){.cards{grid-template-columns:1fr}}
+
+.ii{display:inline-block;background:#1a1f2a;border:1px solid #30363d;border-radius:4px;padding:1px 6px;font-family:ui-monospace,monospace;font-size:.84em}
+</style>
+</head>
+<body>
+<div class="pg">
+
+<h1>韩杰 AI 编排引擎 · 完整解析</h1>
+<div class="sub">2026-07-24 · 含两次会议 + PRD 文档 · 用你核过的真实场景举例</div>
+
+<!-- ============================================================ -->
+<h2 class="h1">一、韩杰在做什么？（一句话 + 一张图）</h2>
+
+<div class="block">
+<p style="font-size:.88em;margin-bottom:10px"><b>一句话：</b>他把车上所有"主动能力"（什么时候触发 + 什么条件下 + 干什么）做成一个公共底座。以后益红要新场景 → 从底座里挑积木 → 画流程图 → 研发照图实现。不用每次都找研发写代码。</p>
+
+<div class="fr">
+<div class="fn fb">原子能力清单<br><small>一张大表<br>所有积木</small></div>
+<div class="arr">→</div>
+<div class="fn fg">场景编排<br><small>产品画流程图<br>勾选积木+连线</small></div>
+<div class="arr">→</div>
+<div class="fn fred">执行模块<br><small>端侧+云端<br>照流程图跑</small></div>
+<div class="arr">→</div>
+<div class="fn fy">可视化平台<br><small>远期，拖拽配<br>不用写代码</small></div>
+</div>
+</div>
+
+<!-- ============================================================ -->
+<h2 class="h1">二、原子能力是什么？三种积木详解（用你核过的真实数据）</h2>
+
+<div class="block">
+
+<div class="cards">
+<div class="card c1">
+<h4>触发事件（38 行）</h4>
+<p>
+<b>= "发生了什么变化"</b><br><br>
+<span class="ii">tri_gear</span> 档位变了<br>
+<span class="ii">tri_battery</span> 电量变了<br>
+<span class="ii">tri_navigation</span> 发起导航<br>
+<span class="ii">tri_destination</span> 目的地变更<br>
+<span class="ii">tri_boarding</span> 人上车<br>
+<span class="ii">tri_power</span> 上下电<br>
+<span class="ii">tri_seatOccupancy</span> 座位占座<br><br>
+<b>作用：叫醒流程</b><br>
+事件发生了→去看看条件
+</p>
+</div>
+<div class="card c2">
+<h4>条件（34 行）</h4>
+<p>
+<b>= "现在是什么状态"</b><br><br>
+<span class="ii">con_gear</span> 档位是不是 P？<br>
+<span class="ii">con_navState</span> 是否在导航？<br>
+<span class="ii">con_battery</span> 电量是否 &lt;20%？<br>
+<span class="ii">con_occupancy</span> 座位上有没有人？<br>
+<span class="ii">con_destLoc</span> 目的地是否住宅？<br>
+<span class="ii">con_passbyPoint</span> 途经点是否充电站？<br><br>
+<b>作用：判断要不要继续</b><br>
+不满足→流程终止
+</p>
+</div>
+<div class="card c3">
+<h4>动作（9 行）</h4>
+<p>
+<b>= "干什么"</b><br><br>
+调 <b>Advisor</b>（舒适/出行/内容/情感）<br>
+<b>生成事件日志</b>（给 Context）<br>
+弹<b>主动服务卡片</b>（按钮交互）<br>
+<b>控车</b>（开空调/开雾灯/切模式）<br>
+调 <b>Director</b>（任务中心推理）<br>
+<b>生成事件</b>（广播给下游）<br><br>
+<b>作用：执行结果</b>
+</p>
+</div>
+</div>
+
+<div class="hl">
+<b>触发事件 vs 条件 · 怎么区分？</b><br>
+触发事件 = <b>"变了"</b>。档位从 D 变成 P → 触发事件。电量从 25% 跌到 19% → 触发事件。<br>
+条件 = <b>"是不是"</b>。档位是不是 P？电量是不是低于 20%？是不是周末？<br><br>
+<b>为什么韩杰要分开？</b> 同一个"档位变成 P"可以叫醒 5 个场景（低电量检查、兜风推荐、充电口盖、下车提醒、自动泊车）。分开后，"档位变 P"只做一次监听，各场景只配自己的条件。
+</div>
+</div>
+
+<!-- ============================================================ -->
+<h2 class="h2">三、每种积木在 Excel 里怎么定义的？（逐字段）</h2>
+
+<div class="block">
+
+<h3 style="font-size:.9em;color:#a5c9ff;margin-bottom:10px">触发事件 — 每一行的字段</h3>
+<table class="tb">
+<tr><th style="width:14%">字段</th><th style="width:34%">tri_gear（档位切换）真实值</th><th style="width:52%">说明</th></tr>
+<tr><td>唯一标识</td><td><span class="ii">tri_gear</span></td><td>积木 ID，画流程图时引用这个 ID</td></tr>
+<tr><td>分类</td><td>车况</td><td>车况 / 导航 / 用户操作 / 环境感知 / 软件状态</td></tr>
+<tr><td>事件名称</td><td>档位切换</td><td>中文名</td></tr>
+<tr><td>参数名</td><td>档位</td><td>事件附带什么信息</td></tr>
+<tr><td>参数值范围</td><td>P / R / N / D</td><td>参数能取哪些值</td></tr>
+<tr><td>切换类型</td><td>切入 / 切出</td><td>关心"变成这个"还是"从这个变走"</td></tr>
+<tr><td>事件描述模板</td><td>档位由【触发前】切换为【触发后】</td><td>自动生成事件日志用的文本模板</td></tr>
+<tr><td>关联状态查询</td><td><span class="ii">VehDriveState</span></td><td>从哪个端状态读取这个信号</td></tr>
+</table>
+
+<h3 style="font-size:.9em;color:#ffb1af;margin:18px 0 10px">条件 — 每一行的字段</h3>
+<table class="tb">
+<tr><th style="width:14%">字段</th><th style="width:34%">con_gear（档位判断）真实值</th><th style="width:52%">说明</th></tr>
+<tr><td>唯一标识</td><td><span class="ii">con_gear</span></td><td>积木 ID</td></tr>
+<tr><td>分类</td><td>车况</td><td>同触发事件分类</td></tr>
+<tr><td>条件名称</td><td>档位</td><td>中文名</td></tr>
+<tr><td>关联状态查询</td><td><span class="ii">VehDriveState</span></td><td>查哪个端状态</td></tr>
+<tr><td>参数名</td><td>类型</td><td>判断方式</td></tr>
+<tr><td>参数值范围</td><td>是 / 非</td><td>"是 P" = 档位等于 P，"非 P" = 档位不等于 P</td></tr>
+<tr><td>支持多选</td><td>否</td><td>能否一次判断多个值</td></tr>
+</table>
+
+<h3 style="font-size:.9em;color:#a5e6b5;margin:18px 0 10px">动作 — 每一行的字段</h3>
+<table class="tb">
+<tr><th style="width:14%">字段</th><th style="width:34%">调 Advisor 真实值</th><th style="width:52%">说明</th></tr>
+<tr><td>唯一标识</td><td><span class="ii">Advisor</span></td><td>积木 ID</td></tr>
+<tr><td>动作名称</td><td>智能顾问</td><td>中文名</td></tr>
+<tr><td>动作类型</td><td>调 Advisor</td><td>调 Advisor / 生成事件日志 / 控车 / 弹卡片</td></tr>
+<tr><td>输入参数</td><td>Advisor 类型：舒适/出行/内容/情感</td><td>调哪个 Advisor</td></tr>
+<tr><td>执行位置</td><td>云端</td><td>云端还是端侧执行</td></tr>
+</table>
+
+<div class="hl">
+<b>谁来填这些字段 = 谁在定义这个积木。</b>韩杰现在填了大部分行。你 7.23 核出的 3 个缺口（途经点变更事件、充电口盖状态、电量条件 ID）——你把新增行的字段填好发给他，就是你定义的。
+</div>
+</div>
+
+<!-- ============================================================ -->
+<h2 class="h3">四、拿"低电量提醒"走一遍：以前 vs 以后</h2>
+
+<div class="block">
+
+<div class="hl">
+<b>益红的需求：</b>电量低于 20%，且没在导航 → 推充电站推荐卡片。一次上电周期只触发一次。
+</div>
+
+<div class="ba">
+<div class="ba-l">
+<h4>以前：你一个人串全程</h4>
+<div class="step"><span class="sn sb">1</span> 益红找你："低电量提醒"</div>
+<div class="step"><span class="sn sb">2</span> 你在触发器平台配：条件 A = 电量 &lt; 20% AND 条件 B = 导航=未发起 → 调舒适 Advisor。频次 = 一次上电周期一次。</div>
+<div class="step"><span class="sn sb">3</span> 你找刘杨（云端研发）："帮我实现这条规则"</div>
+<div class="step"><span class="sn sb">4</span> 刘杨写好 → 测试 → 上线。<b>你是决策者。刘杨直接找你。</b></div>
+<div style="margin-top:8px;font-size:.78em;color:#8b949e">你在链条的中心位置。</div>
+</div>
+<div class="ba-m">→</div>
+<div class="ba-r">
+<h4>以后：多了一层韩杰</h4>
+<div class="step"><span class="sn sr">1</span> 益红找你。你去韩杰大表找积木：<br>
+<span class="tag tg">✓</span>tri_battery（电量变化）<br>
+<span class="tag tg">✓</span>con_navState（导航状态判断）<br>
+<span class="tag tr">✗</span>con_battery（缺唯一 ID）<br>
+<span class="tag tg">✓</span>Advisor（舒适）</div>
+<div class="step"><span class="sn sr">2</span> 画流程图：tri_battery → 电&lt;20% → 无导航 → Advisor。标红：con_battery 缺 ID。</div>
+<div class="step"><span class="sn sr">3</span> 发给韩杰审核。</div>
+<div class="step"><span class="sn sr">4</span> 韩杰 → 刘杨/赵衍。"按这个实现"。<b>研发找韩杰，不找你。</b></div>
+<div style="margin-top:8px;font-size:.78em;color:#8b949e">你从决策者变成输入提供者。</div>
+</div>
+</div>
+
+<div class="gg">
+<b>你手里还有的：</b>① 频次策略——韩杰四张表没有这列，你定义 ② 你发现 con_battery 缺 ID——韩杰不知道，你先发现的 ③ 你把益红 8 条的规则表做全——他的研发材料就得引用你。<b>他能管积木仓库，但积木怎么拼成场景——只有你知道。</b>
+</div>
+</div>
+
+<!-- ============================================================ -->
+<h2 class="h3">五、用"充电口盖提示"看两种积木的配合</h2>
+
+<div class="block">
+
+<div class="hl">
+<b>益红的需求：</b>档位变 P + 电量 19% + 充电口盖关闭 + AI 主动服务开启 → VLM 看后视有没有充电桩 → 弹卡片"要打开充电口盖吗？"
+</div>
+
+<div class="fr" style="justify-content:flex-start;margin:14px 0">
+<div class="fn fred">tri_gear<br>档位→P</div><div class="arr">→</div>
+<div class="fn fred">电&lt;19%</div><div class="arr">→</div>
+<div class="fn fred">口盖=关</div><div class="arr">→</div>
+<div class="fn fred">AI开关=开</div><div class="arr">→</div>
+<div class="fn fy">【VLM识别】<br>后视有无<br>充电桩</div><div class="arr">→</div>
+<div class="fn fg">弹主动<br>服务卡片</div>
+</div>
+
+<table class="tb" style="margin-top:16px">
+<tr><th style="width:10%">环节</th><th style="width:22%">类型</th><th style="width:34%">用哪个积木</th><th style="width:34%">韩杰表里有没有</th></tr>
+<tr><td>档位变 P</td><td><span class="tag tr">触发事件</span></td><td>tri_gear，档位=P，切换类型=切入</td><td><span class="tag tg">有</span> 触发事件第 2 行</td></tr>
+<tr><td>电量 &lt; 19%</td><td><span class="tag tr">条件</span></td><td>con_battery，比较类型 ≤，阈值 0.19</td><td><span class="tag ty">⚠ 有但缺 ID</span> 条件第 30 行</td></tr>
+<tr><td>口盖 = 关</td><td><span class="tag tr">条件</span></td><td>chargePortCoverState = 关闭</td><td><span class="tag tr">✗ 缺</span> 原料在 sls 清单但未上架</td></tr>
+<tr><td>AI 开关 = 开</td><td><span class="tag tr">条件</span></td><td>AI 主动服务 = 开启</td><td><span class="tag tr">✗ 缺</span> 不在韩杰表，需确认数据源</td></tr>
+<tr><td>VLM 识别充电桩</td><td><span class="tag ty">AI 判断</span></td><td>VLM 舱外识别（outCabInfo）</td><td><span class="tag ty">不属于编排引擎</span> 归你管</td></tr>
+<tr><td>弹卡片</td><td><span class="tag tg">动作</span></td><td>主动服务卡，标题/正文/按钮 1/按钮 2</td><td><span class="tag tg">有</span> 动作第 8 行</td></tr>
+</table>
+
+<div class="gg" style="margin-top:12px">
+<b>这个场景最关键的一点：</b>前 4 步（信号判断）进韩杰的编排引擎。第 5 步（VLM 识别充电桩）是 <b>AI 判断</b>——韩杰的编排引擎管不了。他的 AI 判断只支持"布尔输出"（true/false），但"后视里有没有充电桩"这个判断标准——什么角度算、什么距离算、什么光照条件算——<b>他一个字没写。这是你的地盘。</b>
+</div>
+</div>
+
+<!-- ============================================================ -->
+<h2 class="h4">六、你原来的 5 件事，在他架构里变成了什么</h2>
+
+<div class="block">
+
+<table class="tb">
+<tr><th style="width:18%">你原来管的事</th><th style="width:36%">在韩杰架构里变成</th><th style="width:18%">你丢了什么</th><th style="width:28%">你还剩什么</th></tr>
+<tr>
+<td><b>定义触发条件</b></td>
+<td>从韩杰大表里勾选"触发事件"+"条件"积木</td>
+<td><span class="tag tr">积木归他管</span><br>加不加他说了算</td>
+<td><span class="tag tg">你定义场景要什么积木</span><br>缺口你先发现=你先定义</td>
+</tr>
+<tr>
+<td><b>定义命中规则</b></td>
+<td>画流程图：积木怎么串/并行、AND/OR/NOT</td>
+<td><span class="tag tr">规则不再是你一个人配</span><br>流程图给韩杰审核</td>
+<td><span class="tag tg">规则拼法你画</span><br>韩杰不懂场景，画不出来</td>
+</tr>
+<tr>
+<td><b>定义动作</b></td>
+<td>从韩杰大表里勾选"动作"积木</td>
+<td><span class="tag tr">动作类型归他管</span></td>
+<td><span class="tag tg">9 个现有动作够用</span></td>
+</tr>
+<tr>
+<td><b>频次策略</b></td>
+<td><span style="color:#ffe29c;font-weight:700">韩杰四张表没有这个字段</span></td>
+<td><span class="tag tg">没丢</span></td>
+<td><span class="tag tg">你独家。谁先定义归谁</span></td>
+</tr>
+<tr>
+<td><b>对接研发</b></td>
+<td>韩杰统一对接刘杨（云端）+赵衍（端侧）</td>
+<td><span class="tag tr">研发直线</span><br>你→刘杨变成你→韩杰→刘杨</td>
+<td><span class="tag ty">规则表写得好=研发认你的表</span></td>
+</tr>
+<tr>
+<td><b>触发器平台</b></td>
+<td>"可视化配置平台"=触发器平台升级版<br>剧本类型里没有"触发器"三个字</td>
+<td><span class="tag tr">平台名字+归属</span></td>
+<td><span class="tag ty">平台上的规则谁填归谁</span></td>
+</tr>
+</table>
+</div>
+
+<!-- ============================================================ -->
+<h2 class="h5">七、你现在要做的（按时间排序）</h2>
+
+<div class="block">
+
+<div class="step"><span class="sn sb">1</span><b style="color:#f0f6fc">今晚：私下给韩杰发消息。</b>两件事一起办：①补答"非"——"杰哥，会上确认了，现有平台不等于支持的，附 10 个运算符清单（等于/不等于/大于/大于等于/小于/小于等于/包含/不包含/变更为/有变更）。"②递 3 缺口——途经点变更事件、充电口盖状态、电量条件 ID，附行号和新增行写法。</div>
+
+<div class="step"><span class="sn sb">2</span><b style="color:#f0f6fc">今晚：群里发会后对齐文字。</b>5 点（发言认同架构+宣布已核 8 条确定缺 3 块+引嘉锋边界+提频次/组合逻辑建议+当众补答"非"）。核心一句："场景的业务定义由产品按真实场景反推——已核 8 条，缺 3 块，已发韩杰。完整规则表下周三出。"</div>
+
+<div class="step"><span class="sn sb">3</span><b style="color:#f0f6fc">明天：启动益红 8 条规则表。</b>格式对齐韩杰大表列名。每条 = 场景名 / 触发事件 ID / 条件 ID+运算符+参数 / 动作 / 频次 / 缺口标注。</div>
+
+<div class="step"><span class="sn sb">4</span><b style="color:#f0f6fc">周一：和益红对规则表。</b>让她补 2 漏洞（低电量漏导航状态、多人出游漏多人判断）。对完她有确认感——你发出去时她帮你背书。</div>
+
+<div class="step"><span class="sn sb">5</span><b style="color:#f0f6fc">下周三前：发规则表到群里。</b>@韩杰 @嘉锋 @仁杰。赶在韩杰下周拉研发评审之前。你的表进他的材料 → 研发看到的是你的规则。</div>
+
+<div class="gg" style="margin-top:14px">
+<b>核心逻辑：</b>韩杰管积木仓库（原子能力清单），你管积木怎么拼成场景（规则表）。他需要你填规则，因为他不知道场景。你现在要做的就是 <b>用规则表证明"填规则的人是你"</b>——不是开会时说，是用交付物说。
+</div>
+
+</div>
+
+</div>
+</body>
+</html>

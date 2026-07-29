@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>图解详解：韩杰编排引擎如何消化你的触发器</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,"PingFang SC","Noto Sans SC",sans-serif;background:#111;color:#ddd;line-height:1.8;padding:28px 16px 100px}
+.pg{max-width:1200px;margin:0 auto}
+h1{font-size:1.3em;font-weight:700;color:#fff;text-align:center;margin-bottom:8px}
+.sub{text-align:center;color:#888;font-size:.82em;margin-bottom:28px}
+
+/* section headers */
+.sh{font-size:1.05em;font-weight:700;color:#fff;margin:36px 0 14px;padding:8px 16px;border-radius:7px;display:inline-block}
+.s1{background:#2563eb}.s2{background:#dc2626}.s3{background:#d97706}
+.s4{background:#7c3aed}.s5{background:#059669}.s6{background:#db2777}.s7{background:#0891b2}
+
+/* diagram containers */
+.dg{background:#1a1b1f;border:1px solid #2a2b30;border-radius:12px;padding:22px 26px;margin:16px 0;overflow-x:auto}
+.dg-title{font-weight:700;font-size:.92em;color:#fff;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #2a2b30}
+
+/* flow rows */
+.fr{display:flex;align-items:flex-start;gap:0;margin:6px 0;min-width:fit-content}
+.fn{padding:9px 14px;border-radius:6px;font-size:.78em;font-weight:600;text-align:center;white-space:nowrap}
+.fb{background:#1e3a5f;border:2px solid #3b82f6;color:#93c5fd}
+.fr2{background:#3b1a1a;border:2px solid #ef4444;color:#fca5a5}
+.fg{background:#1a3d2a;border:2px solid #22c55e;color:#86efac}
+.fy{background:#3d2f0a;border:2px solid #eab308;color:#fde68a}
+.fp{background:#2d1a3d;border:2px solid #a855f7;color:#d8b4fe}
+.fw{background:#2a2a2a;border:2px solid #6b7280;color:#d1d5db}
+.fa{color:#555;font-size:1.6em;padding:4px 6px;display:flex;align-items:center}
+
+/* sub-node details */
+.sub-row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 0 0}
+.sn{padding:5px 10px;border-radius:4px;font-size:.72em;background:#222;border:1px solid #333;color:#aaa}
+
+/* vertical flow */
+.vflow{display:flex;flex-direction:column;align-items:center;gap:6px;margin:12px 0}
+.va{color:#555;font-size:1.3em;line-height:1}
+
+/* swimlane */
+.swim{display:grid;gap:2px;margin:10px 0;font-size:.78em}
+.swim-row{display:grid;grid-template-columns:100px 1fr;gap:8px;align-items:start;padding:8px 0;border-bottom:1px solid #222}
+.swim-label{font-weight:700;color:#aaa;padding-top:4px}
+.swim-content{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+
+/* comparison grid */
+.cgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:12px 0}
+.cg-l{background:#1a2430;border:2px solid #3b82f6;border-radius:10px;padding:14px 18px}
+.cg-r{background:#301a1a;border:2px solid #ef4444;border-radius:10px;padding:14px 18px}
+.cg-title{font-weight:700;font-size:.88em;margin-bottom:10px}
+.cg-l .cg-title{color:#93c5fd}.cg-r .cg-title{color:#fca5a5}
+
+/* detail box */
+.detail{background:#1a1b1f;border:1px solid #333;border-radius:8px;padding:12px 16px;margin:10px 0;font-size:.84em;line-height:2}
+.detail b{color:#fff}
+.detail .r{color:#fca5a5}.detail .g{color:#86efac}.detail .y{color:#fde68a}
+
+/* split into columns */
+.col2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:800px){.col2{grid-template-columns:1fr}}
+
+/* labels */
+.lbl{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.72em;font-weight:700;margin-right:4px}
+.lr{background:#3b1a1a;color:#fca5a5}
+.lg{background:#1a3d2a;color:#86efac}
+.lb{background:#1e3a5f;color:#93c5fd}
+.ly{background:#3d2f0a;color:#fde68a}
+
+ul,ol{padding-left:18px;margin:6px 0}
+li{margin:3px 0}
+</style>
+</head>
+<body>
+<div class="pg">
+
+<h1>图解详解：韩杰的编排引擎如何消化你的触发器</h1>
+<div class="sub">7 张图，从粗到细，每张图下面有逐块讲解</div>
+
+<!-- ================================================================ -->
+<div class="sh s1">图一 · 你的触发器：完整链路拆开看</div>
+
+<div class="dg">
+<div class="dg-title">你今天在管的触发器，拆成 5 个环节</div>
+
+<div class="vflow">
+<!-- step 1 -->
+<div style="display:flex;align-items:flex-start;gap:12px">
+<div style="min-width:44px;text-align:center;padding-top:8px">
+<div style="background:#3b82f6;color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:700;margin:0 auto">1</div>
+</div>
+<div style="flex:1">
+<div class="fn fb" style="display:inline-block">输入端：信号源</div>
+<div class="sub-row">
+<span class="sn">车机底层信号<br>（档位/车速/电量/车窗）</span>
+<span class="sn">视觉感知<br>（VLM/DMS/OMS）</span>
+<span class="sn">AI Box 信号<br>（导航/天气/POI）</span>
+<span class="sn">用户操作埋点<br>（点击/切歌/开APP）</span>
+<span class="sn">云端 API<br>（海拔/日出日落）</span>
+</div>
+<div class="detail" style="margin-top:8px"><b>这一层归谁：</b>信号接入归<span class="r">仁杰（端状态/context）</span> + <span class="r">韩杰（信号中枢全功能清单）</span>。你不管信号怎么来的，只管"需要哪些信号"。</div>
+</div>
+</div>
+
+<div class="va">↓</div>
+
+<!-- step 2 -->
+<div style="display:flex;align-items:flex-start;gap:12px">
+<div style="min-width:44px;text-align:center;padding-top:8px">
+<div style="background:#3b82f6;color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:700;margin:0 auto">2</div>
+</div>
+<div style="flex:1">
+<div class="fn fb" style="display:inline-block">触发器引擎：注册 + 监听 + 判断</div>
+<div class="sub-row">
+<span class="sn"><b>注册条件</b><br>你在平台上配：<br>"档位=P + 电量<20%<br>+ 不在导航"</span>
+<span class="sn"><b>监听信号</b><br>引擎轮询/订阅<br>端状态变化</span>
+<span class="sn"><b>命中判断</b><br>所有条件 AND<br>全部满足→触发</span>
+</div>
+<div class="detail" style="margin-top:8px"><b>这一层归谁：</b><span class="g">你（泽民）</span>——你定义什么条件、什么逻辑（AND/OR）、什么运算符（等于/大于/包含）。这是触发器的核心。</div>
+</div>
+</div>
+
+<div class="va">↓</div>
+
+<!-- step 3 -->
+<div style="display:flex;align-items:flex-start;gap:12px">
+<div style="min-width:44px;text-align:center;padding-top:8px">
+<div style="background:#3b82f6;color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:700;margin:0 auto">3</div>
+</div>
+<div style="flex:1">
+<div class="fn fb" style="display:inline-block">动作调度：命中后干什么</div>
+<div class="sub-row">
+<span class="sn"><b>调 Advisor</b><br>推静态/动态<br>主动服务卡片</span>
+<span class="sn"><b>生成事件</b><br>写事件日志<br>给 context 用</span>
+<span class="sn"><b>车控动作</b><br>开空调/调座椅<br>开雾灯/切模式</span>
+<span class="sn"><b>调 Director</b><br>触发任务中心<br>深度推理</span>
+</div>
+<div class="detail" style="margin-top:8px"><b>这一层归谁：</b><span class="g">你（泽民）</span>——你定义"命中后调用哪个动作"。但执行动作的研发接口在<span class="r">刘杨（云端）/赵衍（端侧）</span>。</div>
+</div>
+</div>
+
+<div class="va">↓</div>
+
+<!-- step 4 -->
+<div style="display:flex;align-items:flex-start;gap:12px">
+<div style="min-width:44px;text-align:center;padding-top:8px">
+<div style="background:#3b82f6;color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:700;margin:0 auto">4</div>
+</div>
+<div style="flex:1">
+<div class="fn fb" style="display:inline-block">频次控制</div>
+<div class="sub-row">
+<span class="sn">一次上电周期只触发一次</span>
+<span class="sn">每次导航只提示一次</span>
+<span class="sn">N 分钟内不重复</span>
+<span class="sn">当天已触发过 → 跳过</span>
+</div>
+<div class="detail" style="margin-top:8px"><b>这一层归谁：</b><span class="g">你（泽民）</span>——韩杰四张表里没有频次字段，这是你的独家地盘。</div>
+</div>
+</div>
+
+<div class="va">↓</div>
+
+<!-- step 5 -->
+<div style="display:flex;align-items:flex-start;gap:12px">
+<div style="min-width:44px;text-align:center;padding-top:8px">
+<div style="background:#3b82f6;color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:700;margin:0 auto">5</div>
+</div>
+<div style="flex:1">
+<div class="fn fb" style="display:inline-block">平台管理</div>
+<div class="sub-row">
+<span class="sn">新建/编辑/删除场景</span>
+<span class="sn">查看触发日志</span>
+<span class="sn">端云下发配置</span>
+</div>
+<div class="detail" style="margin-top:8px"><b>这一层归谁：</b>平台本身是<span class="g">你和仁杰</span>共同在用。但底层是仁杰搭建的 context 链路。</div>
+</div>
+</div>
+
+</div>
+</div>
+
+<!-- ================================================================ -->
+<div class="sh s2">图二 · 韩杰的编排引擎：同样拆开看</div>
+
+<div class="dg">
+<div class="dg-title">韩杰要建的系统，也拆成 5 层</div>
+
+<div class="vflow">
+
+<div style="display:flex;align-items:flex-start;gap:12px">
+<div style="min-width:44px;text-align:center;padding-top:8px">
+<div style="background:#ef4444;color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:700;margin:0 auto">1</div>
+</div>
+<div style="flex:1">
+<div class="fn fr2" style="display:inline-block">原子能力清单（一张大表管所有）</div>
+<div class="sub-row">
+<span class="sn" style="border-color:#ef4444"><b>触发事件</b>（38 行）<br>档位切换/人上下车/<br>导航状态变化/电量变化/<br>定时器/地理围栏…</span>
+<span class="sn" style="border-color:#ef4444"><b>条件</b>（34 行）<br>车速>/=/<、档位是/非、<br>座位占用、导航状态、<br>目的地距离、AI判断…</span>
+<span class="sn" style="border-color:#ef4444"><b>动作</b>（9 行）<br>调 Advisor、生成事件日志、<br>弹主动服务卡、控车、<br>调 Director…</span>
+<span class="sn" style="border-color:#ef4444"><b>变量</b>（113 行）<br>车速值、电量值、档位、<br>座位占用、目的地距离、<br>舱外信息…</span>
+</div>
+<div class="detail" style="margin-top:8px"><b>这一层归谁：</b><span class="r">韩杰</span>——他说"信号中枢全功能清单，座舱能力以这个表为准"。<b>这和你的触发器条件表是直接竞争关系</b>——你的表定义了"场景需要什么条件"，他的表定义了"系统有什么能力"。以后以谁的表为准？</div>
+</div>
+</div>
+
+<div class="va">↓</div>
+
+<div style="display:flex;align-items:flex-start;gap:12px">
+<div style="min-width:44px;text-align:center;padding-top:8px">
+<div style="background:#ef4444;color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:700;margin:0 auto">2</div>
+</div>
+<div style="flex:1">
+<div class="fn fr2" style="display:inline-block">场景编排 = 从大表里勾选积木，画流程图</div>
+<div class="sub-row">
+<span class="sn" style="border-color:#ef4444">产品画流程图<br>（你/益红/韩杰）</span>
+<span class="sn" style="border-color:#ef4444">从清单选触发事件</span>
+<span class="sn" style="border-color:#ef4444">从清单选条件</span>
+<span class="sn" style="border-color:#ef4444">从清单选动作</span>
+<span class="sn" style="border-color:#ef4444">连线：串行/并行</span>
+</div>
+<div class="detail" style="margin-top:8px"><b>这一层归谁：</b>韩杰的原话——"产品画流程图"。没说哪个产品。<b>这是你要抢的位置：谁来画、以谁的业务场景为准。</b>韩杰在会上说"基于这个表，你画流程图"——他默认是你画益红的场景，但其他场景呢？</div>
+</div>
+</div>
+
+<div class="va">↓</div>
+
+<div style="display:flex;align-items:flex-start;gap:12px">
+<div style="min-width:44px;text-align:center;padding-top:8px">
+<div style="background:#ef4444;color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:700;margin:0 auto">3</div>
+</div>
+<div style="flex:1">
+<div class="fn fr2" style="display:inline-block">执行模块：研发拿到流程图 → 端+云各自实现</div>
+<div class="sub-row">
+<span class="sn" style="border-color:#ef4444"><b>端侧</b>（赵衍）<br>监听触发事件<br>判断条件<br>执行动作</span>
+<span class="sn" style="border-color:#ef4444"><b>云端</b>（刘杨）<br>监听触发事件<br>判断条件<br>执行动作</span>
+<span class="sn" style="border-color:#ef4444"><b>端云协同</b><br>同一份流程图<br>端云各自解析<br>协议打通</span>
+</div>
+<div class="detail" style="margin-top:8px"><b>这一层归谁：</b><span class="r">韩杰 → 赵衍 / 刘杨</span>。他在上午会 33:09 说"这个会给到赵衍以及云端刘杨去做整个原子能力改造"。<b>这是最关键的权力线——研发对接走韩杰，不走你。</b></div>
+</div>
+</div>
+
+<div class="va">↓</div>
+
+<div style="display:flex;align-items:flex-start;gap:12px">
+<div style="min-width:44px;text-align:center;padding-top:8px">
+<div style="background:#ef4444;color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:700;margin:0 auto">4</div>
+</div>
+<div style="flex:1">
+<div class="fn fr2" style="display:inline-block">可视化配置平台（远期，P0-P1）</div>
+<div class="sub-row">
+<span class="sn" style="border-color:#ef4444">新建剧本<br><b>类型：事件日志/<br>静态advisor/<br>动态advisor/<br>预置场景</b></span>
+<span class="sn" style="border-color:#ef4444">拖拽编排<br>左侧组件库<br>中间画布<br>右侧属性面板</span>
+<span class="sn" style="border-color:#ef4444">发布管理<br>选车型/渠道<br>全量/定量<br>云端立即生效</span>
+</div>
+<div class="detail" style="margin-top:8px"><b>注意剧本类型里没有"触发器"三个字。</b>韩杰在下午会 09:48 说"这个平台就是现在云端触发器的那个平台的一个升级版"。你的平台变成了他的"旧版本"。</div>
+</div>
+</div>
+
+<div class="va">↓</div>
+
+<div style="display:flex;align-items:flex-start;gap:12px">
+<div style="min-width:44px;text-align:center;padding-top:8px">
+<div style="background:#ef4444;color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:700;margin:0 auto">5</div>
+</div>
+<div style="flex:1">
+<div class="fn fr2" style="display:inline-block">本周要做的三件事（P0）</div>
+<div class="sub-row">
+<span class="sn" style="border-color:#ef4444"><b>① 端云协议打通</b><br>云端下发给端侧<br>端云同一套数据格式</span>
+<span class="sn" style="border-color:#ef4444"><b>② 事件日志上报</b><br>产品提供触发事件+<br>条件判断+拼接规则<br>端侧监听+生成日志</span>
+<span class="sn" style="border-color:#ef4444"><b>③ 端侧自闭环</b><br>产品提供端侧<br>主动服务脚本<br>（韩杰说是"鸡肋"）</span>
+</div>
+<div class="detail" style="margin-top:8px"><b>注意②③里"产品提供"没说哪个产品。</b>②的事件日志规则和③的端侧脚本，本来都是你的地盘。现在"产品提供"是空位——<b>谁先填就是谁的</b>。</div>
+</div>
+</div>
+
+</div>
+</div>
+
+<!-- ================================================================ -->
+<div class="sh s3">图三 · 逐块对照：你的每件事进了他哪张表</div>
+
+<div class="dg">
+<div class="dg-title">你的触发器 5 个环节 → 韩杰编排引擎 5 层 → 一一对应，看谁丢了什么</div>
+
+<table style="width:100%;border-collapse:collapse;font-size:.82em;margin:8px 0">
+<tr style="background:#1a1b1f">
+<th style="width:8%;border:1px solid #333;padding:10px 12px;color:#aaa">环节</th>
+<th style="width:26%;border:1px solid #333;padding:10px 12px;color:#93c5fd">你的触发器<br>（现在）</th>
+<th style="width:22%;border:1px solid #333;padding:10px 12px;color:#fca5a5">韩杰编排引擎<br>（以后）</th>
+<th style="width:22%;border:1px solid #333;padding:10px 12px;color:#fde68a">变化是什么</th>
+<th style="width:22%;border:1px solid #333;padding:10px 12px;color:#86efac">你还能做什么</th>
+</tr>
+
+<tr>
+<td style="border:1px solid #333;padding:10px 12px;text-align:center;font-weight:700">①<br>信号</td>
+<td style="border:1px solid #333;padding:10px 12px">
+你定义<b>"场景需要哪些信号"</b><br>
+<span style="font-size:.78em;color:#888">例：低电量提醒需要<br>电量值 + 档位 + 导航状态</span>
+</td>
+<td style="border:1px solid #333;padding:10px 12px">
+韩杰的<b>"变量（端状态）"</b>表<br>
++ <b>"触发事件"</b>表<br>
+<span style="font-size:.78em;color:#888">113 行端状态 + 38 行触发事件<br>全部收进他的大表</span>
+</td>
+<td style="border:1px solid #333;padding:10px 12px">
+<span class="lbl lr">丢了</span> 信号需求由你提→<b>变成由韩杰审核</b>后加进大表<br>
+<span class="lbl ly">还在</span> 你定义"场景要什么"，但"有没有"韩杰说了算
+</td>
+<td style="border:1px solid #333;padding:10px 12px">
+<b>抢先核清单，标缺口</b><br>
+你 7.23 已核出 3 个缺口<br>
+发了=你先定义了"缺什么"
+</td>
+</tr>
+
+<tr>
+<td style="border:1px solid #333;padding:10px 12px;text-align:center;font-weight:700">②<br>条件</td>
+<td style="border:1px solid #333;padding:10px 12px">
+你定义<b>"命中规则"</b><br>
+<span style="font-size:.78em;color:#888">例：电量<20% AND<br>档位=P AND 不在导航<br>→ 触发低电量提醒</span>
+</td>
+<td style="border:1px solid #333;padding:10px 12px">
+韩杰的<b>"条件"</b>表（34 行）<br>
++ 流程图里的<b>连线逻辑</b><br>
+<span style="font-size:.78em;color:#888">从条件表选 → 画流程图<br>串行/并行/AND/OR</span>
+</td>
+<td style="border:1px solid #333;padding:10px 12px">
+<span class="lbl lr">丢了</span> 条件规则从"你定义"→<b>变成"你从韩杰清单里勾选"</b><br>
+<span class="lbl ly">还在</span> 什么场景用什么条件，<b>组合逻辑</b>还是你定
+</td>
+<td style="border:1px solid #333;padding:10px 12px">
+<b>规则表 = 你定义组合</b><br>
+每条场景的"条件1 AND 条件2<br>AND NOT 条件3"= 你的规则表
+</td>
+</tr>
+
+<tr>
+<td style="border:1px solid #333;padding:10px 12px;text-align:center;font-weight:700">③<br>动作</td>
+<td style="border:1px solid #333;padding:10px 12px">
+你定义<b>"命中后执行什么"</b><br>
+<span style="font-size:.78em;color:#888">例：调静态 Advisor<br>推舒适建议卡片</span>
+</td>
+<td style="border:1px solid #333;padding:10px 12px">
+韩杰的<b>"动作"</b>表（9 行）<br>
+<span style="font-size:.78em;color:#888">调 Advisor / 生成事件日志<br>/ 控车 / 弹卡片 / 调 Director</span>
+</td>
+<td style="border:1px solid #333;padding:10px 12px">
+<span class="lbl lr">丢了</span> 动作从"你定义"→<b>变成"你从韩杰 9 个动作里选"</b><br>
+<span class="lbl ly">还在</span> 新动作类型你来提
+</td>
+<td style="border:1px solid #333;padding:10px 12px">
+益红场景的动作全是现有 9 种<br>无需新增——你的价值不在动作层
+</td>
+</tr>
+
+<tr>
+<td style="border:1px solid #333;padding:10px 12px;text-align:center;font-weight:700">④<br>频次</td>
+<td style="border:1px solid #333;padding:10px 12px">
+你定义<b>"防打扰策略"</b><br>
+<span style="font-size:.78em;color:#888">例：低电量提醒<br>一次上电周期只触发一次</span>
+</td>
+<td style="border:1px solid #333;padding:10px 12px">
+<span style="color:#f39c12;font-weight:700">⚠️ 韩杰四张表<br>全都没有频次字段</span><br>
+<span style="font-size:.78em;color:#888">两次会 + PRD，<br>"频次"一次没出现</span>
+</td>
+<td style="border:1px solid #333;padding:10px 12px">
+<span class="lbl lg">全是你的</span> 他的盲区<br>画布改造刘杨要 2 周还没选型<br>→ 频次更没排期<br>→ <b>你定义=标准归你</b>
+</td>
+<td style="border:1px solid #333;padding:10px 12px">
+<b>写一页纸提案：</b>大表加"频次策略"列<br>枚举值：一次上电周期一次/<br>每次导航一次/N分钟不重复/<br>每天一次
+</td>
+</tr>
+
+<tr>
+<td style="border:1px solid #333;padding:10px 12px;text-align:center;font-weight:700">⑤<br>平台</td>
+<td style="border:1px solid #333;padding:10px 12px">
+你和仁杰共用<br><b>"触发器平台"</b><br>
+<span style="font-size:.78em;color:#888">配场景、管条件、看日志</span>
+</td>
+<td style="border:1px solid #333;padding:10px 12px">
+韩杰的<b>"可视化配置平台"</b><br>
+= "云端触发器平台升级版"<br>
+<span style="font-size:.78em;color:#888">剧本类型里没有"触发器"</span>
+</td>
+<td style="border:1px solid #333;padding:10px 12px">
+<span class="lbl lr">丢了</span> 平台名字+归属<br>韩杰叫"仁杰做的平台"→ 升级成"他的"<br>你的端侧部分被抹掉了
+</td>
+<td style="border:1px solid #333;padding:10px 12px">
+名字可以让他拿走<br><b>但你在上面定义场景规则<br>= 你依然是使用者</b>
+</td>
+</tr>
+
+<tr>
+<td style="border:1px solid #333;padding:10px 12px;text-align:center;font-weight:700">⑥<br>研发</td>
+<td style="border:1px solid #333;padding:10px 12px">
+<b>你 → 刘杨 / 赵衍</b><br>
+<span style="font-size:.78em;color:#888">你提需求，研发直接找你<br>确认细节</span>
+</td>
+<td style="border:1px solid #333;padding:10px 12px">
+<b>韩杰 → 刘杨 / 赵衍</b><br>
+<span style="font-size:.78em;color:#888">上午会 33:09 韩杰说<br>"给到赵衍以及云端刘杨<br>去做整个原子能力改造"</span>
+</td>
+<td style="border:1px solid #333;padding:10px 12px">
+<span class="lbl lr">丢了</span> 研发直线<br>你从"直接对话研发"<br>→<b>变成"通过韩杰转述"</b><br>
+中间多了一层，需求会失真
+</td>
+<td style="border:1px solid #333;padding:10px 12px">
+<b>规则表写得足够细</b><br>= 韩杰转述时减少失真<br>等你的规则表变成研发的事实标准<br>研发自然来找你
+</td>
+</tr>
+</table>
+</div>
+
+<!-- ================================================================ -->
+<div class="sh s4">图四 · 权力线对比：以前 vs 以后</div>
+
+<div class="dg">
+<div class="dg-title">一条场景从"益红提需求"到"车上跑起来"，经过谁？</div>
+
+<div class="col2">
+<div class="cg-l">
+<div class="cg-title">← 以前的链路（你在中间）</div>
+<div class="vflow">
+<div class="fn fb">益红提场景</div><div class="va">↓</div>
+<div class="fn fg" style="border-color:#22c55e">你评估 → 在平台上配条件</div><div class="va">↓</div>
+<div class="fn fb">你直接跟刘杨/赵衍说</div><div class="va">↓</div>
+<div class="fn fb">研发实现 → 测试 → 上线</div>
+</div>
+<div class="detail" style="margin-top:10px;font-size:.8em">你管 <b>4 步里的 3 步</b>（评估+配置+对接研发）<br>益红只管提需求</div>
+</div>
+
+<div class="cg-r">
+<div class="cg-title">以后的链路（韩杰在中间）→</div>
+<div class="vflow">
+<div class="fn fr2">益红提场景</div><div class="va">↓</div>
+<div class="fn fy">你画流程图 + 标缺口</div><div class="va">↓</div>
+<div class="fn fr2">韩杰审核 → 加入原子能力清单</div><div class="va">↓</div>
+<div class="fn fr2">韩杰派活给刘杨/赵衍</div><div class="va">↓</div>
+<div class="fn fr2">研发实现 → 测试 → 上线</div>
+</div>
+<div class="detail" style="margin-top:10px;font-size:.8em">你管 <b>5 步里的 1 步</b>（画图+标缺口）<br>韩杰管 <b>3 步</b>（审核+派活+清单维护）</div>
+</div>
+</div>
+</div>
+
+<!-- ================================================================ -->
+<div class="sh s5">图五 · 他吃掉的 vs 吃不掉的（你的地盘还剩什么）</div>
+
+<div class="dg">
+<div class="dg-title">你的触发器被拆成 6 块，3 块被吃了，3 块还在你手里</div>
+
+<div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin:14px 0">
+
+<div style="flex:1;min-width:170px;background:#3b1a1a;border:2px solid #ef4444;border-radius:10px;padding:14px 16px;text-align:center">
+<div style="font-size:.85em;font-weight:700;color:#fca5a5;margin-bottom:8px">🥩 被吃掉的</div>
+<div style="font-size:.75em;color:#ccc;line-height:2.2;text-align:left">
+① <b>触发器名字</b><br>
+&nbsp;&nbsp;→ 剧本类型里没有了<br>
+② <b>研发接口</b><br>
+&nbsp;&nbsp;→ 韩杰→赵衍/刘杨<br>
+③ <b>平台归属</b><br>
+&nbsp;&nbsp;→ "仁杰做的"→韩杰升级版
+</div>
+</div>
+
+<div style="flex:1;min-width:170px;background:#1a3d2a;border:2px solid #22c55e;border-radius:10px;padding:14px 16px;text-align:center">
+<div style="font-size:.85em;font-weight:700;color:#86efac;margin-bottom:8px">🦴 他吃不掉的</div>
+<div style="font-size:.75em;color:#ccc;line-height:2.2;text-align:left">
+④ <b>场景业务定义</b><br>
+&nbsp;&nbsp;→ 他不知道益红场景<br>
+&nbsp;&nbsp;→ 他不知道缺什么<br>
+⑤ <b>AI 判断的判断标准</b><br>
+&nbsp;&nbsp;→ 他只有"布尔输出"形式<br>
+&nbsp;&nbsp;→ 什么算"哭了"=空地<br>
+⑥ <b>频次+组合逻辑</b><br>
+&nbsp;&nbsp;→ 他四张表没有频次字段<br>
+&nbsp;&nbsp;→ 画布嵌套要2周没选型
+</div>
+</div>
+
+<div style="flex:1;min-width:170px;background:#3d2f0a;border:2px solid #eab308;border-radius:10px;padding:14px 16px;text-align:center">
+<div style="font-size:.85em;font-weight:700;color:#fde68a;margin-bottom:8px">🔑 关键：第④块</div>
+<div style="font-size:.75em;color:#ccc;line-height:2.2;text-align:left">
+"<b>场景业务定义</b>"= 你的命根子<br><br>
+韩杰管"积木有哪些"<br>
+<b>你管"积木怎么拼"</b><br><br>
+他下午会上说益红场景<br>"端侧应该都没有"<br>→ 他连端侧/云端都没搞清<br>→ 你当场纠正了他<br><br>
+<b>这就证明了：<br>他离不开你的场景知识</b>
+</div>
+</div>
+</div>
+</div>
+
+<!-- ================================================================ -->
+<div class="sh s6">图六 · 关键战役：那张"大表"里谁填什么</div>
+
+<div class="dg">
+<div class="dg-title">韩杰的大表 = 原子能力清单。看谁填哪些列</div>
+
+<table style="width:100%;border-collapse:collapse;font-size:.82em;margin:8px 0">
+<tr style="background:#1a1b1f">
+<th style="border:1px solid #333;padding:10px 12px;color:#aaa">大表的列</th>
+<th style="border:1px solid #333;padding:10px 12px;color:#fca5a5">韩杰填</th>
+<th style="border:1px solid #333;padding:10px 12px;color:#86efac">你填</th>
+<th style="border:1px solid #333;padding:10px 12px;color:#fde68a">关键说明</th>
+</tr>
+<tr>
+<td style="border:1px solid #333;padding:8px 12px">触发事件 ID + 名称</td>
+<td style="border:1px solid #333;padding:8px 12px;text-align:center">✅</td>
+<td style="border:1px solid #333;padding:8px 12px;text-align:center">提缺口</td>
+<td style="border:1px solid #333;padding:8px 12px">他定义"有什么"，你定义"缺什么"</td>
+</tr>
+<tr>
+<td style="border:1px solid #333;padding:8px 12px">条件 ID + 名称</td>
+<td style="border:1px solid #333;padding:8px 12px;text-align:center">✅</td>
+<td style="border:1px solid #333;padding:8px 12px;text-align:center">提缺口</td>
+<td style="border:1px solid #333;padding:8px 12px">同上</td>
+</tr>
+<tr>
+<td style="border:1px solid #333;padding:8px 12px">动作 ID + 名称</td>
+<td style="border:1px solid #333;padding:8px 12px;text-align:center">✅</td>
+<td style="border:1px solid #333;padding:8px 12px;text-align:center">提新类型</td>
+<td style="border:1px solid #333;padding:8px 12px">9 个现有动作够用，暂不需新增</td>
+</tr>
+<tr>
+<td style="border:1px solid #333;padding:8px 12px">变量（端状态）</td>
+<td style="border:1px solid #333;padding:8px 12px;text-align:center">✅</td>
+<td style="border:1px solid #333;padding:8px 12px;text-align:center">提需求</td>
+<td style="border:1px solid #333;padding:8px 12px">仁杰也管端状态，你提"场景需要哪些值"</td>
+</tr>
+<tr style="background:#1a2a1a">
+<td style="border:1px solid #333;padding:8px 12px"><b>场景名称</b></td>
+<td style="border:1px solid #333;padding:8px 12px;text-align:center">—</td>
+<td style="border:1px solid #333;padding:8px 12px;text-align:center"><b>✅ 你</b></td>
+<td style="border:1px solid #333;padding:8px 12px">益红 8 条场景 = 你定义。他表里没有"场景"列——这是你的列</td>
+</tr>
+<tr style="background:#1a2a1a">
+<td style="border:1px solid #333;padding:8px 12px"><b>场景→触发事件映射</b></td>
+<td style="border:1px solid #333;padding:8px 12px;text-align:center">—</td>
+<td style="border:1px solid #333;padding:8px 12px;text-align:center"><b>✅ 你</b></td>
+<td style="border:1px solid #333;padding:8px 12px">"兜风推荐"用 tri_navState + tri_boarding + ? = 你定</td>
+</tr>
+<tr style="background:#1a2a1a">
+<td style="border:1px solid #333;padding:8px 12px"><b>场景→条件映射</b></td>
+<td style="border:1px solid #333;padding:8px 12px;text-align:center">—</td>
+<td style="border:1px solid #333;padding:8px 12px;text-align:center"><b>✅ 你</b></td>
+<td style="border:1px solid #333;padding:8px 12px">"兜风推荐"= con_navState+con_驾驶时长+con_日期+NOT con_道路类型</td>
+</tr>
+<tr style="background:#1a2a1a">
+<td style="border:1px solid #333;padding:8px 12px"><b>场景→动作映射</b></td>
+<td style="border:1px solid #333;padding:8px 12px;text-align:center">—</td>
+<td style="border:1px solid #333;padding:8px 12px;text-align:center"><b>✅ 你</b></td>
+<td style="border:1px solid #333;padding:8px 12px">"兜风推荐"= 调静态 Advisor(出行)</td>
+</tr>
+<tr style="background:#3d2f0a">
+<td style="border:1px solid #333;padding:8px 12px"><b>频次策略 ⚠️</b></td>
+<td style="border:1px solid #333;padding:8px 12px;text-align:center">—</td>
+<td style="border:1px solid #333;padding:8px 12px;text-align:center"><b>✅ 你</b></td>
+<td style="border:1px solid #333;padding:8px 12px"><b>他的表里根本没这列——你先加=你定义的列</b></td>
+</tr>
+<tr style="background:#3d2f0a">
+<td style="border:1px solid #333;padding:8px 12px"><b>条件组合逻辑 ⚠️</b></td>
+<td style="border:1px solid #333;padding:8px 12px;text-align:center">—</td>
+<td style="border:1px solid #333;padding:8px 12px;text-align:center"><b>✅ 你</b></td>
+<td style="border:1px solid #333;padding:8px 12px"><b>AND/OR/NOT 嵌套规则——画布还没做，规则可以先定</b></td>
+</tr>
+</table>
+
+<div class="detail" style="margin-top:12px">
+<b>这张表讲清楚了权力怎么分：</b><br>
+· <span class="r">韩杰填 4 列</span>：原子能力清单的"有什么"——他是能力库的 librarian<br>
+· <span class="g">你填 6 列</span>：场景定义 + 映射 + 频次 + 组合逻辑——你是规则的 author<br>
+· <span class="y">黄底 2 列</span>：韩杰的表里根本没有，是你新加的列——谁加列，谁定义列的内容<br><br>
+<b>所以你的策略不是"跟他抢清单"，而是"往他的清单里加你的列"。</b>他说"统一维护在这个大表里"——OK，大表是你的，<b>但大表里场景规则那几列是我填的</b>。
+</div>
+</div>
+
+<!-- ================================================================ -->
+<div class="sh s7">图七 · 你的下一步：时序图</div>
+
+<div class="dg">
+<div class="dg-title">从今晚到下周三，你和韩杰的动作时序</div>
+
+<div class="vflow">
+
+<div style="display:flex;align-items:flex-start;gap:12px;width:100%">
+<div style="min-width:55px;text-align:center;padding-top:8px">
+<div style="font-size:.75em;color:#888;font-weight:700">今晚<br>7.24</div>
+</div>
+<div style="flex:1;display:flex;gap:8px">
+<div style="flex:1;background:#1a2430;border:2px solid #3b82f6;border-radius:8px;padding:10px 14px">
+<div style="font-weight:700;color:#93c5fd;font-size:.8em">你：私下发韩杰</div>
+<div style="font-size:.74em;color:#aaa;margin-top:4px">① 补答"非"（附 10 运算符清单）<br>② 发 3 缺口（附行号+新增行）<br>③ 预告"规则表下周三出"</div>
+</div>
+<div style="min-width:30px;display:flex;align-items:center;justify-content:center;color:#555;font-size:1.2em">→</div>
+<div style="flex:1;background:#301a1a;border:2px solid #ef4444;border-radius:8px;padding:10px 14px">
+<div style="font-weight:700;color:#fca5a5;font-size:.8em">韩杰：收到缺口</div>
+<div style="font-size:.74em;color:#aaa;margin-top:4px">下周评审材料里会引用你的缺口<br>→ 你在他材料里有了名字</div>
+</div>
+</div>
+</div>
+
+<div class="va">↓</div>
+
+<div style="display:flex;align-items:flex-start;gap:12px;width:100%">
+<div style="min-width:55px;text-align:center;padding-top:8px">
+<div style="font-size:.75em;color:#888;font-weight:700">今晚<br>7.24</div>
+</div>
+<div style="flex:1;display:flex;gap:8px">
+<div style="flex:1;background:#1a2430;border:2px solid #3b82f6;border-radius:8px;padding:10px 14px">
+<div style="font-weight:700;color:#93c5fd;font-size:.8em">你：群里发对齐文字</div>
+<div style="font-size:.74em;color:#aaa;margin-top:4px">5 点对齐（见 v5 话术）<br>核心=第②点："场景业务定义由产品按真实场景反推"<br>+ "已核 8 条，确定缺 3 块"</div>
+</div>
+<div style="min-width:30px;display:flex;align-items:center;justify-content:center;color:#555;font-size:1.2em">→</div>
+<div style="flex:1;background:#1a3d2a;border:2px solid #22c55e;border-radius:8px;padding:10px 14px">
+<div style="font-weight:700;color:#86efac;font-size:.8em">效果：没人反对 = 默认成立</div>
+<div style="font-size:.74em;color:#aaa;margin-top:4px">韩杰不会反对（你给了他面子）<br>嘉锋不会反对（你说认同他边界）<br>仁杰不会反对（你明天还人情）</div>
+</div>
+</div>
+</div>
+
+<div class="va">↓</div>
+
+<div style="display:flex;align-items:flex-start;gap:12px;width:100%">
+<div style="min-width:55px;text-align:center;padding-top:8px">
+<div style="font-size:.75em;color:#888;font-weight:700">明天<br>7.25</div>
+</div>
+<div style="flex:1;display:flex;gap:8px">
+<div style="flex:1;background:#1a2430;border:2px solid #3b82f6;border-radius:8px;padding:10px 14px">
+<div style="font-weight:700;color:#93c5fd;font-size:.8em">你：给仁杰发结盟</div>
+<div style="font-size:.74em;color:#aaa;margin-top:4px">还人情 + 对变量格式<br>他有"时间结构化输出"需求<br>= 你的规则表正好需要</div>
+</div>
+<div style="min-width:30px;display:flex;align-items:center;justify-content:center;color:#555;font-size:1.2em">→</div>
+<div style="flex:1;background:#1a2430;border:2px solid #3b82f6;border-radius:8px;padding:10px 14px">
+<div style="font-weight:700;color:#93c5fd;font-size:.8em">你：启动益红 8 条规则表</div>
+<div style="font-size:.74em;color:#aaa;margin-top:4px">把 7.23 v4 核对成果<br>转成规则表格式（对齐韩杰列名）</div>
+</div>
+</div>
+</div>
+
+<div class="va">↓</div>
+
+<div style="display:flex;align-items:flex-start;gap:12px;width:100%">
+<div style="min-width:55px;text-align:center;padding-top:8px">
+<div style="font-size:.75em;color:#888;font-weight:700">周末<br>7.26-27</div>
+</div>
+<div style="flex:1;display:flex;gap:8px">
+<div style="flex:1;background:#1a2430;border:2px solid #3b82f6;border-radius:8px;padding:10px 14px">
+<div style="font-weight:700;color:#93c5fd;font-size:.8em">你：补完规则表<br>+ 频次提案一页纸</div>
+<div style="font-size:.74em;color:#aaa;margin-top:4px">8 条全部填好<br>频次列枚举值写好<br>和益红约周一对</div>
+</div>
+</div>
+</div>
+
+<div class="va">↓</div>
+
+<div style="display:flex;align-items:flex-start;gap:12px;width:100%">
+<div style="min-width:55px;text-align:center;padding-top:8px">
+<div style="font-size:.75em;color:#888;font-weight:700">周一<br>7.28</div>
+</div>
+<div style="flex:1;display:flex;gap:8px">
+<div style="flex:1;background:#1a2430;border:2px solid #3b82f6;border-radius:8px;padding:10px 14px">
+<div style="font-weight:700;color:#93c5fd;font-size:.8em">你：和益红对规则表</div>
+<div style="font-size:.74em;color:#aaa;margin-top:4px">逐条确认 8 条场景<br>顺便让她补 2 个漏洞<br>（低电量漏导航/多人漏多人判断）</div>
+</div>
+<div style="min-width:30px;display:flex;align-items:center;justify-content:center;color:#555;font-size:1.2em">→</div>
+<div style="flex:1;background:#1a3d2a;border:2px solid #22c55e;border-radius:8px;padding:10px 14px">
+<div style="font-weight:700;color:#86efac;font-size:.8em">效果：益红确认 = 场景方背书</div>
+<div style="font-size:.74em;color:#aaa;margin-top:4px">韩杰不能说"这场景不对"<br>因为益红说对</div>
+</div>
+</div>
+</div>
+
+<div class="va">↓</div>
+
+<div style="display:flex;align-items:flex-start;gap:12px;width:100%">
+<div style="min-width:55px;text-align:center;padding-top:8px">
+<div style="font-size:.75em;color:#888;font-weight:700">周三<br>7.30</div>
+</div>
+<div style="flex:1;display:flex;gap:8px">
+<div style="flex:1;background:#1a2430;border:2px solid #3b82f6;border-radius:8px;padding:10px 14px">
+<div style="font-weight:700;color:#93c5fd;font-size:.8em">你：发规则表到群里</div>
+<div style="font-size:.74em;color:#aaa;margin-top:4px">流程图 + 规则表 + 缺口补丁<br>三件套一起发<br>@韩杰 @嘉锋 @仁杰</div>
+</div>
+<div style="min-width:30px;display:flex;align-items:center;justify-content:center;color:#555;font-size:1.2em">→</div>
+<div style="flex:1;background:#301a1a;border:2px solid #ef4444;border-radius:8px;padding:10px 14px">
+<div style="font-weight:700;color:#fca5a5;font-size:.8em">韩杰：下周拉研发评审</div>
+<div style="font-size:.74em;color:#aaa;margin-top:4px">你的表在他的评审材料里<br>→ 研发看到的是你的规则<br>→ 有问题自然来找你</div>
+</div>
+</div>
+</div>
+
+</div>
+
+<div class="detail" style="margin-top:18px;background:#1a2620;border-color:#22c55e">
+<b>整条时序的关键节点只有两个：</b><br>
+① <span class="g">今晚发消息</span>（私下+群里）→ 把"可能缺一两个"改成"确定缺 3 块"——把你会上没用的弹药打出去<br>
+② <span class="g">下周三发规则表</span>→ 赶在韩杰拉研发评审之前，让你的表进他的材料<br><br>
+<b>每往后拖一天，韩杰自己填"产品提供规则"的概率就大一分。</b>他填了，你的位置就没了。
+</div>
+</div>
+
+</div>
+</body>
+</html>

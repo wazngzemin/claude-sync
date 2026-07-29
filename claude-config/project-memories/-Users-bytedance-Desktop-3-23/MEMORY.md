@@ -1,5 +1,7 @@
 # Memory Index
 
+- [Session panel rules](project_session_panel.md) — 会话面板:8780三铁律：刷新=全量最新(增量重扫)/"今天"=今天打开过终端(按mtime)/同标题同日合并；已装launchd守护开机自启，脚本真身在~/scripts/(Desktop会被TCC拦)
+
 - [English needs Chinese annotation](feedback_english_needs_chinese.md) — 所有英文/代码术语后必须带中文括号备注；泽民非技术背景，中英混杂读不下去；已多次强调，交付前grep抽查裸英文
 
 - [BaoCut setup](project_baocut_setup.md) — 字幕skill已端到端跑通；关键=换Metal3库+adhoc重签补丁(~/Applications/BaoCut-patched.app+BAOCUT_CLI)+显式--model qwen3-asr-0.6b；下HF大模型唯一路=hf-mirror 2MB/s
@@ -33,7 +35,7 @@
 - [Diagram+explanation dual track](feedback_diagram_plus_explanation.md) — 讲解类产物必须图+文双轨：流程就画流程图(菱形判断/泳道/线上标为什么)，概念才用表格；纯文字堆满=不合格
 - [Table-first for structured info](feedback_table_first.md) — 多字段/多属性对照默认用表格，单元格内写详细，不要先写大段文字
 - [Q&A first-principles format](feedback_qa_first_principles_format.md) — 讲解稿新标准：追问式Q&A+第一性原理+对抗式审查+真实case运算符映射；v8起生效
-- [Article absorption format](feedback_article_absorption_format.md) — 泽民日常读文章要的产物=七段「文章吸收解析」(一句话讲透/拆解/金点/5个为什么/方法论/mermaid带讲解/揉进五维度)；NOT fork工具·NOT梁宁复盘·NOT晨读判级；连跑偏三次才纠正
+- [Article absorption format](feedback_article_absorption_format.md) — 泽民日常读文章要的产物=七段「文章吸收解析」+行业对照+产品施工图(真实模块/缺口/行动清单,不可省)；NOT fork工具·NOT梁宁复盘·NOT晨读判级；连跑偏三次才纠正
 - [6.30 three meetings](reference_630_meetings.md) — 三场会议纪要路径与核心定版：动态链路14:00/静态评审15:48/标签转化20:45
 - [7.2 visual review](project_72_review.md) — SLS-0804紫色线评审不通过；刘杨反对拼SP/汪帅质疑定位/韩杰点名格式评审/818vs0804排期错位；最多3个SP；泽民7行动，7.4周六11点续评
 - [7.4 second VLM review](project_74_review.md) — 黄红线挂泽民名下成阻塞(优先级没跟嘉锋对过)；绕Context被仁杰超然庆磊推翻中→原路返回；事件判断1万辆车成本战→三层设计；排期口径四版本；西钺"任务名称作主key"
@@ -43,6 +45,7 @@
 - [7.6-7.10 evolution](project_76_79_evolution.md) — 五天巨变：拼SP作废(7.7)/端侧触发器0804被砍(7.8)/信号中枢三表(7.9)/7.10正式评审=赵衍三连问端侧闭环+事件日志≠新建是扩展+730三需求排定+信号ID重命名暂搁
 - [7.10 signal-hub review](project_710_signal_hub_review.md) — 泽民复盘视角：条件表被韩杰端走+转错(刘杨抓运算符/切入切出)；赵衍10分钟递授权"端侧触发器场景必须产品定"被韩杰"和泽民对齐过了"替他让掉；全场只说两句；四动作=抢端侧场景清单/复核转换/找韩杰钉边界/会前先懂概念
 - [People roles in trigger chain](reference_people_roles.md) — 韩杰=信号中枢原料层/刘扬=触发器平台配置方(频次策略归属未决)/益红=场景需求方/丁彬西钺=视觉/仁杰=端上报格式/赵衍=递授权领导/张嘉锋=任务集组织者
+- [7.24 AI orchestration review](project_724_ai_orchestration_review.md) — 韩杰原子化收编触发器；17:40二次会泽民在场4问=60分("非是指什么"失分/领益红804流程图领对了)；新证据"仁杰做的平台+表统一进大表"；打法=24h对齐文字补主张+下周三交规则表三件套
 - ["不够详细"=真实信号穷举](feedback_detail_means_real_signals.md) — 泽民说不够详细≠再加长/更抽象；概念类要用他真实车态信号(档位/车速/车窗…)逐条讲+每类穷举例子；连说不够就AskUserQuestion问清方向别猜
 - [触发器运算符真实清单](reference_trigger_operators.md) — 配置平台就10个运算符：条件8个(等于/不等于/大于/大于等于/小于/小于等于/包含/不包含)+事件2个(变更为/有变更)；没有"切入切出"(韩杰口头说法/刘杨反对)；数值阈值用大于小于+引擎抓边沿
 - [JIRA 一键流转面板](project_jira_panel.md) — 上汽零束JIRA(8.20.14/内网/JSESSIONID登录)按JQL捞bug+自建流转面板jira_panel.py(:8770守护模式启动)；三步链analyze/repair/fix字段与默认值；大坑=隐藏必填(原因分析cf10792+RootCause分类cf11145)填完一个才暴下一个

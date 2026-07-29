@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Y 模型 × 马斯洛 — 需求分析双轴框架</title>
+<style>
+:root {
+  --surface-1: #fcfcfb;
+  --surface-2: #f5f4f1;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #898781;
+  --grid: #e1e0d9;
+  --baseline: #c3c2b7;
+  --border: rgba(11,11,11,0.08);
+  --blue: #2a78d6;
+  --blue-light: #cde2fb;
+  --blue-dark: #1c5cab;
+  --orange: #eb6834;
+  --orange-light: #fde0d0;
+  --aqua: #1baf7a;
+  --aqua-light: #c8f0df;
+  --yellow: #eda100;
+  --magenta: #e87ba4;
+  --green: #008300;
+  --violet: #4a3aa7;
+  --red: #e34948;
+  --good: #0ca30c;
+  --warning: #fab219;
+  --critical: #d03b3b;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+  --radius: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface-1: #1a1a19;
+    --surface-2: #22221f;
+    --text-primary: #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted: #898781;
+    --grid: #2c2c2a;
+    --baseline: #383835;
+    --border: rgba(255,255,255,0.08);
+    --blue: #3987e5;
+    --blue-light: #1c3d66;
+    --blue-dark: #86b6ef;
+    --orange: #d95926;
+    --orange-light: #3d2218;
+    --aqua: #199e70;
+    --aqua-light: #1a3d30;
+    --yellow: #c98500;
+    --magenta: #d55181;
+    --green: #008300;
+    --violet: #9085e9;
+    --red: #e66767;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.2);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.3);
+  }
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--surface-2);
+  color: var(--text-primary);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Hero ── */
+.hero {
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--border);
+  padding: 60px 24px 48px;
+  text-align: center;
+}
+.hero h1 {
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 10px;
+}
+.hero .sub {
+  font-size: 17px;
+  color: var(--text-secondary);
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+/* ── Section ── */
+.container { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+.section { padding: 56px 0; }
+.section-hd { margin-bottom: 32px; }
+.section-hd h2 {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin-bottom: 4px;
+}
+.section-hd .desc { color: var(--text-secondary); font-size: 15px; }
+
+/* ── Card ── */
+.card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px;
+  box-shadow: var(--shadow-sm);
+}
+
+/* ── Y Model Diagram ── */
+.y-diagram {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  padding: 20px 0;
+  position: relative;
+}
+
+.y-layer {
+  width: 100%;
+  max-width: 700px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  min-height: 72px;
+}
+
+/* The vertical line */
+.y-line {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2px;
+  background: var(--baseline);
+  z-index: 0;
+}
+
+/* Layer label on the left */
+.y-label {
+  position: absolute;
+  left: 0;
+  width: 130px;
+  text-align: right;
+  padding-right: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  z-index: 1;
+}
+
+/* Content box */
+.y-box {
+  background: var(--surface-1);
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 18px;
+  z-index: 1;
+  position: relative;
+  box-shadow: var(--shadow-sm);
+  min-width: 200px;
+  text-align: center;
+}
+.y-box.main {
+  border-color: var(--blue);
+  border-width: 2px;
+  background: var(--blue-light);
+}
+
+/* Branch containers */
+.y-branch-top, .y-branch-bottom {
+  display: flex;
+  gap: 24px;
+  justify-content: center;
+  width: 100%;
+  max-width: 700px;
+  position: relative;
+}
+
+/* The Y fork lines - drawn with CSS pseudo elements are tricky, using SVG instead */
+
+/* Arrow between layers */
+.y-arrow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4px 0;
+  z-index: 1;
+}
+.y-arrow svg { display: block; }
+
+/* Question callout */
+.y-question {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-top: 4px;
+}
+
+/* ── Maslow Pyramid ── */
+.pyramid-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 20px 0;
+}
+
+.pyramid {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+  max-width: 660px;
+}
+
+.py-level {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 12px 16px;
+  border-radius: 5px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  position: relative;
+  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: default;
+}
+.py-level:hover {
+  transform: scale(1.02);
+  box-shadow: var(--shadow-md);
+  z-index: 2;
+}
+
+.py-level .inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.py-level .name { font-size: 15px; }
+.py-level .ex {
+  font-size: 11px;
+  opacity: 0.85;
+  font-weight: 400;
+  max-width: 90%;
+}
+
+/* ── Combined Grid ── */
+.combined-grid {
+  display: grid;
+  grid-template-columns: 120px repeat(3, 1fr);
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  font-size: 13px;
+}
+.combined-grid > * {
+  padding: 12px 14px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+}
+.combined-grid > *.hdr {
+  background: var(--surface-2);
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.combined-grid > *.spotlight {
+  background: var(--blue-light);
+  border: 2px solid var(--blue);
+  border-radius: 6px;
+  margin: 4px;
+  font-weight: 600;
+}
+
+/* ── Quick-ref Cards ── */
+.quick-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+  margin-top: 20px;
+}
+.qc {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 22px;
+  box-shadow: var(--shadow-sm);
+}
+.qc .emoji { font-size: 24px; margin-bottom: 8px; }
+.qc h4 { font-size: 15px; margin-bottom: 4px; }
+.qc p { font-size: 13px; color: var(--text-secondary); }
+
+/* ── Formula Box ── */
+.formula-box {
+  background: var(--blue-light);
+  border: 2px solid var(--blue);
+  border-radius: var(--radius);
+  padding: 24px 28px;
+  text-align: center;
+  font-size: 18px;
+  font-weight: 700;
+  margin-top: 20px;
+  letter-spacing: -0.01em;
+}
+
+/* ── Divider ── */
+.divider {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 0;
+}
+
+/* ── Tooltip ── */
+.tip {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+/* ── Responsive ── */
+@media (max-width: 720px) {
+  .hero h1 { font-size: 26px; }
+  .y-label { position: static; text-align: left; width: auto; padding: 0 0 4px 0; }
+  .y-layer { flex-direction: column; align-items: flex-start; }
+  .y-branch-top, .y-branch-bottom { flex-direction: column; align-items: center; }
+  .combined-grid { grid-template-columns: 80px repeat(3, 1fr); font-size: 11px; }
+}
+
+/* Print */
+@media print {
+  body { background: #fff; }
+  .section { padding: 24px 0; page-break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+
+<!-- ════════════ HERO ════════════ -->
+<header class="hero">
+  <h1>Y 模型 × 马斯洛</h1>
+  <p class="sub">一个需求的质量 = 你往下挖了多深 × 你往上站了多高<br>两把尺子，量同一个东西</p>
+</header>
+
+<!-- ════════════ PART 1: Y MODEL ════════════ -->
+<section class="section">
+  <div class="container">
+    <div class="section-hd">
+      <h2>第一把尺：Y 模型 — 往深处挖</h2>
+      <p class="desc">从用户"说的"往下挖三层，挖到真正驱动行为的动机，才叫拿到了需求。</p>
+    </div>
+
+    <div class="card">
+      <div class="y-diagram">
+
+        <!-- TOP: Behavior surface -->
+        <div class="y-branch-top" style="margin-bottom:0;">
+          <div class="y-box" style="border-color: var(--orange);">
+            <div style="font-size:12px;color:var(--text-muted);">方案 A</div>
+            <div style="font-weight:600;">"加一个一键降温按钮"</div>
+          </div>
+          <div class="y-box" style="border-color: var(--orange);">
+            <div style="font-size:12px;color:var(--text-muted);">方案 B</div>
+            <div style="font-weight:600;">"上车自动开空调"</div>
+          </div>
+        </div>
+
+        <!-- Fork lines (top Y) -->
+        <svg width="400" height="30" viewBox="0 0 400 30" style="display:block;">
+          <line x1="200" y1="0" x2="200" y2="15" stroke="var(--baseline)" stroke-width="1.5"/>
+          <line x1="90" y1="0" x2="200" y2="15" stroke="var(--baseline)" stroke-width="1.5"/>
+          <line x1="310" y1="0" x2="200" y2="15" stroke="var(--baseline)" stroke-width="1.5"/>
+        </svg>
+
+        <!-- Layer 1: Behavior -->
+        <div class="y-layer" style="position:relative;">
+          <span class="y-label">第 1 层 行为</span>
+          <div class="y-box main" style="min-width:280px;">
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px;">用户说 / 做的</div>
+            <div style="font-weight:700;font-size:15px;">"车里太热了，开空调"</div>
+          </div>
+        </div>
+
+        <!-- Arrow down -->
+        <div class="y-arrow">
+          <svg width="24" height="36" viewBox="0 0 24 36">
+            <line x1="12" y1="0" x2="12" y2="30" stroke="var(--blue)" stroke-width="2"/>
+            <polygon points="6,24 12,34 18,24" fill="var(--blue)"/>
+          </svg>
+          <span class="y-question">追问：为什么需要开空调？</span>
+        </div>
+
+        <!-- Layer 2: Need -->
+        <div class="y-layer" style="position:relative;">
+          <span class="y-label">第 2 层 需求</span>
+          <div class="y-box main" style="min-width:280px;">
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px;">用户要完成的</div>
+            <div style="font-weight:700;font-size:15px;">"上车太热了，想快速降温"</div>
+          </div>
+        </div>
+
+        <!-- Arrow down -->
+        <div class="y-arrow">
+          <svg width="24" height="36" viewBox="0 0 24 36">
+            <line x1="12" y1="0" x2="12" y2="30" stroke="var(--blue)" stroke-width="2"/>
+            <polygon points="6,24 12,34 18,24" fill="var(--blue)"/>
+          </svg>
+          <span class="y-question">追问：为什么快速降温这么重要？</span>
+        </div>
+
+        <!-- Layer 3: Motivation -->
+        <div class="y-layer" style="position:relative;">
+          <span class="y-label">第 3 层 动机</span>
+          <div class="y-box main" style="min-width:280px;border-color:var(--violet);background:rgba(74,58,167,0.06);">
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px;">用户真正想要的</div>
+            <div style="font-weight:700;font-size:15px;">"不想在车里忍耐闷热的前 3 分钟"</div>
+          </div>
+        </div>
+
+        <!-- Bottom Y fork -->
+        <svg width="400" height="30" viewBox="0 0 400 30" style="display:block;">
+          <line x1="200" y1="0" x2="200" y2="15" stroke="var(--baseline)" stroke-width="1.5"/>
+          <line x1="80" y1="15" x2="200" y2="0" stroke="var(--baseline)" stroke-width="1.5"/>
+          <line x1="320" y1="15" x2="200" y2="0" stroke="var(--baseline)" stroke-width="1.5"/>
+        </svg>
+
+        <!-- BOTTOM: Other behaviors from same motivation -->
+        <div class="y-branch-bottom" style="margin-top:0;">
+          <div class="y-box" style="border-color: var(--violet);border-style:dashed;">
+            <div style="font-size:12px;color:var(--text-muted);">同一动机，另一种行为</div>
+            <div style="font-weight:600;">"提前 5 分钟远程开空调"</div>
+          </div>
+          <div class="y-box" style="border-color: var(--violet);border-style:dashed;">
+            <div style="font-size:12px;color:var(--text-muted);">同一动机，另一种行为</div>
+            <div style="font-weight:600;">"夏天自动切换通风模式"</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Key insight -->
+      <div style="margin-top:24px;padding:16px;background:var(--surface-2);border-radius:8px;font-size:14px;">
+        <strong>🔑 Y 字形的含义：</strong><br>
+        <span style="color:var(--orange);font-weight:600;">上分叉</span> = 一个动机可以产生多个行为（你的用户说的是方案 A，但他要的可能是方案 B）<br>
+        <span style="color:var(--violet);font-weight:600;">下分叉</span> = 一个行为可以来自多个动机（不要看到行为就停，往下挖）<br>
+        <span style="color:var(--blue);font-weight:600;">竖线</span> = PM 的工作——在这条线上来回走，挖到挖不动为止
+      </div>
+    </div>
+
+    <!-- Quick rule -->
+    <div class="quick-cards">
+      <div class="qc">
+        <div class="emoji">⚠️</div>
+        <h4>只挖到第 1 层</h4>
+        <p>用户说"加按钮"就加按钮 → 做出来是<br><strong>功能堆砌</strong>，没人用的按钮越来越多</p>
+      </div>
+      <div class="qc">
+        <div class="emoji">👍</div>
+        <h4>挖到第 2 层</h4>
+        <p>用户说"加按钮"，你识别出"他要快速降温" → 可以做<br><strong>多种方案对比</strong>，选最好的那个</p>
+      </div>
+      <div class="qc">
+        <div class="emoji">🏆</div>
+        <h4>挖到第 3 层</h4>
+        <p>识别出"不想忍耐闷热" → 这个动机足够稳定，<br>可以做<strong>一整个产品线</strong>，不只是功能</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ════════════ PART 2: MASLOW ════════════ -->
+<section class="section">
+  <div class="container">
+    <div class="section-hd">
+      <h2>第二把尺：马斯洛 — 往高处站</h2>
+      <p class="desc">同一个功能需求，落在不同层次上，解法完全不同。层次越高，产品越不可替代。</p>
+    </div>
+
+    <div class="card">
+      <div class="pyramid-wrap">
+        <div class="pyramid">
+
+          <!-- L7: Self-actualization -->
+          <div class="py-level" style="width:38%;background:var(--violet);">
+            <div class="inner">
+              <span class="name">7. 自我实现 — 成为更好的自己</span>
+              <span class="ex">"这 30 分钟独处是我一天里唯一的自己的时间"</span>
+            </div>
+          </div>
+
+          <!-- L6: Aesthetic -->
+          <div class="py-level" style="width:48%;background:#6b3fa0;">
+            <div class="inner">
+              <span class="name">6. 审美 — 美、秩序、和谐</span>
+              <span class="ex">"这个氛围灯让车里有一种高级的安静感"</span>
+            </div>
+          </div>
+
+          <!-- L5: Cognitive -->
+          <div class="py-level" style="width:58%;background:var(--blue);">
+            <div class="inner">
+              <span class="name">5. 认知 — 好奇、理解、探索</span>
+              <span class="ex">"前面那座山叫什么？有什么故事？"</span>
+            </div>
+          </div>
+
+          <!-- L4: Esteem -->
+          <div class="py-level" style="width:68%;background:var(--aqua);">
+            <div class="inner">
+              <span class="name">4. 尊重 — 面子、地位、被认可</span>
+              <span class="ex">"朋友坐我的车，说'你这车好聪明'"</span>
+            </div>
+          </div>
+
+          <!-- L3: Love/Belonging -->
+          <div class="py-level" style="width:78%;background:var(--green);">
+            <div class="inner">
+              <span class="name">3. 爱与归属 — 连接、关系</span>
+              <span class="ex">"帮我回老婆消息，别让她觉得我开车不理她"</span>
+            </div>
+          </div>
+
+          <!-- L2: Safety -->
+          <div class="py-level" style="width:88%;background:var(--yellow);color:#0b0b0b;">
+            <div class="inner">
+              <span class="name">2. 安全 — 不被撞、不迷路、身体舒适</span>
+              <span class="ex">"前面有坑提前告诉我""别让我追尾"</span>
+            </div>
+          </div>
+
+          <!-- L1: Physiological -->
+          <div class="py-level" style="width:98%;background:var(--orange);">
+            <div class="inner">
+              <span class="name">1. 生理 — 冷、热、饿、困、累</span>
+              <span class="ex">"太热了开空调""我饿了找吃的""困了提神"</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Insight -->
+      <div style="margin-top:24px;padding:16px;background:var(--surface-2);border-radius:8px;font-size:14px;">
+        <strong>🔑 关键洞察：</strong><br>
+        同样是<strong>"车里太热"</strong>——<br>
+        &nbsp;&nbsp;停在<strong>第 1 层</strong> → 做一个开关空调的功能（工具，谁都能做）<br>
+        &nbsp;&nbsp;抬到<strong>第 6 层</strong> → 做一个"让车内永远是春天的温度 + 好闻的味道 + 让人平静的光线"（体验，只有你做）<br>
+        <br>
+        <strong>越往上，产品越不可替代。越往下，越容易被复制。</strong>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ════════════ PART 3: COMBINED ════════════ -->
+<section class="section">
+  <div class="container">
+    <div class="section-hd">
+      <h2>两把尺子拼在一起</h2>
+      <p class="desc">Y 模型决定深度（挖没挖到动机），马斯洛决定高度（站没站到高层）。好产品 = 又深又高。</p>
+    </div>
+
+    <div class="card" style="overflow-x:auto;">
+
+      <!-- 3×3 Grid -->
+      <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:600px;">
+        <thead>
+          <tr>
+            <th style="width:100px;padding:10px;background:var(--surface-2);border-bottom:2px solid var(--baseline);text-align:left;font-size:12px;color:var(--text-muted);">Y 深度 ↓ ／ 马层次 →</th>
+            <th style="padding:10px;background:var(--surface-2);border-bottom:2px solid var(--baseline);text-align:center;font-size:12px;">低层（1-3 层）<br><span style="font-weight:400;color:var(--text-muted);">生理·安全·归属</span></th>
+            <th style="padding:10px;background:var(--surface-2);border-bottom:2px solid var(--baseline);text-align:center;font-size:12px;">中层（4-5 层）<br><span style="font-weight:400;color:var(--text-muted);">尊重·认知</span></th>
+            <th style="padding:10px;background:var(--surface-2);border-bottom:2px solid var(--baseline);text-align:center;font-size:12px;">高层（6-7 层）<br><span style="font-weight:400;color:var(--text-muted);">审美·自我实现</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="padding:10px;border-bottom:1px solid var(--border);font-weight:600;font-size:12px;color:var(--text-muted);">浅<br>（只到行为层）</td>
+            <td style="padding:12px;border-bottom:1px solid var(--border);background:rgba(235,104,52,0.06);border-radius:6px 0 0 0;">
+              <strong>🔧 工具型产品</strong><br>
+              <span style="font-size:12px;color:var(--text-secondary);">"开空调"→ 做一个开关<br>谁都能做，拼价格</span>
+            </td>
+            <td style="padding:12px;border-bottom:1px solid var(--border);background:rgba(235,104,52,0.04);">
+              <strong>🎁 增值功能</strong><br>
+              <span style="font-size:12px;color:var(--text-secondary);">"介绍沿途风景"→ 加个百科查询<br>有比没有好，但没有也行</span>
+            </td>
+            <td style="padding:12px;border-bottom:1px solid var(--border);background:rgba(235,104,52,0.02);">
+              <strong>🎀 噱头</strong><br>
+              <span style="font-size:12px;color:var(--text-secondary);">"AI 自动写诗"<br>听起来酷，没人真用</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:10px;border-bottom:1px solid var(--border);font-weight:600;font-size:12px;color:var(--text-muted);">中<br>（到需求层）</td>
+            <td style="padding:12px;border-bottom:1px solid var(--border);background:rgba(42,120,214,0.04);">
+              <strong>✅ 靠谱功能</strong><br>
+              <span style="font-size:12px;color:var(--text-secondary);">"快速降温"→ 远程+自动+联动<br>好用，用户会记住</span>
+            </td>
+            <td style="padding:12px;border-bottom:1px solid var(--border);background:rgba(42,120,214,0.06);">
+              <strong>🌟 差异化竞争力</strong><br>
+              <span style="font-size:12px;color:var(--text-secondary);">"沿途讲故事"→ 不只是查百科，<br>是有个性的旅伴</span>
+            </td>
+            <td style="padding:12px;border-bottom:1px solid var(--border);background:rgba(42,120,214,0.04);">
+              <strong>💎 品牌定义级</strong><br>
+              <span style="font-size:12px;color:var(--text-secondary);">"让驾驶舱变成移动书房"<br>不是功能，是定位</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:10px;font-weight:600;font-size:12px;color:var(--text-muted);">深<br>（到动机层）</td>
+            <td style="padding:12px;background:rgba(27,175,122,0.04);">
+              <strong>🏥 刚需护城河</strong><br>
+              <span style="font-size:12px;color:var(--text-secondary);">"不想忍耐闷热"→ 温控全链路<br>从进车前到下车，全程舒适</span>
+            </td>
+            <td style="padding:12px;background:rgba(27,175,122,0.08);border:2px solid var(--aqua);border-radius:6px;">
+              <strong>🏆 垄断级体验</strong><br>
+              <span style="font-size:12px;color:var(--text-secondary);">"好奇心被满足的愉悦"→<br>不只是回答，是对话+记忆+个性<br></span>
+              <span style="font-size:11px;color:var(--aqua);font-weight:700;">← 你应该争取的区间</span>
+            </td>
+            <td style="padding:12px;background:rgba(74,58,167,0.06);">
+              <strong>🚀 定义品类</strong><br>
+              <span style="font-size:12px;color:var(--text-secondary);">"在车里找回自己的时间"→<br>不是卖车，是卖第三种空间</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="formula-box">
+        <span style="color:var(--text-secondary);font-size:14px;">需求质量 =</span>
+        Y 模型深度（挖到第几层）× 马斯洛高度（站到第几层）
+        <br>
+        <span style="font-size:14px;font-weight:400;color:var(--text-secondary);">
+          又浅又低 = 工具 &nbsp;|&nbsp; 浅但高 = 噱头 &nbsp;|&nbsp; 深但低 = 刚需 &nbsp;|&nbsp;
+          <span style="color:var(--aqua);font-weight:700;">又深又高 = 护城河</span>
+        </span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ════════════ PART 4: 实战速查 ════════════ -->
+<section class="section">
+  <div class="container">
+    <div class="section-hd">
+      <h2>拿到一个需求，30 秒过一遍</h2>
+      <p class="desc">不用翻笔记，就三个问题。</p>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;flex-direction:column;gap:16px;">
+
+        <!-- Step 1 -->
+        <div style="display:flex;align-items:flex-start;gap:16px;padding:16px;background:var(--surface-2);border-radius:8px;">
+          <div style="flex-shrink:0;width:32px;height:32px;background:var(--blue);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;">1</div>
+          <div>
+            <strong>Y 模型：往下挖</strong><br>
+            <span style="font-size:13px;color:var(--text-secondary);">"他为什么提这个？往下问三轮，挖到动机为止。"</span><br>
+            <span style="font-size:12px;color:var(--text-muted);">问法：你现在怎么解决的？——如果用户已经有笨办法在用 → 真需求</span>
+          </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div style="display:flex;align-items:flex-start;gap:16px;padding:16px;background:var(--surface-2);border-radius:8px;">
+          <div style="flex-shrink:0;width:32px;height:32px;background:var(--violet);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;">2</div>
+          <div>
+            <strong>马斯洛：往高站</strong><br>
+            <span style="font-size:13px;color:var(--text-secondary);">"这个需求在人的哪一层？能不能从工具层抬到体验层？"</span><br>
+            <span style="font-size:12px;color:var(--text-muted);">判断法：只解决功能问题 → L1-L3；解决情感/意义问题 → L4-L7</span>
+          </div>
+        </div>
+
+        <!-- Step 3 -->
+        <div style="display:flex;align-items:flex-start;gap:16px;padding:16px;background:var(--surface-2);border-radius:8px;">
+          <div style="flex-shrink:0;width:32px;height:32px;background:var(--aqua);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;">3</div>
+          <div>
+            <strong>交叉验证</strong><br>
+            <span style="font-size:13px;color:var(--text-secondary);">"这个需求落在 3×3 矩阵的哪个格子里？那个格子的产品天花板够不够高？"</span><br>
+            <span style="font-size:12px;color:var(--text-muted);">目标：尽可能把需求从左上角（浅+低）推到右下角（深+高）</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════ FOOTER ════════════ -->
+<footer style="padding:40px 24px;text-align:center;font-size:12px;color:var(--text-muted);">
+  Y 模型 × 马斯洛 · 需求分析双轴框架 · v1 · 2026-07-28
+</footer>
+
+</body>
+</html>

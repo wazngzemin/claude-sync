@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>车控 SFT FC 模型详解 v2 · 流程图版</title>
+<style>
+:root{--bg:#0a0f1e;--panel:rgba(16,24,44,.85);--ink:#e6edfb;--muted:#9db0d0;--line:#25355a;--blue:#60a5fa;--cyan:#22d3ee;--green:#34d399;--amber:#fbbf24;--rose:#fb7185;--violet:#a78bfa;--orange:#fb923c;}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;color:var(--ink);line-height:1.65;font-family:ui-sans-serif,system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+background:linear-gradient(rgba(30,45,80,.18) 1px,transparent 1px),linear-gradient(90deg,rgba(30,45,80,.18) 1px,transparent 1px),radial-gradient(circle at 8% 2%,rgba(96,165,250,.10),transparent 26%),radial-gradient(circle at 92% 0,rgba(34,211,238,.08),transparent 28%),var(--bg);background-size:46px 46px,46px 46px,auto,auto,auto;}
+.wrap{max-width:1260px;margin:0 auto;padding:28px 22px 110px}
+.layout{display:grid;grid-template-columns:235px minmax(0,1fr);gap:26px;align-items:start}
+nav{position:sticky;top:14px;border:1px solid var(--line);border-radius:12px;background:var(--panel);backdrop-filter:blur(10px);padding:14px 11px;font-size:12.5px;max-height:94vh;overflow:auto}
+nav b{display:block;color:var(--blue);font-size:11px;letter-spacing:.5px;margin:2px 6px 8px}
+nav a{display:block;color:var(--muted);padding:5px 8px;border-radius:7px;border-left:2px solid transparent;text-decoration:none}
+nav a:hover{color:var(--ink);background:rgba(96,165,250,.10);border-left-color:var(--blue)}
+nav .n0{color:#cfe0f7;font-weight:700;margin-top:8px}
+.hero{border:1px solid var(--line);border-radius:14px;background:var(--panel);backdrop-filter:blur(10px);padding:24px 26px;margin-bottom:20px}
+.eyebrow{color:var(--blue);font-weight:800;font-size:12.5px;margin-bottom:8px}
+h1{margin:0;font-size:clamp(22px,2.8vw,32px);line-height:1.22}
+.hero p{color:#cfe0f7;margin:12px 0 0}
+section{border:1px solid var(--line);border-radius:14px;background:var(--panel);backdrop-filter:blur(8px);padding:22px 24px;margin-bottom:18px;scroll-margin-top:14px}
+section>h2{margin:0 0 4px;font-size:21px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+section>h2 .num{font-size:13px;color:#0a0f1e;background:var(--blue);font-weight:800;min-width:26px;height:26px;padding:0 6px;border-radius:8px;display:inline-grid;place-items:center}
+.sub{color:var(--muted);font-size:13.5px;margin:0 0 14px}
+h3{font-size:16px;margin:20px 0 7px;color:#eef4fd;border-left:3px solid var(--blue);padding-left:9px}
+p{margin:7px 0}
+.tag{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:999px;vertical-align:middle;margin-left:5px;border:1px solid}
+.t-key{color:#fde68a;border-color:rgba(251,191,36,.5);background:rgba(120,53,15,.25)}
+.t-hot{color:#fda4af;border-color:rgba(251,113,133,.5);background:rgba(136,19,55,.25)}
+.t-you{color:#6ee7b7;border-color:rgba(52,211,153,.5);background:rgba(6,78,59,.3)}
+.q{margin:9px 0;padding:10px 13px;border-left:3px solid var(--blue);background:rgba(30,64,175,.15);border-radius:0 8px 8px 0;color:#bfdbfe;font-size:13.5px}
+.q::before{content:"原文 · ";color:var(--blue);font-weight:700;font-size:11px}
+.os{margin:11px 0;padding:11px 13px;border:1px dashed rgba(251,191,36,.55);background:rgba(120,53,15,.14);border-radius:10px;font-size:13.5px;color:#fde68a}
+.os::before{content:"讲给你听 · ";color:var(--amber);font-weight:800;font-size:11px}
+.car{margin:11px 0;padding:11px 13px;border:1px solid rgba(34,211,238,.35);background:rgba(8,47,73,.3);border-radius:10px;font-size:13.5px}
+.car::before{content:"车上表现 · ";color:#67e8f9;font-weight:800;font-size:11px}
+.adv{margin:11px 0;padding:11px 13px;border:1px solid rgba(251,146,60,.45);background:rgba(124,45,18,.18);border-radius:10px;font-size:13.5px;color:#fed7aa}
+.adv::before{content:"对抗式审查 · ";color:var(--orange);font-weight:800;font-size:11px}
+table{width:100%;border-collapse:collapse;margin:11px 0;font-size:12.5px}
+th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}
+th{background:rgba(25,38,68,.8);color:#dbe7fa;font-weight:700}
+td code,p code,li code{color:#7dd3fc;background:rgba(8,47,73,.5);border:1px solid rgba(34,211,238,.18);border-radius:5px;padding:1px 5px;font-size:11.5px}
+tr:nth-child(even) td{background:rgba(16,24,44,.45)}
+ul,ol{margin:7px 0;padding-left:19px}li{margin:3px 0}
+pre{background:#0c1530;border:1px solid var(--line);border-radius:10px;padding:11px 13px;overflow:auto;font-size:12px;color:#cfe0f7;margin:9px 0}
+pre .k{color:#7dd3fc}pre .s{color:#86efac}pre .c{color:#64748b}pre .n{color:#fcd34d}
+.demo{border:1px solid rgba(96,165,250,.35);border-radius:12px;margin:10px 0;overflow:hidden}
+.demo .dh{background:rgba(30,64,175,.3);padding:7px 12px;font-weight:800;font-size:12.5px;color:#93c5fd}
+.demo .db{padding:10px 13px;font-size:13px}
+.bad{color:#fda4af}.good{color:#6ee7b7}
+.fig{margin:14px 0;border:1px solid var(--line);border-radius:12px;background:#0c1530;padding:16px 12px;overflow-x:auto}
+.fig .cap{text-align:center;color:var(--muted);font-size:12.5px;margin-top:8px}
+.fig .cap b{color:#cfe0f7}
+svg text{font-family:ui-sans-serif,system-ui,"PingFang SC",sans-serif}
+@media(max-width:920px){.layout{grid-template-columns:1fr}nav{position:static;max-height:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="hero">
+  <div class="eyebrow">专题 v2 · 流程图版 · 结合《离线指令FC协议.xlsx》（51函数）+《离线LLM指令解析PRD》 · 2026-07-23</div>
+  <h1>车控 SFT FC 模型是什么：无网时替你"听懂人话并直接动手"的端侧小模型</h1>
+  <p>一句话定义：<b>SFT FC 模型 = 用"函数调用（Function Calling）协议"做训练数据、监督微调（SFT）出来的端侧小 LLM。它的唯一工作：把用户的语音指令在本地（不联网）翻译成结构化的函数调用 JSON——"空调调到23度" → {"函数":"空调温度调节","value":"23"}——200ms 内完成。</b>它就是"三层漏斗"的第一层，Director 大脑前面站岗的快手。v2 变化：核心链路全部改成流程图，先看图再读字。</p>
+</div>
+
+<div class="layout">
+<nav>
+  <b>目录</b>
+  <a class="n0" href="#what">0 · 图①：一句话的全链路</a>
+  <a href="#why">1 · 为什么需要它</a>
+  <a href="#parts">2 · 图②：五组件协同</a>
+  <a href="#proto">3 · FC协议：51个函数的契约 ★</a>
+  <a href="#sft">4 · 图③：SFT训练数据流</a>
+  <a href="#white">5 · 白名单：27放/24拦</a>
+  <a href="#reject">6 · 拒识模块</a>
+  <a href="#cache">7 · 指令缓存</a>
+  <a href="#flow">8 · 图④：四个case走链路</a>
+  <a class="n0" href="#pit">9 · 协议数据里的坑</a>
+  <a class="n0" href="#yours">10 · 对你工作的接口</a>
+</nav>
+
+<main>
+
+<!-- 0 -->
+<section id="what">
+  <h2><span class="num">0</span>图①：一句话从话筒到执行的全链路（仲裁流程图）</h2>
+  <div class="fig">
+<svg viewBox="0 0 960 940" width="100%" style="max-width:960px;display:block;margin:0 auto">
+<defs>
+<marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#60a5fa"/></marker>
+<marker id="arg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#34d399"/></marker>
+<marker id="arv" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#a78bfa"/></marker>
+<marker id="ara" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#fbbf24"/></marker>
+</defs>
+<!-- 主干节点 -->
+<rect x="330" y="14" width="300" height="44" rx="10" fill="rgba(34,211,238,.12)" stroke="#22d3ee"/>
+<text x="480" y="41" fill="#a5f3fc" font-size="15" text-anchor="middle" font-weight="700">用户说话：「打开360影像」</text>
+<line x1="480" y1="58" x2="480" y2="86" stroke="#60a5fa" stroke-width="1.8" marker-end="url(#ar)"/>
+<rect x="355" y="88" width="250" height="40" rx="10" fill="rgba(96,165,250,.10)" stroke="#60a5fa"/>
+<text x="480" y="113" fill="#bfdbfe" font-size="14" text-anchor="middle">ASR 语音转文字</text>
+<line x1="480" y1="128" x2="480" y2="156" stroke="#60a5fa" stroke-width="1.8" marker-end="url(#ar)"/>
+<!-- diamond 缓存 -->
+<polygon points="480,158 610,208 480,258 350,208" fill="rgba(251,191,36,.10)" stroke="#fbbf24"/>
+<text x="480" y="203" fill="#fde68a" font-size="14" text-anchor="middle" font-weight="700">命中指令缓存？</text>
+<text x="480" y="222" fill="#fde68a" font-size="11" text-anchor="middle">（30条高频原话）</text>
+<!-- 缓存是 -->
+<line x1="610" y1="208" x2="700" y2="208" stroke="#34d399" stroke-width="1.8" marker-end="url(#arg)"/>
+<text x="655" y="196" fill="#6ee7b7" font-size="12" text-anchor="middle" font-weight="700">是</text>
+<rect x="704" y="180" width="240" height="56" rx="10" fill="rgba(52,211,153,.12)" stroke="#34d399"/>
+<text x="824" y="203" fill="#a7f3d0" font-size="13.5" text-anchor="middle" font-weight="700">50ms 直接执行</text>
+<text x="824" y="222" fill="#6ee7b7" font-size="11" text-anchor="middle">为什么：背答案比查字典快</text>
+<!-- 缓存否 -->
+<line x1="480" y1="258" x2="480" y2="290" stroke="#60a5fa" stroke-width="1.8" marker-end="url(#ar)"/>
+<text x="492" y="278" fill="#9db0d0" font-size="12">否</text>
+<rect x="330" y="292" width="300" height="56" rx="10" fill="rgba(34,211,238,.12)" stroke="#22d3ee" stroke-width="2"/>
+<text x="480" y="316" fill="#a5f3fc" font-size="15" text-anchor="middle" font-weight="700">SFT FC 模型解析（端侧，离线）</text>
+<text x="480" y="336" fill="#67e8f9" font-size="11.5" text-anchor="middle">输出：函数调用 JSON 或「其他」· ≤200ms</text>
+<line x1="480" y1="348" x2="480" y2="378" stroke="#60a5fa" stroke-width="1.8" marker-end="url(#ar)"/>
+<!-- diamond 其他 -->
+<polygon points="480,380 610,430 480,480 350,430" fill="rgba(251,191,36,.10)" stroke="#fbbf24"/>
+<text x="480" y="425" fill="#fde68a" font-size="14" text-anchor="middle" font-weight="700">输出是「其他」？</text>
+<text x="480" y="444" fill="#fde68a" font-size="11" text-anchor="middle">（不属离线范围）</text>
+<!-- 其他=是 去云端Director -->
+<line x1="610" y1="430" x2="700" y2="430" stroke="#a78bfa" stroke-width="1.8" marker-end="url(#arv)"/>
+<text x="655" y="418" fill="#c4b5fd" font-size="12" text-anchor="middle" font-weight="700">是</text>
+<rect x="704" y="396" width="240" height="68" rx="10" fill="rgba(167,139,250,.12)" stroke="#a78bfa"/>
+<text x="824" y="420" fill="#ddd6fe" font-size="13.5" text-anchor="middle" font-weight="700">走云端：拒识+仲裁 → Director</text>
+<text x="824" y="439" fill="#c4b5fd" font-size="11" text-anchor="middle">为什么：「我好热」要理解不要解析</text>
+<text x="824" y="456" fill="#c4b5fd" font-size="11" text-anchor="middle">（首token P50 500ms）</text>
+<!-- 其他=否 继续 -->
+<line x1="480" y1="480" x2="480" y2="512" stroke="#60a5fa" stroke-width="1.8" marker-end="url(#ar)"/>
+<text x="492" y="500" fill="#9db0d0" font-size="12">否（解析出了函数）</text>
+<!-- diamond 白名单 -->
+<polygon points="480,514 610,564 480,614 350,564" fill="rgba(251,191,36,.10)" stroke="#fbbf24"/>
+<text x="480" y="559" fill="#fde68a" font-size="14" text-anchor="middle" font-weight="700">白名单=是？</text>
+<text x="480" y="578" fill="#fde68a" font-size="11" text-anchor="middle">（51个函数里27个）</text>
+<!-- 白名单是 -->
+<line x1="610" y1="564" x2="700" y2="564" stroke="#34d399" stroke-width="1.8" marker-end="url(#arg)"/>
+<text x="655" y="552" fill="#6ee7b7" font-size="12" text-anchor="middle" font-weight="700">是</text>
+<rect x="704" y="536" width="240" height="56" rx="10" fill="rgba(52,211,153,.12)" stroke="#34d399"/>
+<text x="824" y="559" fill="#a7f3d0" font-size="13.5" text-anchor="middle" font-weight="700">端侧直接执行 · ≤200ms</text>
+<text x="824" y="578" fill="#6ee7b7" font-size="11" text-anchor="middle">为什么：安全可控，不等云端</text>
+<!-- 白名单否 -->
+<line x1="480" y1="614" x2="480" y2="646" stroke="#60a5fa" stroke-width="1.8" marker-end="url(#ar)"/>
+<text x="492" y="634" fill="#9db0d0" font-size="12">否（导航/媒体/雨刮等）</text>
+<rect x="330" y="648" width="300" height="50" rx="10" fill="rgba(96,165,250,.10)" stroke="#60a5fa"/>
+<text x="480" y="670" fill="#bfdbfe" font-size="14" text-anchor="middle" font-weight="700">云端优先处理</text>
+<text x="480" y="688" fill="#93c5fd" font-size="11" text-anchor="middle">为什么：依赖在线数据（地图/曲库）</text>
+<line x1="480" y1="698" x2="480" y2="728" stroke="#60a5fa" stroke-width="1.8" marker-end="url(#ar)"/>
+<!-- diamond 云端成功 -->
+<polygon points="480,730 610,780 480,830 350,780" fill="rgba(251,191,36,.10)" stroke="#fbbf24"/>
+<text x="480" y="775" fill="#fde68a" font-size="14" text-anchor="middle" font-weight="700">云端成功？</text>
+<text x="480" y="794" fill="#fde68a" font-size="11" text-anchor="middle">（超时/无结果算失败）</text>
+<line x1="610" y1="780" x2="700" y2="780" stroke="#34d399" stroke-width="1.8" marker-end="url(#arg)"/>
+<text x="655" y="768" fill="#6ee7b7" font-size="12" text-anchor="middle" font-weight="700">成功</text>
+<rect x="704" y="752" width="240" height="56" rx="10" fill="rgba(52,211,153,.12)" stroke="#34d399"/>
+<text x="824" y="775" fill="#a7f3d0" font-size="13.5" text-anchor="middle" font-weight="700">云端结果执行</text>
+<text x="824" y="794" fill="#6ee7b7" font-size="11" text-anchor="middle">数据最新，路线最优</text>
+<line x1="480" y1="830" x2="480" y2="862" stroke="#fbbf24" stroke-width="1.8" marker-end="url(#ara)"/>
+<text x="492" y="850" fill="#fcd34d" font-size="12">失败/超时</text>
+<rect x="310" y="864" width="340" height="56" rx="10" fill="rgba(251,191,36,.12)" stroke="#fbbf24"/>
+<text x="480" y="887" fill="#fde68a" font-size="14" text-anchor="middle" font-weight="700">端上结果兜底执行（备胎启用）</text>
+<text x="480" y="906" fill="#fcd34d" font-size="11" text-anchor="middle">FC 早已解析好，一直压着等云端——超时才有执行权</text>
+</svg>
+    <div class="cap"><b>图① 全链路仲裁流程</b>｜三个菱形决定命运：缓存→「其他」→白名单。绿色的快（50ms/200ms），紫色的聪明（Director），黄色的是兜底</div>
+  </div>
+  <div class="q">"离线fc模型对简单高频车控进行召回，命中白名单时，优先端侧结果快速执行。离线fc模型未命中白名单时，优先云端结果。云端超时等无结果时，端上有结果则用端上结果，端上无结果进行兜底。" —— Director PRD 链路图（图①就是这段话的流程图化）</div>
+</section>
+
+<!-- 1 -->
+<section id="why">
+  <h2><span class="num">1</span>为什么需要它：三个痛点 + 两个硬指标</h2>
+  <table>
+    <tr><th>痛点（PRD原文）</th><th>车上的真实场景</th></tr>
+    <tr><td><b>网络依赖风险</b></td><td>地下车库、偏远山区、隧道——弱网/无网，云端解析延迟高甚至失效</td></tr>
+    <tr><td><b>隐私安全隐患</b></td><td>语音上云涉及通话内容、目的地等隐私，本地解析不出门</td></tr>
+    <tr><td><b>实时性不足</b></td><td>在线解析走网络传输+云端排队，驾驶场景容忍阈值极低（紧急调温）</td></tr>
+  </table>
+  <table>
+    <tr><th>指标</th><th>目标</th><th>含义</th></tr>
+    <tr><td>响应延迟</td><td><b>≤200ms</b></td><td>从说完到函数调用出来的上限，比眨眼还快</td></tr>
+    <tr><td>指令识别准确率</td><td><b>≥95%（日常场景）</b></td><td>100句最多错5句——且错的代价是"没执行"，不是"执行错"</td></tr>
+    <tr><td>缓存命中</td><td><b>准确率100%、50ms</b></td><td>缓存层是"背答案"，不许错</td></tr>
+  </table>
+  <div class="car">对比体感：云端 Director 首 token P50=500ms，FC 模型 ≤200ms 出完整函数调用。<b>简单指令要的是快不是聪明——FC 模型用"放弃理解深度"换"确定性的快"</b>。</div>
+</section>
+
+<!-- 2 -->
+<section id="parts">
+  <h2><span class="num">2</span>图②：五个组件协同（不是一个模型单干）</h2>
+  <div class="fig">
+<svg viewBox="0 0 960 560" width="100%" style="max-width:960px;display:block;margin:0 auto">
+<defs>
+<marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#60a5fa"/></marker>
+</defs>
+<!-- 中心 -->
+<rect x="380" y="230" width="200" height="90" rx="12" fill="rgba(34,211,238,.14)" stroke="#22d3ee" stroke-width="2"/>
+<text x="480" y="264" fill="#a5f3fc" font-size="15" text-anchor="middle" font-weight="700">SFT FC 模型</text>
+<text x="480" y="285" fill="#67e8f9" font-size="11.5" text-anchor="middle">输入一句话</text>
+<text x="480" y="302" fill="#67e8f9" font-size="11.5" text-anchor="middle">输出函数JSON / 「其他」</text>
+<!-- 上：协议 -->
+<rect x="365" y="30" width="230" height="80" rx="12" fill="rgba(251,191,36,.10)" stroke="#fbbf24"/>
+<text x="480" y="56" fill="#fde68a" font-size="14" text-anchor="middle" font-weight="700">① FC 协议（字典）</text>
+<text x="480" y="76" fill="#fcd34d" font-size="11.5" text-anchor="middle">51函数×槽位×取值×样本对</text>
+<text x="480" y="93" fill="#fcd34d" font-size="11.5" text-anchor="middle">=训练数据规范 + 接口契约</text>
+<line x1="480" y1="110" x2="480" y2="226" stroke="#60a5fa" stroke-width="1.8" marker-end="url(#ar2)"/>
+<text x="492" y="170" fill="#9db0d0" font-size="12">SFT 微调：把字典烧进权重</text>
+<!-- 左：缓存 -->
+<rect x="30" y="235" width="210" height="80" rx="12" fill="rgba(52,211,153,.12)" stroke="#34d399"/>
+<text x="135" y="261" fill="#a7f3d0" font-size="14" text-anchor="middle" font-weight="700">⑤ 指令缓存（捷径）</text>
+<text x="135" y="281" fill="#6ee7b7" font-size="11.5" text-anchor="middle">30条高频原话</text>
+<text x="135" y="298" fill="#6ee7b7" font-size="11.5" text-anchor="middle">命中→50ms 不过模型</text>
+<line x1="240" y1="275" x2="376" y2="275" stroke="#60a5fa" stroke-width="1.8" marker-end="url(#ar2)"/>
+<text x="308" y="264" fill="#9db0d0" font-size="12" text-anchor="middle">未命中才轮到模型</text>
+<!-- 右：白名单 -->
+<rect x="700" y="235" width="230" height="80" rx="12" fill="rgba(52,211,153,.12)" stroke="#34d399"/>
+<text x="815" y="261" fill="#a7f3d0" font-size="14" text-anchor="middle" font-weight="700">③ 白名单（放行章）</text>
+<text x="815" y="281" fill="#6ee7b7" font-size="11.5" text-anchor="middle">27个"是"→端侧直执</text>
+<text x="815" y="298" fill="#6ee7b7" font-size="11.5" text-anchor="middle">24个"否"→云端优先</text>
+<line x1="580" y1="275" x2="696" y2="275" stroke="#60a5fa" stroke-width="1.8" marker-end="url(#ar2)"/>
+<text x="638" y="264" fill="#9db0d0" font-size="12" text-anchor="middle">解析完要盖章</text>
+<!-- 下：拒识 -->
+<rect x="365" y="430" width="230" height="90" rx="12" fill="rgba(251,113,133,.10)" stroke="#fb7185"/>
+<text x="480" y="456" fill="#fecdd3" font-size="14" text-anchor="middle" font-weight="700">④ 拒识模块（前台）</text>
+<text x="480" y="476" fill="#fda4af" font-size="11.5" text-anchor="middle">过拒=该理不理；漏拒=不该理瞎理</text>
+<text x="480" y="493" fill="#fda4af" font-size="11.5" text-anchor="middle">单轮/多轮两种判断</text>
+<line x1="480" y1="426" x2="480" y2="324" stroke="#60a5fa" stroke-width="1.8" marker-end="url(#ar2)"/>
+<text x="492" y="380" fill="#9db0d0" font-size="12">先过滤"不该理的"，再解析</text>
+</svg>
+    <div class="cap"><b>图② 五组件协同</b>｜协议是字典、缓存是捷径、拒识是前台、白名单是放行章，模型是被它们围在中间查字典的人</div>
+  </div>
+  <table>
+    <tr><th>#</th><th>组件</th><th>是什么</th><th>在哪份文档里</th></tr>
+    <tr><td>①</td><td><b>FC 协议</b></td><td>函数调用契约：51个函数×参数槽位×取值范围×举例输入输出——<b>既是接口文档，也是训练数据规范</b></td><td>离线指令FC协议.xlsx（582行）</td></tr>
+    <tr><td>②</td><td><b>SFT FC 模型</b></td><td>按协议微调的端侧小LLM，输入一句话、输出函数JSON或"其他"</td><td>离线LLM指令解析 PRD</td></tr>
+    <tr><td>③</td><td><b>离线白名单</b></td><td>51个函数里只有27个标"是"——决定端侧结果能不能<b>直接执行</b></td><td>xlsx"离线白名单（主线）"列</td></tr>
+    <tr><td>④</td><td><b>离线拒识模块</b></td><td>判断"这句话该不该理"——减少过拒（该理不理）和漏拒（不该理瞎理）</td><td>PRD 拒识章节</td></tr>
+    <tr><td>⑤</td><td><b>离线指令缓存</b></td><td>30条高频说法的"标准答案表"，命中即返回，50ms</td><td>PRD 缓存章节</td></tr>
+  </table>
+  <div class="os">你以后收到"车控没执行"类 badcase，第一问就该是：<b>卡在五个组件的哪一个？</b>——缓存没覆盖这条说法？模型解析错槽位？白名单拦了？拒识过拒了？还是协议里压根没这个函数？五段各管一段，修的地方完全不同。</div>
+</section>
+
+<!-- 3 -->
+<section id="proto">
+  <h2><span class="num">3</span>FC 协议详解：51 个函数的契约 <span class="tag t-key">★核心文档</span></h2>
+  <h3>3.1 全景统计（New 版，582行）</h3>
+  <table>
+    <tr><th>模块</th><th>函数数</th><th>白名单"是"</th><th>代表函数</th></tr>
+    <tr><td>车控</td><td>25</td><td>20</td><td>空调开关/温度/风量/内外循环/风向；座椅按摩力度/加热通风；车窗；氛围灯×3；阅读灯；远近光；雾灯；方向盘加热×2；驾驶模式；后备箱；全景影像</td></tr>
+    <tr><td>导航</td><td>13</td><td><b>0</b></td><td>单目的地导航/一般地点检索/途经点新增/路线切换/地图缩放/路线偏好…</td></tr>
+    <tr><td>系统控制</td><td>6</td><td>5</td><td>屏幕亮度/昼夜模式/音量/静音/退出语音</td></tr>
+    <tr><td>媒体</td><td>4</td><td><b>0</b></td><td>音乐歌曲播放/播放切换/播放状态/播放模式</td></tr>
+    <tr><td>电话短信</td><td>2</td><td>1</td><td>拨打电话（紧急呼救=否）</td></tr>
+    <tr><td>应用</td><td>1</td><td>1</td><td>指定应用开关</td></tr>
+    <tr><td><b>合计</b></td><td><b>51</b></td><td><b>27</b></td><td>—</td></tr>
+  </table>
+  <h3>3.2 解剖一个函数：空调温度调节（槽位设计有多讲究）</h3>
+  <table>
+    <tr><th>槽位</th><th>必填</th><th>取值</th><th>设计意图</th></tr>
+    <tr><td>value</td><td>必填</td><td>high/mid/low/max/min 或 "+15"/"-30%"/"23"</td><td>"调高点"→"+"，"调到15度"→"15"，"调高15度"→"+15"——<b>相对/绝对靠 +/- 前缀区分</b></td></tr>
+    <tr><td>unit</td><td>非必填</td><td>摄氏度/华氏度/空</td><td>单位独立成槽（你盯过的"带单位字符串剥单位"问题，这里正面解决）</td></tr>
+    <tr><td>position</td><td>非必填</td><td>主驾/副驾/左后/右后/前排/后排/全车/空</td><td>"我这"→<b>音区</b>（说话人位置，不写死座位）</td></tr>
+  </table>
+  <div class="demo">
+    <div class="dh">协议里的样本对（=SFT 训练数据长这样）</div>
+    <div class="db">
+      "主驾空调调高15度" → <code>{"value":"+15","position":"主驾"}</code><br>
+      "主驾空调调高到15度" → <code>{"value":"15","position":"主驾"}</code><br>
+      "副驾冷得不行温度调到顶" → <code>{"value":"max","position":"副驾"}</code><br>
+      "我要把右后的空调温度调到十分之九" → <code>{"value":"90%","position":"右后"}</code>
+    </div>
+  </div>
+  <div class="os">前两行差别只在一个"到"字。<b>这种细微差别，规则系统写到崩溃，SFT 模型见几百个样本就学会了</b>。协议表的"举例输入→举例输出"每一行就是一条训练样本，582 行表 = 这份模型的教科书。</div>
+  <h3>3.3 再看几个函数的样本，感受覆盖度</h3>
+  <table>
+    <tr><th>函数</th><th>输入说法（真实样本）</th><th>输出亮点</th></tr>
+    <tr><td>单目的地导航</td><td>"导航去北京的电视台"</td><td>{"destination":"电视台","center":"北京"}——<b>城市名拆进 center 槽</b></td></tr>
+    <tr><td>单目的地导航</td><td>"最短路线去急诊"</td><td>{"destination":"急诊","route":"里程短"}——路线偏好同句带走</td></tr>
+    <tr><td>音乐歌曲播放</td><td>"我想听那个歌这样唱的，麻雀在电线杆上多嘴"</td><td>{"song":"七里香","artist":"周杰伦","lyric":"麻雀在电线杆上多嘴"}——<b>听歌词识歌</b></td></tr>
+    <tr><td>拨打电话</td><td>"给聪哥4122结尾那个手机打个电话"</td><td>{"name":"聪哥","number":"-4122","phone_type":"mobile"}——尾号"-"前缀</td></tr>
+    <tr><td>氛围灯颜色调节</td><td>"氛围灯调成巴西国旗颜色"</td><td>{"value":"绿,黄"}——常识推理（国旗→颜色）也期待它做</td></tr>
+    <tr><td>驾驶模式设置</td><td>"我想车省油一点…给我切换一下吧"</td><td>{"action":"打开","mode":"经济"}——多轮里的"切换一下"也能解析</td></tr>
+  </table>
+</section>
+
+<!-- 4 -->
+<section id="sft">
+  <h2><span class="num">4</span>图③：SFT 是什么、为什么必须 SFT</h2>
+  <div class="fig">
+<svg viewBox="0 0 960 300" width="100%" style="max-width:960px;display:block;margin:0 auto">
+<defs>
+<marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#60a5fa"/></marker>
+</defs>
+<rect x="20" y="80" width="190" height="130" rx="12" fill="rgba(251,191,36,.10)" stroke="#fbbf24"/>
+<text x="115" y="110" fill="#fde68a" font-size="14" text-anchor="middle" font-weight="700">FC 协议表</text>
+<text x="115" y="132" fill="#fcd34d" font-size="11.5" text-anchor="middle">582行样本对：</text>
+<text x="115" y="150" fill="#fcd34d" font-size="11.5" text-anchor="middle">「说法 → 标准JSON」</text>
+<text x="115" y="175" fill="#fcd34d" font-size="11" text-anchor="middle">+ 函数/槽位/取值定义</text>
+<line x1="210" y1="145" x2="258" y2="145" stroke="#60a5fa" stroke-width="1.8" marker-end="url(#ar3)"/>
+<text x="234" y="133" fill="#9db0d0" font-size="11.5" text-anchor="middle">当训练集</text>
+<rect x="262" y="80" width="180" height="130" rx="12" fill="rgba(96,165,250,.10)" stroke="#60a5fa"/>
+<text x="352" y="110" fill="#bfdbfe" font-size="14" text-anchor="middle" font-weight="700">SFT 监督微调</text>
+<text x="352" y="132" fill="#93c5fd" font-size="11.5" text-anchor="middle">在预训练小模型上</text>
+<text x="352" y="150" fill="#93c5fd" font-size="11.5" text-anchor="middle">继续训练（十亿参数级）</text>
+<text x="352" y="175" fill="#93c5fd" font-size="11" text-anchor="middle">把映射烧进权重</text>
+<line x1="442" y1="145" x2="490" y2="145" stroke="#60a5fa" stroke-width="1.8" marker-end="url(#ar3)"/>
+<rect x="494" y="80" width="190" height="130" rx="12" fill="rgba(34,211,238,.12)" stroke="#22d3ee" stroke-width="2"/>
+<text x="589" y="110" fill="#a5f3fc" font-size="14" text-anchor="middle" font-weight="700">FC 模型上车</text>
+<text x="589" y="132" fill="#67e8f9" font-size="11.5" text-anchor="middle">部署在车端芯片</text>
+<text x="589" y="150" fill="#67e8f9" font-size="11.5" text-anchor="middle">离线可用 · ≤200ms</text>
+<line x1="684" y1="145" x2="732" y2="145" stroke="#60a5fa" stroke-width="1.8" marker-end="url(#ar3)"/>
+<rect x="736" y="80" width="204" height="130" rx="12" fill="rgba(52,211,153,.12)" stroke="#34d399"/>
+<text x="838" y="106" fill="#a7f3d0" font-size="13.5" text-anchor="middle" font-weight="700">推理时</text>
+<text x="838" y="128" fill="#6ee7b7" font-size="11.5" text-anchor="middle">输入：「空调调到23度」</text>
+<text x="838" y="148" fill="#6ee7b7" font-size="11.5" text-anchor="middle">输出：{"value":"23",</text>
+<text x="838" y="166" fill="#6ee7b7" font-size="11.5" text-anchor="middle">"unit":"摄氏度"}</text>
+<text x="838" y="190" fill="#6ee7b7" font-size="11" text-anchor="middle">格式稳定=肌肉记忆</text>
+<text x="480" y="255" fill="#9db0d0" font-size="12" text-anchor="middle">协议变更 → 补样本重训 → 新版本上车（OTA）——协议是表格驱动的，天然适合做成数据管线</text>
+</svg>
+    <div class="cap"><b>图③ SFT 训练数据流</b>｜协议表不是文档，是教材；模型不是"看懂"协议，是被协议"喂大"的</div>
+  </div>
+  <table>
+    <tr><th>为什么不直接在端侧跑 Director 那套 prompt？</th><th>原因</th></tr>
+    <tr><td>算力</td><td>车端芯片跑不动 30K token SP 的大模型，只能跑小模型（十亿参数级）</td></tr>
+    <tr><td>时延</td><td>200ms 硬指标，prompt 越长越慢，SFT 模型输入只要一句话</td></tr>
+    <tr><td>格式稳定性</td><td>函数调用 JSON 必须 100% 合法（下游直接执行），prompt 约束小模型总会抽风；<b>SFT 把格式练成肌肉记忆</b></td></tr>
+    <tr><td>协议变更成本</td><td>改协议=补样本重训，vs 改 prompt=逐字调。表格驱动天然适合做数据管线</td></tr>
+  </table>
+  <div class="q">"如不属于离线范围时，离线模型输出「其他」" —— PRD 不包含范围</div>
+  <div class="os">"输出「其他」"是最被低估的设计：<b>它教会模型说"我不知道"</b>。需要理解情绪的、需要联网的，模型不硬答，交回云端。<b>一个离线系统的可靠性，不取决于答对多少，取决于能不能识别自己不该答的</b>。</div>
+</section>
+
+<!-- 5 -->
+<section id="white">
+  <h2><span class="num">5</span>白名单：27 个放行 / 24 个拦下，为什么</h2>
+  <table>
+    <tr><th>白名单"是"（27个，端侧直接执行）</th><th>白名单"否"（24个，云端优先，端侧只兜底）</th></tr>
+    <tr><td>空调全家（5）、座椅（3）、车窗、氛围灯（3）、阅读灯、远近光、雾灯、方向盘加热（2）、驾驶模式、后备箱、全景影像；屏幕亮度/昼夜/音量/静音/退出语音；拨打电话；指定应用开关</td><td><b>导航全家（13）、媒体全家（4）</b>、危险警示灯、雨刮全家（4）、低速行人提示音、紧急呼救</td></tr>
+  </table>
+  <div class="os">三类"否"各有各的道理：<br>
+  <b>① 导航/媒体</b>：协议会解析，但动作依赖在线数据（地图/曲库），离线执行了也是错——云端优先，端侧只兜底。高频说法（"导航回家""上一首"）由缓存层接管。<br>
+  <b>② 危险警示灯/紧急呼救</b>：安全敏感，错了代价大，宁可慢点走云端确认。<br>
+  <b>③ 雨刮/低速提示音</b>：v0.3 变更记录——"白名单与主线赛力斯可控制的车控范围对齐"。<b>白名单=车型能力边界在离线层的投影</b>。</div>
+  <div class="car">同一句话在不同车型命运不同："打开雨刮"在赛力斯=否→云端；某车型开了雨刮语音=是→离线直接刮。<b>FC 模型是同一份协议训的，白名单按车型配置——模型共享，放行策略定制</b>。这就是"协议与策略分离"。</div>
+</section>
+
+<!-- 6 -->
+<section id="reject">
+  <h2><span class="num">6</span>拒识模块：前台接待，决定"这句话该不该理"</h2>
+  <table>
+    <tr><th></th><th>单轮拒识</th><th>多轮拒识</th></tr>
+    <tr><td>管什么</td><td>无上下文的单句意图判断</td><td>需上下文关联的判断（代词/继承）</td></tr>
+    <tr><td class="good">不拒识（召回）</td><td>"打开空调"——意图明确的功能控制</td><td>"打开空调"→"调到23度吧"——主客体动作与上文强相关</td></tr>
+    <tr><td class="bad">拒识</td><td>"嗯嗯呀"/"继续防晒要走"——不通顺；"你晚上别和孩子玩太晚"——不是对车机说的</td><td>"这个拒识效果还行"接"这台车的功能"——上下文无关</td></tr>
+  </table>
+  <div class="os">两个指标反着看：<b>过拒</b>=该理不理（用户喊三遍没反应）；<b>漏拒</b>=不该理瞎理（两口子聊天，车机插话"好的，已开空调"）。<b>这是跷跷板，阈值往哪偏是产品决策不是技术决策</b>。"车机乱插话/装听不见"类 badcase 就归这里。</div>
+</section>
+
+<!-- 7 -->
+<section id="cache">
+  <h2><span class="num">7</span>指令缓存：30 条背诵答案，50ms/100%</h2>
+  <table>
+    <tr><th>原则</th><th>防什么</th></tr>
+    <tr><td><b>单轮解析</b>：不引用历史</td><td>"就选它了"依赖上下文，缓存没法知道"它"是谁</td></tr>
+    <tr><td><b>上下文无关</b>：与会话状态无关</td><td>"暂停播放/继续播放"依赖播放状态，不纳入</td></tr>
+    <tr><td><b>结果唯一</b>：一条指令唯一意图+槽位</td><td>有歧义要澄清的，回退到 FC 模型路径</td></tr>
+  </table>
+  <p>30 条摘录：查看通话记录、播放下一首/上一首、打开歌词、播放蓝牙音乐、返回桌面、打开设置、媒体音量小一点、<b>导航去公司/导航回家</b>、退出导航、放大/缩小地图、<b>打开空调/关闭空调/空调调到23度</b>、打开座椅按摩、打开车窗、打开全景影像、退出语音。</p>
+  <div class="os">清单里混着导航和媒体（"导航回家""上一首"）——它们在 FC 白名单里是"否"，但在缓存里是"是"。<b>缓存是绕过 FC+白名单的第三条快速通道</b>：这些说法太标准，连解析都不用，原样匹配直接出结果。"空调调到23度"能 50ms 响应，是因为它根本没经过模型。</div>
+</section>
+
+<!-- 8 -->
+<section id="flow">
+  <h2><span class="num">8</span>图④：四个 case 走一遍链路</h2>
+  <div class="fig">
+<svg viewBox="0 0 960 420" width="100%" style="max-width:960px;display:block;margin:0 auto">
+<defs>
+<marker id="ar4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#9db0d0"/></marker>
+</defs>
+<!-- 泳道1 绿 缓存 -->
+<text x="20" y="30" fill="#6ee7b7" font-size="13" font-weight="700">case 2 ｜隧道弱网「空调调到23度」</text>
+<rect x="20" y="42" width="170" height="42" rx="8" fill="rgba(52,211,153,.12)" stroke="#34d399"/><text x="105" y="68" fill="#a7f3d0" font-size="12" text-anchor="middle">缓存原话命中</text>
+<line x1="190" y1="63" x2="228" y2="63" stroke="#9db0d0" stroke-width="1.5" marker-end="url(#ar4)"/>
+<rect x="232" y="42" width="170" height="42" rx="8" fill="rgba(52,211,153,.12)" stroke="#34d399"/><text x="317" y="68" fill="#a7f3d0" font-size="12" text-anchor="middle">50ms 直接执行</text>
+<line x1="402" y1="63" x2="440" y2="63" stroke="#9db0d0" stroke-width="1.5" marker-end="url(#ar4)"/>
+<rect x="444" y="42" width="240" height="42" rx="8" fill="rgba(52,211,153,.12)" stroke="#34d399"/><text x="564" y="68" fill="#a7f3d0" font-size="12" text-anchor="middle">用户还没感觉，温度已调好</text>
+<!-- 泳道2 青 FC直执 -->
+<text x="20" y="128" fill="#67e8f9" font-size="13" font-weight="700">case 1 ｜地库无网「打开360影像」</text>
+<rect x="20" y="140" width="170" height="42" rx="8" fill="rgba(34,211,238,.12)" stroke="#22d3ee"/><text x="105" y="166" fill="#a5f3fc" font-size="12" text-anchor="middle">缓存无→FC 解析</text>
+<line x1="190" y1="161" x2="228" y2="161" stroke="#9db0d0" stroke-width="1.5" marker-end="url(#ar4)"/>
+<rect x="232" y="140" width="170" height="42" rx="8" fill="rgba(34,211,238,.12)" stroke="#22d3ee"/><text x="317" y="158" fill="#a5f3fc" font-size="11.5" text-anchor="middle">全景影像开关·打开</text><text x="317" y="174" fill="#67e8f9" font-size="10.5" text-anchor="middle">白名单=是</text>
+<line x1="402" y1="161" x2="440" y2="161" stroke="#9db0d0" stroke-width="1.5" marker-end="url(#ar4)"/>
+<rect x="444" y="140" width="240" height="42" rx="8" fill="rgba(52,211,153,.12)" stroke="#34d399"/><text x="564" y="166" fill="#a7f3d0" font-size="12" text-anchor="middle">端侧 200ms 执行，影像亮起</text>
+<!-- 泳道3 紫 Director -->
+<text x="20" y="226" fill="#c4b5fd" font-size="13" font-weight="700">case 3 ｜有网「我好热」</text>
+<rect x="20" y="238" width="170" height="42" rx="8" fill="rgba(167,139,250,.12)" stroke="#a78bfa"/><text x="105" y="264" fill="#ddd6fe" font-size="12" text-anchor="middle">FC：无明确指令</text>
+<line x1="190" y1="259" x2="228" y2="259" stroke="#9db0d0" stroke-width="1.5" marker-end="url(#ar4)"/>
+<rect x="232" y="238" width="170" height="42" rx="8" fill="rgba(167,139,250,.12)" stroke="#a78bfa"/><text x="317" y="264" fill="#ddd6fe" font-size="12" text-anchor="middle">输出「其他」→云端</text>
+<line x1="402" y1="259" x2="440" y2="259" stroke="#9db0d0" stroke-width="1.5" marker-end="url(#ar4)"/>
+<rect x="444" y="238" width="170" height="42" rx="8" fill="rgba(167,139,250,.12)" stroke="#a78bfa"/><text x="529" y="256" fill="#ddd6fe" font-size="11.5" text-anchor="middle">Director 结合端状态</text><text x="529" y="272" fill="#c4b5fd" font-size="10.5" text-anchor="middle">记忆/情景拆任务</text>
+<line x1="614" y1="259" x2="652" y2="259" stroke="#9db0d0" stroke-width="1.5" marker-end="url(#ar4)"/>
+<rect x="656" y="238" width="284" height="42" rx="8" fill="rgba(167,139,250,.12)" stroke="#a78bfa"/><text x="798" y="264" fill="#ddd6fe" font-size="12" text-anchor="middle">开空调+21℃+风量3档（不拆开窗：在下雨）</text>
+<!-- 泳道4 黄 兜底 -->
+<text x="20" y="324" fill="#fcd34d" font-size="13" font-weight="700">case 4 ｜云端超时「导航去公司」</text>
+<rect x="20" y="336" width="170" height="42" rx="8" fill="rgba(251,191,36,.12)" stroke="#fbbf24"/><text x="105" y="362" fill="#fde68a" font-size="12" text-anchor="middle">FC 解析出目的地</text>
+<line x1="190" y1="357" x2="228" y2="357" stroke="#9db0d0" stroke-width="1.5" marker-end="url(#ar4)"/>
+<rect x="232" y="336" width="170" height="42" rx="8" fill="rgba(251,191,36,.12)" stroke="#fbbf24"/><text x="317" y="354" fill="#fde68a" font-size="11.5" text-anchor="middle">白名单=否</text><text x="317" y="370" fill="#fcd34d" font-size="10.5" text-anchor="middle">云端优先</text>
+<line x1="402" y1="357" x2="440" y2="357" stroke="#9db0d0" stroke-width="1.5" marker-end="url(#ar4)"/>
+<rect x="444" y="336" width="170" height="42" rx="8" fill="rgba(251,191,36,.12)" stroke="#fbbf24"/><text x="529" y="362" fill="#fde68a" font-size="12" text-anchor="middle">云端超时/失败</text>
+<line x1="614" y1="357" x2="652" y2="357" stroke="#9db0d0" stroke-width="1.5" marker-end="url(#ar4)"/>
+<rect x="656" y="336" width="284" height="42" rx="8" fill="rgba(251,191,36,.12)" stroke="#fbbf24"/><text x="798" y="354" fill="#fde68a" font-size="12" text-anchor="middle">端上结果兜底执行</text><text x="798" y="370" fill="#fcd34d" font-size="10.5" text-anchor="middle">风险：本地缓存地图，路线未必最优</text>
+</svg>
+    <div class="cap"><b>图④ 四条泳道</b>｜绿=缓存道（50ms）、青=FC直执道（200ms）、紫=Director道（聪明但慢）、黄=兜底道（备胎）</div>
+  </div>
+  <div class="car">同一套语音系统，"打开空调"走 FC 200ms，"我好热"走 Director 500ms+——<b>快与聪明各司其职</b>。用户感知不到分层，只觉得"这车又灵又懂我"。</div>
+</section>
+
+<!-- 9 -->
+<section id="pit">
+  <h2><span class="num">9</span>对抗式审查：协议数据里的三个坑 <span class="tag t-hot">值得提给协议 owner</span></h2>
+  <table>
+    <tr><th>#</th><th>坑</th><th>证据（协议原文样本）</th><th>后果</th></tr>
+    <tr><td>1</td><td><b>车窗 action 标注自相矛盾</b></td><td>"车窗开50%"→<code>{"action":"关闭","value":"50%"}</code>；而"车窗开到一半"→<code>{"action":"打开","value":"50%"}</code>；"车窗下降20%"（明明是开）→<code>{"action":"关闭","value":"+20%"}</code></td><td><b>SFT 最怕脏数据</b>——同类说法两个 action，模型学出来就是掷硬币。车窗是安全敏感件，必修（大概率是"开度0=全开/100=全关"坐标系在标注员之间没统一）</td></tr>
+    <tr><td>2</td><td><b>FC 协议有"强力制冷"，荣威家越07边界说没有</b></td><td>空调开关 mode 枚举：<code>制冷，强力制冷，制热，强力制热…</code>；家越07 SP 能力边界："空调没有极速制冷，极速制热模式"</td><td>车型能力错配：<b>协议按赛力斯主线写的，荣威用同一套协议就会解析出车不支持的模式</b>。解法：协议层支持≠白名单放行≠边界承诺，三层按车型对齐</td></tr>
+    <tr><td>3</td><td><b>多轮样本混进"单轮解析"协议</b></td><td>车窗函数里混着完整多轮样本（"副驾开10%→再开大点→主驾调成一样的"→<code>{"value":"20%","position":"主驾"}</code>）；驾驶模式也有"…给我切换一下吧"</td><td>与缓存层"单轮/上下文无关"原则冲突——<b>FC 到底吃不吃上下文？协议没表态</b>。吃：时延和状态管理成本变；不吃：这些样本在教用不上的能力</td></tr>
+  </table>
+  <div class="adv">第 1 个坑是最实的锤。修法建议：action 统一为"调节"、value 带方向；或明确定义开度坐标系后全表体检。提 bug 时把两种修法都写上，让对方选。</div>
+</section>
+
+<!-- 10 -->
+<section id="yours">
+  <h2><span class="num">10</span>对你工作的接口 <span class="tag t-you">落到你的地图</span></h2>
+  <table>
+    <tr><th>你的领域</th><th>和 FC 模型的关系</th></tr>
+    <tr><td><b>三层漏斗排查路径</b></td><td>"走错模块"类 badcase 前两站在这：该走 FC 的走了 Director（"打开车窗"等2秒），或该走 Director 的走了 FC（"我好热"被输出「其他」草率兜底）。<b>FC 召回边界=体验快慢边界</b></td></tr>
+    <tr><td><b>信号格式 owner（仁杰线）</b></td><td>FC 输出 JSON 就是端上执行契约——unit 独立槽、value +/- 前缀、position"音区"——和你盯的"端上报格式带单位"同一哲学：<b>格式归产品约束，不是端上自由发挥</b></td></tr>
+    <tr><td><b>触发器</b></td><td>条件任务触发后"[任务原文]+条件已触发"发给 Director——<b>触发器叫醒的是 Director 不是 FC</b>。但纯车控类条件动作（"10分钟后关座椅加热"）触发后完全可以走 FC 执行，这是时延优化空间</td></tr>
+    <tr><td><b>评测/badcase</b></td><td>FC 的 95% 和 Director 的 90% ACC <b>分开考核</b>：FC 测"说法→JSON槽位对不对"，Director 测"缺失/冗余/错误"。别用同一把尺子</td></tr>
+  </table>
+  <div class="os">一句话收尾：<b>FC 模型是"快手"，Director 是"大脑"</b>。快手求确定性——确定的协议、白名单、时延；大脑求理解力——情景、记忆、目标。车控体验的 80% 满意度来自快手不犯错，20% 惊喜感来自大脑够聪明。两个都要懂，但评判要用两套标准。</div>
+</section>
+
+</main>
+</div>
+</div>
+</body>
+</html>

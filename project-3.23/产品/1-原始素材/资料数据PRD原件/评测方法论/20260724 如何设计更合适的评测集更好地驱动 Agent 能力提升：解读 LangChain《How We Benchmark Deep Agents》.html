@@ -1,0 +1,208 @@
+
+          <!DOCTYPE html>
+<html>
+
+<head>
+    <title>20260724 如何设计更合适的评测集更好地驱动 Agent 能力提升：解读 LangChain《How We Benchmark Deep Agents》</title>
+    <style>
+        /* ====== 基础设置 (保持不变) ====== */
+        :root {
+            --bg-color: #f7f9fc;
+            --card-bg: #ffffff;
+            --text-main: #2c3e50;
+            --text-light: #666666;
+            --accent-color: #3498db;
+            --border-color: #eaeaea;
+            /* 新增：统一边框色 */
+            --max-width: 720px;
+        }
+
+        body {
+            margin: 0;
+            background-color: var(--bg-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            color: var(--text-main);
+            line-height: 1.75;
+        }
+
+        /* 容器样式 */
+        .container {
+            max-width: var(--max-width);
+            margin: 60px auto;
+            padding: 40px 50px;
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+        }
+
+        /* 移动端适配 */
+        @media (max-width: 768px) {
+            .container {
+                margin: 0;
+                width: 100%;
+                border-radius: 0;
+                padding: 20px;
+            }
+        }
+
+        /* 标题 & 段落 (保持不变) */
+        h1,
+        h2,
+        h3 {
+            margin-top: 1.5em;
+            margin-bottom: 0.8em;
+            color: #1a202c;
+        }
+
+        h1 {
+            font-size: 2.2rem;
+            text-align: center;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 20px;
+            margin-top: 0;
+        }
+
+        p {
+            margin-bottom: 1.5em;
+            text-align: justify;
+        }
+
+        /* ====== 1. 优化后的表格样式 (Table) ====== */
+        table {
+            width: 100%;
+            /* 宽度占满容器 */
+            border-collapse: collapse;
+            /* 合并边框，这是实现细边框的关键 */
+            margin: 30px 0;
+            /* 上下留白 */
+            font-size: 0.95rem;
+            /* 表格文字通常稍小一点点 */
+        }
+
+        th,
+        td {
+            border: 1px solid var(--border-color);
+            /* 浅色边框 */
+            padding: 12px 15px;
+            /* 充裕的内边距 */
+            text-align: left;
+            /* 默认左对齐 */
+        }
+
+        th {
+            background-color: #f8f9fa;
+            /* 表头浅灰背景 */
+            font-weight: 600;
+            color: #1a202c;
+        }
+
+        /* 可选：隔行变色，增加可读性 */
+        tr:nth-child(even) {
+            background-color: #fcfcfc;
+        }
+
+        /* ====== 2. 优化后的引用样式 (Blockquote) ====== */
+
+        blockquote {
+            /* 基础样式 */
+            margin: 30px 0;
+            /* 默认上下间距 */
+            padding: 16px 24px;
+            /* 内部留白 */
+            border-left: 5px solid var(--accent-color);
+            background-color: #f1f5f9;
+            border-radius: 4px;
+            /* 整体圆角 */
+            color: var(--text-light);
+            font-style: italic;
+
+            /* 过渡效果 */
+            transition: all 0.2s;
+        }
+        blockquote+blockquote {
+            margin-top: -30px;
+            padding-top: 0;
+            border-top-left-radius: 0;
+            border-top-right-radius: 0;
+        }
+        blockquote:has(+ blockquote) {
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+            padding-bottom: 8px;
+            /* 稍微减少前一段的底部留白，模拟段落间距 */
+        }
+
+        /* 图片样式 */
+        img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 30px auto;
+            border-radius: 8px;
+        }
+
+        /* 代码块 */
+        pre,
+        code {
+            font-family: 'Consolas', 'Monaco', monospace;
+            background-color: #282c34;
+            color: #abb2bf;
+            border-radius: 6px;
+        }
+
+        code {
+            padding: 2px 6px;
+            background-color: #f0f0f0;
+            /* 行内代码背景浅色 */
+            color: #e74c3c;
+            font-size: 0.9em;
+        }
+
+        pre {
+            padding: 20px;
+            overflow-x: auto;
+            color: #dcdcdc;
+            /* 代码块文字颜色 */
+        }
+
+        pre code {
+            background-color: transparent;
+            color: inherit;
+            padding: 0;
+        }
+    </style>
+</head>
+
+<body data-meta='{"docId":"fs-ZRcPdqSvXoB9sAxbRv0c5zTPn2f","from":"fs","url":"https://bytedance.larkoffice.com/docx/ZRcPdqSvXoB9sAxbRv0c5zTPn2f","title":"20260724 如何设计更合适的评测集更好地驱动 Agent 能力提升：解读 LangChain《How We Benchmark Deep Agents》","content":"","chunkId":"QOg6KQLQ9xfjhKoa","size":17612,"index":1,"isLast":true,"partTxt":"","basePath":"yx-files/"}'>
+    <div class="container">
+        <h1>20260724 如何设计更合适的评测集更好地驱动 Agent 能力提升：解读 LangChain《How We Benchmark Deep Agents》</h1>
+        <div id="content"><blockquote><span>🔗 原文链接：</span><a class="_origin_" href="https://bytedance.larkoffice.com/docx/ZRcPdqSvXoB9sAxbRv0c5zTPn2f">‌‍⁣⁢⁣‍⁣​‌⁡20260724 如何设计更合适的评测集更好地驱动 Agent 能力提升：解读 LangChain《How We Benchmark Deep Agents》</a></blockquote><blockquote><span>⏰ 剪存时间：2026-07-25 18:41:42</span></blockquote><blockquote><span>✂️ 本文档由 <a href="https://pwwjpto7tva.feishu.cn/wiki/space/7517832277555544092">游侠飞书剪存</a> 一键生成</span></blockquote><blockquote><span>💖 <span>更多好物请访问<a href="https://uibot.cn">游侠创客</a> 微信：xuefuta</span></span></blockquote><p><br></p><div class="youxia-page-block"><blockquote><p><span><b>一句话总结</b></span><span>：LangChain 用开源评测框架 </span><span><b>Harbor</b></span><span> 为其开源 Agent 框架 </span><span><b>Deep Agents</b></span><span> 搭建了一套"端到端 benchmark + 单元能力测试"的双层评测体系, 靠三大基准(Harbor-Index / 𝜏³-bench / ContextBench)覆盖自主任务、多轮对话、检索三类工作, 并用"多次运行取均值 + lite 快跑子集"的工程实践支撑框架迭代。本质是把"Agent 评测"当成产品研发的基础设施来做。</span></p></blockquote><p><span>本文基于原文 </span><a href="https://www.langchain.com/blog/how-we-benchmark-deep-agents"><span>How We Benchmark Deep Agents</span></a><span>(Nick Hollon、Harrison Chase, 2026-07-23), 结合 Deep Agents 开源代码与文档, 以及 Sierra、Terminal-Bench、Anthropic、OpenAI、NVIDIA 等业界实践,做一份系统性拆解。</span></p><hr><h1><span>一、原文核心内容拆解</span></h1><h2><span>1.1 为什么评测 Agent 这么难</span></h2><p><span>原文开篇点出核心矛盾: </span><span><b>Agent 设计难, 很大程度上是因为 Agent 评测难</b></span><span>。在开发 Deep Agents(一个开源、模型无关的 agent harness)的过程中, 团队持续面临大量决策——怎么写 prompt、包含哪些工具、加载哪些 middleware 等。要在快速迭代中保持方向正确, 就必须有一套稳健的评测集作为决策依据 </span><a href="https://www.langchain.com/blog/how-we-benchmark-deep-agents"><span>[How We Benchmark Deep Agents]</span></a><span>。</span></p><p><span>LangChain 明确指出与传统 LLM 评测相比, Agent 评测有</span><span><b>两个本质差异</b></span><span>:</span></p><div class="table-container"><table border="1" style="border-collapse: collapse; width: 100%;"><tbody><tr><td style="width: 117px"><p><span>差异维度</span></p></td><td style="width: 669px"><p><span>传统 LLM 评测 vs Agent 评测</span></p></td></tr><tr><td style="width: 117px"><p><span><b>运行环境</b></span></p></td><td style="width: 669px"><p><span>传统 LLM 评测无需环境, 直接调用 LLM; 而 Agent 评测中</span><span><b>环境如此重要, 以至于必须作为任务定义的一部分被显式声明</b></span><span>(Dockerfile / Docker Compose)。</span></p></td></tr><tr><td style="width: 117px"><p><span><b>评判方式</b></span></p></td><td style="width: 669px"><p><span>Agent 常会产生额外文件或修改状态, </span><span><b>用脚本(test.sh)来评判</b></span><span>, 而不只是看最终回复——必须检查它沿途创造的产物(artifacts)。</span></p></td></tr></tbody></table></div><h2><span>1.2 用 Harbor 做端到端评测</span></h2><p><span>LangChain 近期把评测重心从早期的小型"单元式"测试, 转向</span><span><b>端到端(end-to-end)评测</b></span><span>, 因为 Agent 任务越来越长、越来越复杂。他们选用 </span><span><b>Harbor</b></span><span> 作为评测运行器(eval runner)——这是一个流行的开源 Agent 评测框架, 以驱动 </span><span><b>Terminal Bench</b></span><span>(领先的编码基准)而知名</span><a href="https://www.langchain.com/blog/how-we-benchmark-deep-agents"><span>[How We Benchmark Deep Agents]</span></a><span>。</span></p><p><span>使用 Harbor 需要提供三样东西, 而每个数据集里的 task 又由三部分构成:</span></p><table><tbody><tr><td><blockquote><p><span><b>Harbor 三要素</b></span></p>
+<ul><li><span><b>你的 Agent</b></span><span>: 此处即 Deep Agents</span></li></ul>
+<ul><li><span><b>你的数据集</b></span><span>: 见下方三大基准</span></li></ul>
+<ul><li><span><b>你的沙箱</b></span><span>: 本地或 LangSmith Sandboxes</span></li></ul></blockquote></td><td><blockquote><p><span><b>每个 Task 三部件</b></span></p>
+<ul><li><span><b>Environment</b></span><span>: Dockerfile / Docker Compose YAML</span></li></ul>
+<ul><li><span><b>Instruction</b></span><span>: Markdown 指令</span></li></ul>
+<ul><li><span><b>Evaluation 脚本</b></span><span>: test.sh 判分</span></li></ul></blockquote></td></tr></tbody></table><h2><span>1.3 三大基准: 一类工作对应一个 benchmark</span></h2><p><span>Deep Agents 是通用型 harness,因此需要在多个领域验证能力。LangChain 目前跑三个基准, 各自覆盖一类不同的 Agent 工作</span><a href="https://www.langchain.com/blog/how-we-benchmark-deep-agents"><span>[How We Benchmark Deep Agents]</span></a><span>:</span></p><div class="table-container"><table border="1" style="border-collapse: collapse; width: 100%;"><tbody><tr><td style="width: 131px"><p><span>基准</span></p></td><td style="width: 140px"><p><span>覆盖的工作类型</span></p></td><td style="width: 575px"><p><span>规模与特点</span></p></td></tr><tr><td style="width: 131px"><p><span><b>Harbor-Index</b></span></p></td><td style="width: 140px"><p><span>自主、端到端工作</span></p></td><td style="width: 575px"><p><span>82 个任务,由 Harbor 从 </span><span><b>54 个基准、6000+ 候选任务</b></span><span>中蒸馏而来,跨软件工程、搜索、数据分析、长程工具使用</span></p></td></tr><tr><td style="width: 131px"><p><span><b>𝜏³-bench</b></span></p></td><td style="width: 140px"><p><span>多轮对话</span></p></td><td style="width: 575px"><p><span>30 任务子集,</span><span><b>模拟用户</b></span><span>但用真实结果判分</span></p></td></tr><tr><td style="width: 131px"><p><span><b>ContextBench</b></span></p></td><td style="width: 140px"><p><span>检索</span></p></td><td style="width: 575px"><p><span>30 个校准过的任务,每个任务把</span><span><b>完整语料库打包进沙箱</b></span><span>,Agent 必须自己找到并拼接出答案</span></p></td></tr></tbody></table></div><p><span>原文强调这只是起点(this is just the start), 任务集会随时间持续扩充。</span></p><h2><span>1.4 "行之有效"的四条工程实践</span></h2><ol start="1"><li><span><b>每个任务多次运行</b></span><span>: 被测 Agent 本质上是非确定性的, 方差足够大, 单次运行往往无法得到经良好校准的估计。</span></li></ol><ol start="2"><li><span><b>保留一个 lite 基准用于快速迭代</b></span><span>: 这是一个冻结的子集, 偏向"困难但可解"的前沿区。该 lite 基准比全量</span><span><b>约快 8 倍、便宜 6 倍</b></span><span>——迭代时用 lite, 关键时刻才跑全量。</span></li></ol><ol start="3"><li><span><b>在基准之外保留一套能力测试套件(capability suite)</b></span><span>: 这些是快速、确定性的单元测试, 各自针对某个具体的 harness 行为(工具选择、记忆、文件操作)。它是基准(集成测试层)之下的</span><span><b>单元测试层</b></span><span>。</span></li></ol><ol start="4"><li><span><b>用基准支撑"有信心的迭代"</b></span><span>: 做决策时, 对变更做基准测试能确保方向正确。</span></li></ol><blockquote><p><span><b>0.7 版本实战案例</b></span><span>: 为准备 Deep Agents 0.7 发布, 团队计划</span><span><b>精简 harness</b></span><span>——移除曾经必要但现已冗余的 prompt。这对使用者的收益是: 每次运行更少 token、模型注意力更聚焦于用户真正写的指令。两个正在评估的具体改动是——</span><span><b>移除 todo-list middleware</b></span><span>, 以及</span><span><b>大幅精简 system prompt</b></span><span>。基准正是用来判断这些内置项对 harness 是否仍然必要。</span></p></blockquote><hr><h1><span>二、结合开源代码的深入解读</span></h1><h2><span>2.1 Deep Agents 是什么:被评测的对象</span></h2><p><span>Deep Agents 是 LangChain 开源的"batteries-included" agent harness(</span><a href="https://github.com/langchain-ai/deepagents"><span>github.com/langchain-ai/deepagents</span></a><span>, MIT 协议, 约 3.6k fork)。它构建在 LangGraph 之上, 模型无关, 内置四大核心能力, 理解这些能力是理解"为什么这样评测"的前提</span><a href="https://docs.langchain.com/oss/python/deepagents/overview"><span>[Deep Agents overview - Docs by LangChain]</span></a><span>。</span></p><div class="table-container"><table border="1" style="border-collapse: collapse; width: 100%;"><tbody><tr><td style="width: 160px"><p><span>核心能力</span></p></td><td style="width: 667px"><p><span>实现要点(对应评测维度)</span></p></td></tr><tr><td style="width: 160px"><p><span><b>任务规划 Planning</b></span></p></td><td style="width: 667px"><p><span>"Planning First"原则: 执行前先生成结构化 TODO 列表。由 todo-list middleware 提供——正是 0.7 拟评估移除的对象。</span></p></td></tr><tr><td style="width: 160px"><p><span><b>文件系统 Filesystem</b></span></p></td><td style="width: 667px"><p><span>虚拟文件系统作为上下文管理手段, 把大输出 offload 到独立文件而非塞满上下文窗口。对应多后端: StateBackend / FilesystemBackend / StoreBackend / CompositeBackend / LangSmithSandbox。</span></p></td></tr><tr><td style="width: 160px"><p><span><b>子 Agent Subagents</b></span></p></td><td style="width: 667px"><p><span>复杂任务拆给隔离的子 Agent, 各自拥有独立上下文窗口, 主 Agent 专注编排。对应 GeneralPurposeSubagentProfile 等 profile 配置。</span></p></td></tr><tr><td style="width: 160px"><p><span><b>上下文管理 Context</b></span></p></td><td style="width: 667px"><p><span>SummarizationToolMiddleware 做历史摘要与上下文卸载; /memories/ 目录持久化用户偏好、研究结果与学到的行为模式。</span></p></td></tr></tbody></table></div><p><span>正因为 Deep Agents 内置了 planning、filesystem、subagent、memory 这些"会修改状态、会产生文件"的能力, 原文所说的两个评测差异(</span><span><b>环境即任务</b></span><span>、</span><span><b>脚本判分</b></span><span>)才成为必然——评测必须能观察 Agent 在文件系统里留下的产物。</span></p><h2><span>2.2 双层评测架构: 能力套件 vs 端到端基准</span></h2><p><span>结合更早的技术博客《How we build evals for Deep Agents》(2026-03), 可以看到 LangChain 完整的评测哲学。其核心主张是一句反直觉的话——</span><span><b>"更多的 eval ≠ 更好的 agent"</b></span><span>, 应该构建能反映生产环境所需行为的</span><span><b>定向(targeted)</b></span><span> eval</span><a href="https://www.langchain.com/blog/how-we-build-evals-for-deep-agents"><span>[How we build evals for Deep Agents]</span></a><span>。</span></p><pre><code class="language-text"><span>┌─────────────────────────────────────────────┐
+│  集成测试层  Benchmarks（本文重点）              │
+│  Harbor-Index / τ³-bench / ContextBench       │
+│  端到端、非确定性、多次运行、有 lite 快跑子集      │
+├─────────────────────────────────────────────┤
+│  单元测试层  Capability Suite                  │
+│  快速、确定性、针对单一 harness 行为             │
+│  tool selection / memory / file operations    │
+</span><span>└─────────────────────────────────────────────┘</span></code></pre><p><span>其 eval 数据的三个来源也值得借鉴</span><a href="https://www.langchain.com/blog/how-we-build-evals-for-deep-agents"><span>[How we build evals for Deep Agents]</span></a><span>:</span></p><ul><li><span><b>Dogfooding(自用)反馈</b></span><span>: 每天自用 Agent, 每个错误都成为写一条 eval、更新 agent 定义与上下文工程实践的机会。</span></li></ul><ul><li><span><b>从外部基准(Terminal Bench 2.0、BFCL)选取</b></span><span>并针对特定 Agent 改编。</span></li></ul><ul><li><span><b>手写(artisanal)</b></span><span>自认为重要行为的 eval 与单元测试。</span></li></ul><p><span>关键工程细节: 每条 eval 都带 </span><span><b>docstring 自解释</b></span><span>它测量的能力, 并打上 </span><code>tool_use</code><span> 等分类标签以支持分组运行; 所有 eval 运行都 trace 到共享的 LangSmith 项目, 让团队共担"维护好 eval"的责任。同时他们明确</span><span><b>把 SDK 单元/集成测试(system prompt 透传、interrupt 配置、subagent 路由)与模型能力 eval 分开</b></span><span>——因为任何模型都能通过前者,纳入评分不增加信号。</span></p><h2><span>2.3 从 4 个"单元式"到端到端的演进</span></h2><p><span>更早的《Evaluation Patterns for Deep Agents in Production》记录了 LangChain 在一个月内基于 Deep Agents 上线四个生产应用(DeepAgents CLI 编码 Agent、LangSmith Assist、个人邮件助手、Agent Builder)时总结的五种评测模式:逐数据点定制断言、单步评测、完整 Agent turn 测试、带条件逻辑的多轮对话、以及干净可复现的环境搭建</span><a href="https://www.zenml.io/llmops-database/evaluation-patterns-for-deep-agents-in-production"><span>[Evaluation Patterns for Deep Agents in Production - ZenML]</span></a><span>。本文所述的 Harbor 端到端体系, 正是这套早期"unit 式"实践在</span><span><b>任务变长、变复杂</b></span><span>后的自然升级。</span></p><hr><h1><span>三、业界友商实践对标</span></h1><h2><span>3.1 全景对比表</span></h2><div class="table-container"><table border="1" style="border-collapse: collapse; width: 100%;"><tbody><tr><td style="width: 141px"><p><span>机构 / 基准</span></p></td><td style="width: 174px"><p><span>聚焦领域</span></p></td><td style="width: 182px"><p><span>判分方式</span></p></td><td style="width: 236px"><p><span>核心方法论</span></p></td><td style="width: 276px"><p><span>与 LangChain 的关系</span></p></td></tr><tr><td style="width: 141px"><p><span><b>LangChain Deep Agents</b></span></p></td><td style="width: 174px"><p><span>通用 harness(自主/对话/检索)</span></p></td><td style="width: 182px"><p><span>脚本判分 + 产物检查</span></p></td><td style="width: 236px"><p><span>Harbor 端到端 + 能力套件双层;lite 快跑</span></p></td><td style="width: 276px"><p><span>本文主体</span></p></td></tr><tr><td style="width: 141px"><p><span><b>Sierra 𝜏-bench / 𝜏²-bench</b></span></p></td><td style="width: 174px"><p><span>工具-Agent-用户交互(零售/航空客服)</span></p></td><td style="width: 182px"><p><span>数据库状态比对 + 模拟用户</span></p></td><td style="width: 236px"><p><span>首创 </span><span><b>pass^k</b></span><span> 可靠性指标(k 次都成功)</span></p></td><td style="width: 276px"><p><span>LangChain 用其衍生 𝜏³-bench 测对话</span></p></td></tr><tr><td style="width: 141px"><p><span><b>Terminal-Bench</b></span></p></td><td style="width: 174px"><p><span>命令行终端任务</span></p></td><td style="width: 182px"><p><span>沙箱内脚本判分</span></p></td><td style="width: 236px"><p><span>Harbor-native,长程单任务;Stanford×Laude</span></p></td><td style="width: 276px"><p><span>LangChain 直接复用 Harbor 运行器</span></p></td></tr><tr><td style="width: 141px"><p><span><b>Anthropic</b></span></p></td><td style="width: 174px"><p><span>Agent 通用评测方法论</span></p></td><td style="width: 182px"><p><span>混合(程序化+LLM judge)</span></p></td><td style="width: 236px"><p><span>组合多种技术匹配系统复杂度;引用 pass^k</span></p></td><td style="width: 276px"><p><span>方法论互相印证</span></p></td></tr><tr><td style="width: 141px"><p><span><b>OpenAI / SWE-bench</b></span></p></td><td style="width: 174px"><p><span>真实软件工程 issue 修复</span></p></td><td style="width: 182px"><p><span>运行仓库测试用例</span></p></td><td style="width: 236px"><p><span>Verified 子集人工校验,行业事实标准</span></p></td><td style="width: 276px"><p><span>被众多 harness 引用为编码标尺</span></p></td></tr><tr><td style="width: 141px"><p><span><b>NVIDIA Nemotron</b></span></p></td><td style="width: 174px"><p><span>开放模型 × Deep Agents harness</span></p></td><td style="width: 182px"><p><span>用 LangChain Deep Agents benchmark</span></p></td><td style="width: 236px"><p><span>"调 harness 而非调模型"</span></p></td><td style="width: 276px"><p><span>直接用 LangChain 基准调优模型</span></p></td></tr></tbody></table></div><h2><span>3.2 Sierra 𝜏-bench: pass^k 与"模拟用户"的源头</span></h2><p><span>LangChain 的 𝜏³-bench 直接脱胎于 Sierra 的 𝜏-bench 系列。Sierra 在 2024 年 6 月提出 𝜏-bench(tool-agent-user benchmark), 其突破在于</span><span><b>不只测 Agent 能否完成一次任务, 而是测多次运行的一致性</b></span><span>——引入 </span><span><b>pass^k</b></span><span> 指标衡量跨多次试验的可靠性</span><a href="https://sierra.ai/blog/tau-bench-shaping-development-evaluation-agents"><span>[𝜏-bench | Sierra]</span></a><span>。原文所说"每个任务多次运行以对抗非确定性"正是这一思想的延续。值得注意的是,连 </span><span><b>Anthropic 的模型卡都开始讨论 pass^k</b></span><span>, 说明该方法论已影响到头部厂商的内部评测实践。其升级版 𝜏²-bench(sierra-research/tau2-bench)进一步支持文本与语音(全双工)双模态评测</span><a href="https://github.com/sierra-research/tau2-bench/blob/main/docs/leaderboard-submission.md"><span>[tau2-bench leaderboard submission]</span></a><span>。</span></p><h2><span>3.3 Terminal-Bench: Harbor 的旗舰基准</span></h2><p><span>LangChain 选择 Harbor 并非偶然——Harbor 最知名的应用正是 Terminal-Bench(tbench.ai), 一个由 Stanford 与 Laude 合作、面向命令行硬核真实任务的基准。它是 </span><span><b>Harbor-native</b></span><span> 基准集, 采用长程单任务、沙箱脚本判分的模式,与本文所述 task 三部件(环境/指令/判分脚本)完全同构</span><a href="https://www.tbench.ai/"><span>[Terminal-Bench]</span></a><span>。其 2.1 榜单上 Claude Code、Codex、Cursor CLI 等主流 Agent 得分集中在 74%–84% 区间, 可见"真实、困难"任务对当前 Agent 仍是明显挑战。</span></p><h2><span>3.4 Anthropic: 用技术组合匹配系统复杂度</span></h2><p><span>Anthropic 在《Demystifying evals for AI agents》(2026-01)中提出与 LangChain 高度一致的观点: </span><span><b>让 Agent 有用的能力, 恰恰也让它难以评测</b></span><span>; 跨部署有效的策略是</span><span><b>组合多种技术来匹配被测系统的复杂度</b></span><span>, 并强调好的 eval 让问题在影响用户前就可见, 其价值在 Agent 生命周期中不断复利</span><a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents"><span>[Demystifying evals for AI agents | Anthropic]</span></a><span>。这与 LangChain"每条 eval 都是一个改变系统行为的向量"的表述异曲同工。</span></p><h2><span>3.5 SWE-bench: 编码 Agent 的行业标尺</span></h2><p><span>在软件工程维度, SWE-bench(尤其人工校验的 Verified 子集)已成为跨厂商公认标尺, 判分方式是</span><span><b>直接运行仓库的真实测试用例</b></span><span>——与 LangChain"脚本判分 + 检查产物"的思路一致。据第三方榜单, 当前 SWE-bench Verified 头部模型(如 Claude、GPT-5.5、Gemini)准确率已达 78%–95% 区间</span><a href="https://www.vals.ai/benchmarks/swebench"><span>[SWE-bench Verified | vals.ai]</span></a><span>。Deep Agents 的 Harbor-Index 正是从含此类基准在内的 54 个基准中蒸馏而来。</span></p><h2><span>3.6 NVIDIA: 反向印证"harness 即产品"</span></h2><p><span>一个有力的反向印证来自 NVIDIA:其为 Nemotron 3 Ultra </span><span><b>专门调优 LangChain Deep Agents harness</b></span><span>, 在 LangChain 的 Deep Agents benchmark 上取得开放模型中最高准确率, 并以约 </span><span><b>1/10 的推理成本</b></span><span>实现与顶级闭源模型的业务任务对等——关键是</span><span><b>无需重训模型,所有提升都来自围绕模型工程化环境</b></span><span>(调 system prompt、工具描述、middleware)</span><a href="https://blogs.nvidia.com/blog/nemotron-langchain-agents-open-stack/"><span>[NVIDIA Nemotron Achieves Benchmark-Leading Performance | NVIDIA]</span></a><span>。Harrison Chase 的原话是: "构建更好 Agent 的方法,是持续改进模型周围的系统。"这恰恰说明——LangChain 的 benchmark 不只是自评工具, 已成为业界调优开放 Agent 栈的公共标尺。</span></p><hr><h1><span>四、关键洞察与启示</span></h1><table><tbody><tr><td><blockquote><p><span><b>可直接借鉴的做法</b></span></p>
+<ul><li><span><b>环境即任务</b></span><span>: Agent 评测必须把可复现环境(容器)当成一等公民</span></li></ul>
+<ul><li><span><b>脚本判分 &gt; 看最终回复</b></span><span>: 检查 Agent 产生的文件/状态产物</span></li></ul>
+<ul><li><span><b>多次运行取均值</b></span><span>: 用 pass^k 类指标对抗非确定性</span></li></ul>
+<ul><li><span><b>lite 子集快跑</b></span><span>: 8× 快、6× 省,迭代用 lite、关键跑全量</span></li></ul>
+<ul><li><span><b>双层结构</b></span><span>: 确定性能力单测 + 非确定性端到端基准</span></li></ul></blockquote></td><td><blockquote><p><span><b>容易踩的坑</b></span></p>
+<ul><li><span><b>堆数量陷阱</b></span><span>: 更多 eval 制造"变强的错觉",不等于更好的 Agent</span></li></ul>
+<ul><li><span>把 </span><span><b>SDK 单测混入模型能力评分</b></span><span>,稀释信号</span></li></ul>
+<ul><li><span>eval </span><span><b>无文档、无 trace</b></span><span>, 团队无法共维护</span></li></ul>
+<ul><li><span>只信单次运行, 被方差误导决策</span></li></ul>
+<ul><li><span>只调模型不调 harness, 错失最高性价比的提升空间</span></li></ul></blockquote></td></tr></tbody></table><p><span><b>本质判断</b></span><span>: LangChain 把 Agent 评测从"事后测分"重构为"研发基础设施"。三大基准对应三类工作、Harbor 复用业界成熟运行器、lite/全量分层控成本、能力套件兜住确定性行为——这套组合拳的核心不是"测得多准", 而是</span><span><b>让每一次 harness 变更(删 middleware、精简 prompt)都能被快速、廉价、可信地验证</b></span><span>。这与 Sierra 的 pass^k、Anthropic 的"技术组合"、NVIDIA 的"调环境不调模型"共同指向同一个行业共识: </span><span><b>Agent 时代的竞争力, 越来越多地沉淀在"模型周围的系统"以及验证这套系统的评测能力上。</b></span></p><hr><blockquote><p><span><b>参考来源</b></span><span>:原文 </span><a href="https://www.langchain.com/blog/how-we-benchmark-deep-agents"><span>How We Benchmark Deep Agents</span></a><span> · </span><a href="https://www.langchain.com/blog/how-we-build-evals-for-deep-agents"><span>How we build evals for Deep Agents</span></a><span> · </span><a href="https://github.com/langchain-ai/deepagents"><span>deepagents 开源仓库</span></a><span> · </span><a href="https://docs.langchain.com/oss/python/deepagents/overview"><span>Deep Agents 文档</span></a><span> · </span><a href="https://sierra.ai/blog/tau-bench-shaping-development-evaluation-agents"><span>Sierra 𝜏-bench</span></a><span> · </span><a href="https://www.tbench.ai/"><span>Terminal-Bench</span></a><span> · </span><a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents"><span>Anthropic Demystifying evals</span></a><span> · </span><a href="https://blogs.nvidia.com/blog/nemotron-langchain-agents-open-stack/"><span>NVIDIA Nemotron × Deep Agents</span></a></p></blockquote></div></div>
+    </div>
+</body>
+
+</html>
+      

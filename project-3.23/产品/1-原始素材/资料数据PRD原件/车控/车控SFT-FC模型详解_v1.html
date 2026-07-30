@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>车控 SFT FC 模型详解 · 结合离线FC协议+离线LLM指令解析PRD</title>
+<style>
+:root{--bg:#0a0f1e;--panel:rgba(16,24,44,.85);--ink:#e6edfb;--muted:#9db0d0;--line:#25355a;--blue:#60a5fa;--cyan:#22d3ee;--green:#34d399;--amber:#fbbf24;--rose:#fb7185;--violet:#a78bfa;--orange:#fb923c;}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;color:var(--ink);line-height:1.65;font-family:ui-sans-serif,system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+background:linear-gradient(rgba(30,45,80,.18) 1px,transparent 1px),linear-gradient(90deg,rgba(30,45,80,.18) 1px,transparent 1px),radial-gradient(circle at 8% 2%,rgba(96,165,250,.10),transparent 26%),radial-gradient(circle at 92% 0,rgba(34,211,238,.08),transparent 28%),var(--bg);background-size:46px 46px,46px 46px,auto,auto,auto;}
+.wrap{max-width:1260px;margin:0 auto;padding:28px 22px 110px}
+.layout{display:grid;grid-template-columns:235px minmax(0,1fr);gap:26px;align-items:start}
+nav{position:sticky;top:14px;border:1px solid var(--line);border-radius:12px;background:var(--panel);backdrop-filter:blur(10px);padding:14px 11px;font-size:12.5px;max-height:94vh;overflow:auto}
+nav b{display:block;color:var(--blue);font-size:11px;letter-spacing:.5px;margin:2px 6px 8px}
+nav a{display:block;color:var(--muted);padding:5px 8px;border-radius:7px;border-left:2px solid transparent;text-decoration:none}
+nav a:hover{color:var(--ink);background:rgba(96,165,250,.10);border-left-color:var(--blue)}
+nav .n0{color:#cfe0f7;font-weight:700;margin-top:8px}
+.hero{border:1px solid var(--line);border-radius:14px;background:var(--panel);backdrop-filter:blur(10px);padding:24px 26px;margin-bottom:20px}
+.eyebrow{color:var(--blue);font-weight:800;font-size:12.5px;margin-bottom:8px}
+h1{margin:0;font-size:clamp(22px,2.8vw,32px);line-height:1.22}
+.hero p{color:#cfe0f7;margin:12px 0 0}
+section{border:1px solid var(--line);border-radius:14px;background:var(--panel);backdrop-filter:blur(8px);padding:22px 24px;margin-bottom:18px;scroll-margin-top:14px}
+section>h2{margin:0 0 4px;font-size:21px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+section>h2 .num{font-size:13px;color:#0a0f1e;background:var(--blue);font-weight:800;min-width:26px;height:26px;padding:0 6px;border-radius:8px;display:inline-grid;place-items:center}
+.sub{color:var(--muted);font-size:13.5px;margin:0 0 14px}
+h3{font-size:16px;margin:20px 0 7px;color:#eef4fd;border-left:3px solid var(--blue);padding-left:9px}
+p{margin:7px 0}
+.tag{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:999px;vertical-align:middle;margin-left:5px;border:1px solid}
+.t-key{color:#fde68a;border-color:rgba(251,191,36,.5);background:rgba(120,53,15,.25)}
+.t-hot{color:#fda4af;border-color:rgba(251,113,133,.5);background:rgba(136,19,55,.25)}
+.t-you{color:#6ee7b7;border-color:rgba(52,211,153,.5);background:rgba(6,78,59,.3)}
+.q{margin:9px 0;padding:10px 13px;border-left:3px solid var(--blue);background:rgba(30,64,175,.15);border-radius:0 8px 8px 0;color:#bfdbfe;font-size:13.5px}
+.q::before{content:"原文 · ";color:var(--blue);font-weight:700;font-size:11px}
+.os{margin:11px 0;padding:11px 13px;border:1px dashed rgba(251,191,36,.55);background:rgba(120,53,15,.14);border-radius:10px;font-size:13.5px;color:#fde68a}
+.os::before{content:"讲给你听 · ";color:var(--amber);font-weight:800;font-size:11px}
+.car{margin:11px 0;padding:11px 13px;border:1px solid rgba(34,211,238,.35);background:rgba(8,47,73,.3);border-radius:10px;font-size:13.5px}
+.car::before{content:"车上表现 · ";color:#67e8f9;font-weight:800;font-size:11px}
+.adv{margin:11px 0;padding:11px 13px;border:1px solid rgba(251,146,60,.45);background:rgba(124,45,18,.18);border-radius:10px;font-size:13.5px;color:#fed7aa}
+.adv::before{content:"对抗式审查 · ";color:var(--orange);font-weight:800;font-size:11px}
+table{width:100%;border-collapse:collapse;margin:11px 0;font-size:12.5px}
+th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}
+th{background:rgba(25,38,68,.8);color:#dbe7fa;font-weight:700}
+td code,p code,li code{color:#7dd3fc;background:rgba(8,47,73,.5);border:1px solid rgba(34,211,238,.18);border-radius:5px;padding:1px 5px;font-size:11.5px}
+tr:nth-child(even) td{background:rgba(16,24,44,.45)}
+ul,ol{margin:7px 0;padding-left:19px}li{margin:3px 0}
+pre{background:#0c1530;border:1px solid var(--line);border-radius:10px;padding:11px 13px;overflow:auto;font-size:12px;color:#cfe0f7;margin:9px 0}
+pre .k{color:#7dd3fc}pre .s{color:#86efac}pre .c{color:#64748b}pre .n{color:#fcd34d}
+.pipe{display:flex;flex-wrap:wrap;align-items:stretch;gap:0;margin:12px 0}
+.stage{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:rgba(16,24,44,.6);font-size:12.5px;flex:1;min-width:150px}
+.stage b{display:block;font-size:13px;margin-bottom:4px}
+.stage.s1{border-top:3px solid var(--green)}.stage.s1 b{color:#6ee7b7}
+.stage.s2{border-top:3px solid var(--cyan)}.stage.s2 b{color:#67e8f9}
+.stage.s3{border-top:3px solid var(--amber)}.stage.s3 b{color:#fcd34d}
+.stage.s4{border-top:3px solid var(--violet)}.stage.s4 b{color:#c4b5fd}
+.arr{align-self:center;color:var(--blue);font-weight:800;padding:0 6px;font-size:15px}
+.demo{border:1px solid rgba(96,165,250,.35);border-radius:12px;margin:10px 0;overflow:hidden}
+.demo .dh{background:rgba(30,64,175,.3);padding:7px 12px;font-weight:800;font-size:12.5px;color:#93c5fd}
+.demo .db{padding:10px 13px;font-size:13px}
+.bad{color:#fda4af}.good{color:#6ee7b7}
+@media(max-width:920px){.layout{grid-template-columns:1fr}nav{position:static;max-height:none}.pipe{flex-direction:column}.arr{transform:rotate(90deg)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="hero">
+  <div class="eyebrow">专题 · 结合《【AI汽车】离线指令FC协议.xlsx》（51函数）+《【AI汽车-PRD】离线LLM指令解析》两份原文 · 2026-07-23</div>
+  <h1>车控 SFT FC 模型是什么：无网时替你"听懂人话并直接动手"的端侧小模型</h1>
+  <p>一句话定义：<b>SFT FC 模型 = 用"函数调用（Function Calling）协议"做训练数据、监督微调（SFT）出来的端侧小 LLM。它的唯一工作：把用户的语音指令在本地（不联网）翻译成结构化的函数调用 JSON——"空调调到23度" → {"函数":"空调温度调节","value":"23"}——200ms 内完成，让车在地下车库、隧道里也能听懂话。</b>它就是"三层漏斗"的第一层，Director 那个大脑前面站岗的快手。</p>
+</div>
+
+<div class="layout">
+<nav>
+  <b>目录</b>
+  <a class="n0" href="#what">0 · 一句话+它在漏斗的位置</a>
+  <a href="#why">1 · 为什么需要它：三痛点两指标</a>
+  <a href="#parts">2 · 五个组件一台戏</a>
+  <a href="#proto">3 · FC协议：51个函数的契约 ★</a>
+  <a href="#sft">4 · SFT 是什么、为什么必须SFT</a>
+  <a href="#white">5 · 白名单：27个放行/24个拦下</a>
+  <a href="#reject">6 · 拒识模块：过拒与漏拒</a>
+  <a href="#cache">7 · 指令缓存：30条/50ms/100%</a>
+  <a href="#flow">8 · 全链路仲裁+三个case走一遍</a>
+  <a class="n0" href="#pit">9 · 协议数据里的坑（审查发现）</a>
+  <a class="n0" href="#yours">10 · 对你工作的接口</a>
+</nav>
+
+<main>
+
+<!-- 0 -->
+<section id="what">
+  <h2><span class="num">0</span>一句话 + 它在三层漏斗里的位置</h2>
+  <div class="pipe">
+    <div class="stage s1"><b>第0层 · 指令缓存</b>30条高频说法原样匹配<br><b>50ms</b>，命中率要求100%准</div>
+    <div class="arr">→</div>
+    <div class="stage s2"><b>第1层 · SFT FC模型</b>端侧小LLM，离线解析成函数调用JSON<br><b>≤200ms</b>，准确率≥95%<br>本页主角</div>
+    <div class="arr">→</div>
+    <div class="stage s3"><b>第2层 · 拒识+仲裁</b>云端判断意图归属：车控/6大意图→fc结果；复杂→Director</div>
+    <div class="arr">→</div>
+    <div class="stage s4"><b>第3层 · Director</b>云端大模型深度推理（Round 5/6 解剖的那位）</div>
+  </div>
+  <div class="q">"离线fc模型对简单高频车控进行召回，命中白名单时，优先端侧结果快速执行。离线fc模型未命中白名单时，优先云端结果。云端超时等无结果时，端上有结果则用端上结果，端上无结果进行兜底。" —— Director PRD 链路图</div>
+  <div class="os">这段话是全链路仲裁的"宪法条文"，读三遍：<b>① 命中白名单 → 端侧结果直接执行（不等云端，快）；② 没命中 → 云端优先（端侧结果压着不用）；③ 云端超时/挂了 → 才拿端侧结果兜底</b>。FC 模型的身份因此很清楚：它是"优先执行者"只对白名单内函数，对其他一切是"备胎兜底者"。</div>
+</section>
+
+<!-- 1 -->
+<section id="why">
+  <h2><span class="num">1</span>为什么需要它：三个痛点 + 两个硬指标</h2>
+  <table>
+    <tr><th>痛点（PRD原文）</th><th>车上的真实场景</th></tr>
+    <tr><td><b>网络依赖风险</b></td><td>地下车库、偏远山区、隧道——弱网/无网，云端解析延迟高甚至失效</td></tr>
+    <tr><td><b>隐私安全隐患</b></td><td>语音上云涉及通话内容、目的地等隐私，本地解析不出门</td></tr>
+    <tr><td><b>实时性不足</b></td><td>在线解析走网络传输+云端排队，驾驶场景的容忍阈值极低（紧急调温）</td></tr>
+  </table>
+  <table>
+    <tr><th>指标</th><th>目标</th><th>含义</th></tr>
+    <tr><td>响应延迟</td><td><b>≤200ms</b></td><td>从说完到函数调用出来的上限，比人眨一次眼还快</td></tr>
+    <tr><td>指令识别准确率</td><td><b>≥95%（日常场景）</b></td><td>100句里最多错5句——且错的代价是"没执行"，不是"执行错"</td></tr>
+    <tr><td>缓存命中</td><td><b>准确率100%、50ms</b></td><td>缓存层是"背答案"，不许错</td></tr>
+  </table>
+  <div class="car">对比体感：云端 Director 首 token 目标 P50=500ms，而 FC 模型是 ≤200ms 出完整函数调用。"打开车窗"这种话如果也等云端，用户在车上会觉得"这车反应慢半拍"。<b>简单指令要的是快不是聪明——FC 模型用"放弃理解深度"换"确定性的快"</b>。</div>
+</section>
+
+<!-- 2 -->
+<section id="parts">
+  <h2><span class="num">2</span>五个组件一台戏（不是一个模型单干）</h2>
+  <table>
+    <tr><th>#</th><th>组件</th><th>是什么</th><th>在哪份文档里</th></tr>
+    <tr><td>①</td><td><b>FC 协议</b></td><td>函数调用契约：51个函数×参数槽位×取值范围×举例输入输出——<b>既是接口文档，也是训练数据规范</b></td><td>离线指令FC协议.xlsx（582行）</td></tr>
+    <tr><td>②</td><td><b>SFT FC 模型</b></td><td>按协议微调的端侧小LLM，输入一句话、输出函数JSON或"其他"</td><td>离线LLM指令解析 PRD</td></tr>
+    <tr><td>③</td><td><b>离线白名单</b></td><td>51个函数里只有27个标"是"——决定端侧结果能不能<b>直接执行</b></td><td>xlsx"离线白名单（主线）"列</td></tr>
+    <tr><td>④</td><td><b>离线拒识模块</b></td><td>判断"这句话该不该理"——减少过拒（该理不理）和漏拒（不该理瞎理）</td><td>PRD 拒识章节</td></tr>
+    <tr><td>⑤</td><td><b>离线指令缓存</b></td><td>30条高频说法的"标准答案表"，命中即返回，50ms</td><td>PRD 缓存章节</td></tr>
+  </table>
+  <div class="os">理解这套系统的关键姿势：<b>协议是"字典"，模型是"查字典的人"，白名单是"放行章"，拒识是"前台接待"，缓存是"常见问题的背诵答案"</b>。五个东西各管一段，任何一段掉链子，用户感知都是"车听不懂话"——但修的地方完全不同。你以后收到"车控没执行"类 badcase，第一问就该是：卡在五个里的哪一个？</div>
+</section>
+
+<!-- 3 -->
+<section id="proto">
+  <h2><span class="num">3</span>FC 协议详解：51 个函数的契约 <span class="tag t-key">★核心文档</span></h2>
+  <h3>3.1 全景统计（New 版，582行）</h3>
+  <table>
+    <tr><th>模块</th><th>函数数</th><th>白名单"是"</th><th>代表函数</th></tr>
+    <tr><td>车控</td><td>25</td><td>20</td><td>空调开关/温度/风量/内外循环/风向；座椅按摩力度/加热通风开关+档位；车窗开关；氛围灯开关/亮度/颜色；阅读灯；远近光；雾灯；方向盘加热×2；驾驶模式；后备箱；全景影像</td></tr>
+    <tr><td>导航</td><td>13</td><td><b>0</b></td><td>单目的地导航/一般地点检索/途经点新增/路线切换/地图放大缩小/路线偏好…</td></tr>
+    <tr><td>系统控制</td><td>6</td><td>5</td><td>屏幕亮度/昼夜模式/音量/静音/退出语音</td></tr>
+    <tr><td>媒体</td><td>4</td><td><b>0</b></td><td>音乐歌曲播放/播放切换/播放状态/播放模式</td></tr>
+    <tr><td>电话短信</td><td>2</td><td>1</td><td>拨打电话（紧急呼救=否）</td></tr>
+    <tr><td>应用</td><td>1</td><td>1</td><td>指定应用开关</td></tr>
+    <tr><td><b>合计</b></td><td><b>51</b></td><td><b>27</b></td><td>—</td></tr>
+  </table>
+  <h3>3.2 解剖一个函数：空调温度调节（看槽位设计有多讲究）</h3>
+  <table>
+    <tr><th>槽位</th><th>必填</th><th>类型</th><th>取值</th><th>设计意图</th></tr>
+    <tr><td>value</td><td>必填</td><td>enum+str</td><td>high/mid/low/max/min，或"+15"/"-30%"/"23"等自由值</td><td>档位话术和温度数字共用一槽：<b>"调高点"→"+"，"调到15度"→"15"，"调高15度"→"+15"</b>——相对量和绝对量靠 +/- 前缀区分</td></tr>
+    <tr><td>unit</td><td>非必填</td><td>enum</td><td>摄氏度/华氏度/空</td><td>单位显式化（你盯过的"带单位字符串剥单位"问题，这里用独立槽位解决）</td></tr>
+    <tr><td>position</td><td>非必填</td><td>enum</td><td>主驾/副驾/左后/右后/前排/后排/全车/空/其他</td><td>"我这"→<b>音区</b>（说话人位置，不写死座位，换人说话不用改逻辑）</td></tr>
+  </table>
+  <div class="demo">
+    <div class="dh">协议里的样本对（=SFT 训练数据长这样）</div>
+    <div class="db">
+      "主驾空调调高15度" → <code>{"value":"+15","unit":"空","position":"主驾"}</code><br>
+      "主驾空调调高到15度" → <code>{"value":"15","unit":"空","position":"主驾"}</code><br>
+      "副驾冷得不行温度调到顶" → <code>{"value":"max","unit":"空","position":"副驾"}</code><br>
+      "我要把右后的空调温度调到十分之九" → <code>{"value":"90%","position":"右后"}</code>
+    </div>
+  </div>
+  <div class="os">注意第二行和第三行的差别只在"到"字——<b>"调高15度"是+15，"调高到15度"是15</b>。这种细微差别，规则系统写到崩溃，但 SFT 模型见几百个样本就学会了。<b>协议表的每一行"举例输入→举例输出"就是一条训练样本，582 行表 = 这份模型的教科书</b>。</div>
+  <h3>3.3 再看两个函数的样本，感受覆盖度</h3>
+  <table>
+    <tr><th>函数</th><th>输入说法（真实样本）</th><th>输出亮点</th></tr>
+    <tr><td>单目的地导航</td><td>"导航去北京的电视台"</td><td>{"destination":"电视台","center":"北京"}——<b>城市名被拆进 center 槽</b></td></tr>
+    <tr><td>单目的地导航</td><td>"最短路线去急诊"</td><td>{"destination":"急诊","route":"里程短"}——路线偏好同句带走</td></tr>
+    <tr><td>音乐歌曲播放</td><td>"我想听那个歌这样唱的，麻雀在电线杆上多嘴"</td><td>{"song":"七里香","artist":"周杰伦","lyric":"麻雀在电线杆上多嘴"}——<b>听歌词识歌也归它</b></td></tr>
+    <tr><td>拨打电话</td><td>"给聪哥4122结尾那个手机打个电话"</td><td>{"name":"聪哥","number":"-4122","phone_type":"mobile"}——尾号用"-"前缀</td></tr>
+    <tr><td>氛围灯颜色调节</td><td>"氛围灯调成巴西国旗颜色"</td><td>{"value":"绿,黄"}——常识推理（国旗→颜色）也期待它做</td></tr>
+    <tr><td>驾驶模式设置</td><td>"我想我的车能够省油一点…给我切换一下吧"</td><td>{"action":"打开","mode":"经济"}——多轮上下文里的"切换一下"也能解析</td></tr>
+  </table>
+</section>
+
+<!-- 4 -->
+<section id="sft">
+  <h2><span class="num">4</span>SFT 是什么、为什么必须是 SFT</h2>
+  <p><b>SFT（Supervised Fine-Tuning，监督微调）</b>：拿成对的"输入→标准答案"样本（这里就是协议表的举例列），在一个预训练小模型的基础上继续训练，把"说法→函数JSON"的映射<b>烧进模型权重</b>。</p>
+  <table>
+    <tr><th>为什么不直接在端侧跑 Director 那套 prompt？</th><th>原因</th></tr>
+    <tr><td>算力</td><td>车端芯片跑不动 30K token SP 的大模型，只能跑小模型（十亿参数级）</td></tr>
+    <tr><td>时延</td><td>200ms 硬指标，prompt 越长越慢，SFT 模型输入只要一句话</td></tr>
+    <tr><td>格式稳定性</td><td>函数调用 JSON 必须 100% 格式合法（下游直接执行），prompt 约束小模型总有一定概率抽风；<b>SFT 把格式训练成肌肉记忆</b></td></tr>
+    <tr><td>协议变更成本</td><td>改协议=补样本重训，vs 改 prompt=逐字调。协议是表格驱动的，天然适合做成数据</td></tr>
+  </table>
+  <div class="q">"如不属于离线范围时，离线模型输出「其他」" —— PRD 不包含范围</div>
+  <div class="os">"输出「其他」"是这个模型最被低估的设计：<b>它教会模型说"我不知道"</b>。"我失恋了放首歌安慰我"这种需要理解情绪的、"导航去国贸评价最高的川菜馆"这种需要联网的，模型不硬答，输出"其他"把话筒交回云端。<b>一个离线系统的可靠性，不取决于它答对多少，取决于它能不能识别自己不该答的</b>。这也是拒识模块存在的同一哲学。</div>
+</section>
+
+<!-- 5 -->
+<section id="white">
+  <h2><span class="num">5</span>白名单：27 个放行 / 24 个拦下，为什么</h2>
+  <table>
+    <tr><th>白名单"是"（27个，端侧直接执行）</th><th>白名单"否"（24个，云端优先，端侧只兜底）</th></tr>
+    <tr><td>空调全家（5）、座椅（3）、车窗、氛围灯（3）、阅读灯、远近光、雾灯、方向盘加热（2）、驾驶模式、后备箱、全景影像；屏幕亮度/昼夜/音量/静音/退出语音；拨打电话；指定应用开关</td><td><b>导航全家（13）、媒体全家（4）</b>、危险警示灯、雨刮全家（4）、低速行人提示音、紧急呼救</td></tr>
+  </table>
+  <div class="os">三类"否"各有各的道理：<br>
+  <b>① 导航/媒体全否</b>：协议会解析（模型懂"导航去国贸"），但这些动作依赖在线数据（地图/曲库），离线执行了也是错——<b>不如让云端优先，端侧只做云端超时兜底</b>。高频说法（"导航回家""上一首""放大地图"）由缓存层接管，不进 FC 直接执行。<br>
+  <b>② 危险警示灯/紧急呼救</b>：安全敏感动作，错了代价大，宁可慢点走云端确认。<br>
+  <b>③ 雨刮全家/低速提示音</b>：v0.3 变更记录写了——"离线白名单全局更新，<b>与主线赛力斯可控制的车控范围对齐</b>"。赛力斯主线这些功能不可语音控，白名单就对齐关掉。<b>白名单=车型的能力边界在离线层的投影</b>。</div>
+  <div class="car">同一句话在不同车型上命运不同："打开雨刮"在赛力斯=白名单否→云端；如果某车型开了雨刮语音→白名单是→离线直接刮。<b>FC 模型是同一份协议训的，白名单按车型配置——模型共享，放行策略定制</b>。这就是"协议与策略分离"。</div>
+</section>
+
+<!-- 6 -->
+<section id="reject">
+  <h2><span class="num">6</span>拒识模块：前台接待，决定"这句话该不该理"</h2>
+  <table>
+    <tr><th></th><th>单轮拒识</th><th>多轮拒识</th></tr>
+    <tr><td>管什么</td><td>无上下文的单句意图判断</td><td>需要上下文关联的判断（代词/继承）</td></tr>
+    <tr><td class="good">不拒识（召回）</td><td>"打开空调"——意图明确的功能控制</td><td>"打开空调"→"调到23度吧"——主客体动作与上文强相关</td></tr>
+    <tr><td class="bad">拒识</td><td>"嗯嗯呀"/"继续防晒要走"——不通顺；"你晚上别和孩子玩太晚"——不是对车机说的</td><td>"这个拒识效果还行"接"这台车的功能"——上下文无关</td></tr>
+  </table>
+  <div class="os">两个指标要反着看：<b>过拒</b>=该理不理（用户喊三遍没反应，砸车的心都有）；<b>漏拒</b>=不该理瞎理（两口子在后排聊天，车机突然插话"好的，已为您打开空调"）。PRD 说目标是"提升自然对话体验（减少过拒）+精准指令响应（减少漏拒）"——<b>这是一个跷跷板，阈值往哪边偏是产品决策，不是技术决策</b>。你评审遇到"车机乱插话/装听不见"类 badcase，归属就是这里。</div>
+</section>
+
+<!-- 7 -->
+<section id="cache">
+  <h2><span class="num">7</span>指令缓存：30 条背诵答案，50ms/100%</h2>
+  <h3>三条定义原则（每条都在防一类事故）</h3>
+  <table>
+    <tr><th>原则</th><th>防什么</th></tr>
+    <tr><td><b>单轮解析</b>：严格限定单轮，不引用历史</td><td>"就选它了"这种依赖上下文的，缓存根本没法知道"它"是谁</td></tr>
+    <tr><td><b>上下文无关</b>：与会话状态无关</td><td>"暂停播放/继续播放"依赖播放状态，不纳入缓存</td></tr>
+    <tr><td><b>结果唯一</b>：一条指令只能映射唯一意图+槽位</td><td>有歧义要二次澄清的，回退到 FC 模型路径</td></tr>
+  </table>
+  <p>30 条清单摘录：查看通话记录、播放下一首/上一首、打开歌词、播放蓝牙音乐、返回桌面、打开设置、媒体音量小一点、<b>导航去公司/导航回家</b>、退出导航、放大/缩小地图、<b>打开空调/关闭空调/空调调到23度</b>、打开座椅按摩、打开车窗、打开全景影像、退出语音。</p>
+  <div class="os">注意清单里混着导航和媒体（"导航回家""上一首"）——它们在 FC 白名单里是"否"，但在缓存里是"是"。<b>缓存是绕过 FC+白名单的第三条快速通道</b>：这些说法太标准了，连解析都不用解析，原样匹配直接出结果。这就是为什么"空调调到23度"能 50ms 响应——它根本没经过模型。</div>
+</section>
+
+<!-- 8 -->
+<section id="flow">
+  <h2><span class="num">8</span>全链路仲裁 + 三个 case 走一遍</h2>
+  <div class="demo">
+    <div class="dh">case 1：地库无网，"打开360度影像"</div>
+    <div class="db">缓存无此条 → FC 模型解析 → <code>{"函数":"全景影像开关","action":"打开"}</code> → 查白名单：<b>是</b> → 端侧直接执行，200ms 内影像亮起。<span class="good">无网照样秒开——这就是这套系统存在的意义。</span></div>
+  </div>
+  <div class="demo">
+    <div class="dh">case 2：隧道里弱网，"空调调到23度"</div>
+    <div class="db"><b>缓存直接命中</b>（30条清单里有这条原话）→ 50ms 出结果 → 执行。<span class="good">用户还没感觉，已经调完了。</span>如果他说的是"空调给我调到二十三度五"（缓存没有）→ FC 模型解析 → 白名单是 → 200ms 执行。</div>
+  </div>
+  <div class="demo">
+    <div class="dh">case 3：有网，"我好热"</div>
+    <div class="db">缓存无 → FC 模型看这句话：<b>没有明确指令，不是函数调用</b> → 输出「其他」→ 走云端 → 拒识+仲裁 → 非简单车控 → <b>进 Director</b> → 结合端状态/记忆/情景拆出"开空调+21度+风量3档"（Round 7 §2 那套流程）。<span class="good">同一套语音系统，"打开空调"走 FC 200ms，"我好热"走 Director 500ms+——快与聪明各司其职。</span></div>
+  </div>
+  <div class="demo">
+    <div class="dh">case 4（兜底）：有网但云端超时，"打开车窗"</div>
+    <div class="db">FC 已解析出 <code>{"函数":"车窗开关","action":"打开","value":"100%"}</code>，白名单是。但按仲裁条文"未命中白名单时优先云端"不适用（这条命中了白名单，直接端侧执行了）。<b>真正用到兜底的场景</b>：导航类——"导航去公司"FC 解析出来了但白名单否 → 云端优先 → 云端超时 → 拿端侧解析结果执行。<span class="bad">风险：端侧兜底用的是本地缓存地图，路线可能不是最优。</span></div>
+  </div>
+</section>
+
+<!-- 9 -->
+<section id="pit">
+  <h2><span class="num">9</span>对抗式审查：协议数据里的三个坑 <span class="tag t-hot">值得提给协议 owner</span></h2>
+  <table>
+    <tr><th>#</th><th>坑</th><th>证据（协议原文样本）</th><th>后果</th></tr>
+    <tr><td>1</td><td><b>车窗 action 标注自相矛盾</b></td><td>"车窗开50%"→<code>{"action":"关闭","value":"50%"}</code>；而"车窗开到一半"→<code>{"action":"打开","value":"50%"}</code>；更怪的："车窗下降20%"（明明是开）→<code>{"action":"关闭","value":"+20%"}</code></td><td><b>SFT 最怕脏数据</b>——同类说法标了两个 action，模型学出来就是掷硬币。车窗是最安全敏感的开合件之一，这个坑必须修（大概率是"开度0=全开/100=全关"的坐标系在不同标注员手里没统一）</td></tr>
+    <tr><td>2</td><td><b>FC 协议有"强力制冷"，荣威家越07边界说没有</b></td><td>空调开关 mode 枚举：<code>制冷，强力制冷，制热，强力制热…</code>；家越07 SP 能力边界："空调没有极速制冷，极速制热模式"</td><td>车型能力错配：<b>协议按赛力斯主线写的，荣威用同一套协议就会解析出车不支持的模式</b>。解法同 Round 6 §A：协议层支持≠白名单放行≠边界承诺，三层要按车型对齐</td></tr>
+    <tr><td>3</td><td><b>多轮样本混进"单轮解析"协议</b></td><td>车窗开关里混着完整多轮对话样本（"副驾车窗开10%→再开大点→主驾调成一样的"→<code>{"value":"20%","position":"主驾"}</code>）；驾驶模式也有"…给我切换一下吧"</td><td>与缓存层"单轮解析/上下文无关"原则冲突——<b>FC 模型到底吃不吃上下文？协议没表态</b>。如果吃，时延和状态管理成本都变；如果不吃，这些样本在教模型它用不上的能力</td></tr>
+  </table>
+  <div class="adv">第 1 个坑是最实的锤：同样的"开50%"两种 action 标注，这在 SFT 数据里属于硬伤级脏数据。你如果把这份协议往上提，先让他们把车窗函数的标注坐标系统一（建议：action 恒为"调节"，value 带方向；或明确定义"开度100%=全关"并全表体检）。</div>
+</section>
+
+<!-- 10 -->
+<section id="yours">
+  <h2><span class="num">10</span>对你工作的接口 <span class="tag t-you">落到你的地图</span></h2>
+  <table>
+    <tr><th>你的领域</th><th>和 FC 模型的关系</th></tr>
+    <tr><td><b>三层漏斗排查路径</b></td><td>"走错模块"类 badcase 的前两站就是这：该走 FC 的走了 Director（"打开车窗"等了2秒）或该走 Director 的走了 FC（"我好热"被输出「其他」草率兜底）。<b>FC 的召回边界=体验的快慢边界</b></td></tr>
+    <tr><td><b>信号格式 owner（仁杰那条线）</b></td><td>FC 输出的 JSON 就是端上执行的契约——unit 独立槽位、value 的 +/- 前缀、position 的"音区"值，这些设计和你盯的"端上报格式带单位"是同一个哲学：<b>格式归产品约束，不是端上自由发挥</b></td></tr>
+    <tr><td><b>触发器</b></td><td>条件任务注册后，触发时"[任务原文]+条件已触发"发给 Director——注意<b>触发器叫醒的是 Director 不是 FC</b>，因为条件任务的动作可能复杂。但纯车控类条件动作（"10分钟后关座椅加热"）触发后完全可以走 FC 路径执行，这是时延优化空间</td></tr>
+    <tr><td><b>评测/badcase</b></td><td>FC 的 95% 准确率和 Director 的 90% 推理 ACC 是<b>分开考核</b>的。评测集也要分开：FC 测"说法→JSON 槽位对不对"，Director 测"任务拆解缺失/冗余/错误"。别用同一把尺子</td></tr>
+  </table>
+  <div class="os">一句话收尾：<b>FC 模型是"快手"，Director 是"大脑"</b>。快手的全部追求是确定性——确定的协议、确定的白名单、确定的时延；大脑的全部追求是理解力——情景、记忆、目标。车控体验的 80% 满意度来自快手不犯错，20% 惊喜感来自大脑够聪明。你管的产品版图里，这两个都要懂，但评判它们要用两套标准。</div>
+</section>
+
+</main>
+</div>
+</div>
+</body>
+</html>

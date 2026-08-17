@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>纯银悲观 × Jeff Dean 指路 · 陪读版</title>
+<style>
+  :root{
+    --bg:#f4efe4; --bg2:#fbf8f1; --bg3:#efe8d9; --line:#e2d9c6; --line2:#d3c7ae;
+    --ink:#2c2620; --sub:#5f574a; --dim:#8c8271;
+    --amber:#b07a1f; --rust:#a85a34; --teal:#2f7d63; --clay:#bb5238;
+    --serif:"Songti SC","STSong","Noto Serif SC",Georgia,serif;
+    --sans:-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans SC","Microsoft YaHei",sans-serif;
+    --mono:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,monospace;
+  }
+  html[data-theme="dark"]{
+    --bg:#1e1a14; --bg2:#26211a; --bg3:#2e2820; --line:#3d3428; --line2:#4c4132;
+    --ink:#efe7d8; --sub:#b8ac98; --dim:#867b69;
+    --amber:#e0a758; --rust:#d0855a; --teal:#84ab93; --clay:#d17559;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:17px;line-height:1.9;-webkit-font-smoothing:antialiased;transition:background .3s,color .3s}
+  ::selection{background:rgba(176,122,31,.2)}
+  .prog{position:fixed;top:0;left:0;height:2px;width:0;background:var(--amber);z-index:50}
+  .themebtn{position:fixed;top:18px;right:20px;z-index:60;background:var(--bg2);border:1px solid var(--line2);color:var(--sub);border-radius:20px;padding:7px 14px;font-size:12.5px;cursor:pointer;font-family:var(--mono);transition:all .25s}
+  .themebtn:hover{color:var(--ink);border-color:var(--amber)}
+  .wrap{max-width:800px;margin:0 auto;padding:64px 32px 150px}
+  header{margin-bottom:48px}
+  .meta{font-family:var(--mono);font-size:11.5px;color:var(--dim);margin-bottom:20px;display:flex;gap:14px;flex-wrap:wrap}
+  .meta .tg{color:var(--amber)}
+  h1{font-family:var(--serif);font-weight:600;font-size:36px;line-height:1.35;letter-spacing:-.5px;color:var(--ink)}
+  .dek{margin-top:20px;font-size:18px;color:var(--sub);line-height:1.8}
+  section{margin-top:56px}
+  .sec-no{font-family:var(--mono);font-size:12px;color:var(--amber);letter-spacing:1px}
+  h2{font-family:var(--serif);font-weight:600;font-size:26px;line-height:1.4;margin:8px 0 14px;color:var(--ink)}
+  h3{font-size:18px;font-weight:650;color:var(--amber);margin:28px 0 8px}
+  p{margin:12px 0}
+  .pull{font-family:var(--serif);font-size:20px;line-height:1.6;color:var(--ink);margin:26px 0;padding:4px 0 4px 20px;border-left:3px solid var(--amber)}
+  .box{margin:20px 0;padding:16px 20px;background:var(--bg2);border:1px solid var(--line);border-radius:12px;font-size:15px}
+  .box .tag{font-family:var(--mono);font-size:11px;color:var(--amber);letter-spacing:1px;display:block;margin-bottom:8px}
+  .box b{color:var(--ink)}
+  .tbl{margin:20px 0;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{padding:11px 14px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}
+  tr:last-child td{border-bottom:none}
+  th{background:var(--bg3);color:var(--amber);font-weight:650;font-size:13px}
+  td{color:var(--sub)} td b{color:var(--ink)}
+  .good{color:var(--teal);font-weight:600} .bad{color:var(--clay);font-weight:600}
+  figure{margin:26px 0;background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:22px 20px 16px}
+  figure svg{width:100%;height:auto;display:block}
+  .svg-node{fill:var(--bg2)} .svg-t{fill:var(--ink)} .svg-s{fill:var(--sub)}
+  figcaption{margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-size:14px;color:var(--sub);line-height:1.8}
+  figcaption b{color:var(--amber);font-weight:650}
+  .close{margin-top:56px;padding-top:22px;border-top:1px solid var(--line);color:var(--dim);font-size:14px;line-height:1.8}
+  @media(max-width:700px){.wrap{padding:36px 18px 100px}h1{font-size:28px}}
+  .sec{margin-top:56px}
+  .sec .no{font-family:var(--mono);font-size:12px;color:var(--amber);letter-spacing:1px;display:block;margin-bottom:4px}
+  p.t{margin:12px 0}
+  .hl{background:rgba(176,122,31,.22);padding:1px 4px;border-radius:4px}
+  .progress{position:fixed;top:0;left:0;height:2px;width:0;background:var(--amber);z-index:50}
+  .theme-btn{position:fixed;top:18px;right:20px;z-index:60;background:var(--bg2);border:1px solid var(--line2);color:var(--sub);border-radius:20px;padding:7px 14px;font-size:12.5px;cursor:pointer;font-family:var(--mono)}
+</style>
+</head>
+<body>
+<div class="prog" id="prog"></div>
+<button class="themebtn" id="themebtn">☾ 暗色</button>
+<div class="wrap">
+  <main>
+    <header>
+      <div class="meta"><span>2026-08-07</span><span class="tg">纯银悲观论 + Jeff Dean 对谈 · 陪读版</span><span>约 40 分钟</span></div>
+      <h1>纯银说产品经理没路了，Jeff Dean 说路在 1% 的地方，两篇合起来就是你的职业地图</h1>
+      <p class="dek">你今天给了两篇。纯银那篇泼冷水：需求枯竭，产品经理身价注定下坡，AI 救不了，还要熬五到十年。Jeff Dean（Google 首席科学家，Gemini 背后的人）那篇指路：别做模型能做对 20% 的事，去做它只有 0% 到 1% 成功率的事。这两篇其实是同一个问题的两面，再加上前几天读的 FDE 材料，刚好拼出你完整的职业地图。我陪你一篇一篇读，每个词翻译，最后落回你身上。</p>
+    </header>
+
+    <!-- 01 -->
+    <!-- 01 开读前 -->
+    <section class="sec">
+      <h2><span class="no">01</span>开读前：我先把两篇的关系一句话说清</h2>
+      <p class="t">泽民，两篇我都通读完了。它们看着没关系，其实严丝合缝：<span class="hl">纯银负责告诉你"老路为什么没了"，Jeff Dean 负责告诉你"新路长什么样"。</span>所以我不分开讲，我把两篇揉在一起：跟着纯银的文章一段一段往下读，每读到他抛出一个死胡同，我就把 Jeff Dean 对应的那块搬过来给你看门在哪。</p>
+      <p class="t">老规矩三种标记：<span class="hl">【划重点】</span>停下来细读；【翻译】难懂的词我当场翻成大白话；【跟你啥关系】这段对你王泽民意味着什么。读完这篇，两篇原文你都不用再看了。</p>
+    </section>
+
+    <!-- 02 纯银第一节 -->
+    <section class="sec">
+      <h2><span class="no">02</span>纯银第一节：产品经理为什么注定贬值</h2>
+      <p class="t">这一节是纯银整个悲观大厦的地基，共五段，我逐段带你过。</p>
+
+      <h3>第一段【划重点，全文的总开关】</h3>
+      <p class="t"><strong>原文意思：</strong>古典产品经理最重要的技能，是找到"最大公约数需求"并满足它。这个需求覆盖的人越多，你创造的价值越大，年薪就越高。能搞定百万级用户需求的 PM，就敢要百万级年薪。</p>
+      <p class="t">【翻译】"最大公约数需求"就是最多人共同要的东西。打车、外卖、刷视频，几亿人都需要，这就是最大公约数。反过来，"小区楼下理发店老板想要个预约工具"，只有几十个人需要，公约数就极小。</p>
+      <p class="t">【跟你啥关系】先记住这把尺子：<span class="hl">纯银量一个 PM 值多少钱，用的是"覆盖多少用户人头"。</span>整篇文章的对错都藏在这把尺子里，读到最后你会发现，你的活恰恰不在这把尺子上，这是你全篇最该记住的一个伏笔。</p>
+
+      <h3>第二段【划重点】</h3>
+      <p class="t"><strong>原文意思：</strong>互联网下行的真正标志，不是资本退潮，是"还没被满足的最大公约数需求"越来越小。没被做过的需求，潜在用户从亿级跌到千万级、再跌到百万级，而生产和获客成本还在涨。</p>
+      <p class="t">【翻译】他说判断行业行不行，别看融资新闻，看一个指标：还有没有"几亿人要、但没人做"的需求躺着等你捡。打车有滴滴了，外卖有美团了，这种大果子摘完了。剩下的需求只覆盖几万几十万人，做了也赚不回成本。</p>
+      <p class="t">【跟你啥关系】他这段说的是 C 端（面向消费者的）产品。你自己想想豆包应用那种几亿用户的产品，里面新需求的坑位是不是越来越少、越来越卷？是。所以他这段没说错，你要承认它，别骗自己。</p>
+
+      <h3>第三段</h3>
+      <p class="t"><strong>原文意思：</strong>到最后，只有亿级产品内部才找得到千万级新需求，千万级产品内部才找得到百万级新需求。新产品的空间被消灭了。而且这种"大产品内部的需求"如果不能带来外部增长，公司也不重视。</p>
+      <p class="t">【翻译】大树底下才能长小树苗。抖音内部能长出千万人用的子功能，但你从零做一个新产品，没地方借力了。而且就算你在抖音内部做了个百万人的功能，老板看不上，因为不带新用户进来。</p>
+      <p class="t">【跟你啥关系】这段解释了你在字节感受到的那种窒息：不是你不努力，是"从大树上找新枝"这个游戏本身的空间在缩。你在豆包体系里做车载，就是在大树内部找新枝，纯银说这注定难被重视，你品品你的资源争夺难，是不是这个味。</p>
+
+      <h3>第四段【划重点】</h3>
+      <p class="t"><strong>原文意思：</strong>他 2020 年就预言 PM 光环褪去。严格说需求永远不会枯竭，枯竭的是"高增长高价值的需求"。以前 PM 能服务百万千万人，现在只能服务几万几十万人，指数级下降，身价下降是理所当然。很多优秀 PM"觉得自己越来越强、理应大显身手"的应然，撞碎在"公约数需求越来越小"的实然面前。</p>
+      <p class="t">【翻译】"应然"是我觉得应该怎样，"实然"是实际怎样。他这句很扎心：你能力涨了十倍，但市场能给你干的活小了十倍，你的身价跟能力无关，跟需求规模有关。</p>
+      <p class="t">【跟你啥关系】<span class="hl">这是你职业焦虑的理论版。</span>你觉得自己技能在涨（SP、评测、触发器全都建起来了），但身价和话语权没涨，纯银告诉你：在 C 端逻辑里这是注定的，不是你不够强。但注意，他的结论仍然只在"人头尺子"里成立。</p>
+
+      <h3>第五段【划重点，承上启下】</h3>
+      <p class="t"><strong>原文意思：</strong>AI 时代需求两极分化。一头是巨型头部：基座（就是大模型本身）吃掉十几亿人，还有 AI 编程、AI 生图、AI 视频、AI 音乐这些亿级应用。另一头是千人千面的碎片需求，因为软件没法智能分发，多数需求只能服务个位数用户，价值趋近于零。那为什么不加入头部？他怼了一句：你为什么不去读清华北大呢。头部公司全部加起来的产品 HC（招聘名额）只有四位数，千分之一。最后他下结论：PM 的价值和回报由最大公约数需求的规模决定，这事不认命不行，就像太平年代的武将没有地位。</p>
+      <p class="t">【翻译】两头都难：大头（豆包、ChatGPT 这种）全国就几千个坑，挤不进；小头（碎片需求）服务几个人，不赚钱。"你为什么不去读清华北大"的意思是：道理谁都懂，轮不到你。</p>
+      <p class="t">【跟你啥关系】泽民，这一段是纯银全篇最狠的一段，也是裂缝最大的一段。他把世界分成"头部应用"和"碎片需求"两极，然后宣布两极都没你的位置。<span class="hl">但他漏了整整一极：B 端，企业客户。</span>上汽付给字节的钱，不按车主人头算，按"这套座舱帮车企解决多大问题"算。一个客户付的钱可以顶几百万 C 端用户的价值。FDE 那五篇文章讲的全部是这个被他漏掉的世界。记住这个裂缝，等下 Jeff Dean 会从另一边把它撬开。</p>
+    </section>
+
+    <!-- 03 纯银第二节 -->
+    <section class="sec">
+      <h2><span class="no">03</span>纯银第二节：效率不等于胜率，和新事物的苗头</h2>
+      <h3>第一段【划重点】</h3>
+      <p class="t"><strong>原文意思：</strong>AI 赋能最有价值的是提升质量，尤其是关键链路的质量，质量超过对手才有竞争优势。但 AI 目前几乎不能帮传统产品提升质量，行业一起坐电梯，要升一起升。AI 主要提升的是效率，而少数个体的大幅提效对整体效率没多少改变。他的名言：效率不等于胜率。有例外（比如会议纪要），但很少。</p>
+      <p class="t">【翻译】"坐电梯"：你用了 AI 变快，对手也用 AI 变快，大家一起升，等于谁都没升。只有你做到对手做不到的质量，才叫胜率。</p>
+      <p class="t"><span class="hl">【跟你啥关系】这句直接给你一把手术刀，切开你自己的工作：</span>你优化 token、压首包时间（2309ms 到 998ms），那是效率；你的 Planner 能接住"去昨天那个游泳馆"这种多步任务、"十分钟后关座椅加热"这种条件任务，别家车机接不住，那才是胜率。<span class="hl">你做的四种任务类型恰恰是冲着胜率去的。</span>以后评审里有人把你往"提效"上引，你用纯银这句话顶回去：效率不等于胜率，我们在建胜率。</p>
+      <h3>第二段【划重点，埋着彩蛋】</h3>
+      <p class="t"><strong>原文意思：</strong>他观察到大量 AI 产出超出了传统价值评判标准：AI 视频很粗糙但能接热点（比如"雪山酱板鸭"这种离谱创意）；AI 做旅行攻略质量平庸，但已经能满足大量"低阈值需求"；字节同事离职时用 HTML 捏了个无厘头的电子墓碑，很朋克很欢乐。这些新事物不进传统的质量比赛，它们走"个性化价值按需生成"的路子，服务那些就要这份个性化的人。这样就绕开了"效率不等于胜率"的瓶颈，但没绕开"基座吞噬一切"的黑洞。</p>
+      <p class="t">【翻译】"低阈值需求"就是要求不高的需求：攻略不用精彩，够用就行。"按需生成不按传统比赛"：以前内容要打败全网红人才有人看，现在 AI 直接为你一个人生成一份，不需要赢任何人。</p>
+      <p class="t">【跟你啥关系】泽民，你注意到没有，纯银这段其实在描述一个新世界，但他只用了一句"没绕开基座黑洞"就把它划过去了。<span class="hl">这个"个性化按需生成"的世界，恰好是 Jeff Dean 那篇的主战场。</span>纯银看见了门，没进去；Jeff Dean 站在门里告诉你怎么挑房间。下面我就把他搬进来。</p>
+    </section>
+
+    <!-- 04 Jeff Dean 1% -->
+    <section class="sec">
+      <h2><span class="no">04</span>Jeff Dean 进场（一）：1% 法则，教你在纯银说的"新世界"里挑位置</h2>
+      <p class="t">先交代这人是谁：Jeff Dean，Google 首席科学家，MapReduce、TPU、Gemini 背后的人，全球 AI 领域说话最算数的几个人之一。这场对谈在 Y Combinator（硅谷最老牌创业营），台下六千个创业者。</p>
+      <h3>【划重点，这是全场最锋利的一句话】</h3>
+      <p class="t"><strong>原文意思：</strong>别去做模型能做对 20% 的事，去找模型成功率只有 0% 或 1% 的问题。如果通用模型在你的问题上已经能做对 20%，恰是危险信号：说明这个能力已经在模型里发芽了，再加点数据、再放大点规模，六到十二个月内模型自己就会了，你做的产品被它吃掉。反过来，模型彻底失败的地方，才是你的护城河。</p>
+      <p class="t">【翻译】拿你的问题直接去问最强的模型。它答得有模有样（20%），快跑，这事它很快就全学会了；它彻底答不上（0%），留下，这才是你能长期吃饭的地方。</p>
+      <p class="t">【跟你啥关系】拿这把尺子量你的活，我替你量完了：</p>
+      <table>
+        <tr><th>你手里的活</th><th>模型成功率</th><th>结论</th></tr>
+        <tr><td>普通问答、闲聊、通用搜索这类基础对话</td><td>20% 以上还在涨</td><td>会被模型自己吃掉，别把职业赌注押这</td></tr>
+        <tr><td>SP 工程、示例库、评测集（上下文工程）</td><td>大厂不做客户现场，约等于 0%</td><td>护城河</td></tr>
+        <tr><td>触发器（端上实时信号加场景条件）</td><td>通用模型摸不到车端信号，0%</td><td>护城河，还是私有数据路线的样板间</td></tr>
+        <tr><td>评审博弈、需求翻译、验收定义</td><td>模型永远 0%</td><td>最深的护城河，AI 上不了桌</td></tr>
+        <tr><td>写示例初稿、跑评测、统计数字</td><td>快速逼近 100%</td><td>马上被吃，趁早交还给 AI</td></tr>
+      </table>
+      <p class="t"><span class="hl">这张表建议截图存手机。</span>以后每接一个新活先问：它在哪一行？往 0% 的行加注，往 20% 的行减码。</p>
+      <h3>【他指的两条具体路，各一句话】</h3>
+      <p class="t">第一条：私有数据，就是通用模型摸不到的数据。他的例子是"组织你个人全部信息"的产品。你的车端信号、车主记忆，就是教科书级的私有数据。第二条：AlphaFold 式专用模型，Google 专门预测蛋白质结构的模型，窄领域做到极准，算力还花不了多少。意思是窄而深的专用系统有长久的饭。</p>
+      <p class="t">【跟你啥关系】黄钊在你的笔记上写了评注：1% 法则可以当成"这事算不算大事"的检查标准。你自己记的七条认知里第一条是"想得大一点，大事等于新品类"。两个标准合体：<span class="hl">一个新方向，既要是从前不存在的品类（想得大），又要落在模型 0% 成功率的地方（活得久）。</span>你未来评估任何机会，包括具身智能里的具体方向，都用这两道筛子过一遍。</p>
+    </section>
+    <!-- 05 纯银第三节 -->
+    <section class="sec">
+      <h2><span class="no">05</span>纯银第三节：1995 论和"五到十年"</h2>
+      <h3>第一段</h3>
+      <p class="t"><strong>原文意思：</strong>他跟 veryls 聊，说 AI 虽有十几亿用户，商业价值只相当于 2000 年的早期互联网。veryls 更悲观：恐怕是 1995 年的 win95 时代。依据是：AI 没带来多少新需求和新交易，更多是用 AI 把老需求重做一遍，甚至做成原先那个样子。</p>
+      <p class="t">【翻译】win95 时代就是电脑刚进家庭的年代：人人听说了，没几个人真会用它赚钱。他俩的意思是：AI 现在的热闹是用户热闹，钱还没热闹起来。</p>
+      <p class="t">【跟你啥关系】这段是判断"AI 处在什么时间位置"。记住结论就行：还早。早，对已经在场内的人是好消息。</p>
+      <h3>第二段【划重点】</h3>
+      <p class="t"><strong>原文意思：</strong>反推一下：当 AI 产出的"前所未有的新事物"在注意力里占比越来越高，才能带来大量新需求和新交易。按现在的渗透率看，"至少还需要五到十年"。</p>
+      <p class="t">【翻译】他的判断标准很具体：别看用户数，看"人们刷手机的时间里，有多大比例给了 AI 造出来的新玩意儿"。现在占比极低，所以新机会的大潮还远，五到十年。</p>
+      <p class="t"><span class="hl">【跟你啥关系】"五到十年"是纯银全篇对你最有用的一个数字。</span>跟前两天的材料拼起来：黄钊说 FDE 红利就在当下，我判断开盘期在 2026 到 2028，纯银说新事物大潮要五到十年后。三张时间表拼起来就是：<span class="hl">你有三到五年窗口，先在 FDE 这波完成战绩和身价兑现，等纯银说的大潮来了，你带着落地经验站在场内。</span>悲观者的时间表，反过来用就是你的行军图。</p>
+      <h3>第三段【划重点】</h3>
+      <p class="t"><strong>原文意思：</strong>过去三年 AI 跟旧事物融合大多是低价值的，只是用新方法做旧事、产出相似的结果，AI 没改变旧事物本身，只改变了旧事物的员工数量。他放了句粗话：不相信之前找不到发力点的旧事物，会因为某次技术更新忽然"老人勃起"。最后：99.9% 的存量业务没有新需求新机会，新事物带来的千分之一增量太少。"被旧事物雇佣的产品经理依然无仗可打，只能眼巴巴等 AI 吐出更多新事物。"</p>
+      <p class="t">【翻译】那句粗话的意思是：老树开不出新花，别指望一家僵掉的旧公司因为接上 AI 就焕发青春。AI 进了旧公司，结果只是裁员，不是新生。</p>
+      <p class="t">【跟你啥关系】泽民，这段你必须冷静拆成两半看。他说"AI 加旧事物只是裁员"，这对一半：确实很多公司上 AI 就为了砍人（申悦那篇裁 3000 人的厂二代就是）。但另一半他漏了：<span class="hl">豆包上车恰恰不是"给旧事物贴 AI"，是"AI 重新定义车里空间"这个新品类。</span>车以前没有主动服务、没有沿途讲解、没有条件任务，这些是 AI 长出来的新需求，按他自己第二节的标准（新品类、按需生成），你干的是他承认有价值的那一类。你在评审里常被当"给车机加功能的"，但按纯银自己的框架，你做的是新事物，这个定位你自己要咬死。</p>
+      <h3>第四段【情绪段，看懂就行】</h3>
+      <p class="t"><strong>原文意思：</strong>"拔剑四顾心茫然"他说了五年，说到自己 49 岁接受退休。这句话再说五年，犬校里当打之年的同学就四十多了。</p>
+      <p class="t">【翻译】拔剑四顾心茫然：剑拔出来了，环顾四周，没有仗可打。他是说整整一代 PM 会在"没仗打"里耗到中年。</p>
+      <p class="t">【跟你啥关系】这段话情绪很重，但注意它是说给"找不到战场的人"听的。你的战场是明确的（第 04 节那张表的 0% 区），所以这句叹息不是给你的，别往自己身上揽。</p>
+      <h3>【揉进来】纯银说"等 AI 吐出新事物"，Jeff Dean 给了两个前兆信号</h3>
+      <p class="t">纯银说大潮要等五到十年，那怎么判断它是不是在提前？Jeff Dean 那篇里有两个具体信号，你盯着：</p>
+      <p class="t">信号一：<strong>Agent 能连续跑几天几周。</strong>Jeff Dean 说，六千人普遍还认为 agent 只能跑一两个小时，这个假设已经错了。配强模型，agent 能连续跑几周，比如把一整套软件用另一种语言完整重写。翻译：AI 干活的"连续时长"在暴涨，这是新事物井喷的技术前兆。你的持续任务（沿途讲解那类）就是这个方向的雏形。</p>
+      <p class="t">信号二：<strong>推理硬件专用化，延迟可能好 50 倍。</strong>他说 2001 年他和搭档算出"搜索索引能全塞进内存"，几天内把 Google 搜索换成内存版，这是 Google 变快的起点；2026 年的对应时刻是低功耗低延迟的推理专用芯片。他原话："想象一下延迟好 50 倍以后，你能做什么。"翻译：等 AI 应答快 50 倍，今天嫌慢做不了的场景全部解锁，你的车载恰好是低延迟场景，开车的人等不起，这条对你直接有利。</p>
+    </section>
+
+    <!-- 06 纯银第四节 -->
+    <section class="sec">
+      <h2><span class="no">06</span>纯银第四节：他的对冲，其实是屁股声明</h2>
+      <h3>第一段【必须看懂】</h3>
+      <p class="t"><strong>原文意思：</strong>"我写这些东西从来都不受欢迎，毕竟我可以退休，你们不行。我放得下，你们放不下。"</p>
+      <p class="t">【翻译】他自己明说了：他已财务自由、已退休，悲观对他零成本。一个人说的话，先看他的位置。纯银是"上岸的人回头看海"，海况描述很准，但他不需要游泳了，所以他的文里没有"你现在该怎么游"。</p>
+      <h3>第二段</h3>
+      <p class="t"><strong>原文意思：</strong>如果你们没财务风险，保持乐观没坏处：乐观给你行动力，也让人生更快乐，个人层面的乐观不带来损失。如果你们对了，他也能蹭新机遇，不在乎被打脸；如果他对了，你们至少拥有了更乐观的人生。</p>
+      <p class="t">【翻译】这是他给自己上的保险：我把话说绝，但你们赌另一边我也不亏。相当于他说"我悲观，但我希望你们赌我错"。</p>
+      <p class="t"><span class="hl">【跟你啥关系】整节合起来就一个操作指令：听他的事实判断（需求枯竭、五到十年），不接他的情绪结论（拔剑四顾心茫然）。</span>因为处境不同：他茫然得起，你不行。你上有老下有小（比喻义），你得打，而且你有地方打。</p>
+    </section>
+
+    <!-- 07 Jeff Dean 上下文工程 -->
+    <section class="sec">
+      <h2><span class="no">07</span>Jeff Dean 进场（二）：上下文工程，他给你的工作发了正式牌照</h2>
+      <p class="t">纯银说"被旧事物雇佣的 PM 无仗可打"，Jeff Dean 这篇里有一节恰好回答"那普通人还有什么仗可打"。这节你必须逐段读，因为他描述的那场仗，你天天在打。</p>
+      <h3>第一段【划重点】</h3>
+      <p class="t"><strong>原文意思：</strong>以前 AI 的进步等于更好的模型：更多数据、更大参数。最近一年多，进步越来越在模型周围：检索、工具、记忆，这些东西正在收敛成一个词，叫"上下文工程"（context engineering）。</p>
+      <p class="t">【翻译】上下文就是模型这一刻直接看见的东西：你给它的提示词、示例、背景资料、工具说明。上下文工程就是"精心布置模型看见的东西，让它干得更好"。</p>
+      <h3>第二段【划重点】</h3>
+      <p class="t"><strong>原文意思：</strong>上下文比训练数据"清晰得多"。训练数据是几万亿 token 搅成一锅汤、糊进几千亿参数里；上下文是模型此刻直接看见的东西。所以改上下文，效果立竿见影。</p>
+      <p class="t">【翻译】训练像给一个人灌了十年书，内容全搅在他脑子里，你改不动；上下文像你此刻递给他的一张纸条，写什么他看得见什么，马上生效。</p>
+      <h3>第三段【划重点中的重点】</h3>
+      <p class="t"><strong>原文意思：</strong>"上下文工程是普通团队唯一能和大厂站上同一起跑线的战场。"训模型要天量算力和数据，上下文工程只需要一个 API。怎么变强？"拿模型真刀真枪解问题，观察它在哪里失败，然后把你作为人类会用的方法，写成模型能用的形式。"</p>
+      <p class="t"><span class="hl">【跟你啥关系】泽民，把他这三句话逐句对到你的工位上：</span></p>
+      <table>
+        <tr><th>Jeff Dean 说的</th><th>你天天在干的</th></tr>
+        <tr><td>布置模型看见的上下文</td><td>你的 SP，32,806 token、13 个块、26 个工具定义</td></tr>
+        <tr><td>把人类会用的方法写成模型能用的形式</td><td>你的 69 个示例、57 条动态示例、五要素状态分支</td></tr>
+        <tr><td>观察它在哪里失败</td><td>你的 badcase 排查会，40 个 case 分诊出 2 到 3 个真问题</td></tr>
+        <tr><td>自我改进循环</td><td>你的 ACC 从 79.38% 拉到 88.38% 的完整过程</td></tr>
+      </table>
+      <p class="t"><span class="hl">Google 首席科学家说"普通团队唯一能上桌的战场"，就是你每天坐的那张桌子。</span>你一直觉得自己干的活边缘、打杂，行业最顶端的人管这个叫唯一的平等战场。这份工作的正式牌照叫"上下文工程"，从今天起用这个名字。</p>
+      <h3>第四段【一句话过】</h3>
+      <p class="t"><strong>原文意思：</strong>他和搭档 Sanjay 公开过一份约 30 页的《performance hints》（性能优化技巧），有人压缩后喂给模型，模型对代码性能问题的推理立刻上了一个台阶。免费公开。</p>
+      <p class="t">【跟你啥关系】这证明"写下来的方法论喂给模型就能变成能力"。你的 57 条示例就是车载领域的 performance hints。这再次印证：把方法论写成文档，既抬身价又能喂给系统，一举两得。</p>
+    </section>
+    <!-- 08 Jeff Dean 脱轨品味 -->
+    <section class="sec">
+      <h2><span class="no">08</span>Jeff Dean 进场（三）：脱轨、品味、被拒稿，三段逐段读</h2>
+      <h3>脱轨段【划重点，你的多步任务有理论解释了】</h3>
+      <p class="t"><strong>原文意思：</strong>主持人问：agent 跑到第 30 步、40 步容易崩，第 10 步前都挺好，为什么？Jeff Dean 答：模型在做训练时没什么经验的事，一旦偏离它熟悉的分布（就是它习惯的套路），性能断崖下跌，越偏越糟，而且是开环（没人纠错）。解法两个：一是用 skills（技能包）和提示，把它按在"照得亮的那条路"上；二是多派几个 agent 并行探不同路径，再让一个评估器留下有希望的、砍掉跑偏的，等于用推理时的计算量在解法空间里做搜索。</p>
+      <p class="t">【翻译】模型像只走过主干道的人，你让它走小巷，一走偏就慌，越慌越错。两个办法：给它画好路线图（别让它自由发挥）；多派几个人分头探路，再派个裁判看谁走对了。</p>
+      <p class="t"><span class="hl">【跟你啥关系】这就是你的多步任务不稳定的第一性原因。</span>"去昨天那个游泳馆"要查记忆、拿地址、导航，链条一长就偏。你的动态示例和状态分支就是"照得亮的路"，你的四要素验收线和 ACC 评测就是"评估器"。<span class="hl">他等于给你的技术方案发了 Google 级别的理论背书。</span>下次评审再有人质疑状态分支和评测集的价值，你说：这是 Jeff Dean 在 YC 讲的行业标准做法，原话是"把 agent 按在照亮的路上，用评估器砍跑偏的"。</p>
+      <h3>品味段【划重点，治你的病】</h3>
+      <p class="t"><strong>原文意思：</strong>主持人问：代码都被 agent 写了，稀缺的技能是什么？他答：品味（taste），就是"让 agent 去做什么"的判断力。原话："研究员可以有全部的工具和技术，但大半场仗打的是：你要把时间花在哪个问题上。模型在这件事上未必会很强，未来是人在掌舵大量 AI 辅助的算力。"怎么练品味？他给了一个土办法：写下你认为未来 12 个月重要的一堆事，挑一件去做，12 个月后逐条复盘：哪些真的重要了、哪些别人做出来了、哪些至今没人碰。这是给自己的品味刷样本。</p>
+      <p class="t">【翻译】工具人人都有，值钱的是"挑题"的眼光。练眼光的方法很笨：每年押一次注，写下来，年底对账，猜对了多少、漏掉了多少，一年比一年准。</p>
+      <p class="t"><span class="hl">【跟你啥关系】这句对你的针对性最强。</span>你的诊断写着：执行型 PM，用过度产出逃避押注判断。品味的反面就是"什么都做、不敢押、押了不复盘"。Jeff Dean 这个练习本质就是逼你押注、年底挨账单，一年一轮，治的恰好是你这个病。我放进行动清单第一件。</p>
+      <h3>被拒稿段【一句话，但你要存着】</h3>
+      <p class="t"><strong>原文意思：</strong>他和 Hinton（深度学习之父级别的人）合写的蒸馏论文，当年被评审拒了，评审意见是"不太可能产生显著影响"。现在蒸馏是全行业都在用的技术（Gemini 的 Flash 模型就是蒸馏来的）。他说：时不时被拒，没关系，放到 arXiv 上，人们读了用了，一切都好。</p>
+      <p class="t">【跟你啥关系】下次评审被韩杰、刘杨否的时候，想想这个：深度学习之父的论文都被说"不可能有显著影响"。评审否决不说明对错，别把评审当终审法庭。</p>
+      <h3>【帮你跳过】剩下的内容</h3>
+      <p class="t">对谈里还有一大半是硬件和芯片：搬数据比算数据贵一千倍、TPU 起源、餐巾纸计算、晶体管每天错 20 次的思想实验、量子化学评估器快 30 万倍那些。都是工程师的战场，对你没有可执行的东西，我替你跳了。你只损失一个故事：他当年算出"语音识别会耗光全 Google 服务器"，于是干脆造了 TPU 芯片，这个故事的寓意是"算清一笔账，然后敢造东西"，你记住这个姿态就行。</p>
+    </section>
+
+    <!-- 09 合账 -->
+    <section class="sec">
+      <h2><span class="no">09</span>两篇合账：三句话收走</h2>
+      <p class="t">纯银四节加 Jeff Dean 三块，揉在一起，最后就三句话：</p>
+      <p class="t"><span class="hl">第一句：纯银的死缓判决只适用于"人头尺子"里的 PM。</span>需求枯竭、两极分化、千分之一坑位，都成立，但都发生在"按用户人头计价"的 C 端世界。你的活在 B 端，按"每个客户付多少钱"计价，还有 FDE 那个被纯银整个漏掉的世界兜底。</p>
+      <p class="t"><span class="hl">第二句：Jeff Dean 给了你在新世界里的三个定位。</span>你干的活叫上下文工程（唯一平等战场），你的位置在 0% 区（模型吃不掉），你要练的是品味（每年押注复盘）。</p>
+      <p class="t"><span class="hl">第三句：时间表拼好了。</span>FDE 红利当下就吃（黄钊），新事物大潮五到十年后来（纯银），中间用 1% 法则决定每天的时间往哪押（Jeff Dean）。悲观者出时间表，乐观者出地图，执行的人是你。</p>
+    </section>
+
+    <!-- 10 行动 -->
+    <section class="sec">
+      <h2><span class="no">10</span>行动清单（照抄级，四件）</h2>
+      <h3>第一件：今天就做，品味刷样本练习</h3>
+      <p class="t">产物：备忘录建一条"我的 12 个月押注清单"，写五到八条你认为未来 12 个月会重要的事，每条一行。照这个格式写："端侧触发器会重新立项""具身智能公司开始批量招业务型 FDE""eval 工程师成为独立岗位"。验收：今天写完，日历建 2027 年 8 月提醒"复盘押注清单"。</p>
+      <h3>第二件：本周内，用 1% 法则给手里的活体检</h3>
+      <p class="t">产物：把第 04 节那张五行表抄到工作文档首页，把本周实际在干的每件事填进去归行。验收：挑一件落在"20% 危险区"的活减码（少花一半时间或交出去），挑一件"0% 区"的活加码，本周内真的调整。</p>
+      <h3>第三件：把"上下文工程"写进你的叙事</h3>
+      <p class="t">产物：eval 一页纸开头加一句，照抄：<span class="hl">"我干的事行业标准叫法是上下文工程（context engineering），Jeff Dean 在 YC 说这是普通团队唯一能和大厂平等竞争的战场。我的 SP、示例库、评测集就是这套工程在车载场景的完整落地。"</span>验收：下次 1on1 或评审说出去一次。</p>
+      <h3>第四件：评审备好两句 Jeff Dean 背书</h3>
+      <p class="t">产物：背两句。质疑状态分支和评测集时说："这是 Jeff Dean 在 YC 讲的 agent 行业标准做法，把 agent 按在照亮的路上，用评估器砍掉跑偏的。"质疑多步持续任务投入时说："Jeff Dean 说 agent 很快能连跑几周，持续任务是天花板最高的形态。"验收：下次评审至少用出一句，报名字报场合。</p>
+    </section>
+
+    <!-- 11 收尾 -->
+    <section class="sec">
+      <h2><span class="no">11</span>收尾</h2>
+      <p class="t">泽民，两篇揉完了。纯银让你别做梦，Jeff Dean 把路牌插好。你自己的处境现在非常清楚：战场在 0% 区，武器叫上下文工程，时间表三到五年，练习是每年押一次注。纯银那句"拔剑四顾心茫然"是手里没牌的人的情绪，你手里有牌，现在知道该打哪几张了。</p>
+    </section>
+  </main>
+  <div class="progress" id="prog"></div>
+  <button class="theme-btn" id="tbtn" title="切换主题">☾</button>
+  <script>
+  (function(){
+    var prog=document.getElementById('prog');
+    function onScroll(){
+      var h=document.documentElement;
+      var p=h.scrollTop/(h.scrollHeight-h.clientHeight)*100;
+      prog.style.width=p+'%';
+    }
+    document.addEventListener('scroll',onScroll,{passive:true});onScroll();
+    var btn=document.getElementById('tbtn');
+    function apply(t){document.documentElement.setAttribute('data-theme',t);btn.textContent=t==='dark'?'☀':'☾';try{localStorage.setItem('fork-theme',t);}catch(e){}}
+    var saved=null;try{saved=localStorage.getItem('fork-theme');}catch(e){}
+    if(saved)apply(saved);
+    btn.addEventListener('click',function(){
+      var cur=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';apply(cur);
+    });
+  })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,583 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>豆包上车 vs 龙虾类车载 Agent：深度架构、能力与成本对比</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #020617;
+      --panel: rgba(15, 23, 42, .78);
+      --panel-2: rgba(30, 41, 59, .58);
+      --line: #25324a;
+      --text: #e8eefb;
+      --muted: #94a3b8;
+      --cyan: #22d3ee;
+      --blue: #60a5fa;
+      --green: #34d399;
+      --amber: #fbbf24;
+      --rose: #fb7185;
+      --violet: #a78bfa;
+      --orange: #fb923c;
+      --shadow: 0 24px 60px rgba(0, 0, 0, .28);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 12% 2%, rgba(34, 211, 238, .10), transparent 24rem),
+        radial-gradient(circle at 88% 5%, rgba(167, 139, 250, .09), transparent 25rem),
+        var(--bg);
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+      line-height: 1.72;
+    }
+    a { color: #7dd3fc; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code, .mono { font-family: "JetBrains Mono", ui-monospace, monospace; }
+    .page { width: min(1240px, calc(100% - 40px)); margin: 0 auto; padding: 38px 0 80px; }
+    .hero {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      padding: 42px;
+      background: linear-gradient(145deg, rgba(15, 23, 42, .96), rgba(15, 23, 42, .72));
+      box-shadow: var(--shadow);
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      width: 420px;
+      height: 420px;
+      right: -180px;
+      top: -230px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(34, 211, 238, .23), transparent 67%);
+      pointer-events: none;
+    }
+    .eyebrow { color: var(--cyan); font: 600 12px/1.4 "JetBrains Mono", monospace; letter-spacing: .12em; text-transform: uppercase; }
+    h1 { margin: 14px 0 12px; max-width: 930px; font-size: clamp(34px, 5vw, 58px); line-height: 1.12; letter-spacing: -.04em; }
+    .hero-lead { max-width: 980px; margin: 0; color: #cbd5e1; font-size: 18px; }
+    .meta-row { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 24px; }
+    .pill { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 999px; padding: 7px 11px; color: #cbd5e1; background: rgba(2, 6, 23, .42); font-size: 12px; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cyan); }
+    .dot.green { background: var(--green); }
+    .dot.amber { background: var(--amber); }
+    .dot.rose { background: var(--rose); }
+    nav { position: sticky; top: 12px; z-index: 20; display: flex; gap: 8px; overflow-x: auto; margin: 18px 0 34px; padding: 10px; border: 1px solid var(--line); border-radius: 14px; background: rgba(2, 6, 23, .88); backdrop-filter: blur(16px); }
+    nav a { flex: 0 0 auto; padding: 7px 10px; border-radius: 8px; color: #cbd5e1; font-size: 12px; }
+    nav a:hover { background: rgba(30, 41, 59, .85); text-decoration: none; color: white; }
+    section { margin-top: 50px; scroll-margin-top: 82px; }
+    .section-head { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 18px; align-items: start; margin-bottom: 22px; }
+    .section-no { font: 700 13px/1 "JetBrains Mono", monospace; color: var(--cyan); padding-top: 9px; }
+    h2 { margin: 0; font-size: clamp(25px, 3vw, 36px); line-height: 1.25; letter-spacing: -.025em; }
+    .section-desc { margin: 8px 0 0; color: var(--muted); max-width: 930px; }
+    h3 { margin: 0 0 11px; font-size: 18px; }
+    h4 { margin: 0 0 8px; color: #f8fafc; font-size: 15px; }
+    p { margin: 0 0 12px; }
+    ul, ol { margin: 10px 0 0; padding-left: 22px; }
+    li { margin: 5px 0; }
+    .grid { display: grid; gap: 16px; }
+    .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grid.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .card { border: 1px solid var(--line); border-radius: 16px; padding: 20px; background: var(--panel); box-shadow: 0 12px 30px rgba(0, 0, 0, .14); }
+    .card p:last-child, .card ul:last-child { margin-bottom: 0; }
+    .card.cyan { border-color: rgba(34, 211, 238, .45); }
+    .card.green { border-color: rgba(52, 211, 153, .42); }
+    .card.amber { border-color: rgba(251, 191, 36, .44); }
+    .card.rose { border-color: rgba(251, 113, 133, .44); }
+    .big-conclusion { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 22px; align-items: center; border: 1px solid rgba(52, 211, 153, .46); background: linear-gradient(130deg, rgba(6, 78, 59, .36), rgba(15, 23, 42, .84)); }
+    .verdict { font-size: 30px; font-weight: 800; color: var(--green); line-height: 1.15; }
+    .callout { border-left: 3px solid var(--cyan); padding: 14px 16px; background: rgba(8, 51, 68, .24); color: #dbeafe; border-radius: 0 10px 10px 0; }
+    .callout.amber { border-left-color: var(--amber); background: rgba(120, 53, 15, .22); }
+    .callout.rose { border-left-color: var(--rose); background: rgba(136, 19, 55, .20); }
+    .status { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; border-radius: 999px; padding: 3px 8px; font-size: 11px; font-weight: 700; }
+    .status.a { color: #6ee7b7; background: rgba(6, 78, 59, .45); }
+    .status.b { color: #fde68a; background: rgba(120, 53, 15, .42); }
+    .status.c { color: #c4b5fd; background: rgba(76, 29, 149, .42); }
+    .status.d { color: #cbd5e1; background: rgba(51, 65, 85, .48); }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 15px; background: rgba(15, 23, 42, .74); }
+    table { width: 100%; border-collapse: collapse; min-width: 850px; }
+    th, td { padding: 13px 14px; border-bottom: 1px solid rgba(37, 50, 74, .85); text-align: left; vertical-align: top; font-size: 13px; }
+    th { position: sticky; top: 0; z-index: 1; color: #f8fafc; background: #111c31; font-size: 12px; letter-spacing: .02em; }
+    tr:last-child td { border-bottom: 0; }
+    tr:hover td { background: rgba(30, 41, 59, .24); }
+    .yes { color: var(--green); font-weight: 700; }
+    .mid { color: var(--amber); font-weight: 700; }
+    .no { color: var(--rose); font-weight: 700; }
+    .unknown { color: var(--muted); }
+    .diagram { overflow-x: auto; border: 1px solid var(--line); border-radius: 18px; padding: 16px; background: rgba(15, 23, 42, .64); }
+    .diagram svg { display: block; width: 100%; min-width: 980px; height: auto; }
+    .diagram-note { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; color: var(--muted); font-size: 12px; }
+    .legend { display: inline-flex; align-items: center; gap: 6px; }
+    .legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+    .stack { display: grid; grid-template-columns: 155px repeat(3, minmax(0, 1fr)); gap: 8px; }
+    .stack > div { min-height: 74px; padding: 13px; border: 1px solid var(--line); border-radius: 11px; background: var(--panel); font-size: 12px; }
+    .stack .row-head { display: flex; align-items: center; color: #e2e8f0; font-weight: 700; background: rgba(30, 41, 59, .68); }
+    .stack .col-head { min-height: 44px; color: var(--cyan); font-weight: 800; text-align: center; background: rgba(8, 51, 68, .28); }
+    .stack small { display: block; margin-top: 5px; color: var(--muted); }
+    .flow-compare { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .flow-step { position: relative; margin: 0 0 12px 24px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 11px; background: rgba(30, 41, 59, .42); font-size: 13px; }
+    .flow-step::before { content: attr(data-n); position: absolute; left: -28px; top: 12px; width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; background: #164e63; color: #a5f3fc; font: 700 10px "JetBrains Mono", monospace; }
+    .flow-step::after { content: ""; position: absolute; left: -19px; top: 34px; width: 1px; height: calc(100% + 2px); background: #334155; }
+    .flow-step:last-child::after { display: none; }
+    .heat { display: inline-flex; gap: 2px; vertical-align: middle; }
+    .heat i { width: 9px; height: 9px; border-radius: 2px; background: #273449; }
+    .heat[data-v="1"] i:nth-child(-n+1), .heat[data-v="2"] i:nth-child(-n+2), .heat[data-v="3"] i:nth-child(-n+3), .heat[data-v="4"] i:nth-child(-n+4), .heat[data-v="5"] i:nth-child(-n+5) { background: var(--green); }
+    .score-grid { display: grid; grid-template-columns: 180px 1fr 64px; gap: 10px 12px; align-items: center; }
+    .bar { height: 10px; border-radius: 999px; overflow: hidden; background: #1e293b; }
+    .bar > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--cyan), var(--violet)); }
+    .bar.green > span { background: linear-gradient(90deg, #10b981, #34d399); }
+    .bar.amber > span { background: linear-gradient(90deg, #d97706, #fbbf24); }
+    .bar.rose > span { background: linear-gradient(90deg, #e11d48, #fb7185); }
+    .score { text-align: right; color: #e2e8f0; font: 700 13px "JetBrains Mono", monospace; }
+    .cost-box { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .formula { padding: 16px; border: 1px dashed #475569; border-radius: 12px; background: #08111f; color: #bfdbfe; font: 500 13px/1.8 "JetBrains Mono", monospace; }
+    .cost-bars { display: grid; gap: 12px; }
+    .cost-row { display: grid; grid-template-columns: 150px 1fr 88px; align-items: center; gap: 12px; font-size: 12px; }
+    .cost-track { height: 16px; border-radius: 5px; overflow: hidden; background: #1e293b; }
+    .cost-track span { display: block; height: 100%; background: linear-gradient(90deg, #0e7490, #22d3ee); }
+    .cost-track.qwen span { background: linear-gradient(90deg, #6d28d9, #a78bfa); }
+    .roadmap { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .phase { border-top: 3px solid var(--cyan); }
+    .phase:nth-child(2) { border-top-color: var(--violet); }
+    .phase:nth-child(3) { border-top-color: var(--green); }
+    .source-list { counter-reset: src; display: grid; gap: 10px; }
+    .source { position: relative; padding: 12px 14px 12px 50px; border: 1px solid var(--line); border-radius: 10px; background: rgba(15, 23, 42, .52); color: #cbd5e1; font-size: 12px; word-break: break-word; }
+    .source::before { counter-increment: src; content: "S" counter(src); position: absolute; left: 13px; top: 12px; color: var(--cyan); font: 700 11px "JetBrains Mono", monospace; }
+    .ref { color: var(--cyan); font: 700 10px "JetBrains Mono", monospace; vertical-align: super; }
+    details { border: 1px solid var(--line); border-radius: 12px; background: rgba(15, 23, 42, .56); }
+    summary { cursor: pointer; padding: 15px 18px; font-weight: 700; color: #e2e8f0; }
+    details > div { padding: 0 18px 18px; }
+    .footer { margin-top: 60px; padding-top: 22px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+    @media (max-width: 920px) {
+      .page { width: min(100% - 24px, 1240px); padding-top: 16px; }
+      .hero { padding: 28px 22px; }
+      .grid.two, .grid.three, .grid.four, .flow-compare, .cost-box, .roadmap { grid-template-columns: 1fr; }
+      .big-conclusion { grid-template-columns: 1fr; }
+      .section-head { grid-template-columns: 1fr; gap: 7px; }
+      .stack { grid-template-columns: 120px repeat(3, 220px); overflow-x: auto; }
+      .score-grid { grid-template-columns: 145px 1fr 52px; }
+    }
+    @media print {
+      body { background: white; color: #111827; }
+      .page { width: 100%; padding: 0; }
+      nav { display: none; }
+      .hero, .card, .table-wrap, .diagram, details { color: #111827; background: white; box-shadow: none; }
+      a { color: #0369a1; }
+      h1, h2, h3, h4 { color: #111827; }
+      .section-desc, .meta-row, .diagram-note, .footer, .source { color: #475569; }
+      section { break-inside: avoid-page; }
+    }
+  </style>
+</head>
+<body>
+<main class="page">
+  <header class="hero">
+    <div class="eyebrow">Deep Research · Architecture Review · 2026-08-14</div>
+    <h1>豆包上车 vs “龙虾类”车载 Agent</h1>
+    <p class="hero-lead">从模型、Harness、Agent OS、Skill、Task/Trigger、安全策略和整车量产七层拆开比较。核心问题不是“谁更像 Agent”，而是：谁能在真实车辆里，把开放自治变成可控、可恢复、可审计的服务闭环。</p>
+    <div class="meta-row">
+      <span class="pill"><span class="dot green"></span>本地当前 SP：2026-07-31</span>
+      <span class="pill"><span class="dot"></span>27 个明确工具 · 4 类输入 · 4 个输出</span>
+      <span class="pill"><span class="dot amber"></span>市场资料：仅采用官方公开信息</span>
+      <span class="pill"><span class="dot rose"></span>商业报价未公开，不虚构单车授权价</span>
+    </div>
+  </header>
+
+  <nav aria-label="报告目录">
+    <a href="#conclusion">结论</a><a href="#scope">概念边界</a><a href="#market">市场状态</a><a href="#our-arch">我们的架构</a><a href="#claw-arch">Claw/Hermes</a><a href="#layer-map">逐层对比</a><a href="#scenario">场景跑链</a><a href="#capability">能力矩阵</a><a href="#safety">安全工程</a><a href="#cost">成本</a><a href="#decision">选型</a><a href="#target">建议方案</a><a href="#sources">证据</a>
+  </nav>
+
+  <section id="conclusion">
+    <div class="section-head"><div class="section-no">00 / VERDICT</div><div><h2>先给结论：不该“换成 OpenClaw”，应该把现有系统升级成车规 Harness</h2><p class="section-desc">OpenClaw/Hermes 是通用个人 Agent 运行时；汽车行业真正有竞争力的不是原版框架，而是把它们重做成端云 AIOS、车载 Skill 平台和安全执行系统。</p></div></div>
+    <div class="card big-conclusion">
+      <div class="verdict">近期<br>我们更好</div>
+      <div>
+        <p><strong>面向 D6X 和近期车型量产：</strong>保留豆包上车当前路线更合理。它已经拥有车载快慢分流、权威车辆 Context、固定工具边界、tool_feedback 闭环和真实车型集成；通用 OpenClaw/Hermes 直接替换会丢失车规能力。</p>
+        <p><strong>面向未来三年平台竞争：</strong>Auto Claw、KaKaClaw、AquaClaw 展现出的端侧运行、任务池、Skill 包、沙箱和可扩展生态，确实比“继续把规则和示例塞进一个大 SP”更可持续。</p>
+        <p><strong>最佳解：</strong><span class="yes">快慢路 + Director 中心仲裁 + 车规 Skill Registry + Task/Run/Event + Trigger + 端云混合运行时 + LLM 外确定性策略引擎</span>。</p>
+      </div>
+    </div>
+    <div class="grid three" style="margin-top:16px">
+      <div class="card cyan"><h3>真正的相同点</h3><p>两者都有“理解目标 → 规划 → 调工具 → 看结果 → 再规划”的 Agent 循环。我们的 Planner/Director 本质上已经是车载 Agent Harness，而不是传统 NLU 指令树。</p></div>
+      <div class="card amber"><h3>真正的差异点</h3><p>我们偏<strong>封闭域、中心仲裁、模型云端、工具固定</strong>；Claw 类偏<strong>技能化、运行时化、端侧化、生态开放</strong>。差异不在有没有大模型，而在能力如何装载、任务如何持久、权限如何治理。</p></div>
+      <div class="card rose"><h3>当前最大误区</h3><p>“开源免费”不等于“车载方案便宜”。MIT License 只免框架授权；车端硬件、OS 适配、车型接口、功能安全、网络安全、OTA、数据闭环才是整车成本主体。</p></div>
+    </div>
+  </section>
+
+  <section id="scope">
+    <div class="section-head"><div class="section-no">01 / SCOPE</div><div><h2>先拆清四层：模型、Harness、Agent OS、整车产品</h2><p class="section-desc">把这四层混在一起，就会错误比较 Seed 1.8、OpenClaw、Auto Claw 和智己 Ultra Agent。</p></div></div>
+    <div class="stack" aria-label="模型到整车产品分层">
+      <div></div><div class="col-head">豆包上车</div><div class="col-head">通用 Agent</div><div class="col-head">汽车版 Claw / OEM</div>
+      <div class="row-head">L1 · 基础模型</div><div>Doubao-Seed-1.8<small>负责理解、推理、结构化输出</small></div><div>Claude / GPT / Qwen / Nemotron / Hermes 模型等<small>可替换的推理引擎</small></div><div>Qwen、Nemotron、端侧 MoE 或 OEM 自选模型<small>厂商通常强调模型可替换</small></div>
+      <div class="row-head">L2 · Harness</div><div>Director SP + Context + action_list + tool_feedback<small>当前以大 SP 和编排层承载</small></div><div>OpenClaw / Hermes Agent<small>会话、提示词、工具循环、Skills、插件、压缩</small></div><div>Auto Claw / AquaClaw Runtime / KaKaClaw Agent Runtime<small>车载化调度与技能运行时</small></div>
+      <div class="row-head">L3 · Agent OS</div><div>路由、Context、Goal/Task、Trigger、执行编排<small>分散在多个业务模块</small></div><div>Gateway + Session + Workspace + Cron<small>面向个人电脑和消息渠道</small></div><div>AliOS/AIOS/整车 Agentic OS + 端云协同 + 沙箱<small>面向车规芯片、ECU 和服务生态</small></div>
+      <div class="row-head">L4 · Skills / 服务</div><div>27 个明确工具 + 功能 Agent + 动态示例<small>白名单、车型能力、串并行约束</small></div><div>Skills / Plugins / MCP / 70+ 通用工具<small>开放安装与自定义</small></div><div>车控、智驾、导航、影音、生活服务、支付<small>车企签名与权限治理</small></div>
+      <div class="row-head">L5 · 整车产品</div><div>荣威 D6X 豆包上车<small>量产车型体验与运营闭环</small></div><div>个人电脑/服务器上的通用助手<small>不是车载量产产品</small></div><div>智己 IM Ultra Agent、iCAR 合作方案等<small>产品状态必须逐车型核验</small></div>
+    </div>
+    <div class="callout" style="margin-top:16px"><strong>Hermes 到底是什么？</strong> Hermes Agent 是 Nous Research 的通用 Agent Harness，与 OpenClaw 同类，不是车载座舱产品。NVIDIA NemoClaw 当前甚至允许在同一沙箱体系里选择 OpenClaw 或 Hermes 作为运行时；但中科创达没有公开说明 AquaClaw 量产时采用 Hermes。<span class="ref">S6 S7 S13</span></div>
+  </section>
+
+  <section id="market">
+    <div class="section-head"><div class="section-no">02 / MARKET</div><div><h2>截至 2026-08-14，市场到底落地到哪一步</h2><p class="section-desc">下面将“真实上市”“合作伙伴”“供应商预览”“通用框架”分级，避免把发布会 Demo 当量产。</p></div></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>方案 / 产品</th><th>与 OpenClaw 的关系</th><th>官方公开架构</th><th>官方落地状态</th><th>证据等级</th><th>对我们的威胁</th></tr></thead>
+        <tbody>
+          <tr><td><strong>智己 IM Ultra Agent</strong><br>斑马元神 AI / Qwen</td><td>Agentic 产品；<strong>官方未证明使用 OpenClaw 代码</strong></td><td>System Agent + N Agents、生态服务串联</td><td>智己 LS8 已于 2026-04-16 上市并搭载</td><td><span class="status a">A · 整车上市</span></td><td>最高：证明“跨服务代劳”已成为量产卖点</td></tr>
+          <tr><td><strong>Auto Claw</strong><br>斑马智能</td><td>官方称“龙虾上车”；更像 Harness 理念的车规重构</td><td>元神 AI + Auto Omni + Auto Claw，“一脑双引擎”；官网另披露 1 System Agent + N Agents</td><td>方案已发布；官网未给出 Auto Claw 具体首搭车型与 SOP 数据</td><td><span class="status b">B · 正式方案</span></td><td>高：斑马已有 OS、服务生态和大规模座舱装机基础</td></tr>
+          <tr><td><strong>KaKaClaw 咖咖虾</strong><br>地平线</td><td>Claw-like Agentic Car OS；<strong>官方未称直接运行 OpenClaw</strong></td><td>任务即服务、物理/数字 Agent、端云模型、本地核心、Skill 沙箱、隐私路由、舱驾融合</td><td>iCAR 为全球首发合作车企；具体量产车型与 SOP 时间未披露</td><td><span class="status b">B · 首发合作</span></td><td>高：端侧、芯片、智驾与座舱一体，是结构性路线竞争</td></tr>
+          <tr><td><strong>AquaClaw / AquaDrive AIOS 2.1</strong><br>中科创达 + NVIDIA/Qualcomm</td><td><strong>直接公开基于 NemoClaw / OpenClaw 架构</strong></td><td>Base OS + AI Runtime + 车辆本体/技能库；edge-first、cloud collaboration、OpenShell sandbox</td><td>AquaClaw 官方标注 early preview；Qualcomm 平台展示 production-ready AIOS，但未公布 OEM 量产车型</td><td><span class="status c">C · 供应商预览</span></td><td>中高：开放、可移植、多芯片适配，对希望掌握主导权的 OEM 有吸引力</td></tr>
+          <tr><td><strong>OpenClaw 原版</strong></td><td>源项目</td><td>Gateway、Session Agent Loop、Skills、Plugins、Tools、Cron、Workspace</td><td>通用个人助手；无官方车规量产产品身份</td><td><span class="status d">D · 通用框架</span></td><td>低（直接）；高（理念和生态外溢）</td></tr>
+          <tr><td><strong>Hermes Agent</strong></td><td>OpenClaw 同类 Harness，可被 NemoClaw 沙箱承载</td><td>Prompt tiers、Agent loop、70+ tools、SQLite sessions、Cron、Delegation、Plugins</td><td>通用 Agent；无公开 OEM 车载量产案例</td><td><span class="status d">D · 通用框架</span></td><td>低（直接）；可作为技术基准或底层替代</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="grid two" style="margin-top:16px">
+      <div class="card green"><h3>能确认的量产事实</h3><ul><li>智己 LS8 的 IM Ultra Agent 已随整车上市。<span class="ref">S9 S14</span></li><li>斑马官网披露其通用智能座舱方案累计搭载 1000 万辆以上，但这个数字不能等同于 Auto Claw 装机量。<span class="ref">S9</span></li><li>我们的项目资料明确豆包上车搭载荣威 D6X。<span class="ref">S2</span></li></ul></div>
+      <div class="card amber"><h3>仍不能确认的事实</h3><ul><li>Auto Claw 是否在 LS8 上直接使用 OpenClaw 代码。</li><li>KaKaClaw 的首个具体 SOP 车型和版本能力。</li><li>AquaClaw 的 OEM 定点、量产时间和实际单车成本。</li><li>任一供应商的真实任务成功率、P95 延迟、云成本和安全拒绝率。</li></ul></div>
+    </div>
+  </section>
+
+  <section id="our-arch">
+    <div class="section-head"><div class="section-no">03 / OUR SYSTEM</div><div><h2>我们的当前架构：车载闭环很强，但 Harness 仍主要压在大 SP 里</h2><p class="section-desc">当前本地 SP 为 2026-07-31 版本：127,789 字符、2,186 行；4 类输入、27 个明确工具、4 个输出字段、25 个示例块（24 个不同编号）。<span class="ref">S1</span></p></div></div>
+    <div class="diagram" role="img" aria-label="豆包上车 Driver Agent 2.0 当前与演进架构">
+      <svg viewBox="0 0 1200 720" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="gridA" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="#1e293b" stroke-width=".6"/></pattern>
+          <marker id="a1" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><path d="M0 0L10 3.5 0 7Z" fill="#64748b"/></marker>
+          <marker id="a2" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><path d="M0 0L10 3.5 0 7Z" fill="#22d3ee"/></marker>
+          <marker id="a3" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><path d="M0 0L10 3.5 0 7Z" fill="#fbbf24"/></marker>
+        </defs>
+        <rect width="1200" height="720" rx="12" fill="#07101e"/><rect width="1200" height="720" rx="12" fill="url(#gridA)"/>
+        <rect x="22" y="72" width="1156" height="255" rx="13" fill="rgba(8,51,68,.10)" stroke="#22d3ee" stroke-dasharray="7 5"/>
+        <text x="38" y="94" fill="#22d3ee" font-family="JetBrains Mono" font-size="11" font-weight="700">SYNC TURN · 当前会话</text>
+        <rect x="22" y="350" width="1156" height="330" rx="13" fill="rgba(76,29,149,.08)" stroke="#a78bfa" stroke-dasharray="7 5"/>
+        <text x="38" y="372" fill="#a78bfa" font-family="JetBrains Mono" font-size="11" font-weight="700">DURABLE TASK · Goal 当前链 + Task 化 WIP</text>
+
+        <path d="M170 180H238" stroke="#22d3ee" stroke-width="1.7" marker-end="url(#a2)"/>
+        <path d="M390 142H458" stroke="#22d3ee" stroke-width="1.7" marker-end="url(#a2)"/>
+        <path d="M390 218H458" stroke="#22d3ee" stroke-width="1.7" marker-end="url(#a2)"/>
+        <path d="M645 180H715" stroke="#22d3ee" stroke-width="1.7" marker-end="url(#a2)"/>
+        <path d="M900 180H978" stroke="#34d399" stroke-width="1.7" marker-end="url(#a1)"/>
+        <path d="M1070 230C1070 305 800 318 800 244" fill="none" stroke="#fb923c" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#a1)"/>
+        <text x="945" y="302" fill="#fb923c" font-family="JetBrains Mono" font-size="9">tool_feedback → 再规划</text>
+
+        <g><rect x="44" y="128" width="126" height="104" rx="8" fill="#0f172a"/><rect x="44" y="128" width="126" height="104" rx="8" fill="rgba(30,41,59,.55)" stroke="#94a3b8" stroke-width="1.5"/><text x="107" y="154" fill="white" text-anchor="middle" font-size="12" font-weight="700">输入</text><text x="107" y="176" fill="#94a3b8" text-anchor="middle" font-size="9">user_query</text><text x="107" y="192" fill="#94a3b8" text-anchor="middle" font-size="9">advisor / event</text><text x="107" y="208" fill="#94a3b8" text-anchor="middle" font-size="9">tool_feedback</text></g>
+        <g><rect x="238" y="106" width="152" height="72" rx="8" fill="#0f172a"/><rect x="238" y="106" width="152" height="72" rx="8" fill="rgba(8,51,68,.40)" stroke="#22d3ee" stroke-width="1.5"/><text x="314" y="134" fill="white" text-anchor="middle" font-size="11" font-weight="700">快路 / 句法 RAG</text><text x="314" y="153" fill="#94a3b8" text-anchor="middle" font-size="9">明确 · 低风险 · 单工具</text></g>
+        <g><rect x="238" y="190" width="152" height="72" rx="8" fill="#0f172a"/><rect x="238" y="190" width="152" height="72" rx="8" fill="rgba(120,53,15,.28)" stroke="#fbbf24" stroke-width="1.5"/><text x="314" y="218" fill="white" text-anchor="middle" font-size="11" font-weight="700">情景分流 / 仲裁</text><text x="314" y="237" fill="#94a3b8" text-anchor="middle" font-size="9">Context 依赖与复杂度</text></g>
+        <g><rect x="458" y="113" width="187" height="134" rx="8" fill="#0f172a"/><rect x="458" y="113" width="187" height="134" rx="8" fill="rgba(76,29,149,.36)" stroke="#a78bfa" stroke-width="1.7"/><text x="551" y="140" fill="white" text-anchor="middle" font-size="12" font-weight="700">Context Assembly</text><text x="551" y="164" fill="#c4b5fd" text-anchor="middle" font-size="9">乘员 / 车辆 / 导航 / 视觉</text><text x="551" y="181" fill="#c4b5fd" text-anchor="middle" font-size="9">记忆 / Goal / 历史 / 知识</text><text x="551" y="205" fill="#94a3b8" text-anchor="middle" font-size="8">关键要求：freshness、source、TTL</text><text x="551" y="222" fill="#94a3b8" text-anchor="middle" font-size="8">当前大量作为动态 Prompt 注入</text></g>
+        <g><rect x="715" y="108" width="185" height="144" rx="8" fill="#0f172a"/><rect x="715" y="108" width="185" height="144" rx="8" fill="rgba(6,78,59,.38)" stroke="#34d399" stroke-width="1.7"/><text x="807" y="136" fill="white" text-anchor="middle" font-size="12" font-weight="700">Planner = Director</text><text x="807" y="158" fill="#6ee7b7" text-anchor="middle" font-size="9">Seed 1.8 · 云端 LLM</text><text x="807" y="181" fill="#94a3b8" text-anchor="middle" font-size="8">SP + UP → 严格 JSON</text><text x="807" y="198" fill="#94a3b8" text-anchor="middle" font-size="8">talk / emoji / action_list</text><text x="807" y="222" fill="#94a3b8" text-anchor="middle" font-size="8">中心仲裁：说什么、做什么、是否等待</text></g>
+        <g><rect x="978" y="112" width="166" height="136" rx="8" fill="#0f172a"/><rect x="978" y="112" width="166" height="136" rx="8" fill="rgba(120,53,15,.28)" stroke="#fbbf24" stroke-width="1.7"/><text x="1061" y="140" fill="white" text-anchor="middle" font-size="12" font-weight="700">执行编排层</text><text x="1061" y="164" fill="#fde68a" text-anchor="middle" font-size="9">27 工具 / 功能 Agent</text><text x="1061" y="181" fill="#fde68a" text-anchor="middle" font-size="9">车控 · 导航 · 内容 · 服务</text><text x="1061" y="205" fill="#94a3b8" text-anchor="middle" font-size="8">串并行 / 权限 / 真实返回</text><text x="1061" y="222" fill="#94a3b8" text-anchor="middle" font-size="8">结果回流 tool_feedback</text></g>
+
+        <path d="M805 252V406" stroke="#a78bfa" stroke-width="1.7" marker-end="url(#a1)"/>
+        <text x="817" y="335" fill="#c4b5fd" font-family="JetBrains Mono" font-size="9">跨时间 → 持久化</text>
+        <path d="M905 452H968" stroke="#a78bfa" stroke-width="1.6" marker-end="url(#a1)"/>
+        <path d="M968 515H905" stroke="#fbbf24" stroke-width="1.6" marker-end="url(#a3)"/>
+        <path d="M715 505H646" stroke="#fbbf24" stroke-width="1.6" marker-end="url(#a3)"/>
+        <path d="M458 510H390" stroke="#34d399" stroke-width="1.6" marker-end="url(#a1)"/>
+        <path d="M314 542V592H790V252" fill="none" stroke="#34d399" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#a1)"/>
+        <text x="554" y="583" fill="#34d399" font-family="JetBrains Mono" font-size="9">callback → 读取最新 Context → Director 再规划</text>
+
+        <g><rect x="715" y="406" width="190" height="98" rx="8" fill="#0f172a"/><rect x="715" y="406" width="190" height="98" rx="8" fill="rgba(76,29,149,.35)" stroke="#a78bfa" stroke-width="1.6"/><text x="810" y="434" fill="white" text-anchor="middle" font-size="11" font-weight="700">持续管理入口</text><text x="810" y="456" fill="#c4b5fd" text-anchor="middle" font-size="9">当前：goal_list_update</text><text x="810" y="474" fill="#94a3b8" text-anchor="middle" font-size="8">目标、条件、定时、持续观察</text><text x="810" y="490" fill="#fb7185" text-anchor="middle" font-size="8">WIP：task_manage 收敛</text></g>
+        <g><rect x="968" y="406" width="176" height="98" rx="8" fill="#0f172a"/><rect x="968" y="406" width="176" height="98" rx="8" fill="rgba(76,29,149,.28)" stroke="#a78bfa" stroke-width="1.6"/><text x="1056" y="434" fill="white" text-anchor="middle" font-size="11" font-weight="700">Task Service [WIP]</text><text x="1056" y="456" fill="#c4b5fd" text-anchor="middle" font-size="9">Task · Run · Event</text><text x="1056" y="474" fill="#94a3b8" text-anchor="middle" font-size="8">waiting / running / closed</text><text x="1056" y="490" fill="#94a3b8" text-anchor="middle" font-size="8">幂等 / 恢复 / 查询 / 取消</text></g>
+        <g><rect x="715" y="516" width="190" height="72" rx="8" fill="#0f172a"/><rect x="715" y="516" width="190" height="72" rx="8" fill="rgba(120,53,15,.28)" stroke="#fbbf24" stroke-width="1.6"/><text x="810" y="544" fill="white" text-anchor="middle" font-size="11" font-weight="700">Trigger / VLM / Timer</text><text x="810" y="564" fill="#fde68a" text-anchor="middle" font-size="9">时间 · 状态 · 事件 · 视觉</text></g>
+        <g><rect x="458" y="466" width="188" height="88" rx="8" fill="#0f172a"/><rect x="458" y="466" width="188" height="88" rx="8" fill="rgba(6,78,59,.30)" stroke="#34d399" stroke-width="1.6"/><text x="552" y="494" fill="white" text-anchor="middle" font-size="11" font-weight="700">Trigger Callback</text><text x="552" y="516" fill="#6ee7b7" text-anchor="middle" font-size="9">只负责唤醒，不直接决定车控</text><text x="552" y="534" fill="#94a3b8" text-anchor="middle" font-size="8">命中证据 + task_id + timestamp</text></g>
+        <g><rect x="238" y="458" width="152" height="98" rx="8" fill="#0f172a"/><rect x="238" y="458" width="152" height="98" rx="8" fill="rgba(6,78,59,.30)" stroke="#34d399" stroke-width="1.6"/><text x="314" y="486" fill="white" text-anchor="middle" font-size="11" font-weight="700">执行与回写</text><text x="314" y="508" fill="#6ee7b7" text-anchor="middle" font-size="9">工具 / Agent / 端侧直执</text><text x="314" y="527" fill="#94a3b8" text-anchor="middle" font-size="8">success / failed / skipped</text><text x="314" y="543" fill="#94a3b8" text-anchor="middle" font-size="8">更新 Run，继续或关闭</text></g>
+        <g><rect x="44" y="454" width="126" height="110" rx="8" fill="#0f172a"/><rect x="44" y="454" width="126" height="110" rx="8" fill="rgba(136,19,55,.27)" stroke="#fb7185" stroke-width="1.6"/><text x="107" y="482" fill="white" text-anchor="middle" font-size="11" font-weight="700">确定性策略</text><text x="107" y="504" fill="#fda4af" text-anchor="middle" font-size="9">权限 / 风险 / 冲突</text><text x="107" y="522" fill="#fda4af" text-anchor="middle" font-size="9">确认 / 幂等 / 回滚</text><text x="107" y="546" fill="#94a3b8" text-anchor="middle" font-size="8">应在 LLM 外执行</text></g>
+      </svg>
+      <div class="diagram-note"><span class="legend"><i style="background:#22d3ee"></i>当前同步链</span><span class="legend"><i style="background:#a78bfa"></i>持续任务域</span><span class="legend"><i style="background:#fbbf24"></i>触发/事件</span><span class="legend"><i style="background:#fb7185"></i>必须确定性治理</span></div>
+    </div>
+    <div class="grid three" style="margin-top:16px">
+      <div class="card green"><h3>已有优势</h3><ul><li>简单指令有快路，不必每次进入大模型。</li><li>车辆、乘员、导航、记忆是业务 Context，不是普通聊天历史。</li><li>action_list 与 tool_feedback 形成可反复 Replan 的闭环。</li><li>工具定义包含车型边界、前置条件和串行约束。</li></ul></div>
+      <div class="card amber"><h3>当前结构债务</h3><ul><li>27 工具、规则、车型边界和示例大量压在 12.8 万字符 SP 中。</li><li>SP 当前仍有编号重复、旧工具名和未定义工具引用。</li><li>Goal、动态 Advisor、Task Service 处在演进期，不能假定已经统一。</li><li>“Prompt 写了不允许”不能代替执行层安全策略。</li></ul></div>
+      <div class="card cyan"><h3>与 Claw 的关键差距</h3><ul><li>缺统一、版本化、可签名的 Vehicle Skill 包。</li><li>缺标准 Runtime 生命周期和 Skill 装载/卸载协议。</li><li>端侧 Agent/本地模型承担比例有限。</li><li>任务池和跨会话恢复仍在 Task WIP 中完善。</li></ul></div>
+    </div>
+  </section>
+
+  <section id="claw-arch">
+    <div class="section-head"><div class="section-no">04 / CLAW</div><div><h2>OpenClaw/Hermes 强在哪里：不是“更聪明”，而是 Harness 工程更完整</h2><p class="section-desc">它们把模型外的会话、上下文、工具、Skill、插件、持久化、定时任务、安全和可观测做成独立运行时，而不是全部写进 Prompt。</p></div></div>
+    <div class="diagram" role="img" aria-label="OpenClaw 与 Hermes 通用 Agent Harness 架构">
+      <svg viewBox="0 0 1200 620" xmlns="http://www.w3.org/2000/svg">
+        <defs><pattern id="gridB" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="#1e293b" stroke-width=".6"/></pattern><marker id="b1" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><path d="M0 0L10 3.5 0 7Z" fill="#64748b"/></marker></defs>
+        <rect width="1200" height="620" rx="12" fill="#07101e"/><rect width="1200" height="620" rx="12" fill="url(#gridB)"/>
+        <rect x="22" y="25" width="1156" height="545" rx="13" fill="rgba(120,53,15,.04)" stroke="#fbbf24" stroke-dasharray="8 5"/><text x="38" y="48" fill="#fbbf24" font-family="JetBrains Mono" font-size="11" font-weight="700">GENERIC AGENT HARNESS · 通用电脑/服务器，不自带车辆语义</text>
+        <path d="M178 190H250" stroke="#22d3ee" stroke-width="1.7" marker-end="url(#b1)"/><path d="M430 190H500" stroke="#22d3ee" stroke-width="1.7" marker-end="url(#b1)"/><path d="M700 190H770" stroke="#34d399" stroke-width="1.7" marker-end="url(#b1)"/><path d="M950 190H1020" stroke="#a78bfa" stroke-width="1.7" marker-end="url(#b1)"/>
+        <path d="M861 250V350" stroke="#fb923c" stroke-width="1.6" marker-end="url(#b1)"/><path d="M770 410H700" stroke="#fb923c" stroke-width="1.6" marker-end="url(#b1)"/><path d="M600 350V252" stroke="#fb923c" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#b1)"/><text x="620" y="311" fill="#fb923c" font-size="9" font-family="JetBrains Mono">result → loop</text>
+        <path d="M340 244V350" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#b1)"/><path d="M340 438V485" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#b1)"/>
+
+        <g><rect x="50" y="128" width="128" height="124" rx="8" fill="#0f172a"/><rect x="50" y="128" width="128" height="124" rx="8" fill="rgba(30,41,59,.55)" stroke="#94a3b8" stroke-width="1.5"/><text x="114" y="156" fill="white" text-anchor="middle" font-size="12" font-weight="700">Channels</text><text x="114" y="180" fill="#94a3b8" text-anchor="middle" font-size="9">Web / CLI / App</text><text x="114" y="198" fill="#94a3b8" text-anchor="middle" font-size="9">WhatsApp / Slack</text><text x="114" y="216" fill="#94a3b8" text-anchor="middle" font-size="9">Voice / Home Assistant</text><text x="114" y="237" fill="#64748b" text-anchor="middle" font-size="8">不是车载 CAN/ECU</text></g>
+        <g><rect x="250" y="118" width="180" height="142" rx="8" fill="#0f172a"/><rect x="250" y="118" width="180" height="142" rx="8" fill="rgba(8,51,68,.40)" stroke="#22d3ee" stroke-width="1.6"/><text x="340" y="148" fill="white" text-anchor="middle" font-size="12" font-weight="700">Gateway / Session</text><text x="340" y="172" fill="#a5f3fc" text-anchor="middle" font-size="9">身份 · 路由 · 会话隔离</text><text x="340" y="190" fill="#a5f3fc" text-anchor="middle" font-size="9">队列 · Streaming · Hooks</text><text x="340" y="216" fill="#94a3b8" text-anchor="middle" font-size="8">OpenClaw：本地 control plane</text><text x="340" y="232" fill="#94a3b8" text-anchor="middle" font-size="8">Hermes：20 平台 Gateway</text></g>
+        <g><rect x="500" y="108" width="200" height="160" rx="8" fill="#0f172a"/><rect x="500" y="108" width="200" height="160" rx="8" fill="rgba(6,78,59,.38)" stroke="#34d399" stroke-width="1.7"/><text x="600" y="138" fill="white" text-anchor="middle" font-size="12" font-weight="700">Agent Loop</text><text x="600" y="163" fill="#6ee7b7" text-anchor="middle" font-size="9">Prompt → Model → Tool → Result</text><text x="600" y="181" fill="#6ee7b7" text-anchor="middle" font-size="9">Retry / Fallback / Compaction</text><text x="600" y="206" fill="#94a3b8" text-anchor="middle" font-size="8">OpenClaw：per-session serialized run</text><text x="600" y="222" fill="#94a3b8" text-anchor="middle" font-size="8">Hermes：AIAgent + provider resolver</text><text x="600" y="244" fill="#fb7185" text-anchor="middle" font-size="8">本身不知道“高速行驶不能开门”</text></g>
+        <g><rect x="770" y="118" width="180" height="142" rx="8" fill="#0f172a"/><rect x="770" y="118" width="180" height="142" rx="8" fill="rgba(76,29,149,.35)" stroke="#a78bfa" stroke-width="1.6"/><text x="860" y="148" fill="white" text-anchor="middle" font-size="12" font-weight="700">Prompt / Context</text><text x="860" y="172" fill="#c4b5fd" text-anchor="middle" font-size="9">Workspace / Memory / History</text><text x="860" y="190" fill="#c4b5fd" text-anchor="middle" font-size="9">Skills / Tool Schemas</text><text x="860" y="216" fill="#94a3b8" text-anchor="middle" font-size="8">压缩、缓存、动态装载</text><text x="860" y="232" fill="#94a3b8" text-anchor="middle" font-size="8">缺车辆信号 freshness 语义</text></g>
+        <g><rect x="1020" y="132" width="130" height="116" rx="8" fill="#0f172a"/><rect x="1020" y="132" width="130" height="116" rx="8" fill="rgba(120,53,15,.28)" stroke="#fbbf24" stroke-width="1.6"/><text x="1085" y="160" fill="white" text-anchor="middle" font-size="12" font-weight="700">Models</text><text x="1085" y="184" fill="#fde68a" text-anchor="middle" font-size="9">Hosted / Local</text><text x="1085" y="202" fill="#94a3b8" text-anchor="middle" font-size="8">多 Provider 路由</text><text x="1085" y="220" fill="#94a3b8" text-anchor="middle" font-size="8">BYOK / 自托管</text></g>
+
+        <g><rect x="770" y="350" width="180" height="122" rx="8" fill="#0f172a"/><rect x="770" y="350" width="180" height="122" rx="8" fill="rgba(251,146,60,.22)" stroke="#fb923c" stroke-width="1.6"/><text x="860" y="380" fill="white" text-anchor="middle" font-size="12" font-weight="700">Tools / Plugins / MCP</text><text x="860" y="404" fill="#fdba74" text-anchor="middle" font-size="9">文件 · 浏览器 · 搜索 · 代码</text><text x="860" y="422" fill="#fdba74" text-anchor="middle" font-size="9">第三方 API · 自定义 Tool</text><text x="860" y="447" fill="#94a3b8" text-anchor="middle" font-size="8">能力开放，但执行语义不车规</text></g>
+        <g><rect x="500" y="350" width="200" height="122" rx="8" fill="#0f172a"/><rect x="500" y="350" width="200" height="122" rx="8" fill="rgba(6,78,59,.30)" stroke="#34d399" stroke-width="1.6"/><text x="600" y="380" fill="white" text-anchor="middle" font-size="12" font-weight="700">Skill Runtime</text><text x="600" y="404" fill="#6ee7b7" text-anchor="middle" font-size="9">程序性知识 + Guardrails</text><text x="600" y="422" fill="#6ee7b7" text-anchor="middle" font-size="9">版本化、发现、按需注入</text><text x="600" y="447" fill="#94a3b8" text-anchor="middle" font-size="8">这是最值得我们吸收的结构</text></g>
+        <g><rect x="250" y="350" width="180" height="122" rx="8" fill="#0f172a"/><rect x="250" y="350" width="180" height="122" rx="8" fill="rgba(76,29,149,.30)" stroke="#a78bfa" stroke-width="1.6"/><text x="340" y="380" fill="white" text-anchor="middle" font-size="12" font-weight="700">Persistence / Cron</text><text x="340" y="404" fill="#c4b5fd" text-anchor="middle" font-size="9">Transcript · SQLite · Memory</text><text x="340" y="422" fill="#c4b5fd" text-anchor="middle" font-size="9">Schedule · Background Job</text><text x="340" y="447" fill="#94a3b8" text-anchor="middle" font-size="8">≠ 车辆条件 Trigger</text></g>
+        <g><rect x="250" y="485" width="700" height="64" rx="8" fill="#0f172a"/><rect x="250" y="485" width="700" height="64" rx="8" fill="rgba(136,19,55,.22)" stroke="#fb7185" stroke-width="1.6" stroke-dasharray="5 4"/><text x="600" y="512" fill="white" text-anchor="middle" font-size="11" font-weight="700">Generic Security Boundary</text><text x="600" y="532" fill="#fda4af" text-anchor="middle" font-size="9">Gateway auth · Tool policy · Sandbox · Approval · Network policy · Supply-chain scan</text></g>
+        <text x="974" y="519" fill="#fb7185" font-family="JetBrains Mono" font-size="9">还需车规 Policy / ECU 安全网关</text>
+      </svg>
+    </div>
+    <div class="grid two" style="margin-top:16px">
+      <div class="card cyan"><h3>OpenClaw 的工程亮点</h3><ul><li>Gateway 是会话、工具、事件和渠道的本地控制平面。</li><li>每个 Session 的 Agent run 串行化，支持超时、压缩、重试和流式事件。</li><li>Skills / Plugins / MCP 独立于模型，能力可组合扩展。</li><li>Prompt caching、compaction、tool-loop detection 已运行时化。</li></ul><p class="unknown"><span class="ref">S4 S5 S6</span></p></div>
+      <div class="card green"><h3>Hermes 的工程亮点</h3><ul><li>Prompt 分 stable / context / volatile 三层，天然利于缓存与动态上下文。</li><li>18+ Provider 路由、70+ 工具、SQLite Session、插件和轨迹数据。</li><li>Cron、Delegation 和 Gateway 是一等能力。</li><li>但官方安全文档也明确：文件写保护并不能约束同权限 Terminal，仍需真正沙箱。</li></ul><p class="unknown"><span class="ref">S7 S8</span></p></div>
+    </div>
+    <div class="callout rose" style="margin-top:16px"><strong>为什么不能直接装上车：</strong>通用沙箱解决“Agent 不要删宿主文件/偷密钥”，车规安全还要解决“谁能在什么车速、挡位、座位、车辆状态下调用哪个 ECU 能力；失败如何回滚；跨域动作怎样事务化”。这是完全不同的信任边界。</div>
+  </section>
+
+  <section id="layer-map">
+    <div class="section-head"><div class="section-no">05 / MAPPING</div><div><h2>逐层映射：我们的每个模块，在 Claw 世界里对应什么</h2><p class="section-desc">这张表回答“到底哪里一样、哪里不一样”，也是后续架构演进的接口清单。</p></div></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>架构层</th><th>豆包上车当前</th><th>OpenClaw / Hermes</th><th>汽车版 Claw</th><th>最终差异</th></tr></thead>
+        <tbody>
+          <tr><td><strong>入口</strong></td><td>ASR、用户 Query、Advisor、tool_feedback、event</td><td>聊天渠道、CLI、App、Webhook</td><td>语音、多模态、车辆信号、生态服务</td><td>我们和汽车版都需要车内人物/位置；通用 Harness 不具备</td></tr>
+          <tr><td><strong>快慢分流</strong></td><td>句法 RAG → 情景仲裁 → Director</td><td>通常进入统一 Agent loop；可由工具策略/模型路由优化</td><td>强调端侧模型、端云协同、核心本地</td><td>我们的快路是量产优势；Claw 原版若全进 Agent 会浪费延迟与成本</td></tr>
+          <tr><td><strong>Context</strong></td><td>车辆、乘员、视觉、记忆、Goal、导航、历史</td><td>Workspace 文件、Session、Memory、Skills、Tool schema</td><td>车辆本体/ontology、长记忆、端侧感知</td><td>我们更懂“现场事实”；Claw 更擅长“可装载工作空间”</td></tr>
+          <tr><td><strong>规划器</strong></td><td>Planner/Director 中心仲裁，输出 JSON action_list</td><td>Agent loop 多轮 tool_call；可选 subagent</td><td>System Agent / 中央调度器 + 多 Agent</td><td>我们强调单一对用户负责的仲裁者；Claw 强调服务组织和动态协作</td></tr>
+          <tr><td><strong>能力封装</strong></td><td>27 个工具 + 功能 Agent + tips/示例</td><td>Tools + Skills + Plugins + MCP</td><td>Vehicle Skills + 生活服务 Agent + 安全沙箱</td><td>我们是“工具白名单”；Claw 是“能力包生态”</td></tr>
+          <tr><td><strong>反馈循环</strong></td><td>tool_feedback 重新进入 Director</td><td>tool result 原位进入 agent loop</td><td>执行收据、Agent 结果、任务状态</td><td>原理一致；差别在结果 schema 和事务语义是否标准化</td></tr>
+          <tr><td><strong>持续任务</strong></td><td>当前 Goal 链；Task/Run/Event WIP</td><td>Session、Cron、Background、Memory</td><td>任务池、stateful agent、任务即服务</td><td>我们正在从“目标提示”升级为“业务任务实体”；这是最关键追赶项</td></tr>
+          <tr><td><strong>触发</strong></td><td>Timer / 车状态 / VLM / 事件 / Trigger callback</td><td>Cron / Webhook / Channel event</td><td>车辆信号、端侧感知、端云事件</td><td>车辆 Trigger 的时间、状态、沿、去抖、TTL 是通用 Cron 没有的</td></tr>
+          <tr><td><strong>安全</strong></td><td>工具边界、车型能力、人物位置、执行层校验（需继续结构化）</td><td>沙箱、工具策略、批准、Gateway 权限</td><td>物理隔离、Skill 沙箱、隐私路由、策略引擎</td><td>通用安全保护计算机；车规安全保护人、车和道路</td></tr>
+          <tr><td><strong>运营</strong></td><td>Badcase → 链路/工具/Context/模型排查</td><td>Transcript、Hooks、Usage、Trajectories</td><td>公开资料很少披露量产诊断细节</td><td>我们的真实量产数据是护城河；要补结构化 trace 和 Skill 版本归因</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="scenario">
+    <div class="section-head"><div class="section-no">06 / SCENARIO</div><div><h2>同一真实需求跑完两套链路</h2><p class="section-desc">场景：“明早 8 点如果下雨，提前开空调除雾，导航去公司，顺路帮我买杯冰美式。”它同时包含时间、条件、车控、导航、第三方服务、支付和跨会话恢复。</p></div></div>
+    <div class="flow-compare">
+      <div class="card cyan">
+        <h3>豆包上车：业务 Task + Trigger 驱动</h3>
+        <div class="flow-step" data-n="1"><strong>Director 判断任务类型</strong><br>不是当前轮能完成的一次 Action；拆出“明早 8 点”“如果下雨”“除雾”“导航”“下单”与授权缺口。</div>
+        <div class="flow-step" data-n="2"><strong>创建持续任务</strong><br>当前链路调用持续管理入口；目标链创建 Goal + Trigger Scene。WIP 目标态写入 Task、Run 策略、结束条件和用户管理信息。</div>
+        <div class="flow-step" data-n="3"><strong>Trigger 持续监听</strong><br>Timer 到 8 点；再获取天气事件/状态。未下雨则按策略 skipped 或询问是否仍导航，不直接执行除雾。</div>
+        <div class="flow-step" data-n="4"><strong>回调并读取最新 Context</strong><br>重新读取车辆是否在线、挡位、车窗/空调、用户是否上车、公司地址、支付授权、当前天气与路况。</div>
+        <div class="flow-step" data-n="5"><strong>Director 再规划</strong><br>可并行的除雾与天气确认并行；导航与沿途咖啡搜索按依赖串行；支付需要用户确认或预授权。</div>
+        <div class="flow-step" data-n="6"><strong>执行回执与任务收口</strong><br>每个工具返回 tool_feedback；失败时重试/降级/询问。Task 记录 finished / partial / skipped，并可查询、修改、取消。</div>
+        <div class="callout"><strong>优势：</strong>车辆条件、任务状态和用户安全语义明确。<br><strong>当前缺口：</strong>Task 统一化仍是 WIP；第三方下单/支付工具是否真实可用需车型项目确认。</div>
+      </div>
+      <div class="card amber">
+        <h3>通用 OpenClaw/Hermes：Cron + Agent Loop 驱动</h3>
+        <div class="flow-step" data-n="1"><strong>Agent 解析并创建 Cron</strong><br>把 8 点任务写入 Cron；可能将天气、导航、咖啡流程保存为 Skill 或 Prompt。</div>
+        <div class="flow-step" data-n="2"><strong>到点创建一次 Agent Run</strong><br>Hermes Cron 官方语义是新鲜 Session、默认不继承当前聊天；必须把公司地址、授权边界等写进任务或持久记忆。</div>
+        <div class="flow-step" data-n="3"><strong>调用天气与服务插件</strong><br>Web/API 工具判断天气，再调用导航、外卖/咖啡插件。通用框架不知道哪个工具是车辆安全域。</div>
+        <div class="flow-step" data-n="4"><strong>缺车辆 Trigger 语义</strong><br>Cron 能表达“8 点”，不能天然表达挡位边沿、用户是否入座、信号 TTL、VLM 连续 K 帧去抖，需要 OEM 自建事件总线。</div>
+        <div class="flow-step" data-n="5"><strong>缺整车事务边界</strong><br>“除雾成功但导航失败”“咖啡下单成功但用户没上车”的补偿策略，需在 Skill 和策略引擎里额外实现。</div>
+        <div class="flow-step" data-n="6"><strong>汽车版 Claw 的补丁</strong><br>Aqua/KaKa/Auto Claw 正是通过 AIOS、车辆 ontology、Skill library、Policy/Sandbox 和端侧模型把这些缺口补齐。</div>
+        <div class="callout amber"><strong>优势：</strong>流程可快速 Skill 化，生态接入灵活。<br><strong>风险：</strong>若只把通用 Agent 装上车，而没有车辆事件、权限和事务层，Demo 很快，量产很危险。</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="capability">
+    <div class="section-head"><div class="section-no">07 / CAPABILITY</div><div><h2>能力矩阵：不要只看“能不能做”，要看“是否可量产地做”</h2><p class="section-desc">以下为基于公开架构和本地资料的分析评分，不是厂商实测 Benchmark。5 格代表结构能力与证据综合判断，未知项按中性处理。</p></div></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>能力</th><th>豆包上车当前</th><th>Auto Claw</th><th>KaKaClaw</th><th>AquaClaw</th><th>OpenClaw / Hermes 原版</th><th>解释</th></tr></thead>
+        <tbody>
+          <tr><td>明确车控低时延</td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="4"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="4"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="2"><i></i><i></i><i></i><i></i><i></i></span></td><td>我们已有快路；通用 Agent 若不另建快路会多一次模型开销</td></tr>
+          <tr><td>复杂多工具规划</td><td><span class="heat" data-v="4"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td>Claw 的任务池/Skills 更模块化；我们的工具语义更具体</td></tr>
+          <tr><td>工具依赖与反馈闭环</td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="4"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="4"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="4"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="4"><i></i><i></i><i></i><i></i><i></i></span></td><td>原理都支持，真正差别是 schema、幂等和补偿是否结构化</td></tr>
+          <tr><td>跨会话持续任务</td><td><span class="heat" data-v="3"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="4"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="4"><i></i><i></i><i></i><i></i><i></i></span></td><td>我们 Task 化 WIP；Aqua 官方明确 stateful agents 跨驾驶 Session</td></tr>
+          <tr><td>车辆信号条件触发</td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="4"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="4"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="1"><i></i><i></i><i></i><i></i><i></i></span></td><td>Cron ≠ 状态边沿/去抖/TTL/端云触发</td></tr>
+          <tr><td>端侧/弱网</td><td><span class="heat" data-v="3"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="4"><i></i><i></i><i></i><i></i><i></i></span></td><td>通用框架可本地运行，但缺车规芯片优化；汽车版重点补齐</td></tr>
+          <tr><td>Skill 扩展生态</td><td><span class="heat" data-v="3"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td>我们偏工具与示例配置，尚缺统一 Skill 生命周期</td></tr>
+          <tr><td>车控确定性与车型边界</td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="4"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="4"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="1"><i></i><i></i><i></i><i></i><i></i></span></td><td>通用 Agent 无车型能力矩阵；汽车版必须重做</td></tr>
+          <tr><td>用户自定义能力</td><td><span class="heat" data-v="3"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="4"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="4"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td>KaKa 官方称支持用户零代码创建 Skill；量产权限仍需看车型</td></tr>
+          <tr><td>量产问题闭环</td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="4"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="3"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="2"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="2"><i></i><i></i><i></i><i></i><i></i></span></td><td>真实车型 badcase、链路诊断、版本回滚比 Demo 能力更重要</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="safety">
+    <div class="section-head"><div class="section-no">08 / SAFETY</div><div><h2>安全差异：沙箱不是车规安全，Prompt 也不是权限系统</h2><p class="section-desc">真正量产必须把“模型建议”与“动作授权”分开。无论我们还是 Claw，都不能让模型自己决定自己的权限。</p></div></div>
+    <div class="grid four">
+      <div class="card"><h3>① 身份域</h3><p>谁说的、坐哪里、是否注册、是否主驾、是否具有付款/通讯/车控权限。</p></div>
+      <div class="card"><h3>② 车辆状态域</h3><p>车速、挡位、车门、动力状态、驾驶模式、当前执行任务与信号新鲜度。</p></div>
+      <div class="card"><h3>③ 动作风险域</h3><p>信息查询、舒适控制、付费交易、驾驶相关动作应有不同确认、审计和回滚策略。</p></div>
+      <div class="card"><h3>④ 运行时域</h3><p>工具 allowlist、参数 schema、幂等键、超时、重试、补偿、沙箱、网络出口与供应链签名。</p></div>
+    </div>
+    <div class="table-wrap" style="margin-top:16px">
+      <table>
+        <thead><tr><th>安全问题</th><th>仅靠 Prompt 的结果</th><th>通用 Claw 沙箱的结果</th><th>车规正确做法</th></tr></thead>
+        <tbody>
+          <tr><td>高速行驶时“帮我打开车门”</td><td>模型可能拒绝，但存在提示漂移和绕过</td><td>沙箱允许它正常调用一个已暴露的 vehicle tool</td><td>ECU/Vehicle Policy 根据车速与挡位硬拒绝，模型只负责解释</td></tr>
+          <tr><td>重复 tool_feedback 导致二次支付</td><td>靠上下文记忆“不再调用”，不可靠</td><td>Tool loop detection 可能发现重复，但不理解交易幂等</td><td>订单 idempotency_key + 事务状态机 + 二次确认</td></tr>
+          <tr><td>Skill 被恶意更新</td><td>SP 无法治理外部代码</td><td>ClawHub 扫描/插件策略能降低风险</td><td>OEM 签名、版本锁、灰度、SBOM、权限声明、回滚和隔离执行</td></tr>
+          <tr><td>旧车态误触发</td><td>历史对话可能压过实时事实</td><td>通用 Memory 不知道车态 TTL</td><td>每个 Signal 带 source / capture_ts / TTL；过期不得参与条件判断</td></tr>
+          <tr><td>座舱 Agent 影响智驾</td><td>Prompt 不构成隔离</td><td>Docker/OpenShell 只隔离计算环境</td><td>座舱/智驾物理或强隔离，跨域接口最小化；KaKaClaw 官方明确提出 Fortress 隔离</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout rose" style="margin-top:16px"><strong>对我们的直接建议：</strong>把 SP 中的“注意事项、工具 tips、车型能力边界”迁移成机器可执行的 Policy Registry；Director 输出的是 intent/action proposal，Policy Engine 输出的才是 executable action。</div>
+  </section>
+
+  <section id="cost">
+    <div class="section-head"><div class="section-no">09 / COST</div><div><h2>价格与 TCO：公开资料只能比较成本结构，不能编造 OEM 报价</h2><p class="section-desc">Auto Claw、KaKaClaw、AquaClaw 和豆包上车均未公开单车软件授权/NRE/云包价。下面只呈现可核验的公开价格和计算模型。</p></div></div>
+    <div class="grid three">
+      <div class="card green"><h3>开源框架费</h3><p class="verdict" style="font-size:26px">¥0</p><p>OpenClaw 与 Hermes Agent 均为 MIT License。它只意味着框架代码无需许可证费，不包含模型、算力、车载适配、认证和运营。<span class="ref">S6 S7</span></p></div>
+      <div class="card amber"><h3>商业车载方案费</h3><p class="verdict" style="font-size:26px;color:var(--amber)">未公开</p><p>三家供应商官网没有公开按车/按年授权价。任何“几十到几百元/车”都不是当前可核验的官方报价，本报告不采用。</p></div>
+      <div class="card cyan"><h3>硬件系统收益</h3><p class="verdict" style="font-size:26px;color:var(--cyan)">¥1,500–4,000</p><p>地平线官方宣称星空 6 舱驾融合可相对双系统实现该区间的单车硬件成本优化；这不是 KaKaClaw 软件价格。<span class="ref">S11</span></p></div>
+    </div>
+    <div class="cost-box" style="margin-top:16px">
+      <div class="card">
+        <h3>公开 Token 单价下的一次调用参考</h3>
+        <p>用我们的公开架构量级做同口径样例：输入 40K–50K tokens，输出 0.5K–1K tokens；不考虑 OEM 折扣和缓存。</p>
+        <div class="cost-bars">
+          <div class="cost-row"><span>Seed 1.8</span><div class="cost-track"><span style="width:57%"></span></div><strong>¥0.056–0.076</strong></div>
+          <div class="cost-row"><span>Qwen 3.7 Plus</span><div class="cost-track qwen"><span style="width:82%"></span></div><strong>¥0.084–0.108</strong></div>
+          <div class="cost-row"><span>本地开放模型</span><div class="cost-track"><span style="width:8%"></span></div><strong>Token≈0</strong></div>
+        </div>
+        <p class="unknown" style="margin-top:14px">Seed 1.8 公开扣子现金价：当输入位于 32K–128K 时，输入 ¥1.2/百万、输出 ¥16/百万；Qwen 3.7 Plus 列表价输入 ¥2/百万、输出 ¥8/百万。二者均不等于车企合同价。<span class="ref">S15 S16</span></p>
+      </div>
+      <div class="card">
+        <h3>三年 Token-only 情景</h3>
+        <div class="formula">3Y token cost = 日均复杂任务数 × 每任务模型轮数 × 单轮成本 × 1,095 天</div>
+        <div class="table-wrap" style="margin-top:12px">
+          <table style="min-width:520px"><thead><tr><th>日均复杂任务</th><th>假设轮数</th><th>Seed 1.8 中位</th><th>Qwen 参考中位</th></tr></thead><tbody><tr><td>2</td><td>2 轮/任务</td><td>约 ¥289/车</td><td>约 ¥420/车</td></tr><tr><td>5</td><td>2 轮/任务</td><td>约 ¥723/车</td><td>约 ¥1,051/车</td></tr><tr><td>10</td><td>2 轮/任务</td><td>约 ¥1,445/车</td><td>约 ¥2,102/车</td></tr></tbody></table>
+        </div>
+        <p class="unknown">这是无缓存、无商务折扣的压力情景；不含 ASR/TTS、搜索、地图、流量、存储和第三方交易。简单车控走快路时不应计为一次 Planner 调用。</p>
+      </div>
+    </div>
+    <h3 style="margin-top:22px">真正应向供应商索取的报价拆分</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>成本项</th><th>豆包上车云优先</th><th>汽车版 Claw 端云方案</th><th>采购必须问清</th></tr></thead>
+        <tbody>
+          <tr><td>软件许可</td><td>模型/平台/功能包商务</td><td>AIOS/Runtime/Skill Platform 商务</td><td>按车型、按车、按年还是买断；最低量和升级权</td></tr>
+          <tr><td>NRE 集成</td><td>车型工具、Context、车企生态对接</td><td>OS/芯片/车辆 ontology/Skill 适配</td><td>平台复用率、二车型增量、验收边界</td></tr>
+          <tr><td>云资源</td><td>复杂任务模型调用占比较高</td><td>端侧为主时较低，但仍需云协同</td><td>Tokens、并发、缓存、峰值 SLA、超额单价</td></tr>
+          <tr><td>端侧硬件</td><td>可复用既有座舱算力，增量视车型</td><td>可能需要大内存/NPU/AIBOX；舱驾融合也可能节省双芯</td><td>BOM、功耗、散热、内存、芯片锁定、供货周期</td></tr>
+          <tr><td>安全与认证</td><td>现有车企流程可复用</td><td>开放 Skill 与端侧 Runtime 增加供应链治理</td><td>ASPICE、ISO 26262/21434 范围，谁承担测试与整改</td></tr>
+          <tr><td>长期运营</td><td>云侧模型迭代、Badcase、提示词/工具发布</td><td>端云版本矩阵、Skill 商店、签名、沙箱、模型更新</td><td>3–5 年 OTA、SLA、回滚、数据归属、停服兜底</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout amber" style="margin-top:16px"><strong>成本结论：</strong>低频复杂任务时，云优先通常避免增加硬件 BOM；高频、长上下文、弱网和隐私场景多时，端侧模型可能在三年 TCO 上更有优势。真正的分界点取决于“端侧增量硬件成本”是否低于“3 年复杂任务云成本 + 网络/SLA 成本”，而不是开源 License 是否免费。</div>
+  </section>
+
+  <section id="decision">
+    <div class="section-head"><div class="section-no">10 / DECISION</div><div><h2>哪个更好：要分“现在量产”和“未来平台”两张卷子</h2><p class="section-desc">评分是透明权重下的产品判断，不是厂商官方 Benchmark；未知能力不会按宣传满分处理。</p></div></div>
+    <div class="grid two">
+      <div class="card">
+        <h3>卷子 A · 近期车型量产</h3>
+        <p class="unknown">权重：量产证据 20%、车辆集成 20%、安全确定性 20%、简单时延 10%，其余 30%。</p>
+        <div class="score-grid">
+          <span>建议混合目标</span><div class="bar green"><span style="width:96.9%"></span></div><span class="score">96.9</span>
+          <span>豆包上车当前</span><div class="bar green"><span style="width:83.3%"></span></div><span class="score">83.3</span>
+          <span>KaKaClaw</span><div class="bar amber"><span style="width:79.6%"></span></div><span class="score">79.6</span>
+          <span>Auto Claw</span><div class="bar amber"><span style="width:75.9%"></span></div><span class="score">75.9</span>
+          <span>AquaClaw</span><div class="bar amber"><span style="width:73.7%"></span></div><span class="score">73.7</span>
+          <span>OpenClaw/Hermes</span><div class="bar rose"><span style="width:46.2%"></span></div><span class="score">46.2</span>
+        </div>
+        <div class="callout" style="margin-top:16px"><strong>结论：</strong>近期不应换底座。我们已有车型闭环和快路，迁移通用 Harness 的风险大于收益。</div>
+      </div>
+      <div class="card">
+        <h3>卷子 B · 未来三年平台竞争</h3>
+        <p class="unknown">权重：安全 15%、复杂自治 15%、持续任务 12%、端侧 12%、Skill 12%、车辆集成 12%，其余 22%。</p>
+        <div class="score-grid">
+          <span>建议混合目标</span><div class="bar green"><span style="width:93.9%"></span></div><span class="score">93.9</span>
+          <span>KaKaClaw</span><div class="bar green"><span style="width:86.9%"></span></div><span class="score">86.9</span>
+          <span>Auto Claw</span><div class="bar green"><span style="width:84.2%"></span></div><span class="score">84.2</span>
+          <span>AquaClaw</span><div class="bar amber"><span style="width:82.5%"></span></div><span class="score">82.5</span>
+          <span>豆包上车当前</span><div class="bar amber"><span style="width:74%"></span></div><span class="score">74.0</span>
+          <span>OpenClaw/Hermes</span><div class="bar rose"><span style="width:68.4%"></span></div><span class="score">68.4</span>
+        </div>
+        <div class="callout amber" style="margin-top:16px"><strong>结论：</strong>如果不把大 SP 演进成模块化 Harness，我们未来会在端侧、Skill 生态、任务恢复和跨服务组织上被追上。</div>
+      </div>
+    </div>
+    <div class="table-wrap" style="margin-top:16px">
+      <table>
+        <thead><tr><th>决策场景</th><th>推荐方式</th><th>原因</th></tr></thead>
+        <tbody>
+          <tr><td>荣威 D6X 当前版本迭代</td><td><strong>继续豆包上车架构</strong></td><td>已有车型、工具、数据和运营闭环；重构底座会引入不可控回归</td></tr>
+          <tr><td>下一代大算力/舱驾融合平台</td><td><strong>混合车规 Harness</strong></td><td>端侧模型 + 云端强推理 + Task/Trigger + Skill/Policy，兼顾性能与安全</td></tr>
+          <tr><td>低配车型/成本敏感</td><td><strong>快路端侧 + 复杂任务云端</strong></td><td>避免为了低频 Agent 任务增加高额 NPU/内存 BOM</td></tr>
+          <tr><td>高端车型/强主动服务</td><td><strong>端云 Agent OS + 开放服务生态</strong></td><td>长期记忆、Always On、跨服务执行和弱网体验需要端侧运行时</td></tr>
+          <tr><td>POC 快速验证</td><td><strong>可用 OpenClaw/Hermes</strong></td><td>验证 Skill 和工具闭环速度快，但必须隔离在非安全域，不能直接成为量产安全边界</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="target">
+    <div class="section-head"><div class="section-no">11 / TARGET</div><div><h2>建议目标架构：Vehicle Harness，而不是把 OpenClaw 原样搬进车</h2><p class="section-desc">保留当前优势，吸收 Claw 的运行时工程，并把开放能力锁进车规治理边界。</p></div></div>
+    <div class="diagram" role="img" aria-label="建议的豆包上车 Vehicle Harness 目标架构">
+      <svg viewBox="0 0 1200 690" xmlns="http://www.w3.org/2000/svg">
+        <defs><pattern id="gridC" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="#1e293b" stroke-width=".6"/></pattern><marker id="c1" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><path d="M0 0L10 3.5 0 7Z" fill="#64748b"/></marker></defs>
+        <rect width="1200" height="690" rx="12" fill="#07101e"/><rect width="1200" height="690" rx="12" fill="url(#gridC)"/>
+        <rect x="22" y="24" width="1156" height="626" rx="13" fill="none" stroke="#fbbf24" stroke-dasharray="8 5"/><text x="38" y="48" fill="#fbbf24" font-family="JetBrains Mono" font-size="11" font-weight="700">TARGET · CLOSED-LOOP AUTOMOTIVE HARNESS</text>
+        <path d="M172 158H242" stroke="#22d3ee" stroke-width="1.7" marker-end="url(#c1)"/><path d="M430 158H495" stroke="#22d3ee" stroke-width="1.7" marker-end="url(#c1)"/><path d="M695 158H765" stroke="#34d399" stroke-width="1.7" marker-end="url(#c1)"/><path d="M950 158H1018" stroke="#fb7185" stroke-width="1.7" marker-end="url(#c1)"/>
+        <path d="M1090 216V326" stroke="#fbbf24" stroke-width="1.6" marker-end="url(#c1)"/><path d="M1018 396H950" stroke="#fb923c" stroke-width="1.6" marker-end="url(#c1)"/><path d="M765 396H695" stroke="#fb923c" stroke-width="1.6" marker-end="url(#c1)"/><path d="M595 326V222" stroke="#fb923c" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#c1)"/><text x="610" y="284" fill="#fb923c" font-family="JetBrains Mono" font-size="9">receipt / feedback / replan</text>
+        <path d="M336 216V326" stroke="#a78bfa" stroke-width="1.6" marker-end="url(#c1)"/><path d="M336 432V518" stroke="#a78bfa" stroke-width="1.6" marker-end="url(#c1)"/><path d="M430 570H770" stroke="#34d399" stroke-width="1.6" marker-end="url(#c1)"/><path d="M870 518V432" stroke="#34d399" stroke-width="1.6" marker-end="url(#c1)"/>
+
+        <g><rect x="48" y="100" width="124" height="116" rx="8" fill="#0f172a"/><rect x="48" y="100" width="124" height="116" rx="8" fill="rgba(30,41,59,.55)" stroke="#94a3b8" stroke-width="1.5"/><text x="110" y="128" fill="white" text-anchor="middle" font-size="11" font-weight="700">统一事件入口</text><text x="110" y="151" fill="#94a3b8" text-anchor="middle" font-size="8">语音 / 触控 / VLM</text><text x="110" y="168" fill="#94a3b8" text-anchor="middle" font-size="8">Signal / Advisor / Tool</text><text x="110" y="192" fill="#64748b" text-anchor="middle" font-size="8">event_id + source + ts</text></g>
+        <g><rect x="242" y="98" width="188" height="118" rx="8" fill="#0f172a"/><rect x="242" y="98" width="188" height="118" rx="8" fill="rgba(8,51,68,.40)" stroke="#22d3ee" stroke-width="1.6"/><text x="336" y="126" fill="white" text-anchor="middle" font-size="11" font-weight="700">Risk-aware Router</text><text x="336" y="149" fill="#a5f3fc" text-anchor="middle" font-size="8">快路 / 端侧 Skill / 云端 Director</text><text x="336" y="167" fill="#a5f3fc" text-anchor="middle" font-size="8">按风险、依赖、时效、网络分流</text><text x="336" y="191" fill="#94a3b8" text-anchor="middle" font-size="8">保留当前三层漏斗优势</text></g>
+        <g><rect x="495" y="86" width="200" height="142" rx="8" fill="#0f172a"/><rect x="495" y="86" width="200" height="142" rx="8" fill="rgba(6,78,59,.38)" stroke="#34d399" stroke-width="1.7"/><text x="595" y="116" fill="white" text-anchor="middle" font-size="12" font-weight="700">Director Runtime</text><text x="595" y="140" fill="#6ee7b7" text-anchor="middle" font-size="9">Seed 端云模型 · 中心仲裁</text><text x="595" y="160" fill="#6ee7b7" text-anchor="middle" font-size="9">Plan / Replan / Ask / Stop</text><text x="595" y="184" fill="#94a3b8" text-anchor="middle" font-size="8">Prompt 分层 + 动态 tool disclosure</text><text x="595" y="201" fill="#94a3b8" text-anchor="middle" font-size="8">SP 不再内嵌全部工具与规则</text></g>
+        <g><rect x="765" y="98" width="185" height="118" rx="8" fill="#0f172a"/><rect x="765" y="98" width="185" height="118" rx="8" fill="rgba(76,29,149,.35)" stroke="#a78bfa" stroke-width="1.6"/><text x="858" y="126" fill="white" text-anchor="middle" font-size="11" font-weight="700">Vehicle Skill Registry</text><text x="858" y="149" fill="#c4b5fd" text-anchor="middle" font-size="8">Manifest · Version · Owner</text><text x="858" y="167" fill="#c4b5fd" text-anchor="middle" font-size="8">Precondition · Risk · Cost</text><text x="858" y="191" fill="#94a3b8" text-anchor="middle" font-size="8">签名、灰度、回滚、车型矩阵</text></g>
+        <g><rect x="1018" y="98" width="132" height="118" rx="8" fill="#0f172a"/><rect x="1018" y="98" width="132" height="118" rx="8" fill="rgba(136,19,55,.28)" stroke="#fb7185" stroke-width="1.7"/><text x="1084" y="126" fill="white" text-anchor="middle" font-size="11" font-weight="700">Policy Engine</text><text x="1084" y="149" fill="#fda4af" text-anchor="middle" font-size="8">Identity / Vehicle State</text><text x="1084" y="167" fill="#fda4af" text-anchor="middle" font-size="8">Confirm / Idempotency</text><text x="1084" y="191" fill="#94a3b8" text-anchor="middle" font-size="8">LLM 外最终裁决</text></g>
+
+        <g><rect x="1018" y="326" width="132" height="140" rx="8" fill="#0f172a"/><rect x="1018" y="326" width="132" height="140" rx="8" fill="rgba(120,53,15,.28)" stroke="#fbbf24" stroke-width="1.6"/><text x="1084" y="356" fill="white" text-anchor="middle" font-size="11" font-weight="700">Execution Bus</text><text x="1084" y="380" fill="#fde68a" text-anchor="middle" font-size="8">Vehicle / Navi / Media</text><text x="1084" y="398" fill="#fde68a" text-anchor="middle" font-size="8">GUI / Service Agent</text><text x="1084" y="422" fill="#94a3b8" text-anchor="middle" font-size="8">事务 / 超时 / 补偿</text><text x="1084" y="440" fill="#94a3b8" text-anchor="middle" font-size="8">标准执行收据</text></g>
+        <g><rect x="765" y="326" width="185" height="140" rx="8" fill="#0f172a"/><rect x="765" y="326" width="185" height="140" rx="8" fill="rgba(251,146,60,.22)" stroke="#fb923c" stroke-width="1.6"/><text x="858" y="356" fill="white" text-anchor="middle" font-size="11" font-weight="700">Skill Sandbox</text><text x="858" y="380" fill="#fdba74" text-anchor="middle" font-size="8">最小权限 · 网络出口 · Secrets</text><text x="858" y="398" fill="#fdba74" text-anchor="middle" font-size="8">CPU/NPU/Memory Budget</text><text x="858" y="422" fill="#94a3b8" text-anchor="middle" font-size="8">仅运行 OEM 签名 Skill</text><text x="858" y="440" fill="#94a3b8" text-anchor="middle" font-size="8">禁止运行时任意自修改</text></g>
+        <g><rect x="495" y="326" width="200" height="140" rx="8" fill="#0f172a"/><rect x="495" y="326" width="200" height="140" rx="8" fill="rgba(6,78,59,.30)" stroke="#34d399" stroke-width="1.6"/><text x="595" y="356" fill="white" text-anchor="middle" font-size="11" font-weight="700">Context Fabric</text><text x="595" y="380" fill="#6ee7b7" text-anchor="middle" font-size="8">Vehicle / User / Scene / Screen</text><text x="595" y="398" fill="#6ee7b7" text-anchor="middle" font-size="8">source + capture_ts + TTL</text><text x="595" y="422" fill="#94a3b8" text-anchor="middle" font-size="8">按任务最小注入</text><text x="595" y="440" fill="#94a3b8" text-anchor="middle" font-size="8">权威事实高于对话记忆</text></g>
+        <g><rect x="242" y="326" width="188" height="140" rx="8" fill="#0f172a"/><rect x="242" y="326" width="188" height="140" rx="8" fill="rgba(76,29,149,.30)" stroke="#a78bfa" stroke-width="1.6"/><text x="336" y="356" fill="white" text-anchor="middle" font-size="11" font-weight="700">Task Runtime</text><text x="336" y="380" fill="#c4b5fd" text-anchor="middle" font-size="8">Task · Run · Event · Snapshot</text><text x="336" y="398" fill="#c4b5fd" text-anchor="middle" font-size="8">Checkpoint · Retry · Cancel</text><text x="336" y="422" fill="#94a3b8" text-anchor="middle" font-size="8">用户可查询/修改</text><text x="336" y="440" fill="#94a3b8" text-anchor="middle" font-size="8">跨上电周期恢复</text></g>
+        <g><rect x="242" y="518" width="188" height="102" rx="8" fill="#0f172a"/><rect x="242" y="518" width="188" height="102" rx="8" fill="rgba(120,53,15,.28)" stroke="#fbbf24" stroke-width="1.6"/><text x="336" y="546" fill="white" text-anchor="middle" font-size="11" font-weight="700">Trigger Runtime</text><text x="336" y="568" fill="#fde68a" text-anchor="middle" font-size="8">Timer · State · Edge · VLM</text><text x="336" y="586" fill="#fde68a" text-anchor="middle" font-size="8">Debounce · TTL · Cooldown</text><text x="336" y="604" fill="#94a3b8" text-anchor="middle" font-size="8">只唤醒，不越权执行</text></g>
+        <g><rect x="770" y="518" width="200" height="102" rx="8" fill="#0f172a"/><rect x="770" y="518" width="200" height="102" rx="8" fill="rgba(8,51,68,.35)" stroke="#22d3ee" stroke-width="1.6"/><text x="870" y="546" fill="white" text-anchor="middle" font-size="11" font-weight="700">Trace & Evaluation</text><text x="870" y="568" fill="#a5f3fc" text-anchor="middle" font-size="8">event → plan → policy → skill → receipt</text><text x="870" y="586" fill="#a5f3fc" text-anchor="middle" font-size="8">成功率 / P95 / 成本 / 安全拒绝</text><text x="870" y="604" fill="#94a3b8" text-anchor="middle" font-size="8">Badcase 可定位到版本</text></g>
+      </svg>
+    </div>
+    <h3 style="margin-top:22px">Vehicle Skill Manifest 最小字段</h3>
+    <div class="grid four">
+      <div class="card"><h4>身份</h4><p class="mono">skill_id<br>version<br>owner<br>supported_models</p></div>
+      <div class="card"><h4>准入</h4><p class="mono">intent_scope<br>preconditions<br>required_signals<br>risk_level</p></div>
+      <div class="card"><h4>执行</h4><p class="mono">tool_graph<br>confirm_policy<br>timeout_retry<br>rollback</p></div>
+      <div class="card"><h4>治理</h4><p class="mono">cost_budget<br>permissions<br>telemetry<br>signature</p></div>
+    </div>
+    <div class="roadmap" style="margin-top:16px">
+      <div class="card phase"><h3>P0 · 0–3 个月</h3><ul><li>把 27 工具收敛到唯一 Tool/Skill Registry。</li><li>从 SP 移出互斥、权限、车型能力与安全规则。</li><li>落实 Task/Run/Event 与幂等、恢复、取消。</li><li>统一 tool_feedback 为标准 Execution Receipt。</li></ul></div>
+      <div class="card phase"><h3>P1 · 3–6 个月</h3><ul><li>Prompt 分 stable/context/volatile，支持动态工具披露。</li><li>建立端侧 Router + 轻量模型 + 弱网 Skill。</li><li>上线 OEM 签名 Skill 包、沙箱与灰度。</li><li>补齐 Context source/timestamp/TTL。</li></ul></div>
+      <div class="card phase"><h3>P2 · 6–12 个月</h3><ul><li>开放受控服务 Agent SDK，而非开放任意代码。</li><li>端云模型按风险、时延、成本动态路由。</li><li>跨车型 Skill 复用与自动兼容性检查。</li><li>用真实任务完成率和三年 TCO 驱动架构选型。</li></ul></div>
+    </div>
+  </section>
+
+  <section id="sources">
+    <div class="section-head"><div class="section-no">12 / EVIDENCE</div><div><h2>证据来源与边界</h2><p class="section-desc">所有市场结论优先使用厂商官网、官方文档或官方车型页；未公开内容明确标注“未知”。</p></div></div>
+    <div class="source-list">
+      <div class="source"><strong>本地当前 Director SP（2026-07-31）</strong><br><code>/Users/bytedance/Desktop/3.23/产品/1-原始素材/资料数据PRD原件/planner 架构/动态示例/sp.md</code></div>
+      <div class="source"><strong>项目 Schema / Driver Agent 2.0 架构</strong><br><code>/Users/bytedance/Desktop/3.23/AGENTS.md</code></div>
+      <div class="source"><strong>Task 任务管理设计 [WIP]</strong><br><code>/Users/bytedance/Desktop/3.23/产品/1-原始素材/资料数据PRD原件/任务管理/[WIP][技术方案]Task 任务管理设计.html</code></div>
+      <div class="source"><a href="https://docs.openclaw.ai/agent-loop">OpenClaw Agent Loop</a>、<a href="https://docs.openclaw.ai/agent-runtime-architecture">Runtime Architecture</a>、<a href="https://docs.openclaw.ai/reference/prompt-caching">Prompt Caching</a></div>
+      <div class="source"><a href="https://docs.openclaw.ai/gateway/security">OpenClaw Gateway Security</a>、<a href="https://github.com/openclaw/openclaw/blob/main/README.md">官方 GitHub README / MIT License</a></div>
+      <div class="source"><a href="https://docs.openclaw.ai/zh-CN">OpenClaw 官方文档</a>：Gateway、渠道、Session、Skills、Plugins 与自托管定位</div>
+      <div class="source"><a href="https://hermes-agent.nousresearch.com/docs/developer-guide/architecture/">Hermes Agent Architecture</a>、<a href="https://github.com/NousResearch/hermes-agent">官方 GitHub / MIT License</a></div>
+      <div class="source"><a href="https://hermes-agent.nousresearch.com/docs/user-guide/security/">Hermes Security</a>、<a href="https://hermes-agent.nousresearch.com/docs/user-guide/features/cron/">Cron</a>、<a href="https://hermes-agent.nousresearch.com/docs/user-guide/features/tools/">Tools</a></div>
+      <div class="source"><a href="https://www.ebanma.com/">斑马智能官网</a>：Auto Claw、“一脑双引擎”、System Agent + N Agents、智己 LS8、公开装机与合作信息</div>
+      <div class="source"><a href="https://www.horizon.auto/news/press/445">地平线 KaKaClaw 官方发布</a>：任务即服务、端云模型、本地核心、Skill 沙箱、隐私路由与 Fortress 隔离</div>
+      <div class="source"><a href="https://www.horizon.auto/news/product/446">地平线与 iCAR 官方合作页</a>：首发合作、星空 6P 规格与官方硬件成本优化声明</div>
+      <div class="source"><a href="https://en.thundersoft.com/aquaclaw-launch/">中科创达 AquaClaw 官方发布</a>、<a href="https://en.thundersoft.com/aios-2-1-aquaclaw/">AquaDrive AIOS 2.1</a>、<a href="https://en.thundersoft.com/thundersoft-qualcomm-ai-agents-in-vehicles/">Qualcomm 合作</a></div>
+      <div class="source"><a href="https://docs.nvidia.com/nemoclaw/latest/user-guide/openclaw/about/how-it-works">NVIDIA NemoClaw Architecture</a>、<a href="https://docs.nvidia.com/nemoclaw/latest/user-guide/openclaw/reference/commands">Agent Runtime Selection</a></div>
+      <div class="source"><a href="https://www.immotors.com/website/ls8_detail">智己 LS8 官方车型页</a>：IM Ultra Agent 产品搭载信息</div>
+      <div class="source"><a href="https://www.volcengine.com/docs/84458/1585097?lang=zh&amp;redirect=1">火山引擎官方模型费用</a>：Seed 1.8 公开扣子现金结算价格（页面更新 2026-08-12）</div>
+      <div class="source"><a href="https://help.aliyun.com/zh/model-studio/model-pricing">阿里云百炼官方模型价格</a>：Qwen 3.7 Plus/Max 列表价与缓存说明</div>
+    </div>
+    <details style="margin-top:16px"><summary>本报告没有做出的断言</summary><div><ul><li>没有断言 Auto Claw、KaKaClaw 使用 OpenClaw 原版代码；只有 AquaClaw 官方明确披露 NemoClaw/OpenClaw 技术基础。</li><li>没有把斑马整体 1000 万辆座舱装机等同于 Auto Claw 装机。</li><li>没有把“production-ready 平台”写成“已在某车型 SOP”。</li><li>没有提供任何厂商未公开的单车授权费、NRE 或商务折扣。</li><li>没有把 Task WIP、动态 Advisor 演进设计写成豆包上车当前全部已上线能力。</li></ul></div></details>
+  </section>
+
+  <footer class="footer">
+    <p><strong>最终一句话：</strong>我们的优势是“车已经会稳定办事”，Claw 类的优势是“能力可以更像操作系统一样持续生长”。下一步不是二选一，而是把当前 Planner 的量产闭环升级为可装载、可持久、可治理的 Vehicle Harness。</p>
+    <p>豆包上车 vs 龙虾类车载 Agent 方案 · v02 · 2026-08-14 · 内部产品与技术评审稿</p>
+  </footer>
+</main>
+</body>
+</html>

@@ -1,5 +1,7 @@
 # Memory Index
 
+- [Feishu bot architecture](project_feishu_bot_architecture.md) — 第二只虾=本机feishu-knowledge-assistant服务(8788/launchd守护)；三大读取缺口已修(合并转发展开/文档搜索降级wiki/Aime兜底)；排障先curl实测接口再看service.log
+
 - [Playwright setup](project_playwright_setup.md) — Codex截图冒Chrome图标=Playwright开浏览器(正常)；headless shell四版本已装齐；下载必须走npmmirror镜像(官方源7KB/s)
 
 - [Session panel rules](project_session_panel.md) — 会话面板:8780三铁律：刷新=全量最新(增量重扫)/"今天"=今天打开过终端(按mtime)/同标题同日合并；已装launchd守护开机自启，脚本真身在~/scripts/(Desktop会被TCC拦)
@@ -51,5 +53,7 @@
 - ["不够详细"=真实信号穷举](feedback_detail_means_real_signals.md) — 泽民说不够详细≠再加长/更抽象；概念类要用他真实车态信号(档位/车速/车窗…)逐条讲+每类穷举例子；连说不够就AskUserQuestion问清方向别猜
 - [触发器运算符真实清单](reference_trigger_operators.md) — 配置平台就10个运算符：条件8个(等于/不等于/大于/大于等于/小于/小于等于/包含/不包含)+事件2个(变更为/有变更)；没有"切入切出"(韩杰口头说法/刘杨反对)；数值阈值用大于小于+引擎抓边沿
 - [JIRA 一键流转面板](project_jira_panel.md) — 上汽零束JIRA(8.20.14/内网/JSESSIONID登录)按JQL捞bug+自建流转面板jira_panel.py(:8770守护模式启动)；三步链analyze/repair/fix字段与默认值；大坑=隐藏必填(原因分析cf10792+RootCause分类cf11145)填完一个才暴下一个
+- [后排观影905车bug分诊](project_rear_video_bug_triage.md) — 5问题：1/3/4归泽民补场景卡(验片源/多屏互斥/全屏退出)，2/5挂log拉下游+路由；陈亮QA推回退预制，回复认编排质量不碰需求排期
 - [Personal time management](project_personal_time_management.md) — 三个触发器方案(早捞三件事/手机前看便签/合电脑30秒复盘)；产物=全部需求表_管理版v1.xlsx+一日流程卡v1.html
 - [早/复盘两字协议](feedback_morning_review_protocol.md) — 泽民时间管理最终形态：他不开Excel，早发"早"晚发"复盘"，Claude读需求表+写~/Desktop/时间管理_记录.md；白天靠纸质便签
+- [SLS天气路况保护自闭环](project_sls_weather_protection.md) — 本期唯一场景端侧自闭环;替身=空调风量/温度;VLM粗枚举(雨/雪/浓雾);8.12 19:00对齐会带4样材料-v1.html已出

@@ -1,0 +1,1310 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>一遍讲懂豆包上车、车载龙虾与五家车企架构（v10）</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #020617;
+      --panel: rgba(15, 23, 42, .78);
+      --panel-2: rgba(30, 41, 59, .58);
+      --line: #25324a;
+      --text: #e8eefb;
+      --muted: #94a3b8;
+      --cyan: #22d3ee;
+      --blue: #60a5fa;
+      --green: #34d399;
+      --amber: #fbbf24;
+      --rose: #fb7185;
+      --violet: #a78bfa;
+      --orange: #fb923c;
+      --shadow: 0 24px 60px rgba(0, 0, 0, .28);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 12% 2%, rgba(34, 211, 238, .10), transparent 24rem),
+        radial-gradient(circle at 88% 5%, rgba(167, 139, 250, .09), transparent 25rem),
+        var(--bg);
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+      line-height: 1.72;
+    }
+    a { color: #7dd3fc; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code, .mono { font-family: "JetBrains Mono", ui-monospace, monospace; }
+    .page { width: min(1240px, calc(100% - 40px)); margin: 0 auto; padding: 38px 0 80px; }
+    .hero {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      padding: 42px;
+      background: linear-gradient(145deg, rgba(15, 23, 42, .96), rgba(15, 23, 42, .72));
+      box-shadow: var(--shadow);
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      width: 420px;
+      height: 420px;
+      right: -180px;
+      top: -230px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(34, 211, 238, .23), transparent 67%);
+      pointer-events: none;
+    }
+    .eyebrow { color: var(--cyan); font: 600 12px/1.4 "JetBrains Mono", monospace; letter-spacing: .12em; text-transform: uppercase; }
+    h1 { margin: 14px 0 12px; max-width: 980px; font-size: clamp(34px, 5vw, 58px); line-height: 1.12; letter-spacing: -.04em; }
+    .hero-lead { max-width: 1000px; margin: 0; color: #cbd5e1; font-size: 18px; }
+    .meta-row { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 24px; }
+    .pill { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 999px; padding: 7px 11px; color: #cbd5e1; background: rgba(2, 6, 23, .42); font-size: 12px; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cyan); }
+    .dot.green { background: var(--green); }
+    .dot.amber { background: var(--amber); }
+    .dot.rose { background: var(--rose); }
+    nav { position: sticky; top: 12px; z-index: 20; display: flex; gap: 8px; overflow-x: auto; margin: 18px 0 34px; padding: 10px; border: 1px solid var(--line); border-radius: 14px; background: rgba(2, 6, 23, .88); backdrop-filter: blur(16px); }
+    nav a { flex: 0 0 auto; padding: 7px 10px; border-radius: 8px; color: #cbd5e1; font-size: 12px; white-space: nowrap; }
+    nav a:hover { background: rgba(30, 41, 59, .85); text-decoration: none; color: white; }
+    section { margin-top: 50px; scroll-margin-top: 82px; }
+    .section-head { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 18px; align-items: start; margin-bottom: 22px; }
+    .section-no { font: 700 13px/1 "JetBrains Mono", monospace; color: var(--cyan); padding-top: 9px; }
+    h2 { margin: 0; font-size: clamp(25px, 3vw, 36px); line-height: 1.25; letter-spacing: -.025em; }
+    .section-desc { margin: 8px 0 0; color: var(--muted); max-width: 980px; }
+    h3 { margin: 0 0 11px; font-size: 18px; }
+    h4 { margin: 0 0 8px; color: #f8fafc; font-size: 15px; }
+    p { margin: 0 0 12px; }
+    ul, ol { margin: 10px 0 0; padding-left: 22px; }
+    li { margin: 5px 0; }
+    .grid { display: grid; gap: 16px; }
+    .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grid.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .grid.five { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+    .card { border: 1px solid var(--line); border-radius: 16px; padding: 20px; background: var(--panel); box-shadow: 0 12px 30px rgba(0, 0, 0, .14); }
+    .card p:last-child, .card ul:last-child { margin-bottom: 0; }
+    .card.cyan { border-color: rgba(34, 211, 238, .45); }
+    .card.blue { border-color: rgba(96, 165, 250, .45); }
+    .card.green { border-color: rgba(52, 211, 153, .42); }
+    .card.amber { border-color: rgba(251, 191, 36, .44); }
+    .card.rose { border-color: rgba(251, 113, 133, .44); }
+    .big-conclusion { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 22px; align-items: center; border: 1px solid rgba(52, 211, 153, .46); background: linear-gradient(130deg, rgba(6, 78, 59, .36), rgba(15, 23, 42, .84)); }
+    .verdict { font-size: 30px; font-weight: 800; color: var(--green); line-height: 1.15; }
+    .callout { border-left: 3px solid var(--cyan); padding: 14px 16px; background: rgba(8, 51, 68, .24); color: #dbeafe; border-radius: 0 10px 10px 0; }
+    .callout.amber { border-left-color: var(--amber); background: rgba(120, 53, 15, .22); }
+    .callout.rose { border-left-color: var(--rose); background: rgba(136, 19, 55, .20); }
+    .status { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; border-radius: 999px; padding: 3px 8px; font-size: 11px; font-weight: 700; }
+    .status.a { color: #6ee7b7; background: rgba(6, 78, 59, .45); }
+    .status.b { color: #fde68a; background: rgba(120, 53, 15, .42); }
+    .status.c { color: #c4b5fd; background: rgba(76, 29, 149, .42); }
+    .status.d { color: #cbd5e1; background: rgba(51, 65, 85, .48); }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 15px; background: rgba(15, 23, 42, .74); }
+    table { width: 100%; border-collapse: collapse; min-width: 850px; }
+    th, td { padding: 13px 14px; border-bottom: 1px solid rgba(37, 50, 74, .85); text-align: left; vertical-align: top; font-size: 13px; }
+    th { position: sticky; top: 0; z-index: 1; color: #f8fafc; background: #111c31; font-size: 12px; letter-spacing: .02em; }
+    tr:last-child td { border-bottom: 0; }
+    tr:hover td { background: rgba(30, 41, 59, .24); }
+    .yes { color: var(--green); font-weight: 700; }
+    .mid { color: var(--amber); font-weight: 700; }
+    .no { color: var(--rose); font-weight: 700; }
+    .unknown { color: var(--muted); }
+    .diagram { overflow-x: auto; border: 1px solid var(--line); border-radius: 18px; padding: 16px; background: rgba(15, 23, 42, .64); }
+    .diagram svg { display: block; width: 100%; min-width: 980px; height: auto; }
+    .diagram-note { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; color: var(--muted); font-size: 12px; }
+    .legend { display: inline-flex; align-items: center; gap: 6px; }
+    .legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+    .flow-compare { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .flow-step { position: relative; margin: 0 0 12px 24px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 11px; background: rgba(30, 41, 59, .42); font-size: 13px; }
+    .flow-step::before { content: attr(data-n); position: absolute; left: -28px; top: 12px; width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; background: #164e63; color: #a5f3fc; font: 700 10px "JetBrains Mono", monospace; }
+    .flow-step::after { content: ""; position: absolute; left: -19px; top: 34px; width: 1px; height: calc(100% + 2px); background: #334155; }
+    .flow-step:last-child::after { display: none; }
+    .heat { display: inline-flex; gap: 2px; vertical-align: middle; }
+    .heat i { width: 9px; height: 9px; border-radius: 2px; background: #273449; }
+    .heat[data-v="1"] i:nth-child(-n+1), .heat[data-v="2"] i:nth-child(-n+2), .heat[data-v="3"] i:nth-child(-n+3), .heat[data-v="4"] i:nth-child(-n+4), .heat[data-v="5"] i:nth-child(-n+5) { background: var(--green); }
+    .score-grid { display: grid; grid-template-columns: 180px 1fr 64px; gap: 10px 12px; align-items: center; }
+    .bar { height: 10px; border-radius: 999px; overflow: hidden; background: #1e293b; }
+    .bar > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--cyan), var(--violet)); }
+    .bar.green > span { background: linear-gradient(90deg, #10b981, #34d399); }
+    .bar.amber > span { background: linear-gradient(90deg, #d97706, #fbbf24); }
+    .bar.rose > span { background: linear-gradient(90deg, #e11d48, #fb7185); }
+    .score { text-align: right; color: #e2e8f0; font: 700 13px "JetBrains Mono", monospace; }
+    .cost-box { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .cost-box > * { min-width: 0; }
+    .formula { padding: 16px; border: 1px dashed #475569; border-radius: 12px; background: #08111f; color: #bfdbfe; font: 500 13px/1.8 "JetBrains Mono", monospace; overflow-wrap: anywhere; }
+    .cost-bars { display: grid; gap: 12px; }
+    .cost-row { display: grid; grid-template-columns: 150px 1fr 88px; align-items: center; gap: 12px; font-size: 12px; }
+    .cost-track { height: 16px; border-radius: 5px; overflow: hidden; background: #1e293b; }
+    .cost-track span { display: block; height: 100%; background: linear-gradient(90deg, #0e7490, #22d3ee); }
+    .cost-track.qwen span { background: linear-gradient(90deg, #6d28d9, #a78bfa); }
+    .roadmap { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .phase { border-top: 3px solid var(--cyan); }
+    .phase:nth-child(2) { border-top-color: var(--violet); }
+    .phase:nth-child(3) { border-top-color: var(--green); }
+    .source-list { counter-reset: src; display: grid; gap: 10px; }
+    .source { position: relative; padding: 12px 14px 12px 50px; border: 1px solid var(--line); border-radius: 10px; background: rgba(15, 23, 42, .52); color: #cbd5e1; font-size: 12px; word-break: break-word; }
+    .source::before { counter-increment: src; content: "S" counter(src); position: absolute; left: 13px; top: 12px; color: var(--cyan); font: 700 11px "JetBrains Mono", monospace; }
+    details { border: 1px solid var(--line); border-radius: 12px; background: rgba(15, 23, 42, .56); }
+    summary { cursor: pointer; padding: 15px 18px; font-weight: 700; color: #e2e8f0; }
+    details > div { padding: 0 18px 18px; }
+    .footer { margin-top: 60px; padding-top: 22px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+    .hero-answer { margin-top: 24px; max-width: 1060px; padding: 18px 20px; border: 1px solid rgba(52, 211, 153, .46); border-radius: 15px; background: rgba(6, 78, 59, .24); color: #d1fae5; font-size: 18px; font-weight: 700; }
+    .plain-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+    .analogy-card { position: relative; min-height: 178px; overflow: hidden; }
+    .analogy-card::after { content: attr(data-icon); position: absolute; right: 12px; bottom: -18px; color: rgba(148, 163, 184, .08); font-size: 72px; font-weight: 800; }
+    .term { color: var(--cyan); font: 700 11px/1.4 "JetBrains Mono", monospace; letter-spacing: .08em; }
+    .simple { margin-top: 8px; color: #f8fafc; font-size: 17px; font-weight: 800; line-height: 1.45; }
+    .glossary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .glossary-item { padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: rgba(15, 23, 42, .52); }
+    .glossary-item .en { color: var(--cyan); font: 700 12px "JetBrains Mono", monospace; }
+    .glossary-item .cn { color: #f8fafc; font-weight: 700; font-size: 14px; }
+    .glossary-item .explain { color: var(--muted); font-size: 12px; margin-top: 4px; }
+    .evidence-strip { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .evidence-strip span { padding: 5px 10px; border-radius: 999px; font-size: 11px; }
+    .confirmed { color: #6ee7b7; background: rgba(6, 78, 59, .45); }
+    .inferred { color: #fde68a; background: rgba(120, 53, 15, .42); }
+    .wip { color: #c4b5fd; background: rgba(76, 29, 149, .42); }
+    .lane-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 13px; }
+    .lane { border: 1px solid var(--line); border-radius: 13px; padding: 16px; background: rgba(2, 6, 23, .48); }
+    .lane.ours { border-color: rgba(52, 211, 153, .45); }
+    .lane.generic { border-color: rgba(148, 163, 184, .36); }
+    .lane.auto { border-color: rgba(167, 139, 250, .45); }
+    .lane h4 { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 12px; font-size: 14px; }
+    .lane .step { position: relative; margin: 0 0 10px 23px; color: #cbd5e1; font-size: 12px; line-height: 1.58; }
+    .lane .step::before { content: attr(data-n); position: absolute; left: -24px; top: 1px; width: 17px; height: 17px; display: grid; place-items: center; border-radius: 50%; background: #1e293b; color: #bae6fd; font: 700 9px "JetBrains Mono", monospace; }
+    .winner { margin-top: 14px; padding: 12px 14px; border-radius: 10px; background: rgba(6, 78, 59, .2); color: #d1fae5; font-size: 13px; }
+    .winner.warn { background: rgba(120, 53, 15, .2); color: #fef3c7; }
+    .proof-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+    .proof-card { border-top: 4px solid var(--green); }
+    .proof-card.building { border-top-color: var(--amber); }
+    .proof-card.gap { border-top-color: var(--rose); }
+    .proof-card li { font-size: 13px; }
+    .claim-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .claim-box { border: 1px solid var(--line); border-radius: 15px; padding: 20px; background: rgba(15, 23, 42, .68); }
+    .quote-copy { padding: 16px 18px; border-left: 3px solid var(--green); border-radius: 0 12px 12px 0; background: rgba(6, 78, 59, .22); color: #d1fae5; font-size: 15px; font-weight: 600; }
+    .user-bubble { width: fit-content; max-width: 760px; margin: 14px auto 20px; padding: 13px 18px; border: 1px solid rgba(96, 165, 250, .52); border-radius: 18px 18px 18px 4px; background: rgba(30, 64, 175, .2); color: #dbeafe; font-size: 18px; font-weight: 700; }
+    .direct-grid { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 1px; overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: var(--line); }
+    .direct-grid > div { padding: 14px 16px; background: #0b1425; }
+    .direct-grid .q { color: #a5f3fc; font-weight: 800; }
+    .direct-grid .a { color: #e2e8f0; }
+    .scenario-card { margin-top: 18px; border: 1px solid var(--line); border-radius: 18px; padding: 22px; background: rgba(15, 23, 42, .72); }
+    .scenario-top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+    .scenario-index { color: var(--cyan); font: 700 11px "JetBrains Mono", monospace; }
+    .scenario-top h3 { margin: 0; font-size: 21px; }
+    .oem-overview { overflow-x: auto; border: 1px solid var(--line); border-radius: 18px; padding: 16px; background: rgba(15, 23, 42, .64); }
+    .oem-overview svg { display: block; width: 100%; min-width: 1120px; height: auto; }
+    .oem-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 18px; }
+    .oem-arch-card { min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 18px; padding: 20px; background: linear-gradient(155deg, rgba(15, 23, 42, .94), rgba(9, 17, 31, .88)); box-shadow: 0 14px 34px rgba(0,0,0,.18); }
+    .oem-arch-card.full { grid-column: 1 / -1; }
+    .oem-title { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+    .oem-title h3 { margin: 0; font-size: 21px; }
+    .oem-plain { color: #f8fafc; font-size: 15px; font-weight: 700; }
+    .oem-sub { margin: 5px 0 14px; color: var(--muted); font-size: 12px; }
+    .oem-svg-wrap { overflow-x: auto; border: 1px solid #26334a; border-radius: 14px; background: #07101e; }
+    .oem-svg { display: block; width: 100%; min-width: 560px; height: auto; }
+    .run-chain { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; margin-top: 13px; }
+    .run-chain span { position: relative; min-height: 58px; padding: 9px 8px; border: 1px solid #334155; border-radius: 9px; background: rgba(30,41,59,.46); color: #cbd5e1; font-size: 11px; line-height: 1.45; }
+    .run-chain span:not(:last-child)::after { content: "→"; position: absolute; right: -9px; top: 18px; z-index: 2; color: var(--amber); font-weight: 800; }
+    .oem-meaning { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+    .oem-meaning > div { padding: 11px 12px; border-radius: 10px; background: rgba(2,6,23,.52); color: #cbd5e1; font-size: 12px; }
+    .oem-meaning strong { display: block; margin-bottom: 3px; color: #f8fafc; }
+    .evidence-key { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0; }
+    .evidence-key span { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border: 1px solid #334155; border-radius: 999px; color: #cbd5e1; background: rgba(2,6,23,.52); font-size: 11px; }
+    .key-line { width: 19px; height: 0; border-top: 2px solid var(--green); }
+    .key-line.infer { border-top-color: var(--amber); border-top-style: dashed; }
+    .key-line.unknown { border-top-color: #64748b; border-top-style: dotted; }
+    .threat-strip { display: grid; grid-template-columns: 170px minmax(0,1fr); gap: 12px; align-items: center; margin-top: 16px; padding: 15px 17px; border: 1px solid rgba(251,191,36,.38); border-radius: 13px; background: rgba(120,53,15,.16); }
+    .threat-strip strong { color: #fde68a; font-size: 15px; }
+    .walk-lead { padding: 24px; border: 1px solid rgba(52,211,153,.48); border-radius: 18px; background: linear-gradient(135deg, rgba(6,78,59,.32), rgba(15,23,42,.84)); }
+    .walk-lead .answer { margin: 0; color: #d1fae5; font-size: clamp(21px, 2.7vw, 32px); font-weight: 800; line-height: 1.45; letter-spacing: -.02em; }
+    .walk-lead .sub { margin: 12px 0 0; color: #a7f3d0; font-size: 14px; }
+    .two-ai { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 18px; }
+    .ai-card { position: relative; overflow: hidden; min-height: 292px; border: 1px solid var(--line); border-radius: 17px; padding: 22px; background: rgba(15,23,42,.76); }
+    .ai-card::after { content: attr(data-mark); position: absolute; right: 18px; top: 4px; color: rgba(148,163,184,.07); font: 800 92px/1 "JetBrains Mono", monospace; }
+    .ai-card.ours { border-color: rgba(52,211,153,.45); }
+    .ai-card.lobster { border-color: rgba(167,139,250,.48); }
+    .ai-card h3 { position: relative; z-index: 1; font-size: 22px; }
+    .ai-card .plain-line { position: relative; z-index: 1; margin-bottom: 12px; color: #f8fafc; font-size: 17px; font-weight: 800; }
+    .button-row { display: flex; flex-wrap: wrap; gap: 7px; margin: 13px 0; }
+    .button-row span { padding: 7px 9px; border: 1px solid #334155; border-radius: 8px; background: #0b1425; color: #cbd5e1; font-size: 11px; }
+    .walk-diagram { overflow-x: auto; margin-top: 18px; border: 1px solid var(--line); border-radius: 18px; padding: 16px; background: rgba(15,23,42,.64); }
+    .walk-diagram svg { display: block; width: 100%; min-width: 1120px; height: auto; }
+    .question-grid { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 10px; margin-top: 16px; }
+    .question-card { min-width: 0; border: 1px solid var(--line); border-radius: 13px; padding: 14px; background: rgba(2,6,23,.52); }
+    .question-card .num { color: var(--cyan); font: 800 10px "JetBrains Mono", monospace; }
+    .question-card h4 { margin: 7px 0 5px; font-size: 14px; }
+    .question-card p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
+    .story-box { margin-top: 18px; border: 1px solid rgba(96,165,250,.38); border-radius: 17px; padding: 21px; background: linear-gradient(140deg, rgba(30,64,175,.16), rgba(15,23,42,.78)); }
+    .story-query { margin: 0 0 16px; color: #dbeafe; font-size: 19px; font-weight: 800; }
+    .story-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .story-col { border: 1px solid #334155; border-radius: 13px; padding: 16px; background: rgba(2,6,23,.48); }
+    .story-col h4 { color: #f8fafc; font-size: 16px; }
+    .walk-steps { counter-reset: walk; display: grid; gap: 10px; margin-top: 14px; }
+    .walk-step { position: relative; padding: 13px 14px 13px 48px; border: 1px solid var(--line); border-radius: 11px; background: rgba(30,41,59,.38); color: #cbd5e1; font-size: 13px; }
+    .walk-step::before { counter-increment: walk; content: counter(walk); position: absolute; left: 14px; top: 13px; width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; background: #164e63; color: #a5f3fc; font: 800 10px "JetBrains Mono", monospace; }
+    .walk-step strong { color: #f8fafc; }
+    .plain-compare { display: grid; grid-template-columns: 175px repeat(3, minmax(0,1fr)); gap: 1px; overflow-x: auto; margin-top: 18px; border: 1px solid var(--line); border-radius: 15px; background: var(--line); }
+    .plain-compare > div { min-width: 170px; padding: 13px 14px; background: #0b1425; color: #cbd5e1; font-size: 12px; }
+    .plain-compare .head { color: #f8fafc; background: #111c31; font-weight: 800; }
+    .plain-compare .q { color: #a5f3fc; font-weight: 800; }
+    .moat-gap { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 18px; }
+    .moat-gap .side { border: 1px solid var(--line); border-radius: 16px; padding: 20px; background: rgba(15,23,42,.7); }
+    .moat-gap .side.moat-side { border-color: rgba(52,211,153,.44); }
+    .moat-gap .side.gap-side { border-color: rgba(251,113,133,.44); }
+    .moat-gap li { font-size: 13px; }
+    .decision-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 14px; margin-top: 17px; }
+    .decision-card { border: 1px solid var(--line); border-radius: 15px; padding: 18px; background: rgba(15,23,42,.72); }
+    .decision-card .when { color: var(--muted); font-size: 11px; }
+    .decision-card .pick { margin: 6px 0; color: #f8fafc; font-size: 18px; font-weight: 800; }
+    .decision-card p { color: #cbd5e1; font-size: 12px; }
+    .keep-add { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 18px; }
+    .keep-add > div { border: 1px solid var(--line); border-radius: 15px; padding: 18px; background: rgba(2,6,23,.54); }
+    .keep-add .keep { border-color: rgba(52,211,153,.42); }
+    .keep-add .add { border-color: rgba(167,139,250,.45); }
+    .reading-jump { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+    .reading-jump a { padding: 8px 11px; border: 1px solid #334155; border-radius: 9px; background: rgba(15,23,42,.72); color: #bae6fd; font-size: 12px; }
+    @media (max-width: 900px) {
+      .grid.two, .grid.three, .grid.four, .grid.five { grid-template-columns: 1fr; }
+      .big-conclusion { grid-template-columns: 1fr; }
+      .glossary { grid-template-columns: 1fr; }
+      .plain-grid { grid-template-columns: 1fr 1fr; }
+      .oem-grid { grid-template-columns: 1fr; }
+      .oem-arch-card.full { grid-column: auto; }
+      .oem-meaning { grid-template-columns: 1fr; }
+      .threat-strip { grid-template-columns: 1fr; }
+      .two-ai, .story-cols, .moat-gap, .keep-add { grid-template-columns: 1fr; }
+      .question-grid { grid-template-columns: 1fr 1fr; }
+      .decision-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 560px) {
+      .plain-grid { grid-template-columns: 1fr; }
+      .question-grid { grid-template-columns: 1fr; }
+      .run-chain { grid-template-columns: 1fr; }
+      .run-chain span:not(:last-child)::after { content: "↓"; right: auto; left: 50%; top: auto; bottom: -14px; }
+    }
+  </style>
+</head>
+<body>
+<main class="page">
+  <div class="hero">
+    <div class="eyebrow">Driver Agent 2.0 · 产品经理口述版 + 完整架构图谱 · v10</div>
+    <h1>一遍讲懂：豆包上车、车载龙虾<br>和五家车企到底差在哪</h1>
+    <p class="hero-lead">前半部分像有人坐在你旁边讲：先回答“谁做决定、怎么调用能力、事情没做完谁负责”；后半部分保留上一版的全部架构图、五家车企拆解、能力矩阵、安全与成本分析。</p>
+    <div class="meta-row">
+      <span class="pill"><span class="dot green"></span>资料明确 / 可推导 / 未定义 三段标注</span>
+      <span class="pill"><span class="dot cyan"></span>全中文 + 术语括号解释</span>
+      <span class="pill"><span class="dot amber"></span>互联网产品比喻</span>
+      <span class="pill"><span class="dot rose"></span>2026-08-14 更新</span>
+    </div>
+    <div class="hero-answer">先记一句：我们现在像“接了固定工具、很懂一辆车的专用 ChatGPT”；龙虾像“给 AI 做了一套能装技能、记任务、管权限的操作系统”。短期把 D6X 做稳，我们更占优；长期跨车型、上百种能力和第三方生态，平台型架构上限更高。</div>
+  </div>
+
+  <nav>
+    <a href="#walkthrough">一遍讲懂</a>
+    <a href="#first">先看三张图</a>
+    <a href="#glossary">术语表</a>
+    <a href="#three">三句话</a>
+    <a href="#analogy">互联网比喻</a>
+    <a href="#layers">四层分层</a>
+    <a href="#market">市场地图</a>
+    <a href="#oem-arch">五家车企架构</a>
+    <a href="#ours">我们的架构</a>
+    <a href="#generic">通用龙虾</a>
+    <a href="#auto">车载龙虾</a>
+    <a href="#section">剖面图</a>
+    <a href="#task">同一任务</a>
+    <a href="#capability">能力矩阵</a>
+    <a href="#safety">安全</a>
+    <a href="#cost">价格</a>
+    <a href="#verdict">结论</a>
+    <a href="#roadmap">路线图</a>
+    <a href="#evidence">证据</a>
+  </nav>
+
+  <section id="walkthrough">
+    <div class="section-head"><div class="section-no">00</div><div><h2>先不看术语：一遍讲懂三种架构</h2><p class="section-desc">这一节只回答产品经理真正需要判断的事：用户说完一句话后，谁接住、谁决定、怎么动手、没做完谁记着、危险动作谁拦住。</p></div></div>
+
+    <div class="walk-lead">
+      <p class="answer">我们现在像“接了固定工具、很懂一辆车的专用 ChatGPT”；龙虾像“给 AI 做了一套能装技能、记任务、管权限的操作系统”。</p>
+      <p class="sub">所以它们不是两个大模型在比赛，而是两种“组织 AI 干活”的办法在比赛。</p>
+    </div>
+
+    <div class="two-ai">
+      <div class="ai-card ours" data-mark="27">
+        <h3>我们的 AI：面前放着一排固定按钮</h3>
+        <div class="plain-line">按钮不一定多，但每个都知道怎样在这辆车上安全执行。</div>
+        <div class="button-row"><span>空调</span><span>座椅</span><span>车窗</span><span>导航</span><span>音乐</span><span>搜索</span><span>用户记忆</span><span>视觉信息</span></div>
+        <p>Director（也就是 Planner）听懂需求后，从这些已定义工具里选一个或多个。工具做完，再把结果送回 Director。</p>
+        <p class="yes">优势：范围清楚、车辆理解深、容易测试，适合先把一辆量产车做稳。</p>
+      </div>
+      <div class="ai-card lobster" data-mark="+"><h3>龙虾 AI：有技能商店、任务本和权限中心</h3>
+        <div class="plain-line">它不只会按预先摆好的按钮，还想随时加载新技能、换模型、保存后台任务。</div>
+        <div class="button-row"><span>安装技能</span><span>切换模型</span><span>保存进度</span><span>后台继续</span><span>失败重试</span><span>权限审批</span><span>版本升级</span></div>
+        <p>一个负责让 AI 连续干活的后台系统，统一管理模型、技能、任务、会话和权限。技术上通常叫“智能体运行时”。</p>
+        <p class="mid">优势：容易扩展和复制；代价是必须补上汽车语义、车规安全和真实量产验证。</p>
+      </div>
+    </div>
+
+    <div class="story-box">
+      <p class="story-query">用一个大家都懂的 AI 任务看差别：“找一家周末聚餐的餐厅，发给朋友，周六上午再提醒我。”</p>
+      <div class="story-cols">
+        <div class="story-col"><h4>我们的做法</h4><p>Director 先拆成“找餐厅、发消息、设提醒”三步。前提是这三个工具都已经接好，并且工具说明已经写进系统。如果缺少“发消息”工具，Director 再聪明也做不完。</p><p class="yes">已经接好的固定任务，可以做得很稳。</p></div>
+        <div class="story-col"><h4>龙虾的做法</h4><p>运行平台从能力清单里找餐厅技能、消息技能和提醒技能，记录三步的任务进度。做到“周六提醒”时，不需要模型一直在线，而是由后台任务到时间再唤醒。</p><p class="mid">能力更灵活，但每个技能的权限和可靠性都要另行治理。</p></div>
+      </div>
+    </div>
+
+    <h3 style="margin-top:24px">同一件事，三条架构路线</h3>
+    <div class="walk-diagram" role="img" aria-label="豆包上车、通用龙虾和车载龙虾三条运行路线对比图">
+      <svg viewBox="0 0 1200 735" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="walkGrid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="#1e293b" stroke-width=".55"/></pattern>
+          <marker id="walkArrow" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0 0L9 3.5 0 7Z" fill="#64748b"/></marker>
+          <marker id="walkCyan" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0 0L9 3.5 0 7Z" fill="#22d3ee"/></marker>
+          <marker id="walkAmber" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0 0L9 3.5 0 7Z" fill="#fbbf24"/></marker>
+        </defs>
+        <rect width="1200" height="735" rx="14" fill="#07101e"/><rect width="1200" height="735" rx="14" fill="url(#walkGrid)"/>
+
+        <!-- arrows first -->
+        <g fill="none" stroke="#22d3ee" stroke-width="1.7" marker-end="url(#walkCyan)">
+          <path d="M208 183H247"/><path d="M407 183H446"/><path d="M606 183H645"/><path d="M805 183H844"/><path d="M1004 183H1043"/>
+        </g>
+        <path d="M925 223V248H526V223" fill="none" stroke="#34d399" stroke-width="1.5" stroke-dasharray="7 5" marker-end="url(#walkArrow)"/>
+        <g fill="none" stroke="#a78bfa" stroke-width="1.7" marker-end="url(#walkArrow)">
+          <path d="M208 397H247"/><path d="M407 397H446"/><path d="M606 397H645"/><path d="M805 397H844"/><path d="M1004 397H1043"/>
+        </g>
+        <path d="M925 437V462H526V437" fill="none" stroke="#a78bfa" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#walkArrow)"/>
+        <g fill="none" stroke="#fbbf24" stroke-width="1.7" marker-end="url(#walkAmber)">
+          <path d="M208 611H247"/><path d="M407 611H446"/><path d="M606 611H645"/><path d="M805 611H844"/><path d="M1004 611H1043"/>
+        </g>
+        <path d="M925 651V678H526V651" fill="none" stroke="#fbbf24" stroke-width="1.4" stroke-dasharray="7 5" marker-end="url(#walkArrow)"/>
+
+        <g font-family="Inter, PingFang SC, Microsoft YaHei" text-anchor="middle">
+          <text x="600" y="35" fill="#94a3b8" font-family="JetBrains Mono, PingFang SC" font-size="12" font-weight="700">同一个目标怎样被接住、拆解、执行并继续</text>
+
+          <rect x="25" y="70" width="1150" height="190" rx="14" fill="#081522" stroke="#34d399" stroke-width="1.5"/>
+          <text x="42" y="100" text-anchor="start" fill="#6ee7b7" font-size="15" font-weight="800">A · 豆包上车当前路线：先分流，再由 Director 从固定工具中选择</text>
+          <g font-size="12" fill="#e2e8f0">
+            <rect x="48" y="142" width="160" height="81" rx="10" fill="#0f172a" stroke="#94a3b8"/><text x="128" y="174" font-weight="800">用户语音</text><text x="128" y="197" fill="#94a3b8" font-size="10">ASR 转成文字</text>
+            <rect x="247" y="142" width="160" height="81" rx="10" fill="#0b2230" stroke="#22d3ee"/><text x="327" y="174" font-weight="800">三层快慢分流</text><text x="327" y="197" fill="#a5f3fc" font-size="10">简单直达 · 复杂上送</text>
+            <rect x="446" y="142" width="160" height="81" rx="10" fill="#10251f" stroke="#34d399"/><text x="526" y="174" font-weight="800">Director / Planner</text><text x="526" y="197" fill="#a7f3d0" font-size="10">结合上下文做决定</text>
+            <rect x="645" y="142" width="160" height="81" rx="10" fill="#211a36" stroke="#a78bfa"/><text x="725" y="174" font-weight="800">固定工具清单</text><text x="725" y="197" fill="#ddd6fe" font-size="10">车控 · 导航 · 内容</text>
+            <rect x="844" y="142" width="160" height="81" rx="10" fill="#2d2018" stroke="#fb923c"/><text x="924" y="174" font-weight="800">下游执行</text><text x="924" y="197" fill="#fed7aa" font-size="10">功能 Agent / 服务</text>
+            <rect x="1043" y="142" width="110" height="81" rx="10" fill="#0f172a" stroke="#34d399"/><text x="1098" y="174" font-weight="800">执行结果</text><text x="1098" y="197" fill="#a7f3d0" font-size="10">反馈再决策</text>
+          </g>
+
+          <rect x="25" y="284" width="1150" height="190" rx="14" fill="#0d1221" stroke="#a78bfa" stroke-width="1.5"/>
+          <text x="42" y="314" text-anchor="start" fill="#c4b5fd" font-size="15" font-weight="800">B · 通用龙虾路线：一个运行平台统一管理模型、技能、任务与权限</text>
+          <g font-size="12" fill="#e2e8f0">
+            <rect x="48" y="356" width="160" height="81" rx="10" fill="#0f172a" stroke="#94a3b8"/><text x="128" y="388" font-weight="800">各种入口</text><text x="128" y="411" fill="#94a3b8" font-size="10">网页 · App · 消息</text>
+            <rect x="247" y="356" width="160" height="81" rx="10" fill="#0b2230" stroke="#22d3ee"/><text x="327" y="388" font-weight="800">会话与身份</text><text x="327" y="411" fill="#a5f3fc" font-size="10">知道谁在做哪件事</text>
+            <rect x="446" y="356" width="160" height="81" rx="10" fill="#211a36" stroke="#a78bfa"/><text x="526" y="388" font-weight="800">智能体运行平台</text><text x="526" y="411" fill="#ddd6fe" font-size="10">想 · 做 · 看结果 · 再想</text>
+            <rect x="645" y="356" width="160" height="81" rx="10" fill="#10251f" stroke="#34d399"/><text x="725" y="388" font-weight="800">模型 + 可装技能</text><text x="725" y="411" fill="#a7f3d0" font-size="10">按任务选择和加载</text>
+            <rect x="844" y="356" width="160" height="81" rx="10" fill="#2d2018" stroke="#fb923c"/><text x="924" y="388" font-weight="800">任务本与后台任务</text><text x="924" y="411" fill="#fed7aa" font-size="10">保存进度 · 到时唤醒</text>
+            <rect x="1043" y="356" width="110" height="81" rx="10" fill="#30131e" stroke="#fb7185"/><text x="1098" y="388" font-weight="800">权限中心</text><text x="1098" y="411" fill="#fecdd3" font-size="10">批准 / 拒绝</text>
+          </g>
+
+          <rect x="25" y="498" width="1150" height="198" rx="14" fill="#18130c" stroke="#fbbf24" stroke-width="1.5"/>
+          <text x="42" y="528" text-anchor="start" fill="#fde68a" font-size="15" font-weight="800">C · 车载龙虾路线：通用运行平台外面，再加车辆语义、端侧能力和独立安全裁判</text>
+          <g font-size="12" fill="#e2e8f0">
+            <rect x="48" y="570" width="160" height="81" rx="10" fill="#0f172a" stroke="#94a3b8"/><text x="128" y="602" font-weight="800">车内多模态入口</text><text x="128" y="625" fill="#94a3b8" font-size="10">语音 · 视觉 · 多音区</text>
+            <rect x="247" y="570" width="160" height="81" rx="10" fill="#0b2230" stroke="#22d3ee"/><text x="327" y="602" font-weight="800">车辆上下文翻译</text><text x="327" y="625" fill="#a5f3fc" font-size="10">车速 · 挡位 · 座位 · 时效</text>
+            <rect x="446" y="570" width="160" height="81" rx="10" fill="#211a36" stroke="#a78bfa"/><text x="526" y="602" font-weight="800">车载系统智能体</text><text x="526" y="625" fill="#ddd6fe" font-size="10">规划并管理任务状态</text>
+            <rect x="645" y="570" width="160" height="81" rx="10" fill="#10251f" stroke="#34d399"/><text x="725" y="602" font-weight="800">车载技能 / 专业智能体</text><text x="725" y="625" fill="#a7f3d0" font-size="10">车控 · 导航 · 生活服务</text>
+            <rect x="844" y="570" width="160" height="81" rx="10" fill="#30131e" stroke="#fb7185"/><text x="924" y="602" font-weight="800">独立安全裁判</text><text x="924" y="625" fill="#fecdd3" font-size="10">不让模型直接越权</text>
+            <rect x="1043" y="570" width="110" height="81" rx="10" fill="#2d2018" stroke="#fb923c"/><text x="1098" y="602" font-weight="800">车与服务</text><text x="1098" y="625" fill="#fed7aa" font-size="10">ECU / 云服务</text>
+          </g>
+        </g>
+        <g font-family="Inter, PingFang SC" font-size="10" fill="#94a3b8"><text x="600" y="718" text-anchor="middle">实线是主执行方向；虚线回路表示拿到执行结果后继续判断，而不是模型说一次就结束。</text></g>
+      </svg>
+    </div>
+
+    <h3 style="margin-top:24px">看任何车企架构，只问五个问题</h3>
+    <div class="question-grid">
+      <div class="question-card"><div class="num">01</div><h4>谁接住用户？</h4><p>是一个语音助手、操作系统入口，还是很多 App 各接各的？</p></div>
+      <div class="question-card"><div class="num">02</div><h4>谁做总决定？</h4><p>是一个 Director、系统智能体，还是每个专业智能体自己决定？</p></div>
+      <div class="question-card"><div class="num">03</div><h4>它怎样动手？</h4><p>只能从固定工具里选，还是可以发现、安装和组合新技能？</p></div>
+      <div class="question-card"><div class="num">04</div><h4>没做完谁记着？</h4><p>靠下一轮继续塞上下文，还是有独立后台任务保存进度？</p></div>
+      <div class="question-card"><div class="num">05</div><h4>危险动作谁拦？</h4><p>只靠大模型记规则，还是模型外还有权限和车辆安全裁判？</p></div>
+    </div>
+
+    <div class="grid two" style="margin-top:22px">
+      <div class="card green"><h3>我们的真实主链路，按人话讲</h3><div class="walk-steps">
+        <div class="walk-step"><strong>先判断要不要惊动大模型。</strong>明确、简单的车控可以走快速链路；复杂需求才进入深度规划。</div>
+        <div class="walk-step"><strong>把当前情况整理给 Director。</strong>包括用户说了什么、车辆状态、对话历史、记忆、目标和顾问建议。</div>
+        <div class="walk-step"><strong>Director 做一次决定。</strong>它可以直接回复，也可以生成一个或多个动作。</div>
+        <div class="walk-step"><strong>编排层把动作交给工具或功能 Agent。</strong>互相依赖的动作按顺序做，互不依赖的可以并行。</div>
+        <div class="walk-step"><strong>执行方返回结果。</strong>结果不是一句“成功”就算完，还要告诉 Director 真实发生了什么。</div>
+        <div class="walk-step"><strong>Director 再判断。</strong>继续下一步、失败重试、换方案、追问用户，或者正式结束。</div>
+      </div></div>
+      <div class="card amber"><h3>通用龙虾多出来的，不是一个更聪明的脑</h3><div class="walk-steps">
+        <div class="walk-step"><strong>模型可以替换。</strong>同一套运行平台可以按任务接不同模型。</div>
+        <div class="walk-step"><strong>技能可以独立安装和升级。</strong>能力不必全部塞进一份大提示词。</div>
+        <div class="walk-step"><strong>任务状态独立保存。</strong>模型退出后，后台系统仍知道任务做到哪里。</div>
+        <div class="walk-step"><strong>可以定时或被事件叫醒。</strong>不是让模型一直等到周六，而是周六再启动它。</div>
+        <div class="walk-step"><strong>权限在模型外管理。</strong>模型想做，不代表系统就允许做。</div>
+        <div class="walk-step"><strong>但是它不懂车。</strong>不加车辆状态、车型能力和 ECU 安全网关，就只是通用电脑智能体。</div>
+      </div></div>
+    </div>
+
+    <div class="callout amber" style="margin-top:16px"><strong>证据边界：</strong>资料能明确证明我们有快慢分流、Director、上下文、固定工具和工具反馈闭环。目标、任务、触发与长期运行能力存在多个建设阶段和版本，不能把“设计中”全部写成“已经统一上线”。</div>
+
+    <h3 style="margin-top:24px">把三种方案放进同一张产品表</h3>
+    <div class="plain-compare">
+      <div class="head">产品问题</div><div class="head">豆包上车当前方式</div><div class="head">通用龙虾</div><div class="head">车载龙虾目标形态</div>
+      <div class="q">它首先是什么？</div><div>面向具体量产车的任务闭环</div><div>面向电脑和服务器的通用 AI 运行平台</div><div>面向整车的 AI 操作系统或承载层</div>
+      <div class="q">谁是总指挥？</div><div>Director / Planner</div><div>智能体运行平台中的主智能体</div><div>系统智能体或车载任务中枢</div>
+      <div class="q">能力从哪里来？</div><div>固定工具和功能 Agent</div><div>工具、插件和可安装技能</div><div>车载技能、专业智能体和第三方服务</div>
+      <div class="q">任务怎样继续？</div><div>靠上下文、目标和任务模块协同承载</div><div>会话、后台任务和持久化任务流</div><div>车端/云端任务状态、触发与恢复机制</div>
+      <div class="q">安全靠什么？</div><div>提示词规则、工具白名单和下游限制</div><div>权限、审批、隔离和网络策略</div><div>再增加车规策略、车辆状态判断和 ECU 网关</div>
+      <div class="q">最擅长什么？</div><div>把当前车型的已知任务做稳</div><div>快速增加和组合数字世界能力</div><div>跨车型、跨服务扩展，同时保持车规安全</div>
+      <div class="q">最大风险是什么？</div><div>能力越多，大提示词和项目规则越重</div><div>能调用不等于能稳定完成，更不等于懂车</div><div>平台建设重，安全、时延和生态治理成本高</div>
+    </div>
+
+    <h3 style="margin-top:24px">五家车企，到底分别在抢哪一层</h3>
+    <div class="grid five">
+      <div class="card cyan"><h4>华为</h4><p><strong>抢系统总入口。</strong>小艺先接住用户，再在系统、应用和设备之间分发任务。强项是权限与生态。</p></div>
+      <div class="card blue"><h4>理想</h4><p><strong>抢品牌专属大脑。</strong>把自研模型、车内外感知、长期记忆和互联网代办绑在一起。</p></div>
+      <div class="card green"><h4>蔚来</h4><p><strong>抢长期用户关系。</strong>NOMI 把人格、个性化、车辆服务和数据训练闭环做深。</p></div>
+      <div class="card"><h4>小鹏</h4><p><strong>抢端侧运行底座。</strong>让车端大模型、图灵芯片、天玑 AIOS 和整车域能力一起优化。</p></div>
+      <div class="card amber"><h4>智己 / 斑马</h4><p><strong>抢多智能体平台。</strong>一个系统智能体拆任务，N 个专业智能体执行，最像车载龙虾。</p></div>
+    </div>
+    <div class="reading-jump"><a href="#oem-arch">继续看五家完整架构图 →</a><a href="#ours">看我们的 Director 全链路 →</a><a href="#auto">看车载龙虾需要补什么 →</a></div>
+
+    <div class="moat-gap">
+      <div class="side moat-side"><h3>我们今天能对外讲的竞争力</h3><ul>
+        <li><strong>更懂具体车辆：</strong>车辆状态、座位、车型能力、串并行和执行限制已经进入任务决策。</li>
+        <li><strong>快慢分流：</strong>简单车控不必每次等待云端大模型，复杂任务才投入更多推理成本。</li>
+        <li><strong>固定工具闭环：</strong>能力范围清楚，容易做白名单、测试和量产验收。</li>
+        <li><strong>执行结果回流：</strong>Director 可以根据真实结果继续、重试、改计划或追问。</li>
+        <li><strong>真实项目经验：</strong>提示词、工具定义、案例和坏案例来自具体车型，不是通用演示。</li>
+      </ul></div>
+      <div class="side gap-side"><h3>我们还不能宣称已经拥有的能力</h3><ul>
+        <li><strong>不是完整车载智能体操作系统：</strong>规划、任务、技能和安全还没有全部成为统一平台服务。</li>
+        <li><strong>技能还不够模块化：</strong>新能力仍可能牵动工具定义、提示词、代码和全量回归。</li>
+        <li><strong>长期任务能力仍在演进：</strong>任务保存、恢复、取消、补偿和触发需要按当前版本逐项确认。</li>
+        <li><strong>独立安全裁判仍要加强：</strong>关键规则不能长期只依赖模型记住。</li>
+        <li><strong>跨车型复制成本偏高：</strong>很多经验仍是项目知识，还没完全沉淀成车型适配层。</li>
+      </ul></div>
+    </div>
+
+    <h3 style="margin-top:24px">到底哪个更好？按目标选，不要按名字选</h3>
+    <div class="decision-grid">
+      <div class="decision-card"><div class="when">目标：把 D6X 当前量产体验做稳</div><div class="pick">优先我们的闭环</div><p>固定范围、深度车辆适配、快慢分流和明确工具更容易控制成功率、延迟与安全。</p></div>
+      <div class="decision-card"><div class="when">目标：支持多车型、上百项能力</div><div class="pick">补平台化承载层</div><p>把工具、任务、权限、车型能力和模型路由从大提示词里拆出来，才能降低扩展成本。</p></div>
+      <div class="decision-card"><div class="when">目标：开放第三方服务和智能体生态</div><div class="pick">采用受控的车载龙虾思路</div><p>允许能力独立接入，但必须经过签名、版本、权限、隔离、灰度和车规策略检查。</p></div>
+    </div>
+
+    <div class="keep-add">
+      <div class="keep"><h3>不要推翻：继续保留</h3><ul><li>三层快慢分流</li><li>Director / Planner 决策</li><li>车辆上下文</li><li>固定工具与功能 Agent</li><li>工具反馈和重新规划</li></ul></div>
+      <div class="add"><h3>需要补上：做成平台</h3><ul><li>统一能力与技能登记册</li><li>任务保存、恢复、取消和补偿</li><li>模型外的独立安全裁判</li><li>车端与云端模型路由</li><li>跨车型能力适配和版本治理</li></ul></div>
+    </div>
+
+    <div class="walk-lead" style="margin-top:18px"><p class="answer" style="font-size:23px">最后只记一句：我们擅长把一辆车的事情做稳；龙虾擅长让 AI 的能力不断增加，并复制到更多车。下一步不是换掉 Director，而是把已经积累的经验做成平台。</p></div>
+  </section>
+
+  <section id="first">
+    <div class="section-head"><div class="section-no">01</div><div><h2>再看三张完整架构图：通用底座、车载改造、豆包自研</h2><p class="section-desc">读懂前面的口述版后，再用三张图把结构固定下来：OpenClaw 是通用 AI 底座，车载龙虾是在它的思想上补齐汽车能力，豆包上车则从具体车载任务需求生长出自己的闭环。</p></div></div>
+    <div class="grid three">
+      <div class="card cyan">
+        <div class="term">第一张 · 市面的龙虾架构</div>
+        <div class="simple">像"安卓开源系统"：一台通用躯干，不带脑子、不懂车</div>
+        <p>OpenClaw / Hermes 提供五个固定零件，谁都可以拿来装：</p>
+        <ul>
+          <li><strong>收件口（网关）：</strong>接收网页、聊天软件、语音等各种消息。</li>
+          <li><strong>大脑插槽（模型）：</strong>可以插不同大模型，Claude、GPT、通义千问都行。</li>
+          <li><strong>双手（工具与技能）：</strong>调电脑上的软件、网页、接口。</li>
+          <li><strong>便签本（任务流与后台任务）：</strong>没做完的事记下来，跨会话继续。</li>
+          <li><strong>保险柜（沙箱与策略）：</strong>限制它不乱来。</li>
+        </ul>
+        <p>干活方式就一句循环：<strong>听话 → 想 → 动手 → 看结果 → 再想 → 交差</strong>。</p>
+        <p class="no">但它天生不懂车：不知道车速、挡位、座椅加热、主驾副驾。就像安卓系统本身不会开车。</p>
+      </div>
+      <div class="card amber">
+        <div class="term">第二张 · 车载龙虾怎么在上面跑</div>
+        <div class="simple">像"厂商定制的车机版安卓"：躯干还在，外面加七件汽车装备</div>
+        <p>不是把 OpenClaw 代码塞进车机，而是给它加装七件装备，由车企和供应商完成：</p>
+        <ol>
+          <li><strong>车载入口：</strong>语音、音区、座位、方向盘按键、摄像头。</li>
+          <li><strong>座位信任：</strong>从"一个账号"变成"人 × 座位 × 驾驶角色"。</li>
+          <li><strong>车辆上下文：</strong>车速、电量、空调、导航、信号新鲜度。</li>
+          <li><strong>车控工具：</strong>开空调、调座椅、导航、媒体。</li>
+          <li><strong>车辆任务本：</strong>车下电了任务不丢，回来接着做。</li>
+          <li><strong>车规保险柜：</strong>高速不许开门、重复支付要拦截，模型外硬裁决。</li>
+          <li><strong>车企技能商店：</strong>签名、灰度、回滚，第三方技能要审核。</li>
+        </ol>
+        <p class="mid">OpenClaw 那层还在，但只是底座；决定量产能力的是外面这七层。</p>
+      </div>
+      <div class="card green">
+        <div class="term">第三张 · 我们的架构</div>
+        <div class="simple">像"特斯拉自研系统"：不从安卓长出来，从车载需求反着长</div>
+        <p>我们不基于通用躯干，而是从"这一辆车怎么服务好"倒推出来的闭环：</p>
+        <ol>
+          <li><strong>快路：</strong>"打开车窗"这类明确指令秒回，不走大模型。</li>
+          <li><strong>仲裁：</strong>判断这句话是简单还是复杂。</li>
+          <li><strong>Director（规划器）：</strong>云端大模型听懂"我老婆睡着了十分钟后关加热"，拆任务、调 27 个工具。</li>
+          <li><strong>一圈零件：</strong>座位与记忆上下文、目标列表、触发器、工具反馈闭环。</li>
+        </ol>
+        <p class="yes">优势：很懂这一辆车，量产闭环、27 个工具、座位身份都已打通。</p>
+        <p class="no">缺口：任务本、技能货架、独立保险柜、端侧——这些正是龙虾平台天生就有的，所以我们是"补装备"，不是"换系统"。</p>
+      </div>
+    </div>
+    <div class="grid three" style="margin-top:8px">
+      <div class="diagram" role="img" aria-label="通用龙虾架构示意图">
+        <svg viewBox="0 0 380 330" xmlns="http://www.w3.org/2000/svg">
+          <rect width="380" height="330" rx="10" fill="#07101e"/>
+          <text x="190" y="32" text-anchor="middle" fill="#22d3ee" font-size="13" font-weight="700">通用龙虾 = 一台通用躯干</text>
+          <g><rect x="110" y="50" width="160" height="34" rx="7" fill="#0f172a" stroke="#94a3b8"/><text x="190" y="72" text-anchor="middle" fill="#e2e8f0" font-size="11">收件口（网关）</text></g>
+          <g><rect x="110" y="98" width="160" height="34" rx="7" fill="#0f172a" stroke="#22d3ee"/><text x="190" y="120" text-anchor="middle" fill="#e2e8f0" font-size="11">大脑插槽（模型）</text></g>
+          <g><rect x="110" y="146" width="160" height="34" rx="7" fill="#0f172a" stroke="#34d399"/><text x="190" y="168" text-anchor="middle" fill="#e2e8f0" font-size="11">双手（工具 / 技能）</text></g>
+          <g><rect x="40" y="210" width="140" height="34" rx="7" fill="#0f172a" stroke="#a78bfa"/><text x="110" y="232" text-anchor="middle" fill="#e2e8f0" font-size="11">便签本（任务流）</text></g>
+          <g><rect x="200" y="210" width="140" height="34" rx="7" fill="#0f172a" stroke="#fb7185"/><text x="270" y="232" text-anchor="middle" fill="#e2e8f0" font-size="11">保险柜（沙箱 / 策略）</text></g>
+          <path d="M190 84V98" stroke="#64748b" stroke-width="1.5"/><path d="M190 132V146" stroke="#64748b" stroke-width="1.5"/><path d="M150 180C130 192 120 198 112 210" stroke="#64748b" stroke-width="1.2" fill="none"/><path d="M230 180C250 192 260 198 268 210" stroke="#64748b" stroke-width="1.2" fill="none"/>
+          <text x="190" y="280" text-anchor="middle" fill="#fb7185" font-size="11" font-weight="700">天生不懂车</text>
+          <text x="190" y="302" text-anchor="middle" fill="#64748b" font-size="9">不知道车速 / 座位 / 座椅加热</text>
+          <text x="190" y="318" text-anchor="middle" fill="#64748b" font-size="9">工作循环：听话 → 想 → 动手 → 看结果</text>
+        </svg>
+      </div>
+      <div class="diagram" role="img" aria-label="车载龙虾在通用框架上运行的示意图">
+        <svg viewBox="0 0 380 330" xmlns="http://www.w3.org/2000/svg">
+          <rect width="380" height="330" rx="10" fill="#07101e"/>
+          <text x="190" y="32" text-anchor="middle" fill="#fbbf24" font-size="13" font-weight="700">车载龙虾 = 躯干 + 七件汽车装备</text>
+          <g><rect x="125" y="130" width="130" height="56" rx="9" fill="#0f172a" stroke="#22d3ee" stroke-width="1.6"/><text x="190" y="155" text-anchor="middle" fill="white" font-size="11" font-weight="700">通用躯干</text><text x="190" y="174" text-anchor="middle" fill="#94a3b8" font-size="9">OpenClaw / Hermes 底座</text></g>
+          <g><rect x="16" y="48" width="106" height="30" rx="6" fill="#0f172a" stroke="#fbbf24"/><text x="69" y="68" text-anchor="middle" fill="#fde68a" font-size="9">车载入口</text></g>
+          <g><rect x="132" y="48" width="116" height="30" rx="6" fill="#0f172a" stroke="#fbbf24"/><text x="190" y="68" text-anchor="middle" fill="#fde68a" font-size="9">座位信任</text></g>
+          <g><rect x="258" y="48" width="106" height="30" rx="6" fill="#0f172a" stroke="#fbbf24"/><text x="311" y="68" text-anchor="middle" fill="#fde68a" font-size="9">车辆上下文</text></g>
+          <g><rect x="16" y="88" width="106" height="30" rx="6" fill="#0f172a" stroke="#fbbf24"/><text x="69" y="108" text-anchor="middle" fill="#fde68a" font-size="9">车控工具</text></g>
+          <g><rect x="258" y="88" width="106" height="30" rx="6" fill="#0f172a" stroke="#fbbf24"/><text x="311" y="108" text-anchor="middle" fill="#fde68a" font-size="9">车辆任务本</text></g>
+          <g><rect x="16" y="196" width="160" height="30" rx="6" fill="#0f172a" stroke="#fb7185"/><text x="96" y="216" text-anchor="middle" fill="#fda4af" font-size="9">车规保险柜（策略引擎）</text></g>
+          <g><rect x="204" y="196" width="160" height="30" rx="6" fill="#0f172a" stroke="#fb7185"/><text x="284" y="216" text-anchor="middle" fill="#fda4af" font-size="9">车企技能商店</text></g>
+          <path d="M69 78V124" stroke="#64748b" stroke-width="1.2"/><path d="M190 78V124" stroke="#64748b" stroke-width="1.2"/><path d="M311 78V124" stroke="#64748b" stroke-width="1.2"/><path d="M96 196V192" stroke="#64748b" stroke-width="1.2"/><path d="M284 196V192" stroke="#64748b" stroke-width="1.2"/>
+          <text x="190" y="266" text-anchor="middle" fill="#fde68a" font-size="11" font-weight="700">决定量产的是外面七层，不是底座</text>
+          <text x="190" y="290" text-anchor="middle" fill="#64748b" font-size="9">卖给车企的是平台：可复制、可管理、可扩展</text>
+          <text x="190" y="308" text-anchor="middle" fill="#64748b" font-size="9">第一辆车不一定更快，但后面每辆都便宜</text>
+        </svg>
+      </div>
+      <div class="diagram" role="img" aria-label="豆包上车架构示意图">
+        <svg viewBox="0 0 380 330" xmlns="http://www.w3.org/2000/svg">
+          <rect width="380" height="330" rx="10" fill="#07101e"/>
+          <text x="190" y="32" text-anchor="middle" fill="#34d399" font-size="13" font-weight="700">豆包上车 = 老司机 + 装备</text>
+          <g><rect x="20" y="52" width="100" height="44" rx="7" fill="#0f172a" stroke="#22d3ee"/><text x="70" y="71" text-anchor="middle" fill="#a5f3fc" font-size="10">快路</text><text x="70" y="88" text-anchor="middle" fill="#94a3b8" font-size="8">秒回明确指令</text></g>
+          <g><rect x="140" y="52" width="100" height="44" rx="7" fill="#0f172a" stroke="#fbbf24"/><text x="190" y="71" text-anchor="middle" fill="#fde68a" font-size="10">仲裁</text><text x="190" y="88" text-anchor="middle" fill="#94a3b8" font-size="8">简单还是复杂</text></g>
+          <g><rect x="260" y="52" width="100" height="44" rx="7" fill="#0f172a" stroke="#34d399"/><text x="310" y="71" text-anchor="middle" fill="#6ee7b7" font-size="10">Director</text><text x="310" y="88" text-anchor="middle" fill="#94a3b8" font-size="8">云端大模型</text></g>
+          <path d="M120 74H140" stroke="#64748b" stroke-width="1.4"/><path d="M240 74H260" stroke="#64748b" stroke-width="1.4"/>
+          <g><rect x="140" y="130" width="100" height="58" rx="7" fill="#0f172a" stroke="#a78bfa"/><text x="190" y="153" text-anchor="middle" fill="#c4b5fd" font-size="10">上下文装配</text><text x="190" y="172" text-anchor="middle" fill="#94a3b8" font-size="8">座位 / 记忆 / 车况</text></g>
+          <g><rect x="20" y="130" width="100" height="58" rx="7" fill="#0f172a" stroke="#fb7185"/><text x="70" y="153" text-anchor="middle" fill="#fda4af" font-size="10">策略规则</text><text x="70" y="172" text-anchor="middle" fill="#94a3b8" font-size="8">还在提示词里</text></g>
+          <g><rect x="260" y="130" width="100" height="58" rx="7" fill="#0f172a" stroke="#fbbf24"/><text x="310" y="153" text-anchor="middle" fill="#fde68a" font-size="10">目标 / 触发器</text><text x="310" y="172" text-anchor="middle" fill="#94a3b8" font-size="8">条件持续任务</text></g>
+          <path d="M190 110V130" stroke="#64748b" stroke-width="1.4"/><path d="M120 160H140" stroke="#64748b" stroke-width="1.4"/><path d="M240 160H260" stroke="#64748b" stroke-width="1.4"/>
+          <g><rect x="140" y="216" width="100" height="44" rx="7" fill="#0f172a" stroke="#34d399"/><text x="190" y="235" text-anchor="middle" fill="#6ee7b7" font-size="10">27 个工具</text><text x="190" y="252" text-anchor="middle" fill="#94a3b8" font-size="8">执行 + 反馈闭环</text></g>
+          <path d="M190 188V216" stroke="#64748b" stroke-width="1.4"/>
+          <text x="190" y="290" text-anchor="middle" fill="#6ee7b7" font-size="11" font-weight="700">很懂 D6X，量产已闭环</text>
+          <text x="190" y="308" text-anchor="middle" fill="#64748b" font-size="9">要补：任务本 / 技能货架 / 独立保险柜 / 端侧</text>
+        </svg>
+      </div>
+    </div>
+    <div class="callout" style="margin-top:16px"><strong>三句话记住区别：</strong>通用龙虾＝先造好通用躯干，再学开车（缺车的知识）；车载龙虾＝用通用躯干加汽车装备，卖平台（第一辆车慢，后面快）；我们＝先当上老司机，再补装备（现在更快，平台化要补课）。</div>
+  </section>
+
+  <section id="glossary">
+    <div class="section-head"><div class="section-no">02</div><div><h2>先把黑话翻译成人话</h2><p class="section-desc">下面这些词会反复出现，先统一翻译，后面读起来就不费劲。产品名（如 OpenClaw、KaKaClaw）是专有名词，保留原文并在旁边解释。</p></div></div>
+    <div class="glossary">
+      <div class="glossary-item"><div class="en">OpenClaw（龙虾）</div><div class="cn">通用智能体运行框架</div><div class="explain">开源的"让 AI 连续调用工具、记住状态、完成任务"的底层框架，类似早期安卓系统给手机提供的运行环境。官方文档称 Gateway 架构，强调自托管。</div></div>
+      <div class="glossary-item"><div class="en">Hermes</div><div class="cn">另一款通用智能体执行框架</div><div class="explain">和 OpenClaw 同类的开源项目，定位偏向"可扩展的 AI 执行中间件"，不是车载产品。注意：不是"Hanes"。</div></div>
+      <div class="glossary-item"><div class="en">Harness</div><div class="cn">承载层 / 运行框架</div><div class="explain">套在大模型外面，负责调度工具、管理会话、保证安全的一套环境。比喻：大模型是发动机，Harness 是整车底盘。</div></div>
+      <div class="glossary-item"><div class="en">Runtime</div><div class="cn">运行时</div><div class="explain">程序真正跑起来的地方和时刻。比喻：Runtime 是舞台，技能是演员，模型是导演。</div></div>
+      <div class="glossary-item"><div class="en">Gateway</div><div class="cn">网关 / 统一入口</div><div class="explain">所有请求和消息进入系统的门口，负责身份校验、路由、排队。比喻：小区大门加物业前台。</div></div>
+      <div class="glossary-item"><div class="en">Session</div><div class="cn">会话</div><div class="explain">一次连续的交互上下文。比喻：你和客服的一通连续电话。</div></div>
+      <div class="glossary-item"><div class="en">Skill（技能）</div><div class="cn">可插拔的能力包</div><div class="explain">封装好的"会做某事"的模块，比如查天气、订咖啡、调空调。比喻：微信小程序。</div></div>
+      <div class="glossary-item"><div class="en">Plugin（插件）</div><div class="cn">插件</div><div class="explain">与技能类似，但更偏向扩展某个具体功能。比喻：浏览器插件。</div></div>
+      <div class="glossary-item"><div class="en">MCP</div><div class="cn">模型工具调用协议</div><div class="explain">让 AI 模型统一调用外部工具和服务的接口标准。比喻：Type-C 接口，什么设备都能插。</div></div>
+      <div class="glossary-item"><div class="en">Provider</div><div class="cn">模型供应方</div><div class="explain">提供大模型推理服务的厂商或接口。比喻：加油站，车可以加不同品牌的油。</div></div>
+      <div class="glossary-item"><div class="en">Task Flow（任务流）</div><div class="cn">多步任务编排</div><div class="explain">把多步任务按依赖关系编排成可等待、可恢复、可取消的流程。比喻：美团外卖从下单到送达的全链路。</div></div>
+      <div class="glossary-item"><div class="en">Background Task</div><div class="cn">后台任务</div><div class="explain">用户离开后仍然继续运行的任务。比喻：你睡了，扫地机器人继续扫地。</div></div>
+      <div class="glossary-item"><div class="en">Cron</div><div class="cn">定时任务</div><div class="explain">按时间表触发的事情。比喻：手机闹钟、日历提醒。</div></div>
+      <div class="glossary-item"><div class="en">Sandbox（沙箱）</div><div class="cn">受限执行环境</div><div class="explain">防止某个技能越权的隔离区。比喻：机场安检区，进去的人只能带允许的东西。</div></div>
+      <div class="glossary-item"><div class="en">Policy</div><div class="cn">策略 / 规则</div><div class="explain">决定什么能做、什么不能做、什么需要确认。比喻：公司财务审批权限表。</div></div>
+      <div class="glossary-item"><div class="en">Context</div><div class="cn">上下文 / 情境信息</div><div class="explain">模型做判断时能看到的全部信息。比喻：你进餐厅时，服务员看到的人数、天气、你之前点的菜。</div></div>
+      <div class="glossary-item"><div class="en">Trigger（触发器）</div><div class="cn">条件触发</div><div class="explain">由时间、车辆状态或视觉事件触发动作。比喻：人体感应灯，检测到人就亮。</div></div>
+      <div class="glossary-item"><div class="en">SP（系统提示词）</div><div class="cn">岗位说明书</div><div class="explain">每次请求都固定发给模型的"培训手册"。我们的 SP 约 3 万到 3.5 万字符，含 23 个工具定义和 69 个示例。</div></div>
+      <div class="glossary-item"><div class="en">UP（用户提示词）</div><div class="cn">本轮输入</div><div class="explain">用户问题、顾问建议、工具返回结果组成的本轮输入，约 1 万到 1.5 万字符。</div></div>
+      <div class="glossary-item"><div class="en">A2A</div><div class="cn">智能体间通信协议</div><div class="explain">不同 AI 智能体之间互相协作的协议。比喻：公司之间的合同和对接流程。</div></div>
+    </div>
+  </section>
+
+  <section id="three">
+    <div class="section-head"><div class="section-no">03</div><div><h2>三句话先把三种方案分开</h2><p class="section-desc">它们不是三只差不多的"龙虾"，而是解决三个不同阶段的问题。</p></div></div>
+    <div class="grid three">
+      <div class="card cyan">
+        <div class="term">通用龙虾（OpenClaw / Hermes）</div>
+        <div class="simple">一个会办事的"通用实习生"</div>
+        <p>它能用电脑、查网页、写代码、管理文件，但默认不懂车。把它直接放进车里，就像把一位办公室白领直接塞进驾驶室——他需要重新学开车、学交规、学这辆车的按钮在哪里。</p>
+      </div>
+      <div class="card green">
+        <div class="term">豆包上车（当前）</div>
+        <div class="simple">一位培训过的"车载管家"</div>
+        <p>他已经会开这辆车、知道每个按钮、记得用户喜好、能听懂车内多个人说话。但这位管家的"工作流程"还写在一本很厚的培训手册（系统提示词）里，换辆车要重新培训。</p>
+      </div>
+      <div class="card amber">
+        <div class="term">车载龙虾（Auto Claw / KaKaClaw / AquaClaw）</div>
+        <div class="simple">一个"标准化车队管理平台"</div>
+        <p>想把通用实习生的聪明劲，加上车载管家的车感，做成一套可复用的系统：培训手册、任务派发、安全审批、绩效追踪全部平台化。第一辆车不一定更快，但第十辆、第一百辆车会更便宜、更稳定。</p>
+      </div>
+    </div>
+    <div class="callout" style="margin-top:16px"><strong>所以真正的答案不是"谁绝对更好"。</strong>今天要把 D6X 这一辆车做好，选我们当前链路；要做跨车型的长期平台，就应该保留我们的车载经验，同时吸收车载龙虾的任务、技能和安全骨架。</div>
+  </section>
+
+  <section id="analogy">
+    <div class="section-head"><div class="section-no">04</div><div><h2>用你每天都在用的互联网产品做比喻</h2><p class="section-desc">把抽象架构对应到具体产品上，方便向老板和同事解释。</p></div></div>
+    <div class="plain-grid">
+      <div class="card analogy-card" data-icon="信"><div class="term">通用龙虾</div><div class="simple">像"微信加小程序"</div><p>微信提供聊天、登录、支付、消息通知等基础能力；小程序让各种服务快速接入。通用龙虾也一样：提供会话、工具循环、定时任务、记忆、沙箱等基础能力，技能和插件就像小程序。</p><p><strong>但它不是车载微信：</strong>默认没有车辆状态、座位身份、车规安全。</p></div>
+      <div class="card analogy-card" data-icon="滴"><div class="term">豆包上车当前</div><div class="simple">像"滴滴司机端"</div><p>深度绑定一辆车、一个司机角色：知道路线、乘客、车辆状态、计费规则、安全规范。完成一单（一个任务）的闭环能力很强，但它不是为"同时管理全国所有司机"设计的。</p><p><strong>优势：</strong>懂车、任务完成率高、闭环快。<strong>短板：</strong>换车型要重新适配，规则还压在一本大手册里。</p></div>
+      <div class="card analogy-card" data-icon="台"><div class="term">车载龙虾</div><div class="simple">像"滴滴平台加自动驾驶车队"</div><p>它不仅想让一个司机把车开好，还想把派单、调度、安全、培训、车辆监控全部平台化，未来还能复制到很多车。目标很大，但平台化意味着第一辆车不一定比老司机更快。</p><p><strong>优势：</strong>可复制、可管理、可扩展。<strong>风险：</strong>平台成熟度决定实际体验，不能只看发布会。</p></div>
+      <div class="card analogy-card" data-icon="家"><div class="term">车内设备联动</div><div class="simple">像"智能家居中枢"</div><p>你说"我困了"，智能家居中枢会调暗灯光、拉窗帘、放白噪音；豆包上车会调暗氛围灯、把座椅躺倒、开空调、播放助眠音乐。通用龙虾也能做，但它不知道你现在"在车里行驶中"还是"在家里沙发上"。</p></div>
+      <div class="card analogy-card" data-icon="银"><div class="term">车规安全</div><div class="simple">像"银行 App 的权限系统"</div><p>银行 App 不会让用户自己决定"能不能转账一百万"，而是由后台根据身份、设备、风险、额度做硬拦截。车控安全也一样：高速行驶时"打开车门"这种请求，应该由车辆电控单元和策略引擎硬拒绝，而不是靠模型"自己判断"。</p></div>
+      <div class="card analogy-card" data-icon="外"><div class="term">任务编排</div><div class="simple">像"美团外卖履约链路"</div><p>你点了一份外卖，系统要：接单、通知商家、骑手取货、配送、送达确认。多步任务有依赖、有等待、有异常。车载任务也一样："十分钟后如果副驾睡着了，关座椅加热"就需要任务流加触发器加状态回读。</p></div>
+      <div class="card analogy-card" data-icon="店"><div class="term">技能生态</div><div class="simple">像"应用商店加小程序平台"</div><p>车载龙虾想做应用商店：第三方开发者可以上传技能（比如肯德基点餐、停车场预约），但需要平台审核、签名、权限声明、版本管理。我们当前更像"预装 27 个官方 App"，扩展性弱但稳定性强。</p></div>
+      <div class="card analogy-card" data-icon="云"><div class="term">端云协同</div><div class="simple">像"音乐软件的在线和本地曲库"</div><p>在线曲库全、更新快，但弱网时听不了；本地曲库受限但稳定。车载智能体也一样：云端大模型聪明但依赖网络，端侧模型弱但响应快、隐私好。成熟方案会动态选择。</p></div>
+    </div>
+  </section>
+
+  <section id="layers">
+    <div class="section-head"><div class="section-no">05</div><div><h2>四层分层：别把发动机和整车混在一起比</h2><p class="section-desc">市面上最容易犯的错误，是把豆包 Seed 1.8（发动机）、OpenClaw（底盘）、Auto Claw / AquaClaw（整车平台）、IM Ultra Agent / 豆包上车（用户产品）放在一张表里打分。它们不是同一层。</p></div></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>分层</th><th>豆包上车</th><th>通用智能体</th><th>汽车版 Claw / 车企方案</th></tr></thead>
+        <tbody>
+          <tr><td><strong>第一层 · 基础模型</strong><br>负责理解、推理、结构化输出</td><td>豆包 Seed 1.8（云端大模型）</td><td>Claude / GPT / 通义千问 / Hermes 模型等，可替换的推理引擎</td><td>通义千问、本地混合专家模型或车企自选模型，厂商通常强调模型可替换</td></tr>
+          <tr><td><strong>第二层 · 承载层</strong><br>让模型能调工具、管会话、出结构化的层</td><td>Director（规划器）的系统提示词加上下文加动作列表加工具反馈，当前以大提示词和编排层承载</td><td>OpenClaw / Hermes 智能体：会话、提示词、工具循环、技能、插件、压缩</td><td>Auto Claw / AquaClaw 运行时 / KaKaClaw 智能体运行时：车载化调度与技能运行时</td></tr>
+          <tr><td><strong>第三层 · 智能体操作系统</strong><br>路由、任务、触发、执行的公共设施</td><td>路由、上下文、目标、任务、触发、执行编排，分散在多个业务模块</td><td>网关加会话加工作区加定时任务，面向个人电脑和消息渠道</td><td>整车智能体操作系统加端云协同加沙箱，面向车规芯片、电控单元和服务生态</td></tr>
+          <tr><td><strong>第四层 · 技能与服务</strong><br>具体能做什么</td><td>27 个明确工具加功能智能体加动态示例，白名单、车型能力、串并行约束</td><td>技能 / 插件 / 工具协议 / 70 多个通用工具，开放安装与自定义</td><td>车控、智驾、导航、影音、生活服务、支付，车企签名与权限治理</td></tr>
+          <tr><td><strong>第五层 · 整车产品</strong><br>用户真正买到的东西</td><td>荣威 D6X 豆包上车，量产车型体验与运营闭环</td><td>个人电脑和服务器上的通用助手，不是车载量产产品</td><td>智己 IM Ultra Agent、iCAR 合作方案等，产品状态必须逐车型核验</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout amber" style="margin-top:16px"><strong>最容易犯的比较错误：</strong>把"脑"（模型）、"办事操作台"（承载层）、"汽车操作系统方案"（车载 Claw）、"用户产品"（IM Ultra Agent / 车载小艺 / 豆包上车）放在一张表里直接打分。它们不在同一层，得分没有意义。</div>
+  </section>
+
+  <section id="market">
+    <div class="section-head"><div class="section-no">06</div><div><h2>市场地图：不是所有"龙虾"都已经上车</h2><p class="section-desc">名字相似不代表代码相同；发布平台不代表车型已量产；供应商能力也不等于用户已经能用。下表按证据等级排序。</p></div></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>方案 / 产品</th><th>与 OpenClaw 的关系</th><th>官方公开架构</th><th>官方落地状态</th><th>证据等级</th><th>对我们的威胁</th></tr></thead>
+        <tbody>
+          <tr><td><strong>智己 IM Ultra Agent</strong><br>斑马元神 AI / 通义千问</td><td>智能体产品；<strong>官方未证明使用 OpenClaw 代码</strong></td><td>系统智能体加 N 个垂域智能体、生态服务串联</td><td>智己 LS8 已于 2026-04-16 上市并搭载</td><td><span class="status a">A · 整车上市</span></td><td>最高：证明"跨服务代劳"已成为量产卖点</td></tr>
+          <tr><td><strong>Auto Claw</strong><br>斑马智能</td><td>官方称"龙虾上车"；更像承载层理念的车规重构</td><td>元神 AI 加 Auto Omni 加 Auto Claw，"一脑双引擎"；官网另披露 1 个系统智能体加 N 个智能体</td><td>方案已发布；官网未给出 Auto Claw 具体首搭车型与量产数据</td><td><span class="status b">B · 正式方案</span></td><td>高：斑马已有操作系统、服务生态和大规模座舱装机基础</td></tr>
+          <tr><td><strong>KaKaClaw 咖咖虾</strong><br>地平线</td><td>类 Claw 车载智能体操作系统；<strong>官方未称直接运行 OpenClaw</strong></td><td>任务即服务、物理与数字智能体、端云模型、本地核心、技能沙箱、隐私路由、舱驾融合</td><td>iCAR 为全球首发合作车企；具体量产车型与量产时间未披露</td><td><span class="status b">B · 首发合作</span></td><td>高：端侧、芯片、智驾与座舱一体，是结构性路线竞争</td></tr>
+          <tr><td><strong>AquaClaw / AquaDrive 智驾系统 2.1</strong><br>中科创达</td><td><strong>官方明确基于 OpenClaw 架构</strong></td><td>端侧大模型、长期记忆、主动感知、任务规划执行、分层权限与隔离</td><td>系统 2.1 已于 2026-04-26 正式发布；公开页未公布指定车企量产车型</td><td><span class="status c">C · 平台发布</span></td><td>中高：从操作系统到应用全栈重构，对希望快速获得车载智能体底座的车企有吸引力</td></tr>
+          <tr><td><strong>OpenClaw 原版</strong></td><td>源项目</td><td>网关、会话、智能体循环、技能、插件、工具、定时任务、工作区</td><td>通用个人助手；无官方车规量产产品身份</td><td><span class="status d">D · 通用框架</span></td><td>低（直接）；高（理念和生态外溢）</td></tr>
+          <tr><td><strong>Hermes 智能体</strong></td><td>OpenClaw 同类承载层，可被英伟达 NemoClaw 沙箱承载</td><td>提示词分层、智能体循环、70 多个工具、SQLite 会话、定时任务、委托、插件</td><td>通用智能体；无公开车企车载量产案例</td><td><span class="status d">D · 通用框架</span></td><td>低（直接）；可作为技术基准或底层替代</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="grid two" style="margin-top:16px">
+      <div class="card green"><h3>能确认的量产事实</h3><ul><li>智己 LS8 的 IM Ultra Agent 已随整车上市。</li><li>斑马官网披露其通用智能座舱方案累计搭载 1000 万辆以上，但这个数字不能等同于 Auto Claw 装机量。</li><li>我们的项目资料明确豆包上车搭载荣威 D6X。</li></ul></div>
+      <div class="card amber"><h3>仍不能确认的事实</h3><ul><li>Auto Claw 是否在 LS8 上直接使用 OpenClaw 代码。</li><li>KaKaClaw 的首个具体量产车型和版本能力。</li><li>AquaClaw 的车企定点、量产时间和实际单车成本。</li><li>任一供应商的真实任务成功率、延迟、云成本和安全拒绝率。</li></ul></div>
+    </div>
+  </section>
+
+  <section id="oem-arch">
+    <div class="section-head"><div class="section-no">07</div><div><h2>五家代表性车企的架构，到底长什么样</h2><p class="section-desc">先统一口径：这里比较的是“座舱智能体怎样接收信息、判断任务、调用模型、执行车控和第三方服务”。五家覆盖当前最有代表性的四条路线；它们都不是简单把 OpenClaw 原版搬进车里，而是各自从操作系统、模型、芯片或服务生态长出来的车载智能体架构。</p></div></div>
+
+    <div class="callout"><strong>产品经理先记住：</strong>它们的共同链路都是“感知用户 → 一个中枢做决定 → 大模型参与理解或规划 → 调用车内能力与外部服务 → 操作系统兜底”。真正的差别只有四个：<strong>谁是总指挥、模型在云端还是车端、能力以工具还是专业智能体提供、安全与任务状态由谁管理。</strong></div>
+
+    <div class="evidence-key">
+      <span><i class="key-line"></i>官方公开的模块或关系</span>
+      <span><i class="key-line infer"></i>公开模块之间的合理推导</span>
+      <span><i class="key-line unknown"></i>车企未公开，不能替它下结论</span>
+    </div>
+
+    <h3 style="margin-top:22px">一张总图：把五家放进同一个五层架构里</h3>
+    <div class="oem-overview" role="img" aria-label="华为、理想、蔚来、小鹏、智己斑马五家车载智能体五层架构总览">
+      <svg viewBox="0 0 1200 760" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="oemGrid" width="28" height="28" patternUnits="userSpaceOnUse"><path d="M28 0H0V28" fill="none" stroke="#1e293b" stroke-width=".55"/></pattern>
+          <marker id="oemArrow" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0 0L9 3.5 0 7Z" fill="#64748b"/></marker>
+        </defs>
+        <rect width="1200" height="760" rx="14" fill="#07101e"/><rect width="1200" height="760" rx="14" fill="url(#oemGrid)"/>
+
+        <!-- arrows first so they stay behind the boxes -->
+        <g fill="none" stroke="#64748b" stroke-width="1.5" marker-end="url(#oemArrow)">
+          <path d="M157 222V252"/><path d="M157 337V367"/><path d="M157 452V482"/><path d="M157 572V602"/>
+          <path d="M383 222V252"/><path d="M383 337V367"/><path d="M383 452V482"/><path d="M383 572V602"/>
+          <path d="M609 222V252"/><path d="M609 337V367"/><path d="M609 452V482"/><path d="M609 572V602"/>
+          <path d="M835 222V252"/><path d="M835 337V367"/><path d="M835 452V482"/><path d="M835 572V602"/>
+          <path d="M1061 222V252"/><path d="M1061 337V367"/><path d="M1061 452V482"/><path d="M1061 572V602"/>
+        </g>
+
+        <text x="42" y="42" fill="#94a3b8" font-family="JetBrains Mono, PingFang SC" font-size="12" font-weight="700">公开架构归一化画布 · 入口 → 总指挥 → 模型 → 执行 → 底座</text>
+
+        <g font-family="Inter, PingFang SC, Microsoft YaHei" text-anchor="middle">
+          <g font-size="15" font-weight="800" fill="#f8fafc">
+            <rect x="52" y="70" width="210" height="54" rx="10" fill="#0b2230" stroke="#22d3ee"/><text x="157" y="94">华为车载小艺</text><text x="157" y="113" fill="#a5f3fc" font-size="11">系统入口 + 快慢思考</text>
+            <rect x="278" y="70" width="210" height="54" rx="10" fill="#19233d" stroke="#60a5fa"/><text x="383" y="94">理想同学</text><text x="383" y="113" fill="#bfdbfe" font-size="11">自研模型 + 工具代办</text>
+            <rect x="504" y="70" width="210" height="54" rx="10" fill="#132b25" stroke="#34d399"/><text x="609" y="94">蔚来 NOMI</text><text x="609" y="113" fill="#a7f3d0" font-size="11">端到端智能 + 个性化</text>
+            <rect x="730" y="70" width="210" height="54" rx="10" fill="#2a213f" stroke="#a78bfa"/><text x="835" y="94">小鹏小P / 天玑</text><text x="835" y="113" fill="#ddd6fe" font-size="11">车端模型 + 芯片系统</text>
+            <rect x="956" y="70" width="210" height="54" rx="10" fill="#39241a" stroke="#fb923c"/><text x="1061" y="94">智己 / 斑马</text><text x="1061" y="113" fill="#fed7aa" font-size="11">总智能体 + N 个智能体</text>
+          </g>
+
+          <g font-size="12" fill="#e2e8f0">
+            <rect x="52" y="150" width="210" height="72" rx="10" fill="#0b1425" stroke="#34d399"/><text x="157" y="177">语音 / 图像 / 手势</text><text x="157" y="198">多屏、多音区、系统入口</text><text x="157" y="214" fill="#6ee7b7" font-size="10">官方明确</text>
+            <rect x="278" y="150" width="210" height="72" rx="10" fill="#0b1425" stroke="#34d399"/><text x="383" y="177">麦克风 + 车内外视觉</text><text x="383" y="198">触控 / 手势 / 空间感知</text><text x="383" y="214" fill="#6ee7b7" font-size="10">官方明确</text>
+            <rect x="504" y="150" width="210" height="72" rx="10" fill="#0b1425" stroke="#34d399"/><text x="609" y="177">全员免唤醒 / 多指令</text><text x="609" y="198">座舱人与环境感知</text><text x="609" y="214" fill="#6ee7b7" font-size="10">官方明确到交互能力</text>
+            <rect x="730" y="150" width="210" height="72" rx="10" fill="#0b1425" stroke="#34d399"/><text x="835" y="177">舱内 + 舱外感知</text><text x="835" y="198">连续语音与场景理解</text><text x="835" y="214" fill="#6ee7b7" font-size="10">官方明确</text>
+            <rect x="956" y="150" width="210" height="72" rx="10" fill="#0b1425" stroke="#34d399"/><text x="1061" y="177">多模态交互</text><text x="1061" y="198">场景感知 + 用户画像</text><text x="1061" y="214" fill="#6ee7b7" font-size="10">官方明确</text>
+
+            <rect x="52" y="252" width="210" height="85" rx="10" fill="#0b1425" stroke="#fbbf24" stroke-dasharray="7 5"/><text x="157" y="280" font-weight="800">小艺系统级中枢</text><text x="157" y="301">多模态智能体框架</text><text x="157" y="320">快思考 / 慢思考路由</text>
+            <rect x="278" y="252" width="210" height="85" rx="10" fill="#0b1425" stroke="#fbbf24" stroke-dasharray="7 5"/><text x="383" y="280" font-weight="800">理想同学智能体中枢</text><text x="383" y="301">任务规划 + 长期记忆</text><text x="383" y="320">本地快速链路 / 云端深思</text>
+            <rect x="504" y="252" width="210" height="85" rx="10" fill="#0b1425" stroke="#34d399"/><text x="609" y="280" font-weight="800">NOMI Intelligence 4.0</text><text x="609" y="301">端到端架构 / NIM 核心</text><text x="609" y="320">个性化与多任务处理</text>
+            <rect x="730" y="252" width="210" height="85" rx="10" fill="#0b1425" stroke="#fbbf24" stroke-dasharray="7 5"/><text x="835" y="280" font-weight="800">AI 小P / 天玑 AIOS</text><text x="835" y="301">全域理解与能力编排</text><text x="835" y="320">车端实时闭环</text>
+            <rect x="956" y="252" width="210" height="85" rx="10" fill="#0b1425" stroke="#34d399"/><text x="1061" y="280" font-weight="800">系统智能体 / 超级智能体</text><text x="1061" y="301">中央决策与任务拆分</text><text x="1061" y="320">再调用 N 个专业智能体</text>
+
+            <rect x="52" y="367" width="210" height="85" rx="10" fill="#0b1425" stroke="#34d399"/><text x="157" y="395" font-weight="800">盘古大模型</text><text x="157" y="416">部分场景接入 DeepSeek</text><text x="157" y="435">端云协同</text>
+            <rect x="278" y="367" width="210" height="85" rx="10" fill="#0b1425" stroke="#34d399"/><text x="383" y="395" font-weight="800">MindGPT</text><text x="383" y="416">本地模型 + 云端模型</text><text x="383" y="435">长期记忆</text>
+            <rect x="504" y="367" width="210" height="85" rx="10" fill="#0b1425" stroke="#34d399"/><text x="609" y="395" font-weight="800">NIM 模型 + NOMI GPT</text><text x="609" y="416">推理 / 个性化服务</text><text x="609" y="435">真实与模拟数据强化学习</text>
+            <rect x="730" y="367" width="210" height="85" rx="10" fill="#0b1425" stroke="#34d399"/><text x="835" y="395" font-weight="800">车端 100 亿参数模型</text><text x="835" y="416">云端大模型教师</text><text x="835" y="435">蒸馏后下发车端</text>
+            <rect x="956" y="367" width="210" height="85" rx="10" fill="#0b1425" stroke="#34d399"/><text x="1061" y="395" font-weight="800">通义千问 + 多模型融合</text><text x="1061" y="416">元神 AI 中央大脑</text><text x="1061" y="435">模型可持续演进</text>
+
+            <rect x="52" y="482" width="210" height="90" rx="10" fill="#0b1425" stroke="#fbbf24" stroke-dasharray="7 5"/><text x="157" y="510" font-weight="800">系统能力 + 应用智能体</text><text x="157" y="531">车控 / 导航 / 电话</text><text x="157" y="550">跨设备、跨应用协同</text>
+            <rect x="278" y="482" width="210" height="90" rx="10" fill="#0b1425" stroke="#34d399"/><text x="383" y="510" font-weight="800">车辆工具 + 外部服务</text><text x="383" y="531">美团 / 支付宝 / KFC 智能体</text><text x="383" y="550">生成桌面卡片并代办</text>
+            <rect x="504" y="482" width="210" height="90" rx="10" fill="#0b1425" stroke="#fbbf24" stroke-dasharray="7 5"/><text x="609" y="510" font-weight="800">NIO OS 全域能力</text><text x="609" y="531">车控 / 导航 / 补能 / 服务</text><text x="609" y="550">社区与沉浸式座舱</text>
+            <rect x="730" y="482" width="210" height="90" rx="10" fill="#0b1425" stroke="#34d399"/><text x="835" y="510" font-weight="800">整车全域能力</text><text x="835" y="531">音频 / 能源 / 电池 / 底盘</text><text x="835" y="550">座舱与驾驶协同</text>
+            <rect x="956" y="482" width="210" height="90" rx="10" fill="#0b1425" stroke="#34d399"/><text x="1061" y="510" font-weight="800">N 个专业智能体</text><text x="1061" y="531">车控 / 导航 / 娱乐 / 本地生活</text><text x="1061" y="550">办公、支付、生态服务</text>
+
+            <rect x="52" y="602" width="210" height="90" rx="10" fill="#0b1425" stroke="#34d399"/><text x="157" y="630" font-weight="800">鸿蒙座舱 / 安全底座</text><text x="157" y="651">设备协同 + 星盾安全</text><text x="157" y="671">端云协同</text>
+            <rect x="278" y="602" width="210" height="90" rx="10" fill="#0b1425" stroke="#34d399"/><text x="383" y="630" font-weight="800">8295P + 本地能力</text><text x="383" y="651">座舱系统 + 云端服务</text><text x="383" y="671">工具权限细节未公开</text>
+            <rect x="504" y="602" width="210" height="90" rx="10" fill="#0b1425" stroke="#34d399"/><text x="609" y="630" font-weight="800">NIO OS + 自研云平台</text><text x="609" y="651">混合云 + 数据训练闭环</text><text x="609" y="671">端到端安全</text>
+            <rect x="730" y="602" width="210" height="90" rx="10" fill="#0b1425" stroke="#34d399"/><text x="835" y="630" font-weight="800">图灵芯片 + 沧海底座</text><text x="835" y="651">基础软件 / 车控应用</text><text x="835" y="671">模型、芯片、系统一体</text>
+            <rect x="956" y="602" width="210" height="90" rx="10" fill="#0b1425" stroke="#34d399"/><text x="1061" y="630" font-weight="800">AliOS / IM AIOS</text><text x="1061" y="651">系统 / 中间件 / 应用服务</text><text x="1061" y="671">阿里生态 + 端云安全</text>
+          </g>
+        </g>
+
+        <g font-family="JetBrains Mono, PingFang SC" font-size="10" fill="#64748b">
+          <text x="15" y="189" transform="rotate(-90 15 189)">入口与感知</text>
+          <text x="15" y="310" transform="rotate(-90 15 310)">总指挥</text>
+          <text x="15" y="427" transform="rotate(-90 15 427)">模型与记忆</text>
+          <text x="15" y="548" transform="rotate(-90 15 548)">执行能力</text>
+          <text x="15" y="672" transform="rotate(-90 15 672)">系统底座</text>
+        </g>
+        <text x="600" y="732" text-anchor="middle" fill="#94a3b8" font-family="Inter, PingFang SC" font-size="11">总图表达公开技术方向，不代表各车企完整内部实现；黄色虚线框为把公开模块放入同一分层后的推导。</text>
+      </svg>
+    </div>
+
+    <div class="grid four" style="margin-top:16px">
+      <div class="card cyan"><h3>路线一 · 系统入口型</h3><p><strong>华为：</strong>小艺是整个鸿蒙系统的统一 AI 入口，任务可在设备、应用和车辆能力之间协同。</p></div>
+      <div class="card blue"><h3>路线二 · 整车自研型</h3><p><strong>理想、蔚来：</strong>自己掌握模型、记忆、座舱感知和整车服务，优先追求“更懂本品牌用户”。</p></div>
+      <div class="card green"><h3>路线三 · 端侧一体型</h3><p><strong>小鹏：</strong>把车端模型、芯片、基础软件和车辆域能力一起设计，优先追求低延迟和弱网可用。</p></div>
+      <div class="card amber"><h3>路线四 · 多智能体平台型</h3><p><strong>智己/斑马：</strong>一个总智能体负责拆任务，多个专业智能体执行，形态最接近“车载龙虾平台”。</p></div>
+    </div>
+
+    <div class="threat-strip"><strong>对我们的直接结论</strong><span>短期最像我们产品竞争对手的是<strong>理想、蔚来</strong>；最像我们未来平台竞争对手的是<strong>华为、斑马</strong>；最值得我们补齐端侧能力时参考的是<strong>小鹏</strong>。所以不能只问“谁的大模型更强”，要按竞争层拆开看。</span></div>
+
+    <div class="oem-grid">
+      <article class="oem-arch-card">
+        <div class="oem-title"><h3>1. 华为：小艺是“整个系统的 AI 总入口”</h3><span class="status b">B · 主链路可推导</span></div>
+        <div class="oem-plain">不是先打开某个应用，而是先把需求交给小艺，再由系统决定调用车辆能力、应用智能体还是大模型。</div>
+        <p class="oem-sub">公开依据：鸿蒙多模态智能体框架、快思考/慢思考、盘古与部分场景 DeepSeek、应用间智能体协作、端云协同。</p>
+        <div class="oem-svg-wrap">
+          <svg class="oem-svg" viewBox="0 0 620 650" xmlns="http://www.w3.org/2000/svg">
+            <defs><marker id="hwArrow" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0 0L9 3.5 0 7Z" fill="#64748b"/></marker></defs>
+            <rect width="620" height="650" fill="#07101e"/>
+            <g fill="none" stroke="#64748b" stroke-width="1.6" marker-end="url(#hwArrow)"><path d="M310 119V154"/><path d="M310 242V273"/><path d="M310 353V397"/><path d="M310 492V532"/></g>
+            <path d="M310 273V285H174V298" fill="none" stroke="#fbbf24" stroke-width="1.8" stroke-dasharray="7 5" marker-end="url(#hwArrow)"/><path d="M310 273V285H446V298" fill="none" stroke="#fbbf24" stroke-width="1.8" stroke-dasharray="7 5" marker-end="url(#hwArrow)"/>
+            <g font-family="Inter, PingFang SC, Microsoft YaHei" text-anchor="middle">
+              <text x="310" y="32" fill="#a5f3fc" font-size="12" font-weight="800">车载小艺公开架构 · 产品化还原</text>
+              <rect x="52" y="58" width="516" height="61" rx="11" fill="#0b1425" stroke="#34d399"/><text x="310" y="83" fill="#f8fafc" font-size="14" font-weight="800">用户与座舱入口</text><text x="310" y="105" fill="#cbd5e1" font-size="12">语音 · 图像 · 手势 · 多屏 · 多音区 · 按键</text>
+              <rect x="96" y="154" width="428" height="88" rx="12" fill="#0b2230" stroke="#34d399"/><text x="310" y="184" fill="#f8fafc" font-size="15" font-weight="800">小艺系统级中枢 / 多模态智能体框架</text><text x="310" y="208" fill="#cbd5e1" font-size="12">理解人、设备、应用和当前场景，决定下一步交给谁</text><text x="310" y="228" fill="#6ee7b7" font-size="10">模块官方明确；车端内部调度细节未公开</text>
+              <rect x="55" y="298" width="238" height="55" rx="10" fill="#10243a" stroke="#34d399"/><text x="174" y="322" fill="#f8fafc" font-size="13" font-weight="800">快思考</text><text x="174" y="342" fill="#cbd5e1" font-size="11">车控 / 导航 / 电话 / 简单问答</text>
+              <rect x="327" y="298" width="238" height="55" rx="10" fill="#2a1e31" stroke="#34d399"/><text x="446" y="322" fill="#f8fafc" font-size="13" font-weight="800">慢思考</text><text x="446" y="342" fill="#cbd5e1" font-size="11">检索 / 推理 / 规划 / 创作</text>
+              <rect x="109" y="397" width="402" height="95" rx="12" fill="#0b1425" stroke="#34d399"/><text x="310" y="424" fill="#f8fafc" font-size="14" font-weight="800">盘古大模型 + 部分场景 DeepSeek</text><text x="310" y="448" fill="#cbd5e1" font-size="12">端云协同完成理解、推理和内容生成</text><text x="310" y="473" fill="#fde68a" font-size="10">“快慢路由→具体模型”的精确映射未公开</text>
+              <rect x="48" y="532" width="524" height="72" rx="12" fill="#0b1425" stroke="#34d399"/><text x="310" y="559" fill="#f8fafc" font-size="14" font-weight="800">车辆系统能力 + 鸿蒙应用智能体 + 跨设备协作</text><text x="310" y="582" fill="#cbd5e1" font-size="12">车控 / 导航 / 电话 / 内容 / 第三方应用 / 智能家居</text>
+              <text x="310" y="632" fill="#94a3b8" font-size="11">底座：鸿蒙座舱 · 权限与安全体系 · 端云协同</text>
+            </g>
+          </svg>
+        </div>
+        <div class="run-chain"><span>① 小艺统一接收需求</span><span>② 判断是快任务还是慢任务</span><span>③ 需要时调用大模型推理</span><span>④ 分给车辆或应用智能体</span><span>⑤ 系统执行并把结果返回</span></div>
+        <div class="oem-meaning"><div><strong>真正的竞争力</strong>入口、设备、应用生态和系统权限都在同一家公司手里，跨端协同成本最低。</div><div><strong>我们不能乱下的结论</strong>官方没有公开车载任务如何持久化、失败如何补偿，也没有公开完整工具协议。</div></div>
+      </article>
+
+      <article class="oem-arch-card">
+        <div class="oem-title"><h3>2. 理想：自研 MindGPT 直接做“整车生活助理”</h3><span class="status b">B · 组件明确、编排推导</span></div>
+        <div class="oem-plain">理想把车内外感知、本地快速交互、长期记忆、模型推理和外部服务代办串在一个品牌助手里。</div>
+        <p class="oem-sub">公开依据：多模态座舱感知、本地离线语音、MindGPT、长期记忆、调用美团工具、支付宝和 KFC 智能体、生成桌面卡片。</p>
+        <div class="oem-svg-wrap">
+          <svg class="oem-svg" viewBox="0 0 620 650" xmlns="http://www.w3.org/2000/svg">
+            <defs><marker id="liArrow" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0 0L9 3.5 0 7Z" fill="#64748b"/></marker></defs>
+            <rect width="620" height="650" fill="#07101e"/>
+            <g fill="none" stroke="#64748b" stroke-width="1.6" marker-end="url(#liArrow)"><path d="M310 120V148"/><path d="M310 224V255"/><path d="M310 343V374"/><path d="M310 460V492"/><path d="M310 567V598"/></g>
+            <g font-family="Inter, PingFang SC, Microsoft YaHei" text-anchor="middle">
+              <text x="310" y="32" fill="#bfdbfe" font-size="12" font-weight="800">理想同学公开架构 · 产品化还原</text>
+              <rect x="43" y="58" width="534" height="62" rx="11" fill="#0b1425" stroke="#34d399"/><text x="310" y="83" fill="#f8fafc" font-size="14" font-weight="800">车内外多模态感知</text><text x="310" y="105" fill="#cbd5e1" font-size="12">麦克风阵列 · 红外/彩色视觉 · 触控 · 手势 · 座舱外摄像头</text>
+              <rect x="75" y="148" width="470" height="76" rx="11" fill="#10243a" stroke="#34d399"/><text x="310" y="176" fill="#f8fafc" font-size="14" font-weight="800">本地快速交互与空间理解</text><text x="310" y="199" fill="#cbd5e1" font-size="12">离线语音、分区识别、弱网时仍可完成基础座舱操作</text>
+              <rect x="96" y="255" width="428" height="88" rx="12" fill="#19233d" stroke="#34d399"/><text x="310" y="284" fill="#f8fafc" font-size="16" font-weight="800">MindGPT + 长期记忆</text><text x="310" y="308" fill="#cbd5e1" font-size="12">理解用户、上下文和历史偏好，形成回答或行动意图</text><text x="310" y="330" fill="#6ee7b7" font-size="10">自研模型与记忆能力官方明确</text>
+              <rect x="118" y="374" width="384" height="86" rx="12" fill="#0b1425" stroke="#fbbf24" stroke-dasharray="7 5"/><text x="310" y="403" fill="#f8fafc" font-size="14" font-weight="800">理想同学智能体编排层</text><text x="310" y="426" fill="#cbd5e1" font-size="12">拆任务、挑工具、读页面、确认支付并跟踪结果</text><text x="310" y="447" fill="#fde68a" font-size="10">完整运行时和状态机未公开</text>
+              <rect x="43" y="492" width="534" height="75" rx="12" fill="#0b1425" stroke="#34d399"/><text x="310" y="519" fill="#f8fafc" font-size="14" font-weight="800">车辆工具 + 互联网服务 + 其他智能体</text><text x="310" y="542" fill="#cbd5e1" font-size="12">车控 / 导航 / 美团 / 支付宝 / KFC / 生成桌面卡片</text>
+              <text x="310" y="621" fill="#94a3b8" font-size="11">底座：高通 8295P · 座舱系统 · 云端模型与服务</text>
+            </g>
+          </svg>
+        </div>
+        <div class="run-chain"><span>① 感知谁在说、车内外发生什么</span><span>② 本地先处理高频低风险操作</span><span>③ MindGPT 结合长期记忆理解</span><span>④ 智能体调用车辆或互联网工具</span><span>⑤ 生成卡片并持续反馈结果</span></div>
+        <div class="oem-meaning"><div><strong>真正的竞争力</strong>感知、模型、记忆、整车能力和互联网代办体验都是一体设计，用户不需要理解“哪个应用能做”。</div><div><strong>我们不能乱下的结论</strong>官方案例能证明会调用工具，但没有披露任务表、重试、权限裁决等底层机制。</div></div>
+      </article>
+
+      <article class="oem-arch-card">
+        <div class="oem-title"><h3>3. 蔚来：NOMI 是“人格化入口 + 端到端智能核心”</h3><span class="status b">B · 模型与系统明确</span></div>
+        <div class="oem-plain">蔚来不是突出“装多少技能”，而是让 NOMI 持续认识车里的人，再把个性化理解接到 NIO OS 的整车和服务能力上。</div>
+        <p class="oem-sub">公开依据：NOMI Intelligence 4.0 端到端架构、NIM 核心模型、NOMI GPT、多人免唤醒、多指令、自研 NIO OS、真实与模拟数据强化学习。</p>
+        <div class="oem-svg-wrap">
+          <svg class="oem-svg" viewBox="0 0 620 650" xmlns="http://www.w3.org/2000/svg">
+            <defs><marker id="nioArrow" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0 0L9 3.5 0 7Z" fill="#64748b"/></marker></defs>
+            <rect width="620" height="650" fill="#07101e"/>
+            <g fill="none" stroke="#64748b" stroke-width="1.6" marker-end="url(#nioArrow)"><path d="M310 119V151"/><path d="M310 247V278"/><path d="M310 366V399"/><path d="M310 489V520"/></g>
+            <path d="M531 559H576V322H526" fill="none" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="7 5" marker-end="url(#nioArrow)"/>
+            <g font-family="Inter, PingFang SC, Microsoft YaHei" text-anchor="middle">
+              <text x="310" y="32" fill="#a7f3d0" font-size="12" font-weight="800">NOMI 公开架构 · 产品化还原</text>
+              <rect x="52" y="58" width="516" height="61" rx="11" fill="#0b1425" stroke="#34d399"/><text x="310" y="83" fill="#f8fafc" font-size="14" font-weight="800">全车乘员与座舱感知</text><text x="310" y="105" fill="#cbd5e1" font-size="12">免唤醒 · 一次多指令 · 识别不同乘员 · 连续上下文</text>
+              <rect x="82" y="151" width="456" height="96" rx="12" fill="#132b25" stroke="#34d399"/><text x="310" y="181" fill="#f8fafc" font-size="16" font-weight="800">NOMI Intelligence 4.0</text><text x="310" y="206" fill="#cbd5e1" font-size="12">端到端智能架构 · NIM 核心模型</text><text x="310" y="228" fill="#6ee7b7" font-size="10">官方明确为核心智能架构</text>
+              <rect x="103" y="278" width="414" height="88" rx="12" fill="#0b1425" stroke="#34d399"/><text x="310" y="307" fill="#f8fafc" font-size="15" font-weight="800">NOMI GPT 推理与个性化</text><text x="310" y="331" fill="#cbd5e1" font-size="12">结合用户关系、历史偏好和当前座舱情景做判断</text><text x="310" y="353" fill="#94a3b8" font-size="10">与 NIM 的内部边界未公开</text>
+              <rect x="62" y="399" width="496" height="90" rx="12" fill="#0b1425" stroke="#fbbf24" stroke-dasharray="7 5"/><text x="310" y="428" fill="#f8fafc" font-size="14" font-weight="800">NIO OS 全域服务编排</text><text x="310" y="452" fill="#cbd5e1" font-size="12">车控 · 导航 · 充换电 · 内容 · 服务 · 社区 · 沉浸座舱</text><text x="310" y="475" fill="#fde68a" font-size="10">公开能力很多，完整工具/任务协议未披露</text>
+              <rect x="89" y="520" width="442" height="78" rx="12" fill="#0b1425" stroke="#34d399"/><text x="310" y="548" fill="#f8fafc" font-size="14" font-weight="800">自研 AI 基础设施与数据闭环</text><text x="310" y="572" fill="#cbd5e1" font-size="12">真实用户数据 + 模拟数据 → 强化学习 → 模型迭代</text>
+              <text x="310" y="630" fill="#94a3b8" font-size="11">底座：NIO OS · 混合云 · 自研模型训练工具 · 端到端安全</text>
+            </g>
+          </svg>
+        </div>
+        <div class="run-chain"><span>① NOMI 持续理解车内不同的人</span><span>② NIM 端到端形成语义和任务判断</span><span>③ NOMI GPT 做推理与个性化</span><span>④ 接入 NIO OS 整车与服务能力</span><span>⑤ 真实/模拟数据回流训练</span></div>
+        <div class="oem-meaning"><div><strong>真正的竞争力</strong>人格、用户关系、服务体系与车辆全生命周期结合得深，长期个性化壁垒比一次任务更强。</div><div><strong>我们不能乱下的结论</strong>“端到端”不等于所有车控都由模型直接输出；高风险执行仍应受系统规则约束，但公开资料没有完整展开。</div></div>
+      </article>
+
+      <article class="oem-arch-card">
+        <div class="oem-title"><h3>4. 小鹏：把“大模型运行时”直接压进车端</h3><span class="status a">A- · 端云结构最清楚</span></div>
+        <div class="oem-plain">小鹏最有辨识度的不是多智能体，而是“云端大模型当老师、车端模型当学生”，再让模型、图灵芯片和天玑 AIOS 一体运行。</div>
+        <p class="oem-sub">公开依据：云端模型参数规模约为车端 80 倍、蒸馏下发、车端 100 亿参数模型、双图灵芯片、天玑 AIOS、音频/能源/电池/底盘等全域能力。</p>
+        <div class="oem-svg-wrap">
+          <svg class="oem-svg" viewBox="0 0 620 650" xmlns="http://www.w3.org/2000/svg">
+            <defs><marker id="xpArrow" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0 0L9 3.5 0 7Z" fill="#64748b"/></marker></defs>
+            <rect width="620" height="650" fill="#07101e"/>
+            <g fill="none" stroke="#64748b" stroke-width="1.6" marker-end="url(#xpArrow)"><path d="M376 119V151"/><path d="M376 238V274"/><path d="M376 372V405"/><path d="M376 490V524"/></g>
+            <path d="M195 214H236V311H273" fill="none" stroke="#fbbf24" stroke-width="1.8" stroke-dasharray="7 5" marker-end="url(#xpArrow)"/>
+            <g font-family="Inter, PingFang SC, Microsoft YaHei" text-anchor="middle">
+              <text x="310" y="32" fill="#ddd6fe" font-size="12" font-weight="800">天玑 AIOS 公开架构 · 产品化还原</text>
+              <rect x="178" y="58" width="396" height="61" rx="11" fill="#0b1425" stroke="#34d399"/><text x="376" y="83" fill="#f8fafc" font-size="14" font-weight="800">舱内与舱外场景感知</text><text x="376" y="105" fill="#cbd5e1" font-size="12">连续语音 · 人车环境 · 驾驶与座舱状态</text>
+              <rect x="19" y="139" width="176" height="102" rx="12" fill="#241b39" stroke="#34d399"/><text x="107" y="169" fill="#f8fafc" font-size="13" font-weight="800">云端大模型教师</text><text x="107" y="194" fill="#cbd5e1" font-size="11">参数规模约为车端 80 倍</text><text x="107" y="218" fill="#c4b5fd" font-size="11">训练 / 蒸馏 / 更新</text>
+              <rect x="236" y="151" width="280" height="87" rx="12" fill="#2a213f" stroke="#34d399"/><text x="376" y="181" fill="#f8fafc" font-size="15" font-weight="800">AI 小P / 天玑 AIOS</text><text x="376" y="205" fill="#cbd5e1" font-size="12">本地实时理解、对话、推理与能力编排</text><text x="376" y="226" fill="#6ee7b7" font-size="10">官方明确车端实时能力</text>
+              <rect x="273" y="274" width="206" height="98" rx="12" fill="#0b1425" stroke="#34d399"/><text x="376" y="302" fill="#f8fafc" font-size="14" font-weight="800">车端 100 亿参数模型</text><text x="376" y="326" fill="#cbd5e1" font-size="12">部署在双图灵芯片</text><text x="376" y="350" fill="#ddd6fe" font-size="11">弱网仍能本地推理</text>
+              <rect x="91" y="405" width="514" height="85" rx="12" fill="#0b1425" stroke="#34d399"/><text x="348" y="434" fill="#f8fafc" font-size="14" font-weight="800">整车全域能力</text><text x="348" y="458" fill="#cbd5e1" font-size="12">座舱 · 音频 · 能源 · 电池 · 底盘 · 导航 · 驾驶协同</text><text x="348" y="479" fill="#94a3b8" font-size="10">各域的权限与工具接口细节未公开</text>
+              <rect x="119" y="524" width="458" height="76" rx="12" fill="#0b1425" stroke="#34d399"/><text x="348" y="552" fill="#f8fafc" font-size="14" font-weight="800">图灵芯片 + 沧海底座</text><text x="348" y="576" fill="#cbd5e1" font-size="12">算力 · 基础软件 · 车控应用 · 端云升级</text>
+              <text x="310" y="631" fill="#94a3b8" font-size="11">关键特点：模型推理离车辆更近，云端主要负责训练与能力更新</text>
+            </g>
+          </svg>
+        </div>
+        <div class="run-chain"><span>① 车端直接感知当前人车场景</span><span>② 天玑 AIOS 在本地理解与调度</span><span>③ 100 亿参数模型在图灵芯片运行</span><span>④ 调用整车各域能力</span><span>⑤ 云端大模型蒸馏后持续下发</span></div>
+        <div class="oem-meaning"><div><strong>真正的竞争力</strong>低延迟、弱网和隐私能力更容易做稳，而且芯片、模型、系统、车辆域能一起优化。</div><div><strong>我们不能乱下的结论</strong>车端模型大不等于任务一定完成；跨服务任务是否有持久状态、失败补偿，公开资料没有说明。</div></div>
+      </article>
+
+      <article class="oem-arch-card full">
+        <div class="oem-title"><h3>5. 智己 / 斑马：最接近“车载龙虾”的多智能体平台</h3><span class="status a">A · 公开结构最完整</span></div>
+        <div class="oem-plain">它公开讲得最清楚：一个系统智能体做中央调度，再连接 N 个专业智能体；下面由 AliOS / IM AIOS 和阿里服务生态提供执行能力。</div>
+        <p class="oem-sub">公开依据：1 个系统智能体 + N 个智能体、元神 AI、通义千问、多模型融合、场景感知与用户画像、AliOS 全栈、智己 IM Ultra Agent、阿里生态服务。</p>
+        <div class="oem-svg-wrap">
+          <svg class="oem-svg" viewBox="0 0 1180 610" xmlns="http://www.w3.org/2000/svg">
+            <defs><marker id="imArrow" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0 0L9 3.5 0 7Z" fill="#64748b"/></marker></defs>
+            <rect width="1180" height="610" fill="#07101e"/>
+            <g fill="none" stroke="#64748b" stroke-width="1.7" marker-end="url(#imArrow)"><path d="M590 112V147"/><path d="M590 230V266"/><path d="M590 352V385"/><path d="M160 475V513"/><path d="M375 475V513"/><path d="M590 475V513"/><path d="M805 475V513"/><path d="M1020 475V513"/></g>
+            <path d="M360 310H256V385" fill="none" stroke="#fbbf24" stroke-width="1.7" stroke-dasharray="7 5" marker-end="url(#imArrow)"/><path d="M820 310H924V385" fill="none" stroke="#fbbf24" stroke-width="1.7" stroke-dasharray="7 5" marker-end="url(#imArrow)"/>
+            <g font-family="Inter, PingFang SC, Microsoft YaHei" text-anchor="middle">
+              <text x="590" y="30" fill="#fed7aa" font-size="12" font-weight="800">IM Ultra Agent / 斑马元神 AI 公开架构 · 1 个系统智能体 + N 个专业智能体</text>
+              <rect x="262" y="52" width="656" height="60" rx="11" fill="#0b1425" stroke="#34d399"/><text x="590" y="77" fill="#f8fafc" font-size="14" font-weight="800">多模态入口 + 场景感知 + 用户画像</text><text x="590" y="99" fill="#cbd5e1" font-size="12">语音 / 视觉 / 车辆状态 / 位置 / 时间 / 用户历史</text>
+              <rect x="334" y="147" width="512" height="83" rx="12" fill="#39241a" stroke="#34d399"/><text x="590" y="176" fill="#f8fafc" font-size="17" font-weight="800">IM Ultra Agent / 系统智能体</text><text x="590" y="201" fill="#cbd5e1" font-size="12">理解目标、拆任务、选专业智能体、串联服务并跟踪结果</text><text x="590" y="220" fill="#6ee7b7" font-size="10">中央智能体 + N 智能体为斑马官方架构</text>
+              <rect x="360" y="266" width="460" height="86" rx="12" fill="#0b1425" stroke="#34d399"/><text x="590" y="295" fill="#f8fafc" font-size="15" font-weight="800">元神 AI 中央大脑：通义千问 + 多模型融合</text><text x="590" y="320" fill="#cbd5e1" font-size="12">负责语义、推理、计划生成与模型路由</text><text x="590" y="341" fill="#94a3b8" font-size="10">IM Ultra Agent 与元神 AI 的内部组件边界以产品公开关系还原</text>
+              <rect x="98" y="385" width="124" height="90" rx="10" fill="#0b1425" stroke="#34d399"/><text x="160" y="414" fill="#f8fafc" font-size="13" font-weight="800">车控智能体</text><text x="160" y="439" fill="#cbd5e1" font-size="11">空调 / 座椅</text><text x="160" y="458" fill="#cbd5e1" font-size="11">车窗 / 灯光</text>
+              <rect x="313" y="385" width="124" height="90" rx="10" fill="#0b1425" stroke="#34d399"/><text x="375" y="414" fill="#f8fafc" font-size="13" font-weight="800">出行智能体</text><text x="375" y="439" fill="#cbd5e1" font-size="11">导航 / 充电</text><text x="375" y="458" fill="#cbd5e1" font-size="11">停车 / 支付</text>
+              <rect x="528" y="385" width="124" height="90" rx="10" fill="#0b1425" stroke="#34d399"/><text x="590" y="414" fill="#f8fafc" font-size="13" font-weight="800">内容智能体</text><text x="590" y="439" fill="#cbd5e1" font-size="11">音乐 / 视频</text><text x="590" y="458" fill="#cbd5e1" font-size="11">搜索 / 创作</text>
+              <rect x="743" y="385" width="124" height="90" rx="10" fill="#0b1425" stroke="#34d399"/><text x="805" y="414" fill="#f8fafc" font-size="13" font-weight="800">生活智能体</text><text x="805" y="439" fill="#cbd5e1" font-size="11">点单 / 外卖</text><text x="805" y="458" fill="#cbd5e1" font-size="11">本地服务</text>
+              <rect x="958" y="385" width="124" height="90" rx="10" fill="#0b1425" stroke="#34d399"/><text x="1020" y="414" fill="#f8fafc" font-size="13" font-weight="800">更多智能体</text><text x="1020" y="439" fill="#cbd5e1" font-size="11">办公 / 设备</text><text x="1020" y="458" fill="#cbd5e1" font-size="11">第三方生态</text>
+              <rect x="55" y="513" width="1070" height="62" rx="12" fill="#0b1425" stroke="#34d399"/><text x="590" y="539" fill="#f8fafc" font-size="14" font-weight="800">AliOS / IM AIOS 全栈底座</text><text x="590" y="561" fill="#cbd5e1" font-size="12">操作系统 · 中间件 · 车辆接口 · 应用服务 · 阿里生态 · 端云安全</text>
+              <text x="590" y="598" fill="#94a3b8" font-size="11">这条路线与“车载龙虾”最相似：总智能体负责规划，专业智能体像可安装、可组合的能力包。</text>
+            </g>
+          </svg>
+        </div>
+        <div class="run-chain"><span>① 场景感知把人车信息交给系统智能体</span><span>② 系统智能体把目标拆成多个任务</span><span>③ 通义千问与多模型参与规划</span><span>④ N 个专业智能体分别执行</span><span>⑤ AliOS 统一接车辆与阿里生态</span></div>
+        <div class="oem-meaning"><div><strong>真正的竞争力</strong>系统中枢、专业智能体、操作系统和服务生态形成平台结构，新能力比“继续把规则写进大提示词”更容易扩展。</div><div><strong>我们不能乱下的结论</strong>公开的“1+N”说明组织方式，不等于每个智能体都有独立模型；也不能据此证明它使用 OpenClaw 原版代码。</div></div>
+      </article>
+    </div>
+
+    <h3 style="margin-top:24px">最终对比：五家的架构重点，不在同一层</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>车企 / 方案</th><th>谁是总指挥</th><th>模型主要放在哪里</th><th>怎样执行任务</th><th>最强的结构性能力</th><th>公开资料仍缺什么</th><th>对我们的启示</th></tr></thead>
+        <tbody>
+          <tr><td><strong>华为车载小艺</strong></td><td>小艺系统级入口 / 多模态智能体框架</td><td>端云协同，盘古为主，部分场景接入 DeepSeek</td><td>快任务直达系统能力；慢任务经过推理，再协同应用和设备</td><td>系统权限、跨设备、跨应用生态</td><td>任务持久化、重试补偿、车控策略引擎细节</td><td>总入口必须掌握上下文与权限，不能只是一个云端规划模型</td></tr>
+          <tr><td><strong>理想同学</strong></td><td>品牌自研智能体中枢</td><td>本地快速能力 + 云端 MindGPT</td><td>模型结合记忆做判断，再调用车辆、页面工具与其他智能体</td><td>车内外感知、长期记忆、互联网代办一体</td><td>完整任务运行时与安全裁决链</td><td>我们已有车辆工具闭环，但用户记忆与跨服务代办要更产品化</td></tr>
+          <tr><td><strong>蔚来 NOMI</strong></td><td>NOMI Intelligence / NIM 核心</td><td>端云结合，自研模型与基础设施</td><td>端到端理解 + NOMI GPT 个性化，再接 NIO OS 全域服务</td><td>人格、关系、服务、数据训练闭环</td><td>工具协议、高风险动作边界、任务状态机</td><td>长期竞争不只是任务成功率，还包括“越用越懂我”的关系资产</td></tr>
+          <tr><td><strong>小鹏小P / 天玑 AIOS</strong></td><td>车端 AIOS 与小P编排</td><td>车端 100 亿参数模型；云端大模型做教师</td><td>本地模型在双图灵芯片推理，直接连接整车各域能力</td><td>模型、芯片、系统、车辆域联合优化</td><td>跨服务任务持久化、技能治理和权限细节</td><td>我们的云端 Director 要补端侧路由、弱网能力和风险分级</td></tr>
+          <tr><td><strong>智己 / 斑马</strong></td><td>IM Ultra Agent / 系统智能体</td><td>通义千问 + 多模型融合，端云协同</td><td>一个总智能体拆任务，N 个专业智能体执行，AliOS 接底层</td><td>平台化、多智能体、阿里生态和操作系统底座</td><td>各智能体独立程度、量产指标、失败补偿细节</td><td>这是对我们“从大提示词走向技能平台”最直接的路线压力</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout amber" style="margin-top:16px"><strong>最重要的产品判断：</strong>今天没有证据表明“用了龙虾框架”就一定比我们的任务成功率高。真正领先的是，有些车企已经把<strong>总入口、模型路由、专业能力、操作系统、生态与端侧算力</strong>做成一套平台；而我们的很多优势仍依赖 Director 的大提示词、固定工具定义和项目经验。我们当前有量产闭环优势，但平台复制优势还没有形成。</div>
+    <details style="margin-top:16px"><summary>为什么没有把小米、特斯拉、比亚迪也画成同等级架构图？</summary><div><p>不是它们没有能力，而是本轮找到的官方资料更偏功能发布、语音指令或系统能力，没有同时公开“统一入口—任务中枢—模型—执行智能体—系统底座”的完整关系。为了避免把产品表现反推成内部架构，本版只把公开证据足够形成主链路的五家画成结构图；其他车企可以作为下一轮补充研究，不在证据不足时硬画。</p></div></details>
+  </section>
+
+  <section id="ours">
+    <div class="section-head"><div class="section-no">08</div><div><h2>我们的当前架构：车载闭环很强，但规则还压在一本大手册里</h2><p class="section-desc">当前本地系统提示词为 2026-07-31 版本：约 12.8 万字符、2186 行；4 类输入、27 个明确工具、4 个输出字段、25 个示例块。<span class="ref">S1</span></p></div></div>
+    <div class="diagram" role="img" aria-label="豆包上车当前架构图">
+      <svg viewBox="0 0 1200 640" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="gridA" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="#1e293b" stroke-width=".6"/></pattern>
+          <marker id="a1" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><path d="M0 0L10 3.5 0 7Z" fill="#64748b"/></marker>
+          <marker id="a2" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><path d="M0 0L10 3.5 0 7Z" fill="#22d3ee"/></marker>
+        </defs>
+        <rect width="1200" height="640" rx="12" fill="#07101e"/><rect width="1200" height="640" rx="12" fill="url(#gridA)"/>
+
+        <text x="42" y="58" fill="#94a3b8" font-family="JetBrains Mono" font-size="11" font-weight="700">三层漏斗 + Director 中心仲裁</text>
+
+        <path d="M170 170H238" stroke="#22d3ee" stroke-width="1.7" marker-end="url(#a2)"/>
+        <path d="M390 132H458" stroke="#22d3ee" stroke-width="1.7" marker-end="url(#a2)"/>
+        <path d="M390 208H458" stroke="#22d3ee" stroke-width="1.7" marker-end="url(#a2)"/>
+        <path d="M645 170H715" stroke="#22d3ee" stroke-width="1.7" marker-end="url(#a2)"/>
+        <path d="M900 170H978" stroke="#34d399" stroke-width="1.7" marker-end="url(#a1)"/>
+        <path d="M1070 216C1070 292 810 302 810 232" fill="none" stroke="#fb923c" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#a1)"/>
+        <text x="950" y="292" fill="#fb923c" font-family="JetBrains Mono" font-size="9">工具反馈 → 再规划</text>
+
+        <g><rect x="44" y="118" width="126" height="104" rx="8" fill="#0f172a" stroke="#94a3b8"/><text x="107" y="144" fill="white" text-anchor="middle" font-size="12" font-weight="700">输入</text><text x="107" y="166" fill="#94a3b8" text-anchor="middle" font-size="9">用户指令</text><text x="107" y="182" fill="#94a3b8" text-anchor="middle" font-size="9">顾问建议 / 事件</text><text x="107" y="198" fill="#94a3b8" text-anchor="middle" font-size="9">工具反馈</text></g>
+        <g><rect x="238" y="98" width="152" height="68" rx="8" fill="#0f172a" stroke="#22d3ee"/><text x="314" y="124" fill="white" text-anchor="middle" font-size="11" font-weight="700">快路 / 句法检索</text><text x="314" y="143" fill="#94a3b8" text-anchor="middle" font-size="9">明确 · 低风险 · 单工具</text></g>
+        <g><rect x="238" y="180" width="152" height="68" rx="8" fill="#0f172a" stroke="#fbbf24"/><text x="314" y="206" fill="white" text-anchor="middle" font-size="11" font-weight="700">情景分流 / 仲裁</text><text x="314" y="225" fill="#94a3b8" text-anchor="middle" font-size="9">按复杂度与上下文依赖</text></g>
+        <g><rect x="458" y="103" width="187" height="134" rx="8" fill="#0f172a" stroke="#a78bfa"/><text x="551" y="130" fill="white" text-anchor="middle" font-size="12" font-weight="700">上下文装配</text><text x="551" y="154" fill="#c4b5fd" text-anchor="middle" font-size="9">乘员 / 车辆 / 导航 / 视觉</text><text x="551" y="171" fill="#c4b5fd" text-anchor="middle" font-size="9">记忆 / 目标 / 历史 / 知识</text><text x="551" y="195" fill="#94a3b8" text-anchor="middle" font-size="8">当前大量作为动态提示词注入</text><text x="551" y="212" fill="#94a3b8" text-anchor="middle" font-size="8">要求：新鲜度 / 来源 / 有效期</text></g>
+        <g><rect x="715" y="98" width="185" height="144" rx="8" fill="#0f172a" stroke="#34d399"/><text x="807" y="126" fill="white" text-anchor="middle" font-size="12" font-weight="700">规划器 = Director</text><text x="807" y="148" fill="#6ee7b7" text-anchor="middle" font-size="9">豆包 Seed 1.8 · 云端大模型</text><text x="807" y="171" fill="#94a3b8" text-anchor="middle" font-size="8">系统提示词 + 用户提示词</text><text x="807" y="188" fill="#94a3b8" text-anchor="middle" font-size="8">输出：话术 / 表情 / 动作列表</text><text x="807" y="212" fill="#94a3b8" text-anchor="middle" font-size="8">中心仲裁：说什么、做什么</text></g>
+        <g><rect x="978" y="102" width="166" height="136" rx="8" fill="#0f172a" stroke="#fbbf24"/><text x="1061" y="130" fill="white" text-anchor="middle" font-size="12" font-weight="700">执行编排层</text><text x="1061" y="154" fill="#fde68a" text-anchor="middle" font-size="9">27 工具 / 功能智能体</text><text x="1061" y="171" fill="#fde68a" text-anchor="middle" font-size="9">车控 · 导航 · 内容 · 服务</text><text x="1061" y="195" fill="#94a3b8" text-anchor="middle" font-size="8">串并行 / 权限 / 真实返回</text><text x="1061" y="212" fill="#94a3b8" text-anchor="middle" font-size="8">结果回流工具反馈</text></g>
+
+        <path d="M807 242V330" stroke="#a78bfa" stroke-width="1.7" marker-end="url(#a1)"/>
+        <text x="820" y="290" fill="#c4b5fd" font-family="JetBrains Mono" font-size="9">跨时间 → 持久化</text>
+        <path d="M905 366H968" stroke="#a78bfa" stroke-width="1.6" marker-end="url(#a1)"/>
+        <path d="M968 425H905" stroke="#fbbf24" stroke-width="1.6" marker-end="url(#a1)"/>
+        <path d="M715 425H646" stroke="#fbbf24" stroke-width="1.6" marker-end="url(#a1)"/>
+        <path d="M458 425H390" stroke="#34d399" stroke-width="1.6" marker-end="url(#a1)"/>
+
+        <g><rect x="715" y="330" width="190" height="95" rx="8" fill="#0f172a" stroke="#a78bfa"/><text x="810" y="358" fill="white" text-anchor="middle" font-size="11" font-weight="700">持续管理入口</text><text x="810" y="380" fill="#c4b5fd" text-anchor="middle" font-size="9">当前：目标列表更新工具</text><text x="810" y="398" fill="#94a3b8" text-anchor="middle" font-size="8">目标 / 条件 / 定时 / 持续观察</text><text x="810" y="414" fill="#fb7185" text-anchor="middle" font-size="8">进行中：任务管理收敛</text></g>
+        <g><rect x="968" y="330" width="176" height="95" rx="8" fill="#0f172a" stroke="#a78bfa"/><text x="1056" y="358" fill="white" text-anchor="middle" font-size="11" font-weight="700">任务服务（建设中）</text><text x="1056" y="380" fill="#c4b5fd" text-anchor="middle" font-size="9">任务 / 运行 / 事件</text><text x="1056" y="398" fill="#94a3b8" text-anchor="middle" font-size="8">等待 / 运行 / 已关闭</text><text x="1056" y="414" fill="#94a3b8" text-anchor="middle" font-size="8">幂等 / 恢复 / 查询 / 取消</text></g>
+        <g><rect x="715" y="445" width="190" height="66" rx="8" fill="#0f172a" stroke="#fbbf24"/><text x="810" y="471" fill="white" text-anchor="middle" font-size="11" font-weight="700">触发器 / 视觉 / 定时</text><text x="810" y="490" fill="#fde68a" text-anchor="middle" font-size="9">时间 · 状态 · 事件 · 视觉</text></g>
+        <g><rect x="458" y="380" width="188" height="86" rx="8" fill="#0f172a" stroke="#34d399"/><text x="552" y="408" fill="white" text-anchor="middle" font-size="11" font-weight="700">触发器回调</text><text x="552" y="430" fill="#6ee7b7" text-anchor="middle" font-size="9">只负责唤醒，不直接决定车控</text><text x="552" y="448" fill="#94a3b8" text-anchor="middle" font-size="8">命中证据 + 任务编号 + 时间戳</text></g>
+        <g><rect x="238" y="380" width="152" height="86" rx="8" fill="#0f172a" stroke="#34d399"/><text x="314" y="408" fill="white" text-anchor="middle" font-size="11" font-weight="700">执行与回写</text><text x="314" y="430" fill="#6ee7b7" text-anchor="middle" font-size="9">成功 / 失败 / 跳过</text><text x="314" y="448" fill="#94a3b8" text-anchor="middle" font-size="8">更新运行，继续或关闭</text></g>
+        <g><rect x="44" y="380" width="126" height="86" rx="8" fill="#0f172a" stroke="#fb7185"/><text x="107" y="408" fill="white" text-anchor="middle" font-size="11" font-weight="700">确定性策略</text><text x="107" y="430" fill="#fda4af" text-anchor="middle" font-size="9">权限 / 风险 / 冲突</text><text x="107" y="448" fill="#94a3b8" text-anchor="middle" font-size="8">应在大模型外执行</text></g>
+        <g><rect x="44" y="520" width="1100" height="72" rx="10" fill="none" stroke="#64748b" stroke-dasharray="7 5"/><text x="60" y="546" fill="#94a3b8" font-family="JetBrains Mono" font-size="10" font-weight="700">车规边界：身份 / 车辆状态 / 动作风险 / 运行时</text><text x="60" y="570" fill="#64748b" font-family="JetBrains Mono" font-size="9">当前部分策略写在系统提示词里 → 目标是把它们迁移到独立策略引擎</text></g>
+      </svg>
+      <div class="diagram-note"><span class="legend"><i style="background:#22d3ee"></i>快路</span><span class="legend"><i style="background:#a78bfa"></i>持续任务域</span><span class="legend"><i style="background:#fbbf24"></i>触发 / 事件</span><span class="legend"><i style="background:#fb7185"></i>必须确定性治理</span></div>
+    </div>
+    <div class="grid three" style="margin-top:16px">
+      <div class="card green"><h3>已有优势（资料明确）</h3><ul><li>简单指令有快路，不必每次进入大模型，首字响应目标快。</li><li>车辆、乘员、导航、记忆是业务上下文，不是后补的。</li><li>27 个工具定义清晰，调用结果回流到规划器。</li><li>量产车型 D6X 已闭环，问题案例可定位到链路。</li></ul></div>
+      <div class="card amber"><h3>当前短板（资料明确 / 可推导）</h3><ul><li>大量规则、示例、车型能力还压在一个大系统提示词里。</li><li>目标链能管持续任务，但统一任务运行时仍在建设中。</li><li>缺少标准化的技能登记册（谁、什么能力、什么权限）。</li><li>策略和权限未完全独立于模型，存在提示词漂移风险。</li><li>端侧和弱网能力弱于车载龙虾的目标形态。</li></ul></div>
+      <div class="card cyan"><h3>一句话画像</h3><p>一位<strong>车感极强</strong>、但<strong>工作流程还写在厚厚手册里</strong>的车载管家。办事很稳，但带新人（新车型）成本高。</p></div>
+    </div>
+  </section>
+
+  <section id="generic">
+    <div class="section-head"><div class="section-no">09</div><div><h2>通用龙虾架构：一个聪明的通用实习生，但不懂车</h2><p class="section-desc">OpenClaw 与 Hermes 不是同一个项目，但都属于通用智能体承载层：它们不是模型，而是包在模型外面、让模型能连续使用工具、保存状态、接收消息和完成任务的一套运行时。</p></div></div>
+    <div class="diagram" role="img" aria-label="通用智能体运行框架六层架构图">
+      <svg viewBox="0 0 1200 620" xmlns="http://www.w3.org/2000/svg">
+        <defs><pattern id="gridB" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="#1e293b" stroke-width=".6"/></pattern><marker id="b1" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><path d="M0 0L10 3.5 0 7Z" fill="#64748b"/></marker></defs>
+        <rect width="1200" height="620" rx="12" fill="#07101e"/><rect width="1200" height="620" rx="12" fill="url(#gridB)"/>
+        <rect x="25" y="25" width="1150" height="570" rx="13" fill="none" stroke="#64748b" stroke-dasharray="7 5"/>
+        <text x="42" y="50" fill="#94a3b8" font-family="JetBrains Mono" font-size="11" font-weight="700">通用智能体承载层 · 六层平面</text>
+
+        <g><rect x="70" y="80" width="200" height="205" rx="10" fill="#0f172a" stroke="#94a3b8"/><text x="170" y="110" text-anchor="middle" fill="white" font-size="13" font-weight="700">1. 入口渠道</text><text x="170" y="142" text-anchor="middle" fill="#cbd5e1" font-size="10">网页 / 命令行 / App</text><text x="170" y="165" text-anchor="middle" fill="#cbd5e1" font-size="10">WhatsApp / Slack</text><text x="170" y="188" text-anchor="middle" fill="#cbd5e1" font-size="10">语音 / 家庭助手</text><text x="170" y="225" text-anchor="middle" fill="#fb7185" font-size="9">不是车载总线 / 电控单元</text></g>
+        <g><rect x="310" y="80" width="200" height="205" rx="10" fill="#0f172a" stroke="#22d3ee"/><text x="410" y="110" text-anchor="middle" fill="white" font-size="13" font-weight="700">2. 网关 / 会话</text><text x="410" y="142" text-anchor="middle" fill="#a5f3fc" font-size="10">身份校验 · 路由 · 会话隔离</text><text x="410" y="165" text-anchor="middle" fill="#a5f3fc" font-size="10">队列 · 流式 · 钩子</text><text x="410" y="195" text-anchor="middle" fill="#94a3b8" font-size="9">默认围绕一个可信操作者</text><text x="410" y="225" text-anchor="middle" fill="#fb7185" font-size="9">车内多人场景不适用</text></g>
+        <g><rect x="550" y="80" width="250" height="205" rx="10" fill="#0f172a" stroke="#34d399"/><text x="675" y="110" text-anchor="middle" fill="white" font-size="13" font-weight="700">3. 智能体循环</text><text x="675" y="142" text-anchor="middle" fill="#6ee7b7" font-size="10">提示词 → 模型 → 工具 → 结果</text><text x="675" y="165" text-anchor="middle" fill="#6ee7b7" font-size="10">重试 / 兜底 / 压缩</text><text x="675" y="195" text-anchor="middle" fill="#94a3b8" font-size="9">OpenClaw：单会话串行执行</text><text x="675" y="218" text-anchor="middle" fill="#94a3b8" font-size="9">Hermes：统一智能体 + 模型供应方解析</text><text x="675" y="248" text-anchor="middle" fill="#fb7185" font-size="9">本身不知道"高速不能开车门"</text></g>
+        <g><rect x="840" y="80" width="150" height="205" rx="10" fill="#0f172a" stroke="#a78bfa"/><text x="915" y="110" text-anchor="middle" fill="white" font-size="13" font-weight="700">4. 上下文</text><text x="915" y="142" text-anchor="middle" fill="#c4b5fd" font-size="10">工作区 / 记忆 / 历史</text><text x="915" y="165" text-anchor="middle" fill="#c4b5fd" font-size="10">技能 / 工具定义</text><text x="915" y="195" text-anchor="middle" fill="#94a3b8" font-size="9">压缩、缓存、动态装载</text><text x="915" y="225" text-anchor="middle" fill="#fb7185" font-size="9">缺车辆信号新鲜度语义</text></g>
+        <g><rect x="1030" y="80" width="120" height="205" rx="10" fill="#0f172a" stroke="#fbbf24"/><text x="1090" y="110" text-anchor="middle" fill="white" font-size="13" font-weight="700">5. 模型</text><text x="1090" y="142" text-anchor="middle" fill="#fde68a" font-size="10">托管 / 本地</text><text x="1090" y="165" text-anchor="middle" fill="#fde68a" font-size="10">多供应方路由</text><text x="1090" y="188" text-anchor="middle" fill="#fde68a" font-size="10">自带密钥</text><text x="1090" y="225" text-anchor="middle" fill="#94a3b8" font-size="9">可替换的发动机</text></g>
+
+        <g><rect x="70" y="330" width="200" height="210" rx="10" fill="#0f172a" stroke="#a78bfa"/><text x="170" y="360" text-anchor="middle" fill="white" font-size="13" font-weight="700">6a. 持久化 / 定时</text><text x="170" y="392" text-anchor="middle" fill="#c4b5fd" font-size="10">会话记录 · 本地数据库</text><text x="170" y="415" text-anchor="middle" fill="#c4b5fd" font-size="10">定时任务 · 后台任务</text><text x="170" y="455" text-anchor="middle" fill="#94a3b8" font-size="9">≠ 车辆条件触发器</text><text x="170" y="478" text-anchor="middle" fill="#94a3b8" font-size="9">任务流：等待 / 运行 / 失败 / 取消</text><text x="170" y="501" text-anchor="middle" fill="#94a3b8" font-size="9">重启可从数据库恢复</text></g>
+        <g><rect x="310" y="330" width="240" height="210" rx="10" fill="#0f172a" stroke="#34d399"/><text x="430" y="360" text-anchor="middle" fill="white" font-size="13" font-weight="700">6b. 技能运行时</text><text x="430" y="392" text-anchor="middle" fill="#6ee7b7" font-size="10">程序性知识 + 护栏</text><text x="430" y="415" text-anchor="middle" fill="#6ee7b7" font-size="10">版本化 · 发现 · 按需注入</text><text x="430" y="455" text-anchor="middle" fill="#94a3b8" font-size="9">这是最值得吸收的结构</text><text x="430" y="478" text-anchor="middle" fill="#94a3b8" font-size="9">我们当前工具偏静态配置</text></g>
+        <g><rect x="590" y="330" width="250" height="210" rx="10" fill="#0f172a" stroke="#fbbf24"/><text x="715" y="360" text-anchor="middle" fill="white" font-size="13" font-weight="700">6c. 工具 / 插件 / 协议</text><text x="715" y="392" text-anchor="middle" fill="#fde68a" font-size="10">文件 · 浏览器 · 搜索 · 代码</text><text x="715" y="415" text-anchor="middle" fill="#fde68a" font-size="10">第三方接口 · 自定义工具</text><text x="715" y="455" text-anchor="middle" fill="#94a3b8" font-size="9">能力开放，但执行语义不车规</text></g>
+        <g><rect x="880" y="330" width="270" height="210" rx="10" fill="#0f172a" stroke="#fb7185" stroke-dasharray="6 4"/><text x="1015" y="360" text-anchor="middle" fill="white" font-size="13" font-weight="700">通用安全边界</text><text x="1015" y="392" text-anchor="middle" fill="#fda4af" font-size="10">网关鉴权 · 工具策略 · 沙箱</text><text x="1015" y="415" text-anchor="middle" fill="#fda4af" font-size="10">审批 · 网络策略 · 供应链扫描</text><text x="1015" y="455" text-anchor="middle" fill="#fb7185" font-size="9">还需车规策略 / 电控安全网关</text></g>
+      </svg>
+    </div>
+    <div class="grid two" style="margin-top:16px">
+      <div class="card cyan"><h3>OpenClaw 更像"完整的个人智能体操作系统"</h3><ul><li>常驻网关统一连接渠道、客户端与设备节点。</li><li>每个会话串行执行，避免工具和对话记录竞争。</li><li>技能、插件、工具协议、模型供应方和承载层都可插拔。</li><li>当前已有任务账本、任务流、定时任务、审核与维护机制。</li><li>但官方安全模型仍明确以"一个网关一个可信操作者边界"为前提。</li></ul></div>
+      <div class="card green"><h3>Hermes 更像"以智能体为中心的可扩展执行框架"</h3><ul><li>命令行、网关、协议、接口、批处理等入口都进入同一个智能体。</li><li>提示词构建器、供应方解析、工具分发是三个核心模块。</li><li>本地数据库保存会话；工具注册表覆盖 70 多个工具、约 28 个工具集。</li><li>定时任务会创建新的智能体会话，并可按任务限制工具集。</li><li>它同样没有车辆上下文、电控网关与车规权限模型。</li></ul></div>
+    </div>
+    <div class="evidence-strip"><span class="confirmed">资料明确：OpenClaw 网关 / 智能体循环 / 任务流</span><span class="confirmed">资料明确：Hermes 智能体 / 会话 / 工具注册表</span><span class="inferred">分析推导：二者都属于通用承载层范式</span><span class="wip">不能推导：装上车即可满足车规</span></div>
+  </section>
+
+  <section id="auto">
+    <div class="section-head"><div class="section-no">10</div><div><h2>通用龙虾怎么"上车"：不是移植代码，而是外面再加七层汽车能力</h2><p class="section-desc">下面是车载龙虾的收敛型参考架构。KaKaClaw、AquaDrive、Auto Claw 的内部实现并不相同；这张表只抽取公开资料共同指向的结构，不代表它们使用同一份 OpenClaw 代码。</p></div></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>通用龙虾原模块</th><th>上车后必须新增或替换</th><th>不加会发生什么</th><th>最终由谁负责</th></tr></thead>
+        <tbody>
+          <tr><td>网页 / 命令行入口</td><td><strong>车载统一入口：</strong>语音、音区、身份、座位、触控、车辆信号、视觉、App</td><td>只能打字聊天，无法听懂"副驾说打开座椅加热"</td><td>车企或座舱一级供应商</td></tr>
+          <tr><td>账号 / 设备鉴权</td><td><strong>车辆信任域：</strong>账号 × 车辆 × 座位 × 当前驾驶角色</td><td>主驾、副驾、后排儿童权限混淆</td><td>车企安全团队</td></tr>
+          <tr><td>通用上下文</td><td><strong>车辆上下文服务：</strong>车速、挡位、车门、温度、电量、位置、信号新鲜度</td><td>模型根据过期车态做错误决策</td><td>车辆信号平台</td></tr>
+          <tr><td>通用工具</td><td><strong>车控工具网关：</strong>空调、座椅、车窗、导航、媒体、智驾接口</td><td>智能体只能聊天，不能真正控车</td><td>车企加域控制器</td></tr>
+          <tr><td>通用任务流</td><td><strong>车辆任务运行时：</strong>任务 / 运行 / 事件、车辆生命周期、上下电恢复</td><td>"十分钟后关加热"在下电后丢失</td><td>智能体操作系统团队</td></tr>
+          <tr><td>通用沙箱</td><td><strong>车规策略引擎加电控安全网关：</strong>权限、风险、确认、幂等、回滚</td><td>高速开车门、重复支付等高危行为无法硬拦截</td><td>功能安全加网络安全</td></tr>
+          <tr><td>通用技能市场</td><td><strong>车企签名技能商店：</strong>签名、灰度、回滚、车型矩阵</td><td>第三方恶意技能可危及行车安全</td><td>车企加生态运营</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="grid two" style="margin-top:16px">
+      <div class="card amber"><h3>KaKaClaw 公开结构</h3><p>官方公开"核心功能本地部署、物理与数字智能体与端云模型同步响应、技能独立沙箱、策略引擎逐项审核、隐私路由管控外部通道"，并强调座舱与智驾物理隔离。</p></div>
+      <div class="card cyan"><h3>AquaDrive 智驾系统 2.1 公开结构</h3><p>官方明确基于 OpenClaw 架构构建，并描述本地执行、长期记忆、主动感知、规划与执行、安全调用五层能力，属于从操作系统内核到应用层的车载化重构。</p></div>
+    </div>
+    <div class="callout rose" style="margin-top:16px"><strong>关键提醒：</strong>"车载龙虾"不是"把 OpenClaw 进程装到车机里"。真正上车后，OpenClaw / Hermes 只是运行时参考；决定量产能力的，是外面新增的车辆入口、上下文、任务与触发器、策略、车辆网关和电控域隔离。</div>
+  </section>
+
+  <section id="section">
+    <div class="section-head"><div class="section-no">11</div><div><h2>架构剖面图：六件事分别由谁负责</h2><p class="section-desc">看架构不要看盒子数量，要看六件事谁负责、管不管得住：入口与信任、上下文、任务持久化、触发、安全裁决、扩展装载。</p></div></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>架构层</th><th>通用 OpenClaw / Hermes</th><th>车载 Claw 参考形态</th><th>豆包上车当前 / 建设中</th></tr></thead>
+        <tbody>
+          <tr><td>入口与信任</td><td>渠道 / 节点 / 网关；以账号、设备和会话为主。<small>官方默认一个可信操作者边界。</small></td><td>语音、音区、身份、座位、触摸、信号、视觉、App。<small>信任单位变成账号 × 车辆 × 座位 × 当前驾驶角色。</small></td><td>当前指令明确包含说话人、座位位置、时间戳；另有顾问建议、工具反馈、事件。<small>对车内人物理解比原版通用运行更深。</small></td></tr>
+          <tr><td>上下文</td><td>工作区、记忆、历史；以聊天记录为主。<small>无车辆信号新鲜度语义。</small></td><td>车辆本体、用户画像、场景、屏幕；带来源、采集时间、有效期。<small>按任务最小注入。</small></td><td>上下文装配层已接入乘员、车辆、导航、视觉、记忆、目标。<small>但大量作为动态提示词注入，未完全服务化。</small></td></tr>
+          <tr><td>任务持久化</td><td>任务流、后台任务、定时任务；数据库持久化，重启恢复。<small>记录的是"通用任务状态"。</small></td><td>车辆任务运行时：任务 / 运行 / 事件，跨上电周期恢复。<small>理解车辆生命周期。</small></td><td>目标链已支持条件与持续任务；统一任务运行时建设中。<small>进行中：任务管理收敛。</small></td></tr>
+          <tr><td>触发</td><td>定时任务和时间表达式。<small>不理解挡位边沿、入座、去抖、有效期。</small></td><td>定时、状态、边沿、视觉触发器；去抖、有效期、冷却期。<small>只唤醒，不越权执行。</small></td><td>触发器 / 视觉 / 定时已接入回调。<small>只负责唤醒，不直接决定车控。</small></td></tr>
+          <tr><td>安全裁决</td><td>网关鉴权、工具策略、沙箱。<small>解决的是电脑文件与命令风险。</small></td><td>策略引擎加电控安全网关：身份、车辆状态、确认、幂等、回滚。<small>大模型外最终裁决。</small></td><td>权限与风险规则大量写在系统提示词里。<small>目标：迁移到独立策略引擎。</small></td></tr>
+          <tr><td>扩展装载</td><td>技能、插件、工具协议、70 多个工具。<small>开放安装与自定义。</small></td><td>车企签名技能商店：清单、版本、签名、灰度、回滚。<small>跨车型复用。</small></td><td>27 个明确工具加功能智能体。<small>稳定但扩展慢，缺统一技能生命周期。</small></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout" style="margin-top:16px"><strong>这张表说明什么：</strong>我们在"入口与信任、上下文、触发"三项上已经领先通用龙虾；在"任务持久化、安全裁决、扩展装载"三项上，通用龙虾的骨架更完整，而车载龙虾想同时补齐两边。我们最该做的，就是把领先项保持住，把落后项用平台化补齐。</div>
+  </section>
+
+  <section id="task">
+    <div class="section-head"><div class="section-no">12</div><div><h2>同一句需求，四套方案怎么一步步跑</h2><p class="section-desc">用一句真实的车上需求来对比："副驾乘客睡着了，10 分钟后把座椅加热关掉。"这句话同时考验：理解、定时、状态感知、条件判断、安全执行、恢复。</p></div></div>
+    <div class="user-bubble">"我老婆睡着了，10 分钟以后把副驾座椅加热关了吧"</div>
+    <div class="lane-grid">
+      <div class="lane generic"><h4>通用 OpenClaw / Hermes <span class="mid">能做一半</span></h4><div class="step" data-n="1">只拿到一句文本，默认不知道副驾是谁、是否有人、加热当前开没开。</div><div class="step" data-n="2">智能体能拆出"10 分钟加条件加关加热"。</div><div class="step" data-n="3">可创建定时任务或任务流，持久化目标并等待。</div><div class="step" data-n="4">"仍在睡"必须另接视觉或状态工具，否则只能到点直接执行。</div><div class="step" data-n="5">若没有车辆上下文适配器，只能猜或再次询问。</div><div class="step" data-n="6">沙箱不能判断当前车速、座椅占用、乘员权限。</div><div class="winner warn"><strong>结论：</strong>通用任务骨架成熟，但缺车辆语义，量产前必须重建。</div></div>
+      <div class="lane ours"><h4>豆包上车当前 <span class="yes">闭环最实</span></h4><div class="step" data-n="1">指令进入后先分流：这句话是"条件持续任务"，走规划器。</div><div class="step" data-n="2">规划器读上下文：座位身份、乘员、座椅加热状态、车辆状态。</div><div class="step" data-n="3">规划器输出动作列表，并把条件写入目标链。</div><div class="step" data-n="4">定时器或视觉触发到点唤醒，读最新上下文复核"仍睡着"。</div><div class="step" data-n="5">通过车控工具执行，返回执行结果回写目标。</div><div class="step" data-n="6">当前权限规则部分依赖提示词约束，需要策略引擎兜底。</div><div class="winner"><strong>结论：</strong>车语义和闭环已打通；短板在任务运行时的持久化与策略独立。</div></div>
+      <div class="lane auto"><h4>成熟车载 Claw 目标 <span class="mid">平台化最强</span></h4><div class="step" data-n="1">统一事件入口接收语音、座位、视觉、信号。</div><div class="step" data-n="2">风险感知路由判断：这是低风险持续任务，可走端侧技能或云端规划。</div><div class="step" data-n="3">任务运行时创建"任务 / 运行"，触发器注册"10 分钟加睡眠条件"。</div><div class="step" data-n="4">到点后由触发回调唤醒，策略引擎按身份、车况、权限裁决。</div><div class="step" data-n="5">执行总线调用车控技能，返回标准执行收据。</div><div class="step" data-n="6">追踪与评测记录全程，问题可定位到版本。</div><div class="winner"><strong>结论：</strong>每个环节都有平台设施，但需要完整工程落地，不能只看发布会。</div></div>
+    </div>
+    <div class="callout amber" style="margin-top:16px"><strong>这里真正的差距：</strong>OpenClaw 已经有通用任务流的"骨架"；我们的任务化设计已经补上车辆任务需要的任务 / 运行 / 事件、触发适配器和上下文入口。现在竞争不再是"谁想到了任务"，而是"谁先把车辆生命周期、策略、结果格式和量产可观测真正跑通"。</div>
+  </section>
+
+  <section id="capability">
+    <div class="section-head"><div class="section-no">13</div><div><h2>能力矩阵：不要只看"能不能做"，要看"是否可量产地做"</h2><p class="section-desc">以下为基于公开架构和本地资料的分析评分，不是厂商实测数据。5 格代表结构能力与证据综合判断，未知项按中性处理。</p></div></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>能力</th><th>豆包上车当前</th><th>Auto Claw</th><th>KaKaClaw</th><th>AquaClaw</th><th>OpenClaw / Hermes 原版</th><th>解释</th></tr></thead>
+        <tbody>
+          <tr><td>明确车控低时延</td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="4"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="4"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="2"><i></i><i></i><i></i><i></i><i></i></span></td><td>我们已有快路；通用智能体若不另建快路会多一次模型开销</td></tr>
+          <tr><td>复杂多工具规划</td><td><span class="heat" data-v="4"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td>龙虾的任务池和技能更模块化；我们的工具语义更具体</td></tr>
+          <tr><td>工具依赖与反馈闭环</td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="4"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="4"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="4"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="4"><i></i><i></i><i></i><i></i><i></i></span></td><td>原理都支持，真正差别是格式、幂等和补偿是否结构化</td></tr>
+          <tr><td>跨会话持续任务</td><td><span class="heat" data-v="3"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="4"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td>OpenClaw 当前任务流持久化结构很强；我们的任务化更强调车辆语义</td></tr>
+          <tr><td>车辆信号条件触发</td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="4"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="4"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="2"><i></i><i></i><i></i><i></i><i></i></span></td><td>通用事件和等待很强，但仍不自带状态边沿、去抖、有效期与车辆端云触发</td></tr>
+          <tr><td>端侧 / 弱网</td><td><span class="heat" data-v="3"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="4"><i></i><i></i><i></i><i></i><i></i></span></td><td>通用框架可本地运行，但缺车规芯片优化；汽车版重点补齐</td></tr>
+          <tr><td>技能扩展生态</td><td><span class="heat" data-v="3"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td>我们偏工具与示例配置，尚缺统一技能生命周期</td></tr>
+          <tr><td>车控确定性与车型边界</td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="4"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="4"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="1"><i></i><i></i><i></i><i></i><i></i></span></td><td>通用智能体无车型能力矩阵；汽车版必须重做</td></tr>
+          <tr><td>用户自定义能力</td><td><span class="heat" data-v="3"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="4"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="4"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td>KaKaClaw 官方称支持用户零代码创建技能；量产权限仍需看车型</td></tr>
+          <tr><td>量产问题闭环</td><td><span class="heat" data-v="5"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="4"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="3"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="2"><i></i><i></i><i></i><i></i><i></i></span></td><td><span class="heat" data-v="2"><i></i><i></i><i></i><i></i><i></i></span></td><td>真实车型问题案例、链路诊断、版本回滚比演示能力更重要</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout" style="margin-top:16px"><strong>读法提醒：</strong>这张表比的不是"谁的宣传最好"，而是"从公开架构和本地资料看，谁的结构上更有条件做到"。我们在车控、触发、闭环三项上领先；龙虾类在任务、技能、端侧三项上领先。</div>
+  </section>
+
+  <section id="safety">
+    <div class="section-head"><div class="section-no">14</div><div><h2>安全差异：沙箱不是车规安全，提示词也不是权限系统</h2><p class="section-desc">真正量产必须把"模型建议"与"动作授权"分开。无论我们还是龙虾，都不能让模型自己决定自己的权限。</p></div></div>
+    <div class="grid four">
+      <div class="card"><h3>① 身份域</h3><p>谁说的、坐哪里、是否注册、是否主驾、是否具有付款、通讯、车控权限。</p></div>
+      <div class="card"><h3>② 车辆状态域</h3><p>车速、挡位、车门、动力状态、驾驶模式、当前执行任务与信号新鲜度。</p></div>
+      <div class="card"><h3>③ 动作风险域</h3><p>信息查询、舒适控制、付费交易、驾驶相关动作应有不同的确认、审计和回滚策略。</p></div>
+      <div class="card"><h3>④ 运行时域</h3><p>工具白名单、参数格式、幂等键、超时、重试、补偿、沙箱、网络出口与供应链签名。</p></div>
+    </div>
+    <div class="table-wrap" style="margin-top:16px">
+      <table>
+        <thead><tr><th>安全问题</th><th>仅靠提示词的结果</th><th>通用龙虾沙箱的结果</th><th>车规正确做法</th></tr></thead>
+        <tbody>
+          <tr><td>高速行驶时"帮我打开车门"</td><td>模型可能拒绝，但存在提示词漂移和绕过</td><td>沙箱允许它正常调用一个已暴露的车控工具</td><td>电控单元和车辆策略根据车速与挡位硬拒绝，模型只负责解释</td></tr>
+          <tr><td>重复工具反馈导致二次支付</td><td>靠上下文记忆"不再调用"，不可靠</td><td>工具循环检测可能发现重复，但不理解交易幂等</td><td>订单幂等键加事务状态机加二次确认</td></tr>
+          <tr><td>技能被恶意更新</td><td>提示词无法治理外部代码</td><td>技能商店扫描和插件策略能降低风险</td><td>车企签名、版本锁、灰度、软件物料清单、权限声明、回滚和隔离执行</td></tr>
+          <tr><td>旧车态误触发</td><td>历史对话可能压过实时事实</td><td>通用记忆不知道车态有效期</td><td>每个信号带来源、采集时间、有效期；过期不得参与条件判断</td></tr>
+          <tr><td>座舱智能体影响智驾</td><td>提示词不构成隔离</td><td>容器和受限终端只隔离计算环境</td><td>座舱与智驾物理或强隔离，跨域接口最小化；KaKaClaw 官方明确提出堡垒隔离</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout rose" style="margin-top:16px"><strong>对我们的直接建议：</strong>把系统提示词中的"注意事项、工具提示、车型能力边界"迁移成机器可执行的策略登记；Director 输出的是意图和动作建议，策略引擎输出的才是可执行动作。</div>
+  </section>
+
+  <section id="cost">
+    <div class="section-head"><div class="section-no">15</div><div><h2>价格与总拥有成本：公开资料只能比较成本结构，不能编造车企报价</h2><p class="section-desc">Auto Claw、KaKaClaw、AquaClaw 和豆包上车均未公开单车软件授权价、一次性工程费或云包价。下面把"免费代码、模型调用、端侧硬件、车型交付"四笔账拆开。</p></div></div>
+    <div class="grid four">
+      <div class="card"><div class="term">账单一</div><h3>框架许可证</h3><p><strong class="yes">OpenClaw / Hermes：0 元</strong></p><p>MIT 许可证允许使用代码；不包含模型和车辆能力。</p></div>
+      <div class="card"><div class="term">账单二</div><h3>模型与云服务</h3><p><strong>按量计费 / 并发 / 服务等级</strong></p><p>规划器、语音识别、语音合成、视觉、搜索、地图可能分别计费。</p></div>
+      <div class="card"><div class="term">账单三</div><h3>端侧硬件</h3><p><strong>芯片 / 内存 / 功耗 / 散热</strong></p><p>本地模型按量账单低，但成本进入物料成本清单和适配。</p></div>
+      <div class="card"><div class="term">账单四</div><h3>量产与运营</h3><p><strong>工程费 / 认证 / 远程升级 / 维护</strong></p><p>车辆接口、测试、安全和 3 到 5 年运营才是长期大头。</p></div>
+    </div>
+    <div class="grid three" style="margin-top:16px">
+      <div class="card green"><h3>开源框架费</h3><p class="verdict" style="font-size:26px">0 元</p><p>OpenClaw 与 Hermes 智能体均为 MIT 许可证。它只意味着框架代码无需许可证费，不包含模型、算力、车载适配、认证和运营。</p></div>
+      <div class="card amber"><h3>商业车载方案费</h3><p class="verdict" style="font-size:26px;color:var(--amber)">未公开</p><p>三家供应商官网没有公开按车或按年授权价。任何"几十到几百元一车"都不是当前可核验的官方报价，本报告不采用。</p></div>
+      <div class="card cyan"><h3>硬件系统收益</h3><p class="verdict" style="font-size:26px;color:var(--cyan)">1500–4000 元</p><p>地平线官方宣称星空 6 舱驾融合可相对双系统实现该区间的单车硬件成本优化；这不是 KaKaClaw 软件价格。</p></div>
+    </div>
+    <h3 style="margin-top:22px">公开模型价格：同样叫"每百万个 Token"，还要看输入区间和输出长度</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>模型（公开现金或列表价）</th><th>单次输入范围</th><th>输入价 / 百万 Token</th><th>输出价 / 百万 Token</th><th>怎么理解</th></tr></thead>
+        <tbody>
+          <tr><td rowspan="4"><strong>豆包 Seed 1.8</strong><br>扣子公开现金价</td><td>0–3.2 万，输出小于等于 0.2 千</td><td>0.8 元</td><td>2 元</td><td>短回答特惠档</td></tr>
+          <tr><td>0–3.2 万，输出大于 0.2 千</td><td>0.8 元</td><td>8 元</td><td>普通短上下文</td></tr>
+          <tr><td>3.2 万–12.8 万</td><td>1.2 元</td><td>16 元</td><td>当前 4 万–5 万字符样例落在此档</td></tr>
+          <tr><td>12.8 万–25.6 万</td><td>2.4 元</td><td>24 元</td><td>长上下文更贵</td></tr>
+          <tr><td rowspan="2"><strong>通义千问 3.7 Plus</strong><br>华北 2 原价</td><td>0–25.6 万</td><td>2 元</td><td>8 元</td><td>页面当前显示限时八折；这里用原价做长期可比口径</td></tr>
+          <tr><td>25.6 万–100 万</td><td>6 元</td><td>24 元</td><td>输入越长，整次请求全部按更高档计价</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="cost-box" style="margin-top:16px">
+      <div class="card">
+        <h3>公开单价下的一次调用参考</h3>
+        <p>用我们的公开架构量级做同口径样例：输入 4 万–5 万字符，输出 500–1000 字符；不考虑车企折扣和缓存。</p>
+        <div class="cost-bars">
+          <div class="cost-row"><span>豆包 Seed 1.8</span><div class="cost-track"><span style="width:57%"></span></div><strong>约 0.056–0.076 元</strong></div>
+          <div class="cost-row"><span>通义千问 3.7 Plus</span><div class="cost-track qwen"><span style="width:82%"></span></div><strong>约 0.084–0.108 元</strong></div>
+          <div class="cost-row"><span>本地开放模型</span><div class="cost-track"><span style="width:8%"></span></div><strong>按量≈0</strong></div>
+        </div>
+        <p class="unknown" style="margin-top:14px">豆包 Seed 1.8 公开扣子现金价：当输入位于 3.2 万–12.8 万时，输入 1.2 元每百万、输出 16 元每百万；通义千问 3.7 Plus 列表价输入 2 元每百万、输出 8 元每百万。二者均不等于车企合同价。</p>
+      </div>
+      <div class="card">
+        <h3>三年纯模型调用情景（100 万辆车）</h3>
+        <div class="formula">三年模型成本 = 日均复杂任务数 × 每任务模型轮数 × 单轮成本 × 1095 天 × 100 万辆</div>
+        <div class="table-wrap" style="margin-top:12px">
+          <table style="min-width:520px"><thead><tr><th>每车日均复杂任务</th><th>假设轮数</th><th>豆包 Seed 1.8 三年</th><th>通义千问参考三年</th></tr></thead><tbody><tr><td>2</td><td>2 轮 / 任务</td><td>约 2.89 亿元</td><td>约 4.20 亿元</td></tr><tr><td>5</td><td>2 轮 / 任务</td><td>约 7.23 亿元</td><td>约 10.51 亿元</td></tr><tr><td>10</td><td>2 轮 / 任务</td><td>约 14.45 亿元</td><td>约 21.02 亿元</td></tr></tbody></table>
+        </div>
+        <p class="unknown">这是无缓存、无商务折扣的压力情景；不含语音识别、语音合成、视觉、搜索、地图、流量、存储和第三方交易。简单车控走快路时不应计为一次规划器调用。</p>
+      </div>
+    </div>
+    <div class="callout rose" style="margin-top:14px"><strong>不要把这张压力表当预算：</strong>它只是把公开单价乘以统一假设，说明为什么"简单任务不上大模型、压缩动态上下文、提高缓存命中、减少无效重试"在百万车规模下会直接影响商业模型。真实采购必须用实际流量分布、缓存命中和商务报价重算。</div>
+    <h3 style="margin-top:22px">真正应向供应商索取的报价拆分</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>成本项</th><th>豆包上车云优先</th><th>汽车版龙虾端云方案</th><th>采购必须问清</th></tr></thead>
+        <tbody>
+          <tr><td>软件许可</td><td>模型、平台、功能包商务</td><td>智能体操作系统、运行时、技能平台商务</td><td>按车型、按车、按年还是买断；最低量和升级权</td></tr>
+          <tr><td>工程集成费</td><td>车型工具、上下文、车企生态对接</td><td>操作系统、芯片、车辆本体、技能适配</td><td>平台复用率、第二车型增量、验收边界</td></tr>
+          <tr><td>云资源</td><td>复杂任务模型调用占比较高</td><td>端侧为主时较低，但仍需云协同</td><td>按量、并发、缓存、峰值服务等级、超额单价</td></tr>
+          <tr><td>端侧硬件</td><td>可复用既有座舱算力，增量视车型</td><td>可能需要大内存、芯片、独立盒子；舱驾融合也可能节省双芯</td><td>物料成本、功耗、散热、内存、芯片锁定、供货周期</td></tr>
+          <tr><td>安全与认证</td><td>现有车企流程可复用</td><td>开放技能与端侧运行时增加供应链治理</td><td>功能安全与网络安全标准范围，谁承担测试与整改</td></tr>
+          <tr><td>长期运营</td><td>云侧模型迭代、问题案例、提示词和工具发布</td><td>端云版本矩阵、技能商店、签名、沙箱、模型更新</td><td>3 到 5 年远程升级、服务等级、回滚、数据归属、停服兜底</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout amber" style="margin-top:16px"><strong>成本结论：</strong>低频复杂任务时，云优先通常避免增加硬件物料成本；高频、长上下文、弱网和隐私场景多时，端侧模型可能在三年总拥有成本上更有优势。真正的分界点取决于"端侧增量硬件成本"是否低于"三年复杂任务云成本加网络与服务成本"，而不是开源许可证是否免费。</div>
+  </section>
+
+  <section id="verdict">
+    <div class="section-head"><div class="section-no">16</div><div><h2>哪个更好：要分"现在量产"和"未来平台"两张卷子</h2><p class="section-desc">评分是透明权重下的策略推演，不是厂商官方数据，也不代表真实任务成功率；未知能力不会按宣传满分处理。</p></div></div>
+    <div class="grid two">
+      <div class="card">
+        <h3>卷子 A · 近期车型量产</h3>
+        <p class="unknown">权重：量产证据 20%、车辆集成 20%、安全确定性 20%、简单时延 10%，其余 30%。</p>
+        <div class="score-grid">
+          <span>建议混合目标</span><div class="bar green"><span style="width:96.9%"></span></div><span class="score">96.9</span>
+          <span>豆包上车当前</span><div class="bar green"><span style="width:83.3%"></span></div><span class="score">83.3</span>
+          <span>KaKaClaw</span><div class="bar amber"><span style="width:79.6%"></span></div><span class="score">79.6</span>
+          <span>Auto Claw</span><div class="bar amber"><span style="width:75.9%"></span></div><span class="score">75.9</span>
+          <span>AquaClaw</span><div class="bar amber"><span style="width:73.7%"></span></div><span class="score">73.7</span>
+          <span>OpenClaw / Hermes</span><div class="bar rose"><span style="width:46.2%"></span></div><span class="score">46.2</span>
+        </div>
+        <div class="callout" style="margin-top:16px"><strong>结论：</strong>近期不应换底座。我们已有车型闭环和快路，迁移通用承载层的风险大于收益。</div>
+      </div>
+      <div class="card">
+        <h3>卷子 B · 未来三年平台竞争</h3>
+        <p class="unknown">权重：安全 15%、复杂自治 15%、持续任务 12%、端侧 12%、技能 12%、车辆集成 12%，其余 22%。</p>
+        <div class="score-grid">
+          <span>建议混合目标</span><div class="bar green"><span style="width:93.9%"></span></div><span class="score">93.9</span>
+          <span>KaKaClaw</span><div class="bar green"><span style="width:86.9%"></span></div><span class="score">86.9</span>
+          <span>Auto Claw</span><div class="bar green"><span style="width:84.2%"></span></div><span class="score">84.2</span>
+          <span>AquaClaw</span><div class="bar amber"><span style="width:82.5%"></span></div><span class="score">82.5</span>
+          <span>豆包上车当前</span><div class="bar amber"><span style="width:74%"></span></div><span class="score">74.0</span>
+          <span>OpenClaw / Hermes</span><div class="bar rose"><span style="width:68.4%"></span></div><span class="score">68.4</span>
+        </div>
+        <div class="callout amber" style="margin-top:16px"><strong>结论：</strong>如果不把大系统提示词演进成模块化承载层，我们未来会在端侧、技能生态、任务恢复和跨服务组织上被追上。</div>
+      </div>
+    </div>
+    <div class="table-wrap" style="margin-top:16px">
+      <table>
+        <thead><tr><th>决策场景</th><th>推荐方式</th><th>原因</th></tr></thead>
+        <tbody>
+          <tr><td>荣威 D6X 当前版本迭代</td><td><strong>继续豆包上车架构</strong></td><td>已有车型、工具、数据和运营闭环；重构底座会引入不可控回归</td></tr>
+          <tr><td>下一代大算力、舱驾融合平台</td><td><strong>混合车规承载层</strong></td><td>端侧模型加云端强推理加任务和触发加技能与策略，兼顾性能与安全</td></tr>
+          <tr><td>低配车型、成本敏感</td><td><strong>快路端侧加复杂任务云端</strong></td><td>避免为了低频智能体任务增加高额芯片和内存物料成本</td></tr>
+          <tr><td>高端车型、强主动服务</td><td><strong>端云智能体操作系统加开放服务生态</strong></td><td>长期记忆、全时监听、跨服务执行和弱网体验需要端侧运行时</td></tr>
+          <tr><td>概念验证快速验证</td><td><strong>可用 OpenClaw / Hermes</strong></td><td>验证技能和工具闭环速度快，但必须隔离在非安全域，不能直接成为量产安全边界</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="moat">
+    <div class="section-head"><div class="section-no">17</div><div><h2>你当下真正能拿出去讲的竞争力</h2><p class="section-desc">直接回答"我们现在比龙虾类方案强在哪、弱在哪、该补什么"。</p></div></div>
+    <div class="big-conclusion" style="border-radius:18px;padding:24px;">
+      <div class="verdict">我们的<br>竞争力<br>是什么</div>
+      <div>
+        <p><strong>1. 我们不是在做一个通用智能体，而是在做一个"懂这辆车的智能体"。</strong>车辆状态、说话人和座位、记忆、目标列表、27 个明确工具、执行反馈闭环，已经全部接入 D6X。原版 OpenClaw / Hermes 没有这些车载事实和权限，直接替换会退化。</p>
+        <p><strong>2. 三层漏斗让我们又快又稳。</strong>简单指令走快路不进大模型，复杂任务才进规划器；这在响应时延和模型成本上都是结构优势。</p>
+        <p><strong>3. 量产闭环是真护城河。</strong>真实车型、问题案例、链路诊断、版本回滚——这些是演示能力替代不了的，正是车载龙虾最缺的。</p>
+        <p><strong>4. 短期不需要换底座，长期必须补平台。</strong>任务运行时、技能登记册、策略引擎、沙箱、端云协同，这些才是未来平台竞争的核心。</p>
+      </div>
+    </div>
+    <div class="grid three" style="margin-top:16px">
+      <div class="proof-card card"><h3>可以理直气壮讲的（资料明确）</h3><ul><li>"当前 Director 已经是一个车载智能体承载层：能接用户、顾问、工具反馈和事件，输出表达与行动清单。"</li><li>"当前系统提示词明确列出 27 个工具，并注入成员位置、用户记忆、目标列表和车辆状态。"</li><li>"对当前 D6X，原版 OpenClaw / Hermes 不具备可直接替换的车载上下文、工具和安全边界。"</li><li>"简单指令走快路，不必每次进入大模型。"</li></ul></div>
+      <div class="proof-card building card"><h3>正在建、要如实说的（建设中）</h3><ul><li>统一任务运行时（任务 / 运行 / 事件）仍为建设中的技术方案。</li><li>技能登记册和标准化技能生命周期尚未落地。</li><li>策略引擎仍在从提示词迁移到独立服务。</li><li>端侧模型和弱网体验弱于车载龙虾的目标形态。</li></ul></div>
+      <div class="proof-card gap card"><h3>现在还不能说的（未定义 / 未证实）</h3><ul><li>"我们的准确率已经超过理想、华为、智己"——本地材料多为目标、测试设计和问题案例，没有同口径实车横评结果。</li><li>"Driver Agent 已经比 KaKaClaw 更好"——本地有产品文档和评测集，没有对等量产结果。</li><li>"开源龙虾免费，所以整车成本更低"——免费的是框架许可证，不是芯片、模型、适配、认证和运营。</li><li>"Auto Claw、KaKaClaw 都用了 OpenClaw"——官方没有证明；目前只有 AquaDrive 系统 2.1 明确披露基于 OpenClaw 架构。</li></ul></div>
+    </div>
+    <div class="quote-copy" style="margin-top:18px">给老板的一句话：<br>"我们今天赢在更懂这一辆车，车载龙虾赢在更容易复制到很多车。我们不该换掉已经会办事的管家，而要补上不会丢的任务本、可升级的技能货架和独立的车辆保安。"</div>
+  </section>
+
+  <section id="roadmap">
+    <div class="section-head"><div class="section-no">18</div><div><h2>建议目标架构与下一步路线图</h2><p class="section-desc">保留当前优势，吸收龙虾的运行时工程，并把开放能力锁进车规治理边界。目标不是"把 OpenClaw 原样搬进车"，而是做"最懂汽车约束的车载承载层"。</p></div></div>
+    <div class="grid three" style="margin-top:8px">
+      <div class="card"><h3>保留（我们的优势）</h3><ul><li>快慢路三层漏斗</li><li>车辆、乘员、导航、记忆上下文</li><li>27 个车型工具与执行反馈闭环</li><li>量产问题案例与版本治理</li></ul></div>
+      <div class="card amber"><h3>吸收（龙虾的长处）</h3><ul><li>任务 / 运行 / 事件持久化</li><li>技能登记册与签名沙箱</li><li>端侧路由与弱网技能</li><li>动态工具披露与提示词分层</li></ul></div>
+      <div class="card rose"><h3>新建（车规必须有）</h3><ul><li>独立策略引擎（大模型外裁决）</li><li>执行收据与幂等、补偿</li><li>车辆信号来源、时间戳、有效期</li><li>追踪与评测定位到版本</li></ul></div>
+    </div>
+    <div class="roadmap" style="margin-top:16px">
+      <div class="card phase"><h3>第一阶段 · 0–3 个月</h3><ul><li>把 27 个工具收敛到唯一的工具与技能登记册。</li><li>从系统提示词移出互斥、权限、车型能力与安全规则。</li><li>落实任务 / 运行 / 事件与幂等、恢复、取消。</li><li>统一工具反馈为标准执行收据。</li></ul></div>
+      <div class="card phase"><h3>第二阶段 · 3–6 个月</h3><ul><li>提示词分稳定、上下文、易变三层，支持动态工具披露。</li><li>建立端侧路由加轻量模型加弱网技能。</li><li>上线车企签名技能包、沙箱与灰度。</li><li>补齐上下文来源、时间戳、有效期。</li></ul></div>
+      <div class="card phase"><h3>第三阶段 · 6–12 个月</h3><ul><li>开放受控服务智能体开发包，而非开放任意代码。</li><li>端云模型按风险、时延、成本动态路由。</li><li>跨车型技能复用与自动兼容性检查。</li><li>用真实任务完成率和三年总拥有成本驱动架构选型。</li></ul></div>
+    </div>
+  </section>
+
+  <section id="evidence">
+    <div class="section-head"><div class="section-no">19</div><div><h2>证据来源与边界</h2><p class="section-desc">所有市场结论优先使用厂商官网、官方文档或官方车型页；本地现状优先采用 2026-07-31 当前系统提示词与最新建设中的技术方案；未公开内容明确标注"未知"。</p></div></div>
+    <div class="source-list">
+      <div class="source"><strong>本地当前 Director 系统提示词（2026-07-31）</strong><br><code>/Users/bytedance/Desktop/3.23/产品/1-原始素材/资料数据PRD原件/planner 架构/动态示例/sp.md</code></div>
+      <div class="source"><strong>项目工程规范 / Driver Agent 2.0 架构</strong><br><code>/Users/bytedance/Desktop/3.23/AGENTS.md</code></div>
+      <div class="source"><strong>本地产品资料全集</strong><br><code>/Users/bytedance/Desktop/3.23/raw/articles/</code>：346 个文件、290 份哈希唯一内容；并复核 <code>AI Car主链路架构.pdf</code>、<code>豆包incar1.0-长期架构梳理.pdf</code>、<code>公共Context管理-豆包 【AI car 1.0】.pdf</code>、Director PRD 与 Planner OnePage</div>
+      <div class="source"><a href="https://docs.openclaw.ai/concepts/architecture">OpenClaw 网关架构</a>、<a href="https://docs.openclaw.ai/concepts/agent-loop">智能体循环</a>、<a href="https://docs.openclaw.ai/automation/tasks">后台任务</a>、<a href="https://docs.openclaw.ai/automation/taskflow">任务流</a></div>
+      <div class="source"><a href="https://hermes-agent.nousresearch.com/docs/developer-guide/architecture/">Hermes 智能体架构</a>、<a href="https://github.com/NousResearch/hermes-agent">GitHub / MIT 许可证</a></div>
+      <div class="source"><a href="https://www.ebanma.com/">斑马智能官网</a>：Auto Claw、"一脑双引擎"、系统智能体加 N 个智能体、智己 LS8</div>
+      <div class="source"><a href="https://www.horizon.auto/news/press/445">地平线 KaKaClaw 官方发布</a>、<a href="https://www.horizon.auto/news/product/446">地平线与 iCAR 官方合作页</a></div>
+      <div class="source"><a href="https://en.thundersoft.com/aios-2-1-aquaclaw/">中科创达 AquaDrive 系统 2.1 官方发布</a></div>
+      <div class="source"><a href="https://www.immotors.com/website/news_detail/232">智己 LS8 官方上市稿</a>：2026-04-16 上市、首搭 IM Ultra Agent</div>
+      <div class="source"><a href="https://consumer.huawei.com/cn/mobileservices/celia/">华为小艺官方能力页</a>、<a href="https://consumer.huawei.com/cn/support/content/zh-cn16043756/">车载小艺深度思考官方说明</a>：多模态智能体框架、系统级入口、快思考与慢思考、盘古与部分场景 DeepSeek</div>
+      <div class="source"><a href="https://www.lixiang.com/news/73.html">理想汽车多模态座舱官方说明</a>、<a href="https://www.lixiang.com/news/145.html">理想同学智能体官方说明</a>：本地离线能力、MindGPT、长期记忆、跨智能体与服务代办</div>
+      <div class="source"><a href="https://www.nio.com/innovation">蔚来创新与技术官方页</a>：NOMI Intelligence 4.0、NIM 核心模型、NOMI GPT、NIO OS、自研 AI 基础设施与数据训练闭环</div>
+      <div class="source"><a href="https://www.xiaopeng.com/news/company_news/5409.html">小鹏天玑 AIOS 与图灵芯片官方说明</a>：车端 100 亿参数模型、双图灵芯片、云端教师模型蒸馏、整车全域能力</div>
+      <div class="source"><a href="https://www.ebanma.com/coreTechnology">斑马智能核心技术官方页</a>：系统智能体加 N 个智能体、元神 AI、多模型融合、场景感知、AliOS 全栈与端云安全</div>
+      <div class="source"><a href="https://www.volcengine.com/docs/84458/1585097?lang=zh">火山引擎官方模型费用</a>：豆包 Seed 1.8 公开扣子现金结算价格</div>
+      <div class="source"><a href="https://help.aliyun.com/zh/model-studio/model-pricing">阿里云百炼官方模型价格</a>：通义千问 3.7 Plus 列表价</div>
+    </div>
+    <details style="margin-top:16px"><summary>本报告没有做出的断言</summary><div><ul>
+      <li>没有断言 Auto Claw、KaKaClaw 使用 OpenClaw 原版代码；当前官方证据明确的是 AquaDrive 系统 2.1 基于 OpenClaw 架构。</li>
+      <li>没有把斑马整体 1000 万辆座舱装机等同于 Auto Claw 装机量。</li>
+      <li>没有把"生产就绪平台"写成"已在某车型量产"。</li>
+      <li>没有提供任何厂商未公开的单车授权费、工程费或商务折扣。</li>
+      <li>没有把任务建设中、动态顾问、语音与舱驾融合产品文档写成当前全部已上线能力。</li>
+      <li>没有把内部目标值、评测设计或供应商宣传当作同口径实测成绩。</li>
+    </ul></div></details>
+  </section>
+
+  <footer class="footer">
+    <p><strong>最终一句话：</strong>五家车企没有一套共同架构，但都在抢同一个位置——成为整车所有 AI 能力的“总入口与总调度”。我们的优势是“更懂当前这辆车怎样安全办事”；下一步不是换掉规划器，而是把当前闭环升级为可装载、可持久、可治理、可度量的车载承载层。</p>
+    <p>产品经理口述版 + 完整架构图谱 · 豆包上车 vs 通用龙虾 vs 车载龙虾 · v10 · 2026-08-14</p>
+  </footer>
+</main>
+</body>
+</html>

@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Palantir 的本质：业务语义层与 FDE · 吸收解析 v1</title>
+<style>
+:root{--bg:#f4efe4;--paper:#fbf8f1;--paper2:#eee5d5;--line:#d9ccb4;--ink:#302a23;--sub:#655b4e;--dim:#8b7e6a;--amber:#ad7620;--rust:#a75a38;--teal:#2f7d63;--blue:#4b7180;--red:#ae4f3d;--serif:"Songti SC","STSong","Noto Serif SC",Georgia,serif;--sans:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;--mono:"SFMono-Regular",Consolas,monospace}
+html[data-theme=dark]{--bg:#1c1813;--paper:#29231c;--paper2:#372d22;--line:#4b3d2d;--ink:#eee5d6;--sub:#c4b6a1;--dim:#9c8e79;--amber:#dda452;--rust:#d28765;--teal:#80b299;--blue:#91b3bd;--red:#db7b65}
+*{box-sizing:border-box}html{scroll-behavior:smooth;overflow-x:hidden}body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.86 var(--sans);-webkit-font-smoothing:antialiased}.progress{position:fixed;top:0;left:0;height:3px;background:var(--amber);width:0;z-index:5}.theme{position:fixed;right:16px;top:14px;z-index:6;border:1px solid var(--line);background:var(--paper);color:var(--sub);border-radius:999px;padding:7px 13px;cursor:pointer}.shell{max-width:1280px;margin:auto;padding:65px 28px 120px;display:grid;grid-template-columns:205px minmax(0,950px);gap:34px}.side{position:sticky;top:34px;max-height:90vh;overflow:auto;border-left:1px solid var(--line);padding:12px 14px}.side b{display:block;color:var(--amber);font:11px var(--mono);margin-bottom:9px}.side a{display:block;color:var(--dim);text-decoration:none;font-size:12px;line-height:1.45;padding:5px 0}.side a:hover{color:var(--amber)}main{min-width:0}.mobiletoc{display:none}.meta{display:flex;gap:12px;flex-wrap:wrap;color:var(--dim);font:12px var(--mono)}.meta em{font-style:normal;color:var(--amber)}h1,h2{font-family:var(--serif);font-weight:600}h1{font-size:45px;line-height:1.24;letter-spacing:-.8px;margin:18px 0}h2{font-size:30px;line-height:1.4;margin:7px 0 18px}h3{font-size:20px;color:var(--amber);margin:31px 0 9px}h4{font-size:16px;margin:22px 0 6px}p{margin:11px 0}.dek{font-size:19px;color:var(--sub);max-width:880px}.no{display:block;color:var(--amber);font:12px var(--mono);letter-spacing:1px}.lead{font:22px/1.72 var(--serif);border-left:4px solid var(--amber);padding-left:19px;margin:25px 0}.box{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:17px 20px;margin:16px 0}.box .tag{display:block;color:var(--amber);font:11px var(--mono);letter-spacing:.6px;margin-bottom:6px}.truth{border-left:5px solid var(--teal)}.risk{border-left:5px solid var(--red)}.judge{border-left:5px solid var(--amber)}.unknown{border-left:5px solid var(--blue)}.plain{background:rgba(47,125,99,.09);border-left:3px solid var(--teal);padding:12px 15px;border-radius:0 10px 10px 0;color:var(--sub);margin:14px 0}.quote{background:var(--paper2);border-left:3px solid var(--amber);padding:12px 15px;border-radius:0 10px 10px 0;color:var(--sub);margin:14px 0}.small{font-size:14px;color:var(--dim)}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:13px}.card{background:var(--paper);border:1px solid var(--line);border-radius:13px;padding:15px}.card h3{font-size:17px;margin:0 0 6px}.card p{font-size:14px;color:var(--sub)}.table{overflow:auto;border:1px solid var(--line);border-radius:14px;background:var(--paper);margin:19px 0}table{width:100%;min-width:780px;border-collapse:collapse;font-size:14px}th,td{text-align:left;vertical-align:top;padding:11px 13px;border-bottom:1px solid var(--line)}th{background:var(--paper2);color:var(--amber)}td{color:var(--sub)}tr:last-child td{border-bottom:0}td b{color:var(--ink)}.split{display:grid;grid-template-columns:155px 1fr;gap:18px;padding:14px 0;border-bottom:1px solid var(--line)}.split:last-child{border-bottom:0}.split>b{color:var(--amber)}.steps{counter-reset:n}.step{counter-increment:n;position:relative;padding:15px 17px 15px 55px;background:var(--paper);border:1px solid var(--line);border-radius:13px;margin:13px 0}.step:before{content:counter(n);position:absolute;left:16px;top:16px;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--amber);color:white;font:12px var(--mono)}.say{background:var(--paper2);border-left:3px solid var(--teal);padding:12px 15px;border-radius:0 10px 10px 0;margin:10px 0;color:var(--sub)}.code{font:13px/1.7 var(--mono);white-space:pre-wrap;background:#28241f;color:#efe3d0;border-radius:11px;padding:15px;overflow:auto}.badge{display:inline-block;border-radius:999px;font:11px var(--mono);padding:2px 8px;margin-right:6px}.ok{color:var(--teal);border:1px solid rgba(47,125,99,.35);background:rgba(47,125,99,.11)}.warn{color:var(--amber);border:1px solid rgba(173,118,32,.35);background:rgba(173,118,32,.11)}.bad{color:var(--red);border:1px solid rgba(174,79,61,.35);background:rgba(174,79,61,.1)}.fact{color:var(--blue);border:1px solid rgba(75,113,128,.35);background:rgba(75,113,128,.1)}section{margin-top:70px;scroll-margin-top:22px}figure{margin:26px 0;padding:19px;background:var(--paper);border:1px solid var(--line);border-radius:15px}figure svg{display:block;width:100%;height:auto}.node{fill:var(--paper)}.node2{fill:var(--paper2)}.st{fill:var(--ink)}.ss{fill:var(--sub)}figcaption{font-size:14px;color:var(--sub);border-top:1px solid var(--line);padding-top:11px;margin-top:12px}figcaption b{color:var(--amber)}.close{margin-top:70px;border-top:1px solid var(--line);padding-top:22px;color:var(--dim);font-size:14px}.source a{color:var(--teal);text-decoration:none;border-bottom:1px dotted var(--teal)}code{font-family:var(--mono);font-size:.88em;color:var(--rust)}
+@media(max-width:1000px){.shell{display:block;max-width:960px;padding:58px 25px 100px}.side{display:none}.mobiletoc{display:block;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin:23px 0}.mobiletoc a{color:var(--sub);text-decoration:none;margin-right:11px;font-size:13px}}@media(max-width:700px){.shell{padding:43px 16px 80px}h1{font-size:32px}h2{font-size:25px}body{font-size:16px}.grid2,.grid3,.split{grid-template-columns:1fr}.theme{right:8px;top:8px}}
+</style>
+</head>
+<body>
+<div class="progress" id="progress"></div><button class="theme" id="theme">☾ 暗色</button>
+<div class="shell">
+<aside class="side"><b>阅读路线</b><a href="#route">产物分流</a><a href="#truth">00 先说结论</a><a href="#chain">01 文章主线</a><a href="#ontology">02 Ontology 人话版</a><a href="#fde">03 FDE 到底是什么</a><a href="#sovereign">04 模型主权</a><a href="#you">05 放进你的产品</a><a href="#judge">06 我赞同与保留</a><a href="#career">07 对你职业的影响</a><a href="#action">08 具体行动</a><a href="#sources">09 证据边界</a></aside>
+<main>
+<header>
+<div class="meta"><span>2026-08-11</span><em>Palantir / Ontology / FDE</em><span>Planner · Trigger · Task · Context · 动态示例</span></div>
+<h1>Palantir 真正厉害的地方，和你现在做的事<br>其实是同一个问题</h1>
+<p class="dek">这篇文章表面在讲 Palantir 的财报、Ontology 和 FDE，底层在讲一件很具体的事：怎样把一个行业里没人写清楚、但每天都在决定结果的业务规则，变成 AI 能理解、系统能执行、团队能复用、上线后还能继续变好的东西。</p>
+<nav class="mobiletoc"><a href="#truth">结论</a><a href="#ontology">Ontology</a><a href="#fde">FDE</a><a href="#you">你的产品</a><a href="#action">行动</a></nav>
+</header>
+
+<section id="route">
+<span class="no">产物分流</span><h2>这篇文章值得做一页解析、一页教程、一个工具</h2>
+<div class="grid2">
+<div class="box truth"><span class="tag">教程分 T = 5 / 5</span><b>需要把一组容易混淆的词讲到能用</b><p>Ontology、业务语义层、FDE、模型主权、价值收费之间有依赖关系。教程用你手上的“距离终点 1km 提醒”贯穿演示，从一句人话写到 Task、Trigger、Eval。</p><p><a class="source" href="2026-08-11-Palantir业务本体语义层-教程-v1.html">打开教程 →</a></p></div>
+<div class="box truth"><span class="tag">工具分 U = 5 / 5</span><b>可以变成你每周都会用的语义契约工作台</b><p>你反复遇到的卡点，是业务对象、状态/事件、条件、动作、渠道版本、Owner、证据和评测没有统一登记。工具已加载三条真实样例，可以直接生成 Markdown 资产草案。</p><p><a class="source" href="2026-08-11-Palantir业务本体语义层-工具-v1.html">打开业务语义层工作台 →</a></p></div>
+</div>
+<div class="lead">这篇文章对你最有用的地方，不在于让你背下 Ontology 这个英文词。它要逼你把手里分散的 Planner、Context、Trigger、Task、动态示例和评测，收成一张能被第二个人复用的业务语义表。</div>
+</section>
+
+<section id="truth">
+<span class="no">00 · 先说我的判断</span><h2>作者抓到了真问题，但把 Palantir 讲得有些过于顺滑</h2>
+<div class="box judge"><span class="tag">一句话结论</span><p><b>这篇文章最值得你拿走的重点，在于“把现场业务规则沉淀成可执行、可治理、可复用的语义层，才有长期价值”。</b></p><p>你现在已经在做这件事的零件版：信号中枢负责状态、事件、条件和动作；Task 负责任务生命周期；Planner 负责理解和编排；Context 负责提供当前信息；动态示例负责把历史处理方法临时给模型参考；评测负责判断结果。问题在于这些零件还没有被你收成一张统一的语义契约。</p></div>
+<div class="table"><table><tr><th>文章的说法</th><th>我对它的判断</th><th>落到你的岗位</th></tr>
+<tr><td>护城河不是 FDE，是 Ontology</td><td><span class="badge ok">大方向对</span> FDE 单独存在确实容易变成人力交付。但语义层不可能凭空出现，FDE 是现场感知和学习的器官。</td><td>你不能只追求“把某个车企需求交付掉”，要把需求变成跨场景可复用的对象、事件、条件、动作和评测。</td></tr>
+<tr><td>Ontology 是企业业务操作系统</td><td><span class="badge warn">有启发但有包装</span> 它不等于万能系统，也不等于建几张表。真正难的是权限、流程、执行、结果和反馈一起成立。</td><td>你要关注“从信号到动作是否真的跑通”，不能只做架构名词或文档地图。</td></tr>
+<tr><td>模型会变成商品</td><td><span class="badge warn">长期方向对，短期不能绝对化</span> 模型差异、成本、部署和生态仍会影响产品，但企业更不愿把全部业务判断锁在一家模型上。</td><td>把 TaskSpec、事件 schema、工具契约和 Eval 做成模型无关的底座，把 SP、动态示例和模型策略放在可替换层。</td></tr>
+<tr><td>按价值创造收费</td><td><span class="badge bad">商业上最难落地</span> 价值归因、采购制度、责任边界和客户预算都会影响收费。文章的商业结论不能直接套到你的职业规划。</td><td>先学会用“通过率、首个可用结果、人工介入减少、复用率”证明价值，暂时不要幻想立刻做价值分成。</td></tr>
+<tr><td>Palantir 的数字证明了护城河</td><td><span class="badge fact">需分开看</span> 文中财报数字是文章提供的材料，股价和利润不能单独证明 Ontology 是唯一原因。</td><td>你可以学习它的产品结构，不要把市场估值当作产品结论。</td></tr>
+</table></div>
+<div class="box unknown"><span class="tag">证据提醒</span><p>文中收入、利润、股价、市值、合同额等数字，本文按原文引用处理，本页没有独立复核。它们能说明作者的叙事背景，不能直接证明你的工作应该照搬 Palantir。</p></div>
+</section>
+
+<section id="chain">
+<span class="no">01 · 文章主线</span><h2>作者真正讲的是一条价值链，不是三个热词</h2>
+<p>如果把文章压成最简单的顺序，它说的是：</p>
+<figure><svg viewBox="0 0 930 420" role="img" aria-label="Palantir价值链和座舱对应关系"><defs><marker id="ar1" markerWidth="9" markerHeight="9" refX="8" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="var(--amber)"/></marker></defs>
+<text x="465" y="28" text-anchor="middle" class="st" font-size="17" font-weight="650">现场问题 → 业务语义 → 受控行动 → 结果回流</text>
+<g text-anchor="middle"><rect x="25" y="83" width="190" height="122" rx="15" class="node" stroke="var(--rust)"/><text x="120" y="116" class="st" font-size="14">现场 context</text><text x="120" y="148" class="ss" font-size="11">人怎么做事</text><text x="120" y="174" class="ss" font-size="11">规则藏在哪里</text>
+<rect x="245" y="83" width="190" height="122" rx="15" class="node" stroke="var(--amber)"/><text x="340" y="116" class="st" font-size="14">Ontology</text><text x="340" y="148" class="ss" font-size="11">对象 / 状态 / 事件</text><text x="340" y="174" class="ss" font-size="11">条件 / 动作 / 权限</text>
+<rect x="465" y="83" width="190" height="122" rx="15" class="node" stroke="var(--teal)"/><text x="560" y="116" class="st" font-size="14">AI + 编排</text><text x="560" y="148" class="ss" font-size="11">理解意图和推理</text><text x="560" y="174" class="ss" font-size="11">调用可执行动作</text>
+<rect x="685" y="83" width="220" height="122" rx="15" class="node" stroke="var(--blue)"/><text x="795" y="116" class="st" font-size="14">生产结果</text><text x="795" y="148" class="ss" font-size="11">成功 / 失败 / 人工介入</text><text x="795" y="174" class="ss" font-size="11">经验回到产品</text></g>
+<g stroke="var(--amber)" stroke-width="2" marker-end="url(#ar1)"><path d="M215 145H235"/><path d="M435 145H455"/><path d="M655 145H675"/></g>
+<path d="M795 245C795 333 340 353 340 225" fill="none" stroke="var(--teal)" stroke-width="2" stroke-dasharray="7 6" marker-end="url(#ar1)"/><text x="560" y="333" text-anchor="middle" class="ss" font-size="12">回到语义层，下一次少走弯路</text>
+<rect x="125" y="260" width="190" height="78" rx="13" class="node2" stroke="var(--line)"/><text x="220" y="291" text-anchor="middle" class="st" font-size="13">你的座舱映射</text><text x="220" y="316" text-anchor="middle" class="ss" font-size="11">车况 / 导航 / 媒体 / 任务</text>
+<rect x="615" y="260" width="190" height="78" rx="13" class="node2" stroke="var(--line)"/><text x="710" y="291" text-anchor="middle" class="st" font-size="13">你的交付映射</text><text x="710" y="316" text-anchor="middle" class="ss" font-size="11">Task / Trigger / Planner / Eval</text>
+</svg><figcaption><b>图讲解：</b>Palantir 的 FDE 站在第一格和最后一格之间，把现场问题带入系统，再把生产结果带回产品。你当前工作里也有这条链，只是很多时候停在“case 通过”或“会议上说支持”，还没有把结果变成下一次可复用的契约。</figcaption></figure>
+<div class="steps"><div class="step"><b>第一步，现场有复杂问题。</b><p>工厂库存、医院床位、情报任务、车内导航距离，都有大量隐含前提。需求文档通常只写“提醒”“推荐”“自动处理”，没有写清什么时候算发生、谁能执行、失败怎么办。</p></div><div class="step"><b>第二步，把隐含规则写成业务语义。</b><p>把“车快到目的地了”拆成导航对象、剩余距离、单位、阈值、一次性触发、通知动作、任务结束条件和渠道版本。</p></div><div class="step"><b>第三步，模型只负责适合它的部分。</b><p>模型理解人话、补充背景、选择计划。系统和代码负责精确比较、计时、权限、执行和记录。</p></div><div class="step"><b>第四步，生产结果回到产品。</b><p>如果“距离终点 1km 未触发”，不能只说模型没做好。要找出第一次偏离是在 Planner 没生成条件、Trigger 没注册、端侧没上报、字段单位错，还是回调没到 Task。</p></div></div>
+</section>
+
+<section id="ontology">
+<span class="no">02 · Ontology 人话版</span><h2>它不是“知识图谱”，先把它理解成一份能运行的业务说明书</h2>
+<p>“Ontology”这个词很容易把你吓住。你可以先暂时把它翻译成：<b>一家公司对“世界上有哪些东西、这些东西现在什么状态、发生了什么、允许做什么、谁能做、做完结果怎样”的统一说法。</b></p>
+<div class="grid3"><div class="card"><h3>对象</h3><p>车、驾驶员、乘客、导航目的地、歌曲、Task、记忆条目。</p></div><div class="card"><h3>状态</h3><p>现在是什么：P 档、导航中、剩余 1.2km、座椅有人、歌曲正在播放。</p></div><div class="card"><h3>事件</h3><p>刚刚发生了什么：P→D、发起导航、歌曲结束、有人上车。</p></div><div class="card"><h3>条件</h3><p>什么情况下算命中：距离小于等于 1km、持续 30 秒、同一上电周期只一次。</p></div><div class="card"><h3>动作</h3><p>命中以后做什么：通知、调用 Planner、执行车控、更新 Task、写入事件。</p></div><div class="card"><h3>权限</h3><p>哪个渠道、哪个车型、哪个版本、哪个模块和哪个人可以读、写、执行。</p></div></div>
+<div class="plain"><b>一句生活化的比喻：</b>普通数据库像仓库盘点表，记录“现在有多少库存”；Ontology 像仓库的作业规程，知道哪个订单优先、哪台设备能用、哪些货不能一起发、谁有权限放行，以及放行后要记录什么。</div>
+<h3>把它逐列翻译成你的座舱产品</h3>
+<div class="table"><table><tr><th>业务语义层的一列</th><th>你现在对应的东西</th><th>举例</th><th>当前缺口</th></tr>
+<tr><td><b>业务对象</b></td><td>车辆、导航、媒体、Task、用户、记忆、VLM 观察结果。</td><td>“距离终点”属于导航对象的实时属性。</td><td>不同模块对同一对象的命名和主键是否一致。</td></tr>
+<tr><td><b>状态</b></td><td>端状态库、Context、车辆上报。</td><td>当前档位 P、当前剩余距离 1.2km、音乐播放中。</td><td>上汽和赛力斯字段、单位和枚举有差异，不能直接合并。</td></tr>
+<tr><td><b>事件</b></td><td>信号中枢事件、事件日志、事件进入记忆。</td><td>档位从 P 变 D、发起导航到公司。</td><td>迎宾空间已经追问真实 payload 和记忆消费日志，当前资料没有证明全链路已定。</td></tr>
+<tr><td><b>条件</b></td><td>Trigger DSL、运算符、持续时间、循环次数、疲劳管理。</td><td><code>distance &lt;= 1000m</code>，一次导航只提醒一次。</td><td>“小于等于”“变更为”、字符串匹配、导航 POI 的可用性要按渠道确认。</td></tr>
+<tr><td><b>动作</b></td><td>Planner action_list、工具、Advisor、HMI、Task 回写。</td><td>通知用户、调用导航工具、更新任务完成状态。</td><td>工具前置条件、失败返回、播报责任和日志入口还要统一。</td></tr>
+<tr><td><b>权限</b></td><td>车企渠道、车型、版本、PE/SFT、环境、Owner。</td><td>同一个动态示例是否给 SLS 和上汽 PE 使用。</td><td>动态示例 7/17、7/20、8/7 的作用域出现过不同口径。</td></tr>
+<tr><td><b>结果</b></td><td>Task 状态、Run、Event、工具反馈、评测。</td><td>触发成功、未触发、超时、被端侧拒识、模型参考但结果错误。</td><td>“命中、采用、通过”目前需要分别观测。</td></tr>
+</table></div>
+<h3>用三个真实 case 看差别</h3>
+<div class="box risk"><span class="tag">CASE 1 · 距终点 1km 未触发</span><p><b>模糊说法：</b>导航距离条件有问题。</p><p><b>语义写法：</b>对象是“当前导航”；状态字段是“剩余距离”；单位是米还是千米；事件是距离从阈值外进入阈值内，还是每次上报都判断；条件是 <code>&lt;=1000</code>；执行是触发一次通知；适用渠道是上汽还是赛力斯；Task 是否有效；日志在哪里查看。</p><p><b>你要问：</b>第一次错在 TaskSpec、Trigger 注册、真实上报、单位转换、去重，还是回调？</p></div>
+<div class="box risk"><span class="tag">CASE 2 · 歌曲结束后停止失败</span><p><b>模糊说法：</b>Planner 没理解用户。</p><p><b>语义写法：</b>对象是当前媒体播放；事件是媒体进度到结束；用户口语“这首歌”需要绑定当前 media_id；动作是停止还是暂停；音乐工具是否支持该动作；结束事件是否上报；任务何时关闭。</p><p><b>你要问：</b>如果没有“歌曲结束”这个真实事件，继续往 SP 里加“歌曲结束”的例子没有意义。</p></div>
+<div class="box truth"><span class="tag">CASE 3 · P→D 进入事件记忆</span><p><b>语义写法：</b>对象是车辆档位；状态变化是 P 到 D；事件需要时间戳、车辆、人物和来源；短期 Context 记录多久；是否抽成长记忆；谁消费这个事件；消费日志在哪。</p><p>这个 case 能把 Trigger、Context、记忆、Planner 和迎宾空间一次串起来，所以它比继续讨论“事件概念是否合理”更值得先做。</p></div>
+</section>
+
+<section id="fde">
+<span class="no">03 · FDE 到底是什么</span><h2>你前面问“FDE 和外包有什么区别”，这篇文章给出了更准确的答案</h2>
+<div class="lead">FDE 不是“一个人驻在客户公司”，也不是“客户要什么就帮客户做什么”。它的核心是：这个人对实施结果有足够的权力和责任，能从现场发现业务规则，做出可运行方案，再把现场经验抽象回产品。</div>
+<div class="table"><table><tr><th>角色</th><th>他关注什么</th><th>工作结束后留下什么</th><th>和 FDE 的差别</th></tr>
+<tr><td><b>外包</b></td><td>按合同完成指定功能或人力投入。</td><td>交付物和工时。</td><td>通常不拥有客户业务结果，也不负责把经验做成可复用产品。</td></tr>
+<tr><td><b>咨询</b></td><td>分析问题、给方案、做组织或流程建议。</td><td>报告、方案、建议。</td><td>可能不长期拥有生产系统，也不一定承担每次运行结果。</td></tr>
+<tr><td><b>售前</b></td><td>证明产品适合客户，做 Demo 和方案。</td><td>签单机会。</td><td>权限和责任常停在成交前。</td></tr>
+<tr><td><b>普通实施</b></td><td>配置系统、接数据、培训用户、上线。</td><td>客户当前项目能用。</td><td>现场经验未必回到产品，下一家客户仍可能从头做。</td></tr>
+<tr><td><b>FDE</b></td><td>对落地结果全权负责，同时把现场知识变成产品能力。</td><td>生产系统、业务语义、可复用组件、评测和下一次更快的部署。</td><td>它是一种组织授权和反馈闭环，不是职位名称装饰。</td></tr>
+</table></div>
+<figure><svg viewBox="0 0 930 440" role="img" aria-label="FDE双向闭环"><defs><marker id="ar2" markerWidth="9" markerHeight="9" refX="8" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="var(--teal)"/></marker></defs>
+<text x="465" y="30" text-anchor="middle" class="st" font-size="17" font-weight="650">FDE 的两条路必须同时存在</text>
+<circle cx="465" cy="220" r="84" fill="var(--paper2)" stroke="var(--amber)" stroke-width="2"/><text x="465" y="211" text-anchor="middle" class="st" font-size="16">现场结果</text><text x="465" y="237" text-anchor="middle" class="ss" font-size="12">用户真的用起来</text>
+<rect x="35" y="120" width="220" height="115" rx="15" class="node" stroke="var(--rust)"/><text x="145" y="153" text-anchor="middle" class="st" font-size="14">从里向外</text><text x="145" y="180" text-anchor="middle" class="ss" font-size="11">理解客户工作</text><text x="145" y="205" text-anchor="middle" class="ss" font-size="11">搭出可运行方案</text>
+<rect x="675" y="120" width="220" height="115" rx="15" class="node" stroke="var(--teal)"/><text x="785" y="153" text-anchor="middle" class="st" font-size="14">从外向里</text><text x="785" y="180" text-anchor="middle" class="ss" font-size="11">抽象现场规则</text><text x="785" y="205" text-anchor="middle" class="ss" font-size="11">回写产品和评测</text>
+<path d="M255 178C300 150 334 169 370 197" fill="none" stroke="var(--teal)" stroke-width="2" marker-end="url(#ar2)"/><path d="M560 244C615 270 650 258 675 211" fill="none" stroke="var(--teal)" stroke-width="2" marker-end="url(#ar2)"/>
+<rect x="210" y="330" width="510" height="60" rx="13" class="node2" stroke="var(--line)"/><text x="465" y="355" text-anchor="middle" class="st" font-size="13">只有“交付能跑”是实施；加上“下次少走弯路”才接近 FDE</text><text x="465" y="378" text-anchor="middle" class="ss" font-size="11">如果现场知识没有进入语义层、产品和评测，交付结束就归零</text>
+</svg><figcaption><b>图讲解：</b>外包可以把左边的方案交出来，FDE 还要把右边的经验带回去。FDE 不是驻场人数的叫法，关键在这条回流有没有发生，以及这个人有没有权力推动回流。</figcaption></figure>
+<h3>你现在像不像 FDE？我不夸你，也不贬你</h3>
+<div class="grid2"><div class="box truth"><span class="tag">已经具备的部分</span><p>你已经在做跨模块问题定位，能把 Planner、Trigger、Task、动态示例、Context、端状态、工具和车企版本串起来；你也开始进入真实日志、实车结果和评测。这个组合比“只会写需求文档”更接近 FDE 的工作方式。</p></div><div class="box risk"><span class="tag">还没有完全具备的部分</span><p>你未必拥有某个车企客户的最终业务结果、端侧改造权限、完整排期权和产品回流权。你现在更准确的名字是“座舱 Agent 系统交付 PM，正在长成 FDE 型产品负责人”。不要因为看了文章就给自己贴上完成版标签。</p></div></div>
+<p>这也回答你之前的疑问：未来你不只能做车企 FDE。你可以把这套能力迁移到制造、物流、能源、医疗、金融运营、机器人现场等高上下文行业。迁移时应带着一套方法进入新行业，快速找出对象、状态、事件、规则、动作、权限和结果，不必先把自己包装成“懂所有行业”。</p>
+</section>
+
+<section id="sovereign">
+<span class="no">04 · 模型主权</span><h2>“换模型不是下拉菜单”在你的工作里具体是什么意思</h2>
+<p>文章说企业不能把自己的业务判断完全寄托在一家模型公司身上。这里的“模型主权”用人话讲，就是：<b>模型换了，业务系统仍然知道自己在做什么，仍然能检查结果，仍然能控制动作。</b></p>
+<div class="table"><table><tr><th>层</th><th>应该尽量稳定</th><th>允许随模型变化</th><th>你现在对应的产品</th></tr>
+<tr><td><b>业务语义</b></td><td>对象、状态、事件、条件、动作、权限、结束条件。</td><td>无</td><td>信号中枢三张表、Task 生命周期、工具契约。</td></tr>
+<tr><td><b>执行接口</b></td><td>TaskSpec、Trigger 回调、工具参数、成功/失败/超时。</td><td>参数补全策略可能变化。</td><td>Task Service、Trigger Adapter、Planner action_list。</td></tr>
+<tr><td><b>评测</b></td><td>真实 case、边界、反向 case、首个偏离层、通过标准。</td><td>模型的分数和错误类型会变化。</td><td>A-F 分诊、L0-L6、动态示例四要素和长时任务专项表。</td></tr>
+<tr><td><b>模型层</b></td><td>需要满足业务最低能力。</td><td>Seed 版本、提示词、动态示例、VLM 语义匹配、路由。</td><td>Planner SP、69 示例、动态示例、VLM caption 判断。</td></tr>
+</table></div>
+<div class="box judge"><span class="tag">对你最重要的判断</span><p>你不需要现在就去研究如何训练基础模型。你要先让“换模型后哪些东西不能坏”说清楚。比如“距离小于等于 1km”的单位、一次性触发和任务结束，不能依赖某个模型今天刚好理解得好。</p></div>
+<h3>一条实际规则怎样被拆成可替换系统</h3>
+<div class="code">用户话：到终点前 1km 提醒我
+
+模型负责：
+1. 识别用户想建立一个条件任务
+2. 识别对象是当前导航
+3. 识别动作是通知用户
+
+产品规则负责：
+1. “1km”统一成 1000m
+2. 触发条件为 remaining_distance &lt;= 1000
+3. 事件来源必须是当前渠道真实可用信号
+4. 同一导航任务只触发一次
+5. 触发后写入 Task Run 和事件日志
+6. 无真实距离字段时返回无法执行或向用户说明
+
+评测负责：
+1. 900m 应触发
+2. 1000m 应触发
+3. 1100m 不应触发
+4. 导航取消后不应触发
+5. 上汽和赛力斯各跑一遍，不能拿一套字段假设覆盖两家
+</div>
+</section>
+
+<section id="you">
+<span class="no">05 · 放进你的真实产品</span><h2>Palantir 的“业务语义层”，你手里已经有六块砖</h2>
+<figure><svg viewBox="0 0 930 500" role="img" aria-label="座舱业务语义层六块砖"><defs><marker id="ar3" markerWidth="9" markerHeight="9" refX="8" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="var(--amber)"/></marker></defs>
+<text x="465" y="28" text-anchor="middle" class="st" font-size="17" font-weight="650">你现在的模块，需要被收成一层统一的业务语言</text>
+<g text-anchor="middle"><rect x="35" y="80" width="250" height="105" rx="14" class="node" stroke="var(--blue)"/><text x="160" y="112" class="st" font-size="14">事实</text><text x="160" y="141" class="ss" font-size="11">端状态 / VLM / 用户记忆</text><text x="160" y="165" class="ss" font-size="11">渠道 / 车型 / 版本</text>
+<rect x="340" y="80" width="250" height="105" rx="14" class="node" stroke="var(--rust)"/><text x="465" y="112" class="st" font-size="14">变化</text><text x="465" y="141" class="ss" font-size="11">事件 / 状态变化 / 时间</text><text x="465" y="165" class="ss" font-size="11">事件日志 / 记忆入口</text>
+<rect x="645" y="80" width="250" height="105" rx="14" class="node" stroke="var(--amber)"/><text x="770" y="112" class="st" font-size="14">规则</text><text x="770" y="141" class="ss" font-size="11">Condition / 运算符</text><text x="770" y="165" class="ss" font-size="11">频率 / 边界 / 冲突</text>
+<rect x="35" y="250" width="250" height="105" rx="14" class="node" stroke="var(--teal)"/><text x="160" y="282" class="st" font-size="14">任务</text><text x="160" y="311" class="ss" font-size="11">TaskSpec / Run / 生命周期</text><text x="160" y="335" class="ss" font-size="11">等待 / 运行 / 完成 / 失败</text>
+<rect x="340" y="250" width="250" height="105" rx="14" class="node" stroke="var(--teal)"/><text x="465" y="282" class="st" font-size="14">行动</text><text x="465" y="311" class="ss" font-size="11">Planner / Advisor / 工具</text><text x="465" y="335" class="ss" font-size="11">通知 / 车控 / 导航 / 记忆</text>
+<rect x="645" y="250" width="250" height="105" rx="14" class="node" stroke="var(--red)"/><text x="770" y="282" class="st" font-size="14">证明</text><text x="770" y="311" class="ss" font-size="11">日志 / Eval / 首次偏离</text><text x="770" y="335" class="ss" font-size="11">通过 / 回归 / Owner</text></g>
+<path d="M285 132H330M590 132H635M770 185V240M645 302H600M340 302H295" stroke="var(--amber)" stroke-width="2" marker-end="url(#ar3)"/><path d="M160 355C160 430 770 450 770 355" fill="none" stroke="var(--teal)" stroke-width="2" stroke-dasharray="7 6" marker-end="url(#ar3)"/><text x="465" y="445" text-anchor="middle" class="ss" font-size="12">生产结果回流，更新事实、规则和评测</text>
+</svg><figcaption><b>图讲解：</b>你现在每一块都有人在做，但跨块的“业务含义”经常要靠人临时解释。Palantir 的启发是把这层统一语言单独当成产品资产。你做的第一版不需要复制 Palantir 的平台，只要让三个真实 case 能沿六块砖走通。</figcaption></figure>
+<div class="table"><table><tr><th>你手上的模块</th><th>它在语义层里的位置</th><th>你不能把它误解成</th></tr>
+<tr><td>Planner / Director</td><td>理解意图、选择计划、决定调用谁。</td><td>全知全能的大脑，能凭空知道端状态已发生。</td></tr>
+<tr><td>Trigger</td><td>监听事件、比较条件、处理频率和触发。</td><td>业务决策者，不能替 Planner 决定用户话术和整体方案。</td></tr>
+<tr><td>Task</td><td>把跨时间的目标、Run、结果和结束条件留住。</td><td>一个临时字符串，不能只记录目标不记录执行证据。</td></tr>
+<tr><td>Context / Memory</td><td>提供当前可用事实和历史关系。</td><td>把所有历史文本一次性塞给模型。</td></tr>
+<tr><td>动态示例</td><td>给模型一条针对当前问题的参考处理方法。</td><td>业务规则的唯一真相，也不能替代真实端状态。</td></tr>
+<tr><td>Eval</td><td>验证语义、执行和结果是否符合标准。</td><td>只看最终答对/答错的分数。</td></tr>
+</table></div>
+<div class="box truth"><span class="tag">你当前最应该拥有的“产品名”</span><p><b>座舱业务语义层最小契约</b>。它不是新造一个大平台，也不是给现有模块再起一个宏大名字。它是一张表，明确一条业务能力从人话到真实执行的每个关键定义，并把来源、版本、Owner、边界和评测绑在一起。</p></div>
+</section>
+
+<section id="judge">
+<span class="no">06 · 独立判断</span><h2>这篇文章哪些地方说得好，哪些地方你不能照单全收</h2>
+<div class="grid2"><div class="box truth"><span class="tag">我赞同 1</span><b>Context 比模型名字更接近企业 AI 的真实瓶颈</b><p>你已经看到：动态示例命中了，模型可能不参考；事件概念成立了，真实 payload 和消费日志可能没有；日历里有会议，纪要可能不可读。信息没有进到可执行链路，模型再强也只能猜。</p></div><div class="box truth"><span class="tag">我赞同 2</span><b>现场知识要回流，FDE 才有复利</b><p>每次都靠一个懂业务的人口头解释，团队永远依赖这个人。把解释写成渠道真值、TaskSpec、工具契约、评测和变更日志，下一次才会更快。</p></div><div class="box warn"><span class="tag">我保留 1</span><b>Ontology 不会自动形成护城河</b><p>如果数据没有真实来源、权限没有边界、动作不可执行、失败没有日志，语义表只是一份漂亮文档。你当前“距离 1km 未触发”的问题就是提醒：写出条件和真正触发是两件事。</p></div><div class="box warn"><span class="tag">我保留 2</span><b>Palantir 的成功不能直接等于每个企业都能复制</b><p>它长期服务政府、国防和高复杂企业，客户愿意投入高额预算，也愿意给现场团队较大权限。普通企业可能只愿意买一个小工具，不愿意让一个 FDE 改流程和系统。</p></div><div class="box warn"><span class="tag">我保留 3</span><b>FDE 也可能变成高级背锅人</b><p>如果你要对结果负责，却没有读取日志、推动研发、调度版本、确认车企口径的权力，文章中的“全权负责”就只剩压力。你要争取的是责任和权限一起出现。</p></div><div class="box warn"><span class="tag">我保留 4</span><b>“价值收费”暂时不是你的第一课</b><p>你的第一课是把价值测出来：通过率、首个可用结果时延、人工介入次数、同一契约跨车企复用率、修复后负向回归率。没有这些，谈按价值收费就是先讲故事。</p></div></div>
+<div class="plain"><b>最重要的判断：</b>Palantir 的故事不能证明“你应该去做一个 Palantir”。它能证明你当前的工作有一条更高价值的升级路线：从跟着需求补 case，升级成维护一套真实业务的语义、执行和反馈系统。</div>
+</section>
+
+<section id="career">
+<span class="no">07 · 对你的职业影响</span><h2>你未来的方向，不是“只做车企 FDE”，也不是“立刻转代码工程师”</h2>
+<div class="lead">你的可迁移能力应该叫“复杂行业 Agent 系统落地”。智能座舱是你现在最深的训练场，具身智能可以是下一站，FDE 是你工作方式的一部分，不是你必须被固定在车企现场的职位名称。</div>
+<div class="table"><table><tr><th>方向</th><th>你需要证明什么</th><th>你已有基础</th><th>还差什么</th></tr>
+<tr><td><b>座舱 Agent 系统 PM</b></td><td>能把多模块运行链路收成可交付底座。</td><td>Planner、Trigger、Task、Context、示例、Eval 都接触过。</td><td>当前真相页、统一契约、分段日志和稳定验收。</td></tr>
+<tr><td><b>车企 FDE 型产品负责人</b></td><td>能进入车企真实流程，对实施结果负责，并把经验带回产品。</td><td>已有上汽/赛力斯渠道、实车、版本和跨团队协作经验。</td><td>更明确的客户结果 Owner 权限，以及可复用交付资产。</td></tr>
+<tr><td><b>具身智能落地 PM/FDE</b></td><td>把机器人感知、任务、动作、设备状态、异常和人机协同连成闭环。</td><td>你已经在处理 VLM、信号、任务、条件、动作和结果。</td><td>补机器人本体、操作流程、遥操作/数据回流、现场安全和设备可靠性。</td></tr>
+<tr><td><b>通用企业 Agent 语义层 PM</b></td><td>能快速进入新行业，抽象对象、规则、权限和行动。</td><td>你已开始把“状态/事件/条件/动作”作为统一语言。</td><td>用脱敏方法论证明能力，别只依赖汽车内部名词。</td></tr>
+</table></div>
+<h3>你不会代码，能不能走这条路</h3><p>能，但“不会代码”不能等于“只会提需求”。你至少要能读懂 JSON、接口字段、日志、Task 状态和简单脚本输出；能用 AI 生成小工具；能判断一个结果是否有证据；能把业务规则写到工程师无需反复猜的程度。</p><p>你不必先变成后端工程师。你需要成为能把业务现场翻译给模型、工程和客户的人。文章里最值得你学的 FDE 能力，正是这四次翻译：</p><div class="grid2"><div class="box"><b>人话 → 系统语义</b><p>“到了提醒我”变成距离、事件、阈值、频率和通知。</p></div><div class="box"><b>系统语义 → 真实实现</b><p>把对象、条件和动作放进 Task、Trigger、工具和端状态链。</p></div><div class="box"><b>失败结果 → 首次偏离</b><p>找到第一次错在 Planner、Trigger、端状态、工具还是版本。</p></div><div class="box"><b>现场经验 → 可复用资产</b><p>把一次 case 写成契约、评测、动态示例治理规则和变更记录。</p></div></div>
+</section>
+
+<section id="action">
+<span class="no">08 · 具体行动</span><h2>你明天不要再泛泛研究 Ontology，先做一张能拿去评审的表</h2>
+<div class="box judge"><span class="tag">唯一主线产物</span><b>《座舱业务语义层最小契约表 v1》</b><p>先只做三个 case：①距离终点 1km 提醒；②歌曲结束后停止；③档位 P→D 与发起导航到公司进入事件记忆。不要一上来覆盖全部 20 条触发条件，也不要再先补更多动态示例。</p></div>
+<div class="steps"><div class="step"><b>明天上午，先填表，不等别人给你模板。</b><p>打开教程中的表格结构，或直接打开工具页面加载三个样例。每条 case 填完以下字段：业务对象、用户原话、状态、事件、条件、单位/枚举、动作、任务结束条件、车企/车型/版本、Owner、来源、正向 case、边界 case、反向 case、当前未知。</p><div class="code">case_id | 业务对象 | 状态 | 事件 | 条件 | 动作 | 适用渠道/版本 | Owner | 来源 | 正向/边界/反向 | 当前未知</div></div><div class="step"><b>第一条先写“距离终点 1km”。</b><p>你已经有明确失败结果，最适合拿来验证表是否有用。把“1km”统一成单位，把“触发一次”写清，把上汽和赛力斯拆开，把 TaskSpec、订阅事件、条件表达式、端侧真实上报、最终回调逐项列出。</p><div class="say">对韩杰、刘杨、仁杰或对应 Owner 直接说：<br>“我先不继续加场景。请帮我把这个 case 的真实链路补齐：TaskSpec、Trigger 注册、渠道字段和单位、端侧上报、回调日志、失败首层。缺的字段直接标未知，不用口头说支持。”</div></div><div class="step"><b>第二条和第三条用来验证语义层能否跨模块复用。</b><p>歌曲结束会验证媒体事件、工具动作和 Task 结束；P→D 与导航到公司会验证事件日志、Context、记忆和迎宾空间消费。每完成一条，问“这张表能不能被动态示例、评测和工程实现同时使用”。</p><div class="say">在评审里说：<br>“这三条先当语义层样板。以后新增场景先复用对象、事件、条件和动作定义，只有真的新增业务含义时才加新字段。”</div></div><div class="step"><b>一周后，用第二个人复述测试它。</b><p>把表发给一个没有参加原讨论的人，只让他回答：这个条件什么时候触发、谁执行、失败在哪里查、适用于哪个版本。答不出来的地方，就是你还没有写清楚的语义。</p><div class="say">验收标准：第二个人能复述；工程能指出缺字段；测试能写出三类 case；Owner 能确认来源和版本。四项中少一项，就标为未完成。</div></div></div>
+<h3>30 天只盯四个结果，不做漂亮的知识库</h3>
+<div class="table"><table><tr><th>结果</th><th>怎么量</th><th>达到什么才算有效</th></tr><tr><td>第一次偏离更快找到</td><td>从收到 badcase 到定位首层的时间。</td><td>三个样例都能沿同一链路定位，不能只给“Planner 问题”。</td></tr><tr><td>语义复用</td><td>同一对象/事件/条件被多少个场景、模块或评测引用。</td><td>三个样例至少共享一套字段和边界写法。</td></tr><tr><td>口径稳定</td><td>新增方案是否还需要重复解释车企、车型、版本和 Owner。</td><td>表顶部能写当前有效方案，历史冲突不再混进当前结论。</td></tr><tr><td>现场回流</td><td>每个失败是否新增了契约、评测、示例治理或产品规则。</td><td>修复后能跑相邻正确 case，且留下来源和变更记录。</td></tr></table></div>
+<div class="box risk"><span class="tag">你要防的坑</span><p>不要把“做出表”当成完成。表只是把隐含规则暴露出来，真正完成要看它能不能减少下一次沟通、定位和回归成本。也不要把这张表写成一份全知全能的行业本体，先让三个真实 case 跑通，之后再扩。</p></div>
+</section>
+
+<section id="sources">
+<span class="no">09 · 来源与证据边界</span><h2>这页哪些内容来自原文，哪些是我结合你工作推出来的</h2>
+<div class="table"><table><tr><th>层级</th><th>内容</th><th>来源状态</th></tr><tr><td><span class="badge fact">原文明确</span></td><td>Palantir 被长期误解为咨询/人力套利；Ontology 同时包含数据、逻辑、动作、权限；FDE 强调实施全权负责和现场经验回流；模型主权要求生产环境可切换；文章列出的财报与客户案例。</td><td>来自用户提供的 Palantir 文章。财务数字本页未独立复核。</td></tr><tr><td><span class="badge ok">你的资料明确</span></td><td>Planner/Director、公共 Context、Trigger 三表、Task 生命周期、动态示例治理、上汽/赛力斯渠道差异、三个长时任务失败 case、8 月 10 日上下文。</td><td>来自本地工作上下文和产品原始资料；会议没有可读正文的地方已标待确认。</td></tr><tr><td><span class="badge warn">我的推导</span></td><td>你适合走“座舱 Agent 系统交付 PM，逐步发展为复杂行业 Agent FDE 型负责人”；第一份语义契约选三个 case；Ontology 是你当前工作的升级视角。</td><td>这是基于两组材料的职业和产品判断，不是公司正式任命或已确认路线。</td></tr></table></div>
+<div class="box unknown"><span class="tag">今日飞书读取边界</span><p>8 月 11 日日历读取到 3 个日程，但没有读到会议正文或本人参会证据；产品群今日窗口为 0 条；长时任务关键词检索为 partial 且正文截断。本文没有把这些缺口填成“没有消息”或“会议没有结论”。</p></div>
+<div class="close"><b>最后给你一句真正能拿走的话：</b><br>你现在最该做的不是证明自己懂 Palantir，也不是急着给自己换一个 FDE 头衔。先把一条车上真实能力从人话、信号、事件、条件、Task、动作、结果和评测写成一条可复用的业务语义。做成三条，你的工作才开始从“我参与过很多模块”变成“我能把复杂 Agent 系统落地并让它越跑越稳”。</div>
+</section>
+</main></div>
+<script>(function(){var p=document.getElementById('progress');window.addEventListener('scroll',function(){var h=document.documentElement.scrollHeight-innerHeight;p.style.width=(h>0?scrollY/h*100:0)+'%';},{passive:true});var b=document.getElementById('theme'),r=document.documentElement;b.addEventListener('click',function(){var d=r.getAttribute('data-theme')==='dark';r.setAttribute('data-theme',d?'light':'dark');b.textContent=d?'☀ 亮色':'☾ 暗色';});})();</script>
+</body></html>

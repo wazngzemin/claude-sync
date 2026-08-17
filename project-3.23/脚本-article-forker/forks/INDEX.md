@@ -22,6 +22,8 @@
 
 | 日期 | 文章标题 | 分类 | 产物 | 本地路径 | 飞书链接 |
 |------|----------|------|------|----------|----------|
+| 2026-08-07 | 模型越来越强，产品经理的价值往哪里迁移：13篇材料综合解读 | 多文综合+框架+方法论 | source, concept, tool | [2026-08-07-ai-pm-value-migration](2026-08-07-ai-pm-value-migration/) | — |
+| 2026-08-07 | Jeff Dean 最新万字对谈：1% 法则、上下文工程与长时 Agent | 访谈+框架+方法论 | source, concept, tool | [2026-08-07-jeff-dean-1-percent-rule](2026-08-07-jeff-dean-1-percent-rule/) | — |
 | 2026-07-17 | 车企利润率6.1%→3.2%：问题不是竞争激烈，而是生态位缺失（价值捕获定位框架 · 四维诊断+三路径 · 基于摘录） | 观点+框架 | source, concept, tool | [2026-07-17-value-capture-niche](2026-07-17-value-capture-niche/) | — |
 | 2026-07-08 | AI硬件避坑指南：第一次做硬件最该建立的底层认知（青蓝图TNT，不可逆决策六坑扫描） | 方法论+框架 | source, concept, tool | [2026-07-08-ai-hardware-pitfalls](2026-07-08-ai-hardware-pitfalls/) | [飞书](https://www.feishu.cn/wiki/M3mew8G4XicdbMkAzM0cvLj6n3M) |
 | 2026-06-29 | 健脑房：AI时代的认知位移与刻意训练（刘润） | 框架 | source, concept, tool | [2026-06-29-brain-gym](2026-06-29-brain-gym/) | — |

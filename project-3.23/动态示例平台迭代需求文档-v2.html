@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>动态示例平台迭代需求文档 v2</title>
+<style>
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; max-width: 960px; margin: 0 auto; padding: 40px 28px; color: #1f2329; line-height: 1.85; font-size: 15px; }
+  h1 { font-size: 26px; border-bottom: 3px solid #3370ff; padding-bottom: 12px; margin-bottom: 8px; }
+  h2 { font-size: 20px; margin-top: 44px; border-left: 4px solid #3370ff; padding-left: 10px; }
+  h3 { font-size: 16px; margin-top: 30px; color: #1456f0; }
+  h4 { font-size: 15px; margin: 18px 0 6px; color: #1f2329; }
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 13.5px; }
+  th, td { border: 1px solid #dee0e3; padding: 8px 12px; text-align: left; vertical-align: top; }
+  th { background: #f5f6f7; white-space: nowrap; }
+  .meta { background: #f5f6f7; border-radius: 8px; padding: 16px 20px; font-size: 14px; }
+  .meta p { margin: 4px 0; }
+  .p0 { color: #d83931; font-weight: bold; }
+  .p1 { color: #d46b08; font-weight: bold; }
+  .p2 { color: #2b6cb0; font-weight: bold; }
+  .accept { background: #f0f9eb; border-left: 4px solid #52c41a; padding: 10px 16px; border-radius: 4px; font-size: 14px; margin: 10px 0; }
+  .current { background: #fff7e6; border-left: 4px solid #faad14; padding: 10px 16px; border-radius: 4px; font-size: 14px; margin: 10px 0; }
+  .edge { background: #fff1f0; border-left: 4px solid #d83931; padding: 10px 16px; border-radius: 4px; font-size: 14px; margin: 10px 0; }
+  .quote { background: #f5f6f7; border-left: 4px solid #8f959e; padding: 8px 16px; border-radius: 4px; font-size: 13.5px; color: #646a73; margin: 8px 0; }
+  ol, ul { padding-left: 24px; }
+  li { margin: 4px 0; }
+  .flow { display: flex; align-items: stretch; flex-wrap: wrap; gap: 0; margin: 16px 0; }
+  .fbox { background: #eaf1ff; border: 1px solid #3370ff; border-radius: 8px; padding: 10px 14px; font-size: 13.5px; text-align: center; }
+  .fbox.gray { background: #f5f6f7; border-color: #8f959e; }
+  .fbox.green { background: #f0f9eb; border-color: #52c41a; }
+  .fbox.red { background: #fff1f0; border-color: #d83931; }
+  .farrow { align-self: center; padding: 0 8px; color: #3370ff; font-weight: bold; }
+  .frow { margin: 8px 0; }
+  .small { font-size: 13px; color: #646a73; }
+</style>
+</head>
+<body>
+
+<h1>动态示例平台迭代需求文档</h1>
+
+<div class="meta">
+  <p><strong>版本</strong>：v2.0 ｜ <strong>日期</strong>：2026-08-12 ｜ <strong>撰写人</strong>：王泽民 ｜ <strong>对接开发</strong>：王梦尧</p>
+  <p><strong>评审方</strong>：李浩然（项目）、赵晓朝（算法）、高红涛/罗丽（测试）、郝晓伟（DT）</p>
+  <p><strong>需求来源</strong>：2026-08-05「DT复测结果分析——动态示例质量问题」会议纪要</p>
+  <p><strong>文档约定</strong>：P0=本期必须做，不做则批量修复链路走不通；P1=二期；P2=三期。"示例"均指动态示例。</p>
+</div>
+
+<h2>一、背景与问题定义</h2>
+
+<h3>1.1 动态示例是什么、现在怎么用的</h3>
+<p>动态示例是"query→决策分析"的知识对，按语义检索注入 Planner 的 System Prompt（{{场景示例}}槽位），用于修复线上 badcase。当前两种使用方式：</p>
+<ul>
+  <li><strong>单条修复</strong>：Meego 上单个 bug，修复人分析后直接上平台添加，每天几条，分散在产品和算法 4-6 个人手里；</li>
+  <li><strong>批量修复</strong>：每轮大测试（约月度级）产出几百条 badcase（如本轮 187 条用例、功能安全集 600+ 条），集中在 Excel 里写好后批量导入。</li>
+</ul>
+
+<h3>1.2 出了什么问题</h3>
+<p>8 月 5 日复测：动态示例大量添加后，测试通过率改善远低于预期（会上对齐的预期约 80%）。会上定位到四类平台侧根因：</p>
+
+<table>
+  <tr><th>#</th><th>问题</th><th>会议证据（原话）</th><th>后果</th></tr>
+  <tr>
+    <td>1</td>
+    <td><strong>添加无查重</strong>，重复/相似 query 直接落库</td>
+    <td>晓朝："很多动态示例加得比较重复，比如天窗的可能重复在加，导致目标示例不在召回 top3 里"；罗丽："每个人都可能在修天窗问题"</td>
+    <td>相似示例互相稀释召回排序，该召回的召不回，示例加了等于没加</td>
+  </tr>
+  <tr>
+    <td>2</td>
+    <td><strong>批量接口只增不改不删</strong>，重复也不拦</td>
+    <td>梦尧："只能在上面追加……query 完全一样它也不关心，直接往上添加"</td>
+    <td>Excel 维护→批量导入的模式不成立：改不了旧数据，错数据越积越多</td>
+  </tr>
+  <tr>
+    <td>3</td>
+    <td><strong>全量数据导不出来</strong></td>
+    <td>红涛："我们现在有全量的动态示例内容吗？想跑一下所有动态示例评个结果"；梦尧："不支持（导出），数据库导出需要 leader 审批"</td>
+    <td>无法全量 review 冲突；无法全量回归测试；Excel 台账与线上脱节断档</td>
+  </tr>
+  <tr>
+    <td>4</td>
+    <td><strong>发布即生效，无审核</strong></td>
+    <td>浩然："加一个审批机制，或强制要求自测结果"；晓朝："长远看需要平台加评审上线流程，归口到一两个人审核"</td>
+    <td>低质量/写错的示例直接污染线上，影响面放大</td>
+  </tr>
+  <tr>
+    <td>5</td>
+    <td><strong>批量导入全部记为 system</strong></td>
+    <td>梦尧："批量导入默认通过系统添加，名字都是 system"</td>
+    <td>出问题找不到责任人，无法追溯谁导的、导了什么</td>
+  </tr>
+  <tr>
+    <td>6</td>
+    <td><strong>环境错配不可见</strong></td>
+    <td>会上对不齐："你们用的是 DEV 还是 prod？""都加在 PRD，车端 DEV 居多"</td>
+    <td>示例加在 PRD 但车在 DEV，测试复测时示例根本没生效</td>
+  </tr>
+</table>
+
+<h3>1.3 为什么现在要解</h3>
+<p>每轮大测试后都有 200-300 条级别的批量修复需求，当前平台能力下，批量修复=批量制造新冲突。本轮 187 条用例的修复已经实际发生重复添加（天窗类）。下一轮测试前平台必须具备最小闭环能力。</p>
+
+<h2>二、目标与衡量标准</h2>
+<table>
+  <tr><th>目标</th><th>衡量标准</th><th>验证方式</th></tr>
+  <tr><td>重复示例零新增</td><td>添加时相似检出并拦截，人工确认后才允许强制新增</td><td>构造相似 query 测试</td></tr>
+  <tr><td>批量修复全链路走通</td><td>Excel 模板维护 → 导入 → 审核 → 生效 → 可回滚</td><td>用 10 条测试数据走完整流程</td></tr>
+  <tr><td>全量数据可导出</td><td>一键导出，条数与线上一致</td><td>导出比对</td></tr>
+  <tr><td>责任可追溯</td><td>每条示例能查到谁加的、谁改的、哪个批次导的</td><td>抽查导入条目</td></tr>
+</table>
+
+<h2>三、角色与使用场景</h2>
+<table>
+  <tr><th>角色</th><th>人员</th><th>场景</th><th>频率与量级</th></tr>
+  <tr><td>添加人（产品/算法）</td><td>泽民、晓朝等 4-6 人</td><td>单条 bug 修复，直接添加</td><td>每天几条</td></tr>
+  <tr><td>添加人（批量）</td><td>同上</td><td>大测试后 Excel 集中维护，批量导入</td><td>约月度级，每次 200-300 条</td></tr>
+  <tr><td>审核人</td><td>泽民、晓朝</td><td>审核批量导入的示例</td><td>随批量导入</td></tr>
+  <tr><td>测试</td><td>红涛、罗丽</td><td>全量导出回归；关单前核查自测凭证</td><td>每次大测试后</td></tr>
+  <tr><td>平台开发</td><td>梦尧</td><td>本需求承接方</td><td>—</td></tr>
+</table>
+
+<h2>四、整体方案</h2>
+
+<h3>4.1 单条添加流程（保持轻量，效率优先）</h3>
+<div class="flow">
+  <div class="fbox">填写示例<br>（query/决策分析）</div>
+  <div class="farrow">→</div>
+  <div class="fbox gray">相似度查重<br>自动执行</div>
+  <div class="farrow">→</div>
+  <div class="fbox red">检出相似？<br>展示已有条目三选一</div>
+  <div class="farrow">→</div>
+  <div class="fbox">召回测试<br>（P2 嵌入页面）</div>
+  <div class="farrow">→</div>
+  <div class="fbox green">直接上线生效<br>（可选存草稿）</div>
+</div>
+<p class="small">说明：单条添加默认直接上线——这是 8.5 会上对齐的"保持分散添加效率"原则，审核只拦批量。</p>
+
+<h3>4.2 批量导入流程（强管控）</h3>
+<div class="frow flow">
+  <div class="fbox">Excel 标准模板<br>集中维护</div>
+  <div class="farrow">→</div>
+  <div class="fbox gray">批量导入<br>逐条查重校验</div>
+  <div class="farrow">→</div>
+  <div class="fbox">进草稿区<br>（不生效）</div>
+  <div class="farrow">→</div>
+  <div class="fbox">审核人审核<br>（附相似条目参考）</div>
+  <div class="farrow">→</div>
+  <div class="fbox green">批量生效<br>生成批次号</div>
+</div>
+<div class="frow flow">
+  <div class="fbox red">审核驳回</div>
+  <div class="farrow">→</div>
+  <div class="fbox gray">填驳回理由<br>退回导入人修改</div>
+  <div class="farrow">→</div>
+  <div class="fbox">重新导入</div>
+</div>
+<div class="frow flow">
+  <div class="fbox red">导入后发现有问题</div>
+  <div class="farrow">→</div>
+  <div class="fbox gray">按批次号整体回滚</div>
+</div>
+
+<h2>五、数据字段定义</h2>
+<p>示例表在现有字段基础上扩展，加粗为新增字段：</p>
+<table>
+  <tr><th>字段</th><th>类型</th><th>必填</th><th>说明</th></tr>
+  <tr><td>ID</td><td>数字</td><td>系统生成</td><td>主键，现有，列表最左列。Meego 单上贴的"动态示例 ID"即此字段</td></tr>
+  <tr><td>query</td><td>文本</td><td>是</td><td>用户输入锚点</td></tr>
+  <tr><td>决策分析</td><td>长文本</td><td>是</td><td>处理逻辑正文</td></tr>
+  <tr><td>其他说明</td><td>长文本</td><td>否</td><td>badcase 背景、来源</td></tr>
+  <tr><td><strong>状态</strong></td><td>枚举</td><td>系统生成</td><td>草稿 / 已上线 / 已驳回。仅"已上线"参与线上检索注入</td></tr>
+  <tr><td><strong>环境</strong></td><td>枚举</td><td>是</td><td>DEV / PRD，添加时选择，默认 PRD</td></tr>
+  <tr><td>添加人</td><td>文本</td><td>系统生成</td><td>批量导入也必须记真实操作人，禁止记 system</td></tr>
+  <tr><td>添加时间 / 最后修改时间</td><td>时间</td><td>系统生成</td><td>—</td></tr>
+  <tr><td><strong>批次号</strong></td><td>文本</td><td>批量时生成</td><td>每次批量操作（导入/更新/删除）生成一个批次号，可反查该批次全部条目</td></tr>
+  <tr><td><strong>关联 bug ID</strong></td><td>文本</td><td>否</td><td>Meego 单号，支持多个（一个 bug 可能需多条示例修复）</td></tr>
+  <tr><td><strong>自测凭证</strong></td><td>文本/附件</td><td>否</td><td>召回测试截图、fornax 验证结论</td></tr>
+  <tr><td><strong>驳回理由</strong></td><td>文本</td><td>驳回时填</td><td>审核驳回时必填，导入人可见</td></tr>
+</table>
+
+<h2>六、功能需求详述</h2>
+
+<h3><span class="p0">P0-1</span> 添加查重拦截</h3>
+<div class="current"><strong>现状</strong>：添加时不做任何查重，query 完全重复也直接落库。</div>
+<h4>需求描述</h4>
+<ol>
+  <li>单条添加、批量导入时，均对新 query 与库内已有 query 做<strong>语义级</strong>相似度匹配（非字符串完全相等——"打开天窗"和"帮我开一下天窗"应判为相似）；</li>
+  <li>检出相似条目时，展示已有条目：ID、query、决策分析摘要（前 100 字）、添加人、添加时间；操作者三选一：
+    <ul>
+      <li><strong>取消添加</strong>——确认重复，放弃；</li>
+      <li><strong>覆盖更新</strong>——新内容替换旧条目，保留原 ID（外部 Meego 单上贴的 ID 不失效）；</li>
+      <li><strong>仍要新增</strong>——确认两条确实不同（如 query 相似但适用分支不同），强制添加；</li>
+    </ul>
+  </li>
+  <li>批量导入逐条执行同样校验，导入完成输出报告：新增 X 条、覆盖 Y 条、拦截 Z 条、强制新增 W 条，报告可下载；</li>
+  <li>相似度阈值给默认值，后台可配置。</li>
+</ol>
+<div class="edge"><strong>边界场景</strong>：①一条新 query 同时相似多条旧条目→全部列出，操作者逐条判断；②批量导入含相似条目时默认拦截进报告，不阻塞其余条目导入；③查重范围含草稿区条目（防止草稿和线上也打架）。</div>
+<div class="accept"><strong>验收标准</strong>：①构造与库内 query 语义相近的示例添加，能检出并三选一；②批量导入 10 条含 3 条重复，报告准确标出 3 条且其余 7 条正常进草稿；③"打开天窗" vs "帮我开一下天窗"判为相似。</div>
+
+<h3><span class="p0">P0-2</span> 全量批量导出</h3>
+<div class="current"><strong>现状</strong>：不支持导出；数据库直接导需 leader 审批人肉提数。</div>
+<h4>需求描述</h4>
+<ol>
+  <li>平台提供"导出全部"按钮，导出当前环境（可选 DEV/PRD/全部）全量示例为 Excel 或 CSV；</li>
+  <li>导出字段=第五节全部字段，纯平铺，无合并单元格；</li>
+  <li>导出动作记操作日志：谁、何时、导出了哪个环境、多少条；</li>
+  <li>如需审批，审批线上化：导出申请→leader 线上批准→生成下载链接（有效期 24 小时），不要人肉提数。</li>
+</ol>
+<div class="edge"><strong>边界场景</strong>：①数据量大（数千条）时异步生成+完成通知，不卡页面；②导出含草稿区条目并标注状态，供全量 review。</div>
+<div class="accept"><strong>验收标准</strong>：导出条数与平台列表一致，字段完整无乱码；Excel 可直接打开筛选。</div>
+
+<h3><span class="p0">P0-3</span> 批量修改 + 批量删除</h3>
+<div class="current"><strong>现状</strong>：批量接口只支持新增；修改、删除只能逐条手动。</div>
+<h4>需求描述</h4>
+<ol>
+  <li><strong>标准模板</strong>：平台提供模板下载，列固定为：ID、query、决策分析、其他说明、环境、操作类型（新增/更新/删除）。新增行 ID 留空；更新/删除行必填 ID；</li>
+  <li><strong>批量更新</strong>：按 ID 匹配覆盖更新内容字段；ID 不存在的行报错跳过，列入报告；</li>
+  <li><strong>批量删除</strong>：按 ID 删除，执行前二次确认（展示将删除条数+内容摘要）；</li>
+  <li>批量更新/删除同样走草稿区+审核（同 4.2 流程），同样生成批次号，支持按批次回滚。</li>
+</ol>
+<div class="edge"><strong>边界场景</strong>：①更新操作同样触发查重校验（改完的 query 可能和别的条目撞了）；②删除已上线条目需在报告中标红提示"该条目线上生效中"；③模板列顺序错、列缺失时给明确报错，不做静默容错。</div>
+<div class="accept"><strong>验收标准</strong>：模板批量更新 5 条、删除 5 条结果正确；ID 填错的行有明确报错；删除已上线条目有标红提示。</div>
+
+<h3><span class="p1">P1-4</span> 草稿态 + 审核上线</h3>
+<h4>需求描述</h4>
+<ol>
+  <li>状态机：草稿 →（审核通过）→ 已上线；草稿 →（审核驳回）→ 已驳回；</li>
+  <li>单条添加默认直接上线，操作者可手动选"存为草稿"；</li>
+  <li>批量导入一律进草稿区，审核人通过后才生效；</li>
+  <li>审核人可配置（1-N 人，当前：王泽民、赵晓朝），审核界面逐条展示内容并自动附带库内相似条目参考（复用 P0-1 能力）；</li>
+  <li>支持单条通过/驳回、批量通过；驳回必填理由，导入人可见可修改后重新提交。</li>
+</ol>
+<div class="edge"><strong>边界场景</strong>：①审核期间原条目被他人修改→提示审核人"内容已变更"；②草稿区条目长期未审（>7 天）→列表标黄提醒。</div>
+<div class="accept"><strong>验收标准</strong>：批量导入 10 条未生效；审核通过后生效；驳回条目带理由且导入人可见。</div>
+
+<h3><span class="p1">P1-5</span> 自测凭证 + bug 关联</h3>
+<h4>需求描述</h4>
+<ol>
+  <li>新增"关联 bug ID"（Meego 单号，可多个）和"自测凭证"（文本/附件）两个选填字段；</li>
+  <li>列表页支持筛选"无关联 bug""无自测凭证"的条目，供测试关单前核查；</li>
+  <li>添加/编辑页面对两字段给醒目提示："建议关联 Meego 单号并附自测结果，测试关单前将核查"。</li>
+</ol>
+<div class="accept"><strong>验收标准</strong>：字段可填可改可查；筛选可用；提示文案展示正常。</div>
+
+<h3><span class="p1">P1-6</span> 添加人与批次追溯</h3>
+<div class="current"><strong>现状</strong>：批量导入的条目添加人全为 system。</div>
+<h4>需求描述</h4>
+<ol>
+  <li>批量导入记录真实操作人（登录态导入或接口强制传操作人参数）；</li>
+  <li>每次批量操作生成批次号，支持按批次号查看全部条目；</li>
+  <li>支持按批次整体回滚：该批次新增的删除、覆盖的恢复原值。</li>
+</ol>
+<div class="edge"><strong>边界场景</strong>：批次内条目在导入后被人工单独修改过→回滚时跳过该条目并在结果中提示（防止回滚吃掉人工修复）。</div>
+<div class="accept"><strong>验收标准</strong>：导入后添加人显示真实姓名；按批次号可查出全部条目；一键回滚结果正确。</div>
+
+<h3><span class="p2">P2-7</span> 召回测试嵌入编辑页</h3>
+<div class="current"><strong>现状</strong>：验证召回需芭比登录→跳转 Waking 数据库管理页→手动输 query 测试，链条长，多数人不会用。</div>
+<p><strong>需求</strong>：添加/编辑页内嵌"召回测试"按钮，输入 query 实时返回召回 top3 及相似度分值，让"加之前先验证能召回"成为顺手动作。</p>
+
+<h3><span class="p2">P2-8</span> 环境标识与同步</h3>
+<p><strong>需求</strong>：条目带环境标识；列表按环境筛选；支持 DEV↔PRD 批量同步（复制）与差异对比视图。解决"加在 PRD、车在 DEV"的错配。</p>
+
+<h3><span class="p2">P2-9</span> 变更历史与回滚</h3>
+<p><strong>需求</strong>：每条示例记录修改历史（谁、何时、前后值），支持单条回滚到任一历史版本。解决老旧示例（工具名变更等）的追溯问题。</p>
+
+<h2>七、非功能需求</h2>
+<table>
+  <tr><th>项</th><th>要求</th></tr>
+  <tr><td>量级</td><td>单次批量操作 300 条内正常完成；全库万级条目不卡顿</td></tr>
+  <tr><td>操作日志</td><td>所有增删改、导入导出、审核动作留痕，可追溯</td></tr>
+  <tr><td>权限</td><td>现阶段仅 4-6 名内部用户，不做复杂权限；审核人名单可配置即可</td></tr>
+  <tr><td>兼容性</td><td>新字段对存量数据置空即可，不要求历史数据补录</td></tr>
+</table>
+
+<h2>八、配合流程（非平台需求，8.5 会上已定的 SOP）</h2>
+<ol>
+  <li><strong>单条 Meego bug</strong>：平台直接添加，Meego 单上贴动态示例 ID + 自测结果；测试复测关单前核查，缺信息打回；</li>
+  <li><strong>批量修复</strong>：Excel 标准模板集中维护 → 群内过一遍 → 审核人审查 → 批量导入；</li>
+  <li><strong>分工原则</strong>：按问题分类/功能模块认领（不按 query 均分），避免同类问题多人重复添加。</li>
+</ol>
+
+<h2>九、范围框定与分期</h2>
+<table>
+  <tr><th>期</th><th>内容</th><th>理由</th></tr>
+  <tr><td class="p0">本期 P0</td><td>查重拦截、全量导出、批量修改+删除</td><td>不做则批量修复和全量测试两条路都走不通</td></tr>
+  <tr><td class="p1">二期 P1</td><td>草稿态审核、自测凭证、批次追溯</td><td>质量管控闭环</td></tr>
+  <tr><td class="p2">三期 P2</td><td>召回测试嵌入、环境管理、变更历史</td><td>体验优化</td></tr>
+</table>
+<p><strong>明确不做</strong>：①不兼容旧 Excel 台账的合并单元格等乱格式，以平台标准模板为准；②不做复杂权限体系。</p>
+
+<h2>十、开放问题</h2>
+<ol>
+  <li>相似度匹配能否复用检索侧现有能力？阈值默认值与可调范围？（会上泽民提到"之前有检索策略后来没加"，请梦尧确认）；</li>
+  <li>导出审批链挂哪位 leader（正伟/晓杰，浩然说可群内 push）；</li>
+  <li>批次回滚遇"后续被人工修改过的条目"：本期按"跳过并提示"写，确认是否接受；</li>
+  <li>草稿区超 7 天未审标黄提醒，是否要做成消息推送。</li>
+</ol>
+
+<h2>附录：术语</h2>
+<table>
+  <tr><th>术语</th><th>含义</th></tr>
+  <tr><td>动态示例</td><td>query→决策分析的知识对，按语义检索注入 Planner SP，用于修复 badcase</td></tr>
+  <tr><td>召回</td><td>用户 query 进来时，检索系统从示例库中找出最相似的若干条注入 SP</td></tr>
+  <tr><td>top3</td><td>召回结果的前 3 条，目标示例不在 top3 基本等于没被注入</td></tr>
+  <tr><td>批次号</td><td>一次批量操作的唯一标识，用于追溯和回滚</td></tr>
+</table>
+
+</body>
+</html>

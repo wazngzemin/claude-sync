@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: ae8d47e5-7f75-4083-b61d-f4a30e37ec23
-  modified: 2026-08-17T03:37:40.713Z
+  modified: 2026-08-17T06:35:34.841Z
 ---
 
 「第二只虾」飞书机器人（自建应用 cli_a927e3c3eeb8dbcd）= 本机服务 `~/Documents/Codex/2026-08-04/w/feishu-knowledge-assistant`，端口 8788，launchd 守护 `gui/501/com.bytedance.feishu-knowledge-assistant`，重启用目录里的「双击重启飞书助手.command」或 `launchctl kickstart -k`。链路：飞书消息 → WS 长连接 → Codex CLI（LLM_PROVIDER=codex_cli）→ MCP 工具读飞书。
@@ -31,3 +31,5 @@ metadata:
 - 任务盘点类查询的聊天侧必须走通配"*"扫描（chatSearchPlan 的 isTaskOverviewQuery 分支），关键词搜索匹配自然语言问句必 0 命中；汇总侧加了「盘点规则」强制按天列全部日程（buildHostSynthesisPrompt），否则模型只挑有纪要的几场
 - 空群摘要：summarizeChatWindow 在 context.count===0 时返回""不调模型，runOnce 合并成一句"当天没有新消息"（避免模型对空输入编一屏「暂无」模板）
 - 「不够详细」追问=详细化追问（detailedFollowup），buildHostSynthesisPrompt 有专门规则：详细=更深业务解读（每场会背景/决策/负责人/下一步），禁止贴工程字段；且 compactCalendarEvent 已确定性剥离 event_id/self_rsvp_status/meeting_link/status 字段（模型拿不到就贴不出来），测试断言这些字段必须 absent
+- 关键教训：buildHostSynthesisPrompt 是死代码（无调用方，仅测试引用）！真实合成路径=chunkedSynthesis.ts 两段式（buildSourcePrompt 分源摘要→finalShell 最终答案），改输出格式必须改 finalShell/sourceShell。任务四行格式（背景/做到什么程度/怎么做/信息源）写在 finalShell 的 taskOverview||detailedFollowup 分支；sourceShell 负责保留来源名称+日期+完成标准线索
+- 用户看到的"原始字段乱倒"大多是 formatEvidenceBrief 兜底（合成阶段 Codex 失败/超时就降级）：症状=开头"答案整理服务刚才繁忙"。已修：兜底不输出"未知"占位/不泄露ID、源阶段和最终阶段各重试1次（间隔800ms）、Codex容量/鉴权抖动看 service.error.log 的 command handling failed

@@ -1,11 +1,12 @@
 ---
 title: 触发器引擎（Trigger Engine）
 date: 2026-06-02
-updated: 2026-07-13
+updated: 2026-08-18
 tags: [entity, trigger, architecture, product]
 sources:
   - raw/articles/trigger-requirements-full-chain-detail.html
   - 产品-端侧触发器/1-原始素材/会议纪要/7月10日sls端状态接入context,接入触发器需求评审 .md
+  - raw/articles/chat-0818-trigger-repeat-trigger-discussion.md
 status: active
 ---
 
@@ -103,8 +104,20 @@ status: active
 
 详见 [[trigger-requirements-full-chain-detail]]（摘要）。需求1（高频条件清单）是四方共用总源头，需求9（端云分工）是需求7/8的地基。
 
+## 触发语义定论：电平 → 边沿（8.18）
+
+8.18 群聊（施佳杰/王泽民/郝晓伟）针对 badcase "电量<30%持续期间被反复提醒" 明确定论：
+
+- **现状（问题）**：电平触发——只判断条件当前是否满足，满足即 push 下游；条件持续满足期间（如低电量维持 30-60 分钟）按最小间隔反复 push，直到条件不再满足
+- **正解**：边沿触发（edge-triggered / one-shot）——检测条件"从不满足→满足"的跳变沿，一次满足周期内只 push 一次；须条件先回落为不满足、再次满足时才再触发
+- **CD（冷却时间/执行最小间隔）只降频不去重**：如续航<100km 任务最小间隔 30 秒，无法替代边沿语义
+- 行动项：王泽民与研发（刘畅）对齐改造；与 7.10 信号中枢"触发事件=状态突变检测"方向一致，相当于把边沿语义扩展到数值阈值类条件
+
+详见 [[chat-0818-trigger-edge-trigger-discussion]]。
+
 ## 关联页面
 
 - [[signal-hub]] — 信号中枢，触发器引擎所在的统一框架
 - [[trigger-condition-taxonomy]] — 条件分类体系
 - [[meeting-0710-sls-signal-context-trigger-review]] — 7.10架构评审会
+- [[chat-0818-trigger-edge-trigger-discussion]] — 8.18 边沿触发定论

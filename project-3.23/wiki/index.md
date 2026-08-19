@@ -103,6 +103,7 @@ status: active
 | [[trigger-requirements-full-chain-detail]] | trigger-requirements-full-chain-detail.html | 触发器 13 条需求全链路拆解：每条 5 环节（输入→交付→分发→运转→验收）+ 术语词典 + 交付物字段级规格 + 依赖链 |
 | [[anthropic-data-governance-ai-first]] | anthropic-data-governance-ai-first-hanniman.md | 黄钊解读 Anthropic 自助分析：模型是最后一层接口、数据治理才是瓶颈、21/95/65 曲线、人是污染源、AI First 重设计；含与场景知识 Skill 质量的镜像分析 |
 | [[meeting-0710-sls-signal-context-trigger-review]] | 7月10日sls端状态接入context,接入触发器需求评审.md | 7.10 SLS端状态接入+触发器评审：信号中枢三表统一、触发事件/条件拆分、事件日志新链路、端侧触发器定位争议、730三需求、信号协议改动 |
+| [[chat-0818-trigger-edge-trigger-discussion]] | chat-0818-trigger-repeat-trigger-discussion.md | 8.18 群聊：条件任务重复触发 badcase，定论改为边沿触发（one-shot）——阈值穿越瞬间 push 一次，CD 只降频不去重 |
 
 ## 综合分析 (synthesis/)
 

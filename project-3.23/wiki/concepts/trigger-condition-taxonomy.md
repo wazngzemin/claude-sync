@@ -1,11 +1,12 @@
 ---
 title: 触发器条件分类体系与取值判断方式
 date: 2026-06-02
-updated: 2026-07-13
+updated: 2026-08-18
 tags: [concept, trigger, methodology]
 sources:
   - raw/articles/trigger-requirements-full-chain-detail.html
   - 产品-端侧触发器/1-原始素材/会议纪要/7月10日sls端状态接入context,接入触发器需求评审 .md
+  - raw/articles/chat-0818-trigger-repeat-trigger-discussion.md
 status: active
 ---
 
@@ -38,6 +39,8 @@ status: active
 | **变更为（状态变更）** | 从一个状态变成另一个状态的瞬间 | 车门从关→开的瞬间 | 触发事件 |
 
 "变更为"在7.10后被正式定义为"触发事件"的核心判断方式。触发事件还支持非信号来源（埋点、客户透传等）。
+
+**8.18 补充定论（数值阈值的触发语义）**：数值阈值类条件同样是**边沿语义**——"电量<30%"指"电量下穿 30% 阈值"的跳变瞬间（one-shot），而非阈值区间内的持续满足。条件持续成立期间不得按 CD 反复触发；CD（冷却时间/最小执行间隔）只降频、不去重。详见 [[chat-0818-trigger-edge-trigger-discussion]]。
 
 ## 条件类型维度
 

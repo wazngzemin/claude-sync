@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>event 是什么 · 一步一步看</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "PingFang SC", "Hiragino Sans GB", sans-serif;
+    background: #f7f8fa; color: #1f2329;
+    height: 100vh; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    overflow: hidden; user-select: none;
+  }
+  .stage {
+    width: 860px; max-width: 92vw; min-height: 420px;
+    background: #fff; border-radius: 20px;
+    box-shadow: 0 8px 40px rgba(0,0,0,.07);
+    padding: 64px 72px; display: flex; flex-direction: column;
+    justify-content: center; gap: 28px;
+    transition: opacity .25s ease;
+  }
+  .kicker { font-size: 15px; color: #8a8f98; letter-spacing: 2px; }
+  .big { font-size: 34px; line-height: 1.6; font-weight: 700; }
+  .sub { font-size: 20px; line-height: 1.8; color: #4e5561; }
+  .hl { color: #1456f0; }
+  .hl2 { color: #f54a00; }
+  .hl3 { color: #7f3bf0; }
+  .card {
+    background: #fffbe8; border: 1.5px solid #d4b106; border-radius: 12px;
+    padding: 20px 24px; font-size: 19px; line-height: 1.8;
+  }
+  .code {
+    background: #1f2329; color: #7ee787; border-radius: 12px;
+    padding: 16px 24px; font-family: Menlo, monospace; font-size: 18px;
+  }
+  .choice {
+    display: flex; gap: 16px;
+  }
+  .choice div {
+    flex: 1; border-radius: 12px; padding: 18px; font-size: 19px;
+    text-align: center; font-weight: 600;
+  }
+  .ca { background: #eafbe8; color: #2ba471; border: 1.5px solid #2ba471; }
+  .cb { background: #f2f3f5; color: #1f2329; border: 1.5px solid #c9cdd4; }
+  .nav { margin-top: 36px; display: flex; align-items: center; gap: 20px; }
+  button {
+    font-size: 18px; padding: 12px 34px; border-radius: 999px;
+    border: none; cursor: pointer; font-family: inherit;
+  }
+  .next { background: #1456f0; color: #fff; font-weight: 600; }
+  .prev { background: #f2f3f5; color: #4e5561; }
+  .dots { display: flex; gap: 8px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: #d7dae0; }
+  .dot.on { background: #1456f0; }
+  .hint { position: fixed; bottom: 22px; font-size: 13px; color: #b0b5bd; }
+</style>
+</head>
+<body>
+
+<div class="stage" id="stage"></div>
+
+<div class="nav">
+  <button class="prev" id="prev">上一步</button>
+  <div class="dots" id="dots"></div>
+  <button class="next" id="next">下一步</button>
+</div>
+
+<div class="hint">也可以按键盘 ← → 翻页</div>
+
+<script>
+const steps = [
+  {
+    kicker: "第 1 屏 / 共 10 屏",
+    html: `<div class="big">豆包不是一个一直在思考的脑子。</div>
+           <div class="sub">她只有<span class="hl">收到一条消息</span>，才会动一次脑子、做一次决定。</div>`
+  },
+  {
+    kicker: "第 2 屏 / 共 10 屏",
+    html: `<div class="big">平时给她发消息的，主要是人。</div>
+           <div class="sub">副驾平川说：“你会唱王菲的红豆吗？”<br>→ 她收到消息，决定回应：开始唱歌。</div>`
+  },
+  {
+    kicker: "第 3 屏 / 共 10 屏",
+    html: `<div class="big">但有些事情发生时，<span class="hl2">没有人在跟她说话</span>。</div>
+           <div class="sub">她唱到“我们一起颤抖，会更——”<br>主驾左晨转头和别人聊天，把她打断了。</div>`
+  },
+  {
+    kicker: "第 4 屏 / 共 10 屏",
+    html: `<div class="big">这一刻，<span class="hl2">没有任何人告诉她发生了什么</span>。</div>
+           <div class="sub">如果就这样结束，她甚至不知道自己被打断了，<br>更不可能有任何反应。</div>`
+  },
+  {
+    kicker: "第 5 屏 / 共 10 屏",
+    html: `<div class="big">所以，车机系统给她发了一条消息：</div>
+           <div class="card">“主驾左晨和别人说话，打断了你。<br>你唱到‘会更’，后面还有<br>‘明白什么是温柔……’没唱完。”</div>`
+  },
+  {
+    kicker: "第 6 屏 / 共 10 屏",
+    html: `<div class="big">这条系统发来的消息，就叫 <span class="hl3">event</span>。</div>
+           <div class="sub">它只负责“告诉她发生了什么”，<br><span class="hl2">不负责命令她做什么</span>。</div>`
+  },
+  {
+    kicker: "第 7 屏 / 共 10 屏",
+    html: `<div class="big">她收到 event 后，只做一道选择题：</div>
+           <div class="choice"><div class="ca">A · 接着有反应<br>（说话或动手）</div><div class="cb">B · 不吱声<br>（仅知道即可）</div></div>`
+  },
+  {
+    kicker: "第 8 屏 / 共 10 屏",
+    html: `<div class="big">你的日志里，她选了 <span class="hl2">B</span>。</div>
+           <div class="sub">剩下的是歌词（不要紧）＋ 主驾还在聊天（没人想听）<br>→ 不唱了，保持安静。这就是你看到的那行输出：</div>
+           <div class="code">"talk_or_not": "no"</div>`
+  },
+  {
+    kicker: "第 9 屏 / 共 10 屏",
+    html: `<div class="big">换一张纸条，她就会选 <span class="hl">A</span>。</div>
+           <div class="sub">如果 event 写的是：“左后轮胎压快速下降”<br>→ 她会主动开口提醒：</div>
+           <div class="code">"talk_or_not": "yes"</div>
+           <div class="sub">同一张纸条——该说就说，不该说就不说。</div>`
+  },
+  {
+    kicker: "第 10 屏 / 共 10 屏 · 一句话记住",
+    html: `<div class="big"><span class="hl3">event</span> = 没人跟豆包说话时，<br>系统发给她的“<span class="hl">情况通报</span>”。</div>
+           <div class="sub">让她也有机会决定：要不要说点什么。<br>没有 event，她在没人说话的时刻就是聋的、瞎的。</div>`
+  }
+];
+
+let i = 0;
+const stage = document.getElementById('stage');
+const dots = document.getElementById('dots');
+
+steps.forEach((_, idx) => {
+  const d = document.createElement('div');
+  d.className = 'dot';
+  dots.appendChild(d);
+});
+
+function render() {
+  stage.style.opacity = 0;
+  setTimeout(() => {
+    stage.innerHTML = `<div class="kicker">${steps[i].kicker}</div>${steps[i].html}`;
+    stage.style.opacity = 1;
+  }, 150);
+  [...dots.children].forEach((d, idx) => d.classList.toggle('on', idx === i));
+  document.getElementById('prev').style.visibility = i === 0 ? 'hidden' : 'visible';
+  document.getElementById('next').textContent = i === steps.length - 1 ? '再看一遍' : '下一步';
+}
+
+function next() { i = (i + 1) % steps.length; render(); }
+function prev() { if (i > 0) { i--; render(); } }
+
+document.getElementById('next').onclick = next;
+document.getElementById('prev').onclick = prev;
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === ' ') next();
+  if (e.key === 'ArrowLeft') prev();
+});
+
+render();
+</script>
+</body>
+</html>

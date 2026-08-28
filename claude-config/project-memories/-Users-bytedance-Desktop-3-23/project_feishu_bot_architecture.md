@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: ae8d47e5-7f75-4083-b61d-f4a30e37ec23
-  modified: 2026-08-17T06:35:34.841Z
+  modified: 2026-08-19T03:10:08.015Z
 ---
 
 「第二只虾」飞书机器人（自建应用 cli_a927e3c3eeb8dbcd）= 本机服务 `~/Documents/Codex/2026-08-04/w/feishu-knowledge-assistant`，端口 8788，launchd 守护 `gui/501/com.bytedance.feishu-knowledge-assistant`，重启用目录里的「双击重启飞书助手.command」或 `launchctl kickstart -k`。链路：飞书消息 → WS 长连接 → Codex CLI（LLM_PROVIDER=codex_cli）→ MCP 工具读飞书。
@@ -33,3 +33,8 @@ metadata:
 - 「不够详细」追问=详细化追问（detailedFollowup），buildHostSynthesisPrompt 有专门规则：详细=更深业务解读（每场会背景/决策/负责人/下一步），禁止贴工程字段；且 compactCalendarEvent 已确定性剥离 event_id/self_rsvp_status/meeting_link/status 字段（模型拿不到就贴不出来），测试断言这些字段必须 absent
 - 关键教训：buildHostSynthesisPrompt 是死代码（无调用方，仅测试引用）！真实合成路径=chunkedSynthesis.ts 两段式（buildSourcePrompt 分源摘要→finalShell 最终答案），改输出格式必须改 finalShell/sourceShell。任务四行格式（背景/做到什么程度/怎么做/信息源）写在 finalShell 的 taskOverview||detailedFollowup 分支；sourceShell 负责保留来源名称+日期+完成标准线索
 - 用户看到的"原始字段乱倒"大多是 formatEvidenceBrief 兜底（合成阶段 Codex 失败/超时就降级）：症状=开头"答案整理服务刚才繁忙"。已修：兜底不输出"未知"占位/不泄露ID、源阶段和最终阶段各重试1次（间隔800ms）、Codex容量/鉴权抖动看 service.error.log 的 command handling failed
+
+2026-08-19 第三轮修复（"找一下关于触发器评审的会议"答"未检索到"）：
+- 根因=会议/妙记检索把用户整句原文直接当搜索词发给 vc/v1/meetings/search 和 minutes/v1/minutes/search，这两个接口按主题关键词匹配，口语整句（带"帮我找一下""的相关的"）必 0 命中；实测同一句子 0 条、"触发器评审"关键词 5 条会议+3 条妙记
+- 修法：commands.ts 新增 meetingQueryKeyword（引号词→前缀动词剥离"帮我找一下/我想了解"→循环剥离尾部的/相关的+会议/评审/纪要/对齐/讨论等名词；疑问句"哪些/什么/怎么"直接放弃提取），meetingContext/minuteContext 零结果时自动用关键词重试，返回 JSON 带 search_query 实际用词
+- 注意：meetingContext 是宿主预读层（hostFeishuRetrieval 的 meetings/minutes 域）和 Agent 工具层（feishuTools 的 feishu_search_meetings/feishu_search_minutes）的共同收口，改这里两处链路同时修好；正则提取故意保守，提不出词就回退原文不再重试

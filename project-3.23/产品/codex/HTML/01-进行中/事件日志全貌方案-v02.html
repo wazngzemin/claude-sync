@@ -1,0 +1,501 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>事件日志全貌方案 · v02</title>
+  <style>
+    :root{
+      --ink:#162033;--muted:#657087;--line:#dfe5ee;--paper:#fff;--canvas:#f4f6f9;
+      --raw:#667085;--trigger:#1769e0;--event:#0d9488;--planner:#ed7a1c;--input:#7c3aed;
+      --ok:#16865a;--warn:#b7791f;--risk:#c63b46;--soft-blue:#edf5ff;--soft-teal:#eafaf7;
+      --soft-orange:#fff5e8;--soft-purple:#f5efff;--soft-red:#fff0f1;--soft-green:#eefaf4;
+      --shadow:0 14px 36px rgba(28,45,74,.08);--radius:18px;
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{margin:0;color:var(--ink);background:var(--canvas);font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;line-height:1.72}
+    button,a{font:inherit}
+    a{color:inherit}
+    code,pre{font-family:SFMono-Regular,Consolas,"Liberation Mono",monospace}
+    .progress{position:fixed;z-index:50;left:0;top:0;width:0;height:4px;background:linear-gradient(90deg,var(--trigger),var(--input),var(--planner))}
+    .hero{background:radial-gradient(circle at 88% 8%,#243f72 0,#152643 35%,#0c1526 75%);color:#fff;padding:58px 28px 42px}
+    .hero-inner{max-width:1380px;margin:auto}
+    .eyebrow{font-size:14px;letter-spacing:.14em;text-transform:uppercase;color:#a9c7f8;font-weight:700}
+    h1{font-size:clamp(36px,5vw,72px);line-height:1.08;margin:12px 0 18px;letter-spacing:-.045em}
+    .hero p{max-width:920px;font-size:20px;color:#d9e4f6;margin:0}
+    .hero-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:24px;margin-top:34px}
+    .hero-card{border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.07);border-radius:16px;padding:22px 24px;backdrop-filter:blur(10px)}
+    .hero-card strong{display:block;font-size:19px;margin-bottom:8px}.hero-card span{color:#d7e2f4}
+    .status-line{display:flex;flex-wrap:wrap;gap:9px;margin-top:22px}.pill{display:inline-flex;align-items:center;gap:7px;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:700;border:1px solid currentColor}
+    .pill.confirmed{color:#b7f2d2;background:rgba(24,134,90,.18)}.pill.design{color:#b9d8ff;background:rgba(23,105,224,.18)}.pill.pending{color:#ffe3a5;background:rgba(183,121,31,.18)}.pill.example{color:#ddccff;background:rgba(124,58,237,.18)}
+    .toolbar{position:sticky;top:0;z-index:30;background:rgba(255,255,255,.92);border-bottom:1px solid var(--line);backdrop-filter:blur(14px)}
+    .toolbar-inner{max-width:1380px;margin:auto;padding:11px 22px;display:flex;align-items:center;gap:10px;overflow:auto}.toolbar b{white-space:nowrap;margin-right:4px}.filter{border:1px solid var(--line);background:#fff;border-radius:999px;padding:7px 12px;white-space:nowrap;cursor:pointer;color:var(--muted)}.filter.active{background:var(--ink);border-color:var(--ink);color:#fff}
+    .layout{max-width:1380px;margin:28px auto 80px;padding:0 22px;display:grid;grid-template-columns:245px minmax(0,1fr);gap:24px}
+    .side{position:sticky;top:72px;align-self:start;background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px;max-height:calc(100vh - 94px);overflow:auto;box-shadow:var(--shadow)}
+    .side .label{font-size:12px;font-weight:800;color:var(--muted);padding:7px 10px;letter-spacing:.08em}.side a{display:block;text-decoration:none;padding:9px 10px;border-radius:9px;font-size:13px;color:#556176}.side a:hover,.side a.active{background:var(--soft-blue);color:var(--trigger);font-weight:700}
+    main{min-width:0}.chapter{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:clamp(22px,3vw,42px);margin-bottom:24px;box-shadow:var(--shadow);scroll-margin-top:78px}.chapter.hidden{display:none}
+    .chapter-number{display:inline-grid;place-items:center;width:34px;height:34px;border-radius:10px;background:var(--ink);color:#fff;font-size:15px;font-weight:800;margin-right:8px}.chapter h2{margin:0;font-size:clamp(25px,3vw,38px);line-height:1.2;letter-spacing:-.025em}.chapter-head{display:flex;align-items:center;gap:8px;margin-bottom:18px}.lead{font-size:18px;color:#46536a;margin:0 0 22px;max-width:980px}.talk{border-left:5px solid var(--trigger);background:var(--soft-blue);padding:16px 18px;border-radius:0 12px 12px 0;margin:18px 0 24px}.talk b{display:block;color:var(--trigger);font-size:13px;margin-bottom:4px}.talk p{margin:0;font-size:17px}
+    .state-badges{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0 20px}.badge{font-size:11px;font-weight:800;padding:4px 8px;border-radius:999px}.badge.confirmed{color:var(--ok);background:var(--soft-green)}.badge.design{color:var(--trigger);background:var(--soft-blue)}.badge.pending{color:#8b5a16;background:#fff4d8}.badge.example{color:var(--input);background:var(--soft-purple)}.badge.limited{color:var(--risk);background:var(--soft-red)}
+    .grid{display:grid;gap:14px}.grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}.grid.three{grid-template-columns:repeat(3,minmax(0,1fr))}.grid.four{grid-template-columns:repeat(4,minmax(0,1fr))}.card{border:1px solid var(--line);border-radius:14px;padding:18px;background:#fff}.card h3{margin:0 0 8px;font-size:17px}.card p{margin:0;color:var(--muted);font-size:14px}.card.raw{border-top:5px solid var(--raw)}.card.trigger{border-top:5px solid var(--trigger)}.card.event{border-top:5px solid var(--event)}.card.input{border-top:5px solid var(--input)}.card.planner{border-top:5px solid var(--planner)}.card.risk{border-top:5px solid var(--risk)}
+    .remember{margin-top:22px;border:1px solid #b9d4fc;background:linear-gradient(90deg,#edf5ff,#fff);border-radius:13px;padding:15px 18px;font-weight:750;color:#174e9d}.remember::before{content:"这一章只记住：";color:var(--trigger)}
+    .diagram{border:1px solid var(--line);border-radius:16px;background:linear-gradient(180deg,#fbfcfe,#f7f9fc);padding:20px;margin:20px 0;overflow:auto}.diagram-title{font-weight:800;margin-bottom:14px;color:#344057}.flow{min-width:720px;display:flex;align-items:stretch;gap:10px}.node{flex:1;min-width:125px;padding:14px;border:2px solid var(--line);border-radius:13px;background:#fff;text-align:center;display:flex;flex-direction:column;justify-content:center}.node b{font-size:15px}.node small{display:block;color:var(--muted);margin-top:4px}.node.raw{border-color:#98a2b3}.node.trigger{border-color:#6aa7ff;background:var(--soft-blue)}.node.event{border-color:#63cdbf;background:var(--soft-teal)}.node.input{border-color:#ad8cff;background:var(--soft-purple)}.node.planner{border-color:#f1ad67;background:var(--soft-orange)}.node.risk{border-color:#ef8e97;background:var(--soft-red)}.arrow{display:grid;place-items:center;min-width:32px;font-size:25px;color:#7d8798;font-weight:900}.arrow.dashed{font-size:13px;border-top:2px dashed #8792a6;align-self:center;height:0;min-width:46px;position:relative}.arrow.dashed::after{content:"›";position:absolute;right:-3px;top:-18px;font-size:25px}
+    .fork{display:grid;grid-template-columns:210px 1fr;gap:16px;align-items:center;min-width:800px}.fork-source{border:2px solid var(--event);background:var(--soft-teal);padding:20px;border-radius:14px;text-align:center;font-weight:800}.fork-branches{display:grid;grid-template-columns:repeat(5,minmax(130px,1fr));gap:10px}.branch{border:1px solid var(--line);border-left:5px solid var(--event);border-radius:10px;padding:13px;background:#fff}.branch b{display:block}.branch small{color:var(--muted)}
+    .decision{display:grid;grid-template-columns:1fr 1.1fr;gap:16px}.question{border:2px solid #8ebaff;background:#f2f7ff;border-radius:16px;padding:18px}.question h3{margin:0 0 8px}.routes{display:grid;gap:10px}.route{border:1px solid var(--line);border-radius:12px;padding:14px;background:#fff;display:grid;grid-template-columns:74px 1fr 100px;align-items:center;gap:10px}.route .letter{font-size:20px;font-weight:900;color:#fff;background:var(--trigger);width:44px;height:44px;border-radius:12px;display:grid;place-items:center}.route strong{display:block}.route span{font-size:13px;color:var(--muted)}.route .owner{text-align:center;font-weight:800;color:var(--trigger);background:var(--soft-blue);padding:7px;border-radius:9px}
+    .timeline{position:relative;margin:20px 0 0;padding-left:31px}.timeline::before{content:"";position:absolute;left:12px;top:8px;bottom:8px;width:3px;background:#c9d8ee}.step{position:relative;border:1px solid var(--line);border-radius:14px;padding:17px 18px;margin:0 0 12px;background:#fff}.step::before{content:attr(data-step);position:absolute;left:-31px;top:18px;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--trigger);color:#fff;font-size:12px;font-weight:900}.step h3{margin:0 0 8px}.io{display:grid;grid-template-columns:1fr 1.1fr 1fr;gap:10px}.io div{background:#f7f9fc;border-radius:9px;padding:10px;font-size:13px}.io b{display:block;color:#46536a;margin-bottom:3px}.why{margin-top:9px;background:#fff6d8;border-left:4px solid #d5a128;padding:9px 11px;border-radius:0 8px 8px 0;font-size:13px;color:#6e4b11}.why::before{content:"为什么：";font-weight:800}
+    pre{margin:12px 0 0;padding:16px 18px;background:#111b2d;color:#d8e5f7;border-radius:12px;overflow:auto;font-size:13px;line-height:1.6}.comment{color:#8ad2b3}.key{color:#8fc6ff}.str{color:#ffd08a}
+    details{border:1px solid var(--line);border-radius:12px;background:#fbfcfe;margin:12px 0}summary{cursor:pointer;font-weight:750;padding:12px 15px}details>div{padding:0 15px 15px;color:#4e5b71}
+    .compare{display:grid;grid-template-columns:1fr 1fr;gap:16px}.lane{border:1px solid var(--line);border-radius:15px;padding:18px;background:#fff}.lane.current{border-top:6px solid var(--risk)}.lane.future{border-top:6px solid var(--trigger)}.lane h3{margin:0 0 12px}.lane ol{margin:0;padding-left:20px}.lane li{margin-bottom:8px}.lane .label{font-size:11px;font-weight:800;padding:4px 8px;border-radius:999px}.lane.current .label{color:var(--risk);background:var(--soft-red)}.lane.future .label{color:var(--trigger);background:var(--soft-blue)}
+    .subsection{margin:28px 0 10px;padding-top:24px;border-top:1px dashed #cbd5e1}.subsection h3{margin:0 0 7px;font-size:22px}.subsection>p{margin:0 0 14px;color:var(--muted)}
+    .time-axis{min-width:820px;display:grid;grid-template-columns:150px 50px 150px 50px 150px 50px 150px;align-items:center;gap:6px}.time-point{border:2px solid var(--line);border-radius:13px;background:#fff;padding:15px;text-align:center}.time-point.user{border-color:#9e7cf4;background:var(--soft-purple)}.time-point.event{border-color:#54c4b6;background:var(--soft-teal)}.time-point b{display:block}.time-point small{color:var(--muted)}.time-arrow{text-align:center;color:#718096;font-size:23px;font-weight:900}
+    .output-branches{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}.output-branch{border:1px solid var(--line);border-radius:13px;padding:16px;background:#fff}.output-branch.end{border-top:5px solid var(--planner)}.output-branch.tool{border-top:5px solid var(--trigger)}.output-branch h3{margin:0 0 7px}.output-branch p{margin:0;color:var(--muted)}
+    .table-wrap{width:100%;overflow-x:auto;border:1px solid var(--line);border-radius:12px}table{width:100%;min-width:760px;border-collapse:collapse;font-size:14px}th,td{padding:12px 13px;border-bottom:1px solid var(--line);vertical-align:top;text-align:left}th{background:#f2f5f9;color:#46536a;position:sticky;top:48px}tbody tr:hover{background:#fafcff}
+    .gate{display:grid;grid-template-columns:repeat(6,minmax(120px,1fr));gap:8px;min-width:820px}.gate-card{border:1px solid #acd8c5;background:var(--soft-green);border-radius:12px;padding:14px}.gate-card b{display:block;color:var(--ok)}.gate-card span{font-size:12px;color:#4d665c}.gate-card em{display:block;margin-top:8px;color:var(--risk);font-size:11px;font-style:normal}
+    .case-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}.case-tab{border:1px solid var(--line);background:#fff;border-radius:9px;padding:8px 11px;cursor:pointer;color:var(--muted)}.case-tab.active{background:var(--ink);color:#fff}.case-panel{display:none}.case-panel.active{display:block}.case-head{display:flex;gap:10px;align-items:center}.case-head h3{margin:0}.case-path{font-weight:750;color:#344057;background:#f5f7fa;border-radius:10px;padding:12px 14px;margin:13px 0}
+    .source-list{margin:0;padding-left:20px}.source-list li{margin:7px 0}.source-list a{color:var(--trigger);text-decoration:none}.source-list a:hover{text-decoration:underline}
+    .footer-note{text-align:center;color:#778297;padding:10px 20px 60px;font-size:13px}
+    @media(max-width:1040px){.layout{grid-template-columns:1fr}.side{display:none}.hero-grid{grid-template-columns:1fr}.grid.four,.grid.three{grid-template-columns:repeat(2,1fr)}.decision{grid-template-columns:1fr}.fork-branches{grid-template-columns:repeat(2,1fr)}.compare{grid-template-columns:1fr}}
+    @media(max-width:680px){.hero{padding:44px 18px 32px}.hero p{font-size:17px}.layout{padding:0 12px;margin-top:16px}.chapter{padding:20px 16px}.grid.two,.grid.three,.grid.four,.output-branches{grid-template-columns:1fr}.io{grid-template-columns:1fr}.route{grid-template-columns:54px 1fr}.route .owner{grid-column:2}.toolbar-inner{padding:9px 12px}.diagram::after{content:"← 可横向滑动查看完整流程 →";display:block;margin-top:10px;text-align:center;color:#7b8799;font-size:11px}}
+  </style>
+</head>
+<body>
+<div class="progress" id="progress"></div>
+
+<header class="hero">
+  <div class="hero-inner">
+    <div class="eyebrow">Driver Agent 2.0 · 方案讲解稿 · v02</div>
+    <h1>事件日志全貌方案</h1>
+    <p>从现实中发生一件事，到系统把它记成事实，再到记忆、Context、UP、下游业务和 Planner 真正用上它。先讲“谁生产”，再讲“怎么存、谁消费、哪里会断”。</p>
+    <div class="status-line">
+      <span class="pill confirmed">● 原始逐字稿优先</span>
+      <span class="pill design">● 当前 / 长期分开展示</span>
+      <span class="pill pending">● 未确认项不冒充结论</span>
+      <span class="pill example">● 每章都有 case</span>
+    </div>
+    <div class="hero-grid">
+      <div class="hero-card"><strong>一句话全貌</strong><span>谁最清楚事实，谁负责生产；事件服务统一保存；不同消费者按自己的需要查询、订阅或转成 Planner 的新输入。</span></div>
+      <div class="hero-card"><strong>当前实现状态（截至可读的 8 月 24 日消息）</strong><span>链路做过局部联调；Trigger 侧生成与调用已有进展。但事件服务正式上线、业务白名单、屏幕操作事件覆盖和连续信号治理还没完整闭环。</span></div>
+    </div>
+  </div>
+</header>
+
+<div class="toolbar">
+  <div class="toolbar-inner">
+    <b>快速视图</b>
+    <button class="filter active" data-filter="all">完整方案</button>
+    <button class="filter" data-filter="trigger">只看 Trigger</button>
+    <button class="filter" data-filter="consumer">只看消费链路</button>
+    <button class="filter" data-filter="tts">只看《红豆》TTS</button>
+    <button class="filter" data-filter="risk">只看异常与验收</button>
+  </div>
+</div>
+
+<div class="layout">
+  <aside class="side" id="side">
+    <div class="label">讲解目录</div>
+    <a href="#scope">00 先说范围</a>
+    <a href="#terms">01 四层概念</a>
+    <a href="#entry">02 入口与生产归属</a>
+    <a href="#definition">03 事件如何定义</a>
+    <a href="#trigger">04 Trigger 运行链路</a>
+    <a href="#direct">05 直接上报入口</a>
+    <a href="#service">06 事件服务</a>
+    <a href="#consumers">07 五类消费者</a>
+    <a href="#tts">08 《红豆》特殊链路</a>
+    <a href="#planner">09 Planner 决策</a>
+    <a href="#cases">10 四个贯穿 Case</a>
+    <a href="#risks">11 异常与待确认</a>
+    <a href="#acceptance">12 端到端验收</a>
+    <a href="#sources">13 结论与证据</a>
+  </aside>
+
+  <main>
+    <section class="chapter" id="scope" data-topics="all">
+      <div class="chapter-head"><span class="chapter-number">00</span><h2>先说范围：我们到底在解决什么问题？</h2></div>
+      <div class="talk"><b>会上先这么说</b><p>“今天先别看接口。我们先回答一个最基本的问题：车里发生了很多事，哪些事需要留下来？留下来以后，谁会用？”</p></div>
+      <p class="lead">事件日志解决的不是“怎么唤醒 Planner”这一个问题。它先解决更底层的事：把散落在车端、客户端和云端的事实，变成统一、可追溯、可查询、可订阅的系统底账。</p>
+      <div class="grid three">
+        <div class="card raw"><h3>问题 1：Planner 看不见非语音操作</h3><p>用户在屏幕删任务、退登账号、切换开关，这些动作没有变成对话，Planner 可能还沿用旧历史。</p></div>
+        <div class="card trigger"><h3>问题 2：原始状态太多</h3><p>档位、车速、车窗、温度都在变化。全部塞给模型，会形成噪声。必须先过滤、翻译。</p></div>
+        <div class="card event"><h3>问题 3：各业务自己埋点</h3><p>来源冲突、格式不一、时间口径不同。最后谁都说自己上报成功，却没人能还原事实。</p></div>
+      </div>
+      <div class="diagram">
+        <div class="diagram-title">标准事件日志主链：先生产事实，再统一存储，最后并行消费</div>
+        <div class="flow">
+          <div class="node raw"><b>现实发生一件事</b><small>端状态变化 / 客户端操作结果 / 云端结果</small></div><div class="arrow">→</div>
+          <div class="node trigger"><b>最懂事实的模块生产</b><small>Trigger / 客户端业务 / 云端业务</small></div><div class="arrow">→</div>
+          <div class="node event"><b>事件服务统一登记</b><small>接收 · 补字段 · 入库 · 查询 · 订阅</small></div><div class="arrow">→</div>
+          <div class="node input"><b>消费者按需取用</b><small>记忆 / Context / UP / Listener / Planner event（长期）</small></div>
+        </div>
+      </div>
+      <div class="compare">
+        <div class="lane current"><div><span class="label">TTS 当时真实链路</span></div><h3>不进入上面的事件服务主链</h3><p>TTS/GTS 先中断播报 → 直接构造 Planner <code>event</code> → Frontier → Planner 再判断。</p></div>
+        <div class="lane future"><div><span class="label">TTS 长期讨论方向</span></div><h3>未来才考虑纳入标准事件生态</h3><p>TTS/GTS 生产标准事件 → 事件服务入库 → Planner 事件消费者订阅 → 转为 Planner <code>event</code>。</p></div>
+      </div>
+      <div class="subsection"><h3>版本状态矩阵：不要把不同日期、不同成熟度揉成“都已上线”</h3></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>模块</th><th>8 月 11 日评审口径</th><th>8 月 21—24 日可读后续证据</th><th>本页状态</th></tr></thead>
+        <tbody>
+          <tr><td>记忆消费</td><td>当时主要消费者</td><td>无相反证据</td><td><span class="badge confirmed">已有现状</span></td></tr>
+          <tr><td>Trigger 生产</td><td>完成方案评审</td><td>生成和调用有联调进展</td><td><span class="badge design">局部联调</span></td></tr>
+          <tr><td>Context / UP</td><td>需求与方案口径</td><td>档位事件进入 UP 做过测试</td><td><span class="badge design">局部验证</span></td></tr>
+          <tr><td>Planner 事件消费者</td><td>当时还没做</td><td>没有完整上线证据</td><td><span class="badge pending">长期能力</span></td></tr>
+          <tr><td>TTS 标准事件化</td><td>长期讨论方案</td><td>Input Manager 路由仍待确认</td><td><span class="badge pending">未收口</span></td></tr>
+        </tbody>
+      </table></div>
+      <div class="remember">事件日志是一层统一事实底账，不是专门给 Planner 发消息的模块。</div>
+    </section>
+
+    <section class="chapter" id="terms" data-topics="all trigger consumer tts">
+      <div class="chapter-head"><span class="chapter-number">01</span><h2>先拆开四层：你之前卡住的根因就在这里</h2></div>
+      <p class="lead">同一个词 `event` 在不同文档里指了不同东西。先拆开，再谈模块，否则图越大越乱。</p>
+      <div class="grid four">
+        <div class="card raw"><h3>① 原始状态</h3><p><b>人话：</b>系统现在看到的值。<br><b>例：</b><code>gear=D</code><br><b>还不是：</b>业务事件。</p></div>
+        <div class="card trigger"><h3>② 状态变化 / 业务事件</h3><p><b>人话：</b>与上一次相比发生了什么。<br><b>例：</b><code>P → D</code><br><b>本例来源：</b>Trigger 根据新旧状态判断；明确点击和云端结果可由对应业务直接生产。</p></div>
+        <div class="card event"><h3>③ 事件日志</h3><p><b>人话：</b>系统登记的一条业务事实。<br><b>例：</b>“档位由 P 设置为 D”。<br><b>作用：</b>保存、查询、订阅。</p></div>
+        <div class="card input"><h3>④ Planner 的 event 输入</h3><p><b>人话：</b>为了让 Planner 立刻再判断一次的情况通报。<br><b>例：</b>TTS 被打断，已播到哪里、还剩什么。</p></div>
+      </div>
+      <div class="diagram">
+        <div class="diagram-title">用同一个档位 case 看四层变化</div>
+        <div class="flow">
+          <div class="node raw"><b>gear=D</b><small>现在是什么</small></div><div class="arrow">→</div>
+          <div class="node trigger"><b>P → D</b><small>和上次相比变了什么</small></div><div class="arrow">→</div>
+          <div class="node event"><b>档位由 P 设置为 D</b><small>可保存的事实</small></div><div class="arrow">⇢</div>
+          <div class="node input"><b>是否需要唤醒 Planner？</b><small>只有少量事件需要</small></div>
+        </div>
+      </div>
+      <div class="remember">事件日志可以存在但不唤醒 Planner；Planner 的 event 输入只是事件的一种消费结果。</div>
+    </section>
+
+    <section class="chapter" id="entry" data-topics="all trigger tts">
+      <div class="chapter-head"><span class="chapter-number">02</span><h2>第一块看入口：一件事到底由谁生产？</h2></div>
+      <div class="talk"><b>会上先这么说</b><p>“先别急着看 Trigger。我们只问一个问题：这件事谁最清楚？谁掌握第一手证据，谁负责生产。”</p></div>
+      <div class="state-badges"><span class="badge confirmed">已确认：一个事件 ID 只有一个生产来源</span><span class="badge confirmed">已确认：来源迁移时新增 ID</span></div>
+      <div class="decision">
+        <div class="question"><h3>判断依据</h3><p>上游掌握的是原始状态、新旧变化、明确点击、云端结果，还是 TTS 播放进度？不要为了“统一”就把所有事实都硬塞进 Trigger。</p><div class="remember">生产方按“谁最清楚事实”决定，不按“谁最方便接”决定。</div></div>
+        <div class="routes">
+          <div class="route"><div class="letter">A</div><div><strong>只有端状态新旧值</strong><span>档位、车窗、导航、媒体状态变化</span></div><div class="owner">Trigger</div></div>
+          <div class="route"><div class="letter" style="background:#667085">B</div><div><strong>客户端明确知道操作或真实结果</strong><span>点击事实由客户端确认；删除成功必须由拿到业务结果的模块确认</span></div><div class="owner" style="color:#556176;background:#f1f3f6">客户端/业务方</div></div>
+          <div class="route"><div class="letter" style="background:#0d9488">C</div><div><strong>云端自己产生事实</strong><span>云端埋点、任务结果、账号变化</span></div><div class="owner" style="color:#08786f;background:#eafaf7">云端业务</div></div>
+          <div class="route"><div class="letter" style="background:#7c3aed">D</div><div><strong>掌握 TTS 已播 / 未播与打断原因</strong><span>《红豆》播报被打断</span></div><div class="owner" style="color:#6530c0;background:#f5efff">TTS / GTS</div></div>
+        </div>
+      </div>
+      <h3>Case：为什么“点击下一首”和“媒体变了”不能共用一个 ID？</h3>
+      <div class="grid two">
+        <div class="card raw"><h3>事实 1：用户点击了“下一首”</h3><p>客户端能确认的是 <code>user_clicked_next</code> 这个点击事实；它不能仅凭点击就声称媒体已经切换成功。</p></div>
+        <div class="card trigger"><h3>事实 2：当前媒体由 A 变成 B</h3><p>端状态只看到播放内容变化。生产方可以是 Trigger。</p></div>
+      </div>
+      <p>两件事可能同时发生，但含义不同：点击不保证切换成功；媒体变化也不保证来自按钮。正确做法是拆成两个事件 ID，而不是抢同一个 ID。</p>
+      <div class="remember">先定唯一生产方，再定接口。不要先接链路，后补来源规则。</div>
+    </section>
+
+    <section class="chapter" id="definition" data-topics="all trigger">
+      <div class="chapter-head"><span class="chapter-number">03</span><h2>运行前先配置：事件不是现场临时编出来的</h2></div>
+      <div class="talk"><b>会上先这么说</b><p>“到这里停一下。运行时 Trigger 不应该再临时想‘这是什么事件’。产品要在上线前把事件、场景和消费规则三件事配好。”</p></div>
+      <div class="state-badges"><span class="badge confirmed">本期：Excel + Python 脚本导入</span><span class="badge design">长期：统一事件管理后台</span></div>
+      <div class="grid three">
+        <div class="card event"><h3>事件定义</h3><p><code>event_id</code>、名称、唯一来源、人工模板、结构化字段、渠道。</p></div>
+        <div class="card trigger"><h3>Trigger 场景</h3><p>渠道、监听信号、触发条件、生成事件 Action、绑定事件 ID 和模板。</p></div>
+        <div class="card input"><h3>消费白名单</h3><p>哪些事件给记忆、Context、UP、下游 Listener，哪些需要主动唤醒 Planner。</p></div>
+      </div>
+      <div class="diagram">
+        <div class="diagram-title">配置期关系：一个事件定义，同时被生产配置和多类消费配置引用</div>
+        <div class="fork"><div class="fork-source">产品事件定义 / ID<br><small>gear_changed · 模板 · 唯一 producer</small></div><div class="fork-branches"><div class="branch"><b>Trigger 场景</b><small>端状态生产规则</small></div><div class="branch"><b>Context / UP 白名单</b><small>查询哪些事件</small></div><div class="branch"><b>Listener / TCC</b><small>下游订阅哪些事件</small></div><div class="branch"><b>Planner 主动事件规则</b><small>长期：哪些事件立刻决策</small></div></div></div>
+      </div>
+      <p>Trigger 场景和消费规则是并列关系：消费白名单不会由 Trigger 生成，Trigger 也不决定某条事件最终进 SP、UP 还是 Planner。</p>
+      <details open><summary>档位事件定义示意</summary><div><pre><span class="key">event_id</span>: <span class="str">gear_changed</span>
+<span class="key">event_name</span>: <span class="str">档位变化</span>
+<span class="key">producer</span>: <span class="str">cloud_trigger</span>
+<span class="key">template</span>: <span class="str">档位由 {old_value} 设置为 {current_value}</span>
+<span class="key">resource_info</span>: [old_value, current_value]
+<span class="key">channels</span>: [saic, seres]</pre></div></details>
+      <div class="grid two">
+        <div class="card risk"><h3>容易出错</h3><p>同一 ID 多来源；模板变量缺失；把每个 UI 点击拆成过细事件；渠道没有对应字段。</p></div>
+        <div class="card event"><h3>怎么验收</h3><p>Trigger 后台能选到正确 ID、名称和模板；不同渠道只显示真实支持的信号；消费白名单能关联同一事件定义。</p></div>
+      </div>
+      <div class="remember">配置期决定“允许发生什么”；运行期只执行已经确定的规则。</div>
+    </section>
+
+    <section class="chapter" id="trigger" data-topics="all trigger risk">
+      <div class="chapter-head"><span class="chapter-number">04</span><h2>Trigger 运行期：把“现在是 D”翻译成“刚从 P 变成 D”</h2></div>
+      <p class="lead">Trigger 的价值不是“收信号”，而是夹在原始状态和业务事实之间，做确定性过滤和翻译。事件服务不应该理解每家车企的原始协议，Planner 也不应该接收所有原始噪声。</p>
+      <div class="state-badges"><span class="badge confirmed">事件时间＝Trigger 匹配成功时间</span><span class="badge confirmed">支持批量 RPC</span><span class="badge confirmed">本期不加 30 秒重复限制</span></div>
+      <div class="timeline">
+        <div class="step" data-step="1"><h3>收到端状态</h3><div class="io"><div><b>输入</b><code>channel=saic, gear=D</code></div><div><b>处理</b>确认这是一条档位信号</div><div><b>输出</b>当前值 D</div></div><div class="why">Trigger 此时拿到的是状态，不是业务事件。</div></div>
+        <div class="step" data-step="2"><h3>选择渠道协议</h3><div class="io"><div><b>输入</b>上汽 / 赛力斯</div><div><b>处理</b>加载本渠道实际支持字段</div><div><b>输出</b>正确的信号解释</div></div><div class="why">不同渠道字段、子字段和取值范围可能不同。</div></div>
+        <div class="step" data-step="3"><h3>从运行 Context 取旧值，再和当前值比较</h3><div class="io"><div><b>端状态输入</b><code>current=D</code></div><div><b>运行 Context（不是 Context SP）</b><code>old=P</code></div><div><b>Trigger 输出</b><code>P → D</code></div></div><div class="why">会议口径是 Trigger 从状态运行上下文取旧值，再执行比较；不能写成 Trigger 自己持久化旧值。第一次没有旧值时，初始化规则仍需明确。</div></div>
+        <div class="step" data-step="4"><h3>匹配预置场景</h3><div class="io"><div><b>输入</b>gear changed</div><div><b>处理</b>查找依赖 gear 的场景，检查全部条件</div><div><b>输出</b>命中 / 不命中</div></div><div class="why">Trigger 执行产品规则，不在运行时临时理解业务。</div></div>
+        <div class="step" data-step="5"><h3>执行 generate_event_log Action</h3><div class="io"><div><b>输入</b>命中的场景</div><div><b>处理</b>绑定 <code>event_id</code> 和模板</div><div><b>输出</b>进入事件构造</div></div><div class="why">Trigger 只生产事实，不决定是否提醒用户。</div></div>
+        <div class="step" data-step="6"><h3>同时生成自然语言和结构化数据</h3><div class="io"><div><b>event_info</b>档位由 P 设置为 D</div><div><b>resource_info</b><code>{old:P,current:D}</code></div><div><b>输出</b>人和程序都能用</div></div><div class="why"><code>event_info</code> 给人和模型读；<code>resource_info</code> 给程序精确处理。</div></div>
+        <div class="step" data-step="7"><h3>设置事件时间</h3><div class="io"><div><b>端状态时间</b>原始上报</div><div><b>event_time</b>Trigger 匹配成功</div><div><b>入库时间</b>事件服务落账</div></div><div class="why">三个时间含义不同；本期 Trigger 事件使用匹配成功时间。</div></div>
+        <div class="step" data-step="8"><h3>批量 RPC 上报并记录结果</h3><div class="io"><div><b>输入</b>本次命中的多条事件</div><div><b>处理</b>调用事件服务</div><div><b>输出</b>RPC 结果、车辆、渠道、事件 ID</div></div><div class="why">一次状态上报可能命中多个场景；联调必须能追踪请求和响应。</div></div>
+      </div>
+      <details open><summary>Trigger 上报结果示意</summary><div><pre>{
+  <span class="key">"event_id"</span>: <span class="str">"gear_changed"</span>,
+  <span class="key">"event_time"</span>: <span class="str">"Trigger 匹配成功时间"</span>,
+  <span class="key">"event_info"</span>: <span class="str">"档位由 P 设置为 D"</span>,
+  <span class="key">"resource_info"</span>: {<span class="key">"old_value"</span>: <span class="str">"P"</span>, <span class="key">"current_value"</span>: <span class="str">"D"</span>},
+  <span class="key">"vehicle_id"</span>: <span class="str">"..."</span>,
+  <span class="key">"channel"</span>: <span class="str">"saic"</span>
+}</pre></div></details>
+      <div class="grid two">
+        <div class="card trigger"><h3>Trigger 要做</h3><p>分渠道解析；从运行 Context 读取旧值并比较当前值；匹配预置规则；填 <code>event_info</code>；生成 <code>resource_info</code>；批量 RPC；保留联调证据。</p></div>
+        <div class="card risk"><h3>Trigger 不做</h3><p>不算 TTS 已播/未播；不直接写数据库；不维护白名单；不直接推 Planner；不决定 <code>talk_or_not</code>；不生成记忆。</p></div>
+      </div>
+      <div class="remember">Trigger 的输入是状态，输出是标准事件；它不负责事件后面怎么被消费。</div>
+    </section>
+
+    <section class="chapter" id="direct" data-topics="all tts">
+      <div class="chapter-head"><span class="chapter-number">05</span><h2>为什么有些入口不经过 Trigger？</h2></div>
+      <div class="talk"><b>会上先这么说</b><p>“如果客户端已经知道用户点了什么、操作是否成功，还要不要让 Trigger 再从状态猜一遍？不需要。让最接近事实的模块直接上报，反而更准。”</p></div>
+      <div class="grid two">
+        <div class="card raw"><h3>标准直接入口：客户端 / 客户端业务</h3><p>点击事实由客户端确认；授权、退登、删除成功等结果，必须由实际拿到业务结果的模块确认后上报事件服务。</p></div>
+        <div class="card event"><h3>标准直接入口：云端业务</h3><p>云端任务结果、账号变化、服务端埋点，由掌握真实结果的云端业务直接上报事件服务。</p></div>
+      </div>
+      <div class="compare" style="margin-top:14px">
+        <div class="lane current"><div><span class="label">TTS 当前</span></div><h3>不是事件服务直接入口</h3><p>掌握打断原因、已播位置和未播内容后，直接构造 Planner <code>event</code>，经 Frontier 进入新一轮决策。</p></div>
+        <div class="lane future"><div><span class="label">TTS 长期</span></div><h3>拟成为标准事件生产方</h3><p>未来可能直接生产标准事件并上报事件服务；消费者和 Input Manager 路由当时均未收口。</p></div>
+      </div>
+      <h3>教学 Case：用户在屏幕删除任务</h3>
+      <div class="diagram"><div class="flow"><div class="node raw"><b>点击删除</b><small>task_id=123</small></div><div class="arrow">→</div><div class="node raw"><b>客户端拿到真实结果</b><small>delete success</small></div><div class="arrow">→</div><div class="node event"><b>直接上报事件服务</b><small>user_deleted_task</small></div><div class="arrow">→</div><div class="node input"><b>UP 后续帮助理解</b><small>用户说“再建回来”</small></div></div></div>
+      <div class="state-badges"><span class="badge example">教学示例：用来讲清入口归属</span><span class="badge limited">当时屏幕操作事件清单与业务白名单尚未完整落地</span></div>
+      <details><summary>删除任务事件数据示意</summary><div><pre>{
+  <span class="key">"event_id"</span>: <span class="str">"user_deleted_task"</span>,
+  <span class="key">"event_info"</span>: <span class="str">"用户手动删除了明早 8 点的会议提醒"</span>,
+  <span class="key">"resource_info"</span>: {
+    <span class="key">"task_id"</span>: <span class="str">"task_123"</span>,
+    <span class="key">"operation"</span>: <span class="str">"delete"</span>,
+    <span class="key">"result"</span>: <span class="str">"success"</span>
+  }
+}</pre></div></details>
+      <div class="remember">能直接知道操作对象和结果的业务，不要让 Trigger 再猜。</div>
+    </section>
+
+    <section class="chapter" id="service" data-topics="all consumer risk">
+      <div class="chapter-head"><span class="chapter-number">06</span><h2>事件服务：统一登记处，不是业务判断员</h2></div>
+      <p class="lead">标准事件生产方最终汇入事件服务。它负责统一接收、补字段、落账、查询和订阅，但不替 Trigger 判断端状态，也不替 Planner 判断要不要说话。TTS 当前临时链不经过这里，只有长期方案才考虑接入。</p>
+      <div class="diagram">
+        <div class="flow">
+          <div class="node raw"><b>标准入口上报</b><small>Trigger / 客户端业务 / 云端业务；TTS 仅长期</small></div><div class="arrow">→</div>
+          <div class="node event"><b>统一接收</b><small>批量事件 + 公参</small></div><div class="arrow">→</div>
+          <div class="node event"><b>补全</b><small>user_in_car / 默认模板兜底</small></div><div class="arrow">→</div>
+          <div class="node event"><b>事件日志入库</b><small>可查询 · 可追溯</small></div><div class="arrow">→</div>
+          <div class="node input"><b>开放消费</b><small>查询接口 / Listener 回调</small></div>
+        </div>
+      </div>
+      <div class="grid four">
+        <div class="card event"><h3>事件定义列表 RPC</h3><p>给 Trigger 后台返回事件 ID、名称和模板。</p></div>
+        <div class="card event"><h3>批量上报 RPC</h3><p>接收一个或多个标准事件。</p></div>
+        <div class="card event"><h3>事件查询接口</h3><p>按时间范围、事件 ID 白名单等条件查询。</p></div>
+        <div class="card event"><h3>Listener 注册 / 回调</h3><p>下游登记关注事件和回调方式。</p></div>
+      </div>
+      <div class="subsection"><h3>完整 Case：档位事件进入事件服务后，里面到底发生什么？</h3><p>这里不再只看两个字段，而是看一只完整“事件信封”。</p></div>
+      <details open><summary>完整事件信封示意</summary><div><pre>{
+  <span class="key">"event_id"</span>: <span class="str">"gear_changed"</span>,
+  <span class="key">"event_time"</span>: <span class="str">"Trigger 匹配成功时间"</span>,
+  <span class="key">"event_info"</span>: <span class="str">"档位由 P 设置为 D"</span>,
+  <span class="key">"resource_info"</span>: {<span class="key">"old_value"</span>: <span class="str">"P"</span>, <span class="key">"current_value"</span>: <span class="str">"D"</span>},
+  <span class="key">"vehicle_id"</span>: <span class="str">"车辆公参"</span>,
+  <span class="key">"channel"</span>: <span class="str">"saic"</span>,
+  <span class="key">"user_in_car"</span>: <span class="str">"可由调用方传；未传时服务补齐"</span>
+}</pre></div></details>
+      <div class="grid three">
+        <div class="card raw"><h3>输入</h3><p>一个或多个事件；ID、发生时间、自然语言、结构化字段、车辆与渠道公参；<code>user_in_car</code> 可选。</p></div>
+        <div class="card event"><h3>处理</h3><p>统一接收 → 缺车内人时查端状态补齐 → 有 <code>event_info</code> 直接用 → 没有则默认模板兜底 → 入库。</p></div>
+        <div class="card input"><h3>输出</h3><p>上报结果、可查询的事件记录；若命中已授权 Listener，还会进入对应下游回调。</p></div>
+      </div>
+      <div class="grid two" style="margin-top:14px">
+        <div class="card trigger"><h3>为什么不让 Trigger 直接写库？</h3><p>否则客户端、云端、Trigger 会各自维护存储和查询规则。事件服务把公共字段、落账、查询和订阅统一起来，生产方只对“事实是否正确”负责。</p></div>
+        <div class="card risk"><h3>异常与验收</h3><p>未定义 ID、关键字段缺失、补不到车内人、模板变量缺失、入库失败，都可能让“接口返回”与“真实可查”不一致。必须用查询接口回查落账；幂等、重试、补发仍待确认。</p></div>
+      </div>
+      <div class="state-badges"><span class="badge confirmed">调用方无 user_in_car 时，事件服务查询端状态补齐</span><span class="badge confirmed">模板更新不回刷历史</span><span class="badge pending">幂等、重试、补发未收口</span></div>
+      <div class="remember">RPC 返回成功还不够；必须继续回查事件是否真实入库。</div>
+    </section>
+
+    <section class="chapter" id="consumers" data-topics="all consumer">
+      <div class="chapter-head"><span class="chapter-number">07</span><h2>事件入库后：五类消费者并行使用，不是串行链路</h2></div>
+      <div class="talk"><b>会上先这么说</b><p>“写进事件日志只是落账。后面谁用、怎么取，是五条并行路径。这里不要再画成 Context → UP → Planner 一条线。”</p></div>
+      <div class="diagram"><div class="fork"><div class="fork-source">事件服务<br><small>事件日志主存储<br>查询 / 订阅接口</small></div><div class="fork-branches"><div class="branch"><b>记忆服务</b><small>生产记忆基础数据</small></div><div class="branch"><b>Context SP</b><small>近期重要事件流</small></div><div class="branch"><b>UP</b><small>穿插对话历史</small></div><div class="branch"><b>Listener / TCC</b><small>推给下游业务</small></div><div class="branch"><b>Planner event</b><small>少量事件主动决策</small></div></div></div></div>
+      <div class="grid two">
+        <div class="card event"><h3>① 记忆服务｜当前主要消费者</h3><p><b>输入：</b>事件日志、豆包账号、<code>user_in_car</code>。<br><b>处理：</b>判断事件属于谁，形成记忆基础数据。<br><b>异常：</b>车内人补错会造成记忆归属错误。</p></div>
+        <div class="card trigger"><h3>② Context SP｜近期情况摘要</h3><p><b>输入：</b>时间范围、SP 白名单。<br><b>处理：</b>查询、处理“几分钟前”等时间表达、拼入 SP。<br><b>输出：</b>本轮 Planner 可见的近期事件流。</p></div>
+        <div class="card input"><h3>③ UP｜对话历史增强</h3><p><b>输入：</b>上轮时间 T1、本轮时间 T2、UP 白名单。<br><b>处理：</b>查询、排序、穿插。<br><b>输出：</b>带事件背景的历史与 <code>context_info</code> 引用。</p></div>
+        <div class="card planner"><h3>④ Listener / TCC｜下游通知</h3><p><b>输入：</b>产品授权、事件 ID 白名单、回调信息。<br><b>处理：</b>命中订阅后格式化回调。<br><b>输出：</b>下游业务真实收到事件。</p></div>
+        <div class="card input" style="grid-column:1/-1"><h3>⑤ Planner 事件消费者｜长期能力，不能当成已上线</h3><p><b>长期输入：</b>少量需要立刻重新决策的事件。<br><b>处理：</b>订阅 → 包装成 Planner <code>event</code> → 经待确认输入路由。<br><b>当前边界：</b>《红豆》临时链直接走 Frontier，不是事件日志消费者；评审时该消费者尚未实现。</p></div>
+      </div>
+
+      <div class="subsection"><h3>② Context SP：什么时候查？怎么进入 Planner？</h3><p>它不是事件一入库就自动塞给 Planner，而是在一轮输入组装时，按本轮规则主动查询。</p></div>
+      <div class="diagram"><div class="flow"><div class="node raw"><b>新一轮输入开始组装</b><small>确定查询时间范围</small></div><div class="arrow">→</div><div class="node trigger"><b>Context 带 SP 白名单查询</b><small>只查允许进入 SP 的事件</small></div><div class="arrow">→</div><div class="node event"><b>事件服务返回</b><small>例如 gear_changed + 原始时间</small></div><div class="arrow">→</div><div class="node trigger"><b>Context 格式化</b><small>把时间处理成“3 分钟前”等</small></div><div class="arrow">→</div><div class="node input"><b>拼入 SP</b><small>Planner/Director 本轮可见</small></div></div></div>
+      <div class="grid three">
+        <div class="card raw"><h3>Case 输入</h3><p>本轮查询范围内已经存在“档位由 P 设置为 D”，且 <code>gear_changed</code> 在 SP 白名单。</p></div>
+        <div class="card trigger"><h3>为什么由 Context 处理时间？</h3><p>事件服务保存事实和原始时间；“刚刚 / 3 分钟前”的显示跟本轮时刻相关，应该由使用它的 Context 现场计算。</p></div>
+        <div class="card risk"><h3>异常与验收</h3><p>白名单漏配、时间范围错误、条数过多、SP 拼装遗漏都会导致“库里有、Planner 看不见”。验收要回读 Planner 的最终 SP 入参。</p></div>
+      </div>
+
+      <div class="subsection"><h3>③ UP：事件到底怎么“穿插进历史”？</h3><p>UP 不是伪造一条用户消息，而是把两轮用户消息之间的重点事实，按真实事件时间放回上下文。</p></div>
+      <div class="diagram"><div class="time-axis"><div class="time-point user"><b>T1 用户消息</b><small>“明早提醒我开会”</small></div><div class="time-arrow">→</div><div class="time-point event"><b>事件 A</b><small>客户端删除任务</small></div><div class="time-arrow">→</div><div class="time-point event"><b>事件 B</b><small>其他白名单事件</small></div><div class="time-arrow">→</div><div class="time-point user"><b>T2 用户消息</b><small>“再帮我建回来”</small></div></div></div>
+      <div class="diagram"><div class="flow"><div class="node input"><b>取 T1～T2</b><small>确定时间边界</small></div><div class="arrow">→</div><div class="node event"><b>查 UP 白名单事件</b><small>不是把全库都拿来</small></div><div class="arrow">→</div><div class="node input"><b>按 event_time 排序穿插</b><small>放回正确时间</small></div><div class="arrow">→</div><div class="node input"><b>记录 context_info</b><small>标明引用自哪条事件</small></div><div class="arrow">→</div><div class="node planner"><b>Planner 理解“建回来”</b><small>再决定是否创建任务</small></div></div></div>
+      <div class="grid three">
+        <div class="card input"><h3>UP 输出是什么</h3><p>带事件背景的对话历史，以及可追溯的 <code>chat_history.context_info</code>。后者只记引用来源，不替代事件主库。</p></div>
+        <div class="card risk"><h3>它不做什么</h3><p>不把所有事件都塞进历史；不把事件伪装成用户说的话；不决定 Planner 最后要不要创建任务。</p></div>
+        <div class="card event"><h3>异常与验收</h3><p>条数上限当时未确认。验收要同时检查：查询范围、排序结果、UP 最终内容、<code>context_info</code> 是否能回到原事件。</p></div>
+      </div>
+      <h3>真实下游 Case：用户退登 / 喜马拉雅授权通知弋途</h3>
+      <div class="diagram"><div class="flow"><div class="node raw"><b>客户端 / 账号业务</b><small>生产真实操作事件</small></div><div class="arrow">→</div><div class="node event"><b>事件服务入库</b><small>结构化数据</small></div><div class="arrow">→</div><div class="node input"><b>TCC 白名单命中</b><small>产品已授权</small></div><div class="arrow">→</div><div class="node planner"><b>回调弋途</b><small>下游真实收到</small></div></div></div>
+      <div class="grid two"><div class="card planner"><h3>为什么走 Listener</h3><p>弋途要的是确定的结构化通知，不需要 Planner 参与语义判断；产品授权和 TCC 白名单控制谁可以订阅。</p></div><div class="card risk"><h3>异常与验收</h3><p>漏配、回调失败、未授权订阅、只传自然语言都可能断链。验收要看到下游真实收到的数据和回调结果，不只看事件已入库。</p></div></div>
+      <div class="remember">入库不等于所有消费者都能看到；每条消费路径都有自己的白名单、查询或订阅规则。</div>
+    </section>
+
+    <section class="chapter" id="tts" data-topics="all tts risk">
+      <div class="chapter-head"><span class="chapter-number">08</span><h2>《红豆》TTS 打断：必须分“当时现状”和“长期目标”</h2></div>
+      <p class="lead">这条 case 解释的是 Planner 的 <code>event</code> 输入，不是 Trigger 标准主链。原始请求里，TTS 已经先被打断，系统再把“已播 / 未播 / 打断原因”包装成新一轮输入。</p>
+      <div class="compare">
+        <div class="lane current"><div><span class="label">当时真实临时方案</span></div><h3>直接 Frontier，不经过 Trigger 和事件日志</h3><ol><li>副驾请求唱《红豆》。</li><li>Planner 生成完整 <code>talk_content</code>。</li><li>TTS 实际只播到“会更”。</li><li>主驾与他人交谈，TTS/GTS 先中断播报。</li><li>取得已播内容、未播内容和时间。</li><li>直接构造 <code>event</code>，发送 Frontier。</li><li>Planner 新一轮输出 <code>talk_or_not=no</code>。</li></ol></div>
+        <div class="lane future"><div><span class="label">长期讨论方案</span></div><h3>纳入标准事件日志生态</h3><ol><li>TTS/GTS 判断满足事件生产条件。</li><li>上报标准事件。</li><li>事件服务统一入库。</li><li>Planner 事件消费者订阅。</li><li>包装为 Planner <code>event</code> 输入。</li><li>经最终确认的输入路由。</li><li>Planner 重新决策。</li></ol><div class="state-badges"><span class="badge pending">是否经过 Input Manager：待产品确认</span><span class="badge pending">消费者实现：当时未做</span></div></div>
+      </div>
+      <h3>为什么输出 no？</h3>
+      <div class="state-badges"><span class="badge example">解释性复盘：依据本次 Planner 入参和输出推导，不是会议确认的固定规则</span></div>
+      <div class="diagram"><div class="flow"><div class="node input"><b>剩余内容</b><small>歌词，不是安全或操作信息</small></div><div class="arrow">+</div><div class="node raw"><b>车内注意力</b><small>主驾正在真人交谈</small></div><div class="arrow">+</div><div class="node raw"><b>用户意愿</b><small>没有说“继续唱”</small></div><div class="arrow">→</div><div class="node planner"><b>当前轮保持安静</b><small>talk_or_not=no · action_list=[]</small></div></div></div>
+      <div class="grid two">
+        <div class="card input"><h3>event 做了什么</h3><p>把“模型文本已经生成完”与“TTS 实际只播到哪里”重新对齐，给 Planner 一次重新判断的机会。</p></div>
+        <div class="card risk"><h3>event 没做什么</h3><p>它没有让 Planner 去停止 TTS。TTS 在 event 到达前已经被中断；event 只通报结果。</p></div>
+      </div>
+      <div class="remember">《红豆》event 是 Planner 的情况通报；它当时不是事件日志标准主链的产物。</div>
+    </section>
+
+    <section class="chapter" id="planner" data-topics="all consumer tts">
+      <div class="chapter-head"><span class="chapter-number">09</span><h2>Planner/Director：消费事实，决定反应</h2></div>
+      <p class="lead">Planner 与 Director 是同一个决策职能，不要画成前后串行模块。Trigger、事件服务和 Listener 都不能替它决定说不说、做不做。</p>
+      <div class="diagram"><div class="flow"><div class="node input"><b>本轮输入</b><small>user_query / event / SP / UP / tool_feedback</small></div><div class="arrow">→</div><div class="node planner"><b>Planner/Director</b><small>整理已知 / 未知，判断价值和时机</small></div><div class="arrow">→</div><div class="node planner"><b>本轮输出</b><small>talk_or_not · talk_content · action_list</small></div></div></div>
+      <div class="output-branches">
+        <div class="output-branch end"><h3>分支 A：仅表达或保持沉默</h3><p><code>action_list=[]</code> → 不调用工具 → 本轮直接结束。《红豆》属于这个分支：<code>talk_or_not=no</code>。</p></div>
+        <div class="output-branch tool"><h3>分支 B：action_list 非空</h3><p>调用工具 → 获得真实执行结果 → 以 <code>tool_feedback</code> 进入下一轮判断。只有这个分支才出现工具闭环。</p></div>
+      </div>
+      <div class="grid four">
+        <div class="card raw"><h3>user_query</h3><p>用户主动对豆包说的话。</p></div>
+        <div class="card input"><h3>event</h3><p>用户没说话时，系统送来的值得注意的情况。</p></div>
+        <div class="card event"><h3>SP / UP</h3><p>规则、近期事件和带事件的历史。</p></div>
+        <div class="card trigger"><h3>tool_feedback</h3><p>工具或下游智能体的真实执行结果。</p></div>
+      </div>
+      <div class="subsection"><h3>两个对照 Case：一眼看懂“结束”与“继续”</h3></div>
+      <div class="grid two">
+        <div class="card input"><h3>《红豆》：没有工具</h3><p><b>输入：</b>TTS 打断的 Planner <code>event</code>。<br><b>判断：</b>当前是否还需要表达或行动。<br><b>输出：</b><code>talk_or_not=no</code>、<code>action_list=[]</code>。<br><b>结果：</b>本轮结束，没有 <code>tool_feedback</code>。</p></div>
+        <div class="card trigger"><h3>“导航去公司”：有工具的教学对照</h3><p><b>输入：</b><code>user_query</code>。<br><b>判断：</b>需要真实路线结果。<br><b>输出：</b><code>action_list=[route_planning_qa]</code>。<br><b>结果：</b>工具返回路线 → <code>tool_feedback</code> → Planner 再决定如何回复或导航。</p></div>
+      </div>
+      <div class="remember">事件只提供事实；Planner 才决定说话、行动或保持沉默。</div>
+    </section>
+
+    <section class="chapter" id="cases" data-topics="all trigger consumer tts">
+      <div class="chapter-head"><span class="chapter-number">10</span><h2>四个 Case 串起来看</h2></div>
+      <div class="case-tabs">
+        <button class="case-tab active" data-case="gear">档位 P→D</button>
+        <button class="case-tab" data-case="delete">删除任务</button>
+        <button class="case-tab" data-case="tts-case">《红豆》打断</button>
+        <button class="case-tab" data-case="yitu">弋途订阅</button>
+      </div>
+      <div class="case-panel active" id="case-gear"><div class="case-head"><span class="badge confirmed">方案设计 + 局部联调</span><h3>档位 P→D：Trigger 标准 Case</h3></div><div class="case-path">端状态 gear=D → Trigger 取 old=P → 命中 changed → 拼 event_info/resource_info → RPC → 事件入库 → 白名单消费</div><p><b>为什么经过 Trigger：</b>端状态只知道现在是 D，Trigger 才能结合旧值确认“P 变成 D”。8 月 21 日群里曾用档位事件测试 UP，结果被反馈符合预期；这不等于业务白名单已经完整上线。</p></div>
+      <div class="case-panel" id="case-delete"><div class="case-head"><span class="badge example">教学示例</span><h3>删除任务：客户端直接上报</h3></div><div class="case-path">用户点击删除 → 客户端拿到 task_id 和真实结果 → 直接上报事件服务 → UP 后续帮助理解“再建回来”</div><p><b>为什么不经过 Trigger：</b>客户端已经知道用户点了什么、是否成功；让 Trigger 从状态消失反推，信息更少也更不准。屏幕操作被认为是 UP 重点方向，但具体事件清单和白名单当时未完整落地。</p></div>
+      <div class="case-panel" id="case-tts-case"><div class="case-head"><span class="badge confirmed">临时链路真实存在</span><h3>《红豆》打断：TTS/GTS 直接构造 Planner event</h3></div><div class="case-path">TTS 被打断 → 取得已播/未播 → 直接 Frontier → Planner → talk_or_not=no</div><p><b>为什么不经过 Trigger：</b>只有 TTS/GTS 掌握播放断点、剩余文本和打断原因。标准事件日志改造属于长期方案，Input Manager 路由未确认。</p></div>
+      <div class="case-panel" id="case-yitu"><div class="case-head"><span class="badge confirmed">评审真实下游需求</span><h3>用户退登 / 喜马拉雅授权：Listener/TCC</h3></div><div class="case-path">客户端或账号业务生产 → 事件服务入库 → 产品授权 → TCC 事件白名单 → 格式化数据回调弋途</div><p><b>为什么不是 Planner：</b>弋途需要的是结构化业务通知，不需要大模型参与判断。验收重点是下游是否真实收到，并能追踪回调结果。</p></div>
+    </section>
+
+    <section class="chapter" id="risks" data-topics="all trigger consumer tts risk">
+      <div class="chapter-head"><span class="chapter-number">11</span><h2>异常与待确认：这里最容易把“讨论”写成“结论”</h2></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>问题</th><th>会看到什么现象</th><th>应该先查哪里</th><th>当前口径</th></tr></thead>
+        <tbody>
+          <tr><td>首次收到信号，没有旧值</td><td>无法判断 P→D，只知道现在是 D</td><td>运行 Context 的状态初始化口径</td><td><span class="badge pending">需明确</span></td></tr>
+          <tr><td>上汽 / 赛力斯字段不同</td><td>后台能配，运行永远不命中</td><td>分渠道 signal define</td><td><span class="badge confirmed">分渠道维护</span></td></tr>
+          <tr><td>车窗连续变化</td><td>10%→11%→12% 生成大量事件</td><td>端侧频率、阈值、起终点合并</td><td><span class="badge pending">30 秒限制本期不加</span></td></tr>
+          <tr><td>多条件只命中一部分</td><td>事件不生成</td><td>Trigger 场景条件与缓存状态</td><td><span class="badge design">按预置规则判断</span></td></tr>
+          <tr><td>RPC 失败</td><td>Trigger 命中但事件没入库</td><td>请求字段、事件服务、调用结果</td><td><span class="badge pending">重试/补发/幂等未收口</span></td></tr>
+          <tr><td>入库但 SP / UP 没有</td><td>Planner 仍看不到</td><td>白名单、时间范围、条数</td><td><span class="badge confirmed">消费需独立配置</span></td></tr>
+          <tr><td>UP 历史回放对不上</td><td>当时看到了，复盘找不到来源</td><td>chat_history.context_info</td><td><span class="badge design">记录引用来源</span></td></tr>
+          <tr><td>下游没收到</td><td>事件存在，弋途无回调</td><td>Listener 注册、产品授权、TCC</td><td><span class="badge confirmed">白名单机制</span></td></tr>
+          <tr><td>同一 ID 多来源</td><td>重复、冲突、无法解释</td><td>事件定义与生产归属</td><td><span class="badge confirmed">拆 ID</span></td></tr>
+          <tr><td>TTS 主动输入与语音输入冲突</td><td>排队、打断、拒识行为不一致</td><td>Planner 事件消费者 / Input Manager</td><td><span class="badge pending">双方产品待确认</span></td></tr>
+        </tbody>
+      </table></div>
+      <div class="remember">没有证据的错误码、幂等键、重试次数和补发策略，不能在方案里替研发拍板。</div>
+    </section>
+
+    <section class="chapter" id="acceptance" data-topics="all trigger consumer risk">
+      <div class="chapter-head"><span class="chapter-number">12</span><h2>端到端验收：不是看到“匹配成功”就结束</h2></div>
+      <div class="talk"><b>会上先这么说</b><p>“我们不能验收一份协议，也不能只验收 Trigger 打了一行日志。必须从事实发生，一直追到消费方真的用上。”</p></div>
+      <div class="diagram"><div class="gate"><div class="gate-card"><b>1. 事实发生</b><span>原始信号 / 点击 / 任务结果</span><em>失败：没有原始输入</em></div><div class="gate-card"><b>2. 生产方生成</b><span>Trigger 命中或业务直接生产</span><em>失败：归属 / 规则错误</em></div><div class="gate-card"><b>3. 上报接口成功</b><span>Trigger 用批量 RPC；其他来源走各自标准入口</span><em>失败：接口 / 服务不可用</em></div><div class="gate-card"><b>4. 事件入库</b><span>事件服务真实可查</span><em>失败：成功不等于落账</em></div><div class="gate-card"><b>5. 消费方拿到</b><span>查询结果 / Listener 回调</span><em>失败：白名单 / 时间范围</em></div><div class="gate-card"><b>6. 业务可用</b><span>Planner 输入或下游真实生效</span><em>失败：拼装 / 决策问题</em></div></div></div>
+      <h3>每一级要留下什么证据？</h3>
+      <div class="grid three">
+        <div class="card raw"><h3>生产侧</h3><p>原始输入、渠道、场景 ID、旧值、新值、命中条件。</p></div>
+        <div class="card event"><h3>事件侧</h3><p><code>event_id</code>、<code>event_info</code>、<code>resource_info</code>、时间、对应上报请求/响应、查询结果。</p></div>
+        <div class="card planner"><h3>消费侧</h3><p>白名单、实际返回、UP/SP/Planner 最终入参、下游回调、Planner 输出。</p></div>
+      </div>
+      <div class="remember">Trigger 命中 ≠ 事件入库 ≠ Planner 可见；三段必须分别验收。</div>
+    </section>
+
+    <section class="chapter" id="sources" data-topics="all">
+      <div class="chapter-head"><span class="chapter-number">13</span><h2>最后收口：完整业务模块怎么复述</h2></div>
+      <div class="grid four">
+        <div class="card raw"><h3>入口</h3><p>谁最清楚事实，谁生产。Trigger 不是唯一入口。</p></div>
+        <div class="card trigger"><h3>生产</h3><p>Trigger 只把端状态变化按规则翻译成标准事件。</p></div>
+        <div class="card event"><h3>事件中心</h3><p>统一接收、补字段、存储、查询、订阅。</p></div>
+        <div class="card planner"><h3>消费</h3><p>记忆、Context、UP、下游和 Planner 按自己的规则取用。</p></div>
+      </div>
+      <div class="talk"><b>你在评审会上可以这样总结</b><p>“事件日志的主链不是 Trigger 到 Planner。主链是：事实由正确的生产方生成，事件服务统一落账，消费方再按自己的目标查询或订阅。Trigger 只是端状态事件的生产者；Planner 只是其中一种消费者。”</p></div>
+      <div class="subsection"><h3>模块责任矩阵：评审时用它回答“谁做、谁不做”</h3></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>模块</th><th>输入</th><th>核心处理</th><th>输出</th><th>不负责</th></tr></thead>
+        <tbody>
+          <tr><td>端状态服务</td><td>车辆原始信号</td><td>提供当前状态</td><td><code>current_value</code></td><td>不定义业务事件</td></tr>
+          <tr><td>Trigger</td><td>当前值、运行 Context 旧值、预置规则</td><td>比较、匹配、构造端状态派生事件</td><td>标准事件，上报事件服务</td><td>不写库、不管白名单、不决定说话</td></tr>
+          <tr><td>客户端 / 云端业务</td><td>明确点击或真实业务结果</td><td>确认事实、关联业务对象</td><td>标准事件，上报事件服务</td><td>不让 Trigger 反猜结果</td></tr>
+          <tr><td>事件服务</td><td>各标准入口事件</td><td>接收、补全、入库、查询、订阅</td><td>可追溯事件与消费接口</td><td>不判断端状态、不做 Planner 决策</td></tr>
+          <tr><td>Context SP</td><td>时间范围、SP 白名单</td><td>查询、格式化近期事件</td><td>本轮 SP</td><td>不替代事件主库</td></tr>
+          <tr><td>UP</td><td>T1、T2、UP 白名单</td><td>查询、排序、穿插并记录引用</td><td>增强历史 + <code>context_info</code></td><td>不伪造用户消息、不做最终决策</td></tr>
+          <tr><td>Listener / TCC</td><td>产品授权与订阅配置</td><td>命中、格式化、回调</td><td>下游业务通知</td><td>不替 Planner 判断</td></tr>
+          <tr><td>Planner/Director</td><td><code>user_query</code> / event / SP / UP / feedback</td><td>判断是否表达、是否行动</td><td>talk 与 <code>action_list</code></td><td>不生产事件日志</td></tr>
+          <tr><td>TTS/GTS</td><td>播放进度与打断原因</td><td>当前直接构造 Planner event；长期拟生产标准事件</td><td>当前 Frontier 消息 / 长期标准事件</td><td>普通 Trigger 不代算已播未播</td></tr>
+        </tbody>
+      </table></div>
+      <h3>证据来源</h3>
+      <ul class="source-list">
+        <li><a href="file:///Users/bytedance/Desktop/3.23/产品/1-原始素材/会议纪要/事件日志技术方案评审%202026年8月11日.md">《事件日志技术方案评审》原始文字记录（2026-08-11）</a></li>
+        <li><a href="file:///Users/bytedance/Desktop/3.23/产品/1-原始素材/会议纪要/7月9日触发器%26事件%26端状态产品链路%26需求导入.md">《触发器&amp;事件&amp;端状态产品链路&amp;需求导入流程对齐》原始记录（2026-07-09）</a></li>
+        <li><a href="file:///Users/bytedance/.codex/attachments/df5dffea-d198-497a-ad1b-c66973ed0b37/pasted-text.txt">《红豆》Planner 原始请求：user_query 与 event 输入</a></li>
+        <li>飞书“端状态事件日志群”8 月 21—24 日可读消息。该次群读取为 partial/truncated，只引用已返回消息，不声称完整覆盖。</li>
+      </ul>
+      <div class="state-badges"><span class="badge confirmed">已确认：有逐字稿或原始请求支持</span><span class="badge design">方案设计：评审达成的实现口径</span><span class="badge pending">待确认：会议明确未收口</span><span class="badge example">教学示例：帮助理解，不冒充上线事实</span></div>
+    </section>
+  </main>
+</div>
+
+<div class="footer-note">事件日志全貌方案 · v02 · 多 Agent 逻辑梳理 + 初学者 reviewer 二轮审查 · 2026-08-25</div>
+
+<script>
+  const filters=[...document.querySelectorAll('.filter')];
+  const chapters=[...document.querySelectorAll('.chapter')];
+  filters.forEach(btn=>btn.addEventListener('click',()=>{
+    filters.forEach(x=>x.classList.remove('active'));btn.classList.add('active');
+    const f=btn.dataset.filter;
+    chapters.forEach(ch=>ch.classList.toggle('hidden',f!=='all'&&!ch.dataset.topics.split(' ').includes(f)));
+    document.querySelectorAll('.side a').forEach(a=>{const target=document.querySelector(a.getAttribute('href'));a.style.display=target&&target.classList.contains('hidden')?'none':'block'});
+    window.scrollTo({top:document.querySelector('.toolbar').offsetTop,behavior:'smooth'});
+  }));
+  const links=[...document.querySelectorAll('.side a')];
+  const observer=new IntersectionObserver(entries=>{
+    entries.filter(e=>e.isIntersecting).forEach(e=>{
+      links.forEach(a=>a.classList.toggle('active',a.getAttribute('href')==='#'+e.target.id));
+    });
+  },{rootMargin:'-20% 0px -70% 0px'});
+  chapters.forEach(ch=>observer.observe(ch));
+  document.addEventListener('scroll',()=>{
+    const max=document.documentElement.scrollHeight-innerHeight;
+    document.getElementById('progress').style.width=(max?scrollY/max*100:0)+'%';
+  },{passive:true});
+  const tabs=[...document.querySelectorAll('.case-tab')];
+  tabs.forEach(tab=>tab.addEventListener('click',()=>{
+    tabs.forEach(x=>x.classList.remove('active'));tab.classList.add('active');
+    document.querySelectorAll('.case-panel').forEach(p=>p.classList.toggle('active',p.id==='case-'+tab.dataset.case));
+  }));
+</script>
+</body>
+</html>

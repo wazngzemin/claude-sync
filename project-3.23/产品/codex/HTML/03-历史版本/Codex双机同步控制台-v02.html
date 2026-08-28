@@ -1,0 +1,855 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Codex 双机同步控制台</title>
+  <style>
+    :root {
+      --bg: #07111f;
+      --panel: rgba(15, 29, 48, .88);
+      --panel-strong: #10233a;
+      --line: rgba(164, 195, 226, .17);
+      --text: #f4f8fc;
+      --muted: #9cafc4;
+      --blue: #52a5ff;
+      --blue-deep: #1473e6;
+      --green: #46d29b;
+      --green-deep: #087c62;
+      --amber: #f3bc5c;
+      --red: #ff7a84;
+      --shadow: 0 24px 70px rgba(0, 0, 0, .34);
+      --radius: 22px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { min-width: 320px; background: var(--bg); }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC",
+        "Helvetica Neue", Arial, sans-serif;
+      background:
+        radial-gradient(circle at 12% -10%, rgba(42, 130, 242, .28), transparent 33rem),
+        radial-gradient(circle at 91% 8%, rgba(58, 209, 159, .14), transparent 27rem),
+        linear-gradient(145deg, #07111f 0%, #091827 58%, #06101b 100%);
+      letter-spacing: .01em;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: .22;
+      background-image:
+        linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+      background-size: 36px 36px;
+      mask-image: linear-gradient(to bottom, black, transparent 80%);
+    }
+
+    button { font: inherit; }
+    button:focus-visible { outline: 3px solid rgba(82,165,255,.45); outline-offset: 3px; }
+
+    .shell {
+      width: min(1180px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 30px 0 42px;
+      position: relative;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 28px;
+    }
+
+    .brand { display: flex; align-items: center; gap: 13px; min-width: 0; }
+
+    .brand-mark {
+      width: 46px;
+      height: 46px;
+      display: grid;
+      place-items: center;
+      border-radius: 15px;
+      background: linear-gradient(145deg, #5ab4ff, #1769db);
+      box-shadow: 0 12px 30px rgba(20,115,230,.35), inset 0 1px rgba(255,255,255,.45);
+      font-size: 23px;
+      font-weight: 800;
+    }
+
+    .brand-copy { min-width: 0; }
+    .brand-title { margin: 0; font-size: 21px; font-weight: 740; letter-spacing: -.01em; }
+    .brand-subtitle { margin-top: 4px; color: var(--muted); font-size: 12px; }
+
+    .machine-pill {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 9px 13px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(13, 30, 49, .74);
+      color: #c8d7e6;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .pulse {
+      width: 8px;
+      height: 8px;
+      border-radius: 99px;
+      background: var(--amber);
+      box-shadow: 0 0 0 5px rgba(243,188,92,.1);
+    }
+    .pulse.ok { background: var(--green); box-shadow: 0 0 0 5px rgba(70,210,155,.1); }
+    .pulse.bad { background: var(--red); box-shadow: 0 0 0 5px rgba(255,122,132,.1); }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.25fr) minmax(330px, .75fr);
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: linear-gradient(150deg, rgba(17,36,59,.94), rgba(10,24,41,.88));
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(16px);
+    }
+
+    .intro {
+      padding: 34px 36px 32px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .intro::after {
+      content: "⇅";
+      position: absolute;
+      right: 23px;
+      bottom: -48px;
+      color: rgba(109,178,255,.075);
+      font-size: 190px;
+      font-weight: 850;
+      line-height: 1;
+      transform: rotate(-8deg);
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+      color: #91c9ff;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 24px;
+      height: 2px;
+      border-radius: 2px;
+      background: var(--blue);
+    }
+
+    .intro h1 {
+      max-width: 620px;
+      margin: 0;
+      font-size: clamp(31px, 4vw, 50px);
+      line-height: 1.1;
+      letter-spacing: -.045em;
+    }
+
+    .intro p {
+      max-width: 660px;
+      margin: 17px 0 0;
+      color: #b5c7d9;
+      font-size: 15px;
+      line-height: 1.75;
+    }
+
+    .flow {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      margin-top: 27px;
+      color: var(--muted);
+      font-size: 12px;
+      flex-wrap: wrap;
+    }
+
+    .flow-step {
+      padding: 8px 11px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(8,19,32,.5);
+      color: #d7e4f0;
+    }
+
+    .flow-arrow { color: #6283a2; font-size: 15px; }
+
+    .setup {
+      padding: 26px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 286px;
+    }
+
+    .setup-title { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; }
+    .setup h2 { margin: 0 0 7px; font-size: 18px; }
+    .setup p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.65; }
+
+    .setup-state {
+      padding: 6px 9px;
+      border-radius: 999px;
+      background: rgba(243,188,92,.1);
+      color: var(--amber);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    .setup-state.ok { background: rgba(70,210,155,.1); color: var(--green); }
+    .setup-state.bad { background: rgba(255,122,132,.1); color: var(--red); }
+
+    .checklist { display: grid; gap: 10px; margin: 20px 0; }
+    .check { display: flex; align-items: center; gap: 10px; color: #bdccdb; font-size: 12px; }
+    .check-dot {
+      width: 19px; height: 19px; border-radius: 50%; display: grid; place-items: center;
+      background: rgba(255,255,255,.06); color: #6f859b; font-size: 11px; font-weight: 800;
+    }
+    .check-dot.ok { color: #071c16; background: var(--green); }
+    .check-dot.bad { color: #2b0b0e; background: var(--red); }
+
+    .btn {
+      border: 0;
+      border-radius: 13px;
+      min-height: 46px;
+      padding: 0 17px;
+      cursor: pointer;
+      color: white;
+      background: #203750;
+      transition: transform .16s ease, filter .16s ease, opacity .16s ease, box-shadow .16s ease;
+    }
+    .btn:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.08); }
+    .btn:active:not(:disabled) { transform: translateY(0); }
+    .btn:disabled { opacity: .38; cursor: not-allowed; }
+    .btn-secondary { width: 100%; border: 1px solid rgba(117,172,229,.24); background: rgba(29,64,98,.7); }
+    .btn-ghost { min-height: 36px; padding: 0 12px; border: 1px solid var(--line); background: transparent; color: #aebfd0; font-size: 12px; }
+
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+
+    .action-card {
+      padding: 28px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .action-card::after {
+      content: "";
+      position: absolute;
+      width: 170px;
+      height: 170px;
+      right: -70px;
+      top: -80px;
+      border-radius: 50%;
+      background: rgba(82,165,255,.11);
+      filter: blur(2px);
+    }
+    .action-card.pull::after { background: rgba(70,210,155,.11); }
+
+    .action-top { display: flex; align-items: flex-start; gap: 15px; position: relative; z-index: 1; }
+    .action-icon {
+      width: 48px; height: 48px; flex: 0 0 auto; display: grid; place-items: center;
+      border-radius: 15px; color: #92caff; background: rgba(61,143,229,.14); font-size: 23px;
+    }
+    .pull .action-icon { color: #7ee3be; background: rgba(70,210,155,.12); }
+    .action-card h2 { margin: 1px 0 7px; font-size: 20px; }
+    .action-card p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.65; }
+
+    .action-button {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      margin-top: 23px;
+      min-height: 54px;
+      font-size: 15px;
+      font-weight: 750;
+      background: linear-gradient(135deg, #2a94ff, #1164d4);
+      box-shadow: 0 12px 26px rgba(17,100,212,.25);
+    }
+    .pull .action-button {
+      background: linear-gradient(135deg, #24bd8d, #08775f);
+      box-shadow: 0 12px 26px rgba(8,119,95,.25);
+    }
+
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .metric {
+      min-height: 122px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 17px;
+      background: rgba(12,27,45,.7);
+    }
+    .metric-label { color: var(--muted); font-size: 11px; letter-spacing: .05em; }
+    .metric-value {
+      margin-top: 11px;
+      color: #f3f8fd;
+      font-size: 18px;
+      font-weight: 720;
+      line-height: 1.25;
+      overflow-wrap: anywhere;
+    }
+    .metric-note { margin-top: 7px; color: #7189a1; font-size: 11px; line-height: 1.4; }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1.6fr) minmax(280px, .8fr);
+      gap: 18px;
+    }
+
+    .console-card { overflow: hidden; min-height: 356px; }
+    .console-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--line);
+    }
+    .console-title { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 680; }
+    .live-dot { width: 7px; height: 7px; border-radius: 50%; background: #597087; }
+    .live-dot.running { background: var(--blue); animation: blink 1.25s ease infinite; }
+    .live-dot.success { background: var(--green); }
+    .live-dot.failed { background: var(--red); }
+    @keyframes blink { 50% { opacity: .35; box-shadow: 0 0 0 8px rgba(82,165,255,.06); } }
+
+    .console-actions { display: flex; align-items: center; gap: 8px; }
+    .elapsed { color: #7890a7; font-size: 11px; font-variant-numeric: tabular-nums; }
+    .progress { height: 3px; background: rgba(255,255,255,.04); overflow: hidden; }
+    .progress > div { width: 0; height: 100%; background: linear-gradient(90deg, var(--blue), var(--green)); }
+    .progress.running > div { width: 32%; animation: travel 1.7s ease-in-out infinite; }
+    .progress.success > div { width: 100%; background: var(--green); }
+    .progress.failed > div { width: 100%; background: var(--red); }
+    @keyframes travel { from { transform: translateX(-110%); } to { transform: translateX(330%); } }
+
+    .console {
+      height: 292px;
+      overflow: auto;
+      padding: 18px 20px 22px;
+      background: rgba(3, 11, 20, .58);
+      color: #b7cde0;
+      font-family: "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.7;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    .placeholder { color: #637b92; }
+
+    .info-card { padding: 23px; }
+    .info-card h2 { margin: 0 0 16px; font-size: 16px; }
+    .info-list { display: grid; gap: 14px; }
+    .info-item { display: grid; grid-template-columns: 31px 1fr; gap: 10px; }
+    .info-num {
+      width: 27px; height: 27px; display: grid; place-items: center; border-radius: 9px;
+      background: rgba(82,165,255,.11); color: #89c4ff; font-size: 11px; font-weight: 750;
+    }
+    .info-item b { display: block; margin: 0 0 4px; color: #dfe9f3; font-size: 12px; }
+    .info-item span { display: block; color: #839aaf; font-size: 11px; line-height: 1.55; }
+    .safe-note {
+      margin-top: 18px;
+      padding: 13px;
+      border: 1px solid rgba(70,210,155,.15);
+      border-radius: 12px;
+      background: rgba(70,210,155,.06);
+      color: #94b9aa;
+      font-size: 11px;
+      line-height: 1.55;
+    }
+
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      margin-top: 18px;
+      color: #60778e;
+      font-size: 10px;
+    }
+
+    .toasts {
+      position: fixed;
+      z-index: 50;
+      right: 22px;
+      top: 22px;
+      width: min(390px, calc(100% - 44px));
+      display: grid;
+      gap: 10px;
+    }
+    .toast {
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: #14283e;
+      color: #e6f0f8;
+      box-shadow: 0 20px 50px rgba(0,0,0,.35);
+      font-size: 12px;
+      line-height: 1.5;
+      animation: toast-in .2s ease both;
+    }
+    .toast.ok { border-color: rgba(70,210,155,.35); }
+    .toast.bad { border-color: rgba(255,122,132,.4); }
+    @keyframes toast-in { from { opacity: 0; transform: translateY(-8px); } }
+
+    @media (max-width: 900px) {
+      .hero, .workspace { grid-template-columns: 1fr; }
+      .status-grid { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (max-width: 620px) {
+      .shell { width: min(100% - 24px, 1180px); padding-top: 18px; }
+      .topbar { align-items: flex-start; }
+      .machine-pill { max-width: 44%; overflow: hidden; text-overflow: ellipsis; }
+      .intro { padding: 27px 23px; }
+      .intro h1 { font-size: 32px; }
+      .setup, .action-card { padding: 22px; }
+      .actions, .status-grid { grid-template-columns: 1fr; }
+      .metric { min-height: 104px; }
+      .footer { flex-direction: column; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">C</div>
+        <div class="brand-copy">
+          <div class="brand-title">Codex 双机同步</div>
+          <div class="brand-subtitle">公司一键上传 · 家里一键拉取</div>
+        </div>
+      </div>
+      <div class="machine-pill" title="当前运行本地同步服务的 Mac">
+        <span class="pulse" id="readyDot"></span>
+        <span id="machineName">正在连接本机服务…</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <article class="card intro">
+          <div class="eyebrow">Encrypted Sync Console</div>
+          <h1>下班点上传，<br>到家点拉取。</h1>
+          <p>Codex 的对话、记忆、AGENTS.md、技能、插件和项目文件会打成加密增量快照。公司电脑上传成功后即可关机，家里电脑不需要等待公司电脑在线。</p>
+          <div class="flow" aria-label="同步流程">
+            <span class="flow-step">本机冻结 Codex 数据</span>
+            <span class="flow-arrow">→</span>
+            <span class="flow-step">age 加密分块</span>
+            <span class="flow-arrow">→</span>
+            <span class="flow-step">私有 GitHub 快照</span>
+          </div>
+        </article>
+
+        <aside class="card setup">
+          <div>
+            <div class="setup-title">
+              <div>
+                <h2>首次安装状态</h2>
+                <p>每台 Mac 只做一次。恢复口令只在终端里输入，不进入网页。</p>
+              </div>
+              <span class="setup-state" id="setupState">检测中</span>
+            </div>
+            <div class="checklist">
+              <div class="check"><span class="check-dot" id="checkGithub">·</span><span>GitHub 私有仓库可访问</span></div>
+              <div class="check"><span class="check-dot" id="checkKey">·</span><span>加密密钥已存入 macOS 钥匙串</span></div>
+              <div class="check"><span class="check-dot" id="checkAge">·</span><span>age 加密工具已安装</span></div>
+            </div>
+          </div>
+          <button class="btn btn-secondary" id="setupButton" type="button">打开首次安装</button>
+        </aside>
+      </section>
+
+      <section class="actions" aria-label="主要同步操作">
+        <article class="card action-card">
+          <div class="action-top">
+            <div class="action-icon" aria-hidden="true">↑</div>
+            <div>
+              <h2>公司电脑 · 一键上传</h2>
+              <p>扫描所有内容，只上传新增或变化的加密分块。成功发布新快照后，就可以直接关机。</p>
+            </div>
+          </div>
+          <button class="btn action-button" id="uploadButton" type="button">加密上传到云端</button>
+        </article>
+
+        <article class="card action-card pull">
+          <div class="action-top">
+            <div class="action-icon" aria-hidden="true">↓</div>
+            <div>
+              <h2>家里电脑 · 一键拉取</h2>
+              <p>下载云端最新快照，先备份本机旧数据再恢复。不同 Mac 用户名会自动建立兼容路径。</p>
+            </div>
+          </div>
+          <button class="btn action-button" id="pullButton" type="button">拉取云端最新版</button>
+        </article>
+      </section>
+
+      <section class="status-grid" aria-label="同步状态">
+        <div class="metric">
+          <div class="metric-label">云端最新快照</div>
+          <div class="metric-value" id="remoteValue">检查中…</div>
+          <div class="metric-note" id="remoteNote">私有 Release</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">本机已应用</div>
+          <div class="metric-value" id="localValue">检查中…</div>
+          <div class="metric-note" id="localNote">尚未读取本机记录</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">快照内容</div>
+          <div class="metric-value" id="filesValue">待首次扫描</div>
+          <div class="metric-note" id="filesNote">对话、记忆、配置与项目</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">恢复策略</div>
+          <div class="metric-value" id="retentionValue">7 个版本</div>
+          <div class="metric-note">拉取前自动备份，最后成功上传者为最新版</div>
+        </div>
+      </section>
+
+      <section class="workspace">
+        <article class="card console-card">
+          <div class="console-head">
+            <div class="console-title">
+              <span class="live-dot" id="jobDot"></span>
+              <span id="jobTitle">同步日志</span>
+            </div>
+            <div class="console-actions">
+              <span class="elapsed" id="elapsed">00:00</span>
+              <button class="btn btn-ghost" id="inventoryButton" type="button">只读盘点</button>
+              <button class="btn btn-ghost" id="clearButton" type="button">清空显示</button>
+            </div>
+          </div>
+          <div class="progress" id="progress"><div></div></div>
+          <div class="console" id="console" role="log" aria-live="polite"><span class="placeholder">工具已打开。选择“上传”“拉取”或“只读盘点”后，这里会显示实时进度。</span></div>
+        </article>
+
+        <aside class="card info-card">
+          <h2>每天怎么用</h2>
+          <div class="info-list">
+            <div class="info-item">
+              <div class="info-num">1</div>
+              <div><b>下班前上传</b><span>看到“操作完成”后再关闭公司电脑。</span></div>
+            </div>
+            <div class="info-item">
+              <div class="info-num">2</div>
+              <div><b>到家先拉取</b><span>家里 Mac 会恢复公司上传的全部 Codex 状态。</span></div>
+            </div>
+            <div class="info-item">
+              <div class="info-num">3</div>
+              <div><b>工作结束再上传</b><span>第二天公司电脑先拉取，再继续工作。</span></div>
+            </div>
+          </div>
+          <div class="safe-note">认证令牌、设备 ID、远程控制登记、浏览器 Cookie、日志、缓存和写入锁不会进入同步包。</div>
+        </aside>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span id="repoText">仓库：读取中…</span>
+      <button class="btn btn-ghost" id="shutdownButton" type="button">停止本地服务</button>
+    </footer>
+  </div>
+
+  <div class="toasts" id="toasts" aria-live="assertive"></div>
+
+  <script>
+    (function () {
+      "use strict";
+
+      var params = new URLSearchParams(window.location.search);
+      var tokenFromUrl = params.get("token");
+      if (tokenFromUrl) {
+        sessionStorage.setItem("codex-sync-token", tokenFromUrl);
+      }
+      var token = tokenFromUrl || sessionStorage.getItem("codex-sync-token") || "";
+      var jobCursor = 0;
+      var currentJobId = null;
+      var consoleHasContent = false;
+      var statusState = null;
+      var polling = false;
+
+      var elements = {
+        readyDot: document.getElementById("readyDot"),
+        machineName: document.getElementById("machineName"),
+        setupState: document.getElementById("setupState"),
+        checkGithub: document.getElementById("checkGithub"),
+        checkKey: document.getElementById("checkKey"),
+        checkAge: document.getElementById("checkAge"),
+        setupButton: document.getElementById("setupButton"),
+        uploadButton: document.getElementById("uploadButton"),
+        pullButton: document.getElementById("pullButton"),
+        inventoryButton: document.getElementById("inventoryButton"),
+        clearButton: document.getElementById("clearButton"),
+        shutdownButton: document.getElementById("shutdownButton"),
+        remoteValue: document.getElementById("remoteValue"),
+        remoteNote: document.getElementById("remoteNote"),
+        localValue: document.getElementById("localValue"),
+        localNote: document.getElementById("localNote"),
+        filesValue: document.getElementById("filesValue"),
+        filesNote: document.getElementById("filesNote"),
+        retentionValue: document.getElementById("retentionValue"),
+        repoText: document.getElementById("repoText"),
+        jobDot: document.getElementById("jobDot"),
+        jobTitle: document.getElementById("jobTitle"),
+        elapsed: document.getElementById("elapsed"),
+        progress: document.getElementById("progress"),
+        console: document.getElementById("console"),
+        toasts: document.getElementById("toasts")
+      };
+
+      function request(path, options) {
+        var settings = options || {};
+        settings.headers = Object.assign({}, settings.headers || {}, {
+          "X-Codex-Sync-Token": token
+        });
+        if (settings.body && !settings.headers["Content-Type"]) {
+          settings.headers["Content-Type"] = "application/json";
+        }
+        return fetch(path, settings).then(function (response) {
+          return response.json().then(function (data) {
+            if (!response.ok || !data.ok) {
+              throw new Error(data.error || "本地服务请求失败");
+            }
+            return data;
+          });
+        });
+      }
+
+      function toast(message, kind) {
+        var item = document.createElement("div");
+        item.className = "toast " + (kind || "");
+        item.textContent = message;
+        elements.toasts.appendChild(item);
+        window.setTimeout(function () { item.remove(); }, 6500);
+      }
+
+      function setCheck(element, good, unavailable) {
+        element.className = "check-dot " + (good ? "ok" : (unavailable ? "bad" : ""));
+        element.textContent = good ? "✓" : (unavailable ? "!" : "·");
+      }
+
+      function shortSnapshot(value) {
+        if (!value) return "尚无快照";
+        return String(value).replace(/^snapshot-/, "").replace(/-[^-]+$/, "");
+      }
+
+      function humanSize(bytes) {
+        if (!bytes) return null;
+        var units = ["B", "KiB", "MiB", "GiB", "TiB"];
+        var value = Number(bytes);
+        var index = 0;
+        while (value >= 1024 && index < units.length - 1) {
+          value /= 1024;
+          index += 1;
+        }
+        return value.toFixed(value >= 10 || index === 0 ? 0 : 1) + " " + units[index];
+      }
+
+      function renderStatus(status) {
+        statusState = status;
+        elements.machineName.textContent = (status.hostname || "本机") + (status.ready ? " · 已就绪" : " · 需要安装");
+        elements.readyDot.className = "pulse " + (status.ready ? "ok" : (status.repo_error ? "bad" : ""));
+
+        setCheck(elements.checkGithub, status.repo_private, status.gh_installed && !status.repo_accessible);
+        setCheck(elements.checkKey, status.keys_configured, !status.keys_configured);
+        setCheck(elements.checkAge, status.age_installed, !status.age_installed);
+
+        elements.setupState.className = "setup-state " + (status.ready ? "ok" : "bad");
+        elements.setupState.textContent = status.ready ? "已经就绪" : "需要安装";
+        elements.setupButton.textContent = status.ready ? "重新打开安装 / 恢复密钥" : "打开首次安装";
+
+        if (status.latest_remote) {
+          elements.remoteValue.textContent = shortSnapshot(status.latest_remote.id);
+          elements.remoteNote.textContent = status.latest_remote.published_local || "发布时间未知";
+        } else {
+          elements.remoteValue.textContent = "尚无快照";
+          elements.remoteNote.textContent = status.repo_private ? "请先在公司电脑上传" : "等待首次安装";
+        }
+
+        elements.localValue.textContent = shortSnapshot(status.local_snapshot);
+        elements.localNote.textContent = status.local_snapshot_time || "本机尚未应用云端快照";
+        if (status.manifest_file_count) {
+          elements.filesValue.textContent = Number(status.manifest_file_count).toLocaleString("zh-CN") + " 个文件";
+          var logicalSize = humanSize(status.manifest_logical_bytes);
+          elements.filesNote.textContent = (logicalSize ? "逻辑大小 " + logicalSize + " · " : "") +
+            status.project_roots.length + " 个项目根目录";
+        } else {
+          elements.filesValue.textContent = "待首次扫描";
+          elements.filesNote.textContent = status.project_roots.length + " 个项目根目录已配置";
+        }
+        elements.retentionValue.textContent = status.retention + " 个版本";
+        elements.repoText.textContent = "仓库：" + status.repo + (status.repo_private ? " · 私有" : "");
+
+        var busy = Boolean(status.busy);
+        elements.uploadButton.disabled = busy || !status.ready;
+        elements.pullButton.disabled = busy || !status.ready || !status.latest_remote;
+        elements.inventoryButton.disabled = busy;
+        elements.setupButton.disabled = busy;
+        elements.shutdownButton.disabled = busy;
+      }
+
+      function formatElapsed(seconds) {
+        var total = Math.max(0, Number(seconds) || 0);
+        var hours = Math.floor(total / 3600);
+        var minutes = Math.floor((total % 3600) / 60);
+        var secs = total % 60;
+        var pair = function (value) { return String(value).padStart(2, "0"); };
+        return hours ? pair(hours) + ":" + pair(minutes) + ":" + pair(secs) : pair(minutes) + ":" + pair(secs);
+      }
+
+      function appendLines(lines) {
+        if (!lines || !lines.length) return;
+        if (!consoleHasContent) {
+          elements.console.textContent = "";
+          consoleHasContent = true;
+        }
+        lines.forEach(function (line) {
+          var row = document.createElement("div");
+          row.textContent = line.text;
+          elements.console.appendChild(row);
+        });
+        elements.console.scrollTop = elements.console.scrollHeight;
+      }
+
+      function renderJob(job) {
+        if (job.id && job.id !== currentJobId) {
+          currentJobId = job.id;
+          jobCursor = 0;
+          elements.console.textContent = "";
+          consoleHasContent = true;
+        }
+        appendLines(job.lines);
+        jobCursor = Math.max(jobCursor, Number(job.cursor) || 0);
+
+        var labels = {
+          inventory: "只读盘点",
+          upload: "加密上传",
+          pull: "安全拉取"
+        };
+        elements.jobDot.className = "live-dot " + (job.state || "");
+        elements.progress.className = "progress " + (job.state || "");
+        elements.elapsed.textContent = formatElapsed(job.elapsed_seconds);
+        if (job.command) {
+          elements.jobTitle.textContent = (labels[job.command] || job.command) +
+            (job.state === "running" ? " · 运行中" : (job.state === "success" ? " · 已完成" : (job.state === "failed" ? " · 未完成" : "")));
+        }
+        var busy = job.state === "running";
+        elements.uploadButton.disabled = busy || !(statusState && statusState.ready);
+        elements.pullButton.disabled = busy || !(statusState && statusState.ready && statusState.latest_remote);
+        elements.inventoryButton.disabled = busy;
+        elements.setupButton.disabled = busy;
+        elements.shutdownButton.disabled = busy;
+      }
+
+      function poll() {
+        if (polling) return;
+        polling = true;
+        Promise.all([
+          request("/api/status"),
+          request("/api/job?after=" + jobCursor)
+        ]).then(function (results) {
+          renderStatus(results[0].status);
+          renderJob(results[1].job);
+        }).catch(function (error) {
+          elements.machineName.textContent = "本机服务已断开";
+          elements.readyDot.className = "pulse bad";
+          if (!document.hidden) toast(error.message, "bad");
+        }).finally(function () {
+          polling = false;
+        });
+      }
+
+      function startJob(command) {
+        var messages = {
+          upload: "上传前会安全退出 ChatGPT/Codex，以冻结对话数据库。网页和本地服务仍会继续运行。\n\n确认开始加密上传吗？",
+          pull: "拉取会先备份本机被替换的数据，再恢复云端最新版；完成后会重新打开 ChatGPT/Codex。\n\n确认开始拉取吗？",
+          inventory: "盘点只读取文件数量和大小，不上传、不修改任何内容。\n\n确认开始盘点吗？"
+        };
+        if (!window.confirm(messages[command])) return;
+        request("/api/job", {
+          method: "POST",
+          body: JSON.stringify({ command: command })
+        }).then(function () {
+          jobCursor = 0;
+          currentJobId = null;
+          elements.console.textContent = "";
+          consoleHasContent = true;
+          toast("任务已开始，可在日志中查看进度", "ok");
+          poll();
+        }).catch(function (error) {
+          toast(error.message, "bad");
+        });
+      }
+
+      elements.setupButton.addEventListener("click", function () {
+        request("/api/open-installer", { method: "POST", body: "{}" })
+          .then(function (data) { toast(data.message, "ok"); })
+          .catch(function (error) { toast(error.message, "bad"); });
+      });
+      elements.uploadButton.addEventListener("click", function () { startJob("upload"); });
+      elements.pullButton.addEventListener("click", function () { startJob("pull"); });
+      elements.inventoryButton.addEventListener("click", function () { startJob("inventory"); });
+      elements.clearButton.addEventListener("click", function () {
+        elements.console.innerHTML = '<span class="placeholder">显示已清空；正在运行的任务仍会继续。</span>';
+        consoleHasContent = false;
+      });
+      elements.shutdownButton.addEventListener("click", function () {
+        if (!window.confirm("停止本地网页服务？同步数据和云端快照不会被删除。")) return;
+        request("/api/shutdown", { method: "POST", body: "{}" }).then(function () {
+          document.body.innerHTML = "<main style='min-height:100vh;display:grid;place-items:center;color:#dfe9f3;font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#07111f'><div style='text-align:center'><h1>本地服务已停止</h1><p style='color:#8da4ba'>下次使用时，再双击“启动HTML工具.command”。</p></div></main>";
+        }).catch(function (error) { toast(error.message, "bad"); });
+      });
+
+      if (!token) {
+        document.body.innerHTML = "<main style='min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 20% 0%,#15375d,#07111f 48%);color:#f4f8fc;font-family:-apple-system,BlinkMacSystemFont,sans-serif'><section style='width:min(620px,100%);padding:42px;border:1px solid rgba(164,195,226,.2);border-radius:24px;background:#10233a;box-shadow:0 24px 70px rgba(0,0,0,.35)'><div style='width:52px;height:52px;display:grid;place-items:center;border-radius:16px;background:#2a94ff;font-size:25px;font-weight:800'>C</div><h1 style='margin:24px 0 12px;font-size:34px'>打开方式不对</h1><p style='margin:0;color:#b5c7d9;font-size:16px;line-height:1.8'>这个文件只是应用内部的 HTML 页面，直接打开不会获得系统权限，所以按钮不能工作。</p><div style='margin-top:25px;padding:18px;border-radius:14px;background:rgba(82,165,255,.1);color:#dcecff;line-height:1.7'>请关闭这个页面，然后在 Finder 里双击：<br><strong style='font-size:18px'>Codex双机同步.app</strong></div></section></main>";
+        return;
+      }
+
+      poll();
+      window.setInterval(poll, 1500);
+      document.addEventListener("visibilitychange", function () {
+        if (!document.hidden) poll();
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,595 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Codex 双机同步</title>
+  <style>
+    :root {
+      --bg: #09121e;
+      --panel: #111e2d;
+      --panel-2: #15263a;
+      --line: #263b51;
+      --text: #edf5fc;
+      --muted: #91a4b8;
+      --blue: #4098f7;
+      --green: #35c68e;
+      --amber: #f0b84e;
+      --red: #f17079;
+      --radius: 16px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { min-width: 320px; background: var(--bg); }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      background: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif;
+    }
+
+    button, summary { font: inherit; }
+    button { border: 0; }
+    button:focus-visible, summary:focus-visible { outline: 3px solid rgba(64,152,247,.45); outline-offset: 2px; }
+
+    .app {
+      width: min(920px, calc(100% - 24px));
+      margin: 0 auto;
+      padding: 16px 0 24px;
+    }
+
+    .topbar {
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+
+    .logo {
+      width: 36px;
+      height: 36px;
+      flex: 0 0 auto;
+      display: grid;
+      place-items: center;
+      border-radius: 11px;
+      color: white;
+      background: var(--blue);
+      font-size: 18px;
+      font-weight: 800;
+    }
+
+    .brand strong { display: block; font-size: 17px; line-height: 1.2; }
+    .brand small { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; }
+
+    .machine {
+      max-width: 48%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      padding: 7px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      background: #0e1a28;
+      font-size: 10px;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+    }
+
+    .setup {
+      display: grid;
+      grid-template-columns: minmax(0,1fr) auto;
+      align-items: center;
+      gap: 16px;
+      padding: 18px;
+      margin-bottom: 12px;
+      border-left: 4px solid var(--amber);
+    }
+
+    .setup.ready { border-left-color: var(--green); }
+    .setup.error { border-left-color: var(--red); }
+
+    .setup-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .setup-title h1 { margin: 0; font-size: 17px; line-height: 1.25; }
+
+    .badge {
+      padding: 4px 7px;
+      border-radius: 999px;
+      color: #ffd889;
+      background: rgba(240,184,78,.13);
+      font-size: 9px;
+      white-space: nowrap;
+    }
+    .badge.ready { color: #75e4ba; background: rgba(53,198,142,.13); }
+    .badge.error { color: #ff9da4; background: rgba(241,112,121,.13); }
+
+    .setup p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
+
+    .primary {
+      min-width: 126px;
+      height: 42px;
+      padding: 0 15px;
+      border-radius: 11px;
+      color: white;
+      background: var(--blue);
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .primary:hover:not(:disabled) { filter: brightness(1.08); }
+    .primary:disabled { opacity: .4; cursor: not-allowed; }
+
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .action {
+      min-height: 112px;
+      padding: 16px;
+      display: grid;
+      grid-template-columns: 38px minmax(0,1fr) auto;
+      align-items: center;
+      gap: 12px;
+      text-align: left;
+      color: var(--text);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      cursor: pointer;
+    }
+
+    .action:hover:not(:disabled) { border-color: #416584; background: var(--panel-2); }
+    .action:disabled { cursor: not-allowed; opacity: .5; }
+
+    .action-icon {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border-radius: 11px;
+      color: #91c7ff;
+      background: rgba(64,152,247,.13);
+      font-size: 20px;
+      font-weight: 600;
+    }
+
+    .action.pull .action-icon { color: #7be0ba; background: rgba(53,198,142,.13); }
+    .action strong { display: block; margin-bottom: 5px; font-size: 15px; }
+    .action small { display: block; color: var(--muted); font-size: 10px; line-height: 1.45; }
+    .action-arrow { color: #54708b; font-size: 18px; }
+
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .status-item {
+      min-width: 0;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #0e1a28;
+    }
+
+    .status-item span { display: block; color: var(--muted); font-size: 9px; }
+    .status-item strong {
+      display: block;
+      margin-top: 6px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 12px;
+    }
+
+    .tools {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .secondary {
+      height: 34px;
+      padding: 0 11px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      color: #adc0d2;
+      background: #0e1a28;
+      cursor: pointer;
+      font-size: 10px;
+    }
+    .secondary:hover:not(:disabled) { border-color: #47647f; color: white; }
+    .secondary:disabled { opacity: .4; cursor: not-allowed; }
+    .tools-note { margin-left: auto; color: #6f859a; font-size: 9px; }
+
+    details.log-panel { overflow: hidden; }
+
+    summary {
+      height: 46px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 0 14px;
+      list-style: none;
+      cursor: pointer;
+      color: #d8e5f0;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    summary::-webkit-details-marker { display: none; }
+    summary::after { content: "展开"; margin-left: auto; color: var(--muted); font-size: 9px; font-weight: 400; }
+    details[open] summary::after { content: "收起"; }
+
+    .live-dot { width: 7px; height: 7px; border-radius: 50%; background: #5d748a; }
+    .live-dot.running { background: var(--blue); }
+    .live-dot.success { background: var(--green); }
+    .live-dot.failed { background: var(--red); }
+
+    .elapsed { margin-left: 4px; color: #6f859a; font-size: 9px; font-weight: 400; }
+
+    .progress { height: 2px; overflow: hidden; background: #17283a; }
+    .progress > i { display: block; width: 0; height: 100%; background: var(--green); }
+    .progress.running > i { width: 30%; background: var(--blue); animation: move 1.5s linear infinite; }
+    .progress.success > i, .progress.failed > i { width: 100%; }
+    .progress.failed > i { background: var(--red); }
+    @keyframes move { from { transform: translateX(-100%); } to { transform: translateX(335%); } }
+
+    .console {
+      height: 230px;
+      overflow: auto;
+      padding: 13px 14px;
+      border-top: 1px solid var(--line);
+      color: #a9bed1;
+      background: #07111c;
+      font: 10px/1.65 "SFMono-Regular", Menlo, monospace;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    .placeholder { color: #647b91; }
+
+    .footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px 2px 0;
+      color: #63798e;
+      font-size: 9px;
+    }
+
+    .notice {
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      z-index: 20;
+      max-width: calc(100% - 30px);
+      padding: 10px 13px;
+      border: 1px solid #3d5973;
+      border-radius: 10px;
+      color: white;
+      background: #17304a;
+      box-shadow: 0 14px 35px rgba(0,0,0,.35);
+      font-size: 10px;
+      transform: translateX(-50%);
+    }
+    .notice.error { border-color: #7b4148; background: #44252a; }
+
+    @media (max-width: 660px) {
+      .app { width: calc(100% - 16px); padding-top: 8px; }
+      .topbar { height: 44px; margin-bottom: 8px; }
+      .logo { width: 32px; height: 32px; border-radius: 10px; font-size: 16px; }
+      .brand strong { font-size: 15px; }
+      .brand small { display: none; }
+      .setup { grid-template-columns: 1fr; gap: 12px; padding: 14px; margin-bottom: 8px; }
+      .setup .primary { width: 100%; }
+      .actions { grid-template-columns: 1fr; gap: 8px; margin-bottom: 8px; }
+      .action { min-height: 82px; padding: 12px; }
+      .status-grid { grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px; }
+      .status-item { padding: 10px; }
+      .tools { margin-bottom: 8px; }
+      .tools-note { display: none; }
+      .console { height: 190px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo">C</div>
+        <div>
+          <strong>Codex 双机同步</strong>
+          <small>公司上传 · 家里拉取</small>
+        </div>
+      </div>
+      <div class="machine" id="machine">连接本机服务…</div>
+    </header>
+
+    <section class="panel setup" id="setupPanel">
+      <div>
+        <div class="setup-title">
+          <h1 id="setupTitle">检查首次设置</h1>
+          <span class="badge" id="setupBadge">检测中</span>
+        </div>
+        <p id="setupText">正在检查 GitHub 私有仓库、加密工具和本机钥匙串。</p>
+      </div>
+      <button class="primary" id="setupButton" type="button">开始首次设置</button>
+    </section>
+
+    <section class="actions" aria-label="同步操作">
+      <button class="action" id="uploadButton" type="button">
+        <span class="action-icon">↑</span>
+        <span><strong>上传这台电脑</strong><small id="uploadHint">下班前使用；成功后即可关机</small></span>
+        <span class="action-arrow">›</span>
+      </button>
+      <button class="action pull" id="pullButton" type="button">
+        <span class="action-icon">↓</span>
+        <span><strong>拉取云端最新版</strong><small id="pullHint">到家或第二天上班先使用</small></span>
+        <span class="action-arrow">›</span>
+      </button>
+    </section>
+
+    <section class="status-grid" aria-label="当前状态">
+      <div class="status-item"><span>GitHub</span><strong id="repoStatus">检查中</strong></div>
+      <div class="status-item"><span>云端最新</span><strong id="remoteStatus">检查中</strong></div>
+      <div class="status-item"><span>本机已应用</span><strong id="localStatus">检查中</strong></div>
+      <div class="status-item"><span>保留版本</span><strong id="retentionStatus">7 个</strong></div>
+    </section>
+
+    <div class="tools">
+      <button class="secondary" id="inventoryButton" type="button">只读盘点</button>
+      <button class="secondary" id="refreshButton" type="button">刷新状态</button>
+      <span class="tools-note">凭据、设备令牌、日志和缓存不会上传</span>
+    </div>
+
+    <details class="panel log-panel" id="logPanel">
+      <summary>
+        <span class="live-dot" id="jobDot"></span>
+        <span id="jobTitle">运行日志</span>
+        <span class="elapsed" id="elapsed">00:00</span>
+      </summary>
+      <div class="progress" id="progress"><i></i></div>
+      <div class="console" id="console" role="log"><span class="placeholder">开始操作后，这里显示实时进度。</span></div>
+    </details>
+
+    <footer class="footer">
+      <span id="repoName">读取仓库…</span>
+      <button class="secondary" id="shutdownButton" type="button">停止服务</button>
+    </footer>
+  </main>
+
+  <script>
+    (function () {
+      "use strict";
+
+      var params = new URLSearchParams(location.search);
+      var token = params.get("token") || sessionStorage.getItem("codex-sync-token") || "";
+      if (params.get("token")) sessionStorage.setItem("codex-sync-token", params.get("token"));
+
+      var state = null;
+      var cursor = 0;
+      var jobId = null;
+      var hasLog = false;
+      var polling = false;
+      var noticeTimer = null;
+
+      var el = {
+        machine: document.getElementById("machine"),
+        setupPanel: document.getElementById("setupPanel"),
+        setupTitle: document.getElementById("setupTitle"),
+        setupBadge: document.getElementById("setupBadge"),
+        setupText: document.getElementById("setupText"),
+        setupButton: document.getElementById("setupButton"),
+        uploadButton: document.getElementById("uploadButton"),
+        uploadHint: document.getElementById("uploadHint"),
+        pullButton: document.getElementById("pullButton"),
+        pullHint: document.getElementById("pullHint"),
+        repoStatus: document.getElementById("repoStatus"),
+        remoteStatus: document.getElementById("remoteStatus"),
+        localStatus: document.getElementById("localStatus"),
+        retentionStatus: document.getElementById("retentionStatus"),
+        inventoryButton: document.getElementById("inventoryButton"),
+        refreshButton: document.getElementById("refreshButton"),
+        shutdownButton: document.getElementById("shutdownButton"),
+        logPanel: document.getElementById("logPanel"),
+        jobDot: document.getElementById("jobDot"),
+        jobTitle: document.getElementById("jobTitle"),
+        elapsed: document.getElementById("elapsed"),
+        progress: document.getElementById("progress"),
+        console: document.getElementById("console"),
+        repoName: document.getElementById("repoName")
+      };
+
+      function api(path, options) {
+        var settings = options || {};
+        settings.headers = Object.assign({}, settings.headers || {}, {"X-Codex-Sync-Token": token});
+        if (settings.body) settings.headers["Content-Type"] = "application/json";
+        return fetch(path, settings).then(function (response) {
+          return response.json().then(function (data) {
+            if (!response.ok || !data.ok) throw new Error(data.error || "请求失败");
+            return data;
+          });
+        });
+      }
+
+      function notice(text, error) {
+        var old = document.querySelector(".notice");
+        if (old) old.remove();
+        window.clearTimeout(noticeTimer);
+        var item = document.createElement("div");
+        item.className = "notice" + (error ? " error" : "");
+        item.textContent = text;
+        document.body.appendChild(item);
+        noticeTimer = window.setTimeout(function () { item.remove(); }, 5000);
+      }
+
+      function shortId(value) {
+        if (!value) return "尚无";
+        return String(value).replace(/^snapshot-/, "").replace(/-[^-]+$/, "");
+      }
+
+      function formatTime(seconds) {
+        var total = Math.max(0, Number(seconds) || 0);
+        var minutes = Math.floor(total / 60);
+        var secs = total % 60;
+        return String(minutes).padStart(2, "0") + ":" + String(secs).padStart(2, "0");
+      }
+
+      function renderStatus(next) {
+        state = next;
+        var busy = Boolean(next.busy);
+        var ready = Boolean(next.ready);
+
+        el.machine.textContent = (next.hostname || "本机") + (ready ? " · 已就绪" : " · 待设置");
+        el.setupPanel.className = "panel setup " + (ready ? "ready" : (next.repo_error ? "error" : ""));
+        el.setupBadge.className = "badge " + (ready ? "ready" : (next.repo_error ? "error" : ""));
+
+        if (ready) {
+          el.setupTitle.textContent = "同步工具已经就绪";
+          el.setupBadge.textContent = "可使用";
+          el.setupText.textContent = "加密密钥已存入本机钥匙串，可以上传或拉取。";
+          el.setupButton.textContent = "管理首次设置";
+        } else {
+          el.setupTitle.textContent = "先完成首次设置";
+          el.setupBadge.textContent = "第 1 步";
+          el.setupText.textContent = "只需一次：登录 GitHub，并设置或恢复加密口令。完成后下面按钮会自动解锁。";
+          el.setupButton.textContent = "开始首次设置";
+        }
+
+        el.repoStatus.textContent = next.repo_private ? "私有 · 正常" : "未就绪";
+        el.remoteStatus.textContent = next.latest_remote ? shortId(next.latest_remote.id) : "尚无快照";
+        el.localStatus.textContent = shortId(next.local_snapshot);
+        el.retentionStatus.textContent = next.retention + " 个";
+        el.repoName.textContent = next.repo || "未配置仓库";
+
+        el.uploadButton.disabled = busy || !ready;
+        el.pullButton.disabled = busy || !ready || !next.latest_remote;
+        el.setupButton.disabled = busy;
+        el.inventoryButton.disabled = busy;
+        el.shutdownButton.disabled = busy;
+        el.uploadHint.textContent = ready ? "下班前使用；成功后即可关机" : "完成首次设置后可用";
+        el.pullHint.textContent = !ready ? "完成首次设置后可用" : (next.latest_remote ? "恢复云端最新快照" : "云端还没有可拉取的快照");
+      }
+
+      function appendLog(lines) {
+        if (!lines || !lines.length) return;
+        if (!hasLog) {
+          el.console.textContent = "";
+          hasLog = true;
+        }
+        lines.forEach(function (line) {
+          var row = document.createElement("div");
+          row.textContent = line.text;
+          el.console.appendChild(row);
+        });
+        el.console.scrollTop = el.console.scrollHeight;
+      }
+
+      function renderJob(job) {
+        if (job.id && job.id !== jobId) {
+          jobId = job.id;
+          cursor = 0;
+          el.console.textContent = "";
+          hasLog = true;
+        }
+        appendLog(job.lines);
+        cursor = Math.max(cursor, Number(job.cursor) || 0);
+
+        var labels = {inventory: "只读盘点", upload: "上传", pull: "拉取"};
+        el.jobDot.className = "live-dot " + (job.state || "");
+        el.progress.className = "progress " + (job.state || "");
+        el.elapsed.textContent = formatTime(job.elapsed_seconds);
+        el.jobTitle.textContent = job.command ? (labels[job.command] || job.command) +
+          (job.state === "running" ? " · 运行中" : (job.state === "success" ? " · 完成" : (job.state === "failed" ? " · 失败" : ""))) : "运行日志";
+        if (job.state === "running") el.logPanel.open = true;
+      }
+
+      function poll() {
+        if (polling) return;
+        polling = true;
+        Promise.all([api("/api/status"), api("/api/job?after=" + cursor)])
+          .then(function (result) {
+            renderStatus(result[0].status);
+            renderJob(result[1].job);
+          })
+          .catch(function (error) {
+            el.machine.textContent = "本机服务已断开";
+            notice(error.message, true);
+          })
+          .finally(function () { polling = false; });
+      }
+
+      function startJob(command) {
+        var message = {
+          upload: "上传前会安全退出 ChatGPT/Codex，完成后即可关机。确认开始？",
+          pull: "拉取前会备份本机数据，完成后重新打开 ChatGPT/Codex。确认开始？",
+          inventory: "只统计文件数量和大小，不上传、不修改。确认开始？"
+        }[command];
+        if (!window.confirm(message)) return;
+        api("/api/job", {method: "POST", body: JSON.stringify({command: command})})
+          .then(function () {
+            cursor = 0;
+            jobId = null;
+            hasLog = false;
+            el.logPanel.open = true;
+            notice("任务已开始");
+            poll();
+          })
+          .catch(function (error) { notice(error.message, true); });
+      }
+
+      el.setupButton.addEventListener("click", function () {
+        api("/api/open-installer", {method: "POST", body: "{}"})
+          .then(function () { notice("已打开首次设置窗口，请按提示完成"); })
+          .catch(function (error) { notice(error.message, true); });
+      });
+      el.uploadButton.addEventListener("click", function () { startJob("upload"); });
+      el.pullButton.addEventListener("click", function () { startJob("pull"); });
+      el.inventoryButton.addEventListener("click", function () { startJob("inventory"); });
+      el.refreshButton.addEventListener("click", function () { poll(); notice("正在刷新状态"); });
+      el.shutdownButton.addEventListener("click", function () {
+        if (!window.confirm("停止本机同步服务？")) return;
+        api("/api/shutdown", {method: "POST", body: "{}"}).then(function () {
+          document.body.innerHTML = "<main style='min-height:100vh;display:grid;place-items:center;background:#09121e;color:#edf5fc;font-family:-apple-system,sans-serif'><div style='text-align:center'><h2>同步服务已停止</h2><p style='color:#91a4b8'>下次双击 Codex双机同步.app 即可。</p></div></main>";
+        }).catch(function (error) { notice(error.message, true); });
+      });
+
+      if (!token) {
+        document.body.innerHTML = "<main style='min-height:100vh;display:grid;place-items:center;padding:20px;background:#09121e;color:#edf5fc;font-family:-apple-system,sans-serif'><section style='max-width:520px;padding:28px;border:1px solid #263b51;border-radius:16px;background:#111e2d'><h1>请双击 Codex双机同步.app</h1><p style='color:#91a4b8;line-height:1.7'>dashboard.html 是应用内部页面，不能单独运行。</p></section></main>";
+        return;
+      }
+
+      poll();
+      window.setInterval(poll, 1500);
+      document.addEventListener("visibilitychange", function () { if (!document.hidden) poll(); });
+    })();
+  </script>
+</body>
+</html>

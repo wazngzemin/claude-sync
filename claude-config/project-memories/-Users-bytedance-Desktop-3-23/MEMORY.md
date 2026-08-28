@@ -1,6 +1,6 @@
 # Memory Index
 
-- [Feishu bot architecture](project_feishu_bot_architecture.md) — 第二只虾=本机feishu-knowledge-assistant服务(8788/launchd守护)；三大读取缺口已修(合并转发展开/文档搜索降级wiki/Aime兜底)；排障先curl实测接口再看service.log
+- [Feishu bot architecture](project_feishu_bot_architecture.md) — 第二只虾=本机feishu-knowledge-assistant服务(8788/launchd守护)；四大读取缺口已修(合并转发展开/文档搜索降级wiki/Aime兜底/会议妙记检索整句0命中→关键词降级重试)；排障先curl实测接口再看service.log
 
 - [Playwright setup](project_playwright_setup.md) — Codex截图冒Chrome图标=Playwright开浏览器(正常)；headless shell四版本已装齐；下载必须走npmmirror镜像(官方源7KB/s)
 

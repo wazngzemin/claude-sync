@@ -1,0 +1,972 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Codex 双机同步管理</title>
+  <style>
+    :root {
+      --bg:#0d1117;
+      --surface:#161b22;
+      --surface-focus:#1c2129;
+      --border:#30363d;
+      --text:#e6edf3;
+      --dim:#8b949e;
+      --accent:#58a6ff;
+      --accent-deep:#1f6feb;
+      --green:#3fb950;
+      --green-deep:#238636;
+      --red:#f85149;
+      --orange:#d29922;
+      --purple:#bc8cff;
+    }
+
+    * { margin:0; padding:0; box-sizing:border-box; }
+
+    body {
+      min-height:100vh;
+      padding:22px 26px;
+      color:var(--text);
+      background:var(--bg);
+      font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Helvetica Neue",sans-serif;
+    }
+
+    button, summary { font:inherit; }
+    button:focus-visible, summary:focus-visible { outline:3px solid rgba(88,166,255,.45); outline-offset:2px; }
+
+    .header {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:18px;
+      margin-bottom:18px;
+      padding-bottom:16px;
+      border-bottom:1px solid var(--border);
+    }
+
+    .header h1 {
+      min-width:0;
+      display:flex;
+      align-items:center;
+      gap:11px;
+      font-size:22px;
+      font-weight:650;
+    }
+
+    .logo {
+      width:34px;
+      height:34px;
+      flex:0 0 auto;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      border-radius:9px;
+      background:linear-gradient(160deg,#3684f5,#a870ff);
+      box-shadow:0 7px 20px rgba(54,132,245,.2);
+      font-size:18px;
+    }
+
+    .status {
+      display:flex;
+      align-items:center;
+      gap:14px;
+      color:var(--dim);
+      font-size:13px;
+      white-space:nowrap;
+    }
+
+    .dot {
+      width:8px;
+      height:8px;
+      display:inline-block;
+      margin-right:6px;
+      border-radius:50%;
+      background:var(--orange);
+    }
+    .dot.ok { background:var(--green); }
+    .dot.off { background:var(--red); }
+
+    .hint {
+      margin-bottom:16px;
+      padding:11px 14px;
+      border:1px solid rgba(88,166,255,.25);
+      border-radius:9px;
+      color:#c9d7e6;
+      background:rgba(88,166,255,.08);
+      font-size:13px;
+      line-height:1.6;
+    }
+    .hint b { color:var(--accent); }
+    .hint .green { color:var(--green); }
+
+    .toolbar {
+      display:flex;
+      align-items:center;
+      gap:9px;
+      margin-bottom:16px;
+      flex-wrap:wrap;
+    }
+
+    .btn {
+      min-height:38px;
+      display:flex;
+      align-items:center;
+      gap:7px;
+      padding:8px 14px;
+      border:1px solid var(--border);
+      border-radius:8px;
+      color:var(--text);
+      background:var(--surface);
+      cursor:pointer;
+      font-size:13px;
+      transition:.13s;
+      user-select:none;
+    }
+    .btn:hover:not(:disabled) { border-color:var(--dim); background:var(--surface-focus); }
+    .btn:active:not(:disabled) { transform:scale(.98); }
+    .btn:disabled { opacity:.4; cursor:not-allowed; }
+    .btn-upload { border-color:var(--accent); background:var(--accent-deep); font-weight:650; }
+    .btn-upload:hover:not(:disabled) { background:var(--accent); }
+    .btn-pull { border-color:var(--green); background:var(--green-deep); font-weight:650; }
+    .btn-pull:hover:not(:disabled) { background:var(--green); }
+    .btn-setup { border-color:rgba(210,153,34,.55); color:#f0c873; }
+    .btn-sm { min-height:34px; padding:6px 11px; font-size:12px; }
+
+    .separator { width:1px; height:22px; margin:0 2px; background:var(--border); }
+    .count { margin-left:auto; color:var(--dim); font-size:13px; }
+    .count b { color:var(--accent); font-size:15px; }
+
+    .tree {
+      max-height:min(72vh,900px);
+      overflow:auto;
+      border:1px solid var(--border);
+      border-radius:12px;
+      background:var(--surface);
+    }
+
+    .section-title {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding:9px 16px;
+      border-bottom:1px solid var(--border);
+      color:var(--dim);
+      background:rgba(255,255,255,.025);
+      font-size:12px;
+      font-weight:650;
+      letter-spacing:.45px;
+      text-transform:uppercase;
+    }
+    .section-title.collapsible { cursor:pointer; user-select:none; }
+    .section-title.collapsible:hover { color:#c7d2dc; background:rgba(255,255,255,.045); }
+    .section-arrow { font-size:12px; transition:transform .12s; }
+    .section-arrow.collapsed { transform:rotate(-90deg); }
+
+    .row {
+      min-height:38px;
+      display:flex;
+      align-items:center;
+      gap:9px;
+      padding:7px 16px;
+      border-bottom:1px solid rgba(48,54,61,.45);
+      transition:background .1s;
+    }
+    .row:last-child { border-bottom:0; }
+    .row.expandable { cursor:pointer; }
+    .row.expandable:hover { background:var(--surface-focus); }
+    .row.thread { min-height:36px; color:#cbd6df; }
+    .row.selected { background:rgba(255,255,255,.065); }
+    .row.show-more { cursor:pointer; color:var(--dim); }
+    .row.show-more:hover { color:var(--text); background:var(--surface-focus); }
+
+    .caret {
+      width:16px;
+      flex:0 0 auto;
+      color:var(--dim);
+      font-size:11px;
+      text-align:center;
+      transition:transform .12s;
+    }
+    .caret.open { transform:rotate(90deg); }
+    .caret.leaf { visibility:hidden; }
+
+    .included {
+      width:19px;
+      height:19px;
+      flex:0 0 auto;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      border:2px solid rgba(88,166,255,.55);
+      border-radius:5px;
+      background:rgba(88,166,255,.2);
+    }
+    .included::after { content:"✓"; color:#cce5ff; font-size:12px; font-weight:750; }
+    .included.missing { border-color:#555d66; background:transparent; }
+    .included.missing::after { content:""; }
+    .row.unavailable { opacity:.48; }
+
+    .icon { flex:0 0 auto; font-size:16px; }
+    .name {
+      min-width:0;
+      flex:1;
+      overflow:hidden;
+      color:#dfe8f0;
+      font-size:14px;
+      font-weight:520;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .description {
+      margin-left:7px;
+      color:var(--dim);
+      font-size:11.5px;
+      font-weight:400;
+    }
+    .meta {
+      flex:0 0 auto;
+      padding:2px 8px;
+      border-radius:4px;
+      color:var(--dim);
+      background:rgba(255,255,255,.05);
+      font-size:11.5px;
+    }
+    .loading-row { padding:10px 53px; color:var(--dim); font-size:12px; }
+    .sync-scope {
+      display:flex;
+      align-items:center;
+      gap:8px;
+      margin-top:10px;
+      padding:10px 13px;
+      border:1px solid var(--border);
+      border-radius:9px;
+      color:var(--dim);
+      background:rgba(255,255,255,.018);
+      font-size:11.5px;
+      line-height:1.55;
+    }
+    .sync-scope b { color:#cbd7e2; }
+
+    .log-wrap { margin-top:14px; border:1px solid var(--border); border-radius:10px; background:var(--surface); overflow:hidden; }
+    .log-wrap summary {
+      height:42px;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      padding:0 14px;
+      list-style:none;
+      cursor:pointer;
+      color:#cbd7e2;
+      font-size:12px;
+      font-weight:650;
+    }
+    .log-wrap summary::-webkit-details-marker { display:none; }
+    .log-wrap summary::after { content:"展开"; margin-left:auto; color:var(--dim); font-size:11px; font-weight:400; }
+    .log-wrap[open] summary::after { content:"收起"; }
+    .job-dot { width:7px; height:7px; border-radius:50%; background:#5d748a; }
+    .job-dot.running { background:var(--accent); }
+    .job-dot.success { background:var(--green); }
+    .job-dot.failed { background:var(--red); }
+    .elapsed { color:var(--dim); font-size:11px; font-weight:400; }
+    .console {
+      height:210px;
+      overflow:auto;
+      padding:13px 15px;
+      border-top:1px solid var(--border);
+      color:#abc0d3;
+      background:#0a0f15;
+      font:11px/1.65 "SFMono-Regular",Menlo,monospace;
+      white-space:pre-wrap;
+      overflow-wrap:anywhere;
+    }
+    .placeholder { color:#667b8f; }
+
+    .footer {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding:12px 2px 0;
+      color:#5f7387;
+      font-size:10px;
+    }
+
+    .toast-area {
+      position:fixed;
+      top:18px;
+      right:18px;
+      z-index:50;
+      width:min(380px,calc(100% - 36px));
+      display:grid;
+      gap:8px;
+    }
+    .toast {
+      padding:12px 15px;
+      border:1px solid var(--border);
+      border-radius:10px;
+      color:var(--text);
+      background:var(--surface);
+      box-shadow:0 10px 30px rgba(0,0,0,.4);
+      font-size:12px;
+      line-height:1.5;
+    }
+    .toast.ok { border-color:rgba(63,185,80,.5); }
+    .toast.error { border-color:rgba(248,81,73,.55); }
+
+    .modal-backdrop {
+      position:fixed;
+      inset:0;
+      z-index:60;
+      display:grid;
+      place-items:center;
+      padding:18px;
+      background:rgba(0,0,0,.72);
+    }
+    .modal-backdrop[hidden] { display:none; }
+    .modal {
+      width:min(520px,100%);
+      padding:22px;
+      border:1px solid var(--border);
+      border-radius:14px;
+      background:var(--surface);
+      box-shadow:0 24px 70px rgba(0,0,0,.52);
+    }
+    .modal h2 { font-size:19px; }
+    .modal-subtitle { margin-top:7px; color:var(--dim); font-size:12px; line-height:1.6; }
+    .connection-box {
+      display:grid;
+      gap:8px;
+      margin:16px 0;
+      padding:12px;
+      border:1px solid var(--border);
+      border-radius:9px;
+      background:#11161d;
+      font-size:12px;
+    }
+    .connection-row { display:flex; justify-content:space-between; gap:12px; }
+    .connection-row span { color:var(--dim); }
+    .connection-row b { color:var(--green); }
+    .field { display:grid; gap:7px; margin-top:13px; }
+    .field label { color:#c7d2dc; font-size:12px; }
+    .field input {
+      width:100%;
+      height:42px;
+      padding:0 11px;
+      border:1px solid var(--border);
+      border-radius:8px;
+      color:var(--text);
+      background:#0d1117;
+      font:13px "SFMono-Regular",Menlo,monospace;
+    }
+    .field input:focus { border-color:var(--accent); outline:0; }
+    .recovery-note { margin-top:10px; color:#d9b86f; font-size:11px; line-height:1.55; }
+    .modal-actions { display:flex; align-items:center; justify-content:flex-end; gap:8px; margin-top:18px; flex-wrap:wrap; }
+
+    @media (max-width:700px) {
+      body { padding:12px 10px 20px; }
+      .header { align-items:flex-start; margin-bottom:12px; padding-bottom:12px; }
+      .header h1 { font-size:17px; }
+      .logo { width:30px; height:30px; border-radius:8px; font-size:15px; }
+      .status { max-width:42%; display:block; overflow:hidden; text-align:right; text-overflow:ellipsis; font-size:10px; }
+      #lastSync { display:block; margin-top:4px; }
+      .hint { margin-bottom:10px; padding:9px 10px; font-size:11px; }
+      .toolbar { gap:6px; margin-bottom:10px; }
+      .btn { min-height:34px; padding:6px 10px; font-size:11px; }
+      .separator { display:none; }
+      .count { width:100%; margin-left:0; text-align:right; font-size:10px; }
+      .section-title { padding:8px 10px; font-size:10px; }
+      .row { gap:7px; padding-top:7px; padding-right:9px; padding-bottom:7px; }
+      .included { width:17px; height:17px; }
+      .icon { font-size:14px; }
+      .name { font-size:12px; }
+      .description { display:none; }
+      .meta { padding:2px 5px; font-size:9px; }
+      .console { height:180px; }
+      .footer { font-size:9px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <h1><span class="logo">⇅</span><span>Codex 双机同步管理</span></h1>
+    <div class="status">
+      <span><span class="dot" id="statusDot"></span><span id="statusText">加载中…</span></span>
+      <span id="lastSync"></span>
+    </div>
+  </header>
+
+  <div class="hint">
+    下班前点 <b>“上传全部”</b>，到家或第二天点 <span class="green">“拉取全部”</span>。
+    下方直接读取 <b>Codex 左侧栏</b>：“最近”、“置顶”、“项目”和项目内对话都会按 Codex 的名称与顺序完整显示。
+  </div>
+
+  <div class="toolbar">
+    <button class="btn btn-setup" id="setupButton" type="button">🔐 首次设置</button>
+    <button class="btn btn-upload" id="uploadButton" type="button" disabled>📤 上传全部</button>
+    <button class="btn btn-pull" id="pullButton" type="button" disabled>📥 拉取全部</button>
+    <div class="separator"></div>
+    <button class="btn btn-sm" id="inventoryButton" type="button">盘点大小</button>
+    <button class="btn btn-sm" id="collapseButton" type="button">折叠全部</button>
+    <button class="btn btn-sm" id="refreshButton" type="button">↻ 刷新</button>
+    <div class="count">已纳入 <b id="includedCount">—</b></div>
+  </div>
+
+  <section class="tree" id="tree" aria-label="Codex 侧边栏同步内容"></section>
+  <div class="sync-scope"><span>✓</span><span><b>底层同步范围不变：</b>全部对话与归档、记忆、AGENTS.md、技能、插件、附件、配置和项目文件都会进入加密快照；这里只按 Codex 侧边栏展示，不再展开磁盘日期目录。</span></div>
+
+  <details class="log-wrap" id="logPanel">
+    <summary>
+      <span class="job-dot" id="jobDot"></span>
+      <span id="jobTitle">运行日志</span>
+      <span class="elapsed" id="elapsed">00:00</span>
+    </summary>
+    <div class="console" id="console" role="log"><span class="placeholder">开始上传、拉取或盘点后，这里显示实时进度。</span></div>
+  </details>
+
+  <footer class="footer">
+    <span id="repoName">读取仓库…</span>
+    <button class="btn btn-sm" id="shutdownButton" type="button">停止本地服务</button>
+  </footer>
+
+  <div class="toast-area" id="toastArea" aria-live="assertive"></div>
+
+  <div class="modal-backdrop" id="setupModal" hidden>
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="setupModalTitle">
+      <h2 id="setupModalTitle">一键完成首次设置</h2>
+      <p class="modal-subtitle" id="setupModalText">GitHub 已经连接，只需要建立加密恢复口令。</p>
+      <div class="connection-box">
+        <div class="connection-row"><span>GitHub 账号</span><b id="githubAccount">检查中</b></div>
+        <div class="connection-row"><span>私有仓库</span><b id="githubRepo">检查中</b></div>
+      </div>
+      <div class="field">
+        <label for="recoveryPassphrase" id="passphraseLabel">恢复口令</label>
+        <input id="recoveryPassphrase" type="text" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="field" id="confirmField">
+        <label for="recoveryPassphraseConfirm">再次输入恢复口令</label>
+        <input id="recoveryPassphraseConfirm" type="text" autocomplete="off" spellcheck="false">
+      </div>
+      <p class="recovery-note" id="recoveryNote">请先复制保存。家里电脑首次恢复时需要输入一次，丢失后无法解密云端数据。</p>
+      <div class="modal-actions">
+        <button class="btn btn-sm" id="generatePassphraseButton" type="button">生成安全口令</button>
+        <button class="btn btn-sm" id="copyPassphraseButton" type="button">复制口令</button>
+        <button class="btn btn-sm" id="cancelSetupButton" type="button">取消</button>
+        <button class="btn btn-upload" id="confirmSetupButton" type="button">一键完成设置</button>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    (function () {
+      "use strict";
+
+      var params = new URLSearchParams(location.search);
+      var tokenFromUrl = params.get("token");
+      if (tokenFromUrl) sessionStorage.setItem("codex-sync-token", tokenFromUrl);
+      var token = tokenFromUrl || sessionStorage.getItem("codex-sync-token") || "";
+
+      var currentStatus = null;
+      var rootNodes = [];
+      var nodeMap = new Map();
+      var cursor = 0;
+      var jobId = null;
+      var hasLog = false;
+      var polling = false;
+      var setupMode = "create";
+      var storedExpandedProjects = localStorage.getItem("codex-sync-expanded-projects");
+      var expandedProjects = new Set(storedExpandedProjects ? JSON.parse(storedExpandedProjects) : []);
+      var hasStoredExpansion = storedExpandedProjects !== null;
+      var storedCollapsedSections = localStorage.getItem("codex-sync-collapsed-sections");
+      var collapsedSections = storedCollapsedSections ? JSON.parse(storedCollapsedSections) : {};
+
+      var el = {
+        statusDot: document.getElementById("statusDot"),
+        statusText: document.getElementById("statusText"),
+        lastSync: document.getElementById("lastSync"),
+        setupButton: document.getElementById("setupButton"),
+        uploadButton: document.getElementById("uploadButton"),
+        pullButton: document.getElementById("pullButton"),
+        inventoryButton: document.getElementById("inventoryButton"),
+        collapseButton: document.getElementById("collapseButton"),
+        refreshButton: document.getElementById("refreshButton"),
+        includedCount: document.getElementById("includedCount"),
+        tree: document.getElementById("tree"),
+        logPanel: document.getElementById("logPanel"),
+        jobDot: document.getElementById("jobDot"),
+        jobTitle: document.getElementById("jobTitle"),
+        elapsed: document.getElementById("elapsed"),
+        console: document.getElementById("console"),
+        repoName: document.getElementById("repoName"),
+        shutdownButton: document.getElementById("shutdownButton"),
+        toastArea: document.getElementById("toastArea"),
+        setupModal: document.getElementById("setupModal"),
+        setupModalTitle: document.getElementById("setupModalTitle"),
+        setupModalText: document.getElementById("setupModalText"),
+        githubAccount: document.getElementById("githubAccount"),
+        githubRepo: document.getElementById("githubRepo"),
+        passphraseLabel: document.getElementById("passphraseLabel"),
+        recoveryPassphrase: document.getElementById("recoveryPassphrase"),
+        confirmField: document.getElementById("confirmField"),
+        recoveryPassphraseConfirm: document.getElementById("recoveryPassphraseConfirm"),
+        recoveryNote: document.getElementById("recoveryNote"),
+        generatePassphraseButton: document.getElementById("generatePassphraseButton"),
+        copyPassphraseButton: document.getElementById("copyPassphraseButton"),
+        cancelSetupButton: document.getElementById("cancelSetupButton"),
+        confirmSetupButton: document.getElementById("confirmSetupButton")
+      };
+
+      function api(path, options) {
+        var settings = options || {};
+        settings.headers = Object.assign({}, settings.headers || {}, {"X-Codex-Sync-Token": token});
+        if (settings.body) settings.headers["Content-Type"] = "application/json";
+        return fetch(path, settings).then(function (response) {
+          return response.json().then(function (data) {
+            if (!response.ok || !data.ok) throw new Error(data.error || "本机服务请求失败");
+            return data;
+          });
+        });
+      }
+
+      function escapeHtml(value) {
+        return String(value).replace(/[&<>"]/g, function (character) {
+          return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[character];
+        });
+      }
+
+      function toast(message, kind) {
+        var item = document.createElement("div");
+        item.className = "toast " + (kind || "");
+        item.textContent = message;
+        el.toastArea.appendChild(item);
+        window.setTimeout(function () { item.remove(); }, 5500);
+      }
+
+      function generateRecoveryCode() {
+        var bytes = new Uint8Array(16);
+        window.crypto.getRandomValues(bytes);
+        var hex = Array.from(bytes).map(function (value) { return value.toString(16).padStart(2,"0"); }).join("").toUpperCase();
+        return "CODEX-" + hex.match(/.{1,4}/g).join("-");
+      }
+
+      function closeSetupModal() {
+        el.setupModal.hidden = true;
+      }
+
+      function openSetupModal() {
+        if (!currentStatus) return;
+        if (currentStatus.ready) {
+          toast("GitHub 和本机加密密钥都已经配置完成","ok");
+          return;
+        }
+        if (!currentStatus.repo_private) {
+          toast("当前还没有连接到 GitHub 私有仓库","error");
+          return;
+        }
+        setupMode = currentStatus.bootstrap_exists ? "restore" : "create";
+        el.githubAccount.textContent = currentStatus.github_account || "已连接";
+        el.githubRepo.textContent = currentStatus.repo + " · 私有";
+        el.recoveryPassphrase.value = setupMode === "create" ? generateRecoveryCode() : "";
+        el.recoveryPassphraseConfirm.value = setupMode === "create" ? el.recoveryPassphrase.value : "";
+        el.confirmField.hidden = setupMode === "restore";
+        el.generatePassphraseButton.hidden = setupMode === "restore";
+        el.setupModalTitle.textContent = setupMode === "create" ? "一键完成当前电脑设置" : "恢复这台电脑的加密密钥";
+        el.setupModalText.textContent = setupMode === "create"
+          ? "GitHub 已经连接。保存下面的恢复口令，然后一键生成密钥并上传加密恢复包。"
+          : "GitHub 已经连接。输入公司电脑首次设置时保存的恢复口令即可。";
+        el.passphraseLabel.textContent = setupMode === "create" ? "恢复口令（已自动生成，可自行修改）" : "请输入恢复口令";
+        el.recoveryNote.textContent = setupMode === "create"
+          ? "点击完成时会自动复制到剪贴板。家里电脑首次恢复需要输入一次，丢失后无法解密。"
+          : "口令只发送给当前电脑的本地服务，不会保存到网页或 GitHub。";
+        el.confirmSetupButton.textContent = setupMode === "create" ? "复制口令并完成设置" : "恢复并完成设置";
+        el.setupModal.hidden = false;
+        el.recoveryPassphrase.focus();
+        el.recoveryPassphrase.select();
+      }
+
+      function copyRecoveryPassphrase() {
+        var value = el.recoveryPassphrase.value;
+        if (!value) {
+          toast("还没有恢复口令","error");
+          return Promise.resolve();
+        }
+        return navigator.clipboard.writeText(value).then(function () {
+          toast("恢复口令已复制，请保存好","ok");
+        }).catch(function () {
+          el.recoveryPassphrase.focus();
+          el.recoveryPassphrase.select();
+          toast("无法自动复制，已选中口令，请按 Command+C","error");
+        });
+      }
+
+      function submitWebSetup() {
+        var passphrase = el.recoveryPassphrase.value;
+        if (passphrase.length < 12) {
+          toast("恢复口令至少需要 12 个字符","error");
+          return;
+        }
+        if (setupMode === "create" && passphrase !== el.recoveryPassphraseConfirm.value) {
+          toast("两次输入的恢复口令不一致","error");
+          return;
+        }
+        var prepare = setupMode === "create" ? copyRecoveryPassphrase() : Promise.resolve();
+        prepare.then(function () {
+          return api("/api/setup",{method:"POST",body:JSON.stringify({passphrase:passphrase})});
+        }).then(function () {
+          el.recoveryPassphrase.value = "";
+          el.recoveryPassphraseConfirm.value = "";
+          closeSetupModal();
+          cursor = 0;
+          jobId = null;
+          hasLog = false;
+          el.logPanel.open = true;
+          toast("GitHub 已连接，正在后台生成加密密钥","ok");
+          poll();
+        }).catch(function (error) { toast(error.message,"error"); });
+      }
+
+      function formatBytes(bytes) {
+        if (bytes === null || bytes === undefined) return "文件夹";
+        var value = Number(bytes);
+        var units = ["B","K","M","G","T"];
+        var index = 0;
+        while (value >= 1024 && index < units.length - 1) {
+          value /= 1024;
+          index += 1;
+        }
+        return value.toFixed(value >= 10 || index === 0 ? 0 : 1) + units[index];
+      }
+
+      function shortSnapshot(value) {
+        if (!value) return "尚无";
+        return String(value).replace(/^snapshot-/, "").replace(/-[^-]+$/, "");
+      }
+
+      function formatElapsed(seconds) {
+        var total = Math.max(0, Number(seconds) || 0);
+        return String(Math.floor(total / 60)).padStart(2, "0") + ":" + String(total % 60).padStart(2, "0");
+      }
+
+      function makeNode(data) {
+        var node = Object.assign({children:[], loaded:false, expanded:false, level:0}, data);
+        nodeMap.set(node.key, node);
+        return node;
+      }
+
+      function threadNode(thread, keyPrefix, level, selected) {
+        return makeNode({
+          key:keyPrefix + thread.id,
+          name:thread.title,
+          icon:thread.kind === "automation" ? "◷" : "",
+          meta:"",
+          level:level || 0,
+          rowType:"thread",
+          selected:Boolean(selected)
+        });
+      }
+
+      function refreshProjectChildren(node) {
+        var shown = node.showAll ? node.threads : node.threads.slice(0,5);
+        node.children = shown.map(function (thread) {
+          return threadNode(thread,"thread:" + node.projectId + ":",1);
+        });
+        if (!node.showAll && node.threads.length > shown.length) {
+          node.children.push(makeNode({
+            key:"show-more:" + node.projectId,
+            name:"展开显示",
+            icon:"",
+            meta:"",
+            level:1,
+            rowType:"show-more",
+            action:"show-more",
+            parentKey:node.key
+          }));
+        }
+      }
+
+      function buildTree(status) {
+        nodeMap.clear();
+        var preferences = status.sidebar_preferences || {};
+        var recentRows = (status.recent_threads || []).map(function (thread,index) {
+          return threadNode(thread,"recent:",0,index === 0);
+        });
+        var pinnedRows = (status.pinned_threads || []).map(function (thread) {
+          return threadNode(thread,"pinned:",0,false);
+        });
+        var sidebarProjectRows = (status.codex_projects || []).map(function (project,index) {
+          var available = Boolean(project.available);
+          var key = "project:" + project.id;
+          var threads = project.threads || [];
+          var expanded = expandedProjects.has(key) || (!hasStoredExpansion && Boolean(project.expanded));
+          if (expanded) expandedProjects.add(key);
+          var node = makeNode({
+            key:key,
+            name:project.name,
+            icon:"📁",
+            meta:"",
+            included:available && threads.length > 0,
+            expandable:threads.length > 0,
+            expanded:expanded && threads.length > 0,
+            loaded:true,
+            projectId:project.id,
+            threads:threads,
+            showAll:false,
+            rowType:"project"
+          });
+          refreshProjectChildren(node);
+          return node;
+        });
+        if (!hasStoredExpansion) {
+          localStorage.setItem("codex-sync-expanded-projects",JSON.stringify(Array.from(expandedProjects)));
+          hasStoredExpansion = true;
+        }
+        function sectionCollapsed(key, fallback) {
+          return Object.prototype.hasOwnProperty.call(collapsedSections,key) ? Boolean(collapsedSections[key]) : Boolean(fallback);
+        }
+        rootNodes = [
+          {key:"recent",title:"最近",nodes:recentRows,collapsible:true,collapsed:sectionCollapsed("recent",preferences.recent_collapsed)},
+          {key:"pinned",title:"置顶",nodes:pinnedRows,collapsible:true,collapsed:sectionCollapsed("pinned",preferences.pinned_collapsed)},
+          {key:"projects",title:"项目",nodes:sidebarProjectRows,collapsible:true,collapsed:sectionCollapsed("projects",preferences.projects_collapsed)}
+        ];
+        var inventory = status.inventory || {};
+        el.includedCount.textContent = inventory.files
+          ? Number(inventory.files).toLocaleString("zh-CN") + " 文件 · " + sidebarProjectRows.length + " 项目 · " + Number(status.thread_count || 0).toLocaleString("zh-CN") + " 对话"
+          : sidebarProjectRows.length + " 项目 · " + Number(status.thread_count || 0).toLocaleString("zh-CN") + " 对话";
+        renderTree();
+      }
+
+      function renderTree() {
+        var html = "";
+        rootNodes.forEach(function (section) {
+          if (section.title) {
+            html += '<div class="section-title' + (section.collapsible ? " collapsible" : "") + '"' +
+              (section.key ? ' data-section-key="' + escapeHtml(section.key) + '"' : "") + '><span>' +
+              escapeHtml(section.title) + '</span>' +
+              (section.collapsible ? '<span class="section-arrow' + (section.collapsed ? " collapsed" : "") + '">⌄</span>' : "") +
+              '</div>';
+          }
+          if (!section.collapsed) section.nodes.forEach(function (node) { html += rowHtml(node); });
+        });
+        el.tree.innerHTML = html;
+      }
+
+      function rowHtml(node) {
+        var padding = 16 + (node.level || 0) * 21;
+        var caret = node.expandable
+          ? '<span class="caret ' + (node.expanded ? "open" : "") + '">▶</span>'
+          : '<span class="caret leaf">▶</span>';
+        var description = node.description ? '<span class="description">' + escapeHtml(node.description) + "</span>" : "";
+        var meta = node.meta ? '<span class="meta">' + escapeHtml(node.meta) + '</span>' : "";
+        var classes = "row" + (node.expandable ? " expandable" : "") + (node.included === false ? " unavailable" : "") + (node.rowType ? " " + node.rowType : "") + (node.selected ? " selected" : "");
+        var icon = node.icon ? '<span class="icon">' + escapeHtml(node.icon) + "</span>" : '<span class="icon" aria-hidden="true"></span>';
+        var html = '<div class="' + classes + '" data-key="' + escapeHtml(node.key) + '" style="padding-left:' + padding + 'px">' +
+          caret + icon +
+          '<span class="name">' + escapeHtml(node.name) + description + "</span>" +
+          meta + "</div>";
+        if (node.expanded) {
+          if (!node.loaded) {
+            html += '<div class="loading-row">正在读取…</div>';
+          } else {
+            node.children.forEach(function (child) { html += rowHtml(child); });
+            if (!node.children.length) html += '<div class="loading-row">空文件夹</div>';
+          }
+        }
+        return html;
+      }
+
+      function toggleNode(node) {
+        if (!node) return;
+        if (node.action === "show-more") {
+          var parent = nodeMap.get(node.parentKey);
+          if (parent) {
+            parent.showAll = true;
+            refreshProjectChildren(parent);
+            renderTree();
+          }
+          return;
+        }
+        if (!node.expandable) return;
+        node.expanded = !node.expanded;
+        if (node.rowType === "project") {
+          if (node.expanded) expandedProjects.add(node.key);
+          else expandedProjects.delete(node.key);
+          localStorage.setItem("codex-sync-expanded-projects",JSON.stringify(Array.from(expandedProjects)));
+        }
+        renderTree();
+      }
+
+      function renderStatus(status) {
+        var previousTree = currentStatus ? JSON.stringify({
+          projects:currentStatus.codex_projects || [],
+          recent:currentStatus.recent_threads || [],
+          pinned:currentStatus.pinned_threads || [],
+          threads:currentStatus.thread_count || 0,
+          preferences:currentStatus.sidebar_preferences || {},
+          inventory:currentStatus.inventory || {}
+        }) : "";
+        currentStatus = status;
+        var ready = Boolean(status.ready);
+        var busy = Boolean(status.busy);
+
+        el.statusDot.className = "dot " + (ready ? "ok" : (status.repo_error ? "off" : ""));
+        el.statusText.textContent = ready ? "已就绪" : (status.repo_private ? "GitHub 已连接 · 待生成密钥" : "需要连接 GitHub");
+        el.lastSync.textContent = status.latest_remote
+          ? "云端：" + (status.latest_remote.published_local || shortSnapshot(status.latest_remote.id))
+          : "云端尚无快照";
+        el.repoName.textContent = status.repo + (status.repo_private ? " · 私有仓库" : "");
+
+        el.setupButton.textContent = ready ? "🔐 已完成设置" : "🔐 一键完成设置";
+        el.setupButton.disabled = busy;
+        el.uploadButton.disabled = busy || !ready;
+        el.pullButton.disabled = busy || !ready || !status.latest_remote;
+        el.inventoryButton.disabled = busy;
+        el.shutdownButton.disabled = busy;
+
+        var nextTree = JSON.stringify({
+          projects:status.codex_projects || [],
+          recent:status.recent_threads || [],
+          pinned:status.pinned_threads || [],
+          threads:status.thread_count || 0,
+          preferences:status.sidebar_preferences || {},
+          inventory:status.inventory || {}
+        });
+        if (!rootNodes.length || previousTree !== nextTree) buildTree(status);
+      }
+
+      function appendLog(lines) {
+        if (!lines || !lines.length) return;
+        if (!hasLog) {
+          el.console.textContent = "";
+          hasLog = true;
+        }
+        lines.forEach(function (line) {
+          var row = document.createElement("div");
+          row.textContent = line.text;
+          el.console.appendChild(row);
+        });
+        el.console.scrollTop = el.console.scrollHeight;
+      }
+
+      function renderJob(job) {
+        if (job.id && job.id !== jobId) {
+          jobId = job.id;
+          cursor = 0;
+          el.console.textContent = "";
+          hasLog = true;
+        }
+        appendLog(job.lines);
+        cursor = Math.max(cursor, Number(job.cursor) || 0);
+        var labels = {setup:"首次设置",inventory:"盘点",upload:"上传",pull:"拉取"};
+        el.jobDot.className = "job-dot " + (job.state || "");
+        el.elapsed.textContent = formatElapsed(job.elapsed_seconds);
+        el.jobTitle.textContent = job.command
+          ? (labels[job.command] || job.command) + (job.state === "running" ? " · 运行中" : (job.state === "success" ? " · 完成" : (job.state === "failed" ? " · 失败" : "")))
+          : "运行日志";
+        if (job.state === "running") el.logPanel.open = true;
+      }
+
+      function poll() {
+        if (polling) return;
+        polling = true;
+        Promise.all([api("/api/status"),api("/api/job?after=" + cursor)])
+          .then(function (result) {
+            renderStatus(result[0].status);
+            renderJob(result[1].job);
+          })
+          .catch(function (error) {
+            el.statusDot.className = "dot off";
+            el.statusText.textContent = "本机服务已断开";
+            toast(error.message, "error");
+          })
+          .finally(function () { polling = false; });
+      }
+
+      function startJob(command) {
+        var message = {
+          upload:"上传会安全退出 ChatGPT/Codex，并生成完整加密快照。确认开始？",
+          pull:"拉取会先备份本机数据，再恢复云端完整快照。确认开始？",
+          inventory:"盘点只读取文件数量和大小，不上传、不修改。确认开始？"
+        }[command];
+        if (!window.confirm(message)) return;
+        api("/api/job",{method:"POST",body:JSON.stringify({command:command})})
+          .then(function () {
+            cursor = 0;
+            jobId = null;
+            hasLog = false;
+            el.logPanel.open = true;
+            toast("任务已开始","ok");
+            poll();
+          })
+          .catch(function (error) { toast(error.message,"error"); });
+      }
+
+      el.tree.addEventListener("click",function (event) {
+        var sectionHeader = event.target.closest(".section-title[data-section-key]");
+        if (sectionHeader) {
+          var sectionKey = sectionHeader.getAttribute("data-section-key");
+          var section = rootNodes.find(function (item) { return item.key === sectionKey; });
+          if (section) {
+            section.collapsed = !section.collapsed;
+            collapsedSections[sectionKey] = section.collapsed;
+            localStorage.setItem("codex-sync-collapsed-sections",JSON.stringify(collapsedSections));
+            renderTree();
+          }
+          return;
+        }
+        var row = event.target.closest(".row[data-key]");
+        if (row) toggleNode(nodeMap.get(row.getAttribute("data-key")));
+      });
+      el.setupButton.addEventListener("click",function () {
+        openSetupModal();
+      });
+      el.generatePassphraseButton.addEventListener("click",function () {
+        var generated = generateRecoveryCode();
+        el.recoveryPassphrase.value = generated;
+        el.recoveryPassphraseConfirm.value = generated;
+      });
+      el.copyPassphraseButton.addEventListener("click",copyRecoveryPassphrase);
+      el.cancelSetupButton.addEventListener("click",closeSetupModal);
+      el.confirmSetupButton.addEventListener("click",submitWebSetup);
+      el.setupModal.addEventListener("click",function (event) {
+        if (event.target === el.setupModal) closeSetupModal();
+      });
+      document.addEventListener("keydown",function (event) {
+        if (event.key === "Escape" && !el.setupModal.hidden) closeSetupModal();
+      });
+      el.uploadButton.addEventListener("click",function () { startJob("upload"); });
+      el.pullButton.addEventListener("click",function () { startJob("pull"); });
+      el.inventoryButton.addEventListener("click",function () { startJob("inventory"); });
+      el.collapseButton.addEventListener("click",function () {
+        nodeMap.forEach(function (node) { if (node.rowType === "project") node.expanded = false; });
+        expandedProjects.clear();
+        localStorage.setItem("codex-sync-expanded-projects","[]");
+        rootNodes.forEach(function (section) {
+          if (section.collapsible) {
+            section.collapsed = true;
+            collapsedSections[section.key] = true;
+          }
+        });
+        localStorage.setItem("codex-sync-collapsed-sections",JSON.stringify(collapsedSections));
+        renderTree();
+      });
+      el.refreshButton.addEventListener("click",function () { poll(); toast("正在刷新"); });
+      el.shutdownButton.addEventListener("click",function () {
+        if (!window.confirm("停止本地同步服务？")) return;
+        api("/api/shutdown",{method:"POST",body:"{}"}).then(function () {
+          document.body.innerHTML = "<main style='min-height:100vh;display:grid;place-items:center;background:#0d1117;color:#e6edf3;font-family:-apple-system,sans-serif'><div style='text-align:center'><h2>同步服务已停止</h2><p style='margin-top:8px;color:#8b949e'>下次双击 Codex双机同步.app 即可。</p></div></main>";
+        }).catch(function (error) { toast(error.message,"error"); });
+      });
+
+      if (!token) {
+        document.body.innerHTML = "<main style='min-height:100vh;display:grid;place-items:center;padding:20px;background:#0d1117;color:#e6edf3;font-family:-apple-system,sans-serif'><section style='max-width:520px;padding:28px;border:1px solid #30363d;border-radius:12px;background:#161b22'><h1>请双击 Codex双机同步.app</h1><p style='margin-top:10px;color:#8b949e;line-height:1.7'>dashboard.html 是应用内部页面，不能单独运行。</p></section></main>";
+        return;
+      }
+
+      poll();
+      window.setInterval(poll,1500);
+      document.addEventListener("visibilitychange",function () { if (!document.hidden) poll(); });
+    })();
+  </script>
+</body>
+</html>

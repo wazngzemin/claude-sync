@@ -1,0 +1,119 @@
+flowchart TB
+  subgraph SETUP[一、使用之前｜把检查、询问和开盖分别约定，不能只配一个Query]
+    SPEC[王泽民＋赛力斯充电需求方写任务规格<br/>任务默认启用，用户可关闭；AI主动服务开关也需满足<br/>一次非P变P＋电量≤20%＋口盖关闭，启动设备检查<br/>发现设备后需要二次确认；确认后才能请求开盖]
+    DEFINE[云端触发器与后续团队确认交接<br/>触发器提供：本次停车、当前状态、检查目标、有效范围<br/>主动推荐／DT提供：是否能继续、结果与处理进度<br/>Planner提供：本次询问与用户理解；端侧提供真实执行结果]
+    READY[配置／开发完成接入<br/>已接入的云端条件可配置；缺少信号和后续能力要补开发<br/>本任务采用静态Advisor卡片路线的接入仍须会签]
+    SPEC --> DEFINE --> READY
+  end
+  subgraph CONDITIONS[二、任务启用与前置判断｜停车、低电量不等于发现了充电桩]
+    TC[用户在任务中心开启充电任务<br/>任务中心转发；任务接入方保存真实状态并回显<br/>把有效状态提供给云端判断，接法与承接方需确认]
+    STATE{云端能确认任务有效开启吗？}
+    OFF[关闭／未知则不启动新处理<br/>中途关闭时使未执行的旧建议失效<br/>页面显示开不能代替判断方的真实有效状态]
+    EVENT[端状态上行到已接入的云端能力<br/>例：档位从D变P、电量18%、口盖关闭<br/>AI主动服务开启；携带本次发生的停车场景]
+    PARK{这是一次新的非P变P事件吗？}
+    WAIT[不处理旧停车的重复上报<br/>P挡连续报十次不是十次新停车<br/>开启任务时已经在P挡，是否补查一次：待会签]
+    HARD[云端触发器读取并检查最新硬条件<br/>任务有效、AI主动服务开启、剩余电量≤20%、口盖关闭<br/>数据没有过时；本次停车未在检查／询问／执行中<br/>按约定频控限制允许开始]
+    HIT{这些前置条件都满足吗？}
+    NO[暂不发起主动推荐<br/>不检查设备、不出开盖卡、不执行<br/>等待下一次符合约定的事件]
+    QUERY[触发器交给主动推荐一项明确检查任务<br/>本次停车场景＋当前车况＋检查充电设备的目标<br/>现有Query：帮我看一下有没有充电桩，有则打开充电口<br/>必须附业务约束：自动生成的Query不等于用户同意<br/>发现设备后先询问；过期或离开本次停车则终止]
+    READY --> TC --> STATE
+    STATE -->|未有效开启| OFF
+    STATE -->|有效| EVENT --> PARK
+    PARK -->|不是新事件| WAIT
+    PARK -->|是新事件| HARD --> HIT
+    HIT -->|不满足| NO
+    HIT -->|满足，只允许开始检查| QUERY
+  end
+  subgraph VISION[三、检查充电设备｜保留现有的端侧取得DT结果环节]
+    ADVISOR[主动推荐接住这次检查请求<br/>按现有充电链路调用DT，传递场景与Query<br/>向任务业务反馈已承接或失败，不能只停留在“请求发出”]
+    DT[DT按当前能力安排视觉问答<br/>需要回答：本次停车的当前画面里是否有充电设备<br/>不是依靠“电量低”推测一定有充电桩]
+    VQA[端侧视觉问答读取约定范围的当前画面<br/>返回观察结果：看见设备／未看见／不能判断<br/>调用失败单独说明；设备类别和观察范围需会签]
+    DTRESULT[DT结合本次观察形成推理结果<br/>保留结果对应的本次停车与观察信息<br/>只发现设备，不代表设备可用或已经获得开盖授权]
+    FETCH[端侧结果接入按现有链路上行取得DT结果<br/>保留：主动推荐调DT → 端侧取推理结果<br/>新增确认必须在旧的“端侧执行”之前拦住]
+    FOUND{结果明确有设备，且仍适用于本次停车吗？}
+    ENDVISION[无设备／未知／失败／过时<br/>结束本次检查，不出开盖确认卡、不执行<br/>回传实际结束原因，不伪装成用户拒绝]
+    HANDOFF[待会签的关键交接<br/>端侧已拿到DT结果之后，谁接结果？<br/>谁把它变成待确认开盖建议，再交给Planner？<br/>由谁确保确认前不能沿旧链路直接开盖？<br/>产品规定行为；实际接收方和接法由相关研发共同确认]
+    QUERY --> ADVISOR --> DT --> VQA --> DTRESULT --> FETCH --> FOUND
+    FOUND -->|无明确有效结论| ENDVISION
+    FOUND -->|明确有设备且有效| HANDOFF
+  end
+  subgraph CARD[四、云端组织询问，车机负责把当前建议显示给用户]
+    SUGGEST[充电建议承接方沿静态Advisor路线交Planner<br/>这次为什么建议开盖、属于哪次停车、有效到什么条件<br/>Planner负责当前对话与后续工具调用<br/>Planner与Director在这里是同一决策职能，不串成两级]
+    VOICEOK{当前语音状态允许怎样交互？}
+    NORMAL[正常交互请求<br/>Planner下发当前建议、确认／取消按钮、播报内容<br/>文本示例：你可能在充电桩附近，要打开充电口吗？]
+    LIMITED[受限时的降级方案需共同确认<br/>会议接受只出卡、不播TTS的方向<br/>云端仍需可用才能承接本类点击Query<br/>语音禁用不等于断网；不把这两类异常混为一谈]
+    REQUEST[车机即时交互卡／VUI接收请求<br/>核对卡片类型、当前建议、文案和按钮<br/>返回受理／排队／失败；此时不代表用户已经看到]
+    DISPLAY{轮到展示，且建议仍有效吗？}
+    QUEUE[仍有效但需要等待<br/>按本任务排队策略等待用户当前交互结束<br/>期间继续遵守建议有效范围；不无限保留过时建议]
+    FAILCARD[失败／过期／任务关闭<br/>通知云端本次询问未完成，终止开盖流程<br/>不是得到拒绝，也不是可以改成静默开盖]
+    SHOW[车机真正显示本次卡片<br/>通知云端实际展示与卡片状态<br/>正常语音按规范播报后进入聆听；受限时只提供允许的方式]
+    HANDOFF -->|待接入会签，不代表已接通| SUGGEST --> VOICEOK
+    VOICEOK -->|允许| NORMAL --> REQUEST
+    VOICEOK -->|受限，按已会签降级策略| LIMITED --> REQUEST
+    REQUEST --> DISPLAY
+    DISPLAY -->|仍需等待| QUEUE
+    QUEUE -->|轮到且有效| SHOW
+    QUEUE -->|已失效| FAILCARD
+    DISPLAY -->|展示失败／失效| FAILCARD
+    DISPLAY -->|可展示| SHOW
+  end
+  subgraph RESPONSE[五、用户怎样回答｜本类云端卡不能照搬天气的本地按钮闭环]
+    SPEECH[用户语音回答<br/>语音识别出的内容＋当前卡片／停车上下文交Planner<br/>例如“打开吧”需要结合正在问开盖来理解]
+    TAP[用户手动点击确认／取消<br/>按静态Advisor卡片原文：模拟Query送Planner<br/>携带当前建议含义，不只发送脱离上下文的“确认”]
+    GONE[用户关闭／超时／卡片失效<br/>回传本次卡片生命周期<br/>不产生开盖授权，云端结束本次等待]
+    PLANNER[Planner理解当前用户诉求<br/>确认本次开盖、拒绝本次建议、意思不明确或另有诉求<br/>同步已消费的卡片状态，不能再次执行旧建议]
+    INTENT{用户对这次建议的意思是什么？}
+    REFUSE[明确拒绝／关闭／超时<br/>不请求开盖；记录本次未执行<br/>长期充电服务仍保持用户原有设置]
+    UNCLEAR[意思不明确<br/>不执行；按已定交互策略澄清或结束<br/>不能把任何一句肯定语气都当作开盖同意]
+    OTHER[提出其他诉求<br/>例：不要，帮我找充电站<br/>结束原开盖建议，新的找站诉求按正常对话处理]
+    AUTH{确认仍属于当前有效建议吗？<br/>未过期、未撤销、尚未处理、仍是这次停车}
+    OLD[旧卡／旧回答／重复反馈<br/>不生成新的开盖请求<br/>已经受理的操作继续查原结果]
+    EXECREQ[云端执行业务下发本次开盖请求<br/>说明当前任务、本次停车、已确认的建议与动作目标<br/>不要求云端直接越过车辆端去控制车辆]
+    SHOW -->|允许语音且用户开口| SPEECH --> PLANNER
+    SHOW -->|手动点击| TAP --> PLANNER
+    SHOW -->|关闭／超时等| GONE --> REFUSE
+    PLANNER --> INTENT
+    INTENT -->|明确同意开盖| AUTH
+    INTENT -->|明确拒绝| REFUSE
+    INTENT -->|无法明确| UNCLEAR
+    UNCLEAR -->|澄清后有新回答，且建议仍有效| PLANNER
+    INTENT -->|其他诉求| OTHER
+    AUTH -->|无效／已处理| OLD
+    AUTH -->|当前有效确认| EXECREQ
+  end
+  subgraph EXEC[六、端侧最后复核｜云端结果与用户同意都不能代替最新车况]
+    CHECK[端侧执行层读取当前实际情况<br/>任务仍有效；仍是本次停车且处于P挡；口盖仍关闭<br/>设备判断和用户确认尚有效；没有重复执行<br/>满足赛力斯车控限制；信息未知不视为允许]
+    ALLOW{现在还需要且允许开盖吗？}
+    STOP[不发新开盖动作，回传原因<br/>任务关闭、车辆离开、结果失效、已开盖或已处理<br/>不照用旧云端结果；不能把已开盖冒充本次新执行成功]
+    CAR[端侧请求赛力斯车控打开充电口盖<br/>受理或拒绝只是执行过程结果<br/>不是把一次调用成功当作最终完成]
+    READ[端侧读取口盖真实状态<br/>在约定观察时限内确认目标是否达到<br/>请求后断网也不能伪报“肯定未执行”]
+    OUTCOME{当前真实结果是什么？}
+    SUCCESS[实际已打开：成功]
+    FAILURE[明确开盖失败／拒绝：失败]
+    UNKNOWN[最终状态不明：暂不能确认<br/>不自动重复下发，按结果核对策略处理]
+    RESULT[端侧回传本次真实处理结果<br/>给云端充电业务／Planner：动作结果、当前状态、原因<br/>结果回传通道与实际负责模块需接入会签]
+    UPDATE[云端业务维护本次结果与对话上下文<br/>有有效卡片时更新开盖结果／实际状态<br/>告诉任务负责方本次结束；任务中心记录范围另行确认]
+    DONE[结束这次停车对应的处理<br/>不复用旧识别、旧卡片和旧确认<br/>长期服务仍有效时等待下次符合规则的停车]
+    EXECREQ --> CHECK --> ALLOW
+    ALLOW -->|不允许／无需再开| STOP --> RESULT
+    ALLOW -->|允许且需要| CAR --> READ --> OUTCOME
+    OUTCOME -->|达到目标| SUCCESS --> RESULT
+    OUTCOME -->|明确失败| FAILURE --> RESULT
+    OUTCOME -->|不能确认| UNKNOWN --> RESULT
+    RESULT --> UPDATE --> DONE
+    ENDVISION --> DONE
+    FAILCARD --> DONE
+    REFUSE --> DONE
+    UNCLEAR -->|到期仍未确认| DONE
+    OTHER -->|原建议结束| DONE
+  end
+  classDef biz fill:#eaf2ff,stroke:#587ca8,color:#183352;
+  classDef ui fill:#e7f6ed,stroke:#538d68,color:#214a31;
+  classDef decide fill:#fff2d9,stroke:#bc873c,color:#583d19;
+  classDef ai fill:#f1eafa,stroke:#9977b9,color:#49335c;
+  classDef pending fill:#fff0e4,stroke:#c5804c,color:#663d1e,stroke-dasharray:5 3;
+  class SPEC,DEFINE,READY,EVENT,VQA,FETCH,CHECK,CAR,READ,SUCCESS,FAILURE,UNKNOWN,RESULT,DONE biz;
+  class TC,REQUEST,SHOW,SPEECH,TAP,GONE,UPDATE ui;
+  class STATE,PARK,HIT,FOUND,VOICEOK,DISPLAY,INTENT,AUTH,ALLOW,OUTCOME decide;
+  class HARD,QUERY,ADVISOR,DT,DTRESULT,SUGGEST,NORMAL,PLANNER,EXECREQ ai;
+  class HANDOFF,LIMITED pending;

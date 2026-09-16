@@ -1,0 +1,105 @@
+flowchart TB
+  START["阅读口径<br/>同一条主线从上到下；灰色分支均结束本次且不操作车辆"]
+
+  subgraph A["一、上线前：定义任务、发布规则、进入任务目录"]
+    direction LR
+    A1["01 系统预设任务产品｜王泽民<br/>定义用户价值、适用车型、触发条件、交互、动作、退出与验收"]
+    A2["02 Trigger 配置平台｜产品推进；前端文涛候选；研发 TBD<br/>配置任务关联、硬条件、进一步判断、卡片、动作、频控和失败策略"]
+    A3{"03 发布完整性检查<br/>依赖信号、承接业务、识别、卡片、车控、回读是否齐全？"}
+    A4["04 发布两类内容<br/>运行规则给 Cloud Trigger／任务业务<br/>任务名称与说明给 Task Service"]
+    AX["阻止发布<br/>返回缺失能力、接口或 Owner"]
+    A5["05 Task Service｜郝晓伟／王梦尧确认<br/>聚合系统预设任务目录并统一提供给任务中心<br/>不负责具体任务的运行编排"]
+    A1 --> A2 --> A3
+    A3 -->|通过| A4 --> A5
+    A3 -->|不通过| AX
+  end
+
+  subgraph B["二、用户许可：任务中心展示，真实状态按车保存"]
+    direction LR
+    B1["06 任务中心｜郝晓伟／王梦尧确认<br/>车辆下次上电／刷新时取得最新任务目录并展示"]
+    B2["07 用户开启或关闭任务<br/>开启长期服务不等于授权本次开盖"]
+    B3["08 任务状态承接服务｜P0 Owner TBD<br/>按 VIN 保存真实启停状态、返回操作结果、支持重启恢复"]
+    B4["默认开启还是关闭｜产品策略待会签<br/>不能由页面默认值代替结论"]
+    A5 --> B1 --> B2 --> B3
+    B4 -.约束.-> B2
+  end
+
+  subgraph C["三、Cloud Trigger：只判断何时产生一次业务事件"]
+    direction LR
+    C1["09 Cloud Trigger｜刘杨为会议对接；研发 DRI TBD<br/>读取发布规则、任务真实状态和上行车况"]
+    C2["10 充电例：由进入 P 挡启动检查<br/>任务开启、主动服务总开关、SOC≤阈值、口盖关闭、数据有效"]
+    C3{"11 条件满足，并且本次停车未处理？"}
+    C4["12 创建一次业务事件<br/>携带任务、VIN、run_event、停车关联、状态快照、原因、产生时间和有效期"]
+    CX["不触发<br/>任务关闭／条件不满足／数据无效／已处理<br/>继续等待下一次有效变化"]
+    B3 --> C1 --> C2 --> C3
+    A4 -.运行规则.-> C1
+    C3 -->|是| C4
+    C3 -->|否| CX
+  end
+
+  subgraph D["四、任务业务与识别：决定这次是否值得询问"]
+    direction LR
+    D1["13 系统预设任务业务｜产品王泽民；业务研发 P0 TBD<br/>接收事件并持有本次处理状态；Trigger 到这里完成交接"]
+    D2["14 通过已会签通道调用主动推荐／Advisor → DT<br/>Query 只询问约定范围是否发现充电设备，不包含开盖授权"]
+    D3["15 DT 按需调用端侧视觉／VQA｜赵益红、姜涵、丁彬为对接线索<br/>返回 FOUND／NOT_FOUND／UNKNOWN／ERROR、观察时间和事件关联"]
+    D4["16 识别结果回到任务业务｜回传接口 P0 待确认<br/>模型不决定拉卡，也不直接车控"]
+    D5{"17 业务校验<br/>明确 FOUND、同一 run_event／停车、未过期、任务仍开启？"}
+    DX["结束本次，不出卡、不车控<br/>未找到／无法判断／失败／超时／旧停车结果"]
+    C4 --> D1 --> D2 --> D3 --> D4 --> D5
+    D5 -->|否| DX
+  end
+
+  subgraph E["五、即时交互：任务业务拉卡，卡片只返回交互事实"]
+    direction LR
+    E1["18 任务业务注册并拉起确认卡<br/>提交卡片文案、确认／取消按钮、TTS、回调、有效期和 run_event"]
+    E2["19 即时交互卡／VUI｜徐洋、姜锋确认；研发 TBD<br/>校验、排队、真正展示、播报 TTS，并返回展示成功／失败"]
+    E3{"20 卡片真正展示且询问仍有效？"}
+    E4["21A 点击／本地可见即可说<br/>映射为当前卡片的 CONFIRM／REJECT，返回任务业务"]
+    E5["21B 泛化语音<br/>卡片展示后才把用户表达＋当前卡片上下文交给 Planner 理解<br/>Planner 不创建、不注册、不拉起卡片"]
+    E6{"22 任务业务只消费一次有效选择<br/>明确确认、属于当前 run_event、未超时、未消费？"}
+    EX["结束本次，不车控<br/>展示失败／拒绝／关闭／超时／无法理解／旧卡回答"]
+    D5 -->|是| E1 --> E2 --> E3
+    E3 -->|点击／可见即可说| E4 --> E6
+    E3 -->|泛化语音| E5 --> E6
+    E3 -->|否| EX
+    E6 -->|否| EX
+  end
+
+  subgraph F["六、端侧执行与真实结果：复核不能删除"]
+    direction LR
+    F1["23 任务业务下发一次执行请求<br/>携带 run_event、用户确认、动作目标和有效期"]
+    F2["24 端侧执行层｜车控／端状态 Owner P0 TBD<br/>复核任务仍开启、同次停车、仍在 P 挡、口盖仍关闭、确认未过期、未重复"]
+    F3{"25 当前仍允许且仍需要执行？"}
+    F4["26 调用赛力斯车控打开充电口盖<br/>RPC ACK 只代表请求结果，不代表车辆已经打开"]
+    F5["27 读取充电口盖真实状态<br/>区分 SUCCESS／FAILED／UNKNOWN，避免盲目重试"]
+    F6["28 任务业务更新卡片、记录和频控<br/>结束本次；长期任务仍开启才等待下一次"]
+    F7["不执行／无需重复<br/>返回复核原因，同样更新本次结果"]
+    E6 -->|是| F1 --> F2 --> F3
+    F3 -->|是| F4 --> F5 --> F6
+    F3 -->|否| F7 --> F6
+  end
+
+  END["成功口径<br/>配置发布 ≠ 用户开启 ≠ Trigger 命中 ≠ 识别成功 ≠ 卡片展示 ≠ 用户确认 ≠ 车辆真实完成"]
+
+  START --> A1
+  F6 --> END
+
+  classDef cfg fill:#fff3dc,stroke:#cc8c22,color:#27364a,stroke-width:1.6px;
+  classDef task fill:#eaf2ff,stroke:#4e78b5,color:#27364a,stroke-width:1.6px;
+  classDef logic fill:#eef4ff,stroke:#5d83be,color:#27364a,stroke-width:1.6px;
+  classDef biz fill:#f2ebff,stroke:#8b6ab8,color:#37284f,stroke-width:1.6px;
+  classDef vehicle fill:#e9f6ef,stroke:#4f9675,color:#173b2c,stroke-width:1.6px;
+  classDef decision fill:#fff8e5,stroke:#d59837,color:#4c3516,stroke-width:1.8px;
+  classDef stop fill:#f4f5f7,stroke:#a3acb8,color:#536174,stroke-width:1.4px;
+  classDef pending fill:#fff1f2,stroke:#e25565,color:#6f2530,stroke-width:2px,stroke-dasharray:6 4;
+  classDef banner fill:#172033,stroke:#94a3b8,color:#f8fafc,stroke-width:1.6px;
+
+  class A1,A2,A4 cfg;
+  class A5,B1,B2 task;
+  class C1,C2,C4 logic;
+  class D1,D2,D3,D4,E1,E2,E4,E5 biz;
+  class F1,F2,F4,F5,F6,F7 vehicle;
+  class A3,C3,D5,E3,E6,F3 decision;
+  class AX,CX,DX,EX stop;
+  class B3,B4 pending;
+  class START,END banner;

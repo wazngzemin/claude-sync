@@ -1,0 +1,215 @@
+%%{init: {"theme":"base","flowchart":{"curve":"linear","nodeSpacing":22,"rankSpacing":34,"htmlLabels":true},"themeVariables":{"fontFamily":"Arial, PingFang SC, Microsoft YaHei, sans-serif","fontSize":"15px","lineColor":"#475569","primaryTextColor":"#172033","clusterBkg":"#FFFFFF","clusterBorder":"#94A3B8"}}}%%
+flowchart TB
+
+TITLE["04｜任务、主动服务、触发器与视觉闭环<br/><b>先分清当前生产、预生产验证、目标架构；再沿任务编号追到真实结果</b>"]
+LEGEND["证据标签：<b>【当前】</b> 已在当前协议或材料中出现　<b>【待链路验真】</b> 需同一条运行记录确认　<b>【预生产/建设中】</b> 仅表示测试或目标设计，不等于正式生产"]
+
+subgraph ROW1[" "]
+direction LR
+subgraph SCOPE["A｜当前承接方式 与 预生产环境（PPE）目标边界"]
+direction LR
+  subgraph NOW["当前协议快照【当前】"]
+  direction TB
+    N1["决策规划器判断<br/>这是立即动作，还是要长期记住"]
+    N2{"一次动作<br/>能否完成？"}
+    N3["立即任务<br/>仍走原主链：动作清单→工具→执行反馈"]
+    N4["条件/定时/持续任务<br/>调用目标队列更新工具"]
+    N5["弋途持续任务逻辑<br/>创建目标 + 触发场景"]
+    N6["目标 / 动态顾问分散管理<br/>触发后再唤醒顾问或决策规划器"]
+    N1 --> N2
+    N2 -- "是" --> N3
+    N2 -- "否" --> N4 --> N5 --> N6
+  end
+  subgraph PPE["预生产/建设中任务服务【不可写成正式生产已上线】"]
+  direction TB
+    P1["任务管理入口<br/>任务管理接口 / 图形界面接口"]
+    P2["任务代理（Task Agent）<br/>只做入口和透传，不负责生命周期"]
+    P3["任务入口层<br/>解析、绑定、幂等、恢复任务上下文"]
+    P4["任务规格构建器<br/>判断创建 / 更新 / 取消 / 查询"]
+    P5["任务服务内的任务管理器（Task Service）<br/>唯一维护任务、运行、事件的确定性状态"]
+    P6["触发适配器<br/>复用既有规则，不再造第二套触发器"]
+    P7["运行调度器<br/>仍回到原决策规划器 / 工具 / 服务商"]
+    P1 --> P2 --> P3 --> P4 --> P5 --> P6
+    P5 --> P7
+  end
+  BOUND["边界必须守住<br/>① 任务代理不是第二个决策规划器<br/>② 任务服务不重做触发条件判断<br/>③ 运行调度器不自由修改生命周期<br/>④ 预生产验证结果不能外推为正式生产事实"]
+  NOW -. "迁移目标" .-> PPE
+  PPE --> BOUND
+end
+
+subgraph TYPES["B｜用户任务先分型，再决定是否进入持久任务"]
+direction LR
+  T0["用户诉求"] --> T1{"任务类型"}
+  T1 --> T2["简单单步<br/>例：打开车窗<br/>本轮直接执行"]
+  T1 --> T3["复合单轮<br/>例：太热了<br/>查询车态 + 多动作并行/串行"]
+  T1 --> T4["多步依赖<br/>例：找昨天地点再导航<br/>前一步结果决定后一步参数"]
+  T1 --> T5["定时任务<br/>例：10分钟后关座椅加热<br/>保存时间条件并等待"]
+  T1 --> T6["条件任务<br/>例：宝宝醒了告诉我<br/>订阅信号/视觉并等待"]
+  T1 --> T7["持续任务<br/>例：沿途持续讲解<br/>多次运行直到结束策略命中"]
+  T2 --> T8["不建持久任务"]
+  T3 --> T8
+  T4 --> T8
+  T5 --> T9["建立持久任务"]
+  T6 --> T9
+  T7 --> T9
+end
+SCOPE ~~~ TYPES
+end
+
+subgraph ROW2[" "]
+direction LR
+subgraph ENGINE["C｜任务服务目标内核：事件 → 脚本 → 本轮运行 → 原子动作 → 可靠通知【预生产/建设中】"]
+direction LR
+  E0["事件记录（Event）<br/>收到用户创建/更新/取消、触发回调、执行结果<br/>状态：已接收→已校验→已应用/已拒绝"]
+  E1["任务规格<br/>用户目标、条件、范围、频率、结束策略、版本"]
+  E2["执行脚本（Script）<br/>把长期目标展开为可恢复步骤<br/>状态：草稿→已发布→已停用/已废弃"]
+  E3["任务<br/>状态：等待→运行→已关闭<br/>关闭原因：完成/取消/过期/失败/车辆离线"]
+  E4["本轮运行（Run）<br/>状态：已创建→运行中→成功/失败/跳过/取消<br/>阶段：执行中/等用户/等车端/等外部"]
+  E5["原子动作（Action）<br/>状态：待下发→已接收→已调用→已生效→已完成<br/>或失败/超时/取消/部分成功"]
+  E6["可靠发件箱（Outbox）<br/>同事务保存待发消息<br/>状态：待发送→已发送→已确认<br/>失败则重试/转死信并告警"]
+  E7["任务消息<br/>卡片、语音、服务端推送、任务中心刷新"]
+  E0 --> E1 --> E2 --> E3 --> E4 --> E5 --> E6 --> E7
+  E8["事实仓库<br/>任务 / 运行 / 事件 / 动作 / 绑定<br/>用任务编号、运行编号、回调编号、动作编号贯通"]
+  E3 <--> E8
+  E4 <--> E8
+  E5 <--> E8
+  E6 <--> E8
+end
+
+subgraph RUN["D｜一次触发后的运行闭环：防重复、执行前复核、结果事务写回"]
+direction LR
+  R0["触发回调<br/>带任务编号、回调编号、规则版本、命中证据、时间"]
+  R1["回到任务入口层<br/>恢复任务与当前版本"]
+  R2{"回调是否重复<br/>任务是否仍有效？"}
+  R3["激活任务并创建本轮运行<br/>相同回调不得重复建运行"]
+  R4["运行门禁（Run Guard）<br/>重新读取最新车态/人物/权限/安全/网络<br/>只复核执行前约束，不重判触发条件"]
+  R5{"允许继续？"}
+  R6["运行调度器<br/>通用链路→原决策规划器<br/>固定生态链路→指定服务商"]
+  R7["原主链执行<br/>决策→动作→工具/代理→执行器→真实回读"]
+  R8["独立结果钩子<br/>接收工具结果或代理观察，不依赖最终话术"]
+  R9["处理运行结果<br/>同事务更新动作/运行/任务/事件<br/>失败补偿；必要时写发件箱"]
+  R10{"结束策略"}
+  R11["一次任务：关闭<br/>持续任务：回到等待<br/>部分失败：保留待办分支<br/>超过失败上限：关闭并说明原因"]
+  R12["拒绝重复/过期回调<br/>记录原因，不创建新运行"]
+  R13["本轮跳过或等待<br/>保留可恢复证据，不伪装成失败或成功"]
+  R0 --> R1 --> R2
+  R2 -- "有效且首次" --> R3 --> R4 --> R5
+  R2 -- "重复/已关闭/旧版本" --> R12
+  R5 -- "通过" --> R6 --> R7 --> R8 --> R9 --> R10 --> R11
+  R5 -- "不通过但可恢复" --> R13
+end
+ENGINE ~~~ RUN
+end
+
+subgraph ROW3[" "]
+direction LR
+subgraph TRIGGER["E｜触发器（Trigger）：只回答“现在是否命中”，不直接执行工具"]
+direction LR
+  S0["信号来源<br/>时间、车态、导航、驾驶状态、视觉报告、车辆生命周期"]
+  S1["信号治理<br/>统一标识、值/单位、时间戳、来源、置信度、有效期"]
+  S2["规则注册<br/>任务编号、条件表达式、生效范围、起止时间、版本"]
+  S3["监听与求值<br/>数值比较、状态变化、时间窗、组合与语义匹配"]
+  S4["防抖与迟滞<br/>连续命中门槛、退出门槛、边沿检测"]
+  S5["去重与频控<br/>一次性、冷却期、最大次数、回调编号"]
+  S6["优先级与互斥<br/>安全/用户指令优先；同资源冲突串行或丢弃"]
+  S7{"命中结果"}
+  S8["是：生成一次回调<br/>证据 + 规则版本 + 任务编号"]
+  S9["否/未知：继续等待<br/>不得触发执行"]
+  S10["禁止路径<br/>触发器→工具 ×<br/>触发命中=任务完成 ×"]
+  S0 --> S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> S7
+  S7 -- "是" --> S8
+  S7 -- "否/未知" --> S9
+  S8 --> S10
+end
+
+subgraph GOAL["F｜当前目标队列（Goal List）迁移链 + 顾问（Advisor）分工"]
+direction LR
+  G0["用户提出条件/定时/持续诉求"]
+  G1["决策规划器识别需持久化"]
+  G2["目标队列更新工具<br/>创建 / 更新 / 删除"]
+  G3["目标队列<br/>目标编号、条件、范围、状态、进度"]
+  G4["规则/订阅"]
+  G5["触发等待"]
+  G6["命中回调"]
+  G7["执行反馈 + 真实状态"]
+  G8["推进目标<br/>已设置=等待；命中=激活；执行验真后才完成"]
+  G9["关闭并清理<br/>停用触发规则、视觉订阅、运行和残留通知"]
+  G0 --> G1 --> G2 --> G3 --> G4 --> G5 --> G6 --> G7 --> G8 --> G9
+  A1["静态顾问<br/>舒适 / 出行 / 内容 / 情感<br/>按场景给建议，不是最终执行权"]
+  A2["动态顾问<br/>长期目标监控、复盘和建议<br/>目标态并入任务管理，不再单列生命周期"]
+  A3["最终裁决仍由决策规划器<br/>除非明确批准的端侧本地策略"]
+  A1 --> A3
+  A2 --> A3
+  G3 --> A2
+  G6 --> A1
+  A3 --> G7
+end
+TRIGGER ~~~ GOAL
+end
+
+subgraph ROW4[" "]
+direction LR
+subgraph VISION["G｜视觉语言模型（VLM）三条链：采样周期 ≠ 用户通知周期"]
+direction LR
+  subgraph VQA["1. 本轮按需视觉问答【当前工具链】"]
+  direction LR
+    V1["决策规划器调用视觉问答工具"] --> V2["摄像头取帧 / 权限校验"] --> V3["视觉模型输出结构化描述<br/>内容、置信度、时间、来源"] --> V4["工具执行反馈回决策规划器"]
+  end
+  subgraph DEF["2. 默认常驻视觉【当前/需版本验真】"]
+  direction LR
+    D1["默认主题集合"] --> D2["端侧周期采样<br/>资料示例约10–20秒；非固定服务承诺"] --> D3["通用场景摘要"] --> D4["按来源/时间/有效期进入上下文"]
+  end
+  subgraph DYN["3. 动态长时观察【条件任务链】"]
+  direction LR
+    Y1["动态视觉目标<br/>例：观察孩子是否醒来"] --> Y2["全量观察清单 + 版本<br/>覆盖旧清单；结束时重算或下发空清单"] --> Y3["端侧保存任务集并周期取帧"] --> Y4["客观观察报告<br/>任务编号 + 描述 + 置信度 + 时间"] --> Y5["按任务编号恢复原条件和范围"] --> Y6["触发器语义匹配<br/>是 / 否 / 未知"] --> Y7["是：回调任务服务/目标链<br/>否或未知：继续等待"]
+  end
+  V5["关键禁止路径<br/>动态观察报告不得直接进入上下文<br/>不得直接触发工具<br/>不得把“睁眼”直接说成“已经醒来”"]
+  V6["两个周期独立<br/>视觉多久采样一次：模型成本与实时性<br/>多久通知用户一次：任务策略与打扰控制"]
+end
+
+subgraph CHECKS["H｜四个必须能一眼验收的闭环问题"]
+direction LR
+  C1["创建成功？<br/>任务落库、规则注册、绑定保存必须同向成功；失败要回滚或补偿"]
+  C2["取消干净？<br/>关闭任务 + 停规则 + 停视觉 + 取消运行 + 清通知；不能只从列表隐藏"]
+  C3["结果可信？<br/>工具成功不是完成；必须有执行结果、真实状态和用户目标满足证据"]
+  C4["重启可恢复？<br/>车辆上下电、断网、服务重启后，靠事实仓库和版本恢复，不靠旧对话猜"]
+end
+VISION ~~~ CHECKS
+end
+
+TITLE --> LEGEND
+LEGEND ~~~ ROW1
+ROW1 ~~~ ROW2
+ROW2 ~~~ ROW3
+ROW3 ~~~ ROW4
+
+classDef title fill:#172033,color:#FFFFFF,stroke:#172033,stroke-width:3px;
+classDef current fill:#E5EDD6,color:#172033,stroke:#172033,stroke-width:2px;
+classDef wip fill:#F2E8FF,color:#3B216A,stroke:#7C3AED,stroke-width:2px,stroke-dasharray:6 4;
+classDef input fill:#E8F2FF,color:#173A63,stroke:#2563EB,stroke-width:2px;
+classDef action fill:#FFF1D6,color:#5F3B00,stroke:#D97706,stroke-width:2px;
+classDef risk fill:#FBE2DE,color:#6A1B14,stroke:#DC2626,stroke-width:2px;
+classDef data fill:#F5F5F5,color:#172033,stroke:#64748B,stroke-width:2px;
+class TITLE title;
+class LEGEND,BOUND,S10,V5,C1,C2,C3,C4 risk;
+class N1,N2,N3,N4,N5,N6,T0,T1,T2,T3,T4,T5,T6,T7,T8,T9,G0,G1,G2,G3,G4,G5,G6,G7,G8,G9,A1,A2,A3,V1,V2,V3,V4,D1,D2,D3,D4,Y1,Y2,Y3,Y4,Y5,Y6,Y7,V6 current;
+class P1,P2,P3,P4,P5,P6,P7,E0,E1,E2,E3,E4,E5,E6,E7,E8,R0,R1,R2,R3,R4,R5,R6,R7,R8,R9,R10,R11,R12,R13 wip;
+class S0,S1,S2,S3,S4,S5,S6,S7,S8,S9 input;
+
+style SCOPE fill:#FFFFFF,stroke:#172033,stroke-width:2px
+style NOW fill:#F7FAF3,stroke:#78945B,stroke-width:2px
+style PPE fill:#FCFAFF,stroke:#7C3AED,stroke-width:2px,stroke-dasharray:7 5
+style TYPES fill:#FFFFFF,stroke:#172033,stroke-width:2px
+style ENGINE fill:#FCFAFF,stroke:#7C3AED,stroke-width:2px,stroke-dasharray:7 5
+style RUN fill:#FCFAFF,stroke:#7C3AED,stroke-width:2px,stroke-dasharray:7 5
+style TRIGGER fill:#F8FBFF,stroke:#2563EB,stroke-width:2px
+style GOAL fill:#F7FAF3,stroke:#78945B,stroke-width:2px
+style VISION fill:#FFFFFF,stroke:#172033,stroke-width:2px
+style VQA fill:#F7FAF3,stroke:#78945B,stroke-width:2px
+style DEF fill:#F7FAF3,stroke:#78945B,stroke-width:2px
+style DYN fill:#F8FBFF,stroke:#2563EB,stroke-width:2px
+style CHECKS fill:#FFF8F6,stroke:#DC2626,stroke-width:2px
+style ROW1 fill:#FFFFFF,stroke:#FFFFFF
+style ROW2 fill:#FFFFFF,stroke:#FFFFFF
+style ROW3 fill:#FFFFFF,stroke:#FFFFFF
+style ROW4 fill:#FFFFFF,stroke:#FFFFFF

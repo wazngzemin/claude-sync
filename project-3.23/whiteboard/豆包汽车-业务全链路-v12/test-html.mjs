@@ -1,0 +1,24 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import vm from 'node:vm';
+const require=createRequire('/Users/bytedance/.npm/_npx/12f3a93219d134f5/node_modules/jsdom/package.json');
+const {JSDOM,VirtualConsole}=require('jsdom');
+const fp='/Users/bytedance/Desktop/3.23/产品/codex/HTML/02-已交付/豆包汽车-业务全链路-v12.html',html=fs.readFileSync(fp,'utf8');
+for(const m of html.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/g))if(!m[1].includes('application/json'))new vm.Script(m[2]);
+const errors=[],vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push(e.message));
+// 本地 DOM 单元测试，不访问页面、不加载外部资源，不绕过浏览器的 file:// 限制。
+const dom=new JSDOM(html,{runScripts:'dangerously',url:'https://artifact.invalid/',pretendToBeVisual:true,virtualConsole:vc,beforeParse(w){Object.defineProperty(w.HTMLElement.prototype,'clientWidth',{get(){return this.id==='stage'?1100:420}});Object.defineProperty(w.HTMLElement.prototype,'clientHeight',{get(){return this.id==='stage'?780:800}});w.URL.createObjectURL=()=> 'blob:test';w.URL.revokeObjectURL=()=>{};w.HTMLAnchorElement.prototype.click=function(){w.__download=this.download};const B=w.Blob;w.Blob=class extends B{constructor(parts,opts){super(parts,opts);w.__blobParts=parts}}}});
+await new Promise(r=>setTimeout(r,50));const w=dom.window,d=w.document,api=w.flowState;
+assert(api,'script initializes');assert.equal(api.getSelected(),'V1');assert(api.getView().w<1500,'default reads one box, not full panorama');
+d.querySelector('#next').click();assert.equal(api.getSelected(),'V2');d.querySelector('#previous').click();assert.equal(api.getSelected(),'V1');
+api.focusNode('P2');assert(d.querySelector('#insContent').textContent.includes('两个可能地点'));assert(d.querySelector('[data-node-id="P2"]').classList.contains('picked'));
+api.selectEdge('R1');assert(d.querySelector('#insContent').textContent.includes('尚未完成'));assert(d.querySelector('[data-edge-id="R1"]').classList.contains('connected'));
+api.focusNode('T7');assert(d.querySelector('#insContent').textContent.includes('自动导航'));
+d.querySelector('#search').value='visual_qa';d.querySelector('#search').dispatchEvent(new w.Event('input'));d.querySelector('#find').click();assert(d.querySelector('#find').textContent.includes('/'));
+api.showTools();assert.equal(d.querySelectorAll('.tool-list [data-jump]').length,27);
+api.focusNode('P1');d.querySelector('[data-tab="learn"]').click();assert(d.querySelector('#insContent').textContent.includes('假完成率'));const area=d.querySelector('textarea[data-note]');area.value='测试：已追到真实结果';area.dispatchEvent(new w.Event('input'));assert(w.localStorage.getItem('doubao-business-v12-notes').includes('已追到真实结果'));
+d.querySelector('#exportNotes').click();assert(w.__download.endsWith('.md'));assert(w.__blobParts[0].includes('\n\n'),'export must contain real line breaks');
+api.showSources();assert(d.querySelector('#insContent').textContent.includes('不是本次实车测试日志'));
+for(const c of api.data.cases)for(const id of c.nodes)assert(api.data.nodes.some(n=>n.id===id),'route exists '+id);
+assert.deepEqual(errors,[]);const report={mode:'DOM-only; not a real-browser render',scriptSyntax:true,defaultReadableBox:true,previousNext:true,connectorInspection:true,toolDirectory:27,search:true,notesPersistence:true,markdownExport:true,sources:true,errors};fs.writeFileSync('/Users/bytedance/Desktop/3.23/whiteboard/豆包汽车-业务全链路-v12/html-dom-tests.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));w.close();

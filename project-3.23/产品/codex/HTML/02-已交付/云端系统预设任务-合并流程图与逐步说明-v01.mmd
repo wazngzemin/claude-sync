@@ -1,0 +1,70 @@
+flowchart LR
+  subgraph P[一、配置发布]
+    direction TB
+    P1["01 产品定义任务<br/>规则、交互、动作与适用范围"]
+    P2["02 配置平台校验发布<br/>Trigger读规则；业务读后续处理"]
+    P1 --> P2
+  end
+  subgraph T[二、开启与触发]
+    direction TB
+    T1["03 任务中心<br/>转交用户开启操作"]
+    T2["04 任务状态承接方<br/>保存许可、回显并提供运行状态<br/>Task Service承接待确认"]
+    T3["05 Cloud Trigger<br/>读取开关、配置与上行车况"]
+    Q1{"前置条件有效<br/>且本次停车未处理？"}
+    X1["不触发；等待后续有效事件"]
+    T1 --> T2 --> T3 --> Q1
+    Q1 -->|否| X1
+  end
+  subgraph B[三、设备判断]
+    direction TB
+    B1["06 系统预设任务业务<br/>接业务事件；发起设备判断"]
+    B2["07 主动推荐 → DT<br/>按需结合端侧视觉／VQA"]
+    B3["08 端侧沿现链路取得DT结果<br/>交回原业务；回传通道待确认"]
+    Q2{"09 原业务校验<br/>找到设备、未过期、属本次停车？"}
+    X2["结束本次，不出开盖询问<br/>无设备／未知／失败／过时"]
+    B1 --> B2 --> B3 --> Q2
+    Q2 -->|否| X2
+  end
+  subgraph I[四、卡片交互]
+    direction TB
+    I1["10 原业务注册卡片并申请展示<br/>文案、按钮、TTS、回调和有效期"]
+    I2["11 即时交互卡／VUI<br/>排队、真正展示、按策略播报"]
+    Q3{"本次询问已展示且仍有效？"}
+    C["12a 点击<br/>直回业务或模拟Query择一"]
+    V["12b 泛化语音<br/>当前上下文交DT／Planner理解"]
+    Q4{"13 原业务核对选择<br/>本次明确确认、有效且未消费？"}
+    X3["不执行；按对应分支处理<br/>拒绝／关闭／超时则结束本次"]
+    I1 --> I2 --> Q3
+    Q3 -->|是：点击| C --> Q4
+    Q3 -->|是：语音| V --> Q4
+    Q3 -->|否| X3
+    Q4 -->|否| X3
+  end
+  subgraph E[五、执行与结果]
+    direction TB
+    E1["14 原业务申请执行<br/>端侧复核最新许可、停车、车况与有效确认"]
+    Q5{"允许且仍需执行？"}
+    E2["15 端侧调用赛力斯车控<br/>申请一次打开充电口盖"]
+    E3["16 真实状态回读<br/>达成／失败／暂不能确认"]
+    E4["17 原业务更新卡片与记录<br/>结束本次；任务有效才继续等待"]
+    E1 --> Q5
+    Q5 -->|是| E2 --> E3 --> E4
+    Q5 -->|否：返回原因／无需重复| E4
+  end
+  P2 -->|配置生效、任务可用| T1
+  P2 -.规则供Trigger、后续配置供业务.-> T3
+  Q1 -->|是：交出一次业务事件| B1
+  Q2 -->|是：本例进入询问| I1
+  Q4 -->|是：仅一次有效确认| E1
+  classDef cfg fill:#fff3dc,stroke:#cc9c38,color:#24344a;
+  classDef state fill:#eaf2ff,stroke:#6087c7,color:#24344a;
+  classDef biz fill:#f1eaff,stroke:#9c7ac4,color:#24344a;
+  classDef vehicle fill:#e8f5ee,stroke:#63a286,color:#24344a;
+  classDef decision fill:#fff5da,stroke:#cf9c47,color:#24344a;
+  classDef stop fill:#f4f5f7,stroke:#a3acb8,color:#536174;
+  class P1,P2 cfg;
+  class T1,T2,T3,B3 state;
+  class B1,B2,I1,I2,C,V biz;
+  class E1,E2,E3,E4 vehicle;
+  class Q1,Q2,Q3,Q4,Q5 decision;
+  class X1,X2,X3 stop;

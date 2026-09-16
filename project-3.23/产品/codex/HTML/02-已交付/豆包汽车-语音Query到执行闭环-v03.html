@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <title>豆包汽车｜语音 Query 到执行闭环 v03</title>
+  <style>
+    :root{
+      --bg:#f5f3ee;
+      --paper:#fffdf9;
+      --ink:#20211f;
+      --muted:#6d6b65;
+      --quiet:#8e8a82;
+      --line:#ddd8ce;
+      --line-strong:#c9c1b4;
+      --accent:#c95f24;
+      --accent-soft:#fff0e6;
+      --blue:#315f82;
+      --blue-soft:#eef5f8;
+      --green:#3f7459;
+      --green-soft:#eef6f0;
+      --amber:#91661f;
+      --amber-soft:#fbf3df;
+      --red:#a94b44;
+      --red-soft:#fbefed;
+      --shadow:0 10px 28px rgba(54,45,32,.07);
+      --radius:14px;
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;font-size:15px;line-height:1.72}
+    a{color:var(--blue);text-decoration-thickness:1px;text-underline-offset:3px}
+    a:hover{color:#214660}
+    button,input{font:inherit}
+    code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
+    code{font-size:.88em;background:#f1eee8;border:1px solid #e4dfd6;border-radius:5px;padding:1px 5px;overflow-wrap:anywhere}
+    .topbar{position:sticky;top:0;z-index:50;background:rgba(255,253,249,.96);border-bottom:1px solid var(--line)}
+    .topbar-inner{max-width:1440px;margin:0 auto;min-height:58px;padding:0 24px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+    .brand{display:flex;align-items:center;gap:10px;font-weight:760;letter-spacing:-.01em}
+    .brand-mark{width:26px;height:26px;border-radius:8px;background:var(--accent);color:white;display:grid;place-items:center;font:800 12px/1 ui-monospace,monospace}
+    .top-actions{display:flex;gap:8px}
+    .button{border:1px solid var(--line-strong);background:var(--paper);color:var(--ink);border-radius:9px;padding:8px 11px;min-height:38px;cursor:pointer}
+    .button:hover{border-color:var(--accent);color:var(--accent)}
+    .button:focus-visible,a:focus-visible,summary:focus-visible,input:focus-visible{outline:3px solid rgba(201,95,36,.24);outline-offset:2px}
+    .progress{height:3px;background:var(--line)}
+    .progress span{display:block;height:100%;width:0;background:var(--accent)}
+    .page-grid{max-width:1440px;margin:0 auto;padding:34px 24px 80px;display:grid;grid-template-columns:220px minmax(0,860px) 240px;gap:28px;align-items:start}
+    .left-rail,.right-rail{position:sticky;top:86px;max-height:calc(100vh - 105px);overflow:auto}
+    .rail-label{font-size:11px;line-height:1.3;text-transform:uppercase;letter-spacing:.14em;color:var(--quiet);font-weight:760;margin:0 0 10px}
+    .left-rail nav{display:grid;gap:2px}
+    .left-rail a{color:var(--muted);text-decoration:none;padding:7px 10px;border-left:2px solid transparent;border-radius:0 7px 7px 0;font-size:13px;line-height:1.35}
+    .left-rail a:hover,.left-rail a.active{color:var(--ink);background:#ebe7df;border-left-color:var(--accent)}
+    .left-rail .sub{padding-left:22px;font-size:12px}
+    .rail-block{border-top:1px solid var(--line);margin-top:18px;padding-top:18px}
+    .legend-row{display:flex;gap:8px;align-items:flex-start;color:var(--muted);font-size:12px;margin:7px 0}
+    .legend-mark{width:10px;height:10px;border-radius:50%;margin-top:5px;flex:none}
+    .right-card{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:15px;box-shadow:var(--shadow)}
+    .right-card h3{font-size:14px;margin:0 0 10px}
+    .right-card ol{margin:0;padding-left:20px;font-size:12.5px;color:var(--muted)}
+    .right-card li+li{margin-top:6px}
+    .right-note{margin-top:12px;border-left:3px solid var(--accent);padding:8px 0 8px 11px;color:var(--muted);font-size:12px}
+    main{min-width:0}
+    section{scroll-margin-top:78px}
+    .hero{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:34px;box-shadow:var(--shadow)}
+    .hero-grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(220px,.65fr);gap:34px;align-items:end}
+    .eyebrow{color:var(--accent);font:760 12px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.12em;text-transform:uppercase}
+    h1{font-size:40px;line-height:1.15;letter-spacing:-.045em;margin:12px 0 14px}
+    .hero-lead{font-size:17px;line-height:1.65;color:#4f504c;margin:0;max-width:690px}
+    .hero-answer{border-top:3px solid var(--accent);padding-top:15px}
+    .hero-answer strong{display:block;font-size:17px;margin-bottom:6px}
+    .hero-answer p{margin:0;color:var(--muted);font-size:13.5px}
+    .stats{display:flex;flex-wrap:wrap;gap:8px;margin-top:24px}
+    .stat{border:1px solid var(--line);border-radius:999px;padding:6px 10px;font-size:12px;color:var(--muted);background:#faf8f4}
+    .stat b{color:var(--ink);margin-right:4px}
+    .status{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:700;white-space:nowrap;border:1px solid transparent}
+    .status.confirmed{color:var(--green);background:var(--green-soft);border-color:#cfe1d5}
+    .status.prd{color:var(--blue);background:var(--blue-soft);border-color:#d0e0e8}
+    .status.wip{color:var(--amber);background:var(--amber-soft);border-color:#ead9a9}
+    .status.infer{color:#6d5a7d;background:#f4eff7;border-color:#ded2e5}
+    .status.risk{color:var(--red);background:var(--red-soft);border-color:#ebcbc7}
+    .section{margin-top:48px}
+    .section-kicker{font:750 11px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+    h2{font-size:29px;line-height:1.25;letter-spacing:-.035em;margin:7px 0 10px}
+    .section-intro{margin:0;color:var(--muted);max-width:760px}
+    .verdict{margin:22px 0;border-left:4px solid var(--accent);background:var(--accent-soft);padding:16px 18px;border-radius:0 10px 10px 0}
+    .verdict strong{color:#873c17}
+    .ten-sec{background:#292925;color:#fff;border-radius:14px;padding:18px;margin-top:22px;overflow:hidden}
+    .flow-ribbon{display:flex;align-items:center;gap:7px;overflow-x:auto;padding:2px 0 8px}
+    .flow-node{flex:0 0 auto;border:1px solid #5a5a52;border-radius:8px;padding:7px 9px;font-size:12px;background:#35352f}
+    .flow-node.core{background:var(--accent);border-color:var(--accent)}
+    .flow-arrow{color:#b8b4aa}
+    .ten-sec small{color:#cbc7bd}
+    .case-thread{margin-top:22px;border:1px solid var(--line-strong);background:#faf7f1;border-radius:14px;padding:18px}
+    .case-thread blockquote{font-size:18px;line-height:1.55;margin:7px 0 12px;padding-left:16px;border-left:3px solid var(--accent)}
+    .case-path{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}
+    .case-path div{padding:10px;border-top:1px solid var(--line);font-size:12.5px;color:var(--muted)}
+    .case-path b{display:block;color:var(--ink);margin-bottom:3px}
+    .stages{position:relative;margin-top:28px}
+    .stages:before{content:"";position:absolute;left:27px;top:28px;bottom:28px;width:2px;background:var(--accent)}
+    .stage{position:relative;display:grid;grid-template-columns:56px minmax(0,1fr);gap:18px;margin:0 0 34px;scroll-margin-top:82px}
+    .stage-dot{position:relative;z-index:2;width:56px;height:56px;border-radius:50%;display:grid;place-items:center;background:var(--paper);border:2px solid var(--accent);color:var(--accent);font:800 13px/1 ui-monospace,SFMono-Regular,Menlo,monospace}
+    .stage-content{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;box-shadow:0 5px 16px rgba(54,45,32,.045)}
+    .stage:target .stage-content{border-color:var(--accent);box-shadow:0 0 0 3px rgba(201,95,36,.12)}
+    .stage-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+    .stage-head h3{font-size:21px;line-height:1.35;margin:0 0 4px;letter-spacing:-.02em}
+    .meta-line{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+    .place{font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:3px 7px}
+    .stage-summary{margin:12px 0 0;color:#4f504c}
+    .io-grid{display:grid;grid-template-columns:1fr 1.25fr 1fr;gap:0;border:1px solid var(--line);border-radius:10px;margin-top:16px;overflow:hidden}
+    .io-grid>div{padding:12px 13px;min-width:0}
+    .io-grid>div+div{border-left:1px solid var(--line)}
+    .io-grid dt{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--quiet);font-weight:760}
+    .io-grid dd{margin:5px 0 0;font-size:13px;color:#494a46}
+    .case-strip{margin-top:12px;padding:10px 12px;background:#f7f3ec;border-radius:8px;font-size:13px;color:#575852}
+    .case-strip b{color:var(--accent);margin-right:6px}
+    details.deep{margin-top:14px;border-top:1px solid var(--line)}
+    summary{cursor:pointer;min-height:46px;display:flex;align-items:center;color:var(--blue);font-weight:700;font-size:13px}
+    summary::marker{color:var(--accent)}
+    .deep-grid{display:grid;grid-template-columns:1.08fr .9fr 1fr;gap:18px;padding:4px 0 2px}
+    .deep-grid h4{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--quiet);margin:0 0 8px}
+    .deep-grid ul{margin:0;padding-left:18px;color:var(--muted);font-size:13px}
+    .deep-grid li+li{margin-top:6px}
+    .failure{margin-top:14px;color:var(--red);font-size:12.5px}
+    .failure b{color:var(--red)}
+    .branch{margin-top:14px;border-left:3px solid var(--amber);padding:11px 13px;background:var(--amber-soft);font-size:12.5px;color:#5e5544}
+    .section-rule{border:0;border-top:1px solid var(--line);margin:44px 0}
+    .table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--paper);margin-top:18px}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th,td{padding:11px 12px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}
+    th{background:#f2efe9;color:#585954;font-size:11px;letter-spacing:.07em;text-transform:uppercase;position:sticky;top:58px;z-index:2}
+    tr:last-child td{border-bottom:0}
+    tbody tr:hover{background:#fbf8f3}
+    .metric-name{font-weight:760;color:var(--ink)}
+    .formula{border:1px solid var(--line-strong);background:#292925;color:#fff;border-radius:12px;padding:18px;margin-top:20px}
+    .formula-title{font-size:13px;color:#d8d4cb}
+    .formula-main{font-size:17px;line-height:1.55;margin-top:7px}
+    .formula-note{font-size:12px;color:#bdb8ae;margin-top:9px}
+    .tool-search{display:flex;gap:10px;align-items:center;margin-top:18px}
+    .tool-search input{width:min(420px,100%);border:1px solid var(--line-strong);background:var(--paper);border-radius:9px;padding:10px 12px;min-height:42px}
+    .tool-count{font-size:12px;color:var(--muted)}
+    .tool-group{margin-top:14px;border:1px solid var(--line);border-radius:12px;background:var(--paper);overflow:hidden}
+    .tool-group>summary{padding:0 15px;background:#faf8f4;justify-content:space-between}
+    .tool-group table{border-top:1px solid var(--line)}
+    .tool-group .tool-name{font-weight:760;white-space:nowrap}
+    .tool-group .num{display:inline-grid;place-items:center;min-width:22px;height:22px;border-radius:6px;background:#efebe3;color:var(--muted);font-size:11px;margin-right:6px}
+    .callout{border:1px solid var(--line);border-radius:12px;padding:16px;margin-top:16px;background:var(--paper)}
+    .callout h3{margin:0 0 7px;font-size:16px}
+    .callout p{margin:0;color:var(--muted);font-size:13px}
+    .mini-flow{display:flex;align-items:stretch;gap:7px;margin-top:13px;overflow-x:auto;padding-bottom:6px}
+    .mini-flow span{flex:0 0 auto;padding:8px 9px;border:1px solid var(--line);border-radius:7px;background:#faf8f4;font-size:12px}
+    .mini-flow i{align-self:center;color:var(--accent);font-style:normal}
+    .question-groups{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:20px}
+    .question-group{border-top:2px solid var(--ink);padding-top:12px}
+    .question-group h3{font-size:15px;margin:0 0 8px}
+    .checklist{list-style:none;margin:0;padding:0}
+    .checklist li{position:relative;padding:7px 0 7px 26px;color:var(--muted);font-size:13px;border-bottom:1px dashed #e1ddd5}
+    .checklist li:before{content:"";position:absolute;left:0;top:11px;width:13px;height:13px;border:1px solid var(--line-strong);border-radius:3px;background:var(--paper)}
+    .depth-grid{display:grid;grid-template-columns:1.35fr 1fr;gap:18px;margin-top:20px}
+    .depth-main,.depth-side{border:1px solid var(--line);background:var(--paper);border-radius:12px;padding:18px}
+    .depth-row{display:grid;grid-template-columns:50px 1fr;gap:12px;padding:13px 0;border-bottom:1px solid var(--line)}
+    .depth-row:last-child{border-bottom:0}
+    .level{font:800 14px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--accent);padding-top:5px}
+    .depth-row h3{font-size:15px;margin:0 0 5px}
+    .depth-row p{font-size:13px;color:var(--muted);margin:0}
+    .gate-list{margin:0;padding-left:20px;color:var(--muted);font-size:13px}
+    .gate-list li+li{margin-top:9px}
+    .sources{display:grid;gap:10px;margin-top:18px}
+    .source{display:grid;grid-template-columns:150px 1fr auto;gap:14px;align-items:start;border-top:1px solid var(--line);padding-top:13px}
+    .source:first-child{border-top:0}
+    .source-kind{font-size:11px;color:var(--quiet);text-transform:uppercase;letter-spacing:.08em}
+    .source p{margin:2px 0 0;font-size:13px;color:var(--muted)}
+    .footer{border-top:1px solid var(--line);margin-top:52px;padding-top:20px;color:var(--quiet);font-size:12px}
+    .mobile-index{display:none}
+    @media(max-width:1180px){
+      .page-grid{grid-template-columns:210px minmax(0,1fr)}
+      .right-rail{display:none}
+    }
+    @media(max-width:860px){
+      .topbar-inner{padding:0 14px}.brand span:last-child{display:none}
+      .page-grid{display:block;padding:18px 14px 56px}
+      .left-rail{display:none}
+      .mobile-index{display:block;margin-bottom:14px}
+      .mobile-index details{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:0 12px}
+      .mobile-index nav{display:grid;padding:0 0 10px}
+      .mobile-index a{padding:7px 2px;color:var(--muted)}
+      .hero{padding:24px 20px}.hero-grid{grid-template-columns:1fr;gap:22px}h1{font-size:31px}
+      .case-path,.deep-grid,.question-groups,.depth-grid{grid-template-columns:1fr}
+      .io-grid{grid-template-columns:1fr}
+      .io-grid>div+div{border-left:0;border-top:1px solid var(--line)}
+      .source{grid-template-columns:1fr;gap:5px}
+      .top-actions .button:first-child{display:none}
+    }
+    @media(max-width:480px){
+      body{font-size:15px}.topbar-inner{min-height:54px}
+      .hero{padding:21px 16px}h1{font-size:28px}
+      h2{font-size:25px}
+      .stage{grid-template-columns:42px minmax(0,1fr);gap:10px;margin-bottom:26px}
+      .stage-dot{width:42px;height:42px;font-size:11px}
+      .stages:before{left:20px}
+      .stage-content{padding:16px 14px}
+      .stage-head{display:block}.meta-line{margin-top:9px}
+      .stats{gap:6px}.stat{font-size:11px}
+      .top-actions .button{padding:7px 9px}
+    }
+    @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
+    @media print{
+      body{background:white;font-size:11pt}.topbar,.left-rail,.right-rail,.mobile-index,.tool-search{display:none!important}
+      .page-grid{display:block;max-width:none;padding:0}.hero,.stage-content,.tool-group,.callout,.depth-main,.depth-side{box-shadow:none;break-inside:avoid}
+      details{display:block}details>summary{display:none}details>*{display:block!important}
+      .section{break-before:auto}.stage{break-inside:avoid}.table-wrap{overflow:visible}
+      th{position:static}
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand"><span class="brand-mark">DA</span><span>Driver Agent 2.0 · 端到端学习手册 v03</span></div>
+      <div class="top-actions">
+        <button class="button" id="toggleDetails" type="button">展开全部细节</button>
+        <button class="button" type="button" onclick="window.print()">打印 / 存 PDF</button>
+      </div>
+    </div>
+    <div class="progress" aria-hidden="true"><span id="progressBar"></span></div>
+  </header>
+
+  <div class="page-grid">
+    <aside class="left-rail" aria-label="页面目录">
+      <p class="rail-label">主链目录</p>
+      <nav id="sideNav">
+        <a href="#answer">先看结论</a>
+        <a href="#main-chain">01 主链总览</a>
+        <a class="sub" href="#stage-01">01 声音入口</a>
+        <a class="sub" href="#stage-02">02 ASR 请求</a>
+        <a class="sub" href="#stage-03">03 端云路由</a>
+        <a class="sub" href="#stage-04">04 Context</a>
+        <a class="sub" href="#stage-05">05 Planner</a>
+        <a class="sub" href="#stage-06">06 输出协议</a>
+        <a class="sub" href="#stage-07">07 执行编排</a>
+        <a class="sub" href="#stage-08">08 Tool / Agent</a>
+        <a class="sub" href="#stage-09">09 Feedback</a>
+        <a class="sub" href="#stage-10">10 最终结果</a>
+        <a href="#metrics">02 AI 指标树</a>
+        <a href="#tools">03 27 个工具</a>
+        <a href="#long-task">04 长时任务 / VLM</a>
+        <a href="#questions">05 40 个评审问题</a>
+        <a href="#depth">06 学习深度与去留</a>
+        <a href="#sources">07 证据与版本边界</a>
+      </nav>
+      <div class="rail-block">
+        <p class="rail-label">事实状态</p>
+        <div class="legend-row"><span class="legend-mark" style="background:var(--green)"></span><span>已确认：当前协议或已读正文</span></div>
+        <div class="legend-row"><span class="legend-mark" style="background:var(--blue)"></span><span>正式 PRD：产品职责口径</span></div>
+        <div class="legend-row"><span class="legend-mark" style="background:var(--amber)"></span><span>WIP：目标方案，不等于上线</span></div>
+        <div class="legend-row"><span class="legend-mark" style="background:#80658e"></span><span>架构推断：要找 Owner 核实</span></div>
+        <div class="legend-row"><span class="legend-mark" style="background:var(--red)"></span><span>冲突 / 风险：不可直接定论</span></div>
+      </div>
+    </aside>
+
+    <main>
+      <div class="mobile-index">
+        <details>
+          <summary>打开目录</summary>
+          <nav>
+            <a href="#answer">先看结论</a><a href="#main-chain">主链 01—10</a><a href="#metrics">AI 指标树</a><a href="#tools">27 个工具</a><a href="#long-task">长时任务 / VLM</a><a href="#questions">40 个评审问题</a><a href="#depth">学习深度与去留</a><a href="#sources">证据与版本</a>
+          </nav>
+        </details>
+      </div>
+
+      <section class="hero" id="answer">
+        <div class="hero-grid">
+          <div>
+            <div class="eyebrow">Structure Reset · 2026-09-02</div>
+            <h1>你真正要吃透的，不是所有代码，而是这一条执行闭环</h1>
+            <p class="hero-lead">声音如何变成请求，系统如何补齐真实环境，Planner / Director 如何决定说什么、做什么，工具结果如何回来，系统又凭什么宣布“完成”。这一条链能讲清、能追日志、能用指标验，才算真正懂了 Driver Agent。</p>
+          </div>
+          <div class="hero-answer">
+            <strong>AI 能力当然最重要。</strong>
+            <p>但这里的 AI 能力不是“基础模型答题分”，而是 <b>模型 × Context × 工具合同 × 真实反馈 × 长时任务机制</b> 共同形成的端到端目标完成能力。</p>
+          </div>
+        </div>
+        <div class="stats" aria-label="当前协议关键数字">
+          <span class="stat"><b>10</b>个主链阶段</span>
+          <span class="stat"><b>4</b>类 Planner 输入</span>
+          <span class="stat"><b>4</b>个输出字段</span>
+          <span class="stat"><b>27</b>个当前 SP 工具</span>
+          <span class="stat"><b>4</b>类任务形态</span>
+          <span class="stat"><b>1</b>个真正北极星：有效任务闭环成功</span>
+        </div>
+      </section>
+
+      <section class="section" id="main-chain">
+        <div class="section-kicker">01 · Runtime spine</div>
+        <h2>从用户开口，到用户真的拿到结果</h2>
+        <p class="section-intro">下面只有一条向下读的主链。端侧快路径、长期任务和 VLM 都挂在相应节点旁边，不再跨页拉线。每个阶段都固定解释输入、机制、输出、指标、失败归因与 PM 掌握深度。</p>
+        <div class="verdict"><strong>先记住这句：</strong>用户请求 → 当前已知 / 未知 → Planner 判断 → <code>action_list</code> → 工具真实执行 → <code>tool_feedback</code> → 下一轮判断 → 用户目标完成或明确失败。</div>
+        <div class="ten-sec" aria-label="十秒主链图">
+          <div class="flow-ribbon">
+            <span class="flow-node">声音</span><span class="flow-arrow">→</span>
+            <span class="flow-node">ASR 请求</span><span class="flow-arrow">→</span>
+            <span class="flow-node">端云路由</span><span class="flow-arrow">→</span>
+            <span class="flow-node">Context</span><span class="flow-arrow">→</span>
+            <span class="flow-node core">Planner = Director</span><span class="flow-arrow">→</span>
+            <span class="flow-node">输出协议</span><span class="flow-arrow">→</span>
+            <span class="flow-node">执行编排</span><span class="flow-arrow">→</span>
+            <span class="flow-node">Tool / Agent</span><span class="flow-arrow">→</span>
+            <span class="flow-node">Feedback ↺</span><span class="flow-arrow">→</span>
+            <span class="flow-node">最终结果</span>
+          </div>
+          <small>主链是同步阅读顺序；虚线支链在后文单独展开。配置平台属于设计态控制面，不是每个用户 Query 的运行时下一站。</small>
+        </div>
+
+        <div class="case-thread">
+          <span class="status confirmed">贯穿案例</span>
+          <blockquote>“我有点冷，打开座椅加热，十分钟后帮我关掉，再导航去昨天游泳的地方。”</blockquote>
+          <div class="case-path">
+            <div><b>即时动作</b><code>vehicle_basic_control</code> 打开主驾座椅加热</div>
+            <div><b>串行检索</b><code>user_memory_search</code> 找到“昨天游泳地点”，再 <code>route_planning</code></div>
+            <div><b>长时目标</b><code>goal_list_update</code> 托管十分钟后的关闭动作；到时重新唤醒决策</div>
+          </div>
+        </div>
+
+        <div class="stages">
+          <article class="stage" id="stage-01">
+            <div class="stage-dot">01</div>
+            <div class="stage-content">
+              <div class="stage-head">
+                <div><h3>声音入口：先确定“谁在什么时候说了什么声音”</h3><p class="stage-summary">麦克风前端把嘈杂车舱里的连续声音切成可识别的一段，并识别音区、打断与说话时机。它不是 Planner，但它一旦错，后面再聪明也只是在认真执行错误输入。</p></div>
+              </div>
+              <div class="meta-line"><span class="place">端侧</span><span class="place">Owner：语音前端 / 车端</span><span class="status prd">链路职责已确认</span><span class="status infer">字段需按车型核实</span><span class="place">PM 深度 L3</span></div>
+              <dl class="io-grid">
+                <div><dt>输入</dt><dd>多麦音频、车速噪声、播放回声、唤醒与当前会话状态</dd></div>
+                <div><dt>机制</dt><dd>唤醒、波束形成、AEC 回声消除、降噪、VAD 断句、声源 / 音区识别、全双工打断</dd></div>
+                <div><dt>输出</dt><dd>一段待识别语音 + 音区 / 时间信息；异常时是无输入、截断或错人</dd></div>
+              </dl>
+              <div class="case-strip"><b>案例到这里</b>主驾发话；“我有点冷……”被切成一个完整 utterance，位置应指向主驾。</div>
+              <details class="deep">
+                <summary>展开：机制、指标与评审问题</summary>
+                <div class="deep-grid">
+                  <div><h4>你要弄清</h4><ul><li>多人同时说话时谁获得会话权。</li><li>TTS / 音乐播放时能否打断，回声怎样不被误识别。</li><li>VAD 过早截断和过晚收尾分别怎样传到 ASR。</li></ul></div>
+                  <div><h4>关键指标</h4><ul><li>有效唤醒率、误唤醒率</li><li>打断成功率</li><li>音区 / 座位识别准确率</li><li>端点检测时延与截断率</li></ul></div>
+                  <div><h4>评审必问</h4><ul><li>高速、开窗、音乐大声时基线是什么？</li><li>低置信音区是留空还是硬猜？</li><li>一段音频如何关联 session / trace？</li></ul></div>
+                </div>
+              </details>
+              <div class="failure"><b>典型错因：</b>“后排关窗”被识别为主驾指令，表面像车控参数错，根因其实在音区识别。</div>
+            </div>
+          </article>
+
+          <article class="stage" id="stage-02">
+            <div class="stage-dot">02</div>
+            <div class="stage-content">
+              <div class="stage-head"><div><h3>ASR 与请求信封：把声音变成可追踪的标准请求</h3><p class="stage-summary">ASR 产出文本；请求层再把文本和说话人、位置、时间封成 <code>user_query</code>。Planner 当前 SP 明确看到的是结构化请求，不是原始音频。</p></div></div>
+              <div class="meta-line"><span class="place">端侧 → 云入口</span><span class="place">Owner：ASR / Input Gateway</span><span class="status confirmed">SP 字段已确认</span><span class="place">PM 深度 L3</span></div>
+              <dl class="io-grid">
+                <div><dt>输入</dt><dd>阶段 01 的语音片段、音区与时间信息</dd></div>
+                <div><dt>机制</dt><dd>识别文本与实体；统一包装 <code>query</code>、<code>speaker_name</code>、<code>speaker_position</code>、<code>timestamp</code></dd></div>
+                <div><dt>输出</dt><dd><code>user_query</code>；运行时还应能关联 session / trace，但该字段不在当前 SP 示例中</dd></div>
+              </dl>
+              <div class="case-strip"><b>案例到这里</b><code>speaker_position=主驾驶位</code>，关键实体是“座椅加热 / 十分钟 / 昨天游泳的地方”。</div>
+              <details class="deep">
+                <summary>展开：机制、指标与评审问题</summary>
+                <div class="deep-grid">
+                  <div><h4>你要弄清</h4><ul><li>partial 文本何时变成 final。</li><li>人名、数字、时间、POI 如何专门校正。</li><li>低置信结果是进路由、进澄清，还是静默丢弃。</li></ul></div>
+                  <div><h4>关键指标</h4><ul><li>字符错误率与实体准确率</li><li>数字 / 时间 / POI 识别准确率</li><li>ASR final P50 / P95 时延</li><li>用户纠正 / 重说率</li></ul></div>
+                  <div><h4>评审必问</h4><ul><li>“十分钟”错成“十五分钟”如何拦？</li><li>说话人未知时，下游是否允许位置敏感动作？</li><li>原音、文本、trace 能否一键回放对齐？</li></ul></div>
+                </div>
+              </details>
+              <div class="failure"><b>典型错因：</b>时间实体识别错却仍创建任务，不能只算 Planner 任务解析错误。</div>
+            </div>
+          </article>
+
+          <article class="stage" id="stage-03">
+            <div class="stage-dot">03</div>
+            <div class="stage-content">
+              <div class="stage-head"><div><h3>统一入口与端云路由：决定谁来处理，不让两套结果重复执行</h3><p class="stage-summary">简单高频车控可以走端侧 FC 快路径；云侧拒识 / 仲裁后，简单领域可给 FC，复杂、多步或拒识超时则给 Planner / Director。真正要盯的是“单一裁决、明确降级、绝不双执行”。</p></div></div>
+              <div class="meta-line"><span class="place">端云协同</span><span class="place">Owner：路由 / 仲裁</span><span class="status prd">Director PRD 口径</span><span class="status infer">当前实现需 trace 核实</span><span class="place">PM 深度 L3</span></div>
+              <dl class="io-grid">
+                <div><dt>输入</dt><dd>标准请求、端侧 FC 候选、云端拒识 / 意图结果、网络与超时状态</dd></div>
+                <div><dt>机制</dt><dd>拒识、能力域、复杂度、白名单、时延与 fallback 仲裁；只选一个执行主路径</dd></div>
+                <div><dt>输出</dt><dd>端侧快执行，或路由到云 FC / Planner；附路由原因与降级原因</dd></div>
+              </dl>
+              <div class="case-strip"><b>案例到这里</b>一个请求包含即时车控、记忆依赖导航和定时任务，不能只走单一 FC，主路径应进入 Planner。</div>
+              <details class="deep">
+                <summary>展开：快路径、指标与评审问题</summary>
+                <div class="deep-grid">
+                  <div><h4>你要弄清</h4><ul><li>端侧结果、云端结果同时返回时谁最终裁决。</li><li>什么是简单、复杂、拒识、能力外。</li><li>断网 / 云超时是否可安全降级，哪些动作禁止降级。</li></ul></div>
+                  <div><h4>关键指标</h4><ul><li>路由准确率与错杀 / 漏放率</li><li>端侧快路径命中率</li><li>重复执行率（必须单列）</li><li>fallback 成功率与路由 P95</li></ul></div>
+                  <div><h4>评审必问</h4><ul><li>路由真值由谁标、分母是什么？</li><li>云端慢但端侧已出结果，超时线怎么定？</li><li>路由错误能否从日志和模型错误分开？</li></ul></div>
+                </div>
+              </details>
+              <div class="branch"><b>端侧快路径支链：</b>端 FC → 白名单 / 能力 / 参数 / 安全校验 → 原子执行 → 实际状态回读 → 阶段 09。它绕过复杂规划，但不能绕过安全与结果确认。</div>
+              <div class="failure"><b>典型错因：</b>同一句话端云都发了开窗，重复动作是仲裁 / 幂等问题，不应算成模型“多拆了一个动作”。</div>
+            </div>
+          </article>
+
+          <article class="stage" id="stage-04">
+            <div class="stage-dot">04</div>
+            <div class="stage-content">
+              <div class="stage-head"><div><h3>Context 组装：在每次决策前，给 Planner 一份“此刻真实世界”</h3><p class="stage-summary">Context 不是一个事后数据库，也不是 Director 下游。它在每轮推理前汇集当前车况、舱内外感知、用户记忆、对话历史、Goal / Task 视图与事件，并处理时效、权限、冲突和缺失。</p></div></div>
+              <div class="meta-line"><span class="place">云侧为主，端云取数</span><span class="place">Owner：Context</span><span class="status prd">职责已确认</span><span class="status confirmed">SP 动态变量可见</span><span class="place">PM 深度 L4</span></div>
+              <dl class="io-grid">
+                <div><dt>输入</dt><dd>本轮输入 + 车辆状态 + 视觉摘要 + 用户记忆 + 对话历史 + 目标列表 / 任务状态</dd></div>
+                <div><dt>机制</dt><dd>按来源、对象、时间戳和授权聚合；去冲突、判新鲜度、裁剪 token；车端最新状态优先于旧对话</dd></div>
+                <div><dt>输出</dt><dd>本轮 <code>ContextSnapshot</code>，作为 Planner 的动态参考，而不是独立行动指令</dd></div>
+              </dl>
+              <div class="case-strip"><b>案例到这里</b>主驾身份、座椅加热当前状态、车辆是否允许执行、昨天的行程 / 记忆、已有重复 Goal 都应在这一轮被核对。</div>
+              <details class="deep" open>
+                <summary>展开：Context 是 AI 能力的第一道地基</summary>
+                <div class="deep-grid">
+                  <div><h4>你要弄清</h4><ul><li>每个字段来源、对象、时间戳与空值语义。</li><li>当前状态、历史对话、用户记忆冲突时的优先级。</li><li>哪些数据默认注入，哪些必须由工具按需查。</li><li>上下文过长怎样裁剪而不丢关键事实。</li></ul></div>
+                  <div><h4>关键指标</h4><ul><li>必要字段覆盖率</li><li>新鲜度达标率</li><li>冲突 / 过期注入率</li><li>记忆命中准确率</li><li>Context token 与缓存命中</li></ul></div>
+                  <div><h4>评审必问</h4><ul><li>“没有值”和“没取到”是否分开？</li><li>视觉描述属于谁、多久算过期？</li><li>注册用户 / 非注册用户的记忆边界？</li><li>能否逐字段追到原始来源？</li></ul></div>
+                </div>
+              </details>
+              <div class="failure"><b>典型错因：</b>Planner 没用到“座椅已开启”，先查这条状态有没有被正确、及时注入，别直接归因模型。</div>
+            </div>
+          </article>
+
+          <article class="stage" id="stage-05">
+            <div class="stage-dot">05</div>
+            <div class="stage-content">
+              <div class="stage-head"><div><h3>Planner = Director：围绕用户目标，决定“说、做、问、等”</h3><p class="stage-summary">Planner 是业务名，Director 是内部模块名，二者是同一个决策职能。它接收四类本轮输入之一，再结合 SP 与 Context，判断已知 / 未知、拆步骤、排依赖、选工具，并决定这一轮是否说话。</p></div></div>
+              <div class="meta-line"><span class="place">云侧</span><span class="place">Owner：Planner / Director</span><span class="status confirmed">当前 SP：四类输入</span><span class="status prd">核心职责已确认</span><span class="place">PM 深度 L4</span></div>
+              <dl class="io-grid">
+                <div><dt>输入</dt><dd><code>user_query</code> / <code>advisor</code> / <code>tool_feedback</code> / <code>event</code> 中的一类 + SP + Context</dd></div>
+                <div><dt>机制</dt><dd>识别目标 → 判断缺口 → 直接答 / 澄清 / 查状态 / 调工具 / 建目标 → 等反馈后再次推理（ReAct）</dd></div>
+                <div><dt>输出</dt><dd><code>talk_or_not</code>、<code>talk_content</code>、<code>emoji_id</code>、<code>action_list</code></dd></div>
+              </dl>
+              <div class="case-strip"><b>案例到这里</b>可并行：打开座椅加热、检索昨天的游泳地点、创建十分钟关闭 Goal；导航必须等待地点结果，不能凭空猜地址。</div>
+              <details class="deep" open>
+                <summary>展开：Planner 真正应该被考验的能力</summary>
+                <div class="deep-grid">
+                  <div><h4>你要弄清</h4><ul><li>目标有没有被完整拆出，而不是只识别一个意图。</li><li>什么可并行、什么必须等 feedback 串行。</li><li>缺信息时该问用户、查状态还是查记忆。</li><li>何时停止，不进入无意义循环或过度执行。</li></ul></div>
+                  <div><h4>关键指标</h4><ul><li>首轮决策正确率</li><li>基于证据的计划成功率</li><li>工具选择 / 参数完整率</li><li>依赖排序正确率</li><li>越权 / 幻觉动作率</li></ul></div>
+                  <div><h4>评审必问</h4><ul><li>正确计划的黄金标注长什么样？</li><li>同一目标允许多条合理计划吗？</li><li>Advisor 只是建议，Planner 如何拒绝坏建议？</li><li>失败几轮后必须澄清或终止？</li></ul></div>
+                </div>
+              </details>
+              <div class="failure"><b>典型错因：</b>信息齐全、工具边界清楚，仍选择了错误工具或错误顺序，才是相对纯粹的 Planner / 模型能力问题。</div>
+            </div>
+          </article>
+
+          <article class="stage" id="stage-06">
+            <div class="stage-dot">06</div>
+            <div class="stage-content">
+              <div class="stage-head"><div><h3>输出协议：把“模型想法”限制成机器可执行的本轮决定</h3><p class="stage-summary">当前 SP 只允许 JSON。表达与行动在同一份决策里产出，用来保证说做一致。<code>action_list</code> 是计划，不是执行结果；当前可见 schema 也没有显式 <code>depends_on</code> 字段，依赖动作通常要靠分轮 feedback 推进。</p></div></div>
+              <div class="meta-line"><span class="place">云侧协议</span><span class="place">Owner：Planner + Runtime</span><span class="status confirmed">当前 SP 输出已确认</span><span class="status risk">依赖字段未在 SP 暴露</span><span class="place">PM 深度 L4</span></div>
+              <dl class="io-grid">
+                <div><dt>输入</dt><dd>Planner 本轮的表达、动作、澄清或等待决定</dd></div>
+                <div><dt>机制</dt><dd>JSON schema 约束；每个动作含 <code>action_id</code>、<code>tool_name</code>、<code>params</code>；表达和行动需语义一致</dd></div>
+                <div><dt>输出</dt><dd>可解析的 PlannerDecision；空 <code>action_list</code> 也可能是提问、等待或只聊天</dd></div>
+              </dl>
+              <div class="case-strip"><b>案例到这里</b>第一轮可以下发加热、记忆检索和 Goal 创建；不能同时下发依赖尚未知地址的路线规划。</div>
+              <details class="deep">
+                <summary>展开：协议质量、并发与部分成功</summary>
+                <div class="deep-grid">
+                  <div><h4>你要弄清</h4><ul><li>同一 <code>action_list</code> 是否默认并行。</li><li>依赖只能通过下一轮表达，还是运行时有隐藏 DAG。</li><li>单个动作失败时其它动作是否继续。</li><li>初始话术不能把“将执行”说成“已完成”。</li></ul></div>
+                  <div><h4>关键指标</h4><ul><li>JSON / schema 合法率</li><li>可执行动作率</li><li>非法并行率</li><li>话术—动作一致率</li><li>部分成功表达正确率</li></ul></div>
+                  <div><h4>评审必问</h4><ul><li><code>action_id</code> 如何跨 feedback 关联？</li><li>重复 action 如何去重？</li><li>模型未提供必填参数时谁阻断？</li><li>多个工具谁负责聚合最终态？</li></ul></div>
+                </div>
+              </details>
+              <div class="failure"><b>典型错因：</b>JSON 合法但把两个有前后依赖的工具并行下发，是规划 / 协议表达问题，不是下游工具慢。</div>
+            </div>
+          </article>
+
+          <article class="stage" id="stage-07">
+            <div class="stage-dot">07</div>
+            <div class="stage-content">
+              <div class="stage-head"><div><h3>执行编排与安全门：模型不能直接碰 ECU 或第三方服务</h3><p class="stage-summary">Runtime 需要把动作映射到真实能力，并做车型可用性、权限、座位、参数、互斥、幂等、超时与重试校验。这里是必要逻辑层；具体服务名和哪些校验在哪一层，仍需用当前代码 / trace 和负责人核实。</p></div></div>
+              <div class="meta-line"><span class="place">端云协同</span><span class="place">Owner：Runtime / 工具网关 / 车端</span><span class="status infer">架构必要层</span><span class="status risk">实现边界待核实</span><span class="place">PM 深度 L3</span></div>
+              <dl class="io-grid">
+                <div><dt>输入</dt><dd><code>action_list</code>、车型能力、账户 / 座位权限、车辆安全状态、工具注册表</dd></div>
+                <div><dt>机制</dt><dd>参数校验、能力路由、串并行调度、幂等键、超时、可重试性、安全拦截、adapter 转换</dd></div>
+                <div><dt>输出</dt><dd>受理 / 拒绝 / 下发中的动作；随后等待 Tool / Agent 的结构化结果和真实状态</dd></div>
+              </dl>
+              <div class="case-strip"><b>案例到这里</b>确认主驾位置、座椅加热能力和当前车辆状态后，下发原子车控；定时关闭只登记任务，不能现在就执行。</div>
+              <details class="deep">
+                <summary>展开：执行门禁与责任边界</summary>
+                <div class="deep-grid">
+                  <div><h4>你要弄清</h4><ul><li>Planner、网关、车端分别校验什么。</li><li>重试是否会造成重复开关、重复订座或重复导航。</li><li>工具“受理”与物理状态“生效”如何区分。</li><li>车型配置差异如何进入路由。</li></ul></div>
+                  <div><h4>关键指标</h4><ul><li>动作受理率 / 合理拒绝率</li><li>重复执行率</li><li>参数拦截准确率</li><li>adapter 异常率</li><li>下发与生效时延</li></ul></div>
+                  <div><h4>评审必问</h4><ul><li>哪个动作绝不自动重试？</li><li>超时后查询状态还是直接重试？</li><li>取消与执行并发时谁赢？</li><li>安全拒绝如何回到 Planner 解释？</li></ul></div>
+                </div>
+              </details>
+              <div class="failure"><b>典型错因：</b>模型参数正确但车型不支持，Runtime 没拦住，是能力配置 / 门禁问题，不是 Planner 幻觉。</div>
+            </div>
+          </article>
+
+          <article class="stage" id="stage-08">
+            <div class="stage-dot">08</div>
+            <div class="stage-content">
+              <div class="stage-head"><div><h3>Tool / Agent：27 个当前入口，把计划变成查询、控制或服务结果</h3><p class="stage-summary">Tool 是 Planner 看见的能力合同；背后可能是原子车控、聚合服务或领域 Agent。当前 SP 按 <code>【工具名称】</code> 实数为 27 个；原文展示编号中间存在跳号，末项编号不能用来当工具总数。</p></div></div>
+              <div class="meta-line"><span class="place">端云 / 三方</span><span class="place">Owner：各领域能力</span><span class="status confirmed">27 个当前 SP 工具</span><span class="place">PM 深度 L4：合同级</span></div>
+              <dl class="io-grid">
+                <div><dt>输入</dt><dd>自然语言 <code>params.query</code> 为主，叠加隐含身份、位置、车辆 / 会话上下文</dd></div>
+                <div><dt>机制</dt><dd>工具描述决定模型何时选它；adapter 对接真实系统；部分工具会自动播放或自己播报，副作用必须显式</dd></div>
+                <div><dt>输出</dt><dd>搜索候选、执行状态、业务结果、失败原因或异步受理；应统一归一化成 feedback</dd></div>
+              </dl>
+              <div class="case-strip"><b>案例到这里</b><code>vehicle_basic_control</code>、<code>user_memory_search</code>、<code>goal_list_update</code> 各自处理不同子目标；后续才调用 <code>route_planning</code>。</div>
+              <details class="deep">
+                <summary>展开：Tool、Agent、Advisor、Trigger、Task Service 的区别</summary>
+                <div class="deep-grid">
+                  <div><h4>Tool / Agent</h4><ul><li><b>Tool：</b>暴露给 Planner 的动作合同，目标是可调用、可返回。</li><li><b>Agent：</b>某领域内部可多步工作，但对 Planner 仍应有清楚入口与结果。</li></ul></div>
+                  <div><h4>Advisor / Trigger</h4><ul><li><b>Advisor：</b>给建议，不拥有最终行动权。</li><li><b>Trigger：</b>判断时间 / 信号 / 语义条件是否命中，不替 Planner 完成用户目标。</li></ul></div>
+                  <div><h4>Task Service</h4><ul><li>保存任务事实、状态和外部绑定，承接创建、更新、取消、回调与运行；不是另一个对话大脑。</li></ul></div>
+                </div>
+              </details>
+              <div class="failure"><b>典型错因：</b>工具描述重叠导致 Planner 选错工具，是 Tool Contract 问题；工具内部召回差则是下游能力问题。</div>
+            </div>
+          </article>
+
+          <article class="stage" id="stage-09">
+            <div class="stage-dot">09</div>
+            <div class="stage-content">
+              <div class="stage-head"><div><h3>tool_feedback 与真实状态：结果回来后，Planner 必须重新判断</h3><p class="stage-summary">当前 SP 的 feedback 输入只有 <code>tool_feedback</code> 与 <code>tool_name</code>。它触发下一轮 Planner，而不是直接等同任务完成。实际运行时还应能关联原动作、状态、错误与时效；这些字段是否在外围 envelope 中存在，要向 Runtime 确认。</p></div></div>
+              <div class="meta-line"><span class="place">执行侧 → 云决策</span><span class="place">Owner：工具网关 + Planner</span><span class="status confirmed">SP feedback 形态已确认</span><span class="status risk">action 关联字段待核实</span><span class="place">PM 深度 L4</span></div>
+              <dl class="io-grid">
+                <div><dt>输入</dt><dd>工具业务结果、错误、部分成功、车辆 observed state、触发 / 回调事件</dd></div>
+                <div><dt>机制</dt><dd>归一化 → 对齐原动作 → 更新 Context / 状态 → Planner 判断继续、改计划、追问、重试或结束</dd></div>
+                <div><dt>输出</dt><dd>新的 <code>tool_feedback</code> 轮；或确定的完成 / 失败 / 等待状态</dd></div>
+              </dl>
+              <div class="case-strip"><b>案例到这里</b>加热反馈成功；记忆返回具体场馆后再规划路线；Goal 创建成功只代表已托管，不代表十分钟后的关闭已经完成。</div>
+              <details class="deep" open>
+                <summary>展开：四层“成功”与恢复能力</summary>
+                <div class="deep-grid">
+                  <div><h4>必须分开</h4><ul><li>① Planner 生成了动作</li><li>② 工具接口受理 / 下发成功</li><li>③ 设备或业务真实状态生效</li><li>④ 用户整体目标完成</li></ul></div>
+                  <div><h4>关键指标</h4><ul><li>feedback 完整 / 可解析率</li><li>动作—反馈关联率</li><li>失败后恢复完成率</li><li>无效重试 / 循环率</li><li>假成功率</li></ul></div>
+                  <div><h4>评审必问</h4><ul><li>部分成功怎样表达、怎样继续？</li><li>错误是否有机器可判的 retryable？</li><li>迟到 feedback 会不会污染新任务？</li><li>状态回读失败时允许说“已完成”吗？</li></ul></div>
+                </div>
+              </details>
+              <div class="failure"><b>典型错因：</b>工具返回“请求已受理”，助手却说“已经关好了”，这是反馈语义 / 说做一致问题。</div>
+            </div>
+          </article>
+
+          <article class="stage" id="stage-10">
+            <div class="stage-dot">10</div>
+            <div class="stage-content">
+              <div class="stage-head"><div><h3>响应协调与目标收口：让用户听到、看到、感受到同一个事实</h3><p class="stage-summary">TTS、卡片、emoji / 数字人和物理执行是并列呈现 / 执行通道，不是“TTS → 机器人 → 车控”的串行链。响应协调要依据事实状态选择受理、进度、部分成功、最终成功或失败话术。</p></div></div>
+              <div class="meta-line"><span class="place">端云协同</span><span class="place">Owner：交互 / Runtime / HMI</span><span class="status prd">并列输出职责已确认</span><span class="place">PM 深度 L4</span></div>
+              <dl class="io-grid">
+                <div><dt>输入</dt><dd><code>talk_content</code>、<code>emoji_id</code>、卡片数据、动作进度、最终状态</dd></div>
+                <div><dt>机制</dt><dd>首响应、进度与最终播报节奏；工具自播报去重；打断、取消与多动作聚合；Goal / Task 状态收口</dd></div>
+                <div><dt>输出</dt><dd>TTS、HMI 卡片 / 任务岛、机器人表现、真实车况 / 导航 / 媒体结果，以及可继续对话的上下文</dd></div>
+              </dl>
+              <div class="case-strip"><b>案例到这里</b>先说“先给你暖起来，我再找昨天的地点”；导航确定后说明路线；十分钟后 Trigger 重唤醒并确认关闭，最后才算整个复合目标闭环。</div>
+              <details class="deep">
+                <summary>展开：体验、时延与结束条件</summary>
+                <div class="deep-grid">
+                  <div><h4>你要弄清</h4><ul><li>哪些动作需要首响应，哪些应直接做完再说。</li><li>工具自播报与 Planner 播报谁优先。</li><li>多动作部分完成怎样不让用户误解。</li><li>取消、离车、断网后最终状态谁收口。</li></ul></div>
+                  <div><h4>关键指标</h4><ul><li>首音频 / 首动作 P50、P95</li><li>端到端完成时长</li><li>说做一致率</li><li>结果可见率</li><li>用户重说 / 打断 / 取消率</li></ul></div>
+                  <div><h4>评审必问</h4><ul><li>首响应是否做了无法保证的承诺？</li><li>失败后用户是否知道还能怎么办？</li><li>所有子目标都完成才可 closed 吗？</li><li>跨端 HMI 状态是否同源？</li></ul></div>
+                </div>
+              </details>
+              <div class="failure"><b>典型错因：</b>车控已生效但卡片还转圈，是 HMI / 状态同步问题；不要归因“AI 没做成”。</div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="metrics">
+        <div class="section-kicker">02 · AI capability scorecard</div>
+        <h2>AI 能力怎么考：一套结果指标，一套诊断指标</h2>
+        <p class="section-intro">只看 Planner 准确率会把链路问题混进模型；只看工具成功率又会掩盖目标没完成。你需要同时保留“用户真实体验”和“条件满足时模型本身能力”两套顶层口径，再用阶段指标定位损耗发生在哪里。</p>
+
+        <div class="formula">
+          <div class="formula-title">产品北极星｜有效请求端到端闭环成功率</div>
+          <div class="formula-main">完整满足本次 Request 的全部必须目标，真实执行有证据，最终表达与事实一致，且没有安全 / 权限违规的请求数 ÷ 全部在产品能力范围内的有效请求数</div>
+          <div class="formula-note">正确澄清、正确拒绝、用户主动取消也可按预期终态计成功；“输出了 action_list”或“接口返回 200”不能单独计成功。</div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>顶层指标</th><th>严格口径 / 分母</th><th>它回答什么</th><th>常见误读</th></tr></thead>
+            <tbody>
+              <tr><td class="metric-name">产品端到端成功率</td><td>完整闭环成功 Request / 全部在范围有效 Request；下游故障也算失败</td><td>用户真实拿到多少能力</td><td>不能用 Planner 离线分替代</td></tr>
+              <tr><td class="metric-name">条件化 AI 成功率</td><td>ASR、路由、必要 Context 与工具均满足前提时，Planner 正确决策并最终完成 / 满足前提 Request</td><td>相对隔离模型 / Planner 能力</td><td>不能拿它掩盖链路损耗</td></tr>
+              <tr><td class="metric-name">首次直通成功率</td><td>无需用户纠正、系统错误重试或改计划即完成 / 全部可评 Request</td><td>首次理解与规划是否稳定</td><td>最终救回来不代表首次体验好</td></tr>
+              <tr><td class="metric-name">加权任务完成度</td><td>已通过验收点权重和 / 全部验收点权重和；安全与最终效果为不可抵消门槛</td><td>多动作任务做成了多少</td><td>不能把 5/6 动作粗暴记成全成功</td></tr>
+              <tr><td class="metric-name">说做一致率</td><td>所有执行声称都能对应真实 action 与成功证据的 Request / 含执行声称 Request</td><td>是否“嘴上完成、实际没做”</td><td>话术自然不等于事实正确</td></tr>
+              <tr><td class="metric-name">安全违规率</td><td>越权、危险动作、绕过确认或隐私泄露 Request / 全部相关 Request</td><td>是否允许上线</td><td>不能被平均成功率稀释</td></tr>
+              <tr><td class="metric-name">首次有效反馈时延</td><td>首个有意义 TTS / HMI 时间 − 用户语音结束；报告 P50 / P90 / P95</td><td>用户多久确认“系统听懂了”</td><td>不等于模型首 token</td></tr>
+              <tr><td class="metric-name">完成时延</td><td>真实业务效果确认时间 − 用户语音结束；即时与长期任务分 cohort</td><td>整条链到底多快</td><td>不能把十分钟任务和即时车控混算</td></tr>
+              <tr><td class="metric-name">恢复完成率</td><td>可恢复失败经重试 / 换工具 / 澄清后最终完成 Request / 可恢复失败 Request</td><td>feedback 闭环有没有价值</td><td>重试次数多不代表恢复强</td></tr>
+              <tr><td class="metric-name">单位完成成本</td><td>模型 token、推理、检索、工具与触发成本 / 成功闭环 Request</td><td>质量相同条件下的效率</td><td>不能只看单轮模型成本</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout">
+          <h3>先统一统计单位，否则团队的“成功率”没有可比性</h3>
+          <p><b>Utterance</b> 是一次连续语音；<b>Request / Episode</b> 是一个用户目标从首句到终态；<b>Decision Round</b> 是一次 Planner 输入输出；<b>Logical Action</b> 是 action_list 中一个逻辑动作；<b>Physical Attempt</b> 是实际下游请求；<b>Task</b> 是长期任务实体；<b>Run</b> 是一次触发后的实际执行。</p>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>诊断层</th><th>最少应上看板的指标</th><th>失败时先问什么</th></tr></thead>
+            <tbody>
+              <tr><td class="metric-name">声音 / ASR</td><td>语义保真率、关键槽位错误率、截断率、音区准确率、ASR Final P95</td><td>否定、数字、时间、对象是否在 Planner 前就错了？</td></tr>
+              <tr><td class="metric-name">拒识 / 路由</td><td>有效 Query 召回、非指令抑制、Planner 必要召回、快路径精确、正确升级、重复执行</td><td>这条请求本该由谁处理，为什么被低层过召或双发？</td></tr>
+              <tr><td class="metric-name">Context</td><td>必需事实召回、新鲜度、冲突解析、身份绑定、隐私泄漏、Context 利用率</td><td>信息没有、没取到、过期，还是已经给了模型却没用？</td></tr>
+              <tr><td class="metric-name">Planner</td><td>协议合法、约束覆盖、动作精确 / 召回、工具选择、整调用参数、依赖顺序、澄清、稳定性</td><td>信息齐全后，模型是否仍做错判断？</td></tr>
+              <tr><td class="metric-name">Dispatcher</td><td>分发正确、关联 ID 完整、重复执行、重试恢复、取消传播、分发 P95</td><td>模型输出对了，是否被错误改写、重复或发给了错误执行器？</td></tr>
+              <tr><td class="metric-name">Tool / Agent</td><td>技术调用成功、业务效果成功、结构化反馈完整、错误成功反馈、工具 P95</td><td>返回 success 代表接口成功还是用户要的状态真的发生？</td></tr>
+              <tr><td class="metric-name">Feedback / Replan</td><td>绑定准确、可解析、应重规划召回、无效重规划、挽回、重复动作、循环超限</td><td>Planner 有没有基于新证据改变下一步？</td></tr>
+              <tr><td class="metric-name">表达 / HMI</td><td>事实有据、完成通知、失败透明、状态一致、正确对象、首帧时延、重复播报</td><td>用户看到 / 听到的是受理、进行中，还是已经完成？</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="verdict"><strong>建议看板切片：</strong>即时单步 / 并行多动作 / 串行多步 / 条件 / 定时 / 周期 / 持续任务 × 行车 / 驻车 × 车型 / 企业 / 版本 × 工具域 × Context 完整度 × 首次 / 重试 / 恢复。不要报一个无法归因的总平均数。</div>
+      </section>
+
+      <section class="section" id="tools">
+        <div class="section-kicker">03 · Tool contract registry</div>
+        <h2>当前 27 个工具：不是背名字，而是掌握每个合同的副作用与边界</h2>
+        <p class="section-intro">以下来自 2026-07-31 本地 SP 快照。计数按 27 个唯一 <code>【工具名称】</code>，不按原文的展示编号；原文中间存在跳号。每个工具都按“何时选—硬边界—feedback 要证明什么—看什么指标”整理。</p>
+        <div class="tool-search">
+          <label for="toolSearch" class="rail-label" style="margin:0">搜索工具</label>
+          <input id="toolSearch" type="search" placeholder="输入 tool name、车控、导航、记忆、VLM…" autocomplete="off">
+          <span class="tool-count" id="toolCount">显示 27 / 27</span>
+        </div>
+
+        <details class="tool-group" open>
+          <summary><span>车辆与设备控制</span><span class="status confirmed">5 个</span></summary>
+          <table>
+            <thead><tr><th># / Tool</th><th>什么时候用</th><th>硬边界与机制</th><th>feedback 必须证明</th><th>PM 主指标</th></tr></thead>
+            <tbody>
+              <tr data-tool><td><span class="num">01</span><span class="tool-name">vehicle_basic_control</span></td><td>车窗、空调、座椅、后视镜、尾门、锁、灯、冰箱、驾驶设置等</td><td>参数须在可调范围；不支持开关车门；可结合说话人位置推断座位</td><td>目标位置、功能、实际生效值、失败原因</td><td>指令到真实车端状态成功率</td></tr>
+              <tr data-tool><td><span class="num">02</span><span class="tool-name">vehicle_system_settings</span></td><td>蓝牙 / Wi-Fi / 热点、屏幕、声音、账号、权限、应用与页面</td><td>“退下”可退出语音；K 歌模式 / 预约 / 点播属于本工具</td><td>最终设置值、页面 / 应用状态、权限失败</td><td>设置实际生效率</td></tr>
+              <tr data-tool><td><span class="num">03</span><span class="tool-name">vehicle_communication</span></td><td>蓝牙电话、视频通话、接听与挂断</td><td>仅主驾可用；不支持短信；联系人称呼不要擅自改写</td><td>联系人解析、呼叫状态、失败原因</td><td>授权通信一次成功率</td></tr>
+              <tr data-tool><td><span class="num">04</span><span class="tool-name">auto_drive</span></td><td>泊入 / 泊出、贴边、循迹、巡航速度、跟车时距、语音变道等</td><td>只用于智驾；当前 SP 没写全车速、档位、二次确认与安全前置，是治理缺口</td><td>逐动作真实状态与安全拒绝原因</td><td>不安全指令实际执行率（门槛为 0）</td></tr>
+              <tr data-tool><td><span class="num">05</span><span class="tool-name">ambient_light_control</span></td><td>氛围灯开关、模式、颜色、亮度</td><td>任何颜色要求都走本工具；“依次变色”要每次反馈后串行</td><td>实际颜色、模式、亮度、失败状态</td><td>目标灯光状态达成率</td></tr>
+            </tbody>
+          </table>
+        </details>
+
+        <details class="tool-group">
+          <summary><span>状态、知识与视觉</span><span class="status confirmed">7 个</span></summary>
+          <table>
+            <thead><tr><th># / Tool</th><th>什么时候用</th><th>硬边界与机制</th><th>feedback 必须证明</th><th>PM 主指标</th></tr></thead>
+            <tbody>
+              <tr data-tool><td><span class="num">06</span><span class="tool-name">vehicle_status_search</span></td><td>温度、门窗、胎压、车速、续航、故障、系统状态等实时车况</td><td>后续决策依赖当前未知状态时先查；最新车端状态优先旧对话</td><td>数值、单位、对象、采集时间与状态</td><td>正确且新鲜的状态返回率</td></tr>
+              <tr data-tool><td><span class="num">07</span><span class="tool-name">weather_search</span></td><td>当前位置、目的地、沿途预警与小时级天气</td><td>外地行程可主动查；必须绑定地点和时间范围</td><td>地点、时段、天气、预警与变化</td><td>地点 × 时段匹配准确率</td></tr>
+              <tr data-tool><td><span class="num">08</span><span class="tool-name">web_search</span></td><td>新闻、金价、股价、日期与需要最新信息的数据总结</td><td>时间敏感优先使用；它给中间素材，不自动等于最终行动</td><td>内容、时效、来源 / 置信与无结果原因</td><td>过期或错误信息率</td></tr>
+              <tr data-tool><td><span class="num">09</span><span class="tool-name">car_log</span></td><td>月 / 年 / 特定行程的用车报告</td><td>必须明确统计时间窗或行程；原 SP 入参文案有格式瑕疵</td><td>统计窗口、样本完整性和报告内容</td><td>请求时间窗数据完整率</td></tr>
+              <tr data-tool><td><span class="num">10</span><span class="tool-name">vehicle_manual_qa</span></td><td>通用车辆功能、操作方法、用车技巧与通用保养知识</td><td>通用问题；与本车唯一信息绑定的转 <code>car_care_qa</code></td><td>对应车型 / 版本的操作路径与核心结论</td><td>车型版本知识准确率</td></tr>
+              <tr data-tool><td><span class="num">11</span><span class="tool-name">car_care_qa</span></td><td>本车 VIN、选配、维修工单、保养、长期能耗与使用记录</td><td>强绑定具体车辆；只查非实时长周期信息；实时转状态查询</td><td>车辆标识、统计周期、业务状态、缺数原因</td><td>正确车辆绑定数据准确率</td></tr>
+              <tr data-tool><td><span class="num">12</span><span class="tool-name">visual_qa</span></td><td>车内外人物、车辆、建筑、物品等按需视觉问答</td><td>不理解屏幕、不联网；部分方位不支持；外部知识应再串行联网</td><td>看见的事实、不确定性、视野 / 能力边界</td><td>支持视野内视觉回答准确率</td></tr>
+            </tbody>
+          </table>
+        </details>
+
+        <details class="tool-group">
+          <summary><span>位置、导航与交易服务</span><span class="status confirmed">4 个</span></summary>
+          <table>
+            <thead><tr><th># / Tool</th><th>什么时候用</th><th>硬边界与机制</th><th>feedback 必须证明</th><th>PM 主指标</th></tr></thead>
+            <tbody>
+              <tr data-tool><td><span class="num">13</span><span class="tool-name">poi_search</span></td><td>附近 / 途中 / 多点中间的餐饮、停车、充电、景点搜索</td><td>模糊地点先搜；多结果等用户选择；沿途搜要先有导航；与路线 / 导航控制串行</td><td>候选名、距离、评分、营业等筛选证据</td><td>满足约束的有效 POI 返回率</td></tr>
+              <tr data-tool><td><span class="num">14</span><span class="tool-name">route_planning</span></td><td>精确地点导航、多目的地、路线选择、途经点</td><td>模糊地址先 POI / 联网；候选路线先推荐；最多重试 2 次；选中后自动发起导航</td><td>路线候选或明确导航执行结果</td><td>两次内导航成功率</td></tr>
+              <tr data-tool><td><span class="num">15</span><span class="tool-name">navi_basic_control</span></td><td>导航中开始 / 结束 / 继续、地图显示、播报、偏好和常用地址</td><td>不负责找目的地或规划新路线；与 POI、路线规划串行</td><td>最终导航 / 地图 / 播报状态</td><td>导航控制状态达成率</td></tr>
+              <tr data-tool><td><span class="num">16</span><span class="tool-name">restaurant_reserve</span></td><td>订座、查询、修改、取消</td><td>用户没给人数 / 时间也可先调；工具缺什么，Planner 再只问缺失字段</td><td>门店、时间、人数、联系人要求和最终订单状态</td><td>无错订前提下订座完成率</td></tr>
+            </tbody>
+          </table>
+        </details>
+
+        <details class="tool-group">
+          <summary><span>媒体、内容与创作</span><span class="status confirmed">7 个</span></summary>
+          <table>
+            <thead><tr><th># / Tool</th><th>什么时候用</th><th>硬边界与机制</th><th>feedback 必须证明</th><th>PM 主指标</th></tr></thead>
+            <tbody>
+              <tr data-tool><td><span class="num">17</span><span class="tool-name">video_search</span></td><td>视频搜索、推荐并播放</td><td>短视频只支持抖音，长视频只支持腾讯；音乐无版权时可找 MV</td><td>具体内容、平台、剧集 / 片段、播放状态</td><td>正确内容首播成功率</td></tr>
+              <tr data-tool><td><span class="num">18</span><span class="tool-name">music_search</span></td><td>精准或模糊类别的音乐搜索推荐</td><td>搜索后自动播放第一首；不擅长需要文化推理的曲目猜测</td><td>具体曲目与真实播放状态</td><td>首首匹配率</td></tr>
+              <tr data-tool><td><span class="num">19</span><span class="tool-name">media_basic_control</span></td><td>上下首、暂停、进度、倍速、音质、收藏、点赞与评论</td><td>只控制当前媒体；K 歌模式 / 预约 / 点播转系统设置</td><td>操作对象和最终媒体状态</td><td>媒体控制状态达成率</td></tr>
+              <tr data-tool><td><span class="num">20</span><span class="tool-name">ai_broadcast_generate</span></td><td>根据主题生成 AI 播客</td><td>异步耗时；“调用成功”不等于内容已经生成</td><td>受理、生成中、完成 / 失败、内容 ID</td><td>SLA 内生成完成率</td></tr>
+              <tr data-tool><td><span class="num">21</span><span class="tool-name">broadcast_search</span></td><td>播客 / 有声资源搜索、播放与控制</td><td>未知偏好可先查记忆；无记忆再结合时段 / 乘员 / 驾驶场景</td><td>候选 / 选中节目、集数、播放状态</td><td>首次播放意图匹配率</td></tr>
+              <tr data-tool><td><span class="num">22</span><span class="tool-name">audio_record</span></td><td>开启 / 关闭车内录音、查看文本纪要</td><td>开启成功后可静默；是有生命周期和产物的能力</td><td>录音状态、会话 ID、纪要生成状态</td><td>完整录音并产出纪要比例</td></tr>
+              <tr data-tool><td><span class="num">23</span><span class="tool-name">image_generate</span></td><td>文生图、参考图生成、已有图片编辑</td><td>图生图需要原图上下文；定义与示例的参数结构存在不一致</td><td>产物 ID、完成状态、可继续编辑的引用</td><td>首次生成可用率</td></tr>
+            </tbody>
+          </table>
+        </details>
+
+        <details class="tool-group">
+          <summary><span>身份、记忆与持续目标</span><span class="status confirmed">4 个</span></summary>
+          <table>
+            <thead><tr><th># / Tool</th><th>什么时候用</th><th>硬边界与机制</th><th>feedback 必须证明</th><th>PM 主指标</th></tr></thead>
+            <tbody>
+              <tr data-tool><td><span class="num">24</span><span class="tool-name">user_memory_search</span></td><td>查询用户细节记忆与偏好</td><td>仅注册用户；没搜到不能编造，可用场景默认或询问</td><td>具体记忆、对象、时间 / 来源或明确未找到</td><td>记忆检索精确率</td></tr>
+              <tr data-tool><td><span class="num">25</span><span class="tool-name">face_id_register</span></td><td>注册人脸、绑定称呼、修改名字</td><td>名字和座位必填；失败后按原因指导姿态，再由用户确认重试</td><td>失败原因或最终绑定的名字 / 座位</td><td>身份绑定正确率</td></tr>
+              <tr data-tool><td><span class="num">26</span><span class="tool-name">user_memory_operate</span></td><td>记录客观基础信息和明确偏好</td><td>仅注册用户；不确定先确认；用户明确纠正时覆盖旧记录</td><td>新增 / 覆盖结果、身份、旧值冲突</td><td>错误记忆写入率</td></tr>
+              <tr data-tool><td><span class="num">27</span><span class="tool-name">goal_list_update</span></td><td>新增 / 删除持续目标、条件或定时任务</td><td>先按现有 Goal 去重；补充原目标不重建；危险 / 离谱目标拒绝；删除需 goal_id</td><td>目标 ID、规范化内容、状态、失败原因</td><td>重复或错误 Goal 创建率</td></tr>
+            </tbody>
+          </table>
+        </details>
+
+        <div class="callout">
+          <h3>每个工具背后的通用机制</h3>
+          <div class="mini-flow" aria-label="工具调用机制">
+            <span>SP 工具定义</span><i>→</i><span>Planner 选 tool + params</span><i>→</i><span>Runtime 校验 / 适配</span><i>→</i><span>真实服务执行</span><i>→</i><span>结果归一化</span><i>→</i><span>tool_feedback</span><i>→</i><span>Planner 下一轮</span>
+          </div>
+        </div>
+
+        <details class="tool-group">
+          <summary><span>Prompt / 协议治理：当前最值得追的 10 个问题</span><span class="status risk">不是小问题</span></summary>
+          <div style="padding:14px 18px">
+            <ol style="margin:0;padding-left:20px;color:var(--muted)">
+              <li><code>tool_feedback</code> 没有显式 <code>action_id</code>；同一轮两个同名工具动作怎样一一归因？</li>
+              <li>feedback 没有统一 <code>status / error_code / retryable / observed_state / artifact_id</code>。</li>
+              <li><code>goal_list_update</code> 定义要求在 <code>params.query</code> 放 JSON 字符串，示例却使用展开字段。</li>
+              <li><code>image_generate</code> 定义只声明 <code>params.query</code>，示例又增加 <code>params.type</code>。</li>
+              <li>参考示例调用了不在当前 27 工具定义里的 <code>parking_fee_pay</code>。</li>
+              <li>POI / 导航约束引用未在清单定义的 <code>trip_plan_record</code>。</li>
+              <li><code>auto_drive</code> 缺少车型、车速、档位、确认和安全拒绝的完整前置。</li>
+              <li><code>visual_qa</code> 明确不联网，但示例可能返回外部知识，来源边界不清。</li>
+              <li><code>car_log</code>、<code>visual_qa</code> 等入参文案存在格式瑕疵，可能影响模型学习。</li>
+              <li>“工具自动播报 / 自动播放”的副作用没有统一字段，容易与 Planner 话术重复。</li>
+            </ol>
+          </div>
+        </details>
+      </section>
+
+      <section class="section" id="long-task">
+        <div class="section-kicker">04 · Asynchronous branches</div>
+        <h2>长期任务与 VLM：它们是支链，命中后必须回到同一决策闭环</h2>
+        <p class="section-intro">“十分钟后关掉”“宝宝哭了告诉我”“一路介绍风景”不能靠一次 Planner 调用等待。系统要把目标持久化、注册条件、在未来产生一次 Run，再带着最新 Context 唤醒 Planner 或执行器。</p>
+
+        <div class="callout">
+          <h3>当前可见链｜<code>goal_list_update</code></h3>
+          <div class="mini-flow">
+            <span>Planner 识别长时目标</span><i>→</i><span>去重 / 合法性判断</span><i>→</i><span>goal_list_update</span><i>→</i><span>Goal / 动态 Advisor 托管</span><i>→</i><span>Trigger 命中</span><i>→</i><span>新 event / advice</span><i>→</i><span>Planner 再决策</span><i>→</i><span>执行 + feedback + 收口</span>
+          </div>
+          <p style="margin-top:10px"><span class="status confirmed">当前 SP</span> 能确认工具入口；<span class="status prd">SOR</span> 能确认业务职责。具体线上 Goal、动态 Advisor、Trigger 的绑定和状态字段，仍要用 runtime trace 核验。</p>
+        </div>
+
+        <div class="callout">
+          <h3>WIP 目标链｜Task Service 统一任务事实</h3>
+          <div class="mini-flow">
+            <span>task_manage / Task Agent</span><i>→</i><span>Task Service 校验持久化</span><i>→</i><span>Trigger Adapter 注册</span><i>→</i><span>waiting</span><i>→</i><span>callback</span><i>→</i><span>Run</span><i>→</i><span>Planner / Tool</span><i>→</i><span>RunResult</span><i>→</i><span>waiting 或 closed</span>
+          </div>
+          <p style="margin-top:10px"><span class="status wip">WIP 目标态</span> <code>task_manage</code> 不在当前 27 工具中，不能把它和 <code>goal_list_update</code> 画成同一条当前必经链。</p>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>对象</th><th>它拥有的责任</th><th>它不应该做什么</th><th>关键状态 / 指标</th></tr></thead>
+            <tbody>
+              <tr><td class="metric-name">Planner / Director</td><td>理解请求、选择即时 / 长时、创建目标、触发后决定本轮动作和表达</td><td>不长期驻留等待，不直接拥有任务事实</td><td>任务分类正确率、TaskSpec / Goal 正确率</td></tr>
+              <tr><td class="metric-name">Advisor</td><td>基于 Context 提供建议或持续跟进建议</td><td>不是第二个最终行动大脑，不绕过 Planner 越权执行</td><td>建议有效率、坏建议拦截率</td></tr>
+              <tr><td class="metric-name">Task Service</td><td>任务 / Run / Event、状态、更新、取消、恢复、绑定与清理</td><td>不做开放式对话推理</td><td>状态迁移合法率、取消 / 清理完成率</td></tr>
+              <tr><td class="metric-name">Trigger</td><td>对时间、结构化信号或语义条件求值并 callback</td><td>命中不等于任务完成；不持有最终用户目标生命周期</td><td>Recall、Precision、时延、重复激活率</td></tr>
+              <tr><td class="metric-name">Run</td><td>一次 Trigger 激活后产生的一次真实执行</td><td>不与 Task 混为一个永续状态</td><td>Run 成功率、幂等、恢复、实际效果</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="verdict"><strong>最容易画错的一点：</strong>Trigger 命中只代表“条件满足，可以产生一次执行机会”；只有 Run 的真实结果回来后，任务管理才能按结束策略决定回到 <code>waiting</code>，还是进入 <code>closed</code>。</div>
+
+        <h3 style="margin-top:30px">VLM 必须拆成三条路</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>视觉路径</th><th>何时存在</th><th>结果去哪里</th><th>不能误解成什么</th></tr></thead>
+            <tbody>
+              <tr><td class="metric-name">AlwaysOn 默认感知</td><td>车辆 / 能力开启后持续产生通用舱内外摘要</td><td>带时效进入 Context，供下一轮 Planner / Advisor 使用</td><td>不是某个 Goal 的达成判断</td></tr>
+              <tr><td class="metric-name">按需 visual_qa</td><td>用户主动问“后排睡了吗”“前面是什么车”</td><td>作为工具结果回 <code>tool_feedback</code>，再由 Planner 回答 / 继续</td><td>不是后台持续看护任务</td></tr>
+              <tr><td class="metric-name">任务专属 VLM</td><td>Task Service 为“哭了告诉我”等长时观察创建动态任务后</td><td>VLM 描述 → Task Service → Trigger 语义判断 → callback → Planner / Run</td><td>端 VLM 不直接判目标达成，不直接提醒用户</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <details class="tool-group" open>
+          <summary><span>任务专属 VLM 字段级链路</span><span class="status prd">技术正文已读</span></summary>
+          <div style="padding:15px 18px">
+            <div class="mini-flow">
+              <span>Task Service 生成 UP</span><i>→</i><span>最多 3 个 dynamic_watch_tasks</span><i>→</i><span>全量替换下发</span><i>→</i><span>VLM 输出自然描述</span><i>→</i><span>task_id + task_version + result 上报</span><i>→</i><span>Task Service 校验状态 / 时效</span><i>→</i><span>逐条 TriggerRun</span><i>→</i><span>云模型严格语义判断</span><i>→</i><span>TriggerCallback</span>
+            </div>
+            <ul style="color:var(--muted);font-size:13px">
+              <li>VLM 每次收到新 UP 做全量替换，不做增量合并；增、删、改都由 Task Service 重发完整列表。</li>
+              <li>TriggerRun 当前方案单次只传一条任务结果；一条失败不应阻断其它任务上报。</li>
+              <li>端侧 VLM 只提供明确画面描述；云触发器模型只判断当前一轮是否满足目标，不负责跨帧状态、回调、提醒或删除场景。</li>
+              <li>Task Service 文档出现“服务端时间差 20 秒以上不转发”，Trigger 方案出现“拒绝 3 分钟前上报，联调后可改”；这是待书面定版的版本冲突，不应在总图固化成一个数。</li>
+            </ul>
+          </div>
+        </details>
+      </section>
+
+      <section class="section" id="questions">
+        <div class="section-kicker">05 · Review checklist</div>
+        <h2>40 个关键问题：拿着它去听评审，不再只听模块介绍</h2>
+        <p class="section-intro">每组 5 问。你不需要一次把所有答案背下来，但每次评审至少要能指出：缺的字段、错误的完成态、未说明的失败分支，以及最终由谁验收。</p>
+        <div class="question-groups">
+          <div class="question-group"><h3>A｜声音与 ASR</h3><ul class="checklist"><li>音频是否完整，VAD 有没有截掉否定词或尾部参数？</li><li>是谁、在哪个座位说的，低置信时允许硬猜吗？</li><li>数字、温度、时间、人名、POI 有没有专项识别与回放？</li><li>Planner 收到 partial 还是 final，旧请求如何撤销？</li><li>高风险指令能否因 ASR 不确定而强制澄清？</li></ul></div>
+          <div class="question-group"><h3>B｜拒识与路由</h3><ul class="checklist"><li>按句子“看起来简单”，还是按真正所需能力分流？</li><li>记忆、Context、联网、多步和长期任务是否必进 Planner？</li><li>快路径失败后是否无感升级，用户状态会不会丢？</li><li>端云同时返回时谁是唯一裁决者，如何避免双执行？</li><li>路由金标是否允许多条等价路径，错路怎样单独归因？</li></ul></div>
+          <div class="question-group"><h3>C｜Context</h3><ul class="checklist"><li>本轮正确决策真正需要哪些事实，是否全部已授权可得？</li><li>“没查到”和“确认不存在”是否是两个状态？</li><li>每条事实属于谁、来自哪、何时产生、多久过期？</li><li>当前状态、旧对话、记忆冲突时按什么优先级？</li><li>Context 已给但模型没用，是否仍错误甩锅给 Context？</li></ul></div>
+          <div class="question-group"><h3>D｜Planner / Director</h3><ul class="checklist"><li>用户所有目标与约束是否完整保留，没有漏一个子意图？</li><li>缺信息时是该问、查状态、查记忆，还是安全默认？</li><li>哪些动作可并行，哪些必须等前序 feedback？</li><li>即时执行与创建 Goal / Task 的分类是否正确？</li><li>执行成功前，talk_content 是否错误声称已经完成？</li></ul></div>
+          <div class="question-group"><h3>E｜Action / Dispatcher / Tool</h3><ul class="checklist"><li>每个逻辑动作是否有稳定 request / action / trace ID？</li><li>Runtime 是否保持依赖关系，而不是无脑并行？</li><li>参数、车型、座位、权限与安全分别由谁校验？</li><li>重试会不会产生重复车控、重复订座或重复导航？</li><li>工具不可用时返回结构化原因，还是一段模糊文本？</li></ul></div>
+          <div class="question-group"><h3>F｜Feedback 与恢复</h3><ul class="checklist"><li>feedback 属于哪个请求、动作、Task 和 Run？</li><li>这是超时、失败、部分成功，还是结果未知？</li><li>接口受理、真实生效、用户目标完成是否分层？</li><li>应重试、换工具、问用户、等待还是停止，由谁判断？</li><li>怎样避免迟到 feedback、死循环和重复副作用？</li></ul></div>
+          <div class="question-group"><h3>G｜Goal / Task / Trigger / VLM</h3><ul class="checklist"><li>当前链是 goal_list_update，还是 WIP task_manage，版本是否混画？</li><li>Goal / Task 的目标、对象、条件、有效期、结束策略完整吗？</li><li>Trigger 的 Recall 与 Precision 各用什么真值和分母？</li><li>回调重复、离车、下电、取消、过期后怎样清理外部绑定？</li><li>VLM 给的是画面事实还是达成结论，时效阈值由谁定版？</li></ul></div>
+          <div class="question-group"><h3>H｜最终体验与上线</h3><ul class="checklist"><li>只有成功证据回来后才说“已完成”吗？</li><li>失败、部分成功、等待和未知是否使用不同表达？</li><li>TTS、卡片、任务中心与真实设备状态是否同源？</li><li>用户打断 / 新 Query 到来后，旧播报和旧动作是否停止？</li><li>上线门槛是否同时覆盖结果、稳定性、安全、时延与成本？</li></ul></div>
+        </div>
+      </section>
+
+      <section class="section" id="depth">
+        <div class="section-kicker">06 · Your mastery map</div>
+        <h2>你要学到什么程度：不是全部深入，而是对闭环结果有判断权</h2>
+        <p class="section-intro">你来了将近 8 个月，下一步不应继续横向认识更多负责人，而是纵向拿下一条链。技术细节只有在它影响体验、指标、容量、安全或责任归因时才继续下钻。</p>
+        <div class="depth-grid">
+          <div class="depth-main">
+            <div class="depth-row"><div class="level">L4</div><div><h3>必须能独立画、讲、验收</h3><p>Context 必需事实、Planner 四类输入 / 四个输出、即时与长期任务分类、动作依赖、27 个工具合同、feedback 四层成功、重规划与结束条件、端到端指标和 badcase 归因。</p></div></div>
+            <div class="depth-row"><div class="level">L3</div><div><h3>必须懂接口、状态和异常</h3><p>语音 / ASR、端云路由、Dispatcher、Tool / Agent、Advisor、Task Service、Trigger、AlwaysOn / VQA / 动态 VLM：知道输入输出、Owner、超时、重试、幂等、取消和降级。</p></div></div>
+            <div class="depth-row"><div class="level">L2</div><div><h3>懂原理与产品影响</h3><p>模型大小、端侧部署、KV Cache、VLM 采样、RPC、数据库与调度。能解释它们怎样影响时延、成本、准确性和容量，无需自己实现。</p></div></div>
+            <div class="depth-row"><div class="level">L1</div><div><h3>按问题定向下钻</h3><p>ASR 声学细节、Attention 数学、Go 类名、表结构、模型服务部署。只有定位具体瓶颈时才进入，不把“看懂所有代码”当成长目标。</p></div></div>
+          </div>
+          <div class="depth-side">
+            <h3 style="margin-top:0">是否可以考虑下一步，看这 6 个证据</h3>
+            <ol class="gate-list">
+              <li>随机拿一个 badcase，能从原音 / query 一直还原到真实结果，不靠猜。</li>
+              <li>能把问题定到路由、Context、Planner、Tool Contract、执行、feedback 或 Trigger 时序，并给证据。</li>
+              <li>有一份自己维护的 27 工具合同表，知道重叠、缺口和副作用。</li>
+              <li>能定义端到端与条件化 AI 两套指标，讲清分母和切片。</li>
+              <li>至少主导过一个从基线、方案、联调到上线复盘的可量化改进。</li>
+              <li>离开这个模块后，别人能靠你的文档与验收口径继续推进，而不是只靠你口头解释。</li>
+            </ol>
+            <p style="font-size:12px;color:var(--quiet);margin:14px 0 0">这是个人能力建议门槛，不是公司现行 KPI。可先选 30 条代表性 trace 做自测样本，数量是学习建议，不冒充线上标准。</p>
+          </div>
+        </div>
+
+        <div class="verdict"><strong>你接下来最有价值的工作：</strong>选一条跨模块高频场景（建议“多意图 + 一个依赖工具 + 一个失败恢复”），做 30 条 trace 审计 → 建端到端指标树 → 找最大损耗点 → 推一版协议 / Prompt / Context / 工具修复 → 用同一批样本复测。这样你积累的不是“我了解过 Planner”，而是“我真正提高过 Agent 的闭环能力”。</div>
+      </section>
+
+      <section class="section" id="sources">
+        <div class="section-kicker">07 · Evidence &amp; version boundary</div>
+        <h2>证据与版本边界：当前、WIP、推断不能画成一个时刻</h2>
+        <p class="section-intro">本页把本地当前 SP、飞书正式 PRD / SOR、更新较新的技术方案和 WIP 目标架构分开。飞书搜索摘要只用于发现资料；正文结论来自实际展开阅读的文档。</p>
+
+        <div class="sources">
+          <div class="source"><div class="source-kind">CURRENT SNAPSHOT</div><div><b>Planner SP（2026-07-31 本地快照）</b><p>确认 4 类输入、4 个输出字段、27 个工具和 <code>goal_list_update</code>；不能单独证明外围服务当前实现。</p><p class="mono">/Users/bytedance/Desktop/3.23/产品/1-原始素材/资料数据PRD原件/planner 架构/动态示例/sp.md</p></div><span class="status confirmed">已确认</span></div>
+          <div class="source"><div class="source-kind">PRODUCT PRD</div><div><b><a href="https://bytedance.larkoffice.com/wiki/XRuKwJ0VPisdUhkxH0ecY1rRn9g">Director（对话推理引擎）PRD</a></b><p>确认 Director 是对话与推理中枢，结合 Context 处理用户输入、Advisor 建议和工具反馈，形成“需求解析—规划—执行反馈—动态修正”闭环，并说明端云路由逻辑。</p></div><span class="status prd">正式 PRD</span></div>
+          <div class="source"><div class="source-kind">BUSINESS SOR</div><div><b><a href="https://bytedance.larkoffice.com/docx/K1GldxiWWouPauxhX1ZcdMsqnYI">上汽 AI 汽车功能需求 SOR</a></b><p>确认动态 Advisor、任务中心、Planner、Trigger、工具化 Agent 与端到端交付职责；业务目标不等于所有目标技术链已投产。</p></div><span class="status prd">正式正文</span></div>
+          <div class="source"><div class="source-kind">WIP TARGET</div><div><b>Task 任务管理设计</b><p>Task / Run / Event、Task Agent、Trigger Adapter、Runtime Dispatcher、TaskView 与统一生命周期属于 7 月 WIP 目标方案。</p><p class="mono">/Users/bytedance/Desktop/3.23/产品/1-原始素材/资料数据PRD原件/任务管理/[WIP][技术方案]Task 任务管理设计.html</p></div><span class="status wip">WIP</span></div>
+          <div class="source"><div class="source-kind">VLM TECH</div><div><b><a href="https://bytedance.larkoffice.com/wiki/QeJkwlVkjiPZYwknFUecrjD9nxb">TaskService 车内视觉长时感知任务技术方案</a></b><p>确认最多 3 个动态感知任务、全量替换、task_id / task_version、上报、逐条 TriggerRun、关闭任务与重新下发。</p></div><span class="status confirmed">已读正文</span></div>
+          <div class="source"><div class="source-kind">TRIGGER PRD</div><div><b><a href="https://bytedance.larkoffice.com/wiki/AmO3wnzrWiBjE3ks94icc0JjnJf">云端触发器模型解析 VLM 链路</a></b><p>确认端 VLM 输出自然描述，云端模型从严判断当前轮语义；不负责跨帧、回调、任务执行或场景删除。</p></div><span class="status confirmed">已读正文</span></div>
+          <div class="source"><div class="source-kind">TRIGGER TECH</div><div><b><a href="https://bytedance.larkoffice.com/wiki/Q11CwtB7mitzckkxmnmcKvIDnNg">触发器支持推理触发技术方案</a></b><p>确认 model_inference 场景、TaskService callback、并发与达成标记、旧上报过滤和可观测要求；与 TaskService 的过期阈值仍需联调定版。</p></div><span class="status confirmed">2026-08-31</span></div>
+          <div class="source"><div class="source-kind">INFERENCE</div><div><b>执行编排器 / 响应协调器</b><p>它们是保证安全、幂等、依赖、feedback 归一化与并列呈现的必要逻辑层，但本页不擅自宣称具体线上服务名或部署归属。</p></div><span class="status infer">待 Owner 核实</span></div>
+        </div>
+
+        <details class="tool-group" open>
+          <summary><span>原图最需要修正的 8 条结构</span><span class="status risk">结构纠偏</span></summary>
+          <div style="padding:14px 18px">
+            <ol style="margin:0;padding-left:20px;color:var(--muted)">
+              <li>Planner 与 Director 不是两个先后串行的大脑，而是同一决策职能的业务名 / 内部名。</li>
+              <li>Context 必须在每次 Planner 决策前组装，不是 Planner 输出后的下游框。</li>
+              <li>Advisor 是建议输入，Trigger / event / tool_feedback 都要通过统一输入重新触发决策。</li>
+              <li><code>action_list</code> 不能直连“执行成功”；中间要有能力、参数、安全、依赖与幂等门。</li>
+              <li>Tool success、设备真实生效、用户整体目标完成是三个不同状态。</li>
+              <li>TTS、卡片、emoji / 机器人与车控执行是并列通道，不是展示层驱动车控。</li>
+              <li>AlwaysOn、按需 VQA、任务专属 VLM 是三条视觉路径，不能串成一条。</li>
+              <li>配置平台、灰度、发布属于设计 / 控制面；当前 Goal 链与 WIP Task 链必须分版本展示。</li>
+            </ol>
+          </div>
+        </details>
+
+        <div class="footer">v03 · 结构重塑版｜单一纵向主链 + 字段 / 指标 / 评审问题｜生成日期 2026-09-02｜旧版 v01 / v02 均未覆盖</div>
+      </section>
+
+      <script>
+        (function(){
+          var detailButton=document.getElementById('toggleDetails');
+          var allDetails=Array.prototype.slice.call(document.querySelectorAll('main details'));
+          var expanded=false;
+          detailButton.addEventListener('click',function(){
+            expanded=!expanded;
+            allDetails.forEach(function(item){item.open=expanded;});
+            detailButton.textContent=expanded?'收起全部细节':'展开全部细节';
+            detailButton.setAttribute('aria-pressed',expanded?'true':'false');
+          });
+
+          var input=document.getElementById('toolSearch');
+          var rows=Array.prototype.slice.call(document.querySelectorAll('tr[data-tool]'));
+          var count=document.getElementById('toolCount');
+          input.addEventListener('input',function(){
+            var q=input.value.trim().toLowerCase();
+            var shown=0;
+            rows.forEach(function(row){
+              var hit=!q||row.textContent.toLowerCase().indexOf(q)!==-1;
+              row.hidden=!hit;
+              if(hit){shown+=1;}
+            });
+            document.querySelectorAll('.tool-group').forEach(function(group){
+              var visible=group.querySelectorAll('tr[data-tool]:not([hidden])').length;
+              if(q&&visible>0){group.open=true;}
+            });
+            count.textContent='显示 '+shown+' / 27';
+          });
+
+          var progress=document.getElementById('progressBar');
+          function updateProgress(){
+            var max=document.documentElement.scrollHeight-window.innerHeight;
+            var value=max>0?window.scrollY/max*100:0;
+            progress.style.width=Math.min(100,Math.max(0,value))+'%';
+          }
+          window.addEventListener('scroll',updateProgress,{passive:true});
+          updateProgress();
+
+          var navLinks=Array.prototype.slice.call(document.querySelectorAll('#sideNav a'));
+          var sections=navLinks.map(function(link){return document.querySelector(link.getAttribute('href'));}).filter(Boolean);
+          if('IntersectionObserver' in window){
+            var observer=new IntersectionObserver(function(entries){
+              entries.forEach(function(entry){
+                if(entry.isIntersecting){
+                  navLinks.forEach(function(link){link.classList.toggle('active',link.getAttribute('href')==='#'+entry.target.id);});
+                }
+              });
+            },{rootMargin:'-15% 0px -70% 0px',threshold:0});
+            sections.forEach(function(section){observer.observe(section);});
+          }
+        })();
+      </script>
+    </main>
+
+    <aside class="right-rail" aria-label="学习抓手">
+      <div class="right-card">
+        <h3>任何节点都用这 7 问</h3>
+        <ol>
+          <li>用户真正目标是什么？</li>
+          <li>系统此刻已知什么？</li>
+          <li>不知道什么，为什么？</li>
+          <li>谁做了哪一个判断？</li>
+          <li>产出的字段是什么？</li>
+          <li>怎样证明真实执行？</li>
+          <li>失败后回到哪一轮？</li>
+        </ol>
+        <div class="right-note">你要掌握的是“证据链 + 状态变化 + 责任边界”，不是背模块名字。</div>
+      </div>
+    </aside>
+  </div>
+</body>
+</html>

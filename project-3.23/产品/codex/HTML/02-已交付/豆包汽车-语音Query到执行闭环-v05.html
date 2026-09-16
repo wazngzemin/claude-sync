@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>豆包汽车｜语音 Query 到最终输出｜全对象业务流程图 v05</title>
+  <style>
+    :root{
+      --ink:#172033;--muted:#5f6b7a;--paper:#f6f8fb;--white:#fff;--grid:#e8edf3;
+      --blue:#2563eb;--blue-fill:#eff6ff;--green:#138a5b;--green-fill:#ecfdf5;
+      --orange:#d97706;--orange-fill:#fff7ed;--violet:#7c3aed;--violet-fill:#f5f3ff;
+      --red:#dc2626;--red-fill:#fff1f2;--slate:#64748b;--slate-fill:#f8fafc;--gold:#a16207;--gold-fill:#fffbeb;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;background:var(--paper);color:var(--ink);font-family:"Geist","Inter","PingFang SC","Microsoft YaHei",system-ui,sans-serif}
+    body{min-height:100vh}
+    .topbar{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.96);backdrop-filter:blur(12px);border-bottom:1px solid #dfe5ec;padding:14px 18px 12px}
+    .toprow{display:flex;align-items:flex-start;justify-content:space-between;gap:24px}
+    h1{font-size:22px;line-height:1.25;letter-spacing:-.02em;margin:0}
+    .subtitle{margin:5px 0 0;color:var(--muted);font-size:12px;line-height:1.6}
+    .meta,.controls{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+    .meta{margin-top:9px}
+    .pill{border:1px solid #d7dee8;border-radius:999px;padding:4px 8px;background:#fff;font:600 11px/1.2 "Geist Mono","SFMono-Regular",monospace;color:#475569}
+    .pill.current{border-color:#93c5fd;color:#1d4ed8;background:#eff6ff}.pill.wip{border-color:#c4b5fd;color:#6d28d9;background:#f5f3ff}.pill.risk{border-color:#fecaca;color:#b91c1c;background:#fff1f2}
+    button{appearance:none;border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:7px;padding:7px 10px;font:600 11px/1 "Geist Mono","SFMono-Regular",monospace;cursor:pointer}
+    button:hover{border-color:#2563eb;color:#1d4ed8;background:#eff6ff}
+    .viewport{height:calc(100vh - 126px);overflow:auto;background:#edf1f6;padding:18px}
+    .board{width:13800px;height:5900px;background:#fff;border:1px solid #d8dee8;box-shadow:0 16px 50px rgba(15,23,42,.12);transform-origin:0 0}
+    svg{display:block;width:13800px;height:5900px;background:#fff}
+    .stage{fill:#fff;stroke:#cbd5e1;stroke-width:2}.stage.main{fill:#fcfdff}.stage.tools{fill:#fbfefc;stroke:#a7d8c3}.stage.async{fill:#fffdf9;stroke:#f5c57b}.stage.wip{fill:#fdfcff;stroke:#c4b5fd;stroke-dasharray:12 8}.stage.metrics{fill:#fafbfc;stroke:#cbd5e1}
+    .stage-title{font-size:27px;font-weight:800;fill:#172033;letter-spacing:.01em}.stage-sub{font-size:17px;fill:#64748b}.stage-note{font-size:15px;fill:#7c3aed;font-weight:700}
+    .node-shadow{fill:#e8edf3}.node-bg{stroke-width:2.2}.node-bg.input{fill:var(--blue-fill);stroke:var(--blue)}.node-bg.data{fill:var(--violet-fill);stroke:var(--violet)}.node-bg.model{fill:var(--gold-fill);stroke:var(--gold)}.node-bg.action{fill:var(--green-fill);stroke:var(--green)}.node-bg.bus{fill:var(--orange-fill);stroke:var(--orange)}.node-bg.risk{fill:var(--red-fill);stroke:var(--red)}.node-bg.neutral{fill:var(--slate-fill);stroke:var(--slate)}.node-bg.wip{fill:var(--violet-fill);stroke:var(--violet);stroke-dasharray:9 6}
+    .node-title{font-size:22px;font-weight:800;fill:#172033}.node-title.code{font:800 20px/1 "Geist Mono","SFMono-Regular",monospace}.node-meta{font:700 15px/1 "Geist Mono","SFMono-Regular",monospace;fill:#475569}.node-line{font-size:16px;fill:#334155}.node-foot{font:600 13px/1 "Geist Mono","SFMono-Regular",monospace;fill:#64748b}
+    .step-bg{fill:#172033}.step-text{font:800 13px/1 "Geist Mono","SFMono-Regular",monospace;fill:#fff;text-anchor:middle}.status-text{font:800 11px/1 "Geist Mono","SFMono-Regular",monospace;text-anchor:middle}.status-current{fill:#dbeafe}.status-current-text{fill:#1d4ed8}.status-confirmed{fill:#dcfce7}.status-confirmed-text{fill:#047857}.status-wip{fill:#ede9fe}.status-wip-text{fill:#6d28d9}.status-check{fill:#fef3c7}.status-check-text{fill:#92400e}.status-risk{fill:#fee2e2}.status-risk-text{fill:#b91c1c}
+    .edge{fill:none;stroke-width:3;stroke-linejoin:round;stroke-linecap:round}.edge.main{stroke:var(--blue);marker-end:url(#arrow-blue)}.edge.feedback{stroke:var(--green);marker-end:url(#arrow-green)}.edge.context{stroke:var(--violet);marker-end:url(#arrow-violet)}.edge.async{stroke:var(--orange);stroke-dasharray:12 8;marker-end:url(#arrow-orange)}.edge.wip{stroke:var(--violet);stroke-dasharray:9 7;marker-end:url(#arrow-violet)}.edge.risk{stroke:var(--red);stroke-dasharray:8 6;marker-end:url(#arrow-red)}.edge.control{stroke:#94a3b8;stroke-width:2;stroke-dasharray:6 6;marker-end:url(#arrow-slate)}.edge.local{stroke-width:2.2}.edge.noarrow{marker-end:none}
+    .edge-label-bg{fill:#fff;stroke:#dbe3ec;stroke-width:1}.edge-label{font:700 14px/1 "Geist Mono","SFMono-Regular",monospace;text-anchor:middle;fill:#475569}.edge-label.main{fill:#1d4ed8}.edge-label.feedback{fill:#047857}.edge-label.context{fill:#6d28d9}.edge-label.async{fill:#b45309}.edge-label.wip{fill:#6d28d9}.edge-label.risk{fill:#b91c1c}
+    .domain{fill:#fff;stroke-width:2}.domain.vehicle{stroke:#138a5b}.domain.nav{stroke:#2563eb}.domain.media{stroke:#7c3aed}.domain.knowledge{stroke:#a16207}.domain.identity{stroke:#d97706}.domain-title{font-size:22px;font-weight:800;fill:#172033}.domain-sub{font-size:14px;fill:#64748b} .domain-bus{fill:none;stroke-width:2.2}.domain-in{stroke:#2563eb}.domain-out{stroke:#138a5b}
+    .tool-bg{fill:#fff;stroke:#a7d8c3;stroke-width:1.8}.tool-title{font:800 17px/1 "Geist Mono","SFMono-Regular",monospace;fill:#124735}.tool-mode{font:700 13px/1 "Geist Mono","SFMono-Regular",monospace;fill:#2563eb}.tool-line{font-size:14px;fill:#334155}.tool-foot{font-size:12px;fill:#64748b}
+    .metric-bg{fill:#fff;stroke:#cbd5e1;stroke-width:1.8}.metric-title{font-size:21px;font-weight:800;fill:#172033}.metric-line{font-size:15px;fill:#334155}.metric-q{font-size:14px;fill:#9f1239;font-weight:650}.legend-text{font-size:15px;fill:#475569}.divider{stroke:#94a3b8;stroke-width:2;stroke-dasharray:10 9}.cloud-label{font-size:17px;font-weight:800;fill:#2563eb}.edge-label-bg.block{stroke:#fecaca;fill:#fff1f2}
+    .footer{padding:9px 18px 16px;color:#64748b;font-size:11px;line-height:1.7;background:#fff;border-top:1px solid #e2e8f0}
+    .footer a{color:#2563eb;text-decoration:none}
+    @media(max-width:900px){.toprow{display:block}.controls{margin-top:10px}.viewport{height:calc(100vh - 182px)}}
+    @media print{@page{size:A0 landscape;margin:5mm}.topbar,.footer{display:none}.viewport{height:auto;overflow:visible;padding:0;background:#fff}.board,svg{width:100%;height:auto;box-shadow:none;border:0}}
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="toprow">
+      <div>
+        <h1>豆包汽车：语音 Query → 端云分流 → Planner / Director → 27 工具 → 真实结果闭环</h1>
+        <p class="subtitle">对象级业务流程图 v05｜每个框都回答“输入什么、内部判断什么、输出什么、异常在哪里”；蓝=同步主链，绿=真实结果回流，橙=当前异步，紫=Task WIP。</p>
+        <div class="meta"><span class="pill current">当前 SP：4 输入 / 4 输出 / 27 工具</span><span class="pill current">Planner = Director</span><span class="pill">主链 1.1 → 7.7</span><span class="pill">Goal / Trigger / VLM 独立闭环</span><span class="pill wip">Task Service 目标态单列</span><span class="pill risk">action_list ≠ 已执行 ≠ 已生效 ≠ 已完成</span></div>
+      </div>
+      <div class="controls" aria-label="画布控制">
+        <button type="button" data-zoom="0.32">全局 32%</button><button type="button" data-zoom="0.5">阅读 50%</button><button type="button" data-zoom="0.75">细节 75%</button><button type="button" data-zoom="1">原始 100%</button>
+        <button type="button" data-jump="main">主链</button><button type="button" data-jump="tools">27 工具</button><button type="button" data-jump="async">异步链</button><button type="button" data-jump="metrics">指标</button>
+      </div>
+    </div>
+  </header>
+  <main class="viewport" id="viewport">
+    <div class="board" id="board">
+      <svg id="diagram" viewBox="0 0 13800 5900" role="img" aria-labelledby="diagramTitle diagramDesc">
+        <title id="diagramTitle">豆包汽车语音 Query 到最终输出的全对象业务流程图</title>
+        <desc id="diagramDesc">横向主链依次展开语音入口、端云分流、输入治理、Context、Planner、执行编排和结果输出；下方完整列出当前 SP 的 27 个工具、当前 Goal Trigger VLM 链和 WIP Task Service 链；最下方是模块级指标和关键追问。</desc>
+        <defs>
+          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#e8edf3" stroke-width="1"/></pattern>
+          <marker id="arrow-blue" markerWidth="12" markerHeight="10" refX="11" refY="5" orient="auto"><path d="M0 0L12 5L0 10Z" fill="#2563eb"/></marker>
+          <marker id="arrow-green" markerWidth="12" markerHeight="10" refX="11" refY="5" orient="auto"><path d="M0 0L12 5L0 10Z" fill="#138a5b"/></marker>
+          <marker id="arrow-orange" markerWidth="12" markerHeight="10" refX="11" refY="5" orient="auto"><path d="M0 0L12 5L0 10Z" fill="#d97706"/></marker>
+          <marker id="arrow-violet" markerWidth="12" markerHeight="10" refX="11" refY="5" orient="auto"><path d="M0 0L12 5L0 10Z" fill="#7c3aed"/></marker>
+          <marker id="arrow-red" markerWidth="12" markerHeight="10" refX="11" refY="5" orient="auto"><path d="M0 0L12 5L0 10Z" fill="#dc2626"/></marker>
+          <marker id="arrow-slate" markerWidth="12" markerHeight="10" refX="11" refY="5" orient="auto"><path d="M0 0L12 5L0 10Z" fill="#94a3b8"/></marker>
+        </defs>
+        <rect width="13800" height="5900" fill="#fff"/><rect width="13800" height="5900" fill="url(#grid)"/>
+        <g id="clusterLayer"></g><g id="edgeLayer"></g><g id="nodeLayer"></g><g id="overlayLayer"></g>
+      </svg>
+    </div>
+  </main>
+  <footer class="footer">
+    证据锚点：当前 Planner SP（本地 2026-07-31 快照）｜《对话推理引擎（Director）PRD》｜《任务和交互管理策略》｜飞书《任务 Planner - PRD》《上汽 AI 汽车功能需求 SOR》及 08-20 外审文字记录｜
+    <a href="https://bytedance.larkoffice.com/wiki/DBZxwnI62iavXJksT4ccNu78nOd">VLM dynamic_watch_tasks 正文</a>｜
+    <a href="https://bytedance.larkoffice.com/wiki/B2WYwXFOIigKzbk7aSYcJWmZn2E">Task 任务管理设计（WIP）</a>。图中“推理检查点”是产品验收视角，不宣称为物理微服务；WIP 不等于已上线。
+  </footer>
+  <script>
+  (()=>{
+    'use strict';
+    const NS='http://www.w3.org/2000/svg';
+    const svg=document.getElementById('diagram');
+    const clusterLayer=document.getElementById('clusterLayer');
+    const edgeLayer=document.getElementById('edgeLayer');
+    const nodeLayer=document.getElementById('nodeLayer');
+    const overlayLayer=document.getElementById('overlayLayer');
+    const S=(tag,attrs={},text='')=>{const e=document.createElementNS(NS,tag);Object.entries(attrs).forEach(([k,v])=>e.setAttribute(k,v));if(text!==undefined&&text!==null)e.textContent=text;return e};
+    const add=(p,e)=>{p.appendChild(e);return e};
+    const statusMap={current:['status-current','status-current-text','当前SP'],confirmed:['status-confirmed','status-confirmed-text','正式资料'],wip:['status-wip','status-wip-text','WIP'],check:['status-check','status-check-text','需Trace'],risk:['status-risk','status-risk-text','风险']};
+    function txt(parent,x,y,value,cls,anchor){add(parent,S('text',{x,y,class:cls,...(anchor?{'text-anchor':anchor}:{})},value))}
+    function stage(c){
+      const g=add(clusterLayer,S('g'));
+      add(g,S('rect',{x:c.x,y:c.y,width:c.w,height:c.h,rx:22,class:`stage ${c.kind||''}`}));
+      txt(g,c.x+28,c.y+42,c.title,'stage-title');
+      if(c.sub)txt(g,c.x+28,c.y+70,c.sub,'stage-sub');
+      if(c.note)txt(g,c.x+c.w-28,c.y+42,c.note,'stage-note','end');
+    }
+    function domain(c){
+      const g=add(clusterLayer,S('g'));
+      add(g,S('rect',{x:c.x,y:c.y,width:c.w,height:c.h,rx:18,class:`domain ${c.kind}`}));
+      txt(g,c.x+24,c.y+38,c.title,'domain-title');
+      txt(g,c.x+24,c.y+64,c.sub,'domain-sub');
+    }
+    const nodes=[];const nodeMap=new Map();
+    function N(id,step,x,y,w,h,title,meta,lines,type='neutral',status='confirmed',foot='',opts={}){const n={id,step,x,y,w,h,title,meta,lines,type,status,foot,...opts};nodes.push(n);nodeMap.set(id,n);return n}
+    function drawNode(n){
+      const g=add(nodeLayer,S('g',{'data-id':n.id}));
+      add(g,S('rect',{x:n.x+6,y:n.y+7,width:n.w,height:n.h,rx:n.radius||12,class:'node-shadow',opacity:.58}));
+      add(g,S('rect',{x:n.x,y:n.y,width:n.w,height:n.h,rx:n.radius||12,class:`node-bg ${n.type}`}));
+      const sw=Math.max(48,Math.min(72,(n.step||'').length*9+22));
+      add(g,S('rect',{x:n.x+14,y:n.y+14,width:sw,height:25,rx:6,class:'step-bg'}));txt(g,n.x+14+sw/2,n.y+32,n.step,'step-text','middle');
+      if(n.status){const [bg,tc,label]=statusMap[n.status];const bw=label.length*13+22;add(g,S('rect',{x:n.x+n.w-bw-14,y:n.y+14,width:bw,height:25,rx:12,class:bg}));txt(g,n.x+n.w-bw/2-14,n.y+32,label,`status-text ${tc}`,'middle')}
+      txt(g,n.x+16,n.y+68,n.title,`node-title${n.code?' code':''}`);
+      if(n.meta)txt(g,n.x+16,n.y+94,n.meta,'node-meta');
+      (n.lines||[]).forEach((line,i)=>txt(g,n.x+16,n.y+(n.meta?125:101)+i*(n.lineGap||25),line,'node-line'));
+      if(n.foot)txt(g,n.x+16,n.y+n.h-15,n.foot,'node-foot');
+    }
+    function port(n,side){if(side==='l')return[n.x,n.y+n.h/2];if(side==='r')return[n.x+n.w,n.y+n.h/2];if(side==='t')return[n.x+n.w/2,n.y];return[n.x+n.w/2,n.y+n.h]}
+    const edges=[];
+    const placedLabelBoxes=[];
+    function E(a,b,label='',type='main',cfg={}){edges.push({a,b,label,type,...cfg})}
+    function rawE(points,label='',type='main',labelAt=null,cls=''){edges.push({points,label,type,labelAt,cls})}
+    function boxesOverlap(a,b,pad=4){return a.x<b.x+b.w+pad&&a.x+a.w>b.x-pad&&a.y<b.y+b.h+pad&&a.y+a.h>b.y-pad}
+    function drawEdge(e){
+      let pts=e.points;
+      if(!pts){const a=nodeMap.get(e.a),b=nodeMap.get(e.b);const A=port(a,e.from||'r'),B=port(b,e.to||'l');if(e.mode==='v'){const my=e.midY??((A[1]+B[1])/2);pts=[A,[A[0],my],[B[0],my],B]}else{const mx=e.midX??((A[0]+B[0])/2);pts=[A,[mx,A[1]],[mx,B[1]],B]}}
+      let d=`M${pts[0][0]} ${pts[0][1]}`;for(let i=1;i<pts.length;i++){const p=pts[i],q=pts[i-1];d+=p[0]===q[0]?`V${p[1]}`:p[1]===q[1]?`H${p[0]}`:`L${p[0]} ${p[1]}`}
+      add(edgeLayer,S('path',{d,class:`edge ${e.type} ${e.cls||''}`,'data-from':e.a||'raw','data-to':e.b||'raw','data-label':e.label||''}));
+      if(e.label){
+        const p=e.labelAt||pts[Math.floor((pts.length-1)/2)],w=Math.max(92,e.label.length*15+24),h=28;
+        const candidates=[p,[p[0],p[1]-38],[p[0],p[1]+38],[p[0]-w/2-24,p[1]],[p[0]+w/2+24,p[1]]];
+        const center=candidates.find(([cx,cy])=>{const box={x:cx-w/2,y:cy-17,w,h};if(box.x<12||box.y<12||box.x+box.w>13788||box.y+box.h>5888)return false;const hitsNode=[...nodes,...tools].some(n=>boxesOverlap(box,{x:n.x,y:n.y,w:n.w,h:n.h},2));const hitsLabel=placedLabelBoxes.some(v=>boxesOverlap(box,v,4));return !hitsNode&&!hitsLabel});
+        if(center){const [cx,cy]=center,box={x:cx-w/2,y:cy-17,w,h};placedLabelBoxes.push(box);add(edgeLayer,S('rect',{x:box.x,y:box.y,width:w,height:h,rx:6,class:`edge-label-bg ${e.type==='risk'?'block':''}`}));txt(edgeLayer,cx,cy+3,e.label,`edge-label ${e.type}`,'middle')}
+      }
+    }
+    function toolCard(t){
+      const g=add(nodeLayer,S('g',{'data-tool':t.title}));
+      add(g,S('rect',{x:t.x+4,y:t.y+5,width:t.w,height:t.h,rx:10,class:'node-shadow',opacity:.48}));add(g,S('rect',{x:t.x,y:t.y,width:t.w,height:t.h,rx:10,class:'tool-bg'}));
+      add(g,S('rect',{x:t.x+13,y:t.y+12,width:42,height:23,rx:6,class:'step-bg'}));txt(g,t.x+34,t.y+29,t.step,'step-text','middle');txt(g,t.x+65,t.y+30,t.title,'tool-title');
+      txt(g,t.x+14,t.y+57,t.mode,'tool-mode');(t.lines||[]).forEach((v,i)=>txt(g,t.x+14,t.y+83+i*23,v,'tool-line'));if(t.foot)txt(g,t.x+14,t.y+t.h-12,t.foot,'tool-foot');
+    }
+    function metricCard(m){const g=add(nodeLayer,S('g'));add(g,S('rect',{x:m.x,y:m.y,width:m.w,height:m.h,rx:14,class:'metric-bg'}));txt(g,m.x+20,m.y+38,m.title,'metric-title');let y=m.y+72;(m.lines||[]).forEach(v=>{txt(g,m.x+20,y,v,'metric-line');y+=25});y+=10;(m.q||[]).forEach(v=>{txt(g,m.x+20,y,`问：${v}`,'metric-q');y+=25})}
+
+    /* ============================== 画布域 ============================== */
+    stage({x:40,y:55,w:2920,h:390,title:'0 · 先纠偏：旧图最容易画错的 4 件事',sub:'这些不是附注，而是决定整张图是否可信的版本边界',kind:'metrics'});
+    stage({x:3020,y:55,w:10740,h:390,title:'C · 设计态控制面｜配置、治理、发布、评测',sub:'不进入每次 Query 的运行时主链；通过版本化产物约束路由、Context、Planner、工具与 Trigger',kind:'metrics',note:'CONTROL PLANE'});
+
+    stage({x:40,y:500,w:1140,h:1580,title:'1 · 语音入口',sub:'声音 → 可追踪 Query',kind:'main',note:'端侧'});
+    stage({x:1220,y:500,w:1770,h:1580,title:'2 · 端云分流',sub:'快路径只给高置信白名单',kind:'main',note:'端 + 云'});
+    stage({x:3030,y:500,w:1570,h:1580,title:'3 · 输入治理',sub:'打断、合并、排队、失效',kind:'main',note:'单通路'});
+    stage({x:4640,y:500,w:1690,h:1580,title:'4 · Context 组装',sub:'事实先对齐，再让模型判断',kind:'main',note:'云端'});
+    stage({x:6370,y:500,w:2410,h:1580,title:'5 · Planner = Director',sub:'同一个决策大脑；内部是产品验收检查点，不等于微服务',kind:'main',note:'Seed 1.8'});
+    stage({x:8820,y:500,w:1760,h:1580,title:'6 · 决策解析与执行编排',sub:'action_list 先过确定性门禁',kind:'main',note:'端云协同'});
+    stage({x:10620,y:500,w:3140,h:1580,title:'7 · 结果、回流与用户输出',sub:'真实结果回到同一 Planner，三路并列呈现',kind:'main',note:'闭环'});
+
+    stage({x:40,y:2140,w:13720,h:1440,title:'8 · Tool / Agent Domain｜当前 SP 27 个工具逐项展开',sub:'每个工具都标明调用机制、关键输入输出与硬约束；蓝色总线下发 ToolCall，绿色总线汇聚 raw result',kind:'tools',note:'C-SP · 2026-07-31'});
+    stage({x:40,y:3640,w:4520,h:1260,title:'9A · 当前 / 迁移态：Goal List + 动态 Advisor',sub:'条件 / 定时 / 持续目标；Goal 创建、订阅、触发、推进与清理闭环',kind:'async',note:'CURRENT / MIGRATION'});
+    stage({x:4600,y:3640,w:3550,h:1260,title:'9B · VLM 动态感知完整子链',sub:'VLM 只描述；TaskService 关联；Trigger 才判断命中；不得直接连工具',kind:'async',note:'已评审需求'});
+    stage({x:8190,y:3640,w:5570,h:1260,title:'9C · Task Service 目标架构',sub:'沿现有 Flow → Planner → Agent / Tool 增加 Task 能力，不是第二个 Planner',kind:'wip',note:'WIP · 不可当线上'});
+    stage({x:40,y:4960,w:13720,h:770,title:'10 · PM 验收指标与关键追问',sub:'掌握标准：能拿一条 trace 讲清输入、判断、输出、异常、状态、证据与 Owner；不是只会背模块名',kind:'metrics',note:'MEASUREMENT RAIL'});
+
+    /* ============================== 顶部纠偏与控制面 ============================== */
+    N('Q1','Q1',100,150,650,210,'Planner = Director','一个决策职能',['不要画成 Planner → Director 两个大脑','每次 feedback 都回到同一模型新一轮'],'risk','risk','结构先对，后面才有意义');
+    N('Q2','Q2',790,150,650,210,'action_list 只是意图','不是成功证据',['已生成 ≠ 已下发 ≠ 已执行','已执行 ≠ 设备生效 ≠ 目标完成'],'risk','risk','最终要看 tool_feedback + observed state');
+    N('Q3','Q3',1480,150,650,210,'Goal 与 Task 分版本','禁止叠成一套当前架构',['现有：Goal List + 动态 Advisor','目标态：TaskView + Task/Run/Event'],'wip','wip','紫色虚线全部是 WIP');
+    N('Q4','Q4',2170,150,650,210,'三级 RAG 是演进方案','不是已确认线上串行链',['句法 RAG / 情景 RAG 可作候选层','当前事实以 SP + trace + 正式正文为准'],'risk','check','图中虚线标“待核验”');
+
+    const controls=[
+      ['CP1','C1',3090,'能力 / 信号目录','Capability & Signal Catalog',['车型、设备、CAN/DMS/VLM','字段、枚举、TTL、Owner'],'data'],
+      ['CP2','C2',4140,'路由 / 白名单规则','Routing Policy',['离线命中范围、云端升级','超时兜底、唯一裁决'],'input'],
+      ['CP3','C3',5190,'Context Policy','Freshness & Privacy',['source / timestamp / TTL','身份隔离、压缩、冲突选择'],'data'],
+      ['CP4','C4',6240,'SP / 示例 / Knowhow','Prompt Version',['4 输入、4 输出、27 工具','动态知识、示例、车辆边界'],'model'],
+      ['CP5','C5',7290,'Tool Registry','Schema & Capability',['tool_name / params / owner','并发约束、错误码、SLA'],'action'],
+      ['CP6','C6',8340,'安全策略','Deterministic Guard',['座位 / 档位 / 车速 / ODD','确认、拒绝、降级'],'risk'],
+      ['CP7','C7',9390,'Trigger RuleSpec','Compile & Bind',['时间 / 信号 / 模型条件','注册、更新、停用、回滚'],'bus'],
+      ['CP8','C8',10440,'灰度发布','Release & Rollback',['企业×车型×环境隔离','版本、灰度、回滚、审计'],'neutral'],
+      ['CP9','C9',11490,'评测集与阈值','Offline + Shadow',['核心集 / 专项集 / badcase','阈值不能脱离测试集'],'neutral'],
+      ['CP10','C10',12540,'Trace / 指标 / 告警','Observability',['request/action/task/run/callback','日志、看板、告警、归因'],'neutral']
+    ];
+    controls.forEach(([id,step,x,title,meta,lines,type])=>N(id,step,x,150,980,210,title,meta,lines,type,'confirmed','设计态产物 → 对应运行时模块'));
+
+    /* ============================== 1 语音入口 ============================== */
+    N('V1','1.1',100,650,480,190,'用户 / 乘员发出语音','PCM audio',['原话 + 当前唤醒态','示例：副驾说“有点闷，去昨天游泳的地方…”'],'input','confirmed','业务起点；不能从 ASR 文本倒推原音频');
+    N('V2','1.2',640,650,480,190,'麦克风权限 + 唤醒门','mic_permission / wake_event',['无权限：提示并引导设置','免唤醒只在允许位置 / 状态接收'],'risk','confirmed','唤醒词：豆包豆包');
+    N('V3','1.3',100,930,480,190,'多麦前处理','AEC / NS / beamforming',['抑制回声、设备播放声、环境噪声','输出 enhanced_audio + direction'],'input','confirmed','目标：处理延迟≤50ms；SNR≥20dB');
+    N('V4','1.4',640,930,480,190,'声区 / 说话人定位','direction + seat + identity',['声学方向结合摄像头与座位几何','输出 speaker_position / candidate identity'],'input','confirmed','定位弱置信度必须保留 unknown');
+    N('V5','1.5',100,1210,480,190,'VAD 端点 + Barge-in','speech_start / speech_end',['裁出 utterance；处理早截断与尾噪','新语音可打断正在播报的 TTS'],'input','confirmed','Soft / Hard / 语义三级仍属演进项');
+    N('V6','1.6',640,1210,480,190,'在线 + 离线 ASR','asr_partial → asr_final',['离线先显；在线 final 覆盖','断网或云端失败时采用离线 final'],'input','confirmed','必须记录 partial 改写与最终仲裁');
+    N('V7','1.7',100,1490,480,220,'多人 Query 归并','queries[] + role / position',['FC 尚未产出前，可带角色标签合并','无效 / 拒识输入不得打断有效任务'],'bus','confirmed','验收：错合并率、角色归属准确率');
+    N('V8','1.8',640,1490,480,220,'Query Envelope','user_query',['query / speaker_name / speaker_position','timestamp + request_id / trace_id（建议补）'],'bus','current','当前 SP 明确 4 个 user_query 字段');
+
+    /* ============================== 2 端云分流 ============================== */
+    N('R1','2.1',1280,650,500,190,'文本标准化 / 会话绑定','asr_final + wake state',['保留否定词、时间、数字、POI','绑定 vehicle / session / current turn'],'bus','check','实现细节需用线上 trace 核实');
+    N('R2','2.2',1840,650,500,190,'离线语义缓存 / 句式命中','single-turn query',['只处理明确、无上下文、高置信表达','输出 cached intent + slots'],'input','confirmed','目标：约50ms；命中准确率要求极高');
+    N('R3','2.3',2400,650,520,190,'是否可走端侧快路径？','hit + no-context + safe',['是：离线 FC / 白名单继续校验','否：并行上传云端，等待云裁决'],'model','confirmed','简单 ≠ 一定端侧；白名单才直出');
+    N('R4','2.4',1280,940,500,190,'离线 Reject / 意图识别','query',['判断端上是否接得住','复杂、情感、需记忆 / 情景 → 云端'],'model','confirmed','解析目标≤200ms；误召回要可追踪');
+    N('R5','2.5',1840,940,500,190,'离线 FC：意图 + 槽位','intent / slots',['高频基础车控函数调用候选','不承担复杂任务拆解 / 多轮规划'],'model','confirmed','FC 结果仍不能绕过安全能力门');
+    N('R6','2.6',2400,940,520,190,'白名单 / 车型 / 权限 / 安全','FC candidate + state',['明确、无上下文、能力可用才放行','miss / 不确定 / 高风险 → 等云端'],'risk','confirmed','安全误放行率应接近 0');
+    N('R7','2.7',1280,1230,500,190,'云端请求上传','user_query + endpoint candidate',['在线 Reject / 仲裁与端侧并行','携带 heartbeat / timeout 状态'],'bus','confirmed','上传失败不能伪装成云端拒识');
+    N('R8','2.8',1840,1230,500,190,'云端 Reject','query + endpoint candidate',['拒识：记录 Context 事件，供 Advisor 感知','超时：交 Planner 或采用端侧兜底'],'model','confirmed','拒识 ≠ 没有后续主动服务');
+    N('R9','2.9',2400,1230,520,190,'云端意图仲裁','reject result + intent',['车控 + 指定意图 → 云 FC','复杂 / 多步 / 条件 / 持续 → Planner'],'model','confirmed','三级 RAG 只作演进候选，不写死在线');
+    N('R10','2.10',1280,1520,500,220,'云端 FC','simple cloud intent',['生成可下发指令；性能优先','端云同轮只能有一个结果被采纳'],'model','confirmed','端侧白名单命中要取消 / 拒绝云结果');
+    N('R11','2.11',1840,1520,500,220,'Planner 路由','complex / unknown / timeout',['输出 PlannerInput.user_query','进入输入治理，不直接跳到 LLM'],'bus','current','复杂主链入口');
+    N('R12','2.12',2400,1520,520,220,'拒识 / 兜底 / 事件日志','reject / no result',['能力边界话术；必要时进入主动服务','保留端侧实际处理信息，丢弃被拒云推理'],'risk','confirmed','不能写成“无答案 = 无事件”');
+
+    /* ============================== 3 输入治理 ============================== */
+    N('I1','3.1',3090,650,340,190,'user_query','P0',['用户直接说的话','可打断推理 / TTS'],'input','current','{query,speaker,position,time}');
+    N('I2','3.2',3470,650,340,190,'advisor','P1',['专家建议，不是用户原话','同一 Advisor 排队只留最新'],'bus','current','{advisor}');
+    N('I3','3.3',3850,650,340,190,'tool_feedback','回流',['工具 / Agent 返回','必须触发下一轮判断'],'action','current','{tool_name,tool_feedback}');
+    N('I4','3.4',4230,650,310,190,'event','P1',['传感器 / 状态 / 手动操作事件','先判断值不值得说 / 做'],'bus','current','{event,timestamp}');
+    N('I5','3.5',3120,930,1360,200,'Input Manager / 优先级闸门','interrupt · merge · queue · drop',['用户 Query=P0；Advisor / 通知=P1','先识别来源、时效、任务类别，再决定进入时机'],'bus','check','新策略；当前生产细节需 trace 复核');
+    N('I6','3.6',3090,1210,410,220,'首 token 前新 Query','inference not started',['打断当前推理；合并新旧 Query','排队中可合并的非长程任务一并整理'],'risk','confirmed','旧推理历史不保留');
+    N('I7','3.7',3540,1210,410,220,'首 token / TTS 后打断','output already started',['用户输入立即停旧播报；旧播报通常不恢复','关键剩余信息按 SP 续接规则另判'],'risk','confirmed','验收：关键信息丢失 / 错续接');
+    N('I8','3.8',3990,1210,490,220,'排队 / 合并 / 失效','non-user inputs',['同 Advisor 只留最新；过期建议丢弃','长程任务与需补槽任务通常禁止合并'],'bus','confirmed','排队过多限制与高优策略仍不完整');
+    N('I9','3.9',3200,1510,1240,230,'统一输入快照','PlannerInput[]',['锁定本轮来源、顺序、会话与打断状态','生成 current_input，进入 Context 同一快照'],'bus','current','四类输入可按数组同时进入当前轮');
+
+    /* ============================== 4 Context ============================== */
+    N('C1','4.1',4700,650,720,170,'Current Input','typed PlannerInput',['来源、原文、时间、说话人','query / advisor / feedback / event'],'data','current','本轮锚点');
+    N('C2','4.2',5500,650,760,170,'对话历史 / last_talk_content','near complete · far compressed',['保留近期 action / feedback 与被打断内容','远区压缩，避免长历史淹没新事实'],'data','confirmed','多轮延续与打断续接');
+    N('C3','4.3',4700,870,720,170,'车辆 / 导航 / 媒体状态','endpoint state snapshot',['CAN、档位、座椅、门窗、空调','导航阶段、媒体播放、应用状态'],'data','confirmed','最新端态优先旧对话');
+    N('C4','4.4',5500,870,760,170,'视觉 / 场景摘要','AlwaysOn default topic',['车内成员、动作、外部环境描述','默认摘要进 Context；动态任务走独立 Topic'],'data','confirmed','VLM 描述不等于任务条件命中');
+    N('C5','4.5',4700,1090,720,170,'用户记忆 / 身份 / 画像','registered user scope',['跨 session 事实、偏好、共同经历','未注册 / 身份不确定时限制读取与写入'],'data','confirmed','隐私越权率必须为 0');
+    N('C6','4.6',5500,1090,760,170,'Goal List / TaskView','versioned task context',['当前 / 迁移：Goal List','WIP：TaskView（不可同时当现行事实）'],'data','wip','进行中目标、状态、进展');
+    N('C7','4.7',4700,1310,720,170,'事件日志 / Advisor / Knowhow','contextual guidance',['拒识事件、主动服务建议、场景范式','建议可被 Planner 拒绝，不能当事实命令'],'data','confirmed','source 与 producer 必须可追溯');
+    N('C8','4.8',5500,1310,760,170,'日期 / 天气 / 位置 / 设备信息','environment facts',['当前时间、节日、地理位置、车型能力','外部实时事实过期时需调用工具再查'],'data','current','防止使用陈旧天气 / 位置');
+    N('C9','4.9',4750,1540,1460,170,'Context 过滤、冲突消解与新鲜度门','select · isolate · compress · resolve',['按身份 / 任务选择；去冗余；标记 unknown / stale','冲突时优先可信来源与较新 timestamp / TTL'],'risk','check','需核验每类字段的 source / timestamp / TTL');
+    N('C10','4.10',4750,1760,1460,190,'ContextSnapshot','single decision snapshot',['本轮模型看到同一时刻的有效事实集合','与 fixed SP、UP 历史、动态知识一起组装 Prompt'],'data','confirmed','Context 不做最终动作决策');
+
+    /* ============================== 5 Planner / Director ============================== */
+    N('PB1','5.0A',6430,650,1050,160,'System Prompt 组装','~30K–35K tokens（本地快照）',['角色 / 4 输入 / 27 工具 / 4 输出','安全注意 / 示例 / 车型知识 / 动态变量'],'model','current','固定前缀可用 KV Cache；动态处会截断命中');
+    N('PB2','5.0B',7580,650,1130,160,'User Prompt 组装','~10K–15K tokens（本地快照）',['近期历史 + 当前 PlannerInput[]','ContextSnapshot / Goal / 已有 tool feedback'],'model','current','最终调用 = [SP, UP]');
+    N('P1','5.1',6430,890,500,170,'输入类型解码','query / advice / result / event',['不把 advisor、feedback、event 当用户原话','数组输入保留来源与顺序'],'model','current','误分类会污染整轮语义');
+    N('P2','5.2',6980,890,500,170,'身份 / 指代 / 空间解析','speaker + occupants',['“我这边 / 右边 / 后排”映射到人和座位','缺身份时保留 unknown，必要时确认'],'model','current','座位指代准确率');
+    N('P3','5.3',7530,890,500,170,'目标与已知 / 未知','goal + slots + evidence',['识别显式 / 隐式目标；列可推断与不可推断项','可查工具优先查；不可安全推断才澄清'],'model','current','过度问询与自作主张都算错');
+    N('P4','5.4',8080,890,500,170,'能力 / 安全 / 拒识门','vehicle capability + policy',['校验主驾、档位、音量、硬件、ODD','拒绝 / 确认 / 降级 / 允许'],'risk','current','危险误执行率必须为 0');
+    N('P5','5.5',8080,1140,500,170,'任务类型判定','goal',['即时单步 / 即时多动作','多步依赖 / 条件 / 定时 / 持续'],'model','confirmed','长任务误当一次 action 会失去后续跟踪');
+    N('P6','5.6',7530,1140,500,170,'动作候选拆解','task type + context',['拆到下游 Tool / Agent 可承接的原子动作','保留用户目标，不让改写改变意图'],'model','confirmed','稳定性、完整性、冗余动作率');
+    N('P7','5.7',6980,1140,500,170,'依赖图 / 并发判断','candidate actions',['独立动作可并行；前置依赖必须串行','如先导航成功，才允许沿途 POI 搜索'],'model','confirmed','依赖违规率 / 非必要串行率');
+    N('P8','5.8',6430,1140,500,170,'工具选择','27 tool definitions',['选择 tool_name；遵守业务域边界','若工具能力不足，重写 / 换工具 / 澄清'],'model','current','Tool accuracy；工具幻觉率');
+    N('P9','5.9',6430,1390,500,170,'参数与前置状态','params + latest state',['生成 query / type / goal_id 等参数','缺当前状态时先查，不直接假设成功'],'model','current','参数准确率；schema 一致率');
+    N('P10','5.10',6980,1390,500,170,'说话决策','stage + uncertainty',['talk_or_not；ACK / 提问 / 进度 / 最终确认','调用前不能过度承诺工具结果'],'model','current','说做一致；承诺违约率');
+    N('P11','5.11',7530,1390,500,170,'Goal / Task 持久化判断','future condition / long-running',['当前：goal_list_update','WIP：task_manage → Task Service'],'model','wip','不同版本只能走一条任务链');
+    N('P12','5.12',8080,1390,500,170,'JSON / 自检 / 去重','decision candidate',['工具名在白名单；字段合法；动作不冲突','已自播 / 已执行内容避免重复表达'],'risk','current','JSON 合法率应接近 100%');
+    N('PD','5.13',6790,1640,1540,250,'PlannerDecision','4-field JSON',['talk_or_not : yes / no　｜　talk_content : string','emoji_id : optional　｜　action_list : [{action_id,tool_name,params}]','这只是“本轮决定”，不是业务完成证据'],'model','current','首 token P50≤500ms / P90≤800ms 为早期设计目标',{lineGap:29});
+
+    /* ============================== 6 决策解析与执行 ============================== */
+    N('E1','6.1',8880,650,500,190,'Decision Parser','PlannerDecision',['校验 4 字段、JSON、工具名与基本类型','非法输出：修复 / 重试 / 失败上报'],'bus','check','工程实现细节需 trace 核验');
+    N('E2','6.2',9420,650,500,190,'表达分支','talk_or_not + talk_content',['本轮可先说 ACK / 问题 / 进度','与 action_list 并行，但不能承诺未知结果'],'input','current','输出给 Response Coordinator');
+    N('E3','6.3',9960,650,500,190,'动作分支','action_list[]',['解析 action_id / tool_name / params','空列表表示本轮只说 / 等待 / 结束'],'action','current','action_id 当前未进入 feedback');
+    N('E4','6.4',8880,930,500,190,'Action Schema 校验','ToolCall candidate',['必填项、枚举、参数结构、工具存在性','当前 SP 多处 schema 冲突要标红拦截'],'risk','check','goal/image 参数、car_log 格式');
+    N('E5','6.5',9420,930,500,190,'确定性安全 / 能力门','state + capability + policy',['档位、座位、权限、设备可用性、速率限制','高风险不依赖模型一句话直接放行'],'risk','check','模型判断不能替代工程安全门');
+    N('E6','6.6',9960,930,500,190,'依赖 DAG 编排','actions + constraints',['并行：互不依赖；串行：等待前一 feedback','POI / route / navi 按工具约束串行'],'action','check','调度器实现需核验');
+    N('E7','6.7',8880,1210,500,190,'Dispatch Envelope','Ready ToolCall',['补 request / turn / action / trace 关联','路由端侧、云服务、生态 Agent'],'bus','check','当前建议契约；不伪装成 SP 已有');
+    N('E8','6.8',9420,1210,500,190,'幂等 / 去重 / 顺序','correlation + state',['端云竞态只执行一次；迟到结果不覆盖新状态','同名并发工具必须能一一关联'],'risk','check','当前 feedback 无 action_id 是硬缺口');
+    N('E9','6.9',9960,1210,500,190,'超时 / 重试 / 取消','invocation lifecycle',['工具超时生成 feedback；Planner 决定重试 / 改计划','路线工具自身最多重试 2 次'],'risk','confirmed','失败不能直接跳到最终成功');
+    N('E10','6.10',9030,1490,1370,200,'Tool Domain Router','ToolCall{action_id,tool_name,params}',['按能力域路由到下方 27 个 Tool / Agent','工具返回 raw result / error / artifact / business state'],'action','confirmed','蓝色下发总线 → 第 8 区；绿色结果总线 → 第 7 区');
+    N('E11','6.11',9030,1750,1370,170,'端侧 / 云 FC 直接动作适配','fast-path action',['快路径仍需安全、唯一执行与状态回读','结果进入同一反馈与用户呈现闭环'],'action','confirmed','不是第二套无法观测的黑盒执行链');
+
+    /* ============================== 7 结果与输出 ============================== */
+    N('O1','7.1',10680,650,520,190,'Raw Result','tool / agent result',['search candidates / exec ack / error','artifact / provider state / tool-owned text'],'action','confirmed','“调用成功”还不等于真实生效');
+    N('O2','7.2',11240,650,520,190,'Observed State','端侧 / 服务端回读',['车辆 / 导航 / 媒体 / 任务最新状态','用于证明设备或业务效果真的发生'],'data','check','每类工具的回读能力需逐项核验');
+    N('O3','7.3',11800,650,520,190,'Feedback Normalizer','raw result + error',['转为 Planner 可消费的结果文本','标准化失败 / 超时 / 部分成功 / 迟到'],'bus','check','建议补 status/error/retryable/action_id');
+    N('O4','7.4',12360,650,520,190,'Feedback Envelope','tool_feedback',['当前仅 tool_name + tool_feedback','作为新的 PlannerInput，而不是用户原话'],'bus','current','同轮同名并发难稳定归因');
+    N('O5','7.5',12920,650,720,190,'Input Re-entry','same Planner · next round',['回到 3.3 → 3.5 → 4 → 5','继续 / replan / ask / wait / end'],'bus','current','不存在“第二个 Planner”');
+    N('O6','7.6',10680,930,700,210,'Completion Aggregator','actions + feedback + observed state',['按复合目标汇总 pending / partial / failed / done','不能用单个工具成功替代整单完成'],'action','check','需要定义用户目标级完成分母');
+    N('O7','7.7',11420,930,1240,210,'Response Coordinator','talk + CompletionState',['协调 ACK / PROGRESS / FINAL、打断与去重','决定 TTS、HMI、数字人或静默呈现时机'],'input','check','语音单通路；P1 可能排队');
+    N('O8','7.TBD',12700,930,940,210,'工具 / 智驾自播 TTS','低时延候选分支',['方案A：先自播，再回写 spoken_content / result','方案B：feedback → Planner → 统一 NLG'],'bus','check','08-20 文字记录：仍 TBD，不能画成定案');
+    N('O9','7.8',10680,1240,700,210,'TTS / Audio Focus','talk_content + emotion tag',['合成与播报；支持被新 Query 打断','首音、完整播报、续接由同一会话状态治理'],'input','confirmed','TTS 不驱动车控');
+    N('O10','7.9',11420,1240,700,210,'HMI / 卡片 / 数字人','card model + emoji_id',['小卡 / 大卡互斥；通知卡可多个','任务中心显示状态、进度、失败原因'],'input','check','AIGC 完成可走独立 Push（新策略）');
+    N('O11','7.10',12160,1240,700,210,'车辆 / 导航 / 媒体 / 生态效果','executor side effect',['真正的物理 / 应用 / 业务状态变化','来源是执行器，不是 TTS 文案'],'action','confirmed','必须有可回读的结果证据');
+    N('O12','7.11',12900,1240,740,210,'用户真实拿到结果','hear + see + actual effect',['听到合适的话；看到一致状态；事情真实完成','三路可以并行，不得串成 TTS→HMI→车控'],'action','confirmed','最终体验终点');
+    N('O13','7.E1',10680,1540,900,210,'失败 / 部分成功 / 超时','failure branch',['统一回 Planner：换工具、重试、澄清或结束','给出真实失败原因，不静默、不重新编成功'],'risk','confirmed','部分失败恢复率');
+    N('O14','7.E2',11620,1540,900,210,'说做一致 / 去重门','spoken + executed + pending',['Planner 已说、Tool 自播、HMI 通知统一去重','禁止两套话术对同一结果重复宣布'],'risk','check','自播回写完整率 / 重复播报率');
+    N('O15','7.E3',12560,1540,1080,210,'最终完成证据','CompletionState',['单动作：结果 + 状态；复合目标：全部必要子目标','长任务：Task / Goal 终态 + Result Hook / feedback'],'action','check','一句“搞定”必须能追溯到证据');
+
+    /* ============================== 主链与回环边（先画线，后画节点） ============================== */
+    // 控制面只下发版本化规则，不参与单次运行时数据流。
+    E('CP2','R3','route policy','control',{from:'b',to:'t',mode:'v',midY:470});
+    E('CP3','C9','context policy','control',{from:'b',to:'t',mode:'v',midY:470});
+    E('CP4','PB1','prompt version','control',{from:'b',to:'t',mode:'v',midY:470});
+    E('CP5','E1','tool schema','control',{from:'b',to:'t',mode:'v',midY:470});
+    rawE([[8830,360],[8830,470],[9940,470],[9940,1025],[9920,1025]],'safety policy','control',[9940,760]);
+
+    // 语音入口：蛇形但严格按编号阅读。
+    E('V1','V2','PCM frames');
+    E('V2','V3','wake accepted','main',{from:'b',to:'t',mode:'v',midY:885});
+    E('V3','V4','enhanced audio');
+    E('V4','V5','speaker / direction','main',{from:'b',to:'t',mode:'v',midY:1165});
+    E('V5','V6','utterance');
+    E('V6','V7','asr_final','main',{from:'b',to:'t',mode:'v',midY:1445});
+    E('V7','V8','merged query');
+    E('V8','R1','user_query');
+
+    // 端云分流。
+    E('R1','R2','normalized text');
+    E('R2','R3','cache candidate');
+    E('R1','R4','parallel local parse','main',{from:'b',to:'t',mode:'v',midY:890});
+    E('R4','R5','intent / slots');
+    E('R5','R6','FC candidate');
+    rawE([[2920,745],[2960,745],[2960,1185],[1530,1185],[1530,1230]],'No / complex → cloud','main',[2250,1185]);
+    E('R6','R7','miss / uncertain','main',{from:'b',to:'t',mode:'v',midY:1185});
+    E('R7','R8','cloud request');
+    E('R8','R9','not rejected');
+    E('R8','R12','reject / log','risk',{from:'b',to:'t',mode:'v',midY:1470});
+    E('R9','R10','simple intent','main',{from:'b',to:'t',mode:'v',midY:1470});
+    E('R9','R11','complex task','main',{from:'b',to:'t',mode:'v',midY:1470});
+    E('R9','R12','rejected / no result','risk',{from:'b',to:'t',mode:'v',midY:1470});
+    rawE([[2090,1740],[2090,1790],[2995,1790],[2995,745],[3090,745]],'routed user_query','main',[2995,1180]);
+    rawE([[2920,1035],[2995,1035],[2995,2010],[9715,2010],[9715,1920]],'whitelist hit → Fast ToolCall','main',[5200,2010]);
+    rawE([[1530,1740],[1530,1990],[9550,1990],[9550,1920]],'cloud FC → direct adapter','main',[4000,1990]);
+    rawE([[2920,1630],[3010,1630],[3010,2065],[10600,2065],[10600,1645],[10680,1645]],'拒识 / 无结果 → 失败分支','risk',[6200,2065]);
+
+    // 四类输入进入同一个 Input Manager。
+    E('I1','I5','P0','main',{from:'b',to:'t',mode:'v',midY:885});
+    E('I2','I5','P1','async',{from:'b',to:'t',mode:'v',midY:885});
+    E('I3','I5','result','feedback',{from:'b',to:'t',mode:'v',midY:885});
+    E('I4','I5','P1 event','async',{from:'b',to:'t',mode:'v',midY:885});
+    E('I5','I6','before token','risk',{from:'b',to:'t',mode:'v',midY:1170});
+    E('I5','I7','during output','risk',{from:'b',to:'t',mode:'v',midY:1170});
+    E('I5','I8','queue / expire','async',{from:'b',to:'t',mode:'v',midY:1170});
+    E('I6','I9','merged inputs','main',{from:'b',to:'t',mode:'v',midY:1470});
+    E('I7','I9','new current input','main',{from:'b',to:'t',mode:'v',midY:1470});
+    E('I8','I9','ready queue item','main',{from:'b',to:'t',mode:'v',midY:1470});
+    E('I9','C1','current_input');
+
+    // Context：左右两条采集母线，避免 8 条线穿框。
+    rawE([[4700,735],[4665,735],[4665,1625],[4750,1625]],'context sources','context',[4665,1500]);
+    rawE([[4700,955],[4665,955]],'','context',null,'local noarrow');
+    rawE([[4700,1175],[4665,1175]],'','context',null,'local noarrow');
+    rawE([[4700,1395],[4665,1395]],'','context',null,'local noarrow');
+    rawE([[6260,735],[6295,735],[6295,1625],[6210,1625]],'context sources','context',[6295,1500]);
+    rawE([[6260,955],[6295,955]],'','context',null,'local noarrow');
+    rawE([[6260,1175],[6295,1175]],'','context',null,'local noarrow');
+    rawE([[6260,1395],[6295,1395]],'','context',null,'local noarrow');
+    E('C9','C10','valid ContextSnapshot','context',{from:'b',to:'t',mode:'v'});
+    rawE([[1120,1600],[1160,1600],[1160,2040],[4680,2040],[4680,955],[4700,955]],'端侧最新状态 / time + TTL','context',[2900,2040]);
+
+    // Prompt 与 Planner/Director 内部检查点。
+    E('C10','PB1','Context variables','context',{from:'r',to:'l'});
+    rawE([[6210,1855],[6335,1855],[6335,850],[8145,850],[8145,810]],'UP context','context',[7200,850]);
+    E('PB1','P1','fixed SP','main',{from:'b',to:'t',mode:'v',midY:850});
+    E('PB2','P1','UP + history','main',{from:'b',to:'t',mode:'v',midY:850});
+    E('P1','P2','typed input');E('P2','P3','resolved entities');E('P3','P4','goal + unknowns');
+    E('P4','P5','allow / deny / confirm','main',{from:'b',to:'t',mode:'v'});
+    E('P5','P6','task type','main',{from:'l',to:'r'});E('P6','P7','atomic actions','main',{from:'l',to:'r'});E('P7','P8','dependency DAG','main',{from:'l',to:'r'});
+    E('P8','P9','selected tool','main',{from:'b',to:'t',mode:'v'});
+    E('P9','P10','params + state');E('P10','P11','talk decision');E('P11','P12','goal/task choice');
+    E('P12','PD','validated decision','main',{from:'b',to:'t',mode:'v'});
+
+    // 决策解析与确定性执行编排。
+    rawE([[8330,1765],[8800,1765],[8800,745],[8880,745]],'PlannerDecision','main',[8800,1250]);
+    E('E1','E2','talk branch');
+    rawE([[9130,840],[9130,885],[10210,885],[10210,840]],'action branch','main',[9670,885]);
+    E('E3','E4','actions[]','main',{from:'b',to:'t',mode:'v',midY:885});
+    E('E4','E5','schema ok');E('E5','E6','safe + capable');
+    E('E6','E7','dispatch plan','main',{from:'b',to:'t',mode:'v',midY:1165});
+    E('E7','E8','correlated call');E('E8','E9','idempotent order');
+    E('E9','E10','ready ToolCall','main',{from:'b',to:'t',mode:'v'});
+    E('E11','E10','same observable route','main',{from:'t',to:'b',mode:'v'});
+    rawE([[9670,650],[9670,610],[10590,610],[10590,1165],[12040,1165],[12040,1140]],'talk_content','main',[10590,955]);
+
+    // 结果归一化、反馈回环与三路输出。
+    rawE([[10940,650],[10940,610],[12060,610],[12060,650]],'raw result','feedback',[11500,610]);E('O2','O3','observed state','feedback');E('O3','O4','normalized result','feedback');E('O4','O5','tool_feedback','feedback');
+    rawE([[13280,650],[13280,470],[4020,470],[4020,650]],'第 2 / N 轮：仍走 Input → Context → 同一 Planner','feedback',[8500,470]);
+    E('O4','O6','action states','feedback',{from:'b',to:'t',mode:'v',midY:885});
+    E('O6','O7','CompletionState');
+    E('O7','O9','TTS plan','main',{from:'b',to:'t',mode:'v',midY:1190});
+    E('O7','O10','HMI / emoji','main',{from:'b',to:'t',mode:'v',midY:1190});
+    rawE([[12510,1450],[12510,1495],[13660,1495],[13660,620],[11500,620],[11500,650]],'state readback','feedback',[13240,620]);
+    rawE([[11030,1450],[11030,1480],[13270,1480],[13270,1450]],'audio','main',[11450,1480]);
+    rawE([[11770,1450],[11770,1510],[13270,1510],[13270,1450]],'card / avatar','main',[12300,1510]);
+    E('O11','O12','real effect','feedback');
+    rawE([[12060,840],[12060,875],[10600,875],[10600,1645],[10680,1645]],'error / partial / timeout','risk',[10600,1250]);
+    rawE([[12040,1140],[12040,1190],[13680,1190],[13680,1790],[12070,1790],[12070,1750]],'spoken / pending','risk',[13680,1430]);
+    rawE([[10680,1035],[10600,1035],[10600,1820],[13100,1820],[13100,1750]],'goal aggregation','feedback',[11200,1820]);
+    E('O15','O12','evidence-backed done','feedback',{from:'t',to:'b',mode:'v',midY:1490});
+    E('O8','O9','方案 A：fast speech','async',{from:'b',to:'t',mode:'v',midY:1185});
+    E('O8','O3','spoken_content / execution_result 回写','async',{from:'t',to:'b',mode:'v',midY:885});
+    rawE([[12070,1750],[12070,1850],[10580,1850],[10580,860],[12060,860],[12060,840]],'dedupe state','feedback',[11280,860]);
+    rawE([[11130,1750],[11130,1880],[10580,1880],[10580,1190],[12040,1190],[12040,1140]],'真实失败话术 / replan','risk',[10580,1390]);
+
+    /* ============================== 8 · 27 个当前 SP 工具 ============================== */
+    const domains=[
+      {id:'D1',x:4680,y:2240,w:1700,h:1260,kind:'vehicle',title:'8A · 车辆控制与系统｜5',sub:'写操作 / 强副作用；必须回读真实状态'},
+      {id:'D2',x:6420,y:2240,w:1700,h:1260,kind:'nav',title:'8B · 导航、地点与交易｜4',sub:'POI → 路线 → 导航控制按前置条件串行'},
+      {id:'D3',x:8160,y:2240,w:1700,h:1260,kind:'media',title:'8C · 媒体与生成｜7',sub:'自动播放、异步产物、工具自有呈现需区分'},
+      {id:'D4',x:9900,y:2240,w:1700,h:1260,kind:'knowledge',title:'8D · 状态、知识与感知｜7',sub:'实时本车 / 单车长期 / 通用知识 / 视觉事实分域'},
+      {id:'D5',x:11640,y:2240,w:2080,h:1260,kind:'identity',title:'8E · 身份、记忆与目标｜4',sub:'注册、隐私、确认、去重与生命周期'}
+    ];
+    domains.forEach(domain);
+    const tools=[
+      {step:'T01',title:'vehicle_basic_control',x:4720,y:2340,w:770,h:210,mode:'WRITE · VEHICLE · params.query',lines:['车窗 / 空调 / 座椅 / 灯 / 锁等车控','结合 speaker_position 推断作用座位','结果：执行状态 + 可回读车辆状态'],foot:'硬约束：不支持开关车门；范围 / 档位 / 主驾权限'},
+      {step:'T02',title:'vehicle_system_settings',x:5560,y:2340,w:770,h:210,mode:'WRITE · SYSTEM / UI · params.query',lines:['蓝牙/Wi‑Fi/屏幕/声音/账号/应用/权限','页面跳转、车机电源、K歌类能力','结果：设置状态或页面打开状态'],foot:'“退出语音”也走这里；K歌不走 media control'},
+      {step:'T03',title:'vehicle_communication',x:4720,y:2580,w:770,h:210,mode:'WRITE · CALL / VIDEO · params.query',lines:['拨打 / 接听 / 挂断电话与视频通话','联系人称呼原样传递，不擅自改写','结果：接通 / 失败 / 联系人歧义'],foot:'仅主驾；不支持短信'},
+      {step:'T19',title:'auto_drive',x:5560,y:2580,w:770,h:210,mode:'WRITE · ADAS / PARKING · params.query',lines:['泊入/泊出/贴边/循迹/巡航/变道','执行前应校验档位、车速、ODD、功能可用','结果：智驾执行状态 + 端侧呈现'],foot:'当前定义缺安全前置字段；自播 TTS 路线仍 TBD'},
+      {step:'T20',title:'ambient_light_control',x:4720,y:2820,w:770,h:210,mode:'WRITE · LIGHT · params.query',lines:['开关 / 模式 / 任意颜色与亮度调节','独立颜色动作可并行；“依次”必须串行','结果：氛围灯实际状态'],foot:'颜色控制直接用本工具，无需先调 visual_qa'},
+
+      {step:'T06',title:'poi_search',x:6460,y:2340,w:770,h:210,mode:'READ · POI LIST · params.query',lines:['附近 / 中点 / 顺路 / 条件筛选 / 商家详情','多候选返回 Planner，让用户选','沿途搜索必须已有正在导航路线'],foot:'不做精确导航；与 route / navi 串行'},
+      {step:'T07',title:'route_planning',x:7300,y:2340,w:770,h:210,mode:'READ+WRITE · ROUTE · params.query',lines:['精确地点、多目的地、路线选择、途经点','返回路线；选择具体路线后自动发起导航','地址模糊先 POI / web'],foot:'失败最多重试 2 次；与 POI / navi 串行'},
+      {step:'T08',title:'navi_basic_control',x:6460,y:2580,w:770,h:210,mode:'WRITE · NAV STATE · params.query',lines:['对已有导航做开始/结束/视图/播报/偏好','不负责目的地搜索或新路线规划','结果：导航过程状态变化'],foot:'与 poi_search / route_planning 串行'},
+      {step:'T27',title:'restaurant_reserve',x:7300,y:2580,w:770,h:210,mode:'TRANSACTION · BOOKING · params.query',lines:['餐厅预订 / 查询 / 修改 / 取消','工具可先受理，缺手机号等再返回补槽','补齐后必须再次调用并核实订单'],foot:'不得重复问已有字段；错订是高风险结果'},
+
+      {step:'T09',title:'video_search',x:8200,y:2340,w:770,h:210,mode:'SEARCH+PLAY · VIDEO · params.query',lines:['短视频 / 长视频 / MV 搜索与播放','短视频只支持抖音；长视频只支持腾讯','结果：内容候选或播放状态'],foot:'内容匹配与播放动作要分别验收'},
+      {step:'T10',title:'music_search',x:9040,y:2340,w:770,h:210,mode:'SEARCH→AUTO PLAY · params.query',lines:['精确歌曲或模糊类型搜索 / 推荐','搜索后会自动播放第一首','返回：首播曲目 + 播放状态'],foot:'不能再画一个必经“media play”；不支持复杂推理找歌'},
+      {step:'T11',title:'media_basic_control',x:8200,y:2580,w:770,h:210,mode:'WRITE · CURRENT MEDIA · params.query',lines:['暂停/切歌/收藏/倍速/清晰度/评论等','操作当前媒体，不重新搜索内容','返回：更新后的播放 / UI 状态'],foot:'K歌模式/预约/点播走 vehicle_system_settings'},
+      {step:'T17',title:'ai_broadcast_generate',x:9040,y:2580,w:770,h:210,mode:'ASYNC GENERATION · params.query',lines:['按主题生成 AI 播客，通常耗时','需要“受理→生成中→完成/失败”状态','完成后可能通知卡 / 再播放'],foot:'当前 SP 未定义强类型完成回调；不能画成同步完成'},
+      {step:'T18',title:'broadcast_search',x:8200,y:2820,w:770,h:210,mode:'SEARCH+PLAY · PODCAST · params.query',lines:['搜索 / 播放 / 控制播客和有声资源','与 AI 播客生成不是同一能力','结果：候选 / 当前播放状态'],foot:'验收：首播匹配率、搜索与播控说做一致'},
+      {step:'T24',title:'audio_record',x:9040,y:2820,w:770,h:210,mode:'WRITE+ASYNC · RECORDING · params.query',lines:['开始 / 停止录音；查看录音纪要','开始成功后 Planner 应保持安静','停止后等待纪要产物与状态'],foot:'依赖麦克风权限；验收中断、完整录音、纪要成功率'},
+      {step:'T25',title:'image_generate',x:8200,y:3060,w:770,h:210,mode:'ASYNC AIGC · query / type',lines:['文生图 / 图生图 / 图片编辑','输出图片 artifact / URL 或失败','完成可走 HMI / 独立 Push'],foot:'契约缺口：定义 params.query，示例却使用 params.type'},
+
+      {step:'T04',title:'vehicle_status_search',x:9940,y:2340,w:770,h:210,mode:'READ · LIVE VEHICLE · params.query',lines:['温度/车窗/胎压/车速/续航/导航/媒体','依赖当前状态但未知时优先查询','返回：值 + 未上报 / 不可用'],foot:'最新车端状态优先历史；关注新鲜度与读写一致'},
+      {step:'T05',title:'weather_search',x:10780,y:2340,w:770,h:210,mode:'READ · REAL-TIME WEATHER · params.query',lines:['当前位置 / 目的地 / 沿途 / 小时级 / 预警','时间与地点必须对应用户真实行程','返回：地点×时间天气与预警'],foot:'外地出行可主动查；陈旧结果不能复用'},
+      {step:'T15',title:'web_search',x:9940,y:2580,w:770,h:210,mode:'READ · OPEN WEB · params.query',lines:['新闻/股价/日期/开放域事实作中间材料','时间敏感或需汇总时优先检索','结果无证据时不得自行补事实'],foot:'搜索结果仍要由 Planner 结合来源与目标判断'},
+      {step:'T21',title:'car_log',x:10780,y:2580,w:770,h:210,mode:'READ · VEHICLE HISTORY · params.query',lines:['按时间 / 行程查询用车报告','适合能耗、通勤、历史行程，不是实时状态','返回：指定周期车辆报告'],foot:'契约缺口：SP 入参文本括号损坏；时间窗需明确'},
+      {step:'T22',title:'vehicle_manual_qa',x:9940,y:2820,w:770,h:210,mode:'READ · GENERAL MANUAL · params.query',lines:['通用功能、硬件操作、使用教程、用车技巧','返回车型说明后由 Planner 精炼播报','不能替代实时 vehicle_status_search'],foot:'通用问题走这里；单车强绑定问题走 car_care_qa'},
+      {step:'T23',title:'car_care_qa',x:10780,y:2820,w:770,h:210,mode:'READ · VIN-SPECIFIC · params.query',lines:['当前车辆保养/保险/权益等非实时信息','要求正确车辆绑定与数据范围','返回：单车长期车务结果'],foot:'错车率必须为 0；实时车况不走这里'},
+      {step:'T26',title:'visual_qa',x:9940,y:3060,w:770,h:210,mode:'READ · LIVE VISION · params.query',lines:['查询车内 / 车外当前视觉事实','视觉无联网能力；外部知识需再串 web_search','返回：可见目标 / 场景描述'],foot:'不理解屏幕；视角边界明确；建筑年份类来源需核验'},
+
+      {step:'T12',title:'user_memory_search',x:11680,y:2340,w:950,h:210,mode:'READ · PRIVATE MEMORY · params.query',lines:['按当前注册用户检索事实 / 偏好 / 经历','找到：作为中间事实；空结果：明确未找到','可继续澄清，不得臆造记忆'],foot:'仅注册用户；必须按身份和场景做隐私过滤'},
+      {step:'T13',title:'face_id_register',x:12710,y:2340,w:950,h:210,mode:'WRITE · IDENTITY · params.query',lines:['注册人脸、名字、座位；支持昵称修改','名字和位置缺一不可','失败后按相机提示调整再重试'],foot:'缺必填信息先问；验收绑定准确率与误注册率'},
+      {step:'T14',title:'user_memory_operate',x:11680,y:2580,w:950,h:210,mode:'WRITE · MEMORY · params.query',lines:['只写客观事实 / 偏好；纠正时覆盖旧记录','不确定信息必须先向用户确认','返回写入 / 更新结果'],foot:'仅注册用户；错误记忆写入率应接近 0'},
+      {step:'T16',title:'goal_list_update',x:12710,y:2580,w:950,h:210,mode:'WRITE · LONG-RUNNING GOAL · params',lines:['新增 / 删除持续、条件、定时目标','先查已有 Goal：相似不重建，补充不新增','删除依赖 goal_id；结果回 Planner'],foot:'契约缺口：定义 JSON 字符串，示例使用 type/goal_id 字段'}
+    ];
+    tools.forEach(toolCard);
+
+    // 27 工具双列母线：每一列拥有独立输入 / 输出竖轨，连线绝不横穿相邻工具卡。
+    rawE([[10550,1690],[10550,2115]],'Ready ToolCall','main',[10550,2070]);
+    rawE([[4700,2115],[13690,2115]],'','main',null,'noarrow');
+    rawE([[4700,3610],[13690,3610]],'raw result / error / artifact / state','feedback',[9000,3610],'noarrow');
+    const groupCards=[tools.slice(0,5),tools.slice(5,9),tools.slice(9,16),tools.slice(16,23),tools.slice(23,27)];
+    domains.forEach((d,idx)=>{
+      const cards=groupCards[idx];
+      const xs=[...new Set(cards.map(t=>t.x))].sort((a,b)=>a-b);
+      const leftX=xs[0],rightX=xs[1];
+      const leftIn=d.x+18,leftOut=leftX+cards.find(t=>t.x===leftX).w+20;
+      const rightIn=rightX-20,rightOut=d.x+d.w-18;
+      const leftCards=cards.filter(t=>t.x===leftX),rightCards=cards.filter(t=>t.x===rightX);
+      rawE([[leftIn,2115],[leftIn,Math.max(...leftCards.map(t=>t.y+t.h/2))]],'','main',null,'local noarrow');
+      const leftMergeY=idx===4?2850:3610;
+      rawE([[leftOut,Math.min(...leftCards.map(t=>t.y+t.h/2))],[leftOut,leftMergeY]],'','feedback',null,'local noarrow');
+      rawE([[rightIn,2115],[rightIn,Math.max(...rightCards.map(t=>t.y+t.h/2))]],'','main',null,'local noarrow');
+      rawE([[rightOut,Math.min(...rightCards.map(t=>t.y+t.h/2))],[rightOut,3610]],'','feedback',null,'local noarrow');
+      leftCards.forEach(t=>{const cy=t.y+t.h/2;rawE([[leftIn,cy],[t.x,cy]],'','main',null,'local');rawE([[t.x+t.w,cy],[leftOut,cy]],'','feedback',null,'local noarrow')});
+      rightCards.forEach(t=>{const cy=t.y+t.h/2;rawE([[rightIn,cy],[t.x,cy]],'','main',null,'local');rawE([[t.x+t.w,cy],[rightOut,cy]],'','feedback',null,'local noarrow')});
+      rawE([[leftOut,leftMergeY],[rightOut,leftMergeY]],'','feedback',null,'local noarrow');
+    });
+    rawE([[13690,3610],[13755,3610],[13755,610],[10940,610],[10940,650]],'工具执行结果进入统一 Result Bus','feedback',[12900,610]);
+
+    // 当前 SP 契约缺口，位于工具域空白处，不藏进脚注。
+    N('TGAP','8.GAP',11680,3060,1980,260,'当前 SP 契约缺口（需治理）','不要把建议字段冒充当前事实',['工具编号跳过 7 但总数确为 27；feedback 无 action_id','goal_list_update / image_generate 定义与示例 schema 冲突','引用不存在的 trip_plan_record；示例出现 parking_fee_pay','auto_drive 缺档位/车速/ODD/可用状态等安全前置字段'],'risk','risk','这些问题会直接造成错调、错归因、无法稳定验收',{lineGap:30});
+
+    /* ============================== 9A · 当前 Goal / Advisor / Trigger ============================== */
+    N('G1','9A.1',100,3740,500,180,'需要未来继续吗？','future / condition / periodic',['同步会话无法一次完成时才进入异步目标','即时动作留在主链，不滥建 Goal'],'bus','confirmed','条件、定时、持续、长程');
+    N('G2','9A.2',640,3740,500,180,'goal_list_update','add_goal / delete_goal',['Planner 输出当前 SP 工具调用','补充旧目标不新建；相似目标先去重'],'action','current','删除使用 goal_id');
+    N('G3','9A.3',1180,3740,500,180,'合理性 / 数量仲裁','condition + action',['可感知性、可能性、频率、安全、冲突','超限 / 荒谬 / 危险：error 或拒绝'],'risk','confirmed','具体上限见本泳道底部；部分已过时');
+    N('G4','9A.4',1720,3740,500,180,'Goal List','shared goal board',['目标、状态、细节与进展','注入 Planner / Advisor / HMI'],'data','confirmed','不是完整 Task/Run/Event 事实库');
+    N('G5','9A.5',2260,3740,500,180,'动态 Advisor 实例','one Goal ↔ one Advisor',['重思考、轻时延；监控目标达成','更新进展；决定是否需信息 / 订阅 / advice'],'model','confirmed','目标完成 / 取消后生命周期结束');
+    N('G6','9A.6',2800,3740,500,180,'订阅需求拆解','time / signal / perception',['定时需求、结构化条件、动态感知目标','形成 Trigger / 感知订阅描述'],'model','confirmed','条件不可感知时不得注册');
+    N('G7','9A.7',3340,3740,1160,180,'Trigger / 感知器注册与生命周期绑定','subscribe · update · cancel',['既有链路：注册时间 / 信号 / 模型触发，命中后唤醒 Advisor / Planner','目标更新同步更新订阅；目标结束必须注销 Trigger 并清理动态感知'],'bus','confirmed','Trigger 只负责条件命中，不负责完整目标完成');
+    N('G8','9A.8',100,4020,500,180,'Timer / 周期源','absolute · relative · periodic',['10 分钟后 / 每 5 分钟 / 指定时刻','输出 tick + scheduled_at'],'bus','confirmed','用户周期与 VLM 采样周期必须分开');
+    N('G9','9A.9',640,4020,500,180,'结构化信号源','CAN / DMS / nav / system',['车温、车速、座位、距离、系统事件','输出 timestamped signal / snapshot'],'bus','confirmed','信号缺失 / 陈旧 → Unknown');
+    N('G10','9A.10',1180,4020,700,180,'Trigger 条件求值','RuleSpec + signal / report',['time / deterministic / model_inference','No / Unknown：等待；Yes：生成触发结果'],'model','confirmed','防抖、冷却、优先级、重复抑制');
+    N('G11','9A.11',1920,4020,500,180,'Trigger fired','event / callback',['携带目标 / 条件 / 时刻 / 快照关联','当前可唤醒动态 Advisor / Planner'],'bus','confirmed','命中 ≠ 工具成功 ≠ 目标完成');
+    N('G12','9A.12',2460,4020,500,180,'动态 Advisor 被唤醒','Goal + latest Context',['判断目标是否达成、当前是否适合推进','必要时调用信息工具或产出 advice'],'model','confirmed','建议可被 Planner 拒绝');
+    N('G13','9A.13',3000,4020,500,180,'advisor 输入','{advisor}', ['作为 P1 进入 Input Manager','面向用户做行动 / 表达，不回复 Advisor'],'bus','current','同 Advisor 排队只留最新');
+    N('G14','9A.14',3540,4020,900,180,'目标进展 / 状态更新','Goal detail + progress',['未完成：回 waiting，继续监听','已完成 / 用户取消 / 下电 / 过期：进入清理'],'data','confirmed','不能只因 Trigger 命中就标完成');
+    N('G15','9A.15',220,4310,700,190,'目标达成了吗？','feedback + Context',['No：更新进展，继续订阅','Yes：形成完成依据并进入生命周期终止'],'model','confirmed','必须回到真实执行结果判断');
+    N('G16','9A.16',980,4310,900,190,'结束原因','finished / canceled / expired',['也可能 vehicle_offline / failed','每种原因决定是否通知用户、是否补偿'],'risk','check','旧 Goal 模型的终态语义需补齐');
+    N('G17','9A.17',1940,4310,700,190,'注销 Trigger','rule / binding',['停止后续 timer、signal、model callback','注销失败：重试 + 告警'],'action','confirmed','不允许“界面已删但后台仍触发”');
+    N('G18','9A.18',2700,4310,700,190,'清空动态 VLM 任务','dynamic_watch_tasks=[]',['AlwaysOn 关闭或目标结束时全量空列表覆盖','保留其他目标时重算剩余全量列表'],'action','confirmed','清理成功率 / 残留观察率');
+    N('G19','9A.19',3460,4310,700,190,'删除 Goal / Advisor','goal_id',['从 Goal List 移除；结束临时 Advisor','结果回 Planner / HMI，保持说做一致'],'action','current','删除失败不得宣称已取消');
+    N('G20','9A.LIMIT',500,4580,3560,230,'容量与版本冲突｜必须向 Owner 问清','历史 PRD 上限 ≠ 当前 VLM 协议',['历史：定时6、条件6、GUI长程1、其他长时2；旧 VLM 目标计入定时且上限1','9/2 VLM 正文：dynamic_watch_tasks 同时最多3；编号唯一；全量列表替换','超过3个由 DT 拦截并 error feedback，但保留谁 / 替换谁 / 优先级 / 话术仍 TBD'],'risk','check','验收时必须区分“Goal 数量策略”和“VLM 下发容量”',{lineGap:31});
+
+    // Goal 入口从 Planner 引出，绕开 27 工具网格。
+    rawE([[7780,1390],[7780,1360],[8740,1360],[8740,2040],[3000,2040],[3000,3605],[350,3605],[350,3740]],'条件 / 定时 / 持续 → goal_list_update','async',[1700,3605]);
+    E('G1','G2','create / delete');E('G2','G3','goal request','async');E('G3','G4','accepted goal','async');E('G4','G5','goal context','async');E('G5','G6','subscription need','async');E('G6','G7','register / update','async');
+    E('G7','G8','timer rule','async',{from:'b',to:'t',mode:'v',midY:3970});
+    E('G7','G9','signal rule','async',{from:'b',to:'t',mode:'v',midY:3970});
+    rawE([[350,4200],[350,4250],[1530,4250],[1530,4200]],'tick','async',[820,4250]);E('G9','G10','signal + snapshot','async');E('G10','G11','Yes / fired','async');E('G11','G12','wake');E('G12','G13','advice');E('G13','G14','progress / action');
+    E('G14','G15','feedback','feedback',{from:'b',to:'t',mode:'v',midY:4260});
+    E('G15','G16','Yes / stop','async');E('G16','G17','cleanup');E('G17','G18','clear perception');E('G18','G19','delete goal');
+    rawE([[220,4405],[60,4405],[60,3605],[3920,3605],[3920,3740]],'No：waiting / 继续监听','async',[2000,3605]);
+    rawE([[3250,4200],[3250,4260],[20,4260],[20,455],[3640,455],[3640,650]],'advisor → Input Manager（P1）','async',[1700,455]);
+    rawE([[2170,4200],[2170,4285],[4565,4285],[4565,620],[4385,620],[4385,650]],'既有 Trigger event → Input Manager','async',[4565,1650]);
+
+    /* ============================== 9B · VLM 动态感知 ============================== */
+    N('VL1','9B.1',4660,3740,500,180,'AlwaysOn 开关门','ON / OFF',['OFF：拒绝创建并引导开启','ON→OFF：立即下发空列表并结束相关任务'],'risk','confirmed','门禁在创建与运行中都要检查');
+    N('VL2','9B.2',5220,3740,500,180,'纯感知目标改写','user goal → perception target',['“宝宝醒了告诉我”→“二排右宝宝是否醒来”','消解人物 / 座位；去掉提醒和动作要求'],'model','confirmed','VLM 不负责“告诉用户 / 打开空调”');
+    N('VL3','9B.3',5780,3740,500,180,'动态任务列表管理','dynamic_watch_tasks[]',['最多3个；任务编号唯一','新增 / 修改 / 删除均用新全量列表覆盖'],'data','confirmed','空列表 = 全部清除；超3仲裁仍 TBD');
+    N('VL4','9B.4',6340,3740,500,180,'AI Service / 端云透传','full watch list',['TaskService 经服务端 / AI Service 下发 AI Box','不能把云端 UP 当成本地直写接口'],'bus','confirmed','验收下发成功率与端侧收敛版本');
+    N('VL5','9B.5',6900,3740,500,180,'VLM AlwaysOn 推理','camera + watch tasks',['约 6–7 秒一次；存在抖动','可能被更高优任务抢占，本轮不推理 / 不上报'],'model','confirmed','该频率不是稳定 SLA');
+    N('VL6','9B.6',7460,3740,500,180,'默认 / 动态结果拆分','VLM outputs',['默认摘要 → 原 Context Topic','动态任务结果 → 独立动态 Topic'],'bus','confirmed','多个动态任务共用一个动态 Topic');
+    N('VL7','9B.7A',4660,4020,500,180,'默认感知 Topic','default result',['常规环境 / 人物 / 动作摘要','进入 Context 4.4，不参与任务编号关联'],'data','confirmed','与任务专属动态结果严格分流');
+    N('VL8','9B.7B',5220,4020,500,180,'动态感知 Topic','dynamic results',['仅动态任务结果；整包上报','结果为空 [] 时不发布'],'data','confirmed','空包抑制率应验收');
+    N('VL9','9B.8',5780,4020,500,180,'TaskService 接收与关联','task number + report',['按返回任务编号关联原下发观察任务','恢复用户目标 / RuleSpec 上下文'],'bus','confirmed','缺这一步 Trigger 无法知道描述属于谁');
+    N('VL10','9B.9',6340,4020,600,180,'Trigger 语义匹配','objective report + RuleSpec',['VLM 只说“睁眼/有动作”；Trigger 判断“醒来”','No / Unknown 等下一份 report；Yes 才 callback'],'model','confirmed','语义 Precision / Recall');
+    N('VL11','9B.10',7000,4020,500,180,'TriggerCallback','task / callback / time',['命中后输出 callback，不推理最终 action','当前链唤醒 Advisor；WIP 先进 Task Ingress'],'bus','confirmed','不得直接连 Tool');
+    N('VL12','9B.11',7560,4020,500,180,'用户节奏定时器','“每1分钟告诉我…”',['1 分钟由 TaskService 自己计时','到点汇总 / 选取最近观察；VLM 仍约6–7秒采样'],'bus','confirmed','用户通知周期 ≠ VLM 推理周期');
+    N('VL13','9B.N',4740,4310,650,190,'No / Unknown','no stable match',['保持 waiting；不创建执行 Run','下一条非空动态 report 再匹配'],'risk','confirmed','Unknown 不能当 false 更不能当 success');
+    N('VL14','9B.Y',5450,4310,650,190,'Yes / Hit','matched condition',['生成一次 callback；携带快照与去重绑定','重复观察不得重复激活同一次任务'],'action','confirmed','命中仍不是最终完成');
+    N('VL15','9B.OFF',6160,4310,650,190,'AlwaysOn OFF / 目标结束','clear all or remaining list',['重算剩余 full list；无任务则下发 []','确认端侧清除后才结束生命周期'],'risk','confirmed','残留任务会造成幽灵触发');
+    N('VL16','9B.GATE',6870,4310,1120,190,'禁止直连门','VLM ≠ decision maker',['禁止 VLM → Planner / Tool；禁止 report → “条件已达成”','正确：split → TaskService关联 → Trigger match → callback'],'risk','risk','这是本链最关键的架构边界');
+
+    E('VL1','VL2','ON');E('VL2','VL3','perception-only target');E('VL3','VL4','full list');E('VL4','VL5','device task set');E('VL5','VL6','observations');
+    E('VL6','VL7','default','context',{from:'b',to:'t',mode:'v',midY:3970});E('VL6','VL8','dynamic','context',{from:'b',to:'t',mode:'v',midY:3970});
+    E('VL8','VL9','non-empty package','context');E('VL9','VL10','correlated report','context');
+    E('VL10','VL13','No / Unknown','risk',{from:'b',to:'t',mode:'v',midY:4260});E('VL10','VL14','Yes','feedback',{from:'b',to:'t',mode:'v',midY:4260});E('VL14','VL11','callback','feedback',{from:'t',to:'b',mode:'v',midY:4260});
+    rawE([[6030,4200],[6030,4260],[7810,4260],[7810,4200]],'latest observations','async',[7180,4260]);
+    rawE([[4660,3830],[4620,3830],[4620,4540],[6485,4540],[6485,4500]],'OFF / cleanup','risk',[4620,4200]);
+    rawE([[4910,4020],[4615,4020],[4615,1060],[5460,1060],[5460,955],[5500,955]],'default topic → Context 4.4','context',[4615,2500]);
+    rawE([[6640,4020],[6640,3985],[1530,3985],[1530,4020]],'VLM report → 当前 Trigger 语义求值','async',[4200,3985]);
+
+    /* ============================== 9C · WIP Task Service ============================== */
+    N('W1','9C.1',8250,3740,560,180,'task_manage','Planner action（当前27外）',['Planner 只决定路由任务管理','create/update/cancel/query 由 Task 链处理'],'wip','wip','当前 SP 没有此工具');
+    N('W2','9C.2',8850,3740,560,180,'Task Agent','pure entry',['解析 ExtraKeyAgentParams 后透传','不生成 TaskSpec；不持久化；不维护生命周期'],'wip','wip','处理结果可回 tool_feedback');
+    N('W3','9C.3',9450,3740,560,180,'Task Ingress / Handler','multi-source input',['接 Task Agent / GUI API / callback / RunResult / query','协议解析、Binding恢复、幂等、按类型分流'],'wip','wip','非法协议 / 重复 callback 在这里拦');
+    N('W4','9C.4',10050,3740,560,180,'TaskView Lookup','user / vehicle / session',['修改 / 取消前定位候选任务','查询时生成结构化只读 TaskView'],'wip','wip','TaskView 是拉取，不负责主动推送');
+    N('W5','9C.5',10650,3740,560,180,'Task Spec Builder','task text + TaskView',['模型判断 create / update / cancel / query','生成 TaskCommand{operation,target_task_id,spec}'],'wip','wip','歧义 / 找不到目标时澄清');
+    N('W6','9C.6',11250,3740,560,180,'Task Manager','lifecycle core',['确定性状态机处理 create/update/cancel/activate/result','协调 Repo / Trigger / Runtime / Message'],'wip','wip','模型不直接维护生命周期');
+    N('W7','9C.7',11850,3740,560,180,'Repository + Binding','Task / Run / Event / external IDs',['事务存储事实；恢复 callback/recommend/request/provider','不承担业务状态判断'],'wip','wip','错绑定用户 / 车辆必须为 0');
+    N('W8','9C.8',12450,3740,560,180,'Trigger Adapter','Task RuleSpec',['适配现有 Trigger 协议；注册 / 更新 / 停用','维护 rule_ref / callback_binding / scope'],'wip','wip','Task 不维护第二套 DSL');
+    N('W9','9C.9',13050,3740,620,180,'Trigger','time / signal / VLM report',['只判断是否命中并发 callback','不推理最终 action；不维护 Task / Run'],'wip','wip','callback 必须先回 Ingress');
+
+    N('W10','9C.10',8250,4020,560,180,'Callback → Ingress','task_id + callback_id',['恢复 Binding；幂等去重；定位已有 Task','结构化事件直接交 Manager，不进 Spec Builder'],'wip','wip','禁止 Trigger callback → Planner');
+    N('W11','9C.11',8850,4020,560,180,'Activate + Create Run','Task Manager',['推进 waiting → running；创建一次 Run','写 Event / Snapshot 后再进入执行链'],'wip','wip','重复 callback 不得创建重复 Run');
+    N('W12','9C.12',9450,4020,560,180,'Execution Guard','latest Context',['只检查额外执行前约束：座位/设备/安全','不再次判断已由 Trigger 命中的原条件'],'wip','wip','失败 → RunStatusSkipped');
+    N('W13','9C.13',10050,4020,560,180,'Runtime Dispatcher','Run + runtime type',['选择通用 Runtime 或生态 Provider','不绑定具体 Planner / GUI，不管生命周期'],'wip','wip','运行时路由');
+    N('W14','9C.14',10650,4020,560,180,'General Runtime','task execution text',['先生成 recommend_id 并持久化 Binding','再走 Recommend → Frontier → Client'],'wip','wip','客户端无需透传 task_id / run_id');
+    N('W15','9C.15',11250,4020,560,180,'Recommend / Frontier','active input',['生成主动回流消息，找到目标车与会话','将任务触发转成原 Flow 可消费输入'],'wip','wip','不是新的推理大脑');
+    N('W16','9C.16',11850,4020,560,180,'Client / beforeFlow','existing request path',['进入原 HTTP/RPC → Flow','继续使用当前 Input → Planner → Tool 主链'],'wip','wip','复用而非重建');
+    N('W17','9C.17',12450,4020,560,180,'同一 Planner 主链','Task-triggered input',['Planner 基于最新 Context 生成本轮 action','结果必须走独立可靠 Result Hook'],'wip','wip','紫线回到第 3 / 4 / 5 区');
+    N('W18','9C.13B',13050,4020,620,180,'Ecosystem Runtime','GUI / provider',['Task 管外层 Run；Provider 管内部 step','GUI 多个 HTTP step 共用一个 Run'],'wip','wip','RUNNING / SUCCESS / FAIL');
+
+    N('W19','9C.18',8250,4310,560,190,'Task Result Hook','full Flow response',['接结构化 AgentObservation / Tool feedback','构建 RunResult；可靠写回 Task Service'],'wip','wip','不能只依赖尽力而为 afterFlow');
+    N('W20','9C.19',8850,4310,560,190,'AgentObservation','execution evidence',['动作、工具结果、错误、用户等待阶段','关联 recommend/request/log 等外部 ID'],'wip','wip','统一证据对象');
+    N('W21','9C.20',9450,4310,560,190,'HandleRunResult','idempotent transaction',['更新 Run、Task、Event；失败重试 / 补偿','终态与 close reason 一致写入'],'wip','wip','Result Hook 写回成功率');
+    N('W22','9C.21',10050,4310,560,190,'Task / Run / Event','source of truth',['Task 状态 + Run 阶段 + 事件时间线','支持恢复、查询、审计与异常关闭'],'wip','wip','事实库不靠对话文本猜');
+    N('W23','9C.22',10650,4310,560,190,'TaskMessage','state change message',['由 Task Event 构建主动状态消息','包含展示信息但不决定生命周期'],'wip','wip','拉取 TaskView 与主动消息分开');
+    N('W24','9C.23',11250,4310,560,190,'Message Dispatcher','dispatch policy',['选择 Frontier / SSE / HMI / 业务 Adapter','控制通知时机、通道与去重'],'wip','wip','有效通知率 / 打扰率');
+    N('W25','9C.24',11850,4310,560,190,'SSE / HMI / 任务中心','TaskView + TaskMessage',['展示等待、执行、需确认、成功、失败','用户可查询、取消并看到真实失败原因'],'wip','wip','UI 不是状态事实源');
+    N('W26','9C.25',12450,4310,1220,190,'Observability','cross-system correlation',['log_id / vehicle_id / task_id / run_id','callback_id / recommend_id / request_id / input_source / operation'],'wip','wip','所有 ID 串联完整率');
+    N('W27','9C.STATE',8420,4580,5100,230,'Task / Run 状态机｜确定性管理，不交给模型自由发挥','Task: waiting → running → closed',['Task close_reason：finished / canceled / expired / failed / vehicle_offline','Run：running → succeeded / failed / skipped / canceled','Run phase：executing / waiting_user_confirmation / waiting_client / waiting_external'],'wip','wip','每一次非法状态迁移都要被拦截、记录并告警',{lineGap:31});
+
+    E('W1','W2','task action','wip');E('W2','W3','normalized request','wip');E('W3','W4','lookup','wip');E('W4','W5','TaskView','wip');E('W5','W6','TaskCommand / TaskSpec','wip');E('W6','W7','persist / bind','wip');E('W7','W8','Task + RuleSpec','wip');E('W8','W9','Trigger protocol','wip');
+    rawE([[13360,3920],[13360,3980],[8530,3980],[8530,4020]],'TriggerCallback 必须先到 Ingress','wip',[10800,3980]);
+    E('W10','W11','activate','wip');E('W11','W12','Run + snapshot','wip');E('W12','W13','execute / skipped','wip');E('W13','W14','general','wip');E('W14','W15','recommend_id','wip');E('W15','W16','active request','wip');E('W16','W17','beforeFlow','wip');
+    rawE([[10330,4200],[10330,4260],[13360,4260],[13360,4200]],'ecosystem','wip',[12920,4260]);
+    rawE([[12730,4200],[12730,4280],[13775,4280],[13775,455],[4580,455],[4580,1030],[4480,1030]],'WIP Task active input → 原 Input Manager / Context / Planner','wip',[10200,455]);
+    rawE([[13160,1750],[13770,1750],[13770,4270],[8530,4270],[8530,4310]],'完整 Flow 响应 / Completion evidence → 独立 Result Hook','wip',[11000,4270]);
+    E('W19','W20','evidence','wip');E('W20','W21','RunResult','wip');E('W21','W22','transaction','wip');E('W22','W23','Task Event','wip');E('W23','W24','TaskMessage','wip');E('W24','W25','push / display','wip');
+    rawE([[10330,4500],[10330,4540],[13060,4540],[13060,4500]],'trace / metrics','wip',[11680,4540]);
+    rawE([[12730,3740],[12730,3600],[5470,3600],[5470,3740]],'RuleSpec / perception target → VLM 子链','wip',[9300,3600]);
+    rawE([[7250,4020],[7250,3990],[8530,3990],[8530,4020]],'VLM matched callback → Task Ingress','wip',[7900,3990]);
+
+    /* ============================== 10 · 指标与关键问题 ============================== */
+    const metrics=[
+      {x:80,y:5060,w:1650,h:610,title:'M1 · 语音 / ASR｜先证明“听对了”',lines:[
+        '指标：权限异常可恢复率、误唤醒 / 漏唤醒','目标：唤醒≤350ms；安静≥98%；噪声≥95%','指标：AEC/降噪延迟、SNR、端点截断率','目标：前处理≤50ms；SNR≥20dB','指标：语义 WER、否定词/数字/时间/POI 槽位保真','目标：ASR 首字≤200ms；尾字≤500ms','指标：speaker / sound-zone / position 准确率','指标：partial→final 回改率、在线失败离线兜底率'],q:[
+        '能否从 request_id 回放原音频、partial 和 final？','“不开窗”识别成“开窗”在哪一层拦住？','多人同时说话时，谁的 Query 被保留或合并？','弱置信声区是否会被当成确定座位执行？'
+      ]},
+      {x:1770,y:5060,w:1650,h:610,title:'M2 · 端云路由｜再证明“走对了”',lines:[
+        '指标：离线缓存/FC precision、白名单误放行率','指标：复杂请求上云 recall、错误端侧短路率','指标：云 Reject / 仲裁准确率、升级率','指标：端云双执行率、迟到云结果覆盖率','指标：heartbeat 超时率、端侧 fallback 成功率','指标：route P50/P95、无结果兜底耗时','安全：高风险误放行率必须为 0','证据：端、云候选与最终采纳结果同 trace'],q:[
+        '唯一裁决到底在哪个进程、以什么字段落账？','白名单命中后如何取消 / 拒绝云端结果？','云端 2 秒无 heartbeat 时，端侧拿哪个版本兜底？','三级 RAG 是真实线上节点还是 OnePage 目标？'
+      ]},
+      {x:3460,y:5060,w:1650,h:610,title:'M3 · Input Manager｜证明“没丢任务”',lines:[
+        '指标：user/advisor/feedback/event 输入误分类率','指标：首 token 前合并正确率、错合并率','指标：TTS 打断成功率、关键信息丢失率','指标：P1 排队时延、队列任务遗漏 / 重放率','指标：同 Advisor 最新保留正确率','指标：建议过期丢弃率、过期后错误触发率','指标：长程任务误合并率、AIGC 通知重复率','状态：当前单通路；高优队列策略仍待补齐'],q:[
+        '新 Query 在推理前、首 token 后、TTS 中分别怎么处理？','被端侧召走时，云历史保留什么、丢弃什么？','哪些 tool_feedback 可合并，哪些必须独立排队？','排队过多时有上限、降级和用户提示吗？'
+      ]},
+      {x:5150,y:5060,w:1650,h:610,title:'M4 · Context｜证明“模型看到的事实对”',lines:[
+        '指标：必要事实覆盖率、关键事实保留率','指标：source/timestamp/TTL 完整率、陈旧值命中率','指标：unknown / stale 识别率、冲突裁决准确率','指标：身份/座位绑定准确率、隐私越权率=0','指标：历史压缩损失率、目标/任务视图新鲜度','指标：动态示例召回有效率、负迁移率','指标：一次决策快照一致率、注入成功率','原则：最新端状态优先旧对话；建议不等于事实'],q:[
+        '每个值能否回答“谁写的、什么时候、何时过期”？','导航与车控状态属于同一时刻的 snapshot 吗？','Goal List 与 WIP TaskView 是否被错误同时注入？','记忆无结果时，Planner 会不会把猜测当事实？'
+      ]},
+      {x:6840,y:5060,w:1650,h:610,title:'M5 · Planner AI 能力｜真正的核心',lines:[
+        '指标：目标/意图理解、身份与空间指代准确率','指标：任务类型、原子拆解完整率、冗余动作率','指标：工具选择、参数、依赖 DAG、并发准确率','指标：必要澄清 recall、过度问询率','指标：安全/能力拒绝准确率、车控幻觉率','指标：talk/action 一致、过度承诺率','指标：JSON 合法率、工具名越界率、示例依赖度','指标：多轮完成率、Replan 成功率、长上下文退化'],q:[
+        '评的是单轮 JSON 漂亮，还是用户目标最终完成？','信息都给对仍推错，才叫模型能力问题；证据够吗？','同一 case 多跑几次，拆解和工具选择是否稳定？','换 Context / 工具反馈后，模型能否正确改计划？'
+      ]},
+      {x:8530,y:5060,w:1650,h:610,title:'M6 · Tool / Execution｜证明“真的做了”',lines:[
+        '指标：请求受理 / 调用 / 执行 / 生效四段成功率','指标：Tool P50/P95、超时率、重试恢复率','指标：schema 合法率、错误码覆盖、retryable 准确率','指标：action_id 贯穿率、同名并发错配率','指标：幂等命中、重复执行、迟到结果覆盖率','指标：真实状态回读率、读写一致率','指标：部分成功归因率、取消成功率','原则：raw result → feedback → Planner；禁止直跳成功'],q:[
+        '工具“success”证明 RPC 成功还是设备状态已变？','谁维护 dependency DAG，谁阻止 POI/route/navi 并行？','当前 feedback 没 action_id，同名并发怎么一一对应？','工具自播内容与执行结果是否完整回写？'
+      ]},
+      {x:10220,y:5060,w:1650,h:610,title:'M7 · Goal / Trigger / VLM / Task',lines:[
+        '指标：目标创建/去重/删除、Goal 闭环率','指标：规则注册/更新/取消、Trigger 延迟与抖动','指标：误触发/漏触发/重复 callback、去重成功率','指标：VLM 全量列表收敛、任务编号关联成功率','指标：动态空包抑制、6–7s 间隔 P50/P90','指标：VLM→Trigger 语义 Precision / Recall','WIP：Run 终态完整、Result Hook 写回与补偿恢复','WIP：task/run/callback/recommend/request/log 串联率'],q:[
+        'Trigger 命中代表“可以执行一次”还是“目标完成”？','VLM No/Unknown 怎么等待，AlwaysOn 关闭谁清理？','超过3个 VLM 任务保留谁、替换谁、话术是什么？','callback 重放时是否会创建第二个 Run？'
+      ]},
+      {x:11910,y:5060,w:1810,h:610,title:'M8 · 端到端与输出｜最后证明“用户真的得到”',lines:[
+        '指标：核心集完整任务可用率、安全专项可用率','指标：TTFT / TTFP、首个 ACK、完整完成耗时','指标：复合目标全成率、部分失败恢复率','指标：说做一致、虚假成功播报、重复播报率','指标：TTS 首音/完整播报/打断恢复正确率','指标：HMI/语音/真实状态三端一致率','指标：长任务有效通知率、打扰率、取消后残留率','注意：75%/100% 等数值只在指定评测集讨论过'],q:[
+        '复合 Query 的成功分母是动作数还是完整用户目标？','最终“搞定”依赖哪条真实证据，能否回放全链 trace？','TTS、HMI、工具自有 UI 谁是唯一真相源？','指标数值对应哪个数据集、版本、车型、环境和日期？'
+      ]}
+    ];
+    metrics.forEach(metricCard);
+
+    /* ============================== 绘制与交互 ============================== */
+    edges.forEach(drawEdge);
+    nodes.forEach(drawNode);
+
+    // 图例位于全部业务域之外。
+    const lg=add(overlayLayer,S('g'));
+    add(lg,S('rect',{x:40,y:5760,width:13720,height:100,rx:14,fill:'#fff',stroke:'#cbd5e1','stroke-width':2}));
+    txt(lg,80,5795,'图例｜证据与边的读法','metric-title');
+    const legend=[
+      [650,'#2563eb','当前同步主链'],[1900,'#138a5b','真实结果 / 状态回流'],[3350,'#d97706','当前异步 Goal / Trigger'],[5050,'#7c3aed','WIP Task / Context 数据'],[6700,'#dc2626','拒绝 / 风险 / 异常'],[8150,'#94a3b8','设计态控制下发']
+    ];
+    legend.forEach(([x,c,label])=>{add(lg,S('line',{x1:x,y1:5820,x2:x+95,y2:5820,stroke:c,'stroke-width':4,'stroke-dasharray':(c==='#d97706'||c==='#7c3aed'||c==='#dc2626'||c==='#94a3b8')?'11 7':''}));txt(lg,x+115,5826,label,'legend-text')});
+    txt(lg,9600,5795,'证据标签：','metric-title');
+    txt(lg,9600,5830,'当前SP = 提示词已定义；正式资料 = PRD/文字记录确认；需Trace = 闭环必要但生产实现待核；WIP = 目标架构。','legend-text');
+
+    const viewport=document.getElementById('viewport'),board=document.getElementById('board');
+    let scale=.32;
+    function setZoom(z){scale=z;board.style.width=`${13800*z}px`;board.style.height=`${5900*z}px`;svg.style.width=`${13800*z}px`;svg.style.height=`${5900*z}px`}
+    document.querySelectorAll('[data-zoom]').forEach(b=>b.addEventListener('click',()=>setZoom(Number(b.dataset.zoom))));
+    const targets={main:[0,430],tools:[4300,2070],async:[0,3570],metrics:[0,4880]};
+    document.querySelectorAll('[data-jump]').forEach(b=>b.addEventListener('click',()=>{const [x,y]=targets[b.dataset.jump];viewport.scrollTo({left:x*scale,top:y*scale,behavior:'smooth'})}));
+    setZoom(.32);
+  })();
+  </script>
+</body>
+</html>

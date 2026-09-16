@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>系统预设任务端侧框架与即时交互卡对接 · v01</title>
+  <style>
+    :root{
+      --bg:#020617;--panel:#081223;--panel2:#0d192c;--line:#263854;--text:#e8eef8;--muted:#9aabc2;
+      --cyan:#22d3ee;--green:#34d399;--violet:#a78bfa;--amber:#fbbf24;--rose:#fb7185;--orange:#fb923c;
+      --cyan-bg:rgba(8,51,68,.46);--green-bg:rgba(6,78,59,.42);--violet-bg:rgba(76,29,149,.42);
+      --amber-bg:rgba(120,53,15,.34);--rose-bg:rgba(136,19,55,.4);--slate-bg:rgba(30,41,59,.55);
+    }
+    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--text);font-family:"PingFang SC","Microsoft YaHei",Inter,system-ui,sans-serif;line-height:1.65}
+    body:before{content:"";position:fixed;inset:0;pointer-events:none;background-image:linear-gradient(rgba(30,41,59,.2) 1px,transparent 1px),linear-gradient(90deg,rgba(30,41,59,.2) 1px,transparent 1px);background-size:40px 40px;mask-image:linear-gradient(to bottom,black,transparent 85%)}
+    a{color:var(--cyan);text-decoration:none}a:hover{text-decoration:underline}.wrap{width:min(1500px,calc(100% - 34px));margin:auto;position:relative;z-index:1}
+    header{padding:54px 0 28px;border-bottom:1px solid var(--line)}.eyebrow{font:700 12px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.13em;color:var(--cyan);text-transform:uppercase}.version{display:inline-flex;margin-left:10px;padding:4px 9px;border:1px solid var(--amber);border-radius:999px;color:var(--amber);background:var(--amber-bg);letter-spacing:0}
+    h1{font-size:clamp(32px,5vw,62px);line-height:1.08;max-width:1150px;margin:20px 0 18px;letter-spacing:-.035em}h2{font-size:clamp(25px,3vw,39px);line-height:1.2;margin:0 0 12px}h3{font-size:20px;margin:28px 0 10px}p{margin:8px 0}.lead{font-size:19px;color:#c6d4e6;max-width:1120px}.hero-line{margin:24px 0 0;padding:18px 22px;border-left:4px solid var(--cyan);background:linear-gradient(90deg,var(--cyan-bg),transparent);font-size:20px;font-weight:650}.meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}.pill,.status{display:inline-flex;align-items:center;border-radius:999px;padding:4px 9px;font-size:12px;font-weight:700;border:1px solid var(--line);background:var(--slate-bg)}
+    .fact{color:var(--green);border-color:var(--green)}.proposal{color:var(--violet);border-color:var(--violet)}.tbd{color:var(--amber);border-color:var(--amber)}.danger{color:var(--rose);border-color:var(--rose)}
+    nav{position:sticky;top:0;z-index:9;background:rgba(2,6,23,.93);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}nav .wrap{display:flex;gap:7px;overflow-x:auto;padding:10px 0;scrollbar-width:thin}nav a{white-space:nowrap;padding:7px 11px;border:1px solid var(--line);border-radius:8px;color:#b9c8db;font-size:13px}nav a:hover{border-color:var(--cyan);text-decoration:none;color:white}
+    main{padding:26px 0 80px}section{margin:22px 0;padding:28px;border:1px solid var(--line);border-radius:17px;background:linear-gradient(145deg,rgba(8,18,35,.97),rgba(3,10,23,.97));box-shadow:0 16px 55px rgba(0,0,0,.17)}.section-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin-bottom:18px}.section-head p{color:var(--muted);max-width:1050px}.kicker{font:700 11px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.13em;color:var(--cyan);margin-bottom:8px}
+    .grid{display:grid;gap:14px}.g2{grid-template-columns:repeat(2,minmax(0,1fr))}.g3{grid-template-columns:repeat(3,minmax(0,1fr))}.g4{grid-template-columns:repeat(4,minmax(0,1fr))}.card{border:1px solid var(--line);border-radius:13px;padding:18px;background:var(--panel2)}.card h3{margin:0 0 8px;font-size:18px}.card p,.card li{color:#bdcadd}.cyan{border-color:var(--cyan);background:var(--cyan-bg)}.green{border-color:var(--green);background:var(--green-bg)}.violet{border-color:var(--violet);background:var(--violet-bg)}.amber{border-color:var(--amber);background:var(--amber-bg)}.rose{border-color:var(--rose);background:var(--rose-bg)}
+    .big{font-size:22px;font-weight:800;line-height:1.28}.small{font-size:13px;color:var(--muted)}.callout{padding:15px 18px;border-left:4px solid var(--cyan);background:var(--cyan-bg);border-radius:0 10px 10px 0;margin:15px 0}.callout.warn{border-color:var(--amber);background:var(--amber-bg)}.callout.bad{border-color:var(--rose);background:var(--rose-bg)}.callout.good{border-color:var(--green);background:var(--green-bg)}
+    .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px;margin:14px 0}table{border-collapse:collapse;width:100%;min-width:920px;background:rgba(3,10,23,.6)}th,td{padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:top;text-align:left}th{position:sticky;top:0;background:#101d31;color:#dce8f8;font-size:13px;z-index:1}td{font-size:13px;color:#bdcadd}tr:last-child td{border-bottom:0}code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}code{color:#d8c9ff}pre{white-space:pre-wrap;overflow:auto;padding:16px;border-radius:11px;background:#01050d;border:1px solid var(--line);color:#b8eaf2;font-size:12px;line-height:1.6}
+    .diagram{overflow:auto;border:1px solid var(--line);border-radius:13px;background:#030a17;margin:16px 0}.diagram svg{display:block;min-width:1040px;width:100%;height:auto}.b{stroke-width:1.5}.b-front{fill:#0f172a;stroke:var(--cyan)}.b-back{fill:#0f172a;stroke:var(--green)}.b-data{fill:#0f172a;stroke:var(--violet)}.b-ext{fill:#0f172a;stroke:#94a3b8}.b-safe{fill:#0f172a;stroke:var(--rose)}.b-open{fill:#0f172a;stroke:var(--amber);stroke-dasharray:6 4}.lane{fill:#07111f;stroke:#243552;stroke-width:1}.arrow{fill:none;stroke:#64748b;stroke-width:2;marker-end:url(#arr)}.arrow-cyan{stroke:var(--cyan)}.arrow-green{stroke:var(--green)}.arrow-rose{stroke:var(--rose);stroke-dasharray:6 4}.svg-title{font:700 12px ui-monospace,SFMono-Regular,Menlo,monospace;fill:white}.svg-text{font:500 10px "PingFang SC","Microsoft YaHei",sans-serif;fill:#bdcadd}.svg-small{font:500 9px "PingFang SC","Microsoft YaHei",sans-serif;fill:#8295af}.svg-label{font:700 9px ui-monospace,SFMono-Regular,Menlo,monospace;fill:var(--cyan)}
+    details{margin:12px 0;border:1px solid var(--line);border-radius:10px;background:#07101e}summary{cursor:pointer;padding:12px 15px;color:#d6e3f3;font-weight:700}details>div{padding:0 15px 15px}.step-list{counter-reset:step;display:grid;gap:10px}.step-row{display:grid;grid-template-columns:54px 1.1fr 1fr 1.2fr 1.2fr 1.2fr;gap:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#07101e}.step-row>div{padding:12px;border-right:1px solid var(--line);font-size:13px;color:#bdcadd}.step-row>div:last-child{border-right:0}.step-no{display:grid;place-items:center;font:800 15px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--cyan);background:var(--cyan-bg)}.label{display:block;color:#7f93ae;font-size:10px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}.script{padding:20px;border:1px solid var(--violet);background:var(--violet-bg);border-radius:13px;font-size:16px}.checklist{padding-left:20px}.checklist li{margin:7px 0;color:#c5d2e2}.footer{padding:28px 0;color:#71839c;font-size:12px;border-top:1px solid var(--line)}
+    @media(max-width:900px){.g2,.g3,.g4{grid-template-columns:1fr}.section-head{display:block}.step-row{grid-template-columns:44px 1fr}.step-row>div{border-bottom:1px solid var(--line);border-right:0}.step-row>div:last-child{border-bottom:0}section{padding:20px}.wrap{width:min(100% - 20px,1500px)}}
+    @media print{nav{display:none}body,section{background:white;color:#111}section{break-inside:avoid;box-shadow:none}.card,p,td,.lead{color:#222}.diagram{background:#020617}.wrap{width:96%}}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <div class="eyebrow">EDGE FRAMEWORK PRD <span class="version">v01</span></div>
+      <h1>系统预设任务端侧框架<br>与即时交互卡对接</h1>
+      <p class="lead">框架宣讲稿：只讲端侧任务从任务中心开关、Trigger判断、即时交互卡、本地可见即可说，到执行前复核与真实车况回读。天气/路况保护是完整样例；儿童锁只保留资料冲突，不冒充已定方案。</p>
+      <div class="hero-line">一句话边界：<b>Trigger判断“现在要不要问”</b>；<b>即时交互卡负责“怎么问、用户怎么选”</b>；<b>Trigger收到选择后才决定是否执行</b>。</div>
+      <div class="meta"><span class="status fact">当前已有结论</span><span class="status proposal">建议方案</span><span class="status tbd">待研发确认</span><span class="pill">目标：框架宣讲，不承诺排期</span><span class="pill">Owner：触发器产品 王泽民</span></div>
+    </div>
+  </header>
+  <nav><div class="wrap"><a href="#read">先看这一页</a><a href="#background">背景与目标</a><a href="#roles">职责图</a><a href="#sequence">时序图</a><a href="#state">状态图</a><a href="#contract">卡片合同</a><a href="#weather">天气样例</a><a href="#exceptions">异常验收</a><a href="#script">评审话术</a><a href="#sources">证据</a></div></nav>
+  <main class="wrap">
+    <section id="read">
+      <div class="section-head"><div><div class="kicker">00 · READ THIS FIRST</div><h2>你只需要交付两次“交接”</h2><p>你不是卡片产品，也不需要替VUI写底层代码。你的PRD必须把Trigger与卡片之间的请求、回调讲清楚。</p></div><span class="status fact">你本人职责</span></div>
+      <div class="g4 grid">
+        <article class="card cyan"><div class="big">① 何时出卡</div><p>任务有效、信号可用、规则命中、防抖和去重通过后，才创建一次运行事件。</p></article>
+        <article class="card green"><div class="big">② 给卡片什么</div><p>事件标识、来源、文案、按钮、TTS、本地语音路由、有效期、回调对象。</p></article>
+        <article class="card violet"><div class="big">③ 卡片回什么</div><p>展示结果；确认/拒绝/关闭/超时；卡片隐藏、过期、打断等生命周期事件。</p></article>
+        <article class="card rose"><div class="big">④ 回来后做什么</div><p>再次读最新状态；通过才车控；读取真实车辆状态；把结果更新回卡片。</p></article>
+      </div>
+      <div class="callout bad"><b>不要这样提需求：</b>“天气满足就弹卡，用户点确定就开灯。”它缺少任务门禁、数据时效、事件ID、展示ACK、语音路由、卡片过期、执行前复核和真实状态回读。</div>
+      <div class="callout good"><b>应该这样提：</b>“Trigger为本次命中创建run_event，调用标准卡片能力；卡片带同一run_event返回标准选择；Trigger复核后执行，最终用真实车况更新卡片。”</div>
+    </section>
+
+    <section id="background">
+      <div class="section-head"><div><div class="kicker">01 · BACKGROUND / OBJECTIVE</div><h2>为什么需要独立的端侧框架</h2><p>天气Trigger前半段已进入开发，但“条件命中之后如何问用户、用户回答如何回来、车控怎么收口”仍未形成一份可对接合同。</p></div><span class="status fact">天气链路明确</span></div>
+      <div class="g3 grid">
+        <article class="card"><h3>问题</h3><p>任务中心、Trigger、VUI、可见即可说和车控各自有能力，但资料把“弹卡”写成一个动作，研发无法据此联调。</p></article>
+        <article class="card"><h3>目标</h3><p>让每个团队都能回答：谁发什么、谁判断、谁返回什么、事件何时失效、哪一种状态才算成功。</p></article>
+        <article class="card"><h3>用户价值</h3><p>危险天气下弱网仍能及时询问；用户拒绝或场景变化不误执行；页面展示和车辆真实状态一致。</p></article>
+      </div>
+      <div class="table-wrap"><table><thead><tr><th>受众</th><th>看完后必须知道</th><th>不要求本次完成</th></tr></thead><tbody>
+        <tr><td>端侧Trigger研发</td><td>规则命中后如何创建事件、调用卡片、消费反馈、复核和收口</td><td>本次不要求给出排期</td></tr>
+        <tr><td>VUI/即时交互卡研发</td><td>端侧Trigger拉卡需要什么协议、如何返回ACK/交互/生命周期</td><td>不替Trigger判断天气规则</td></tr>
+        <tr><td>可见即可说研发</td><td>卡片有效期内如何注册按钮语义、如何注销、如何形成标准结果</td><td>不做开放域Planner理解</td></tr>
+        <tr><td>赛力斯信号/车控</td><td>提供什么状态、执行什么动作、如何回读真实结果</td><td>不决定主动服务策略</td></tr>
+        <tr><td>测试</td><td>按事件ID还原整条链，验证弱网、超时、重复、状态变化和假成功</td><td>不替产品决定规则冲突</td></tr>
+      </tbody></table></div>
+    </section>
+
+    <section id="roles">
+      <div class="section-head"><div><div class="kicker">02 · DIAGRAM 1 / RESPONSIBILITY</div><h2>职责图：谁判断，谁交互，谁执行</h2><p>橙色虚线是本次需要研发确认的产品合同；卡片位于Trigger和用户之间，不在Trigger内部，也不在车控内部。</p></div><span class="status proposal">目标框架</span></div>
+      <div class="diagram"><svg viewBox="0 0 1400 620" role="img" aria-label="端侧系统预设任务职责架构图">
+        <defs><marker id="arr" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#64748b"/></marker><pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0L0 0 0 40" fill="none" stroke="#1e293b" stroke-width=".5"/></pattern></defs>
+        <rect width="1400" height="620" fill="#020617"/><rect width="1400" height="620" fill="url(#grid)"/>
+        <rect x="28" y="35" width="1344" height="130" rx="13" class="lane"/><text x="48" y="62" class="svg-label">MANAGEMENT · 任务是否允许</text>
+        <rect x="28" y="190" width="1344" height="180" rx="13" class="lane"/><text x="48" y="217" class="svg-label">RUNTIME · 什么时候询问</text>
+        <rect x="28" y="395" width="1344" height="150" rx="13" class="lane"/><text x="48" y="422" class="svg-label">EXECUTION · 是否真的完成</text>
+        <path d="M290 108H390" class="arrow"/><path d="M650 108V260H745" class="arrow arrow-cyan"/><path d="M270 280H390" class="arrow arrow-green"/><path d="M650 280H750" class="arrow arrow-cyan"/><path d="M1000 280H1110" class="arrow"/><path d="M1230 325V460H1095" class="arrow arrow-green"/><path d="M845 460H710" class="arrow"/><path d="M465 460H340" class="arrow"/><path d="M605 500V540H1120V345" class="arrow arrow-rose"/>
+        <rect x="75" y="76" width="215" height="64" rx="8" class="b b-front"/><text x="182" y="101" text-anchor="middle" class="svg-title">任务中心</text><text x="182" y="121" text-anchor="middle" class="svg-text">展示开关 / 转发用户意图</text>
+        <rect x="390" y="68" width="260" height="80" rx="8" class="b b-back"/><text x="520" y="94" text-anchor="middle" class="svg-title">接入业务 / 状态适配</text><text x="520" y="114" text-anchor="middle" class="svg-text">维护真实ENABLED状态</text><text x="520" y="132" text-anchor="middle" class="svg-small">不是按钮视觉态</text>
+        <rect x="75" y="242" width="195" height="76" rx="8" class="b b-data"/><text x="172" y="268" text-anchor="middle" class="svg-title">端侧数据中心</text><text x="172" y="288" text-anchor="middle" class="svg-text">端状态 / VLM结构化结果</text><text x="172" y="306" text-anchor="middle" class="svg-small">值 + 时间戳 + 质量</text>
+        <rect x="390" y="232" width="260" height="96" rx="8" class="b b-back"/><text x="520" y="258" text-anchor="middle" class="svg-title">端侧 Trigger</text><text x="520" y="278" text-anchor="middle" class="svg-text">门禁 / 规则 / 防抖 / 去重</text><text x="520" y="298" text-anchor="middle" class="svg-text">创建 run_event</text><text x="520" y="316" text-anchor="middle" class="svg-small">判断“现在要不要问”</text>
+        <rect x="750" y="232" width="250" height="96" rx="8" class="b b-front"/><text x="875" y="258" text-anchor="middle" class="svg-title">VUI / 即时交互卡</text><text x="875" y="278" text-anchor="middle" class="svg-text">卡片 / TTS / 按钮 / 生命周期</text><text x="875" y="298" text-anchor="middle" class="svg-text">返回标准选择</text><text x="875" y="316" text-anchor="middle" class="svg-small">不判断天气，不直接车控</text>
+        <rect x="1110" y="242" width="195" height="76" rx="8" class="b b-front"/><text x="1207" y="268" text-anchor="middle" class="svg-title">可见即可说</text><text x="1207" y="288" text-anchor="middle" class="svg-text">本地语音 → 按钮语义</text><text x="1207" y="306" text-anchor="middle" class="svg-small">卡消失即注销</text>
+        <rect x="845" y="432" width="250" height="74" rx="8" class="b b-safe"/><text x="970" y="458" text-anchor="middle" class="svg-title">端侧执行前复核</text><text x="970" y="478" text-anchor="middle" class="svg-text">任务 / 车况 / 事件 / 授权仍有效</text><text x="970" y="496" text-anchor="middle" class="svg-small">任何一项失败都终止</text>
+        <rect x="465" y="432" width="245" height="74" rx="8" class="b b-ext"/><text x="587" y="458" text-anchor="middle" class="svg-title">赛力斯车控</text><text x="587" y="478" text-anchor="middle" class="svg-text">执行原子能力 / 返回错误码</text><text x="587" y="496" text-anchor="middle" class="svg-small">如打开后雾灯</text>
+        <rect x="95" y="432" width="245" height="74" rx="8" class="b b-data"/><text x="217" y="458" text-anchor="middle" class="svg-title">真实状态回读</text><text x="217" y="478" text-anchor="middle" class="svg-text">目标状态达到才算成功</text><text x="217" y="496" text-anchor="middle" class="svg-small">结果更新回卡片 / 日志</text>
+        <rect x="390" y="552" width="620" height="40" rx="7" class="b b-open"/><text x="700" y="577" text-anchor="middle" class="svg-title">橙色虚线合同：InteractionRequest → ACK / InteractionResult / Lifecycle → ActionUpdate</text>
+      </svg></div>
+      <details><summary>复制 Mermaid：职责图</summary><div><pre>flowchart LR
+  TC[任务中心] --> STATE[接入业务/真实任务状态]
+  DC[端侧数据中心\n端状态+VLM结构化结果] --> TR[端侧Trigger\n门禁+规则+防抖+去重]
+  STATE --> TR
+  TR -->|InteractionRequest| CARD[VUI即时交互卡\n展示+TTS+按钮+生命周期]
+  CARD --> VS[本地可见即可说]
+  VS -->|标准选择| CARD
+  CARD -->|ACK/InteractionResult/Lifecycle| TR
+  TR --> PRE[执行前复核]
+  PRE --> CTRL[赛力斯车控]
+  CTRL --> READ[真实状态回读]
+  READ -->|ActionUpdate| CARD</pre></div></details>
+      <div class="table-wrap"><table><thead><tr><th>模块</th><th>必须负责</th><th>明确不负责</th><th>位置</th><th>当前对齐对象</th></tr></thead><tbody>
+        <tr><td>任务中心</td><td>展示、启停操作、等待业务真实ACK</td><td>不判断天气、不出卡、不车控</td><td>车机页面/任务服务</td><td>任务中心团队；正式研发DRI待项目表</td></tr>
+        <tr><td>接入业务/状态适配</td><td>鉴权、幂等、保存真实任务状态并同步Trigger</td><td>不把按钮动画当真实状态</td><td>车端状态层</td><td>预设任务接入方待定</td></tr>
+        <tr><td>端侧Trigger</td><td>信号订阅、规则、防抖、去重、事件、复核、收口</td><td>不绘制卡片、不理解开放语义</td><td>车机Trigger Engine</td><td>触发器团队；汪帅为已有方案对接人</td></tr>
+        <tr><td>即时交互卡</td><td>展示、TTS、按钮、ACK、交互与生命周期回调、结果刷新</td><td>不判断业务条件、不直接发裸车控</td><td>车机VUI容器</td><td>产品徐洋；正式研发DRI待定</td></tr>
+        <tr><td>可见即可说</td><td>卡片存活期注册词条、语音映射按钮、注销</td><td>不是离线Planner</td><td>车机本地语音/VGUI</td><td>业务卡片+VUI研发，注册Owner待定</td></tr>
+        <tr><td>赛力斯信号/车控</td><td>正式SourceID、状态、车控动作、错误码和真实回读</td><td>不决定Trigger策略</td><td>车辆/车控域</td><td>赛力斯对应业务</td></tr>
+      </tbody></table></div>
+    </section>
+
+    <section id="sequence">
+      <div class="section-head"><div><div class="kicker">03 · DIAGRAM 2 / SEQUENCE</div><h2>时序图：Trigger和卡片具体怎么“握手”</h2><p>不是一次调用，而是四次交接：创建卡片、展示ACK、用户结果、执行结果更新。</p></div><span class="status proposal">产品合同</span></div>
+      <div class="diagram"><svg viewBox="0 0 1400 780" role="img" aria-label="端侧Trigger与即时交互卡时序图">
+        <defs><marker id="arr2" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#64748b"/></marker></defs><rect width="1400" height="780" fill="#020617"/>
+        <g stroke="#263854" stroke-dasharray="5 5"><line x1="145" y1="90" x2="145" y2="735"/><line x1="400" y1="90" x2="400" y2="735"/><line x1="690" y1="90" x2="690" y2="735"/><line x1="950" y1="90" x2="950" y2="735"/><line x1="1230" y1="90" x2="1230" y2="735"/></g>
+        <g><rect x="55" y="35" width="180" height="52" rx="7" class="b b-data"/><text x="145" y="67" text-anchor="middle" class="svg-title">任务状态 / 数据中心</text><rect x="310" y="35" width="180" height="52" rx="7" class="b b-back"/><text x="400" y="67" text-anchor="middle" class="svg-title">端侧 Trigger</text><rect x="600" y="35" width="180" height="52" rx="7" class="b b-front"/><text x="690" y="67" text-anchor="middle" class="svg-title">即时交互卡</text><rect x="860" y="35" width="180" height="52" rx="7" class="b b-front"/><text x="950" y="67" text-anchor="middle" class="svg-title">用户 / 可见即可说</text><rect x="1140" y="35" width="180" height="52" rx="7" class="b b-ext"/><text x="1230" y="67" text-anchor="middle" class="svg-title">赛力斯车控</text></g>
+        <g fill="none" stroke="#64748b" stroke-width="2" marker-end="url(#arr2)"><path d="M145 135H400"/><path d="M400 200H690"/><path d="M690 260H400"/><path d="M690 325H950"/><path d="M950 390H690"/><path d="M690 455H400"/><path d="M400 520H145"/><path d="M145 565H400"/><path d="M400 620H1230"/><path d="M1230 675H400"/><path d="M400 725H690"/></g>
+        <g class="svg-text"><text x="272" y="126" text-anchor="middle">① ENABLED + 信号变化 + 最新快照</text><text x="545" y="191" text-anchor="middle">② InteractionRequest：事件/文案/按钮/TTS/路由/有效期</text><text x="545" y="251" text-anchor="middle">③ CardAdmissionAck：已展示/排队/失败 + card_id</text><text x="820" y="316" text-anchor="middle">④ 展示卡片、播放TTS、注册本地词条</text><text x="820" y="381" text-anchor="middle">⑤ 点击或语音：确认/拒绝/关闭</text><text x="545" y="446" text-anchor="middle">⑥ InteractionResult / Lifecycle + 同一run_event_id</text><text x="272" y="511" text-anchor="middle">⑦ 执行前请求最新任务/车辆状态</text><text x="272" y="556" text-anchor="middle">⑧ 最新快照</text><text x="815" y="611" text-anchor="middle">⑨ 复核通过后调用车控</text><text x="815" y="666" text-anchor="middle">⑩ 结果码 + 真实状态</text><text x="545" y="716" text-anchor="middle">⑪ ActionUpdate：执行中/成功/失败/真实控件</text></g>
+      </svg></div>
+      <details><summary>复制 Mermaid：时序图</summary><div><pre>sequenceDiagram
+  participant D as 任务状态/数据中心
+  participant T as 端侧Trigger
+  participant C as 即时交互卡
+  participant U as 用户/可见即可说
+  participant V as 赛力斯车控
+  D->>T: ENABLED + 信号变化 + 最新快照
+  T->>C: InteractionRequest(run_event/文案/按钮/TTS/路由/有效期)
+  C-->>T: CardAdmissionAck(展示/排队/失败, card_id)
+  C->>U: 展示卡片 + TTS + 注册本地词条
+  U-->>C: 点击或语音选择
+  C-->>T: InteractionResult/Lifecycle + run_event_id
+  T->>D: 执行前读取最新状态
+  D-->>T: 最新快照
+  T->>V: 复核通过后调用车控
+  V-->>T: 结果码 + 真实状态
+  T-->>C: ActionUpdate(执行中/成功/失败/真实控件)</pre></div></details>
+      <div class="callout warn"><b>时序底线：</b>卡片显示成功不等于用户确认；用户确认不等于车控成功；RPC成功不等于目标状态达到。三个“成功”必须分别记录。</div>
+    </section>
+
+    <section id="state">
+      <div class="section-head"><div><div class="kicker">04 · DIAGRAM 3 / STATE</div><h2>状态图：一张卡只服务一次运行事件</h2><p>长期任务保持开启；每次命中单独创建run_event。卡片消失后，旧语音和旧点击都不能继续消费。</p></div><span class="status proposal">统一状态机</span></div>
+      <div class="diagram"><svg viewBox="0 0 1400 500" role="img" aria-label="端侧系统预设任务状态机">
+        <defs><marker id="arr3" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#64748b"/></marker></defs><rect width="1400" height="500" fill="#020617"/>
+        <g fill="none" stroke="#64748b" stroke-width="2" marker-end="url(#arr3)"><path d="M170 160H270"/><path d="M450 160H545"/><path d="M735 160H830"/><path d="M1010 160H1105"/><path d="M1195 205V325H1010"/><path d="M830 365H735"/><path d="M545 365H450"/><path d="M270 365H170V205"/><path d="M640 205V270"/><path d="M640 365V420H355V205"/></g>
+        <rect x="50" y="120" width="120" height="80" rx="40" class="b b-ext"/><text x="110" y="154" text-anchor="middle" class="svg-title">DISABLED</text><text x="110" y="174" text-anchor="middle" class="svg-small">任务关闭</text>
+        <rect x="270" y="120" width="180" height="80" rx="9" class="b b-back"/><text x="360" y="154" text-anchor="middle" class="svg-title">WAITING</text><text x="360" y="174" text-anchor="middle" class="svg-small">已启用，等待条件</text>
+        <rect x="545" y="120" width="190" height="80" rx="9" class="b b-data"/><text x="640" y="154" text-anchor="middle" class="svg-title">CANDIDATE</text><text x="640" y="174" text-anchor="middle" class="svg-small">规则命中，已建run_event</text>
+        <rect x="830" y="120" width="180" height="80" rx="9" class="b b-front"/><text x="920" y="154" text-anchor="middle" class="svg-title">CARD ACTIVE</text><text x="920" y="174" text-anchor="middle" class="svg-small">卡片有效，等待用户</text>
+        <rect x="1105" y="120" width="180" height="80" rx="9" class="b b-safe"/><text x="1195" y="154" text-anchor="middle" class="svg-title">AUTHORIZED</text><text x="1195" y="174" text-anchor="middle" class="svg-small">确认后等待复核</text>
+        <rect x="830" y="325" width="180" height="80" rx="9" class="b b-safe"/><text x="920" y="359" text-anchor="middle" class="svg-title">EXECUTING</text><text x="920" y="379" text-anchor="middle" class="svg-small">车控进行中</text>
+        <rect x="545" y="325" width="190" height="80" rx="9" class="b b-data"/><text x="640" y="359" text-anchor="middle" class="svg-title">RESULT</text><text x="640" y="379" text-anchor="middle" class="svg-small">真实状态成功/失败</text>
+        <rect x="270" y="325" width="180" height="80" rx="9" class="b b-open"/><text x="360" y="359" text-anchor="middle" class="svg-title">COOLDOWN</text><text x="360" y="379" text-anchor="middle" class="svg-small">防止重复打扰</text>
+        <rect x="525" y="270" width="230" height="48" rx="8" class="b b-open"/><text x="640" y="291" text-anchor="middle" class="svg-title">REJECT / CLOSE / TIMEOUT</text><text x="640" y="307" text-anchor="middle" class="svg-small">不执行，直接进入冷却</text>
+      </svg></div>
+      <details><summary>复制 Mermaid：状态图</summary><div><pre>stateDiagram-v2
+  [*] --> Disabled
+  Disabled --> Waiting: 真实任务状态=ENABLED
+  Waiting --> Candidate: 条件命中并创建run_event
+  Candidate --> CardActive: 拉卡成功
+  CardActive --> Authorized: 用户确认且卡片有效
+  CardActive --> Cooldown: 拒绝/关闭/超时/打断
+  Authorized --> Executing: 执行前复核通过
+  Authorized --> Cooldown: 复核失败
+  Executing --> Result: 车控结果+真实状态
+  Result --> Cooldown: 记录并更新卡片
+  Cooldown --> Waiting: 冷却结束且任务仍有效
+  Waiting --> Disabled: 任务关闭</pre></div></details>
+    </section>
+
+    <section id="contract">
+      <div class="section-head"><div><div class="kicker">05 · DATA CONTRACT</div><h2>你给卡片什么，卡片必须回什么</h2><p>以下是产品合同，不是已经签字的IDL。研发可以改字段名，但不能丢失业务语义。</p></div><span class="status proposal">字段名建议</span></div>
+      <h3>A. Trigger → 即时交互卡：InteractionRequest</h3>
+      <div class="table-wrap"><table><thead><tr><th>字段/信息</th><th>为什么必须有</th><th>天气示例</th><th>缺失后果</th><th>状态</th></tr></thead><tbody>
+        <tr><td><code>task_definition_id</code></td><td>区分长期任务模板</td><td>weather_protection</td><td>无法按任务做频控和追踪</td><td><span class="status proposal">建议</span></td></tr>
+        <tr><td><code>task_instance_id</code></td><td>区分车辆/账号的启用实例</td><td>vehicle_A_weather</td><td>可能串车或读取错开关</td><td><span class="status proposal">建议</span></td></tr>
+        <tr><td><code>run_event_id</code></td><td>唯一关联本次触发、卡片和车控</td><td>weather_fog_1001</td><td>旧确认可能执行新事件</td><td><span class="status proposal">P0必须有</span></td></tr>
+        <tr><td><code>source_type</code></td><td>告诉客户端使用哪条语音回路</td><td>EDGE_TRIGGER</td><td>可能错误进入Planner</td><td><span class="status fact">业务语义明确</span></td></tr>
+        <tr><td><code>interaction_mode</code></td><td>确认、告知、静默结果不能混用</td><td>CONFIRM_LOCAL</td><td>按钮/TTS/收音行为不确定</td><td><span class="status proposal">建议</span></td></tr>
+        <tr><td>文本/按钮</td><td>定义用户看到的问题和标准选择</td><td>“是否打开后雾灯” + 打开/暂不处理</td><td>卡片无可执行内容</td><td><span class="status fact">需业务提供</span></td></tr>
+        <tr><td>TTS策略</td><td>定义是否播报、播什么、禁语音如何降级</td><td>询问TTS；禁语音时card-only方向待确认</td><td>可能误播或无法确认</td><td><span class="status tbd">降级待定</span></td></tr>
+        <tr><td><code>voice_route</code></td><td>端侧任务必须走本地可见即可说</td><td>VISIBLE_SAY</td><td>离线失效或语义链路错误</td><td><span class="status fact">端侧方向明确</span></td></tr>
+        <tr><td><code>click_route</code></td><td>点击应返回原业务事件</td><td>ORIGIN_CALLBACK</td><td>点击后无人消费</td><td><span class="status proposal">正式协议待定</span></td></tr>
+        <tr><td>有效期/优先级/回调</td><td>控制过期、仲裁和结果归属</td><td>具体值待VUI专项确认</td><td>旧卡执行、打断错乱</td><td><span class="status tbd">P0待定</span></td></tr>
+      </tbody></table></div>
+      <pre>{
+  "task_definition_id": "weather_protection",
+  "task_instance_id": "vehicle_A_weather",
+  "run_event_id": "weather_fog_1001",
+  "source_type": "EDGE_TRIGGER",
+  "interaction_mode": "CONFIRM_LOCAL",
+  "content": {
+    "text": "当前检测到浓雾，是否为你打开后雾灯？",
+    "options": [
+      {"option_id": "CONFIRM", "text": "打开"},
+      {"option_id": "REJECT", "text": "暂不处理"}
+    ]
+  },
+  "tts": {"enabled": true, "text": "当前检测到浓雾，是否为你打开后雾灯？"},
+  "voice_route": "VISIBLE_SAY",
+  "click_route": "ORIGIN_CALLBACK",
+  "valid_until": "TBD",
+  "priority": "ACTIVE_SERVICE_TBD"
+}</pre>
+      <h3>B. 即时交互卡 → Trigger：三类返回</h3>
+      <div class="table-wrap"><table><thead><tr><th>返回对象</th><th>建议枚举</th><th>必须携带</th><th>Trigger怎么处理</th></tr></thead><tbody>
+        <tr><td>CardAdmissionAck</td><td>DISPLAYED / QUEUED / REJECTED / FAILED</td><td>card_id、run_event_id、错误原因、时间</td><td>只有进入有效展示态才等待用户；失败结束或按策略处理</td></tr>
+        <tr><td>InteractionResult</td><td>CONFIRM / REJECT</td><td>card_id、run_event_id、option_id、输入渠道、时间</td><td>确认进入复核；拒绝不执行并冷却</td></tr>
+        <tr><td>CardLifecycleEvent</td><td>CLOSE / TIMEOUT / INTERRUPTED / EXPIRED / RESUMED</td><td>card_id、run_event_id、原因、时间</td><td>卡片无效即注销词条；旧结果不得继续执行</td></tr>
+      </tbody></table></div>
+      <h3>C. Trigger/车控 → 即时交互卡：ActionUpdate</h3>
+      <div class="table-wrap"><table><thead><tr><th>状态</th><th>卡片展示</th><th>判断依据</th><th>禁止做法</th></tr></thead><tbody>
+        <tr><td>EXECUTING</td><td>执行中</td><td>复核通过且动作已发出</td><td>用户刚确认就直接显示成功</td></tr>
+        <tr><td>SUCCESS</td><td>后雾灯已开启/模式已切换</td><td>车辆真实状态达到目标</td><td>仅看RPC返回SUCCESS</td></tr>
+        <tr><td>FAILED</td><td>操作未完成及可理解原因</td><td>真实状态未达成或明确错误</td><td>无限重试或展示假成功</td></tr>
+        <tr><td>CANCELLED</td><td>场景已变化，本次不再处理</td><td>执行前复核失败</td><td>使用过期授权继续执行</td></tr>
+      </tbody></table></div>
+    </section>
+
+    <section id="weather">
+      <div class="section-head"><div><div class="kicker">06 · FIRST USE CASE</div><h2>天气/路况保护：端侧框架的完整样例</h2><p>三个子场景分别判断、分别询问、分别执行；不能一次确认同时切模式并开灯。</p></div><span class="status fact">主链已确认</span></div>
+      <div class="table-wrap"><table><thead><tr><th>子场景</th><th>进入条件</th><th>拉卡内容</th><th>确认后动作</th><th>执行前复核</th><th>否分支</th></tr></thead><tbody>
+        <tr><td>浓雾</td><td>任务有效 AND 车速&gt;30 AND 天气=浓雾 AND 后雾灯=OFF</td><td>是否打开后雾灯</td><td>打开后雾灯</td><td>任务、车速、浓雾、灯仍OFF、事件未消费</td><td>继续监听/不重复出卡</td></tr>
+        <tr><td>下雨/湿滑</td><td>任务有效 AND 车速&gt;30 AND（下雨 OR 路面湿滑）AND 模式≠WET</td><td>是否切换湿滑模式</td><td>切换湿滑模式</td><td>任务、车速、雨/湿滑仍成立、模式仍非WET</td><td>继续监听/不重复出卡</td></tr>
+        <tr><td>下雪/结冰</td><td>任务有效 AND 车速&gt;30 AND（下雪 OR 覆雪结冰）AND 模式≠SNOW</td><td>是否切换雪地模式</td><td>切换雪地模式</td><td>任务、车速、雪/结冰仍成立、模式仍非SNOW</td><td>继续监听/不重复出卡</td></tr>
+      </tbody></table></div>
+      <div class="step-list">
+        <div class="step-row"><div class="step-no">E01</div><div><span class="label">谁/哪里</span>接入业务｜车端状态层</div><div><span class="label">收到什么</span>任务中心启停请求</div><div><span class="label">判断什么</span>权限、车型、幂等、版本</div><div><span class="label">输出什么</span>真实ENABLED/DISABLED</div><div><span class="label">失败怎么办</span>保持旧状态，任务中心回滚</div></div>
+        <div class="step-row"><div class="step-no">E02</div><div><span class="label">谁/哪里</span>端侧Trigger｜Trigger Engine</div><div><span class="label">收到什么</span>ENABLED + 已加载规则</div><div><span class="label">判断什么</span>依赖能力是否完整</div><div><span class="label">输出什么</span>建立信号订阅</div><div><span class="label">失败怎么办</span>标任务不可用，不假装Waiting</div></div>
+        <div class="step-row"><div class="step-no">E03</div><div><span class="label">谁/哪里</span>数据中心｜车端</div><div><span class="label">收到什么</span>天气/路况、车速、模式、雾灯</div><div><span class="label">判断什么</span>来源、时间戳、质量</div><div><span class="label">输出什么</span>变更事件 + 最新快照</div><div><span class="label">失败怎么办</span>返回UNKNOWN，不造假值</div></div>
+        <div class="step-row"><div class="step-no">E04</div><div><span class="label">谁/哪里</span>端侧Trigger</div><div><span class="label">收到什么</span>某SourceID变化</div><div><span class="label">判断什么</span>任务有效、数据新鲜、规则命中</div><div><span class="label">输出什么</span>候选事件</div><div><span class="label">失败怎么办</span>结束本轮，继续监听</div></div>
+        <div class="step-row"><div class="step-no">E05</div><div><span class="label">谁/哪里</span>端侧Trigger</div><div><span class="label">收到什么</span>规则命中快照</div><div><span class="label">判断什么</span>防抖、去重、冷却、目标状态</div><div><span class="label">输出什么</span>唯一run_event</div><div><span class="label">失败怎么办</span>丢弃重复/不稳定事件</div></div>
+        <div class="step-row"><div class="step-no">E06</div><div><span class="label">谁/哪里</span>Trigger → VUI</div><div><span class="label">收到什么</span>InteractionRequest</div><div><span class="label">判断什么</span>卡片来源、参数、优先级</div><div><span class="label">输出什么</span>展示ACK + card_id</div><div><span class="label">失败怎么办</span>不进入等待用户状态</div></div>
+        <div class="step-row"><div class="step-no">E07</div><div><span class="label">谁/哪里</span>VUI + 可见即可说｜车端</div><div><span class="label">收到什么</span>卡片、TTS、按钮、有效期</div><div><span class="label">判断什么</span>卡片仍有效、语音可用</div><div><span class="label">输出什么</span>CONFIRM/REJECT/生命周期事件</div><div><span class="label">失败怎么办</span>关闭即注销词条，禁止旧确认</div></div>
+        <div class="step-row"><div class="step-no">E08</div><div><span class="label">谁/哪里</span>端侧Trigger</div><div><span class="label">收到什么</span>InteractionResult</div><div><span class="label">判断什么</span>同一事件、未消费、确认有效</div><div><span class="label">输出什么</span>进入复核或结束</div><div><span class="label">失败怎么办</span>拒绝/过期/重复均不执行</div></div>
+        <div class="step-row"><div class="step-no">E09</div><div><span class="label">谁/哪里</span>端侧执行层</div><div><span class="label">收到什么</span>最新任务/车辆快照</div><div><span class="label">判断什么</span>全部安全条件仍成立</div><div><span class="label">输出什么</span>车控请求</div><div><span class="label">失败怎么办</span>CANCELLED并更新卡片</div></div>
+        <div class="step-row"><div class="step-no">E10</div><div><span class="label">谁/哪里</span>赛力斯车控 + 状态服务</div><div><span class="label">收到什么</span>原子动作 + 幂等事件</div><div><span class="label">判断什么</span>车辆是否允许、目标是否达到</div><div><span class="label">输出什么</span>错误码 + 真实状态</div><div><span class="label">失败怎么办</span>先回读，不盲目重试</div></div>
+        <div class="step-row"><div class="step-no">E11</div><div><span class="label">谁/哪里</span>Trigger → VUI/日志</div><div><span class="label">收到什么</span>车控与回读结果</div><div><span class="label">判断什么</span>真实目标状态是否达成</div><div><span class="label">输出什么</span>ActionUpdate + 冷却</div><div><span class="label">失败怎么办</span>展示失败，不误报成功</div></div>
+      </div>
+      <h3>儿童锁如何放入本稿</h3>
+      <div class="callout warn"><b>只作为边界案例：</b>当前只确认“无卡、无TTS”；端云部署、是否允许静默自动车控、D档/非P档、儿童/宠物来源仍存在版本冲突。端侧稿不得画成已定流程。若未来确认需要卡片，再复用本地InteractionRequest合同。</div>
+    </section>
+
+    <section id="exceptions">
+      <div class="section-head"><div><div class="kicker">07 · EXCEPTIONS / ACCEPTANCE</div><h2>异常与验收：研发拿到就知道怎么证明</h2><p>框架宣讲不承诺排期，但必须说明每个失败分支的安全结果。</p></div><span class="status fact">误执行必须为0</span></div>
+      <div class="table-wrap"><table><thead><tr><th>编号</th><th>场景</th><th>预期结果</th><th>主要责任</th><th>必须观察的证据</th></tr></thead><tbody>
+        <tr><td>EA-01</td><td>任务关闭，天气条件全部满足</td><td>不创建run_event、不出卡、不TTS、不车控</td><td>状态适配+Trigger</td><td>门禁日志</td></tr>
+        <tr><td>EA-02</td><td>无网，浓雾条件满足</td><td>本地出卡、TTS、本地语音确认、车控闭环可用</td><td>Trigger+VUI+可见即可说</td><td>断网实车录屏与事件日志</td></tr>
+        <tr><td>EA-03</td><td>卡片展示失败</td><td>Trigger不进入已授权，不车控；记录失败原因</td><td>VUI+Trigger</td><td>CardAdmissionAck</td></tr>
+        <tr><td>EA-04</td><td>用户拒绝/关闭/超时</td><td>不执行、注销词条、进入冷却</td><td>VUI+Trigger</td><td>InteractionResult/Lifecycle</td></tr>
+        <tr><td>EA-05</td><td>卡片过期后用户说“好的”</td><td>旧run_event不得被消费</td><td>可见即可说+VUI</td><td>词条已注销、无车控调用</td></tr>
+        <tr><td>EA-06</td><td>用户确认后天气消失或任务关闭</td><td>执行前复核失败，本次取消</td><td>Trigger/执行层</td><td>PRECHECK_FAILED原因</td></tr>
+        <tr><td>EA-07</td><td>同一信号重复上报</td><td>同一事件只出一张卡、只执行一次</td><td>Trigger</td><td>dedupe_key/run_event</td></tr>
+        <tr><td>EA-08</td><td>RPC成功但后雾灯仍OFF</td><td>最终判失败，不展示“已开启”</td><td>车控+状态回读+VUI</td><td>RPC与真实状态对照</td></tr>
+        <tr><td>EA-09</td><td>用户确认前已手动开启后雾灯</td><td>不重复车控；可按已达成收口</td><td>执行前复核</td><td>最新状态时间戳</td></tr>
+        <tr><td>EA-10</td><td>用户Query打断主动卡</td><td>按VUI仲裁结论挂起/关闭；恢复前重新验证事件</td><td>VUI/仲裁+Trigger</td><td>INTERRUPTED/RESUMED事件</td></tr>
+      </tbody></table></div>
+      <div class="g3 grid"><article class="card green"><h3>通过标准</h3><p>每次事件可由task、run_event、card和action关联；任何失败都能定位在哪一段。</p></article><article class="card amber"><h3>专项待定</h3><p>卡片有效期、主动服务优先级、打断恢复、TTS禁用降级、防抖和冷却值。</p></article><article class="card rose"><h3>禁止上线</h3><p>无事件ID、无展示ACK、卡片消失仍可确认、车控无真实状态回读。</p></article></div>
+    </section>
+
+    <section id="script">
+      <div class="section-head"><div><div class="kicker">08 · REVIEW SCRIPT</div><h2>你在会上从哪里开始，怎么说</h2><p>先讲边界，再讲四次交接，最后用浓雾走一遍。不要先念字段表。</p></div><span class="status fact">可直接照读</span></div>
+      <div class="script"><b>开场：</b><br>“今天只讲端侧系统预设任务框架，不评具体排期。我的Trigger负责判断任务是否有效、天气和车辆条件是否命中；即时交互卡不判断天气，也不直接车控，它只负责展示问题和返回用户选择。两边需要对齐的是一份交互合同。”<br><br><b>讲合同：</b><br>“Trigger命中后创建一次run_event，把来源、文案、按钮、TTS、本地语音路由、有效期和回调信息给卡片。卡片要返回展示ACK、用户选择和卡片生命周期。只有同一run_event返回有效确认后，Trigger才重新读取最新车况、调用车控，并用真实车辆状态更新卡片。”<br><br><b>讲天气：</b><br>“例如浓雾：任务已开启、车速大于30、浓雾成立、后雾灯关闭，Trigger才出卡。用户说‘打开吧’由本地可见即可说映射成CONFIRM；如果卡片已过期、天气消失或后雾灯已开，就不再执行。真实状态变为ON才展示成功。”</div>
+      <h3>现场只问这8个问题</h3>
+      <ol class="checklist">
+        <li>即时卡是否已有统一创建、更新、关闭接口？正式Owner和IDL在哪里？</li>
+        <li>拉卡时如何显式携带端侧来源和本地语音路由？</li>
+        <li>展示成功、排队、拒绝、失败分别如何ACK？</li>
+        <li>可见即可说的按钮词条由业务注册还是卡片自动注册？卡消失如何注销？</li>
+        <li>点击、语音、关闭、超时如何统一为带run_event的结果？</li>
+        <li>用户Query打断端侧卡后，是关闭、挂起还是恢复？恢复前由谁重新校验？</li>
+        <li>车控结果和真实状态如何更新同一张卡？部分失败如何显示？</li>
+        <li>所有模块能否用task/run_event/card/action/trace串起一条日志？</li>
+      </ol>
+      <div class="callout"><b>你会后的交付：</b>更新PRD中的唯一结论、废弃方案、模块Owner、接口链接和验收负责人。你不负责亲自注册生产词条、改端侧代码或做实车执行。</div>
+    </section>
+
+    <section id="sources">
+      <div class="section-head"><div><div class="kicker">09 · EVIDENCE</div><h2>证据与使用边界</h2><p>绿色是资料已有直接结论；紫色是为形成闭环提出的产品合同；黄色必须通过专项得到研发结论。</p></div></div>
+      <ul class="checklist">
+        <li><a href="https://bytedance.larkoffice.com/docx/Dsdrd8OUpoTCqXxr71EcSRNon6g">2026-07-28 AIVA交互卡评审</a>：规则主动服务端侧闭环、可见即可说、客户端拉卡时需要知道业务类型。</li>
+        <li><a href="https://bytedance.larkoffice.com/wiki/FBsrwA734iaFzZkrZExcHHBtn3d">VUI主交互需求</a>：主动服务卡片、TTS、按钮、生命周期与结果组件。</li>
+        <li><a href="https://bytedance.larkoffice.com/wiki/AxYjwUI8wiFCXWkdNsDcRae0nCf">可见即可说框架需求</a>：本地语音到按钮模拟操作的能力边界。</li>
+        <li><a href="https://bytedance.larkoffice.com/docx/Vm00dKhlYoSKNWxzJ51cH5WUniE">SLS主动服务规则PRD</a>：天气信号、事件、卡片反馈与原子能力。</li>
+        <li><a href="https://sai-seres.feishu.cn/wiki/VXEdwlChniB4lMkqQT9cPxPqnFh">赛力斯天气/路况保护PRD</a>：端侧闭环、任务开关、天气子场景。</li>
+        <li><a href="系统预设任务端云一体架构-v05.html">总览v05</a>：端云全局边界；本稿只展开端侧。</li>
+      </ul>
+      <div class="callout warn"><b>未确认内容不得伪装成现状：</b>InteractionRequest等字段名、卡片ACK协议、可见即可说注册Owner、有效期、优先级与结果更新IDL仍需要技术专项确认。</div>
+    </section>
+  </main>
+  <footer class="footer"><div class="wrap">系统预设任务端侧框架与即时交互卡对接 · v01 · 框架宣讲稿 · 非排期承诺</div></footer>
+</body>
+</html>

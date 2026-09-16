@@ -1,0 +1,56 @@
+sequenceDiagram
+  autonumber
+  actor U as 用户
+  participant TC as 任务中心 / 状态接入
+  participant TR as Cloud Trigger
+  participant B as 系统预设任务业务
+  participant AI as 主动推荐 / DT / VQA
+  participant UI as 即时交互卡 / VUI
+  participant PL as Planner
+  participant CAR as 端侧执行 / 车辆
+  U->>TC: 开启“识别充电设备后打开充电口盖”
+  TC->>TC: 保存该车或账号的真实任务状态
+  TC-->>U: 回显开启成功或失败
+  TC-->>TR: 提供任务状态及更新时间
+  Note over TR: 车辆进入 P 挡等状态更新到达
+  TR->>TR: 检查任务有效、触发事件、当前条件、时效、去重和频控
+  alt 条件不满足
+    TR->>TR: 记录未触发原因，本次结束
+  else 条件满足
+    TR->>B: 发出一次业务事件（任务、车辆、本次停车、状态快照、配置版本）
+    B->>B: 检查事件未重复，读取后续处理配置
+    B->>AI: 请求判断当前约定范围是否看见充电设备
+    AI-->>B: 返回看见 / 未看见 / 无法判断 / 失败及观察信息
+    alt 不是有效的“看见”结果
+      B->>B: 记录结束原因，不出卡、不执行
+    else 看见且结果仍有效
+      B->>UI: 注册并拉起卡片（文案、TTS、按钮、回答承接、有效策略）
+      UI-->>B: 返回受理、排队、实际展示或失败
+      alt 卡片实际展示
+        alt 用户点击
+          U->>UI: 点击确认或暂不打开
+          UI-->>B: 返回本次标准选择
+        else 用户说话
+          U->>UI: 说“打开吧”等回答
+          UI->>PL: 带当前已展示卡片上下文请求理解
+          PL-->>B: 返回确认、拒绝、不明确或其他诉求
+        end
+        alt 业务取得当前有效确认
+          B->>CAR: 请求本次开盖
+          CAR->>CAR: 复核最新任务、P 挡、口盖、授权和重复状态
+          alt 复核通过
+            CAR->>CAR: 调用开盖并读取口盖真实状态
+            CAR-->>B: 返回实际打开 / 未打开 / 暂不能确认
+          else 复核不通过
+            CAR-->>B: 返回未执行及原因
+          end
+          B->>UI: 更新或关闭仍有效的卡片
+          B->>B: 记录最终结果并结束本次
+        else 拒绝、关闭、超时或回答失效
+          B->>B: 不请求车控，记录原因并结束本次
+        end
+      else 未实际展示或展示前已失效
+        B->>B: 撤销询问并结束本次
+      end
+    end
+  end

@@ -1,0 +1,1134 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>系统预设任务全链路交互演示 · v01</title>
+  <style>
+    :root{
+      --bg:#071019;
+      --bg-soft:#0b1724;
+      --panel:#0f1d2c;
+      --panel-2:#132338;
+      --panel-3:#172a42;
+      --line:#2a415d;
+      --line-soft:#1b3048;
+      --text:#f5f8fc;
+      --muted:#9fb2c8;
+      --faint:#6e829a;
+      --cyan:#54d8e8;
+      --blue:#6aa7ff;
+      --violet:#aa8bff;
+      --amber:#ffbd66;
+      --green:#55d79c;
+      --red:#ff7385;
+      --ink:#061018;
+      --shadow:0 24px 70px rgba(0,0,0,.34);
+      --radius:18px;
+      --font:"SF Pro Display","PingFang SC","Microsoft YaHei",Inter,system-ui,sans-serif;
+      --mono:"SFMono-Regular","Cascadia Code",Consolas,monospace;
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{
+      margin:0;
+      min-height:100vh;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 8% -10%,rgba(84,216,232,.13),transparent 28%),
+        radial-gradient(circle at 92% 0%,rgba(170,139,255,.13),transparent 26%),
+        linear-gradient(180deg,#08121d 0%,#050b12 100%);
+      font-family:var(--font);
+      line-height:1.5;
+    }
+    button,input,select{font:inherit}
+    button{color:inherit}
+    button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-visible{
+      outline:3px solid rgba(84,216,232,.55);
+      outline-offset:2px;
+    }
+    a{color:#8fe8f2}
+    .app{max-width:1920px;margin:0 auto;padding:16px 18px 42px}
+    .topbar{
+      position:sticky;top:0;z-index:50;
+      display:grid;grid-template-columns:minmax(310px,1fr) auto auto;
+      gap:16px;align-items:center;
+      padding:14px 18px;
+      border:1px solid rgba(71,101,134,.65);
+      border-radius:20px;
+      background:rgba(7,16,25,.88);
+      backdrop-filter:blur(18px);
+      box-shadow:0 14px 40px rgba(0,0,0,.24);
+    }
+    .brand{display:flex;align-items:center;gap:13px;min-width:0}
+    .brand-mark{
+      width:40px;height:40px;border-radius:13px;display:grid;place-items:center;
+      color:#06212a;font-weight:900;
+      background:linear-gradient(135deg,var(--cyan),#9cf5ce);
+      box-shadow:0 0 28px rgba(84,216,232,.25);
+    }
+    .brand h1{font-size:17px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .brand p{font-size:11px;color:var(--muted);margin:2px 0 0}
+    .scenario-tabs{
+      display:flex;gap:5px;padding:4px;border:1px solid var(--line);
+      border-radius:13px;background:#09131f;
+    }
+    .scenario-tab,.tool-btn,.mini-btn,.chip-btn,.screen-btn,.step-link,.module-card,.inspector-tab{
+      border:0;cursor:pointer;
+    }
+    .scenario-tab{
+      min-height:38px;padding:8px 13px;border-radius:9px;
+      background:transparent;color:var(--muted);font-weight:760;font-size:12px;
+    }
+    .scenario-tab[aria-pressed="true"]{background:#1a3249;color:#fff;box-shadow:inset 0 0 0 1px #3f6386}
+    .toolbar{display:flex;gap:7px;align-items:center}
+    .tool-btn{
+      min-height:38px;padding:8px 12px;border-radius:10px;
+      background:#13263a;border:1px solid #31506f;color:#dbe8f5;font-size:12px;font-weight:760;
+    }
+    .tool-btn:hover{background:#19314a}
+    .tool-btn.primary{color:#06151e;background:var(--cyan);border-color:var(--cyan)}
+    .tool-btn.danger{color:#ffd9de;background:#321823;border-color:#713143}
+    .intro-strip{
+      display:grid;grid-template-columns:1.15fr repeat(4,minmax(140px,.55fr));
+      gap:10px;margin:13px 0;
+    }
+    .intro-card{
+      min-height:78px;padding:13px 15px;border-radius:15px;border:1px solid var(--line-soft);
+      background:linear-gradient(180deg,rgba(17,33,50,.94),rgba(10,22,35,.96));
+    }
+    .intro-card.lead{border-color:#346985;background:linear-gradient(135deg,#0f3140,#102236)}
+    .intro-card strong{display:block;font-size:13px;margin-bottom:4px}
+    .intro-card span{display:block;color:var(--muted);font-size:11px}
+    .workspace{
+      display:grid;
+      grid-template-columns:292px minmax(650px,1fr) 360px;
+      gap:13px;align-items:start;
+    }
+    .panel{
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      background:linear-gradient(180deg,rgba(15,29,44,.97),rgba(9,20,32,.98));
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+    .panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:16px 17px;border-bottom:1px solid var(--line-soft)}
+    .panel-head h2{font-size:14px;margin:0}
+    .panel-head p{font-size:11px;color:var(--muted);margin:4px 0 0}
+    .badge{
+      display:inline-flex;align-items:center;gap:5px;padding:4px 8px;border-radius:999px;
+      font-size:10px;font-weight:800;white-space:nowrap;border:1px solid;
+    }
+    .badge.fact{color:#a7f0cb;background:#0e3229;border-color:#286e58}
+    .badge.proposal{color:#d9ceff;background:#2a2145;border-color:#6b59a0}
+    .badge.tbd{color:#ffe0a8;background:#382813;border-color:#8a6127}
+    .badge.risk{color:#ffc2ca;background:#3b1922;border-color:#8c3c4c}
+    .badge.demo{color:#bfeefa;background:#103142;border-color:#2b6a83}
+    .controls-body{padding:14px}
+    .control-group{border:1px solid var(--line-soft);border-radius:13px;background:#0b1826;margin-bottom:11px;overflow:hidden}
+    .control-title{padding:10px 12px;font-size:11px;font-weight:850;color:#dfeaf5;border-bottom:1px solid var(--line-soft);display:flex;justify-content:space-between}
+    .control-list{padding:8px 10px}
+    .control-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:7px 1px}
+    .control-row label{font-size:11px;color:#b8c7d8}
+    .control-row small{display:block;color:var(--faint);font-size:9px}
+    .toggle{
+      width:46px;height:26px;border:1px solid #3b536c;border-radius:999px;
+      background:#132237;position:relative;cursor:pointer;appearance:none;transition:.2s;
+    }
+    .toggle:after{
+      content:"";position:absolute;width:18px;height:18px;left:3px;top:3px;border-radius:50%;
+      background:#8da0b5;transition:.2s;
+    }
+    .toggle:checked{background:#174c3b;border-color:#3eaa80}
+    .toggle:checked:after{left:23px;background:#8cf0c3}
+    .select,.number{
+      min-height:31px;max-width:128px;border-radius:8px;border:1px solid #334d68;
+      color:#dce7f4;background:#102033;padding:4px 7px;font-size:11px;
+    }
+    .number{width:76px}
+    .preset-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:10px}
+    .chip-btn{
+      min-height:34px;border-radius:9px;padding:7px 8px;text-align:left;
+      border:1px solid #334b65;background:#102137;color:#c9d7e6;font-size:10px;
+    }
+    .chip-btn:hover{border-color:#5b7898;background:#162a42}
+    .playback{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:11px}
+    .mini-btn{
+      min-height:38px;border-radius:10px;border:1px solid #34516e;
+      background:#11243a;font-size:13px;
+    }
+    .mini-btn:hover{background:#1a334d}
+    .mini-btn.play{background:#154a50;border-color:#2e8b8b}
+    .speed-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:-2px 0 12px;font-size:10px;color:var(--muted)}
+    .speed-row select{min-height:28px}
+    .steps-list{max-height:270px;overflow:auto;padding:6px 8px 8px}
+    .step-link{
+      width:100%;display:grid;grid-template-columns:25px 1fr auto;gap:8px;align-items:center;
+      padding:8px;border-radius:9px;background:transparent;text-align:left;color:#9eb0c5;
+    }
+    .step-link:hover{background:#12253a}
+    .step-link .n{width:23px;height:23px;border-radius:7px;display:grid;place-items:center;background:#14253a;border:1px solid #2d455e;font:800 9px var(--mono)}
+    .step-link .label{font-size:10px;line-height:1.25}
+    .step-link .state{font-size:9px}
+    .step-link.completed{color:#bcebd7}
+    .step-link.completed .n{background:#12352b;border-color:#2e7059;color:#85e8b8}
+    .step-link.active{color:#fff;background:#17304a}
+    .step-link.active .n{background:#20516b;border-color:#55cfe4;color:#bff8ff}
+    .step-link.blocked{color:#ffd0d6;background:#321923}
+    .step-link.blocked .n{background:#4a1e2a;border-color:#a34255;color:#ffc3cc}
+    .stage-panel{min-height:780px}
+    .stage-head{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:15px 17px;border-bottom:1px solid var(--line-soft)}
+    .stage-head h2{font-size:15px;margin:0}
+    .stage-head p{font-size:11px;color:var(--muted);margin:3px 0 0}
+    .state-pills{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
+    .state-pill{font:700 9px var(--mono);padding:5px 7px;border-radius:7px;background:#0c1a2a;border:1px solid #2b435e;color:#adbed0}
+    .state-pill.on{color:#aaf0cd;border-color:#2e755b;background:#0c2c23}
+    .state-pill.warn{color:#ffe2a9;border-color:#816027;background:#332613}
+    .state-pill.bad{color:#ffc2ca;border-color:#8c3c4c;background:#3b1922}
+    .current-banner{
+      margin:12px 14px 0;padding:12px 14px;border:1px solid #315b78;border-radius:13px;
+      background:linear-gradient(120deg,rgba(20,56,73,.8),rgba(19,35,54,.84));
+      display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;
+    }
+    .current-number{
+      width:42px;height:42px;border-radius:13px;display:grid;place-items:center;
+      color:#05202a;background:var(--cyan);font:900 12px var(--mono);
+    }
+    .current-banner h3{font-size:14px;margin:0}
+    .current-banner p{font-size:11px;color:#bfd0df;margin:3px 0 0}
+    .handoff{
+      font:750 10px var(--mono);color:#d3e5f2;background:#0c1b2c;border:1px solid #31516d;
+      border-radius:9px;padding:7px 9px;
+    }
+    .flow-canvas{
+      position:relative;margin:12px 14px 0;padding:10px;
+      min-height:430px;border:1px solid #233b55;border-radius:15px;overflow:hidden;
+      background:
+        linear-gradient(90deg,rgba(84,216,232,.035) 0 25%,rgba(170,139,255,.035) 25% 50%,rgba(106,167,255,.035) 50% 75%,rgba(255,189,102,.035) 75%),
+        #081421;
+    }
+    .flow-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}
+    .flow-path{fill:none;stroke:var(--cyan);stroke-width:3;stroke-linecap:round;stroke-dasharray:10 10;filter:drop-shadow(0 0 5px currentColor)}
+    .flow-path.animate{animation:dash 1s linear infinite}
+    @keyframes dash{to{stroke-dashoffset:-40}}
+    .lanes{position:relative;z-index:3;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;min-height:408px}
+    .lane{border:1px solid rgba(47,72,97,.72);border-radius:12px;padding:8px;background:rgba(8,18,30,.56)}
+    .lane-head{display:flex;align-items:center;justify-content:space-between;gap:7px;padding:2px 3px 8px;border-bottom:1px solid #20354c;margin-bottom:8px}
+    .lane-head strong{font-size:10px}
+    .lane-head span{font-size:8px;color:var(--faint)}
+    .module-stack{display:grid;gap:7px}
+    .module-card{
+      position:relative;min-height:66px;width:100%;padding:10px;border-radius:10px;text-align:left;
+      border:1px solid #2b455e;background:linear-gradient(180deg,#112236,#0d1a2a);
+      color:#c9d7e6;transition:.2s;z-index:4;
+    }
+    .module-card:hover{transform:translateY(-1px);border-color:#557899}
+    .module-card strong{display:block;font-size:10.5px;color:#edf4fb}
+    .module-card span{display:block;font-size:8.5px;color:#8296ad;margin-top:3px}
+    .module-card:before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:3px;border-radius:0 4px 4px 0;background:#34516d}
+    .module-card.active{border-color:var(--cyan);box-shadow:0 0 0 1px rgba(84,216,232,.22),0 0 28px rgba(84,216,232,.14);transform:translateY(-1px)}
+    .module-card.active:before{background:var(--cyan)}
+    .module-card.source{border-color:var(--violet)}
+    .module-card.source:before{background:var(--violet)}
+    .module-card.target{border-color:var(--cyan)}
+    .module-card.target:before{background:var(--cyan)}
+    .module-card.dim{opacity:.44}
+    .packet{
+      position:absolute;z-index:8;display:none;pointer-events:none;
+      padding:5px 8px;border-radius:8px;background:#f2fbff;color:#07131e;
+      font:850 8px var(--mono);box-shadow:0 6px 22px rgba(84,216,232,.35);
+      white-space:nowrap;
+    }
+    .inspector{margin:12px 14px 14px;border:1px solid #29425d;border-radius:14px;background:#0a1725;overflow:hidden}
+    .inspector-top{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #20354a;padding:8px 10px}
+    .inspector-tabs{display:flex;gap:4px}
+    .inspector-tab{padding:6px 9px;border-radius:7px;background:transparent;color:#8499b0;font-size:10px}
+    .inspector-tab[aria-selected="true"]{background:#18314a;color:#fff}
+    .copy-btn{border:1px solid #365570;background:#10243a;color:#d8e4f0;border-radius:8px;padding:6px 9px;font-size:9px;cursor:pointer}
+    .inspector-body{min-height:142px;padding:13px}
+    .plain-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+    .plain-cell{border:1px solid #233c55;border-radius:10px;background:#0e1e30;padding:10px}
+    .plain-cell b{display:block;font-size:9px;color:#7fddea;margin-bottom:4px}
+    .plain-cell span{display:block;font-size:10px;color:#c9d6e4}
+    pre{
+      margin:0;white-space:pre-wrap;word-break:break-word;max-height:190px;overflow:auto;
+      color:#c5e7ee;font:10px/1.55 var(--mono);
+    }
+    .decision-box{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:start}
+    .decision-box h4{font-size:12px;margin:0 0 5px}
+    .decision-box p{font-size:10px;color:#b3c4d5;margin:0}
+    .gate-list{display:grid;gap:6px;margin-top:9px}
+    .gate{display:flex;align-items:center;justify-content:space-between;gap:9px;border:1px solid #29415a;border-radius:8px;padding:7px 8px;font-size:9px}
+    .gate.pass{border-color:#276a52;background:#0d2b23;color:#b7efd4}
+    .gate.fail{border-color:#843849;background:#351923;color:#ffd1d7}
+    .cockpit-panel{position:sticky;top:92px}
+    .cockpit-wrap{padding:16px}
+    .cockpit-label{display:flex;align-items:center;justify-content:space-between;font-size:10px;color:var(--muted);margin-bottom:10px}
+    .bezel{
+      position:relative;border-radius:26px;padding:14px;
+      background:linear-gradient(145deg,#26333e,#070a0e 38%,#151b22);
+      box-shadow:inset 0 0 0 1px #40505e,0 28px 58px rgba(0,0,0,.45);
+    }
+    .screen{
+      min-height:525px;border-radius:17px;overflow:hidden;position:relative;
+      background:
+        radial-gradient(circle at 80% 12%,rgba(91,144,255,.18),transparent 32%),
+        linear-gradient(160deg,#10243a 0%,#091421 54%,#091018 100%);
+      border:1px solid #314456;
+    }
+    .screen-top{height:35px;display:flex;align-items:center;justify-content:space-between;padding:0 13px;border-bottom:1px solid rgba(92,121,147,.2);font-size:9px;color:#bed0df}
+    .screen-status{display:flex;gap:8px}
+    .screen-body{padding:15px 14px 62px;min-height:488px}
+    .screen-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+    .screen-title h3{font-size:15px;margin:0}
+    .screen-title span{font-size:9px;color:#8ea4b8}
+    .task-row{
+      display:grid;grid-template-columns:38px 1fr auto;gap:10px;align-items:center;
+      border:1px solid #2c4a66;border-radius:15px;padding:13px;background:rgba(20,42,62,.87);
+    }
+    .task-icon{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:#1c5363;color:#9ef3f3;font-size:18px}
+    .task-row b{display:block;font-size:11px}
+    .task-row small{display:block;font-size:8.5px;color:#96aabd;margin-top:3px}
+    .screen-toggle{width:46px;height:26px}
+    .screen-hint{margin-top:10px;padding:10px;border-radius:10px;background:rgba(7,18,30,.72);font-size:9px;color:#93a8bc}
+    .aibar{position:absolute;left:11px;right:11px;bottom:11px;height:42px;border:1px solid #2c465f;border-radius:14px;background:rgba(8,19,30,.9);display:flex;align-items:center;gap:9px;padding:0 11px}
+    .ai-orb{width:22px;height:22px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#b6f5ff,#57a6f5 45%,#8766ef);box-shadow:0 0 16px rgba(91,174,255,.45)}
+    .aibar span{font-size:9px;color:#b5c6d6}
+    .interaction-card{
+      border:1px solid #497292;border-radius:17px;padding:14px;
+      background:linear-gradient(160deg,rgba(27,57,79,.98),rgba(17,34,52,.98));
+      box-shadow:0 16px 35px rgba(0,0,0,.3);
+      animation:cardIn .32s ease both;
+    }
+    @keyframes cardIn{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}
+    .card-kicker{display:flex;align-items:center;justify-content:space-between;color:#74e1ea;font-size:8px;font-weight:800;letter-spacing:.08em}
+    .interaction-card h3{font-size:15px;margin:12px 0 7px;line-height:1.35}
+    .interaction-card p{font-size:10px;color:#b7cad9;margin:0}
+    .tts{display:flex;align-items:center;gap:5px;margin:13px 0 4px;color:#9adfea;font-size:8.5px}
+    .waves{display:flex;align-items:center;gap:2px;height:14px}
+    .waves i{display:block;width:2px;border-radius:2px;background:#70dce8;animation:wave 1s ease-in-out infinite}
+    .waves i:nth-child(1){height:5px}.waves i:nth-child(2){height:11px;animation-delay:.15s}.waves i:nth-child(3){height:7px;animation-delay:.3s}.waves i:nth-child(4){height:13px;animation-delay:.45s}
+    @keyframes wave{50%{transform:scaleY(.45)}}
+    .screen-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:13px}
+    .screen-btn{min-height:38px;border-radius:10px;border:1px solid #3b5c79;background:#18324a;font-size:10px}
+    .screen-btn.confirm{color:#06171b;background:#68d9c0;border-color:#68d9c0;font-weight:850}
+    .screen-btn.reject{color:#d8e4ef;background:#14253a}
+    .screen-btn:disabled{opacity:.45;cursor:not-allowed}
+    .voice-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+    .voice-chip{border:1px solid #446888;border-radius:999px;background:#10283e;color:#cce0ed;padding:6px 9px;font-size:8.5px;cursor:pointer}
+    .execution-state{display:grid;place-items:center;text-align:center;min-height:290px}
+    .exec-icon{width:72px;height:72px;border-radius:24px;display:grid;place-items:center;font-size:30px;background:#153346;border:1px solid #326482;margin-bottom:14px}
+    .execution-state h3{font-size:17px;margin:0 0 6px}
+    .execution-state p{font-size:10px;color:#9db0c3;max-width:250px;margin:0}
+    .progress-track{width:210px;height:6px;border-radius:999px;background:#162a3f;margin-top:16px;overflow:hidden}
+    .progress-track i{display:block;height:100%;background:linear-gradient(90deg,var(--cyan),var(--green));animation:load 1.6s ease infinite}
+    @keyframes load{from{width:10%}to{width:100%}}
+    .result-card{border:1px solid #2d7459;border-radius:15px;background:#0e2e26;padding:14px}
+    .result-card.fail{border-color:#8d3c4d;background:#351923}
+    .result-card h3{font-size:15px;margin:0 0 7px}
+    .result-card p{font-size:10px;color:#b7d7c9;margin:0}
+    .result-card.fail p{color:#efc3c9}
+    .vehicle-strip{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:12px}
+    .vehicle-item{border:1px solid #29435b;border-radius:10px;background:#0c1b2b;padding:9px}
+    .vehicle-item b{display:block;font-size:8px;color:#7690a8}
+    .vehicle-item span{display:block;font-size:10px;margin-top:3px}
+    .trace-panel{margin-top:13px}
+    .trace-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:13px}
+    .log-list{max-height:260px;overflow:auto;padding:9px 11px}
+    .log-row{
+      display:grid;grid-template-columns:58px 90px 1fr auto;gap:8px;align-items:start;
+      padding:8px 4px;border-bottom:1px solid #1d3148;font-size:10px;
+    }
+    .log-row:last-child{border-bottom:0}
+    .log-time{font-family:var(--mono);color:#6f8ba5}
+    .log-route{color:#8fe4ed}
+    .log-message{color:#c5d3e0}
+    .log-empty{padding:28px;text-align:center;font-size:11px;color:#70869d}
+    .source-body{padding:14px 16px;font-size:11px;color:#aabdd0}
+    .source-body ul{margin:8px 0;padding-left:18px}
+    .source-body li{margin:5px 0}
+    .source-body .warning{margin-top:10px;border-left:3px solid var(--amber);background:#2f2413;border-radius:8px;padding:9px;color:#f7dcae}
+    .live{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+    .toast{
+      position:fixed;right:22px;bottom:22px;z-index:90;max-width:360px;
+      padding:12px 14px;border:1px solid #38617d;border-radius:12px;
+      background:#10283b;color:#e9f4fb;box-shadow:0 18px 45px rgba(0,0,0,.35);
+      font-size:11px;opacity:0;transform:translateY(12px);pointer-events:none;transition:.24s;
+    }
+    .toast.show{opacity:1;transform:none}
+    .toast.error{border-color:#8b3c4b;background:#361a23}
+    @media(max-width:1460px){
+      .workspace{grid-template-columns:270px minmax(590px,1fr) 330px}
+      .intro-strip{grid-template-columns:1fr repeat(2,1fr)}
+      .intro-card.lead{grid-row:span 2}
+    }
+    @media(max-width:1180px){
+      .topbar{grid-template-columns:1fr auto}.toolbar{grid-column:1/-1;justify-content:flex-end}
+      .workspace{grid-template-columns:280px 1fr}
+      .cockpit-panel{grid-column:1/-1;position:static}
+      .cockpit-wrap{display:grid;grid-template-columns:360px 1fr;gap:16px;align-items:start}
+      .cockpit-label{grid-column:1/-1}
+    }
+    @media(max-width:860px){
+      .topbar{position:static;grid-template-columns:1fr}.scenario-tabs,.toolbar{justify-content:stretch}.scenario-tab,.tool-btn{flex:1}
+      .intro-strip{grid-template-columns:1fr 1fr}.intro-card.lead{grid-column:1/-1;grid-row:auto}
+      .workspace{grid-template-columns:1fr}
+      .stage-panel{min-height:0}
+      .lanes{grid-template-columns:1fr 1fr}
+      .cockpit-wrap{display:block}.bezel{max-width:430px;margin:0 auto}
+      .trace-grid{grid-template-columns:1fr}
+    }
+    @media(max-width:560px){
+      .app{padding:8px 8px 28px}.brand p{display:none}.brand h1{font-size:14px}
+      .scenario-tabs,.toolbar{overflow:auto}.scenario-tab,.tool-btn{min-width:max-content}
+      .intro-strip{grid-template-columns:1fr}.current-banner{grid-template-columns:auto 1fr}.handoff{grid-column:1/-1}
+      .lanes{grid-template-columns:1fr}.flow-canvas{max-height:none}.plain-grid{grid-template-columns:1fr}
+      .log-row{grid-template-columns:50px 1fr}.log-route{grid-column:2}.log-message{grid-column:1/-1}
+      .cockpit-wrap{padding:10px}.screen{min-height:500px}
+    }
+    @media(prefers-reduced-motion:reduce){
+      *,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">AI</div>
+        <div>
+          <h1>系统预设任务 · 全链路交互演示</h1>
+          <p>从后台任务定义，到车机卡片、用户授权、车控和真实状态回读</p>
+        </div>
+      </div>
+      <div class="scenario-tabs" role="group" aria-label="选择演示场景">
+        <button class="scenario-tab" data-scenario="edge" aria-pressed="true">端侧 · 天气保护</button>
+        <button class="scenario-tab" data-scenario="cloud" aria-pressed="false">云端 · 充电口盖</button>
+      </div>
+      <div class="toolbar">
+        <button class="tool-btn" id="focusCurrent">定位当前步骤</button>
+        <button class="tool-btn" id="copyTrace">复制链路</button>
+        <button class="tool-btn danger" id="resetTop">重置演示</button>
+      </div>
+    </header>
+
+    <section class="intro-strip" aria-label="核心边界">
+      <div class="intro-card lead">
+        <strong>这是一套交互教学仿真，不是实车系统</strong>
+        <span>页面中的数据包和字段用于说明产品语义；正式接口、字段名和研发Owner仍以专项评审为准。</span>
+      </div>
+      <div class="intro-card"><strong>任务中心</strong><span>决定这一条任务“允不允许运行”。</span></div>
+      <div class="intro-card"><strong>Trigger</strong><span>判断“现在是不是触发时机”。</span></div>
+      <div class="intro-card"><strong>即时交互卡</strong><span>负责“怎么问”和“用户怎么选”。</span></div>
+      <div class="intro-card"><strong>端侧车控</strong><span>执行前复核，并用真实状态收口。</span></div>
+    </section>
+
+    <main class="workspace">
+      <aside class="panel controls-panel">
+        <div class="panel-head">
+          <div><h2>① 场景控制台</h2><p>改条件、制造异常，再逐步推进。</p></div>
+          <span class="badge demo">模拟数据</span>
+        </div>
+        <div class="controls-body">
+          <div class="playback" aria-label="播放控制">
+            <button class="mini-btn" id="prevBtn" aria-label="上一步">←</button>
+            <button class="mini-btn play" id="playBtn" aria-label="自动播放">▶</button>
+            <button class="mini-btn" id="pauseBtn" aria-label="暂停">Ⅱ</button>
+            <button class="mini-btn" id="nextBtn" aria-label="下一步">→</button>
+            <button class="mini-btn" id="resetBtn" aria-label="重置">↺</button>
+          </div>
+          <div class="speed-row"><span>自动播放速度</span><select id="speedSelect" class="select" aria-label="播放速度"><option value="1400">0.5×</option><option value="850" selected>1×</option><option value="440">2×</option></select></div>
+          <div id="dynamicControls"></div>
+          <div class="control-group">
+            <div class="control-title"><span>异常预设</span><span>一键切换</span></div>
+            <div class="preset-grid" id="presetGrid"></div>
+          </div>
+          <div class="control-group">
+            <div class="control-title"><span>步骤目录</span><span id="stepCounter">1 / 1</span></div>
+            <div class="steps-list" id="stepsList"></div>
+          </div>
+        </div>
+      </aside>
+
+      <section class="panel stage-panel">
+        <div class="stage-head">
+          <div><h2>② 后台 → 云端 → 车端 → 车机的数据通道</h2><p>高亮的两块是当前数据的发送方和接收方；点击任何模块可看职责边界。</p></div>
+          <div class="state-pills" id="statePills"></div>
+        </div>
+        <div class="current-banner" id="currentBanner"></div>
+        <div class="flow-canvas" id="flowCanvas">
+          <svg class="flow-svg" id="flowSvg" aria-hidden="true">
+            <defs>
+              <marker id="arrowHead" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+                <path d="M0,0 L8,4 L0,8 Z" fill="context-stroke"></path>
+              </marker>
+            </defs>
+            <path id="flowPath" class="flow-path animate" marker-end="url(#arrowHead)"></path>
+          </svg>
+          <div class="packet" id="packet">数据包</div>
+          <div class="lanes">
+            <div class="lane">
+              <div class="lane-head"><strong>后台 / 任务状态</strong><span>定义与许可</span></div>
+              <div class="module-stack">
+                <button class="module-card" data-module="config"><strong>配置平台</strong><span>发布任务定义、规则与交互档案</span></button>
+                <button class="module-card" data-module="taskState"><strong>任务状态业务</strong><span>保存单任务权威启停状态</span></button>
+              </div>
+            </div>
+            <div class="lane">
+              <div class="lane-head"><strong>云端 / 在线决策</strong><span>语义与模型</span></div>
+              <div class="module-stack">
+                <button class="module-card" data-module="cloudTrigger"><strong>Cloud Trigger</strong><span>任务门禁、硬条件、去重</span></button>
+                <button class="module-card" data-module="planner"><strong>Advisor / Planner</strong><span>主动推荐与语义决策</span></button>
+                <button class="module-card" data-module="dt"><strong>DT / VQA</strong><span>理解视觉和复杂上下文</span></button>
+              </div>
+            </div>
+            <div class="lane">
+              <div class="lane-head"><strong>车端 / 本地运行</strong><span>低时延与安全</span></div>
+              <div class="module-stack">
+                <button class="module-card" data-module="localCache"><strong>任务状态缓存</strong><span>车端可读的启停快照</span></button>
+                <button class="module-card" data-module="edgeTrigger"><strong>Edge Trigger</strong><span>订阅信号、判断条件、创建运行事件</span></button>
+                <button class="module-card" data-module="edgeState"><strong>端状态 / VLM</strong><span>车辆、天气、视觉与时间戳</span></button>
+                <button class="module-card" data-module="vehicle"><strong>赛力斯车控</strong><span>执行原子动作并返回受理结果</span></button>
+                <button class="module-card" data-module="readback"><strong>真实状态回读</strong><span>证明车辆是否真的达到目标</span></button>
+              </div>
+            </div>
+            <div class="lane">
+              <div class="lane-head"><strong>车机屏幕 / VUI</strong><span>展示与用户选择</span></div>
+              <div class="module-stack">
+                <button class="module-card" data-module="taskCenter"><strong>任务中心</strong><span>展示任务并接收启停操作</span></button>
+                <button class="module-card" data-module="card"><strong>即时交互卡</strong><span>展示、TTS、按钮与生命周期</span></button>
+                <button class="module-card" data-module="user"><strong>用户点击 / 语音</strong><span>确认、拒绝、关闭或超时</span></button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="inspector" id="inspector">
+          <div class="inspector-top">
+            <div class="inspector-tabs" role="tablist" aria-label="查看当前步骤">
+              <button class="inspector-tab" data-tab="plain" role="tab" aria-selected="true">人话</button>
+              <button class="inspector-tab" data-tab="data" role="tab" aria-selected="false">数据</button>
+              <button class="inspector-tab" data-tab="decision" role="tab" aria-selected="false">判断</button>
+              <button class="inspector-tab" data-tab="failure" role="tab" aria-selected="false">失败</button>
+            </div>
+            <button class="copy-btn" id="copyCurrent">复制当前数据</button>
+          </div>
+          <div class="inspector-body" id="inspectorBody"></div>
+        </div>
+      </section>
+
+      <aside class="panel cockpit-panel">
+        <div class="panel-head">
+          <div><h2>③ 车机屏幕还原</h2><p>卡片始终显示在车机；“云端”只表示谁在做理解。</p></div>
+          <span class="badge demo">VUI仿真</span>
+        </div>
+        <div class="cockpit-wrap">
+          <div class="cockpit-label"><span>中控屏 · 演示视图</span><span id="screenStage">任务中心</span></div>
+          <div class="bezel">
+            <div class="screen">
+              <div class="screen-top"><span>10:25</span><div class="screen-status"><span id="screenNetwork">5G</span><span>21°C</span><span>78%</span></div></div>
+              <div class="screen-body" id="screenBody"></div>
+              <div class="aibar"><div class="ai-orb"></div><span id="aiBarText">任务中心已就绪</span></div>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <section class="trace-panel trace-grid">
+      <div class="panel">
+        <div class="panel-head"><div><h2>④ 运行事件日志</h2><p>每次推进都会留下来源、去向和结果，可反向还原整条链。</p></div><button class="copy-btn" id="clearLogs">清空日志</button></div>
+        <div class="log-list" id="logList"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div><h2>⑤ 证据口径与演示边界</h2><p>演示页不会把产品建议伪装成已实现接口。</p></div><span class="badge tbd">评审用</span></div>
+        <div class="source-body">
+          <ul>
+            <li><span class="badge fact">已确认</span> 天气由端侧Trigger直接闭环；端侧卡走本地可见即可说。</li>
+            <li><span class="badge fact">已确认</span> 云端卡仍在车机展示；语音进入Planner，点击需同步卡片已消费。</li>
+            <li><span class="badge proposal">产品建议</span> 用一次运行标识关联卡片、授权、车控与日志。</li>
+            <li><span class="badge proposal">产品建议</span> 执行前复核，并以真实车辆状态判断成功。</li>
+            <li><span class="badge tbd">待确认</span> 任务开关权威事实源、Push/Pull正式协议及Trigger消费方式。</li>
+            <li><span class="badge tbd">待确认</span> 充电口在DT前确认，还是FOUND后确认。</li>
+          </ul>
+          <div class="warning">页面中的Payload是“业务语义示例”，不是正式IDL；人员姓名只代表当前对齐人，不自动等于研发Owner。</div>
+          <p><a href="https://bytedance.larkoffice.com/docx/Zp90dGMheow4XmxwVXAcu2KGnTb">9月1日系统预设任务评审</a> · <a href="https://bytedance.larkoffice.com/docx/AKDNdkGAuot6dmxkqkAcRwwunuf">7月28日即时交互卡评审</a> · <a href="https://bytedance.larkoffice.com/wiki/FBsrwA734iaFzZkrZExcHHBtn3d">VUI主交互PRD</a></p>
+        </div>
+      </div>
+    </section>
+  </div>
+  <div class="live" id="liveRegion" aria-live="polite"></div>
+  <div class="toast" id="toast"></div>
+
+  <script>
+    (function(){
+      "use strict";
+
+      var moduleInfo = {
+        config:{title:"配置平台",owner:"系统预设任务产品 + 平台研发",place:"后台",receive:"任务规则、端云部署、交互方式和版本",decision:"定义是否完整、依赖能力是否可用",output:"任务定义与可发布版本",failure:"定义缺失时不进入运行时",certainty:"tbd"},
+        taskState:{title:"任务状态业务",owner:"任务中心接入业务，正式Owner待确认",place:"后台 / 云端",receive:"用户启用或停用操作",decision:"账号、车辆、车型、版本和幂等是否合法",output:"权威ENABLED / DISABLED状态与ACK",failure:"保存失败时UI回滚并保留旧状态",certainty:"tbd"},
+        cloudTrigger:{title:"Cloud Trigger",owner:"云端Trigger研发，正式DRI待确认",place:"云端",receive:"任务状态和上行车辆快照",decision:"硬条件、数据时效、去重和冷却是否通过",output:"一次主动推荐事件 / Query",failure:"任何条件未知或过期都不触发",certainty:"proposal"},
+        planner:{title:"Advisor / Planner",owner:"Static Advisor + Planner / Director",place:"云端",receive:"主动推荐Query、上下文和卡片信息",decision:"应该提供什么建议、用户语音选择了什么",output:"DT调用、卡片请求或标准选择",failure:"推理失败或超时则终止，不下发旧授权",certainty:"fact"},
+        dt:{title:"DT / VQA",owner:"DT、VQA与视觉能力团队",place:"云端 + 端侧视觉能力",receive:"问题、当前帧或结构化视觉信息",decision:"当前是否存在充电设备",output:"FOUND / NOT_FOUND / UNKNOWN / ERROR",failure:"非FOUND不进入开盖执行",certainty:"proposal"},
+        localCache:{title:"任务状态缓存",owner:"端侧任务状态承接模块，待研发确认",place:"车端",receive:"状态Push或上电、登录、重连Pull快照",decision:"版本是否更新、是否属于当前账号与车辆",output:"Trigger可读的本地任务状态",failure:"状态未知时不允许Trigger执行",certainty:"tbd"},
+        edgeTrigger:{title:"Edge Trigger",owner:"字节端侧Trigger",place:"车端 AI Box / 本地运行时",receive:"任务状态、端状态、VLM结果和交互结果",decision:"规则、时效、防抖、去重、冷却和执行前复核",output:"运行事件、卡片请求或车控动作",failure:"任一门禁失败即停止并记录原因",certainty:"fact"},
+        edgeState:{title:"端状态 / VLM",owner:"赛力斯信号生产方 + 字节VLM接入",place:"车端",receive:"车辆总线、传感器、舱内外视觉",decision:"生成结构化状态并标时间戳与质量",output:"车速、档位、天气、路况、口盖等状态",failure:"UNKNOWN或过期值不能作为触发依据",certainty:"fact"},
+        vehicle:{title:"赛力斯车控",owner:"赛力斯车控研发，项目表确认DRI",place:"车端",receive:"已通过安全复核的原子动作",decision:"当前安全条件是否允许受理",output:"指令受理或失败原因",failure:"受理失败不改变真实状态",certainty:"fact"},
+        readback:{title:"真实状态回读",owner:"赛力斯端状态 + 业务执行收口",place:"车端",receive:"车辆真实状态变化",decision:"目标状态是否在时限内达到",output:"SUCCESS / FAILED / UNKNOWN",failure:"RPC成功但状态未变，仍判失败或未知",certainty:"proposal"},
+        taskCenter:{title:"任务中心",owner:"郝晓伟对齐；任务中心产品与研发",place:"车机HMI",receive:"任务目录和业务返回的真实状态",decision:"只处理展示与用户操作，不判断天气或车控",output:"启用 / 停用操作",failure:"业务保存失败时回滚开关并解释原因",certainty:"fact"},
+        card:{title:"即时交互卡",owner:"徐洋对齐；VUI与卡片研发",place:"车机中控屏",receive:"正文、按钮、TTS、来源、有效期和回调信息",decision:"按来源选择本地可见即可说或云端Planner",output:"展示ACK、用户结果和生命周期事件",failure:"展示失败、关闭或超时都必须回业务",certainty:"fact"},
+        user:{title:"用户点击 / 语音",owner:"用户 + VUI / ASR链路",place:"车机与座舱",receive:"当前可见卡片的问题和选项",decision:"确认、拒绝、关闭或不回应",output:"标准选择结果",failure:"卡片过期后不得消费旧回答",certainty:"fact"}
+      };
+
+      function edgePayload(id,s){
+        var p = {
+          config:{task_key:"weather_protection",route:"EDGE",interaction:"CONFIRM_CARD",version:"v1.1",note:"示例字段"},
+          taskOn:{task_key:"weather_protection",desired_state:"ENABLED",scope:{account:"demo-user",vehicle:"demo-vin"}},
+          stateAck:{task_key:"weather_protection",state:s.taskEnabled?"ENABLED":"DISABLED",version:12,updated_at:"10:25:02"},
+          localState:{task_key:"weather_protection",state:s.taskEnabled?"ENABLED":"DISABLED",version:12,source:"PUSH_OR_PULL"},
+          waiting:{task_state:s.taskEnabled?"ENABLED":"DISABLED",runtime:"WAITING"},
+          signal:{weather:s.weather,speed_kmh:Number(s.speed),rear_fog:s.rearFog?"ON":"OFF",freshness_ms:240,quality:"GOOD"},
+          candidate:{rule:"enabled AND speed>30 AND fog AND rear_fog=OFF",result:"MATCH",dedup_key:"weather-fog-ignition-001"},
+          run:{run_ref:"weather-run-001",task_key:"weather_protection",created_at:"10:27:35",expires_in_sec:20},
+          card:{run_ref:"weather-run-001",source_type:"EDGE_TRIGGER",content:"前方出现大雾，是否帮你打开后雾灯？",buttons:["确认","取消"],tts:s.voiceEnabled?"ON":"OFF",voice_route:"LOCAL_VISIBLE_SAY",valid_for_sec:10},
+          display:{run_ref:"weather-run-001",display_state:"VISIBLE",tts_state:s.voiceEnabled?"PLAYING":"SKIPPED"},
+          choice:{run_ref:"weather-run-001",result:s.userDecision||"WAITING",input:s.inputMode},
+          callback:{run_ref:"weather-run-001",normalized_result:s.userDecision||"WAITING"},
+          recheck:{task_state:s.taskEnabled?"ENABLED":"DISABLED",weather:s.changeAfterConfirm?"CLEAR":s.weather,speed_kmh:Number(s.speed),rear_fog:s.rearFog?"ON":"OFF",card_valid:!s.cardExpired},
+          control:{run_ref:"weather-run-001",action:"OPEN_REAR_FOG_LIGHT",request_result:s.controlResult==="rpc_fail"?"REJECTED":"ACCEPTED"},
+          readback:{signal:"rear_fog_light",expected:"ON",actual:s.controlResult==="success"?"ON":"OFF",timeout_ms:2000},
+          result:{run_ref:"weather-run-001",business_result:s.controlResult==="success"?"SUCCESS":"FAILED",cooldown:"CURRENT_IGNITION_CYCLE"}
+        };
+        return p[id] || {};
+      }
+
+      function cloudPayload(id,s){
+        var p = {
+          config:{task_key:"charge_port_assist",route:"HYBRID_CLOUD",interaction:"CONFIRM_CARD",version:"v1.0",note:"示例字段"},
+          taskOn:{task_key:"charge_port_assist",desired_state:"ENABLED",scope:{account:"demo-user",vehicle:"demo-vin"}},
+          stateAck:{task_key:"charge_port_assist",state:s.taskEnabled?"ENABLED":"DISABLED",version:8,targets:["CLOUD_TRIGGER","EDGE_EXECUTOR"]},
+          uplink:{gear:s.gear,soc:Number(s.soc),charge_lid:s.lidOpen?"OPEN":"CLOSED",network:s.network,quality:"GOOD",captured_at:"10:25:12"},
+          hardGate:{task_enabled:s.taskEnabled,ai_active_service:s.aiEnabled,gear:s.gear,soc:Number(s.soc),lid:s.lidOpen?"OPEN":"CLOSED",result:"MATCH"},
+          query:{run_ref:"charge-run-001",query:"帮我看一下有没有充电桩，如果有的话进入打开充电口流程",expires_in_sec:15},
+          dtCall:{run_ref:"charge-run-001",tool:"CURRENT_SCENE_CHARGER_VQA",question:"后方是否存在可用充电设备？"},
+          frame:{run_ref:"charge-run-001",frame_age_ms:380,source:"rear_camera_last_frame",privacy:"MINIMUM_NECESSARY"},
+          dtResult:{run_ref:"charge-run-001",result:s.dtResult,confidence:s.dtResult==="FOUND"?0.92:0.41,valid_for_sec:8},
+          card:{run_ref:"charge-run-001",source_type:"CLOUD_ADVISOR",content:"已识别到充电设备，需要帮你打开充电口盖吗？",buttons:["打开","暂不"],voice_route:"PLANNER_DYNAMIC_TOOL",valid_for_sec:10},
+          display:{run_ref:"charge-run-001",display_state:"VISIBLE",card_context:"SYNC_TO_PLANNER"},
+          choice:{run_ref:"charge-run-001",result:s.userDecision||"WAITING",input:s.inputMode,planner_context_consumed:!!s.userDecision},
+          auth:{run_ref:"charge-run-001",authorization:s.userDecision||"WAITING",dt_ref:"charge-run-001",expires_in_sec:6},
+          recheck:{task_state:s.taskEnabled?"ENABLED":"DISABLED",gear:s.leavePAfterConfirm?"D":s.gear,lid:s.lidOpen?"OPEN":"CLOSED",dt_result:s.dtResult,auth_valid:!s.authExpired},
+          control:{run_ref:"charge-run-001",action:"OPEN_CHARGE_LID",request_result:s.controlResult==="rpc_fail"?"REJECTED":"ACCEPTED"},
+          readback:{signal:"charge_lid",expected:"OPEN",actual:s.controlResult==="success"?"OPEN":"CLOSED",timeout_ms:2500},
+          result:{run_ref:"charge-run-001",business_result:s.controlResult==="success"?"SUCCESS":"FAILED",sync_cloud:true}
+        };
+        return p[id] || {};
+      }
+
+      var scenarios = {
+        edge:{
+          label:"端侧 · 天气路况保护",
+          route:"弱网可闭环 · 不经过Planner",
+          initial:{taskEnabled:false,network:"OFFLINE",voiceEnabled:true,weather:"FOG",speed:42,rearFog:false,inputMode:"LOCAL_VOICE",userDecision:null,cardExpired:false,changeAfterConfirm:false,controlResult:"success"},
+          controls:[
+            {key:"taskEnabled",label:"天气保护任务",type:"toggle",help:"单任务许可"},
+            {key:"network",label:"网络",type:"select",options:[["OFFLINE","断网"],["WEAK","弱网"],["NORMAL","正常"]],help:"端侧仍应工作"},
+            {key:"voiceEnabled",label:"语音可用",type:"toggle",help:"关闭时只出卡、不播TTS"},
+            {key:"weather",label:"天气 / 路况",type:"select",options:[["CLEAR","正常"],["RAIN","大雨"],["FOG","大雾"],["SNOW","冰雪"]],help:"示例取大雾"},
+            {key:"speed",label:"车速 km/h",type:"number",min:0,max:160,help:"阈值示例 > 30"},
+            {key:"rearFog",label:"后雾灯已开启",type:"toggle",help:"已开启则不重复"},
+            {key:"inputMode",label:"用户输入",type:"select",options:[["LOCAL_VOICE","本地语音"],["CLICK","按钮点击"]],help:"端侧不进Planner"},
+            {key:"controlResult",label:"车控结果",type:"select",options:[["success","受理且状态变化"],["rpc_fail","请求失败"],["state_mismatch","受理但状态未变"]],help:"真实回读才收口"}
+          ],
+          presets:[
+            {label:"正常完整链路",patch:{taskEnabled:true,weather:"FOG",speed:42,rearFog:false,userDecision:"CONFIRM",cardExpired:false,changeAfterConfirm:false,controlResult:"success"}},
+            {label:"卡片已超时",patch:{taskEnabled:true,weather:"FOG",speed:42,rearFog:false,userDecision:"CONFIRM",cardExpired:true,changeAfterConfirm:false}},
+            {label:"确认后雾已散",patch:{taskEnabled:true,weather:"FOG",speed:42,rearFog:false,userDecision:"CONFIRM",cardExpired:false,changeAfterConfirm:true}},
+            {label:"RPC成功但灯未亮",patch:{taskEnabled:true,weather:"FOG",speed:42,rearFog:false,userDecision:"CONFIRM",cardExpired:false,changeAfterConfirm:false,controlResult:"state_mismatch"}}
+          ],
+          steps:[
+            {id:"config",code:"E00",title:"后台发布任务定义",from:"config",to:"taskCenter",owner:"配置平台 + 任务中心",place:"后台 → 车机",plain:"先让车机知道有“天气路况保护”这条系统预设任务，以及它走端侧确认链路。",receive:"任务规则、端侧部署和交互档案",decision:"定义、版本和依赖是否齐全",output:"任务目录与默认展示",failure:"定义缺失时任务不可启用",certainty:"tbd",flow:"state",packet:"config"},
+            {id:"enable",code:"E01",title:"用户在任务中心开启",from:"taskCenter",to:"taskState",owner:"任务中心",place:"车机 → 后台",plain:"用户只是在说“以后允许天气保护工作”，不是现在立刻打开后雾灯。",receive:"用户点击开启",decision:"把操作交给哪个业务",output:"启用请求",failure:"不能直接让UI开关假装成功",certainty:"fact",flow:"interaction",packet:"taskOn",guard:function(s){return s.taskEnabled?true:"请先在右侧车机或左侧控制台打开任务开关。";},auto:{taskEnabled:true}},
+            {id:"save",code:"E02",title:"保存权威任务状态并回ACK",from:"taskState",to:"taskCenter",owner:"任务状态接入业务",place:"后台 → 车机",plain:"后台确认这条任务真的被开启，任务中心才把“处理中”改成“已开启”。",receive:"启用请求",decision:"账号、车辆、幂等和版本是否合法",output:"ENABLED + 版本 + ACK",failure:"失败就回滚开关并说明原因",certainty:"tbd",flow:"state",packet:"stateAck"},
+            {id:"sync",code:"E03",title:"Push / Pull同步到车端",from:"taskState",to:"localCache",owner:"任务状态业务 + 端侧承接模块",place:"后台 → 车端",plain:"把任务开关同步成Trigger能够读取的本地状态；上电、登录或重连再拉全量快照。",receive:"ENABLED与版本",decision:"新旧版本和账号车辆是否一致",output:"本地任务状态缓存",failure:"同步失败或未知时不得触发",certainty:"tbd",flow:"state",packet:"localState"},
+            {id:"waiting",code:"E04",title:"Edge Trigger进入等待",from:"localCache",to:"edgeTrigger",owner:"端侧Trigger",place:"车端",plain:"Trigger读到任务已开启后开始监听，但此刻还不会出卡。",receive:"本地任务状态",decision:"任务是否有效、规则是否加载",output:"WAITING并订阅信号",failure:"非ENABLED继续休眠",certainty:"proposal",flow:"trigger",packet:"waiting",guard:function(s){return s.taskEnabled?true:"任务为关闭，Trigger不能进入等待。";}},
+            {id:"signals",code:"E05",title:"端状态与VLM送入最新信号",from:"edgeState",to:"edgeTrigger",owner:"端状态 / VLM + Trigger",place:"车端",plain:"车速、大雾和后雾灯状态进入Trigger，并带时间戳和质量。",receive:"车辆总线与视觉结构化结果",decision:"数据是否新鲜、质量是否可用",output:"一次当前状态快照",failure:"UNKNOWN或过期值不参与判断",certainty:"fact",flow:"state",packet:"signal"},
+            {id:"match",code:"E06",title:"逐项判断业务条件",from:"edgeTrigger",to:"edgeTrigger",owner:"端侧Trigger",place:"车端",plain:"只有任务开、车速超过30、大雾成立、后雾灯关闭且不在冷却期，才继续。",receive:"任务状态与信号快照",decision:"AND条件、防抖、去重、冷却",output:"候选事件",failure:"任一条件失败就继续等待",certainty:"fact",flow:"trigger",packet:"candidate",guard:function(s){if(!s.taskEnabled)return"任务未开启";if(Number(s.speed)<=30)return"车速未超过30km/h";if(s.weather!=="FOG")return"当前不是大雾分支";if(s.rearFog)return"后雾灯已经开启，无需再次提醒";return true;}},
+            {id:"run",code:"E07",title:"创建一次运行事件",from:"edgeTrigger",to:"edgeTrigger",owner:"端侧Trigger",place:"车端",plain:"长期任务只创建一次“这回大雾”的运行记录，用它关联卡片、回答、车控和日志。",receive:"候选事件",decision:"本次是否已经处理过",output:"唯一运行关联标识",failure:"重复候选被丢弃",certainty:"proposal",flow:"trigger",packet:"run"},
+            {id:"card",code:"E08",title:"Trigger请求即时交互卡",from:"edgeTrigger",to:"card",owner:"端侧Trigger → VUI",place:"车端 → 车机屏幕",plain:"Trigger把问题、按钮、TTS、本地语音路由、有效期和回传关系交给卡片。",receive:"运行事件与交互档案",decision:"按EDGE来源走本地可见即可说",output:"InteractionRequest",failure:"拉卡失败要回Trigger，不能默默丢失",certainty:"proposal",flow:"card",packet:"card"},
+            {id:"display",code:"E09",title:"卡片展示并播固定TTS",from:"card",to:"user",owner:"即时交互卡 / VUI",place:"车机屏幕",plain:"卡片只负责问用户。断网不影响本地展示；语音禁用时只显示、不播TTS。",receive:"正文、按钮与TTS策略",decision:"展示、排队、打断和生命周期",output:"展示ACK与可见按钮",failure:"失败、关闭或超时都要返回",certainty:"fact",flow:"card",packet:"display"},
+            {id:"choice",code:"E10",title:"用户点击或本地语音确认",from:"user",to:"card",owner:"用户 + 可见即可说",place:"座舱 / 车机",plain:"“确认”“好的”等本地词条只被归一成CONFIRM，卡片自己不打开后雾灯。",receive:"当前可见按钮",decision:"确认、拒绝、关闭还是超时",output:"标准选择结果",failure:"卡片过期后旧回答无效",certainty:"fact",flow:"interaction",packet:"choice",guard:function(s){if(s.cardExpired)return"卡片已经过期，旧回答不能再被消费";if(!s.userDecision)return"请在右侧卡片选择确认、取消或语音回答";if(s.userDecision!=="CONFIRM")return"用户未授权，本次结束";return true;},auto:{userDecision:"CONFIRM"}},
+            {id:"callback",code:"E11",title:"卡片把结果回给Trigger",from:"card",to:"edgeTrigger",owner:"VUI → Trigger",place:"车机 → 车端",plain:"确认结果必须带回同一次运行，Trigger才能知道这不是另一张旧卡。",receive:"CONFIRM与运行关联",decision:"结果是否属于当前有效卡片",output:"AUTHORIZED",failure:"关联失败或重复回调直接拒绝",certainty:"proposal",flow:"interaction",packet:"callback"},
+            {id:"recheck",code:"E12",title:"执行前重新读取最新车况",from:"edgeState",to:"edgeTrigger",owner:"端侧Trigger",place:"车端",plain:"用户回答可能晚了十秒，所以车控前再检查任务、天气、后雾灯和卡片有效期。",receive:"最新任务状态与车辆状态",decision:"授权和业务条件现在是否仍成立",output:"允许执行或终止",failure:"条件变化就不执行，并解释原因",certainty:"proposal",flow:"trigger",packet:"recheck",guard:function(s){if(!s.taskEnabled)return"用户已经关闭任务";if(s.cardExpired)return"卡片授权已过期";if(s.changeAfterConfirm)return"用户确认后大雾已消失";if(s.rearFog)return"用户已经手动打开后雾灯";return true;}},
+            {id:"control",code:"E13",title:"调用赛力斯车控",from:"edgeTrigger",to:"vehicle",owner:"Trigger / 执行业务 → 赛力斯车控",place:"车端",plain:"通过复核后才发“打开后雾灯”。接口受理成功仍不等于车辆已经成功。",receive:"已授权动作",decision:"车控安全条件和参数是否合法",output:"ACCEPTED或错误原因",failure:"请求失败记为执行失败，并继续刷新卡片结果",certainty:"fact",flow:"control",packet:"control",guard:function(){return true;}},
+            {id:"readback",code:"E14",title:"读取真实后雾灯状态",from:"readback",to:"edgeTrigger",owner:"端状态 + Trigger",place:"车端",plain:"只有真实后雾灯状态变成ON，才算这次业务真正完成。未达到也要把失败结果展示给用户。",receive:"车辆真实状态",decision:"规定时间内是否达到ON",output:"SUCCESS或FAILED",failure:"RPC成功但状态未变仍判失败，并刷新失败卡片",certainty:"proposal",flow:"readback",packet:"readback",guard:function(){return true;}},
+            {id:"finish",code:"E15",title:"刷新卡片并进入冷却",from:"edgeTrigger",to:"card",owner:"Trigger + VUI",place:"车端 → 车机",plain:"卡片展示真实成功结果，Trigger进入冷却，避免同一次大雾重复打扰。",receive:"真实执行结果",decision:"成功、失败以及是否关闭卡片",output:"结果卡与冷却状态",failure:"失败展示原因，不伪装成功",certainty:"proposal",flow:"readback",packet:"result"}
+          ]
+        },
+        cloud:{
+          label:"云端 · 识别充电设备后开盖",
+          route:"端侧硬门禁 + 云端理解 + 端侧车控",
+          initial:{taskEnabled:false,aiEnabled:true,network:"NORMAL",gear:"P",soc:18,lidOpen:false,dtResult:"FOUND",inputMode:"CLOUD_VOICE",userDecision:null,authExpired:false,leavePAfterConfirm:false,controlResult:"success"},
+          controls:[
+            {key:"taskEnabled",label:"充电口盖任务",type:"toggle",help:"单任务许可"},
+            {key:"aiEnabled",label:"AI主动服务总开关",type:"toggle",help:"云端门禁"},
+            {key:"network",label:"网络",type:"select",options:[["NORMAL","正常"],["WEAK","弱网"],["OFFLINE","断网"]],help:"断网不能继续云推理"},
+            {key:"gear",label:"挡位",type:"select",options:[["P","P挡"],["D","D挡"],["R","R挡"]],help:"示例要求P挡"},
+            {key:"soc",label:"SOC %",type:"number",min:0,max:100,help:"阈值示例 ≤ 20"},
+            {key:"lidOpen",label:"充电口盖已打开",type:"toggle",help:"已打开则不重复"},
+            {key:"dtResult",label:"DT / VQA结果",type:"select",options:[["FOUND","FOUND"],["NOT_FOUND","NOT_FOUND"],["UNKNOWN","UNKNOWN"],["ERROR","ERROR"]],help:"只有FOUND继续"},
+            {key:"inputMode",label:"用户输入",type:"select",options:[["CLOUD_VOICE","云端语音"],["CLICK","按钮点击"]],help:"语音进Planner"},
+            {key:"controlResult",label:"车控结果",type:"select",options:[["success","受理且状态变化"],["rpc_fail","请求失败"],["state_mismatch","受理但状态未变"]],help:"真实回读才收口"}
+          ],
+          presets:[
+            {label:"正常完整链路",patch:{taskEnabled:true,aiEnabled:true,network:"NORMAL",gear:"P",soc:18,lidOpen:false,dtResult:"FOUND",userDecision:"CONFIRM",authExpired:false,leavePAfterConfirm:false,controlResult:"success"}},
+            {label:"网络中断",patch:{taskEnabled:true,aiEnabled:true,network:"OFFLINE",gear:"P",soc:18,lidOpen:false,dtResult:"FOUND",userDecision:null}},
+            {label:"DT未发现充电设备",patch:{taskEnabled:true,aiEnabled:true,network:"NORMAL",gear:"P",soc:18,lidOpen:false,dtResult:"NOT_FOUND",userDecision:null}},
+            {label:"确认后离开P挡",patch:{taskEnabled:true,aiEnabled:true,network:"NORMAL",gear:"P",soc:18,lidOpen:false,dtResult:"FOUND",userDecision:"CONFIRM",leavePAfterConfirm:true}},
+            {label:"授权已经过期",patch:{taskEnabled:true,aiEnabled:true,network:"NORMAL",gear:"P",soc:18,lidOpen:false,dtResult:"FOUND",userDecision:"CONFIRM",authExpired:true}},
+            {label:"RPC成功但盖未开",patch:{taskEnabled:true,aiEnabled:true,network:"NORMAL",gear:"P",soc:18,lidOpen:false,dtResult:"FOUND",userDecision:"CONFIRM",controlResult:"state_mismatch"}}
+          ],
+          steps:[
+            {id:"config",code:"C00",title:"后台发布混合链路任务定义",from:"config",to:"taskCenter",owner:"配置平台 + 任务中心",place:"后台 → 车机",plain:"任务定义说明：硬条件先筛，复杂充电场景交给云端理解，最终回到端侧开盖。",receive:"任务规则、工具依赖和交互档案",decision:"端云路由与依赖是否完整",output:"任务目录与云端运行定义",failure:"依赖缺失时任务不可启用",certainty:"tbd",flow:"state",packet:"config"},
+            {id:"enable",code:"C01",title:"用户在任务中心开启",from:"taskCenter",to:"taskState",owner:"任务中心",place:"车机 → 后台",plain:"用户允许这条充电辅助任务运行，但此刻不会自动打开口盖。",receive:"用户点击开启",decision:"把操作交给哪个任务状态业务",output:"启用请求",failure:"不能直接把UI状态当权威状态",certainty:"fact",flow:"interaction",packet:"taskOn",guard:function(s){return s.taskEnabled?true:"请先在右侧车机或左侧控制台打开任务开关。";},auto:{taskEnabled:true}},
+            {id:"save",code:"C02",title:"保存状态并同步端云运行时",from:"taskState",to:"cloudTrigger",owner:"任务状态业务",place:"后台 → 云端 / 车端",plain:"Cloud Trigger和最终端侧执行模块都要知道这条任务当前有效。",receive:"启用请求",decision:"权限、版本和作用域是否合法",output:"ENABLED + 版本 + 同步目标",failure:"状态不一致时禁止创建新事件",certainty:"tbd",flow:"state",packet:"stateAck"},
+            {id:"uplink",code:"C03",title:"车端上行必要状态",from:"edgeState",to:"cloudTrigger",owner:"赛力斯端状态 + 上行链路",place:"车端 → 云端",plain:"把P挡、SOC、口盖和时间戳等最小必要状态送给Cloud Trigger。",receive:"车辆当前状态",decision:"是否新鲜、是否属于同一车辆",output:"云端状态快照",failure:"断网或过期时不新触发",certainty:"proposal",flow:"state",packet:"uplink",guard:function(s){return s.network==="OFFLINE"?"网络中断，云端不能获得当前状态":true;}},
+            {id:"gate",code:"C04",title:"Cloud Trigger判断硬条件",from:"cloudTrigger",to:"cloudTrigger",owner:"Cloud Trigger",place:"云端",plain:"先筛任务开关、AI总开关、P挡、SOC和口盖，避免每次都浪费模型调用。",receive:"任务状态与车辆快照",decision:"enabled AND ai_on AND P AND SOC≤20 AND lid_closed",output:"候选主动推荐事件",failure:"任一条件不满足继续等待",certainty:"fact",flow:"trigger",packet:"hardGate",guard:function(s){if(!s.taskEnabled)return"单任务未开启";if(!s.aiEnabled)return"AI主动服务总开关关闭";if(s.gear!=="P")return"当前不是P挡";if(Number(s.soc)>20)return"SOC高于20%";if(s.lidOpen)return"充电口盖已经打开";return true;}},
+            {id:"query",code:"C05",title:"生成一次主动推荐Query",from:"cloudTrigger",to:"planner",owner:"Cloud Trigger / 主动推荐",place:"云端",plain:"系统生成业务目标，不是假装用户说过话；还要带本次运行和有效期。",receive:"硬条件候选事件",decision:"同一P挡事件是否已经生成过",output:"一次Query与运行关联",failure:"重复事件或缺少关联信息则丢弃",certainty:"proposal",flow:"trigger",packet:"query"},
+            {id:"dtCall",code:"C06",title:"Advisor / Planner调用DT",from:"planner",to:"dt",owner:"主动推荐 + Planner / DT",place:"云端",plain:"硬条件不能证明用户正在充电，所以请求DT/VQA理解后方视觉场景。",receive:"主动推荐Query和当前上下文",decision:"需要哪个视觉工具和问题",output:"DT/VQA请求",failure:"工具不可用或超时则结束",certainty:"fact",flow:"cloud",packet:"dtCall",guard:function(s){return s.network==="OFFLINE"?"网络中断，不能调用云端DT":true;}},
+            {id:"frame",code:"C07",title:"端侧上行当前视觉信息",from:"edgeState",to:"dt",owner:"端侧VQA接入 + DT",place:"车端 → 云端",plain:"只上行这次判断所需的当前帧或结构化结果，并带采集时间。",receive:"VQA请求",decision:"帧是否足够新、是否符合隐私范围",output:"视觉证据",failure:"帧过期或取帧失败返回UNKNOWN",certainty:"proposal",flow:"cloud",packet:"frame",guard:function(s){return s.network==="OFFLINE"?"网络中断，视觉信息无法上行":true;}},
+            {id:"dtResult",code:"C08",title:"DT返回充电场景结果",from:"dt",to:"planner",owner:"DT / VQA",place:"云端",plain:"只有FOUND才有资格继续；NOT_FOUND、UNKNOWN和ERROR不能被当成FOUND。",receive:"视觉证据",decision:"是否存在可信充电设备",output:"FOUND等标准结果与有效期",failure:"非FOUND本次结束，不开盖",certainty:"proposal",flow:"cloud",packet:"dtResult",guard:function(s){return s.dtResult==="FOUND"?true:"DT结果为 "+s.dtResult+"，不能进入开盖链路";}},
+            {id:"card",code:"C09",title:"云端生成即时交互卡请求",from:"planner",to:"card",owner:"在线编排 → VUI",place:"云端 → 车机屏幕",plain:"云端只决定问什么；卡片仍然显示在车机上，并带Planner上下文。",receive:"FOUND结果与任务交互档案",decision:"采用FOUND后询问的建议顺序",output:"Cloud InteractionRequest",failure:"结果过期或拉卡失败则终止",certainty:"tbd",flow:"card",packet:"card"},
+            {id:"display",code:"C10",title:"车机展示卡片和TTS",from:"card",to:"user",owner:"即时交互卡 / VUI",place:"车机屏幕",plain:"用户看到“是否打开充电口盖”。这不是云上页面，只是内容和语义来自云端。",receive:"云端卡片请求",decision:"排队、显示、TTS和生命周期",output:"展示ACK与卡片上下文",failure:"展示失败要回云端取消本次运行",certainty:"fact",flow:"card",packet:"display"},
+            {id:"choice",code:"C11",title:"用户点击或语音回答",from:"user",to:"planner",owner:"VUI + Planner",place:"车机 → 云端",plain:"点击直接形成标准选择；语音携带当前卡片内容进入Planner做泛化理解。",receive:"按钮或用户自然语言",decision:"确认、拒绝、关闭还是超时",output:"标准用户授权，并标卡片已消费",failure:"卡片消失后动态选择能力必须注销",certainty:"fact",flow:"interaction",packet:"choice",guard:function(s){if(!s.userDecision)return"请在右侧卡片点击“打开”或模拟云端语音确认";if(s.userDecision!=="CONFIRM")return"用户未授权，本次结束";return true;},auto:{userDecision:"CONFIRM"}},
+            {id:"auth",code:"C12",title:"授权和结果下发车端",from:"planner",to:"edgeTrigger",owner:"云端编排 → 端侧执行",place:"云端 → 车端",plain:"云端只下发本次运行的授权和DT结果引用，不直接控制车辆。",receive:"用户确认、DT结果和有效期",decision:"关联是否一致、是否仍有效",output:"端侧执行候选",failure:"关联缺失、重复或过期直接拒绝",certainty:"proposal",flow:"interaction",packet:"auth"},
+            {id:"recheck",code:"C13",title:"端侧进行最终安全复核",from:"edgeState",to:"edgeTrigger",owner:"端侧Trigger / 执行业务",place:"车端",plain:"即使云端说可以，车辆已经离开P挡或授权过期时仍不能开盖。",receive:"最新P挡、口盖、授权与DT有效期",decision:"任务、车辆、模型结果和授权现在是否仍有效",output:"允许执行或终止",failure:"端云不一致时以端侧最新状态为准",certainty:"proposal",flow:"trigger",packet:"recheck",guard:function(s){if(s.authExpired)return"用户授权已经过期";if(s.leavePAfterConfirm)return"用户确认后车辆已离开P挡";if(s.lidOpen)return"用户已经手动打开口盖";if(s.dtResult!=="FOUND")return"DT结果不再有效";return true;}},
+            {id:"control",code:"C14",title:"调用赛力斯车控开盖",from:"edgeTrigger",to:"vehicle",owner:"端侧执行 → 赛力斯车控",place:"车端",plain:"只有端侧最终复核通过后，才发出打开充电口盖指令。",receive:"有效授权和安全快照",decision:"车控安全条件与参数是否合法",output:"ACCEPTED或错误原因",failure:"请求失败记为执行失败，并继续刷新卡片结果",certainty:"fact",flow:"control",packet:"control",guard:function(){return true;}},
+            {id:"readback",code:"C15",title:"回读真实充电口盖状态",from:"readback",to:"edgeTrigger",owner:"端状态 + 执行收口",place:"车端",plain:"接口说“已接收”还不够，必须看到真实口盖状态变为OPEN。未达到也要把失败结果展示给用户。",receive:"真实口盖状态",decision:"规定时间内是否达到OPEN",output:"SUCCESS或FAILED",failure:"受理但未打开仍判失败，并刷新失败卡片",certainty:"proposal",flow:"readback",packet:"readback",guard:function(){return true;}},
+            {id:"finish",code:"C16",title:"更新车机卡片并同步云端",from:"edgeTrigger",to:"card",owner:"端侧执行 + VUI + 云端事件",place:"车端 → 车机 / 云端",plain:"车机展示真实结果，云端知道任务已完成，避免Planner再次追问。",receive:"真实执行结果",decision:"成功、失败、冷却和上下文消费",output:"结果卡、云端状态和冷却",failure:"同步失败不改变真实车辆结果，但要补日志",certainty:"proposal",flow:"readback",packet:"result"}
+          ]
+        }
+      };
+
+      var appState = {
+        scenario:"edge",
+        current:0,
+        blocked:null,
+        data:null,
+        logs:[],
+        playing:false,
+        timer:null,
+        inspectorTab:"plain",
+        selectedModule:null,
+        selectedStep:null
+      };
+
+      function clone(obj){return JSON.parse(JSON.stringify(obj));}
+      function currentScenario(){return scenarios[appState.scenario];}
+      function currentStep(){return currentScenario().steps[appState.current];}
+      function certaintyLabel(value){return value==="fact"?"已确认":value==="proposal"?"产品建议":value==="risk"?"风险":"待确认";}
+      function flowColor(flow){return flow==="state"?"#54d8e8":flow==="trigger"?"#aa8bff":flow==="card"?"#ffbd66":flow==="interaction"?"#6aa7ff":flow==="control"?"#ff7385":flow==="readback"?"#55d79c":"#54d8e8";}
+      function escapeHtml(text){return String(text).replace(/[&<>"']/g,function(c){return({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"})[c];});}
+      function nowStamp(){var n=new Date();return [n.getHours(),n.getMinutes(),n.getSeconds()].map(function(v){return String(v).padStart(2,"0");}).join(":");}
+      function announce(message){document.getElementById("liveRegion").textContent=message;}
+      function toast(message,error){
+        var el=document.getElementById("toast");
+        el.textContent=message;el.className="toast show"+(error?" error":"");
+        clearTimeout(el._timer);el._timer=setTimeout(function(){el.className="toast";},2600);
+      }
+      function addLog(step,message,type){
+        appState.logs.push({time:nowStamp(),route:(step.from||"系统")+" → "+(step.to||"系统"),message:message||step.title,type:type||step.certainty,code:step.code});
+        renderLogs();
+      }
+      function getGuard(step){
+        if(!step.guard)return true;
+        return step.guard(appState.data);
+      }
+      function setScenario(id){
+        stopPlay();
+        appState.scenario=id;
+        appState.current=0;
+        appState.blocked=null;
+        appState.logs=[];
+        appState.data=clone(scenarios[id].initial);
+        appState.selectedModule=null;
+        appState.selectedStep=null;
+        document.querySelectorAll(".scenario-tab").forEach(function(btn){btn.setAttribute("aria-pressed",String(btn.dataset.scenario===id));});
+        renderAll(true);
+        addLog(currentStep(),"载入场景："+currentScenario().label,"demo");
+        announce("已切换到"+currentScenario().label);
+      }
+      function reset(){
+        stopPlay();
+        appState.current=0;
+        appState.blocked=null;
+        appState.logs=[];
+        appState.data=clone(currentScenario().initial);
+        appState.selectedModule=null;
+        appState.selectedStep=null;
+        renderAll(true);
+        addLog(currentStep(),"演示已重置","demo");
+        toast("演示已重置");
+      }
+      function stopPlay(){
+        appState.playing=false;
+        if(appState.timer){clearTimeout(appState.timer);appState.timer=null;}
+        var btn=document.getElementById("playBtn");if(btn)btn.textContent="▶";
+      }
+      function applyAuto(step){
+        if(step.auto)Object.keys(step.auto).forEach(function(k){appState.data[k]=step.auto[k];});
+      }
+      function attemptCurrent(autoMode){
+        var step=currentStep();
+        if(autoMode)applyAuto(step);
+        var guard=getGuard(step);
+        if(guard!==true){
+          appState.blocked=String(guard);
+          renderAll(true);
+          addLog(step,"阻断："+guard,"risk");
+          toast(guard,true);
+          announce("流程被阻断："+guard);
+          return false;
+        }
+        appState.blocked=null;
+        renderAll(true);
+        return true;
+      }
+      function next(autoMode){
+        if(appState.blocked){
+          if(!attemptCurrent(autoMode))return false;
+        }
+        if(appState.current>=currentScenario().steps.length-1){
+          stopPlay();toast("这条链路已经走完");return false;
+        }
+        appState.current+=1;
+        var step=currentStep();
+        if(autoMode)applyAuto(step);
+        var guard=getGuard(step);
+        if(guard!==true){
+          appState.blocked=String(guard);
+          addLog(step,"阻断："+guard,"risk");
+        }else{
+          appState.blocked=null;
+          addLog(step,step.plain,step.certainty);
+        }
+        renderAll(true);
+        announce((appState.blocked?"流程阻断：":"当前步骤：")+step.title+(appState.blocked?"，"+appState.blocked:""));
+        if(appState.blocked)toast(appState.blocked,true);
+        return !appState.blocked;
+      }
+      function prev(){
+        stopPlay();
+        if(appState.current>0)appState.current-=1;
+        appState.blocked=null;
+        renderAll(true);
+        announce("返回到"+currentStep().title);
+      }
+      function play(){
+        if(appState.playing)return;
+        appState.playing=true;
+        document.getElementById("playBtn").textContent="●";
+        function tick(){
+          if(!appState.playing)return;
+          var ok=attemptCurrent(true);
+          if(!ok){stopPlay();return;}
+          if(appState.current>=currentScenario().steps.length-1){stopPlay();toast("自动演示完成");return;}
+          next(true);
+          if(appState.blocked){stopPlay();return;}
+          appState.timer=setTimeout(tick,Number(document.getElementById("speedSelect").value));
+        }
+        tick();
+      }
+      function jumpInspect(index){
+        appState.selectedStep=index;
+        appState.selectedModule=null;
+        renderInspector();
+        document.getElementById("inspector").scrollIntoView({behavior:"smooth",block:"nearest"});
+      }
+      function renderControls(){
+        var sc=currentScenario();
+        var wrap=document.getElementById("dynamicControls");
+        var html='<div class="control-group"><div class="control-title"><span>模拟条件</span><span>'+escapeHtml(sc.route)+'</span></div><div class="control-list">';
+        sc.controls.forEach(function(c){
+          html+='<div class="control-row"><label for="ctrl-'+c.key+'">'+escapeHtml(c.label)+'<small>'+escapeHtml(c.help||"")+'</small></label>';
+          if(c.type==="toggle"){
+            html+='<input class="toggle" id="ctrl-'+c.key+'" data-key="'+c.key+'" type="checkbox" '+(appState.data[c.key]?"checked":"")+'>';
+          }else if(c.type==="number"){
+            html+='<input class="number" id="ctrl-'+c.key+'" data-key="'+c.key+'" type="number" min="'+c.min+'" max="'+c.max+'" value="'+escapeHtml(appState.data[c.key])+'">';
+          }else{
+            html+='<select class="select" id="ctrl-'+c.key+'" data-key="'+c.key+'">';
+            c.options.forEach(function(opt){html+='<option value="'+escapeHtml(opt[0])+'" '+(String(appState.data[c.key])===String(opt[0])?"selected":"")+'>'+escapeHtml(opt[1])+'</option>';});
+            html+='</select>';
+          }
+          html+='</div>';
+        });
+        html+='</div></div>';
+        wrap.innerHTML=html;
+        wrap.querySelectorAll("[data-key]").forEach(function(el){
+          el.addEventListener("change",function(){
+            var key=this.dataset.key;
+            appState.data[key]=this.type==="checkbox"?this.checked:(this.type==="number"?Number(this.value):this.value);
+            appState.blocked=null;
+            addLog(currentStep(),"模拟条件变化："+key+" = "+String(appState.data[key]),"demo");
+            renderAll(false);
+          });
+        });
+        var grid=document.getElementById("presetGrid");
+        grid.innerHTML=sc.presets.map(function(p,i){return '<button class="chip-btn" data-preset="'+i+'">'+escapeHtml(p.label)+'</button>';}).join("");
+        grid.querySelectorAll("[data-preset]").forEach(function(btn){
+          btn.addEventListener("click",function(){
+            var p=sc.presets[Number(this.dataset.preset)];
+            stopPlay();
+            appState.current=0;
+            appState.logs=[];
+            appState.selectedStep=null;
+            appState.selectedModule=null;
+            Object.keys(p.patch).forEach(function(k){appState.data[k]=p.patch[k];});
+            appState.blocked=null;
+            addLog(currentStep(),"应用异常预设："+p.label,"demo");
+            renderAll(false);
+            toast("已切换并从头开始："+p.label);
+          });
+        });
+      }
+      function renderSteps(){
+        var list=document.getElementById("stepsList");
+        list.innerHTML=currentScenario().steps.map(function(step,i){
+          var cls=i<appState.current?"completed":i===appState.current?(appState.blocked?"blocked":"active"):"";
+          var state=i<appState.current?"完成":i===appState.current?(appState.blocked?"阻断":"当前"):"等待";
+          return '<button class="step-link '+cls+'" data-step="'+i+'" aria-current="'+(i===appState.current?"step":"false")+'"><span class="n">'+escapeHtml(step.code)+'</span><span class="label">'+escapeHtml(step.title)+'</span><span class="state">'+state+'</span></button>';
+        }).join("");
+        list.querySelectorAll("[data-step]").forEach(function(btn){btn.addEventListener("click",function(){jumpInspect(Number(this.dataset.step));});});
+        document.getElementById("stepCounter").textContent=(appState.current+1)+" / "+currentScenario().steps.length;
+        var active=list.querySelector(".step-link.active,.step-link.blocked");if(active)active.scrollIntoView({block:"nearest"});
+      }
+      function renderPills(){
+        var s=appState.data;
+        var isLast=appState.current===currentScenario().steps.length-1;
+        var runState=appState.blocked?"BLOCKED":isLast?(s.controlResult==="success"?"DONE":"FAILED"):"ACTIVE";
+        var runClass=appState.blocked||runState==="FAILED"?"bad":"on";
+        var recheckIndex=currentScenario().steps.findIndex(function(step){return step.id==="recheck";});
+        var afterRecheck=recheckIndex>=0&&appState.current>=recheckIndex;
+        var weatherNow=afterRecheck&&s.changeAfterConfirm?"CLEAR":s.weather;
+        var gearNow=afterRecheck&&s.leavePAfterConfirm?"D":s.gear;
+        var arr=[
+          ["TASK",s.taskEnabled?"ENABLED":"DISABLED",s.taskEnabled?"on":"warn"],
+          ["NET",s.network,s.network==="OFFLINE"?"warn":"on"],
+          appState.scenario==="edge"?["WEATHER",weatherNow,weatherNow==="FOG"?"on":"warn"]:["GEAR / SOC",gearNow+" / "+s.soc+"%",gearNow==="P"&&Number(s.soc)<=20?"on":"warn"],
+          ["RUN",runState,runClass]
+        ];
+        document.getElementById("statePills").innerHTML=arr.map(function(x){return '<span class="state-pill '+x[2]+'">'+escapeHtml(x[0]+": "+x[1])+'</span>';}).join("");
+      }
+      function renderBanner(){
+        var step=currentStep();
+        document.getElementById("currentBanner").innerHTML='<div class="current-number">'+escapeHtml(step.code)+'</div><div><h3>'+escapeHtml(step.title)+'</h3><p>'+escapeHtml(appState.blocked?"本步被阻断："+appState.blocked:step.plain)+'</p></div><div class="handoff">'+escapeHtml(step.from+" → "+step.to)+'</div>';
+      }
+      function renderModules(){
+        var step=currentStep();
+        document.querySelectorAll(".module-card").forEach(function(el){
+          el.classList.remove("active","source","target","dim");
+          if(el.dataset.module===step.from)el.classList.add("source");
+          if(el.dataset.module===step.to)el.classList.add("target");
+          if(el.dataset.module!==step.from&&el.dataset.module!==step.to)el.classList.add("dim");
+          el.onclick=function(){
+            appState.selectedModule=this.dataset.module;
+            appState.selectedStep=null;
+            renderInspector();
+          };
+        });
+        requestAnimationFrame(function(){drawFlow(step);});
+      }
+      function drawFlow(step){
+        var canvas=document.getElementById("flowCanvas");
+        var source=document.querySelector('[data-module="'+step.from+'"]');
+        var target=document.querySelector('[data-module="'+step.to+'"]');
+        var path=document.getElementById("flowPath");
+        var packet=document.getElementById("packet");
+        if(!source||!target){path.setAttribute("d","");packet.style.display="none";return;}
+        var cr=canvas.getBoundingClientRect(),sr=source.getBoundingClientRect(),tr=target.getBoundingClientRect();
+        var x1=sr.left-cr.left+sr.width/2,y1=sr.top-cr.top+sr.height/2;
+        var x2=tr.left-cr.left+tr.width/2,y2=tr.top-cr.top+tr.height/2;
+        var bend=Math.max(35,Math.abs(x2-x1)*.35);
+        var d;
+        if(Math.abs(x2-x1)<30)d="M "+x1+" "+y1+" C "+(x1+bend)+" "+y1+", "+(x2+bend)+" "+y2+", "+x2+" "+y2;
+        else d="M "+x1+" "+y1+" C "+(x1+(x2>x1?bend:-bend))+" "+y1+", "+(x2-(x2>x1?bend:-bend))+" "+y2+", "+x2+" "+y2;
+        path.setAttribute("d",d);
+        path.style.stroke=flowColor(step.flow);
+        packet.textContent=step.packet;
+        packet.style.display="block";
+        packet.style.left=(x1-18)+"px";packet.style.top=(y1-14)+"px";
+        if(packet.getAnimations)packet.getAnimations().forEach(function(a){a.cancel();});
+        if(!window.matchMedia("(prefers-reduced-motion: reduce)").matches&&packet.animate){
+          packet.animate([
+            {transform:"translate(0,0) scale(.92)",opacity:.2},
+            {transform:"translate("+((x2-x1)*.55)+"px,"+((y2-y1)*.55)+"px) scale(1)",opacity:1,offset:.56},
+            {transform:"translate("+(x2-x1)+"px,"+(y2-y1)+"px) scale(.92)",opacity:.2}
+          ],{duration:1100,iterations:1,easing:"cubic-bezier(.2,.7,.2,1)"});
+        }
+      }
+      function renderInspector(){
+        var step=appState.selectedStep!==null?currentScenario().steps[appState.selectedStep]:currentStep();
+        var mod=appState.selectedModule?moduleInfo[appState.selectedModule]:null;
+        var body=document.getElementById("inspectorBody");
+        document.querySelectorAll(".inspector-tab").forEach(function(t){t.setAttribute("aria-selected",String(t.dataset.tab===appState.inspectorTab));});
+        if(mod){
+          if(appState.inspectorTab==="data"){
+            body.innerHTML='<pre>'+escapeHtml(JSON.stringify({module:mod.title,place:mod.place,owner:mod.owner,contract_status:certaintyLabel(mod.certainty)},null,2))+'</pre>';
+          }else if(appState.inspectorTab==="decision"){
+            body.innerHTML='<div class="decision-box"><div><h4>'+escapeHtml(mod.title)+"判断什么"+'</h4><p>'+escapeHtml(mod.decision)+'</p></div><span class="badge '+mod.certainty+'">'+certaintyLabel(mod.certainty)+'</span></div>';
+          }else if(appState.inspectorTab==="failure"){
+            body.innerHTML='<div class="decision-box"><div><h4>失败怎么办</h4><p>'+escapeHtml(mod.failure)+'</p></div><span class="badge risk">失败边界</span></div>';
+          }else{
+            body.innerHTML='<div class="plain-grid"><div class="plain-cell"><b>谁负责</b><span>'+escapeHtml(mod.owner)+'</span></div><div class="plain-cell"><b>在哪里</b><span>'+escapeHtml(mod.place)+'</span></div><div class="plain-cell"><b>收到什么</b><span>'+escapeHtml(mod.receive)+'</span></div><div class="plain-cell"><b>判断什么</b><span>'+escapeHtml(mod.decision)+'</span></div><div class="plain-cell"><b>输出什么</b><span>'+escapeHtml(mod.output)+'</span></div><div class="plain-cell"><b>失败怎么办</b><span>'+escapeHtml(mod.failure)+'</span></div></div>';
+          }
+          return;
+        }
+        var packet=appState.scenario==="edge"?edgePayload(step.packet,appState.data):cloudPayload(step.packet,appState.data);
+        if(appState.inspectorTab==="data"){
+          body.innerHTML='<pre>'+escapeHtml(JSON.stringify(packet,null,2))+'</pre>';
+        }else if(appState.inspectorTab==="decision"){
+          var guard=getGuard(step),pass=guard===true;
+          body.innerHTML='<div class="decision-box"><div><h4>'+escapeHtml(step.decision)+'</h4><p>'+escapeHtml(step.receive+" → "+step.output)+'</p><div class="gate-list"><div class="gate '+(pass?"pass":"fail")+'"><span>当前模拟判断</span><b>'+(pass?"通过":"不通过："+escapeHtml(guard))+'</b></div></div></div><span class="badge '+step.certainty+'">'+certaintyLabel(step.certainty)+'</span></div>';
+        }else if(appState.inspectorTab==="failure"){
+          body.innerHTML='<div class="decision-box"><div><h4>这一步失败会怎样</h4><p>'+escapeHtml(step.failure)+'</p></div><span class="badge risk">不得静默吞错</span></div>';
+        }else{
+          body.innerHTML='<div class="plain-grid"><div class="plain-cell"><b>谁负责</b><span>'+escapeHtml(step.owner)+'</span></div><div class="plain-cell"><b>在哪里</b><span>'+escapeHtml(step.place)+'</span></div><div class="plain-cell"><b>收到什么</b><span>'+escapeHtml(step.receive)+'</span></div><div class="plain-cell"><b>判断什么</b><span>'+escapeHtml(step.decision)+'</span></div><div class="plain-cell"><b>输出什么</b><span>'+escapeHtml(step.output)+'</span></div><div class="plain-cell"><b>失败怎么办</b><span>'+escapeHtml(step.failure)+'</span></div></div>';
+        }
+      }
+      function renderScreen(){
+        var step=currentStep(),s=appState.data,body=document.getElementById("screenBody");
+        document.getElementById("screenNetwork").textContent=s.network==="OFFLINE"?"离线":s.network==="WEAK"?"弱网":"5G";
+        var early=["config","enable","save","sync","waiting","uplink","gate","signals","match","run","query","dtCall","frame","dtResult"];
+        var isEarly=early.indexOf(step.id)>=0;
+        var isCard=["card","display","choice","callback","auth","recheck"].indexOf(step.id)>=0;
+        var isExec=["control","readback"].indexOf(step.id)>=0;
+        var isFinish=step.id==="finish";
+        var showCancelled=appState.blocked&&(step.id==="recheck"||(step.id==="choice"&&!!s.userDecision));
+        var taskName=appState.scenario==="edge"?"天气 / 路况保护":"识别充电设备后开盖";
+        var taskDesc=appState.scenario==="edge"?"恶劣天气下主动保护驾驶安全":"识别充电设备后询问是否打开口盖";
+        if(showCancelled){
+          document.getElementById("screenStage").textContent="本次已终止";
+          body.innerHTML='<div class="result-card fail"><h3>本次操作未执行</h3><p>'+escapeHtml(appState.blocked)+'</p></div><div class="vehicle-strip">'+vehicleStrip()+'</div>';
+          document.getElementById("aiBarText").textContent="没有调用车控；请等待下一次有效场景";
+        }else if(isEarly){
+          document.getElementById("screenStage").textContent="任务中心";
+          body.innerHTML='<div class="screen-title"><h3>系统预设任务</h3><span>仅支持开启 / 关闭</span></div><div class="task-row"><div class="task-icon">'+(appState.scenario==="edge"?"☂":"⚡")+'</div><div><b>'+taskName+'</b><small>'+taskDesc+'</small></div><input id="screenTaskToggle" class="toggle screen-toggle" type="checkbox" aria-label="切换任务" '+(s.taskEnabled?"checked":"")+'></div><div class="screen-hint">'+(s.taskEnabled?"任务已开启。Trigger会等待真实场景条件，不会马上执行。":"打开开关只是给任务许可，不会立刻触发车控。")+'</div><div class="vehicle-strip">'+vehicleStrip()+'</div>';
+          var t=document.getElementById("screenTaskToggle");
+          t.addEventListener("change",function(){
+            s.taskEnabled=this.checked;
+            appState.blocked=null;
+            addLog(currentStep(),"用户在车机任务中心"+(this.checked?"开启":"关闭")+"任务","interaction");
+            renderAll(false);
+            if(currentStep().id==="enable"&&this.checked)attemptCurrent(false);
+          });
+          document.getElementById("aiBarText").textContent=s.taskEnabled?"任务已开启，等待条件":"请选择要开启的系统预设任务";
+        }else if(isCard){
+          document.getElementById("screenStage").textContent="即时交互卡";
+          var cloud=appState.scenario==="cloud";
+          var title=cloud?"检测到附近可能有充电设备":"前方出现大雾";
+          var text=cloud?"需要帮你打开充电口盖吗？":"为了提升行车安全，需要帮你打开后雾灯吗？";
+          var tts=cloud||s.voiceEnabled;
+          body.innerHTML='<div class="interaction-card"><div class="card-kicker"><span>豆包主动服务</span><span>'+(cloud?"云端理解 · 车机展示":"端侧离线闭环")+'</span></div><h3>'+title+'</h3><p>'+text+'</p>'+(tts?'<div class="tts"><div class="waves"><i></i><i></i><i></i><i></i></div><span>TTS播报中</span></div>':'<div class="tts"><span>语音已禁用 · 仅展示卡片</span></div>')+'<div class="screen-actions"><button class="screen-btn confirm" id="screenConfirm">'+(cloud?"打开":"确认")+'</button><button class="screen-btn reject" id="screenReject">'+(cloud?"暂不":"取消")+'</button></div><div class="voice-chips"><button class="voice-chip" id="voiceConfirm">模拟说“好的，帮我'+(cloud?"打开":"开吧")+'”</button><button class="voice-chip" id="voiceReject">模拟说“算了”</button><button class="voice-chip" id="expireCard">模拟卡片超时</button></div></div><div class="vehicle-strip">'+vehicleStrip()+'</div>';
+          document.getElementById("screenConfirm").onclick=function(){choose("CONFIRM","CLICK");};
+          document.getElementById("screenReject").onclick=function(){choose("REJECT","CLICK");};
+          document.getElementById("voiceConfirm").onclick=function(){choose("CONFIRM",cloud?"CLOUD_VOICE":"LOCAL_VOICE");};
+          document.getElementById("voiceReject").onclick=function(){choose("REJECT",cloud?"CLOUD_VOICE":"LOCAL_VOICE");};
+          document.getElementById("expireCard").onclick=function(){if(cloud){s.authExpired=true;}else{s.cardExpired=true;}s.userDecision="TIMEOUT";appState.blocked="卡片已超时，本次授权失效";addLog(step,"卡片超时，旧回答不能再执行","risk");renderAll(false);toast("卡片已超时",true);};
+          document.getElementById("aiBarText").textContent=cloud?"语音将携带当前卡片进入Planner":"语音由本地可见即可说匹配按钮";
+        }else if(isExec){
+          document.getElementById("screenStage").textContent=step.id==="control"?"执行中":"等待真实状态";
+          body.innerHTML='<div class="execution-state"><div class="exec-icon">'+(appState.scenario==="edge"?"◉":"↯")+'</div><h3>'+(step.id==="control"?"指令已发送":"正在确认车辆真实状态")+'</h3><p>'+(step.id==="control"?"“请求已受理”不等于执行成功，下一步还要读取真实状态。":"只有目标状态真正变化，才会展示完成。")+'</p><div class="progress-track"><i></i></div></div><div class="vehicle-strip">'+vehicleStrip()+'</div>';
+          document.getElementById("aiBarText").textContent=step.id==="control"?"车控处理中":"读取车辆真实状态";
+        }else if(isFinish){
+          var ok=s.controlResult==="success"&&!appState.blocked;
+          document.getElementById("screenStage").textContent=ok?"执行完成":"执行失败";
+          body.innerHTML='<div class="result-card '+(ok?"":"fail")+'"><h3>'+(ok?(appState.scenario==="edge"?"后雾灯已开启":"充电口盖已打开"):"未能完成操作")+'</h3><p>'+(ok?"已根据车辆真实状态确认完成，并进入任务冷却。":"没有检测到目标真实状态，不能把接口受理当成成功。")+'</p></div><div class="vehicle-strip">'+vehicleStrip()+'</div>';
+          document.getElementById("aiBarText").textContent=ok?"操作已完成":"操作未完成，请查看原因";
+        }
+      }
+      function vehicleStrip(){
+        var s=appState.data;
+        if(appState.scenario==="edge"){
+          var actual=(currentStep().id==="finish"&&s.controlResult==="success")?"ON":(s.rearFog?"ON":"OFF");
+          return '<div class="vehicle-item"><b>车速</b><span>'+escapeHtml(s.speed)+' km/h</span></div><div class="vehicle-item"><b>后雾灯真实状态</b><span>'+actual+'</span></div>';
+        }
+        var cloudRecheck=currentScenario().steps.findIndex(function(step){return step.id==="recheck";});
+        var effectiveGear=s.leavePAfterConfirm&&appState.current>=cloudRecheck?"D":s.gear;
+        var lid=(currentStep().id==="finish"&&s.controlResult==="success")?"OPEN":(s.lidOpen?"OPEN":"CLOSED");
+        return '<div class="vehicle-item"><b>挡位 / SOC</b><span>'+escapeHtml(effectiveGear)+' / '+escapeHtml(s.soc)+'%</span></div><div class="vehicle-item"><b>充电口盖真实状态</b><span>'+lid+'</span></div>';
+      }
+      function choose(value,mode){
+        appState.data.userDecision=value;
+        appState.data.inputMode=mode;
+        appState.blocked=null;
+        addLog(currentStep(),"用户结果："+value+"，输入方式："+mode,"interaction");
+        renderAll(false);
+        if(currentStep().id==="choice"){
+          if(value==="CONFIRM"){attemptCurrent(false);toast("已授权，但还没有执行车控");}
+          else{appState.blocked="用户未授权，本次运行结束";renderAll(false);toast("用户已拒绝，本次不执行",true);}
+        }else{
+          toast("已记录用户选择；推进到“用户回答”步骤时消费");
+        }
+      }
+      function renderLogs(){
+        var list=document.getElementById("logList");
+        if(!appState.logs.length){list.innerHTML='<div class="log-empty">还没有运行日志。点击下一步或自动播放开始。</div>';return;}
+        list.innerHTML=appState.logs.slice().reverse().map(function(l){return '<div class="log-row"><span class="log-time">'+escapeHtml(l.time)+'</span><span class="log-route">'+escapeHtml(l.route)+'</span><span class="log-message">'+escapeHtml(l.message)+'</span><span class="badge '+(l.type==="demo"?"demo":l.type)+'">'+escapeHtml(l.code)+'</span></div>';}).join("");
+      }
+      function renderAll(animate){
+        renderControls();
+        renderSteps();
+        renderPills();
+        renderBanner();
+        renderModules();
+        renderInspector();
+        renderScreen();
+        renderLogs();
+        if(animate)setTimeout(function(){drawFlow(currentStep());},30);
+      }
+      function copyText(text,success){
+        function fallback(){
+          var ta=document.createElement("textarea");ta.value=text;document.body.appendChild(ta);ta.select();
+          try{document.execCommand("copy");toast(success);}catch(e){toast("复制失败，请手动选择",true);}
+          ta.remove();
+        }
+        if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(function(){toast(success);}).catch(fallback);}else fallback();
+      }
+      function currentCopy(){
+        var step=appState.selectedStep!==null?currentScenario().steps[appState.selectedStep]:currentStep();
+        var packet=appState.scenario==="edge"?edgePayload(step.packet,appState.data):cloudPayload(step.packet,appState.data);
+        return [step.code+" "+step.title,"谁负责："+step.owner,"在哪里："+step.place,"收到什么："+step.receive,"判断什么："+step.decision,"输出什么："+step.output,"失败怎么办："+step.failure,"数据示例：",JSON.stringify(packet,null,2)].join("\n");
+      }
+      function traceCopy(){
+        var head=currentScenario().label+"｜系统预设任务全链路演示";
+        var rows=appState.logs.map(function(l){return l.time+" "+l.route+" "+l.message;});
+        return [head,"任务状态："+(appState.data.taskEnabled?"ENABLED":"DISABLED"),"","运行日志："].concat(rows).join("\n");
+      }
+      function bind(){
+        document.querySelectorAll(".scenario-tab").forEach(function(btn){btn.addEventListener("click",function(){setScenario(this.dataset.scenario);});});
+        document.getElementById("prevBtn").onclick=prev;
+        document.getElementById("nextBtn").onclick=function(){stopPlay();next(false);};
+        document.getElementById("playBtn").onclick=play;
+        document.getElementById("pauseBtn").onclick=function(){stopPlay();toast("已暂停，可以检查当前数据");};
+        document.getElementById("resetBtn").onclick=reset;
+        document.getElementById("resetTop").onclick=reset;
+        document.getElementById("focusCurrent").onclick=function(){document.getElementById("currentBanner").scrollIntoView({behavior:"smooth",block:"center"});};
+        document.getElementById("copyTrace").onclick=function(){copyText(traceCopy(),"已复制当前完整链路");};
+        document.getElementById("copyCurrent").onclick=function(){copyText(currentCopy(),"已复制当前步骤");};
+        document.getElementById("clearLogs").onclick=function(){appState.logs=[];renderLogs();toast("日志已清空");};
+        document.querySelectorAll(".inspector-tab").forEach(function(tab){tab.addEventListener("click",function(){appState.inspectorTab=this.dataset.tab;renderInspector();});});
+        window.addEventListener("resize",function(){drawFlow(currentStep());});
+        document.addEventListener("keydown",function(e){
+          if(e.key==="ArrowRight"&&e.altKey){e.preventDefault();next(false);}
+          if(e.key==="ArrowLeft"&&e.altKey){e.preventDefault();prev();}
+          if(e.key==="Escape"){appState.selectedModule=null;appState.selectedStep=null;renderInspector();}
+        });
+      }
+      appState.data=clone(scenarios.edge.initial);
+      bind();
+      renderAll(true);
+      addLog(currentStep(),"载入场景："+currentScenario().label,"demo");
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,185 @@
+%%{init: {"theme":"base","flowchart":{"curve":"linear","nodeSpacing":22,"rankSpacing":34,"htmlLabels":true},"themeVariables":{"fontFamily":"Arial, PingFang SC, Microsoft YaHei, sans-serif","fontSize":"15px","lineColor":"#475569","primaryTextColor":"#172033","clusterBkg":"#FFFFFF","clusterBorder":"#94A3B8"}}}%%
+flowchart TB
+
+TITLE["05｜状态、输出、指标与产品掌握度<br/><b>动作清单不等于完成；一句“搞定了”必须能追到真实状态证据</b>"]
+LEGEND["证据标签：<b>【当前】</b> 当前材料明确　<b>【待链路验真】</b> 需同一条运行记录确认　<b>【历史预算】</b> 旧设计参考，不能当当前服务级目标（SLA）　<b>【建设中】</b> 目标方案"]
+
+subgraph ROW1[" "]
+direction LR
+subgraph VUI["A｜语音用户界面（VUI）生命周期：输入、推理、播报和打断必须是同一个状态机【当前/待链路验真】"]
+direction LR
+  U0["待机"] --> U1["唤醒 / 免唤醒命中"] --> U2["聆听中<br/>接收语音、说话人和座位"] --> U3["识别中<br/>生成部分文本与最终文本"] --> U4["理解/决策中"] --> U5["准备回复<br/>文本、动作、卡片就绪"] --> U6["语音合成排队"] --> U7["播报中"] --> U8["播报完成<br/>进入下一轮或待机"]
+  U2 -- "用户停说" --> U3
+  U4 -- "需要澄清" --> U5
+  U7 -- "用户新请求打断" --> U9["停止当前播报<br/>保留被打断内容与任务状态<br/>新请求进入输入治理"]
+  U9 --> U4
+  U7 -- "无效输入 / 拒识" --> U10["当前口径：停止播报且不自动恢复<br/>记录被打断内容和无效原因<br/>是否恢复需产品重新定义【当前】"]
+  U10 --> U8
+  U11["不能混淆<br/>语音播放完 ≠ 工具执行完<br/>卡片消失 ≠ 任务结束<br/>停止播报 ≠ 取消实体动作"]
+  U7 --> U11
+end
+
+subgraph COMPLETE["B｜复合目标完成判定：用状态机而不是看动作清单是否为空"]
+direction LR
+  C0["用户完整目标<br/>拆成子目标和必要动作"] --> C1["待处理"] --> C2["运行中"]
+  C2 --> C3["等待工具"]
+  C2 --> C4["等待条件"]
+  C2 --> C5["等待用户"]
+  C3 --> C6["已完成子目标"]
+  C4 --> C2
+  C5 --> C2
+  C3 --> C7["部分成功"]
+  C3 --> C8["失败"]
+  C3 --> C9["超时"]
+  C2 --> C10["已取消"]
+  C6 --> C11{"三个完成门槛"}
+  C7 --> C11
+  C11 -- "①用户目标满足<br/>②无必要待执行动作<br/>③无等待中的任务/条件" --> C12["最终完成"]
+  C11 -- "任一不满足" --> C13["继续决策 / 恢复 / 说明部分结果"]
+  C8 --> C13
+  C9 --> C13
+  C14["禁止捷径<br/>动作清单为空 ≠ 完成<br/>工具返回成功 ≠ 真实生效<br/>模型说“已完成” ≠ 证据"]
+  C11 --> C14
+end
+VUI ~~~ COMPLETE
+end
+
+subgraph ROW2[" "]
+direction LR
+subgraph RECOVER["C｜异常恢复：每个失败都要变成下一轮可用的证据"]
+direction LR
+  F0{"异常类型"}
+  F0 --> F1["输入异常<br/>拒识、早截断、否定词丢失、错座位"]
+  F0 --> F2["上下文异常<br/>缺事实、事实过期、冲突、越权"]
+  F0 --> F3["决策异常<br/>工具选错、参数错、依赖顺序错"]
+  F0 --> F4["执行异常<br/>拒绝、超时、部分成功、设备忙、车辆离线"]
+  F0 --> F5["时序异常<br/>迟到结果、重复回调、取消后仍执行"]
+  F1 --> F6["重听 / 澄清 / 明确拒绝"]
+  F2 --> F7["刷新状态 / 查询事实 / 降级为未知"]
+  F3 --> F8["重新规划 / 修参数 / 改串并行"]
+  F4 --> F9["安全重试 / 换工具 / 等待 / 降级 / 结束"]
+  F5 --> F10["动作编号幂等 / 版本检查 / 丢弃迟到结果"]
+  F6 --> F11["标准执行反馈<br/>结果、说明、错误码、是否可重试、真实状态、时间"]
+  F7 --> F11
+  F8 --> F11
+  F9 --> F11
+  F10 --> F11
+  F11 --> F12["作为新的输入事件<br/>重新组装上下文→下一次决策"]
+end
+
+subgraph OUTPUT["D｜四路并行输出：分别有自己的成功证据"]
+direction LR
+  O0["决策结果<br/>是否说话、回复内容、动作清单、目标更新"]
+  O0 --> O1["语音路<br/>回复文本→语音合成→扬声器<br/>证据：首音/播报完成/被打断"]
+  O0 --> O2["界面路<br/>回复/任务状态→卡片/任务岛<br/>证据：展示成功、点击/关闭/超时回调"]
+  O0 --> O3["形象路<br/>表情/动作命令→机器人/头像/云台/口型<br/>证据：端侧接收与呈现状态"]
+  O0 --> O4["实体动作路<br/>动作→工具→协议→车辆执行器<br/>证据：执行回执 + 真实车态回读"]
+  O1 --> O5["用户感知结果"]
+  O2 --> O5
+  O3 --> O5
+  O4 --> O5
+  O6["责任边界<br/>任务中心（Task Center）≠ 任务服务（Task Service）<br/>任务中心：入口、列表、启停、展示/通知容器<br/>任务服务：任务/运行/事件事实、生命周期、恢复与清理"]
+  O2 --> O6
+end
+RECOVER ~~~ OUTPUT
+end
+
+subgraph ROW3[" "]
+direction LR
+subgraph METRICS["E｜七类指标：每类都要有分母、场景、版本、车型和端到端追踪"]
+direction TB
+  subgraph MROW1[" "]
+  direction LR
+    M1["1 语音输入<br/>误/漏唤醒；语义字错率；否定/数字/时间/地点保真；端点早截/尾噪；说话人/座位准确；输入时延"]
+    M2["2 路由与拒识<br/>简单任务端侧命中准确；复杂任务上云召回；误拒/漏拒；双执行；迟到云结果覆盖；高风险误放行=0"]
+    M3["3 上下文与记忆<br/>必要事实覆盖；缺失/过期事实命中；来源/时间/有效期完整；冲突裁决；记忆命中；隐私越权=0；输入长度"]
+    M4["4 决策规划器<br/>意图/任务分型；工具与参数正确；原子拆解；依赖顺序；首动作正确；澄清；失败后重规划；同题稳定性；完整目标成功"]
+    M1 ~~~ M2 ~~~ M3 ~~~ M4
+  end
+  subgraph MROW2[" "]
+  direction LR
+    M5["5 工具与执行<br/>已接收/已调用/已生效/已完成四段成功率；超时/重试/取消；幂等；重复副作用；执行反馈完整；真实状态回读"]
+    M6["6 长期任务与主动服务<br/>目标/任务创建；孤儿规则；误/漏/重复触发；触发延迟；顾问建议采纳/打扰/冲突；视觉匹配准确；终态与清理"]
+    M7["7 端到端体验与安全<br/>完整任务可用率；复合目标全成；首确认/首动作/总耗时；部分失败恢复；虚假成功；语音/界面/真实状态一致；安全事故"]
+    M5 ~~~ M6 ~~~ M7
+  end
+end
+
+subgraph QUESTIONS["F｜评审时必须追问的十个关键问题"]
+direction LR
+  subgraph QROW[" "]
+  direction LR
+  Q1["01 用户完整目标是什么？<br/>成功分母按动作数还是按用户目标？<br/><br/>02 当前系统已知什么、未知什么？<br/>动态值谁写、何时写、何时过期、属于谁？"]
+  Q2["03 为什么走这条路由？<br/>迟到云结果如何取消，怎样避免双执行？<br/><br/>04 为什么选这个工具、参数和依赖顺序？<br/>运行记录能否解释？"]
+  Q3["05 工具“成功”指接口成功、执行成功，还是设备真的改变？<br/><br/>06 执行反馈是否作为新输入触发下一轮决策？<br/>还是只当日志丢掉？"]
+  Q4["07 谁维护依赖、幂等、超时、取消和迟到结果？<br/>谁阻止错误并发？<br/><br/>08 条件/持续任务如何创建、更新、取消、跨重启恢复和清理？"]
+  Q5["09 顾问建议、触发回调和用户新请求冲突时，谁排队、打断、丢弃？<br/><br/>10 最终“搞定了”依赖哪条真实证据？<br/>能否一键回放全链？"]
+  Q1 ~~~ Q2 ~~~ Q3 ~~~ Q4 ~~~ Q5
+  end
+end
+METRICS ~~~ QUESTIONS
+end
+
+subgraph ROW4[" "]
+direction LR
+subgraph MASTERY["G｜你需要掌握到什么程度：不是全写代码，而是能独立定义和验收一条闭环"]
+direction LR
+  L0["L0 名词层<br/>能认出模块名<br/>但说不清输入、输出和异常<br/>不足以独立评审"]
+  L1["L1 链路层<br/>能从用户语音讲到真实结果<br/>逐模块说清谁负责、输入、判断、输出、失败处理"]
+  L2["L2 运行记录诊断层<br/>拿一条坏例定位断点<br/>区分输入、路由、上下文、模型、工具、端侧和时序问题"]
+  L3["L3 负责人层<br/>独立定义测试集、指标、阈值<br/>推动跨模块修复并用回归/实验证明收益"]
+  L4["L4 架构与策略层<br/>能取舍端云、模型/规则、质量/时延/成本<br/>建立跨车型可复用平台与治理机制"]
+  L0 --> L1 --> L2 --> L3 --> L4
+  CAREER["两年内值得形成的硬成果<br/>至少达到 L2；在一个核心方向形成 L3<br/>交付：一套评测集 + 一次跨链路改造 + 可量化收益 + 风险边界"]
+  L3 --> CAREER
+end
+
+subgraph EVIDENCE["H｜历史性能数字与任务工程约束：必须带证据标签"]
+direction LR
+  H1["【历史预算，不是当前服务承诺】<br/>在线语音识别约 200–300毫秒<br/>决策规划器思考：中位约500毫秒 / 九成约800毫秒<br/>应答首字：中位约350毫秒 / 九成约500毫秒<br/>自然语言生成中位约200毫秒<br/>语音合成首音中位约400毫秒<br/>端到端语音到语音九成约1300毫秒"]
+  H2["使用历史数字的前置条件<br/>注明来源文档、日期、车型、网络、测试集、样本量和统计口径<br/>没有当前运行记录，不得写成“现在线上就是这个值”"]
+  H3["【任务工程约束：建设中/待验真】<br/>同一回调不重复建运行；创建失败有回滚；取消同时停规则/视觉/运行/通知；结果钩子可靠写回；发件箱保证消息不丢；非法状态迁移被拦截和告警"]
+  H4["验收所需证据<br/>同一条请求编号贯穿：用户请求→动作编号→工具结果→真实状态→目标/任务/运行→语音/界面<br/>预生产通过 ≠ 正式生产通过；必须在目标车型和环境重新回归"]
+  H1 --> H2
+  H3 --> H4
+end
+MASTERY ~~~ EVIDENCE
+end
+
+TITLE --> LEGEND
+LEGEND ~~~ ROW1
+ROW1 ~~~ ROW2
+ROW2 ~~~ ROW3
+ROW3 ~~~ ROW4
+
+classDef title fill:#172033,color:#FFFFFF,stroke:#172033,stroke-width:3px;
+classDef current fill:#E5EDD6,color:#172033,stroke:#172033,stroke-width:2px;
+classDef input fill:#E8F2FF,color:#173A63,stroke:#2563EB,stroke-width:2px;
+classDef action fill:#FFF1D6,color:#5F3B00,stroke:#D97706,stroke-width:2px;
+classDef risk fill:#FBE2DE,color:#6A1B14,stroke:#DC2626,stroke-width:2px;
+classDef data fill:#F5F5F5,color:#172033,stroke:#64748B,stroke-width:2px;
+classDef wip fill:#F2E8FF,color:#3B216A,stroke:#7C3AED,stroke-width:2px,stroke-dasharray:6 4;
+class TITLE title;
+class U0,U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,C0,C1,C2,C3,C4,C5,C6,C7,C8,C9,C10,C11,C12,C13,F0,F1,F2,F3,F4,F5,F6,F7,F8,F9,F10,F11,F12,O0,O1,O2,O3,O4,O5 current;
+class LEGEND,U11,C14,O6,H2,H4 risk;
+class M1,M2,M3,M4,M5,M6,M7,Q1,Q2,Q3,Q4,Q5 input;
+class L0,L1,L2 data;
+class L3,L4,CAREER action;
+class H1 data;
+class H3 wip;
+
+style VUI fill:#F7FAF3,stroke:#78945B,stroke-width:2px
+style COMPLETE fill:#FFFFFF,stroke:#172033,stroke-width:2px
+style RECOVER fill:#FFF8F6,stroke:#DC2626,stroke-width:2px
+style OUTPUT fill:#F7FAF3,stroke:#78945B,stroke-width:2px
+style METRICS fill:#F8FBFF,stroke:#2563EB,stroke-width:2px
+style QUESTIONS fill:#F8FBFF,stroke:#2563EB,stroke-width:2px
+style MASTERY fill:#FFF9EF,stroke:#D97706,stroke-width:2px
+style EVIDENCE fill:#FFFFFF,stroke:#172033,stroke-width:2px
+style ROW1 fill:#FFFFFF,stroke:#FFFFFF
+style ROW2 fill:#FFFFFF,stroke:#FFFFFF
+style ROW3 fill:#FFFFFF,stroke:#FFFFFF
+style ROW4 fill:#FFFFFF,stroke:#FFFFFF
+style MROW1 fill:#F8FBFF,stroke:#F8FBFF
+style MROW2 fill:#F8FBFF,stroke:#F8FBFF
+style QROW fill:#F8FBFF,stroke:#F8FBFF

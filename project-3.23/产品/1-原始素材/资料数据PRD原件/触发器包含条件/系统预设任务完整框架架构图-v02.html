@@ -1,0 +1,1526 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>系统预设任务完整框架架构图 v02｜可点击细节版</title>
+  <style>
+    :root {
+      --bg: #07111f;
+      --panel: #0c192b;
+      --panel-2: #101f34;
+      --line: #36506d;
+      --text: #e9f2ff;
+      --muted: #8ea5bd;
+      --blue: #50a7ff;
+      --cyan: #43d6d0;
+      --purple: #aa8cff;
+      --green: #60d394;
+      --orange: #ffb454;
+      --red: #ff6b7a;
+      --edge: #42d1a7;
+      --cloud: #8c7dff;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      overflow-x: hidden;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 10% 0%, rgba(80,167,255,.12), transparent 30%),
+        radial-gradient(circle at 90% 12%, rgba(170,140,255,.10), transparent 26%),
+        var(--bg);
+      font-family: "JetBrains Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+      line-height: 1.55;
+    }
+
+    .shell { width: min(1680px, calc(100vw - 36px)); margin: 0 auto; padding: 34px 0 64px; }
+    header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 420px;
+      gap: 24px;
+      align-items: end;
+      margin-bottom: 22px;
+    }
+    h1 { margin: 0 0 8px; font-size: clamp(26px, 3vw, 46px); line-height: 1.14; letter-spacing: -.04em; }
+    .subtitle { color: var(--muted); max-width: 960px; font-size: 14px; }
+    .principle {
+      border: 1px solid rgba(80,167,255,.38);
+      background: linear-gradient(135deg, rgba(80,167,255,.12), rgba(67,214,208,.05));
+      border-radius: 14px;
+      padding: 14px 16px;
+      color: #cae5ff;
+      font-size: 13px;
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 16px 0;
+    }
+    .nav-toolbar {
+      position: sticky;
+      top: 8px;
+      z-index: 12;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      padding: 9px;
+      border: 1px solid rgba(54,80,109,.72);
+      border-radius: 999px;
+      background: rgba(7,17,31,.92);
+      box-shadow: 0 12px 34px rgba(0,0,0,.28);
+      backdrop-filter: blur(12px);
+      scrollbar-width: thin;
+    }
+    .nav-toolbar button { flex: 0 0 auto; }
+    #framework, #four-gates, #state-chain, #contracts, #interaction-routes,
+    #weather-chain, #charge-chain, #task-matrix { scroll-margin-top: 86px; }
+    button {
+      color: var(--text);
+      background: #12243b;
+      border: 1px solid #2b4664;
+      border-radius: 999px;
+      padding: 8px 13px;
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    button:hover, button.active { background: #1b3d60; border-color: var(--blue); }
+    .diagram-card {
+      background: rgba(10, 23, 39, .94);
+      border: 1px solid #233a55;
+      border-radius: 18px;
+      box-shadow: 0 20px 70px rgba(0,0,0,.34);
+      overflow: hidden;
+    }
+    .diagram-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+      padding: 16px 20px;
+      border-bottom: 1px solid #21364f;
+      background: rgba(255,255,255,.02);
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .diagram-scroll { overflow-x: auto; }
+    svg { display: block; min-width: 1560px; width: 100%; height: auto; }
+    .layer {
+      fill: rgba(16,31,52,.82);
+      stroke: #29445f;
+      stroke-width: 1.5;
+      rx: 18;
+    }
+    .layer-title { fill: #a9bdd2; font-size: 15px; font-weight: 700; letter-spacing: .02em; }
+    .layer-note { fill: #68819b; font-size: 11px; }
+    .node rect {
+      fill: #12233a;
+      stroke: #3b5875;
+      stroke-width: 1.5;
+      rx: 12;
+    }
+    .node.edge rect { stroke: var(--edge); }
+    .node.cloud rect { stroke: var(--cloud); }
+    .node.interaction rect { stroke: var(--cyan); }
+    .node.execution rect { stroke: var(--orange); }
+    .node.truth rect { stroke: var(--blue); stroke-width: 2.5; }
+    .node.tbd rect { stroke: var(--orange); stroke-dasharray: 7 5; }
+    .node.result rect { stroke: var(--green); }
+    .node-title { fill: #f2f7ff; font-size: 13px; font-weight: 800; }
+    .node-owner { fill: #86a1bd; font-size: 10px; }
+    .node-copy { fill: #b8cadc; font-size: 10.5px; }
+    .node-tag { fill: #06111d; font-size: 9px; font-weight: 800; }
+    .tag-bg-blue { fill: var(--blue); }
+    .tag-bg-edge { fill: var(--edge); }
+    .tag-bg-cloud { fill: var(--cloud); }
+    .tag-bg-orange { fill: var(--orange); }
+    .tag-bg-green { fill: var(--green); }
+
+    .connection {
+      fill: none;
+      stroke: #55728f;
+      stroke-width: 2;
+      marker-end: url(#arrow);
+      vector-effect: non-scaling-stroke;
+    }
+    .connection.required { stroke: var(--blue); }
+    .connection.edge-line { stroke: var(--edge); }
+    .connection.cloud-line { stroke: var(--cloud); }
+    .connection.result-line { stroke: var(--green); }
+    .connection.tbd-line { stroke: var(--orange); stroke-dasharray: 8 6; }
+    .bus { fill: none; stroke: #314b66; stroke-width: 1.5; stroke-dasharray: 5 6; }
+    .arrow-label rect { fill: #071421; stroke: #2d4660; rx: 6; }
+    .arrow-label text { fill: #a9bfd4; font-size: 9.5px; }
+    .split { fill: #13263e; stroke: #5f7b97; stroke-width: 1.5; }
+    .split-text { fill: #f0f5fc; font-size: 11px; font-weight: 700; }
+
+    .legend {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin: 14px 0 0;
+    }
+    .legend-item {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      background: rgba(16,31,52,.72);
+      border: 1px solid #223a55;
+      border-radius: 12px;
+      padding: 11px 13px;
+      color: #b6c8da;
+      font-size: 11px;
+    }
+    .swatch { width: 28px; height: 3px; border-radius: 4px; flex: 0 0 auto; }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 18px;
+    }
+    .info {
+      background: rgba(12,25,43,.9);
+      border: 1px solid #243e59;
+      border-radius: 14px;
+      padding: 16px;
+    }
+    .info h2 { margin: 0 0 8px; font-size: 14px; color: #dcecff; }
+    .info p { margin: 0; color: #93a9bf; font-size: 11.5px; }
+    .info strong { color: #f5f9ff; }
+    .section { margin-top: 28px; }
+    .section h2 { font-size: 21px; margin: 0 0 12px; }
+    table { width: 100%; border-collapse: collapse; background: rgba(12,25,43,.86); border-radius: 14px; overflow: hidden; }
+    th, td { border: 1px solid #213a55; padding: 11px 12px; text-align: left; vertical-align: top; font-size: 11.5px; }
+    th { color: #d8e9fb; background: #12253d; }
+    td { color: #9fb4c9; }
+    .pill { display: inline-block; padding: 2px 7px; border-radius: 99px; font-size: 9px; font-weight: 800; margin-right: 5px; }
+    .pill.edge { background: rgba(66,209,167,.15); color: #75e7c4; border: 1px solid rgba(66,209,167,.45); }
+    .pill.cloud { background: rgba(140,125,255,.15); color: #b9afff; border: 1px solid rgba(140,125,255,.45); }
+    .pill.tbd { background: rgba(255,180,84,.12); color: #ffd092; border: 1px solid rgba(255,180,84,.4); }
+    footer { margin-top: 26px; color: #69829a; font-size: 10.5px; text-align: right; }
+
+    body[data-focus="edge"] .cloud { opacity: .22; }
+    body[data-focus="edge"] .cloud-line { opacity: .18; }
+    body[data-focus="cloud"] .edge { opacity: .22; }
+    body[data-focus="cloud"] .edge-line { opacity: .18; }
+    body[data-focus="contract"] .node:not(.truth):not(.interaction):not(.execution):not(.result) { opacity: .25; }
+    body[data-focus="contract"] .connection:not(.required):not(.result-line) { opacity: .18; }
+    .node, .connection { transition: opacity .22s ease; }
+    .node { cursor: pointer; outline: none; }
+    .node:hover rect, .node:focus rect, .node.selected rect {
+      filter: drop-shadow(0 0 8px rgba(80,167,255,.55));
+      stroke-width: 2.5;
+    }
+
+    .eyebrow { color: var(--cyan); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
+    .guide {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin: 18px 0;
+    }
+    .guide > div {
+      border: 1px solid #29445f;
+      background: rgba(12,25,43,.86);
+      border-radius: 12px;
+      padding: 12px 14px;
+      color: #9fb5ca;
+      font-size: 11px;
+    }
+    .guide strong { display: block; color: #eff7ff; margin-bottom: 4px; }
+
+    .gates {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .gate {
+      position: relative;
+      min-width: 0;
+      border: 1px solid #2a4562;
+      background: linear-gradient(145deg, rgba(18,35,58,.98), rgba(9,24,40,.98));
+      border-radius: 15px;
+      padding: 16px;
+    }
+    .gate::after {
+      content: "→";
+      position: absolute;
+      right: -20px;
+      top: 42%;
+      color: #66839f;
+      font-weight: 800;
+    }
+    .gate:last-child::after { display: none; }
+    .gate-number { color: var(--cyan); font-size: 11px; font-weight: 800; }
+    .gate h3 { margin: 6px 0 10px; font-size: 15px; }
+    .gate dl, .detail-grid dl { margin: 0; }
+    .gate dt { color: #6f8aa4; font-size: 9px; margin-top: 7px; }
+    .gate dd { color: #b9ccdd; font-size: 10.5px; margin: 1px 0 0; }
+
+    .contract-note {
+      border-left: 3px solid var(--orange);
+      background: rgba(255,180,84,.07);
+      color: #d8c29f;
+      padding: 11px 13px;
+      margin: 0 0 12px;
+      font-size: 11px;
+    }
+    .contract-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .contract {
+      min-width: 0;
+      background: rgba(12,25,43,.9);
+      border: 1px solid #29445f;
+      border-radius: 14px;
+      padding: 15px;
+    }
+    .contract h3 { margin: 0 0 5px; font-size: 13px; color: #e8f4ff; }
+    .contract .purpose { color: #7f9ab4; font-size: 10px; margin-bottom: 9px; }
+    .contract .route { color: #9fc4df; font-size: 9.5px; margin: -2px 0 9px; padding: 6px 7px; background: #091827; border-radius: 6px; }
+    .contract .route strong { color: var(--cyan); }
+    .fields { display: flex; flex-wrap: wrap; gap: 5px; }
+    .field {
+      background: #071421;
+      color: #bcd2e7;
+      border: 1px solid #24415d;
+      border-radius: 6px;
+      padding: 3px 6px;
+      font-size: 9px;
+      overflow-wrap: anywhere;
+    }
+    .invariant { margin-top: 10px; color: #b7c9da; font-size: 10px; }
+    .invariant strong { color: var(--orange); }
+
+    .flow-board {
+      overflow-x: auto;
+      border: 1px solid #29445f;
+      border-radius: 15px;
+      background: rgba(7,20,33,.74);
+      padding: 14px;
+    }
+    .flow-inner { min-width: 1320px; }
+    .flow-row {
+      display: grid;
+      grid-template-columns: 150px 210px 48px 210px 48px 210px 48px 210px;
+      gap: 8px;
+      align-items: stretch;
+      margin-bottom: 12px;
+    }
+    .flow-row:last-child { margin-bottom: 0; }
+    .lane-label {
+      display: flex;
+      align-items: center;
+      padding: 10px;
+      border-radius: 10px;
+      color: #a7bfd5;
+      background: #0b1b2e;
+      border: 1px solid #213b56;
+      font-size: 10px;
+      font-weight: 800;
+    }
+    .flow-node {
+      min-width: 0;
+      padding: 10px 11px;
+      border-radius: 10px;
+      background: #102139;
+      border: 1px solid #385776;
+    }
+    .flow-node strong { display: block; color: #ebf5ff; font-size: 10.5px; margin-bottom: 3px; }
+    .flow-node span { display: block; color: #89a3bc; font-size: 9px; line-height: 1.4; }
+    .flow-node.edge-node { border-color: rgba(66,209,167,.6); }
+    .flow-node.cloud-node { border-color: rgba(140,125,255,.65); }
+    .flow-node.tbd-node { border-color: rgba(255,180,84,.7); border-style: dashed; }
+    .flow-node.fail-node { border-color: rgba(255,107,122,.62); background: rgba(84,19,34,.28); }
+    .flow-arrow { display: flex; align-items: center; justify-content: center; color: #6e8ca9; font-size: 22px; }
+    .failure-track { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .failure-chip { border: 1px solid rgba(255,107,122,.5); background: rgba(255,107,122,.08); color: #ffb2ba; border-radius: 999px; padding: 5px 9px; font-size: 9px; }
+    .callback-list { display: grid; gap: 6px; margin-top: 9px; }
+    .callback-list > div {
+      padding: 7px 8px;
+      border: 1px solid #29445f;
+      border-radius: 8px;
+      background: rgba(8,22,37,.62);
+      color: #9fb7cd;
+      font-size: 9px;
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+    }
+    .callback-list strong { color: #e2f0fc; }
+
+    .journey {
+      border: 1px solid #233d58;
+      border-radius: 16px;
+      background: rgba(7,20,33,.62);
+      overflow: hidden;
+    }
+    .journey-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 15px 17px;
+      background: #10223a;
+      border-bottom: 1px solid #29445f;
+    }
+    .journey-head strong { font-size: 14px; }
+    .journey-head span { color: #83a0bc; font-size: 10px; text-align: right; }
+    .phase-row { display: grid; grid-template-columns: 150px minmax(0, 1fr); border-bottom: 1px solid #1c334b; }
+    .phase-row:last-child { border-bottom: 0; }
+    .phase-title {
+      padding: 16px 12px;
+      background: rgba(18,35,58,.68);
+      border-right: 1px solid #29445f;
+      color: #d3e6f8;
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .phase-title small { display: block; color: #6e8aa5; font-weight: 500; margin-top: 6px; }
+    .steps {
+      display: flex;
+      gap: 10px;
+      padding: 12px;
+      overflow-x: auto;
+      overscroll-behavior-x: contain;
+      scroll-snap-type: x proximity;
+    }
+    .step-card {
+      position: relative;
+      flex: 0 0 270px;
+      min-height: 260px;
+      scroll-snap-align: start;
+      text-align: left;
+      white-space: normal;
+      border-radius: 12px;
+      padding: 14px;
+      background: #102139;
+      border: 1px solid #31506e;
+      color: inherit;
+      cursor: pointer;
+      transition: opacity .18s ease, transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    }
+    .step-card.is-past { opacity: .58; }
+    .step-card.is-current {
+      opacity: 1;
+      transform: translateY(-3px);
+      border-color: var(--cyan) !important;
+      box-shadow: 0 0 0 2px rgba(67,214,208,.2), 0 14px 34px rgba(0,0,0,.28);
+    }
+    .step-card.edge-step { border-color: rgba(66,209,167,.55); }
+    .step-card.cloud-step { border-color: rgba(140,125,255,.58); }
+    .step-card.tbd-step { border-style: dashed; border-color: rgba(255,180,84,.72); }
+    .step-card.result-step { border-color: rgba(96,211,148,.58); }
+    .step-no { color: #6f91b2; font-size: 9px; font-weight: 800; }
+    .step-card h4 { margin: 5px 0 9px; color: #edf6ff; font-size: 12px; line-height: 1.35; }
+    .step-card dl { margin: 0; }
+    .step-card dt { color: #63819e; font-size: 8.5px; margin-top: 5px; }
+    .step-card dd { color: #b7cada; font-size: 9.5px; margin: 0; line-height: 1.4; }
+    .step-card .stop { color: #ff9ba6; }
+    .chain-rule {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      margin: 10px 0 0;
+    }
+    .chain-rule > div { padding: 9px; border-radius: 9px; background: #0c1b2d; border: 1px solid #263f59; color: #9fb7cd; font-size: 9.5px; }
+
+    .journey-player {
+      display: grid;
+      grid-template-columns: auto auto auto auto minmax(260px, 1fr);
+      gap: 8px;
+      align-items: center;
+      margin: 12px 0;
+      padding: 10px;
+      border: 1px solid rgba(67,214,208,.34);
+      border-radius: 12px;
+      background: rgba(12,31,49,.88);
+    }
+    .journey-player button { border-radius: 8px; padding: 7px 10px; }
+    .journey-player button:disabled { opacity: .35; cursor: not-allowed; }
+    .journey-player-status {
+      min-width: 0;
+      color: #a9c5dd;
+      font-size: 10px;
+      overflow-wrap: anywhere;
+    }
+    .journey-player-status strong { color: #eaf7ff; }
+    .evidence-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 10px 0 18px;
+      color: #9fb6cc;
+      font-size: 10px;
+    }
+    .evidence-chip { border-radius: 999px; padding: 5px 9px; border: 1px solid #34516e; background: #0c1d31; }
+    .evidence-chip.fact { border-color: rgba(96,211,148,.5); color: #9de7c3; }
+    .evidence-chip.target { border-color: rgba(80,167,255,.55); color: #a9d6ff; }
+    .evidence-chip.tbd { border-color: rgba(255,180,84,.6); color: #ffd092; border-style: dashed; }
+    #task-matrix table thead th { position: sticky; top: 0; z-index: 3; background: #132840; }
+    #task-matrix table th:first-child,
+    #task-matrix table td:first-child { position: sticky; left: 0; z-index: 2; background: #0d1e32; }
+    #task-matrix table thead th:first-child { z-index: 4; background: #132840; }
+
+    .drawer-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      background: rgba(1,7,14,.64);
+      backdrop-filter: blur(2px);
+    }
+    .drawer {
+      position: fixed;
+      z-index: 21;
+      right: 0;
+      top: 0;
+      width: min(480px, calc(100vw - 18px));
+      height: 100dvh;
+      overflow: auto;
+      background: #0a1829;
+      border-left: 1px solid #31516f;
+      box-shadow: -24px 0 70px rgba(0,0,0,.48);
+      padding: 22px;
+    }
+    .drawer[hidden], .drawer-backdrop[hidden] { display: none; }
+    .drawer-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .drawer h2 { font-size: 20px; margin: 4px 0 5px; }
+    .drawer-sub { color: #829bb3; font-size: 10.5px; }
+    .drawer-close { flex: 0 0 auto; border-radius: 8px; padding: 7px 10px; }
+    .detail-grid { margin-top: 16px; display: grid; gap: 9px; }
+    .detail-row { border: 1px solid #233f5b; background: #0f2137; border-radius: 10px; padding: 10px 11px; }
+    .detail-row dt { color: #6c8ba8; font-size: 9px; }
+    .detail-row dd { color: #c5d7e8; margin: 2px 0 0; font-size: 11px; }
+    .detail-status { margin-top: 13px; border-radius: 10px; padding: 10px; font-size: 10.5px; }
+    .detail-status.tbd { color: #ffd092; border: 1px dashed rgba(255,180,84,.65); background: rgba(255,180,84,.08); }
+    .detail-status.known { color: #9de7c3; border: 1px solid rgba(96,211,148,.45); background: rgba(96,211,148,.07); }
+
+    @media (max-width: 980px) {
+      header { grid-template-columns: 1fr; }
+      .legend, .cards, .contract-grid { grid-template-columns: 1fr 1fr; }
+      .gates { grid-template-columns: 1fr 1fr; }
+      .gate:nth-child(2)::after { display: none; }
+      .shell { width: min(100% - 20px, 1680px); padding-top: 20px; }
+    }
+    @media (max-width: 620px) {
+      .legend, .cards, .contract-grid, .gates, .guide, .chain-rule { grid-template-columns: 1fr; }
+      .gate::after { display: none; }
+      .phase-row { grid-template-columns: 1fr; }
+      .phase-title { border-right: 0; border-bottom: 1px solid #29445f; padding: 10px 12px; }
+      .step-card { flex-basis: 250px; }
+      .journey-head { display: block; }
+      .journey-head span { display: block; text-align: left; margin-top: 6px; }
+      .nav-toolbar { top: 4px; border-radius: 13px; }
+      .journey-player { grid-template-columns: repeat(4, auto); }
+      .journey-player-status { grid-column: 1 / -1; }
+    }
+  </style>
+</head>
+<body data-focus="all">
+  <main class="shell">
+    <header>
+      <div>
+        <div class="eyebrow">SYSTEM PRESET TASK · CLICKABLE DETAIL EDITION</div>
+        <h1>系统预设任务：从后台定义到真实车辆结果</h1>
+        <div class="subtitle">六层公共框架 · 九类数据合同 · InteractionMode 三分支 · 端侧天气 19 步 · 端云充电 20 步 · 点击核心模块查看“七问”详情</div>
+      </div>
+      <div class="principle">
+        <strong>读图原则：</strong>横向看每层职责，纵向看一次任务向下流动。点击核心模块会打开详情抽屉；橙色虚线表示接口、Owner 或物理承载仍需专项确认。
+      </div>
+    </header>
+
+    <div class="toolbar nav-toolbar" aria-label="视图导航">
+      <button class="active" data-scroll="framework">总框架</button>
+      <button data-scroll="four-gates">四道门</button>
+      <button data-scroll="state-chain">状态链</button>
+      <button data-scroll="contracts">数据合同</button>
+      <button data-scroll="interaction-routes">交互双链</button>
+      <button data-scroll="weather-chain">端侧天气</button>
+      <button data-scroll="charge-chain">端云充电</button>
+      <button data-scroll="task-matrix">四任务落位</button>
+    </div>
+    <div class="toolbar" aria-label="总图高亮筛选">
+      <button class="active" data-focus="all">总图全部</button>
+      <button data-focus="edge">总图突出端侧</button>
+      <button data-focus="cloud">总图突出云端</button>
+      <button data-focus="contract">总图突出业务合同</button>
+    </div>
+    <div class="evidence-legend" aria-label="事实等级说明">
+      <span class="evidence-chip fact">已确认：当前资料能直接证明</span>
+      <span class="evidence-chip target">目标方案：本 PRD 需要评审达成的业务语义</span>
+      <span class="evidence-chip tbd">待确认：接口、Owner、物理位置或一期范围未拍板</span>
+    </div>
+
+    <section class="diagram-card" id="framework">
+      <div class="diagram-head">
+        <span>完整框架 L0｜点击节点查看：谁负责 / 在哪里 / 输入 / 判断 / 输出 / 失败 / TBD</span>
+        <span>V2.0 · 2026-09-04 · 产品语义图，非现网部署图</span>
+      </div>
+      <div class="diagram-scroll">
+        <svg viewBox="0 0 1600 1610" role="img" aria-labelledby="title desc">
+          <title id="title">系统预设任务完整框架架构图</title>
+          <desc id="desc">展示控制、管理状态、运行判断、交互、执行结果和观测治理六层，以及端侧天气和端云充电两类数据流。</desc>
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#6d89a7"></path>
+            </marker>
+          </defs>
+
+          <!-- Layer containers -->
+          <rect class="layer" x="40" y="45" width="1520" height="220"></rect>
+          <text class="layer-title" x="62" y="75">① 控制面｜定义并发布什么任务</text>
+          <text class="layer-note" x="62" y="96">产品与平台负责可发布定义；不实时判断车辆场景</text>
+
+          <rect class="layer" x="40" y="290" width="1520" height="245"></rect>
+          <text class="layer-title" x="62" y="320">② 管理与状态面｜用户是否真的开启，链路经过哪里，谁唯一创建 RunEvent</text>
+          <text class="layer-note" x="62" y="341">任务中心是 HMI；真实状态、处理拓扑与 RunEvent 产生权必须另有明确责任</text>
+
+          <rect class="layer" x="40" y="560" width="1520" height="300"></rect>
+          <text class="layer-title" x="62" y="590">③ 运行与判断面｜什么时候产生本次 RunEvent</text>
+          <text class="layer-note" x="62" y="611">端侧做确定性本地判断；云端按需做语义、模型与工具编排</text>
+
+          <rect class="layer" x="40" y="885" width="1520" height="260"></rect>
+          <text class="layer-title" x="62" y="915">④ 交互面｜怎样问用户，并把选择还给原业务</text>
+          <text class="layer-note" x="62" y="936">卡片只负责交互；端侧语音与云端语音使用不同路由</text>
+
+          <rect class="layer" x="40" y="1170" width="1520" height="240"></rect>
+          <text class="layer-title" x="62" y="1200">⑤ 执行与结果面｜现在还能不能做，车辆是否真的完成</text>
+          <text class="layer-note" x="62" y="1221">所有车控回到端侧；真实车辆状态是最终成功真相</text>
+
+          <rect class="layer" x="40" y="1435" width="1520" height="130"></rect>
+          <text class="layer-title" x="62" y="1465">⑥ 观测与治理总线｜版本、灰度、日志、指标、告警、回放、冷却</text>
+
+          <!-- Connections rendered before nodes -->
+          <g class="connections">
+            <path class="connection required" d="M 355 170 H 435"></path>
+            <path class="connection required" d="M 745 170 H 825"></path>
+            <path class="connection required" d="M 1135 170 H 1215"></path>
+
+            <path class="connection required" d="M 1375 220 V 380 H 1290"></path>
+            <path class="connection required" d="M 1460 224 V 270 H 1535 V 545 H 490 V 650"></path>
+            <path class="connection required" d="M 1220 410 H 1000"></path>
+            <path class="connection tbd-line" d="M 1000 455 V 505 H 1160 V 477"></path>
+            <path class="connection required" d="M 785 410 H 720"></path>
+            <path class="connection tbd-line" d="M 500 410 H 425"></path>
+            <path class="connection tbd-line" d="M 295 477 V 590 H 490 V 650"></path>
+            <path class="connection edge-line" d="M 455 680 H 435"></path>
+            <path class="connection cloud-line" d="M 490 710 V 775 H 435"></path>
+
+            <path class="connection edge-line" d="M 435 680 H 685"></path>
+            <path class="connection cloud-line" d="M 435 775 H 685"></path>
+            <path class="connection cloud-line" d="M 945 775 H 1015"></path>
+            <path class="connection cloud-line" d="M 1265 775 H 1315"></path>
+            <path class="connection edge-line" d="M 945 680 H 1015"></path>
+
+            <path class="connection edge-line" d="M 1125 820 V 995 H 1240"></path>
+            <path class="connection cloud-line" d="M 1415 822 V 930 H 1480 V 995 H 1515"></path>
+            <path class="connection edge-line" d="M 570 1000 H 650"></path>
+            <path class="connection edge-line" d="M 840 1000 H 930"></path>
+            <path class="connection cloud-line" d="M 570 1085 H 650"></path>
+            <path class="connection cloud-line" d="M 840 1085 H 930"></path>
+            <path class="connection required" d="M 1180 1030 H 1240"></path>
+
+            <path class="connection required" d="M 1240 1000 H 1180"></path>
+            <path class="connection required" d="M 1305 1048 V 1058"></path>
+            <path class="connection required" d="M 1450 1048 V 1058"></path>
+            <path class="connection required" d="M 1450 1138 V 1275 H 1215"></path>
+            <path class="connection required" d="M 985 1275 H 915"></path>
+            <path class="connection required" d="M 685 1275 H 615"></path>
+            <path class="connection result-line" d="M 385 1275 H 315"></path>
+
+            <path class="bus" d="M 200 1505 H 1450"></path>
+            <path class="bus" d="M 200 1410 V 1505"></path>
+            <path class="bus" d="M 520 1410 V 1505"></path>
+            <path class="bus" d="M 840 1410 V 1505"></path>
+            <path class="bus" d="M 1160 1410 V 1505"></path>
+            <path class="bus" d="M 1450 1410 V 1505"></path>
+
+            <path class="connection result-line" d="M 190 1235 V 470 H 1030"></path>
+            <path class="connection result-line" d="M 190 1235 V 1045 H 930"></path>
+          </g>
+
+          <!-- Arrow labels -->
+          <g class="arrow-label">
+            <rect x="364" y="148" width="64" height="24"></rect>
+            <text x="373" y="164">任务定义</text>
+            <rect x="752" y="148" width="65" height="24"></rect>
+            <text x="761" y="164">校验结果</text>
+            <rect x="1143" y="148" width="65" height="24"></rect>
+            <text x="1152" y="164">生效版本</text>
+            <rect x="1385" y="238" width="118" height="24"></rect>
+            <text x="1394" y="254">DisplayMetadata</text>
+            <rect x="1210" y="521" width="122" height="24"></rect>
+            <text x="1219" y="537">RuntimeDefinition</text>
+            <rect x="1074" y="389" width="128" height="24"></rect>
+            <text x="1083" y="405">OperationRequest</text>
+            <rect x="1010" y="481" width="142" height="24"></rect>
+            <text x="1019" y="497">OperationResult 回 HMI</text>
+            <rect x="722" y="389" width="58" height="24"></rect>
+            <text x="731" y="405">状态变化</text>
+            <rect x="715" y="620" width="150" height="24"></rect>
+            <text x="724" y="636">快照 + 变化 / 接口 TBD</text>
+            <rect x="950" y="650" width="58" height="24"></rect>
+            <text x="959" y="666">稳定候选</text>
+            <rect x="1269" y="742" width="42" height="24"></rect>
+            <text x="1278" y="758">Query</text>
+            <rect x="1250" y="968" width="132" height="24"></rect>
+            <text x="1259" y="984">需卡分支 → Request</text>
+            <rect x="1187" y="1011" width="135" height="24"></rect>
+            <text x="1196" y="1027">三类回调 → 原业务</text>
+            <rect x="1238" y="1033" width="142" height="24"></rect>
+            <text x="1247" y="1049">NOTIFY_ONLY → 结束</text>
+            <rect x="1379" y="1033" width="142" height="24"></rect>
+            <text x="1388" y="1049">SILENT/有效确认 →</text>
+            <rect x="1190" y="1252" width="152" height="24"></rect>
+            <text x="1199" y="1268">ExecutionProof → 执行请求</text>
+          </g>
+
+          <!-- Nodes -->
+          <g class="nodes">
+            <g class="node" transform="translate(85 116)">
+              <rect width="270" height="108"></rect>
+              <rect class="tag-bg-blue" x="16" y="14" width="52" height="18" rx="9"></rect>
+              <text class="node-tag" x="28" y="27">产品</text>
+              <text class="node-title" x="16" y="51">系统预设任务定义</text>
+              <text class="node-owner" x="16" y="69">位置：PRD / 任务清单</text>
+              <text class="node-copy" x="16" y="87">场景 · 规则 · 端云 · 交互 · 动作 · 验收</text>
+            </g>
+
+            <g class="node tbd" transform="translate(435 116)">
+              <rect width="310" height="108"></rect>
+              <rect class="tag-bg-orange" x="16" y="14" width="76" height="18" rx="9"></rect>
+              <text class="node-tag" x="24" y="27">当前部分</text>
+              <text class="node-title" x="16" y="51">配置平台 / 端侧发版流程</text>
+              <text class="node-owner" x="16" y="69">位置：云端后台 / 整车版本</text>
+              <text class="node-copy" x="16" y="87">能力引用 · 车型 · 版本 · 灰度 · 回滚</text>
+            </g>
+
+            <g class="node truth" transform="translate(825 116)">
+              <rect width="310" height="108"></rect>
+              <rect class="tag-bg-blue" x="16" y="14" width="76" height="18" rx="9"></rect>
+              <text class="node-tag" x="24" y="27">发布门禁</text>
+              <text class="node-title" x="16" y="51">完整性校验</text>
+              <text class="node-owner" x="16" y="69">输入：信号 / 模型 / 卡 / 动作 / 回读</text>
+              <text class="node-copy" x="16" y="87">缺状态、缺安全、缺回读则阻止发布</text>
+            </g>
+
+            <g class="node" transform="translate(1215 116)">
+              <rect width="300" height="108"></rect>
+              <rect class="tag-bg-blue" x="16" y="14" width="52" height="18" rx="9"></rect>
+              <text class="node-tag" x="27" y="27">输出</text>
+              <text class="node-title" x="16" y="51">双发布物：展示 + 运行</text>
+              <text class="node-owner" x="16" y="69">DisplayMetadata → 任务中心</text>
+              <text class="node-copy" x="16" y="87">RuntimeDefinition → 端/云 Runtime</text>
+            </g>
+
+            <g class="node" transform="translate(1030 365)">
+              <rect width="260" height="112"></rect>
+              <rect class="tag-bg-blue" x="16" y="14" width="56" height="18" rx="9"></rect>
+              <text class="node-tag" x="26" y="27">HMI</text>
+              <text class="node-title" x="16" y="51">任务中心</text>
+              <text class="node-owner" x="16" y="69">车机 · 任务中心团队</text>
+              <text class="node-copy" x="16" y="87">目标：启停/删除 + 结果回显（范围 TBD）</text>
+              <text class="node-copy" x="16" y="102">只做 HMI；不是真状态，不执行 Trigger</text>
+            </g>
+
+            <g class="node truth tbd" transform="translate(785 365)">
+              <rect width="215" height="112"></rect>
+              <rect class="tag-bg-orange" x="16" y="14" width="76" height="18" rx="9"></rect>
+              <text class="node-tag" x="24" y="27">OWNER TBD</text>
+              <text class="node-title" x="16" y="51">真实任务状态</text>
+              <text class="node-owner" x="16" y="69">接入业务 / 状态承载方</text>
+              <text class="node-copy" x="16" y="87">ENABLED / DISABLED / UNKNOWN</text>
+              <text class="node-copy" x="16" y="102">鉴权 · 幂等 · 持久化 · 顺序</text>
+            </g>
+
+            <g class="node tbd" transform="translate(500 365)">
+              <rect width="220" height="112"></rect>
+              <rect class="tag-bg-orange" x="16" y="14" width="76" height="18" rx="9"></rect>
+              <text class="node-tag" x="24" y="27">接口 TBD</text>
+              <text class="node-title" x="16" y="51">状态同步与恢复</text>
+              <text class="node-owner" x="16" y="69">启动快照 + 变化 + 重同步</text>
+              <text class="node-copy" x="16" y="87">版本 / 时间 / 定义版本</text>
+              <text class="node-copy" x="16" y="102">列表 Push/Pull ≠ Trigger 状态</text>
+            </g>
+
+            <g class="node truth tbd" transform="translate(165 365)">
+              <rect width="260" height="112"></rect>
+              <rect class="tag-bg-orange" x="16" y="14" width="76" height="18" rx="9"></rect>
+              <text class="node-tag" x="24" y="27">机制 TBD</text>
+              <text class="node-title" x="16" y="51">处理拓扑 + 唯一事件产生权</text>
+              <text class="node-owner" x="16" y="69">架构 / Trigger Owner</text>
+              <text class="node-copy" x="16" y="87">topology：EDGE / CLOUD / HYBRID</text>
+              <text class="node-copy" x="16" y="102">producer：EDGE / CLOUD / NONE；冲突即停</text>
+            </g>
+
+            <polygon class="split" points="490,650 525,680 490,710 455,680"></polygon>
+            <text class="split-text" x="475" y="684">端/云</text>
+
+            <g class="node edge" transform="translate(165 635)">
+              <rect width="270" height="92"></rect>
+              <rect class="tag-bg-edge" x="16" y="14" width="52" height="18" rx="9"></rect>
+              <text class="node-tag" x="25" y="27">EDGE</text>
+              <text class="node-title" x="16" y="51">端侧 Trigger</text>
+              <text class="node-owner" x="16" y="69">本地端状态 / VLM / 事件</text>
+              <text class="node-copy" x="16" y="84">三值规则 · 时效 · 防抖 · 去重</text>
+            </g>
+
+            <g class="node cloud" transform="translate(165 730)">
+              <rect width="270" height="92"></rect>
+              <rect class="tag-bg-cloud" x="16" y="14" width="60" height="18" rx="9"></rect>
+              <text class="node-tag" x="23" y="27">CLOUD</text>
+              <text class="node-title" x="16" y="51">Cloud Trigger</text>
+              <text class="node-owner" x="16" y="69">合规上行状态 / 硬条件</text>
+              <text class="node-copy" x="16" y="84">时效 · 防抖 · 去重 · 频控</text>
+            </g>
+
+            <g class="node edge" transform="translate(685 635)">
+              <rect width="260" height="92"></rect>
+              <rect class="tag-bg-edge" x="16" y="14" width="52" height="18" rx="9"></rect>
+              <text class="node-tag" x="25" y="27">EDGE</text>
+              <text class="node-title" x="16" y="51">硬条件候选通过</text>
+              <text class="node-owner" x="16" y="69">AND / OR / 阈值 / 变化沿</text>
+              <text class="node-copy" x="16" y="84">输出稳定候选；无需 Planner/DT</text>
+            </g>
+
+            <g class="node cloud" transform="translate(685 730)">
+              <rect width="260" height="92"></rect>
+              <rect class="tag-bg-cloud" x="16" y="14" width="60" height="18" rx="9"></rect>
+              <text class="node-tag" x="23" y="27">CLOUD</text>
+              <text class="node-title" x="16" y="51">硬条件候选通过</text>
+              <text class="node-owner" x="16" y="69">任务状态 / P / SOC / 口盖 / 时效</text>
+              <text class="node-copy" x="16" y="84">只输出稳定候选；此时还没有 Query</text>
+            </g>
+
+            <g class="node truth" transform="translate(1015 650)">
+              <rect width="250" height="170"></rect>
+              <rect class="tag-bg-blue" x="16" y="14" width="70" height="18" rx="9"></rect>
+              <text class="node-tag" x="25" y="27">唯一一次</text>
+              <text class="node-title" x="16" y="55">创建 RunEvent</text>
+              <text class="node-owner" x="16" y="76">只能由有效 producer 创建</text>
+              <text class="node-copy" x="16" y="98">任务实例 + 定义版本 + scope</text>
+              <text class="node-copy" x="16" y="115">产生权代次 + SignalSnapshot</text>
+              <text class="node-copy" x="16" y="132">branch + valid_until + status</text>
+              <text class="node-copy" x="16" y="149">此后模型/卡片/授权/执行均复用</text>
+            </g>
+
+            <g class="node cloud" transform="translate(1315 730)">
+              <rect width="200" height="92"></rect>
+              <rect class="tag-bg-cloud" x="16" y="14" width="60" height="18" rx="9"></rect>
+              <text class="node-tag" x="23" y="27">CLOUD</text>
+              <text class="node-title" x="16" y="51">Query → Advisor / Planner / DT</text>
+              <text class="node-owner" x="16" y="69">RunEvent 创建后才生成 Query</text>
+              <text class="node-copy" x="16" y="84">Query/结果都携带同一事件</text>
+            </g>
+
+            <g class="node edge interaction" transform="translate(300 960)">
+              <rect width="270" height="92"></rect>
+              <rect class="tag-bg-edge" x="16" y="14" width="84" height="18" rx="9"></rect>
+              <text class="node-tag" x="23" y="27">端侧语音</text>
+              <text class="node-title" x="16" y="51">可见即可说</text>
+              <text class="node-owner" x="16" y="69">元素 → ASR/匹配 → 消歧</text>
+              <text class="node-copy" x="16" y="84">模拟点击原按钮，不做业务推理</text>
+            </g>
+
+            <g class="node cloud interaction" transform="translate(300 1055)">
+              <rect width="270" height="70"></rect>
+              <rect class="tag-bg-cloud" x="16" y="14" width="84" height="18" rx="9"></rect>
+              <text class="node-tag" x="23" y="27">云端语音</text>
+              <text class="node-title" x="16" y="51">Planner + 当前卡片上下文</text>
+            </g>
+
+            <g class="node edge interaction" transform="translate(650 960)">
+              <rect width="190" height="92"></rect>
+              <text class="node-title" x="16" y="34">端侧按钮事件</text>
+              <text class="node-owner" x="16" y="54">手点 / 模拟点击</text>
+              <text class="node-copy" x="16" y="73">同一原业务入口</text>
+            </g>
+
+            <g class="node cloud interaction" transform="translate(650 1055)">
+              <rect width="190" height="70"></rect>
+              <text class="node-title" x="16" y="31">云端语义结果</text>
+              <text class="node-copy" x="16" y="51">CONFIRM / REJECT / 追问</text>
+            </g>
+
+            <g class="node interaction truth" transform="translate(930 960)">
+              <rect width="250" height="166"></rect>
+              <rect class="tag-bg-blue" x="16" y="14" width="82" height="18" rx="9"></rect>
+              <text class="node-tag" x="24" y="27">交互合同</text>
+              <text class="node-title" x="16" y="53">即时交互卡 / VUI</text>
+              <text class="node-owner" x="16" y="73">位置：车机屏幕</text>
+              <text class="node-copy" x="16" y="94">准入 · 排队 · 真正展示 · TTS</text>
+              <text class="node-copy" x="16" y="112">点击 · 语音 · 关闭 · 超时 · 替换</text>
+              <text class="node-copy" x="16" y="130">必须带同一 RunEvent 返回</text>
+              <text class="node-copy" x="16" y="148">不判断天气/SOC，不直接车控</text>
+            </g>
+
+            <g class="node truth" transform="translate(1240 950)">
+              <rect width="275" height="98"></rect>
+              <rect class="tag-bg-blue" x="16" y="14" width="82" height="18" rx="9"></rect>
+              <text class="node-tag" x="24" y="27">业务收口</text>
+              <text class="node-title" x="16" y="53">InteractionMode + 原业务校验</text>
+              <text class="node-owner" x="16" y="72">SILENT：不出卡，校验已会签静默策略</text>
+              <text class="node-copy" x="16" y="87">NOTIFY_ONLY / REQUIRE_CONFIRMATION：才请求卡片</text>
+            </g>
+
+            <g class="node result" transform="translate(1240 1058)">
+              <rect width="130" height="80"></rect>
+              <rect class="tag-bg-green" x="12" y="11" width="62" height="17" rx="8"></rect>
+              <text class="node-tag" x="20" y="24">仅告知</text>
+              <text class="node-title" x="12" y="48">NoAction</text>
+              <text class="node-copy" x="12" y="66">卡/TTS 后结束</text>
+            </g>
+
+            <g class="node truth" transform="translate(1385 1058)">
+              <rect width="130" height="80"></rect>
+              <rect class="tag-bg-blue" x="16" y="14" width="82" height="18" rx="9"></rect>
+              <text class="node-tag" x="24" y="27">可执行</text>
+              <text class="node-title" x="12" y="49">ExecutionProof</text>
+              <text class="node-owner" x="12" y="65">policy_ref 或 auth_ref</text>
+            </g>
+
+            <g class="node execution truth" transform="translate(985 1235)">
+              <rect width="230" height="115"></rect>
+              <rect class="tag-bg-orange" x="16" y="14" width="76" height="18" rx="9"></rect>
+              <text class="node-tag" x="24" y="27">最后门禁</text>
+              <text class="node-title" x="16" y="52">端侧执行前复核</text>
+              <text class="node-owner" x="16" y="72">定义/producer/fencing/scope/事件</text>
+              <text class="node-copy" x="16" y="91">授权/推理时效 + 最新车况 + 幂等</text>
+              <text class="node-copy" x="16" y="106">过期 · 变化 · 重复 → DENY</text>
+            </g>
+
+            <g class="node execution" transform="translate(685 1235)">
+              <rect width="230" height="115"></rect>
+              <rect class="tag-bg-orange" x="16" y="14" width="76" height="18" rx="9"></rect>
+              <text class="node-tag" x="24" y="27">赛力斯端</text>
+              <text class="node-title" x="16" y="52">车控执行</text>
+              <text class="node-owner" x="16" y="72">幂等 · 权限 · 整车安全门禁</text>
+              <text class="node-copy" x="16" y="91">RPC ACK 仅表示调用结果</text>
+            </g>
+
+            <g class="node result truth" transform="translate(385 1235)">
+              <rect width="230" height="115"></rect>
+              <rect class="tag-bg-green" x="16" y="14" width="76" height="18" rx="9"></rect>
+              <text class="node-tag" x="24" y="27">成功真相</text>
+              <text class="node-title" x="16" y="52">真实状态回读</text>
+              <text class="node-owner" x="16" y="72">observed == target 且 quality=VALID？</text>
+              <text class="node-copy" x="16" y="91">是→SUCCESS；明确未达→FAILED</text>
+              <text class="node-copy" x="16" y="106">超时/不可判→UNKNOWN</text>
+            </g>
+
+            <g class="node result" transform="translate(85 1235)">
+              <rect width="230" height="115"></rect>
+              <rect class="tag-bg-green" x="16" y="14" width="76" height="18" rx="9"></rect>
+              <text class="node-tag" x="24" y="27">结果分发</text>
+              <text class="node-title" x="16" y="52">卡片 / Runtime 日志</text>
+              <text class="node-owner" x="16" y="72">SUCCESS / FAILED / UNKNOWN</text>
+              <text class="node-copy" x="16" y="91">同 RunEvent 收口 · 清理 · Cooling</text>
+              <text class="node-copy" x="16" y="106">长期任务仍保持原状态；任务中心回显 TBD</text>
+            </g>
+
+            <g class="node" transform="translate(180 1480)">
+              <rect width="1250" height="58"></rect>
+              <text class="node-title" x="18" y="27">全链路关联键：任务定义 / 任务实例 / 状态版本 / 处理拓扑 / 产生权代次 / RunEvent / 卡片 / 推理 / 授权 / 动作 / 真实回读</text>
+              <text class="node-copy" x="18" y="45">治理：版本 · 灰度 · 防抖 · 去重 · 频控 · 幂等 · 有效期 · 冷却 · 指标 · 告警 · 回放</text>
+            </g>
+          </g>
+        </svg>
+      </div>
+    </section>
+
+    <div class="legend" aria-label="图例">
+      <div class="legend-item"><span class="swatch" style="background:var(--blue)"></span><span><strong>蓝色</strong> 公共业务合同与状态真相</span></div>
+      <div class="legend-item"><span class="swatch" style="background:var(--edge)"></span><span><strong>绿色</strong> 端侧本地链路</span></div>
+      <div class="legend-item"><span class="swatch" style="background:var(--cloud)"></span><span><strong>紫色</strong> 云端判断与语义链路</span></div>
+      <div class="legend-item"><span class="swatch" style="background:var(--orange)"></span><span><strong>橙色虚线</strong> 当前接口/Owner/物理承载待确认</span></div>
+    </div>
+
+    <div class="cards">
+      <article class="info">
+        <h2>一个状态真源</h2>
+        <p>任务中心点击只是意图。接入业务真正保存后，端/云 Runtime 才能按 <strong>ENABLED</strong> 运行。</p>
+      </article>
+      <article class="info">
+        <h2>一种拓扑，一个产生方</h2>
+        <p>链路可为 EDGE、CLOUD 或 HYBRID；但同车、同任务、同版本只能由一侧创建本次 RunEvent，冲突时双方都停止。</p>
+      </article>
+      <article class="info">
+        <h2>一个 RunEvent</h2>
+        <p>硬候选通过后先建事件，再调模型或出卡；条件、模型、卡片、授权、车控和回读必须用同一事件关联。</p>
+      </article>
+      <article class="info">
+        <h2>一个成功真相</h2>
+        <p>Query、FOUND、点击、Planner 选择、RPC ACK 都不是最终成功；真实车辆状态才是。</p>
+      </article>
+    </div>
+
+    <div class="guide">
+      <div><strong>先看 L0 总框架</strong>确认六层、端云边界和业务真相；点击框查看每个模块的七问责任。</div>
+      <div><strong>再看状态链和四道门</strong>确认任务如何开启、谁保存真状态、谁有资格创建事件，以及失败在哪一门停止。</div>
+      <div><strong>最后逐步走两个案例</strong>天气 19 步与充电 20 步分别逐行点名 Owner、数据包、判断、输出和失败处理。</div>
+    </div>
+
+    <section class="section" id="four-gates">
+      <div class="eyebrow">L1 · SHARED BUSINESS GATES</div>
+      <h2>所有任务都必须依次通过“四道门”</h2>
+      <div class="gates">
+        <article class="gate">
+          <div class="gate-number">GATE 01</div><h3>任务有效门</h3>
+          <dl><dt>谁判断</dt><dd>状态承载方 + 端/云 Runtime</dd><dt>输入</dt><dd>TaskInstanceState、定义版本、拓扑、producer</dd><dt>通过条件</dt><dd>ENABLED、版本适用、producer 唯一</dd><dt>失败</dt><dd>DISABLED / UNKNOWN / 冲突：不创建 RunEvent</dd></dl>
+        </article>
+        <article class="gate">
+          <div class="gate-number">GATE 02</div><h3>场景命中门</h3>
+          <dl><dt>谁判断</dt><dd>唯一 producer 所在 Trigger</dd><dt>输入</dt><dd>新鲜、同车、同一时间窗口的 SignalSnapshot</dd><dt>通过条件</dt><dd>规则 TRUE + 防抖/去重/频控通过</dd><dt>失败</dt><dd>FALSE 等待；UNKNOWN/过期不触发</dd></dl>
+        </article>
+        <article class="gate">
+          <div class="gate-number">GATE 03</div><h3>交互与执行准入门</h3>
+          <dl><dt>谁判断</dt><dd>原业务；卡片/VAS/Planner只提供交互事实</dd><dt>输入</dt><dd>InteractionMode + RunEvent + 交互结果或静默策略</dd><dt>分支</dt><dd>SILENT→silent_policy_decision_ref；NOTIFY_ONLY→告知后 NoAction 结束；REQUIRE_CONFIRMATION→authorization_ref</dd><dt>失败</dt><dd>缺少本模式要求的执行凭证、旧事件、过期或已消费：不执行</dd></dl>
+        </article>
+        <article class="gate">
+          <div class="gate-number">GATE 04</div><h3>端侧执行门</h3>
+          <dl><dt>谁判断</dt><dd>端侧执行层 + 赛力斯安全门</dd><dt>输入</dt><dd>事件、授权/推理、版本/fencing、最新车况</dd><dt>通过条件</dt><dd>全部仍有效且安全、幂等未消费</dd><dt>失败</dt><dd>DENY/ACK失败/真实状态未达标均不报成功</dd></dl>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" id="state-chain">
+      <div class="eyebrow">L1 · CONTROL / STATE / RUNTIME</div>
+      <h2>任务定义、任务中心与 Runtime 状态链：三条数据不能混</h2>
+      <p class="contract-note"><strong>最容易讲错的地方：</strong>配置发布必须拆成 DisplayMetadata 与 RuntimeDefinition；任务中心只拿展示元数据和真实状态，Trigger 从 RuntimeDefinition 与状态同步链拿规则/状态，不能从任务中心页面“读规则”。</p>
+      <p class="contract-note"><strong>读图方法：</strong>A1/A2 是同一完整性门禁通过后的两个并列发布物；B1/B2 是请求与回包的相反方向；C1/C2/C3 是快照、增量、重同步三种机制，不是三个依次执行的步骤。</p>
+      <div class="flow-board" aria-label="任务状态与运行资格链">
+        <div class="flow-inner">
+          <div class="flow-row">
+            <div class="lane-label">A1. 展示发布</div>
+            <div class="flow-node"><strong>PresetTaskDefinition</strong><span>产品：规则、车型、交互、动作、成功口径</span></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-node"><strong>完整性门禁</strong><span>缺信号/卡片/动作/回读/Owner 则拦截</span></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-node"><strong>DisplayMetadata</strong><span>名称、描述、适用范围 → 只给任务中心展示</span></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-node tbd-node"><strong>任务中心 HMI</strong><span>目标：启停/删除/结果回显；一期范围 TBD；不消费 Trigger 规则</span></div>
+          </div>
+          <div class="flow-row">
+            <div class="lane-label">A2. 运行发布</div>
+            <div class="flow-node"><strong>通过门禁的定义版本</strong><span>同一 task_definition_ref + definition_version</span></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-node"><strong>RuntimeDefinition</strong><span>版本化规则、能力引用、InteractionMode、动作/回读策略</span></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-node edge-node"><strong>端侧 Runtime</strong><span>仅在 assignment 要求端侧运行/协作时加载；端侧发布方式 TBD</span></div>
+            <div class="flow-arrow">或/协作</div>
+            <div class="flow-node cloud-node"><strong>云端 Runtime</strong><span>仅在 assignment 要求云端运行/协作时加载</span></div>
+          </div>
+          <div class="flow-row">
+            <div class="lane-label">B1. 操作请求 →</div>
+            <div class="flow-node tbd-node"><strong>任务中心 HMI</strong><span>目标：承接 ENABLE / DISABLE / DELETE；一期控件范围 TBD</span></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-node"><strong>OperationRequest</strong><span>task + vehicle/account scope + target_operation + idempotency_key</span></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-node tbd-node"><strong>状态承载方 · Owner TBD</strong><span>鉴权、适用性、幂等、持久化、顺序</span></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-node"><strong>持久化结果</strong><span>成功才产生新 TaskInstanceState；失败保持原状态</span></div>
+          </div>
+          <div class="flow-row">
+            <div class="lane-label">B2. 操作回包 ←</div>
+            <div class="flow-node tbd-node"><strong>状态承载方</strong><span>基于真实保存结果回包</span></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-node"><strong>OperationResult</strong><span>operation_ref + success/failure + effective_state + state_version + reason</span></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-node tbd-node"><strong>任务中心 HMI</strong><span>成功显示真状态；失败恢复原状态并提示</span></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-node"><strong>此路不进 Trigger</strong><span>OperationResult 是 HMI 回包，不是 Runtime 开启命令</span></div>
+          </div>
+          <div class="flow-row">
+            <div class="lane-label">C1. 启动/重连快照</div>
+            <div class="flow-node tbd-node"><strong>状态承载方</strong><span>生产全量 TaskInstanceState</span></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-node"><strong>状态同步层：快照</strong><span>task_instance_ref + state + state/definition version + scope + changed_at</span></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-node"><strong>端/云 Runtime 状态缓存</strong><span>快照完成后才可 READY；完成前是 SYNCING/UNKNOWN</span></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-node"><strong>运行资格门</strong><span>ENABLED + 定义适用 + producer 唯一</span></div>
+          </div>
+          <div class="flow-row">
+            <div class="lane-label">C2. 运行时增量变化</div>
+            <div class="flow-node tbd-node"><strong>状态承载方</strong><span>任务开/关或版本变化</span></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-node"><strong>状态同步层：变化通知</strong><span>可判新旧、去重、带 state_version</span></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-node"><strong>端/云 Runtime 更新</strong><span>新版本生效；倒退拒绝；跳变不盲猜</span></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-node"><strong>已有事件处理</strong><span>任务关闭/产生权切换时，旧 RunEvent/卡/授权失效</span></div>
+          </div>
+          <div class="flow-row">
+            <div class="lane-label">C3. 异常重同步 ↺</div>
+            <div class="flow-node"><strong>端/云 Runtime 发现缺口</strong><span>重启、断连、版本跳变、质量不可判</span></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-node tbd-node"><strong>ResyncRequest</strong><span>请求状态同步层重发完整快照；物理协议 TBD</span></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-node tbd-node"><strong>状态同步层 / 真源</strong><span>返回完整快照与当前版本</span></div>
+            <div class="flow-arrow">↺</div>
+            <div class="flow-node"><strong>Runtime 重建缓存</strong><span>重同步完成前保持 BLOCKED，不创建 RunEvent</span></div>
+          </div>
+          <div class="flow-row">
+            <div class="lane-label">D. RuntimeAssignment</div>
+            <div class="flow-node"><strong>一个资格对象</strong><span>关联 task_instance_ref / definition_version / scope</span></div>
+            <div class="flow-arrow">包含</div>
+            <div class="flow-node"><strong>并列字段</strong><span>topology + producer + assignment_version + valid_from/until + fencing</span></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-node"><strong>资格校验</strong><span>任务状态明确、定义适用、producer 唯一且代次有效</span></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-node"><strong>READY / BLOCKED 分支</strong><span>producer=EDGE/CLOUD 进对应 READY；NONE/冲突则双方停止</span></div>
+          </div>
+          <div class="flow-row">
+            <div class="lane-label">E. EDGE READY</div>
+            <div class="flow-node"><strong>producer=EDGE</strong><span>assignment_version/fencing 当前有效</span></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-node edge-node"><strong>端侧 Runtime READY</strong><span>订阅本地状态/VLM，唯一创建 RunEvent</span></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-node cloud-node"><strong>云端仅协作（如需）</strong><span>HYBRID 时可做模型/上下文，不得再建事件</span></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-node"><strong>同一 RunEvent</strong><span>模型/卡片/授权/执行继续复用</span></div>
+          </div>
+          <div class="flow-row">
+            <div class="lane-label">F. CLOUD READY</div>
+            <div class="flow-node"><strong>producer=CLOUD</strong><span>assignment_version/fencing 当前有效</span></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-node cloud-node"><strong>云端 Runtime READY</strong><span>消费合规上行，唯一创建 RunEvent</span></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-node edge-node"><strong>端侧仅协作/最终门禁</strong><span>供数或执行前复核，不得再建事件</span></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-node"><strong>同一 RunEvent</strong><span>云端结果下行后仍用原事件收口</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="failure-track" aria-label="状态链失败轨道">
+        <span class="failure-chip">保存失败 → 原状态不变 + UI 回滚</span>
+        <span class="failure-chip">状态 UNKNOWN/SYNCING → 不创建事件</span>
+        <span class="failure-chip">state_version 倒退/跳跃 → 拒绝 + 重同步</span>
+        <span class="failure-chip">producer 冲突/NONE → 端云双方停止 + 告警</span>
+        <span class="failure-chip">定义版本不适用 → NOT_APPLICABLE，不进入 Trigger</span>
+      </div>
+    </section>
+
+    <section class="section" id="contracts">
+      <div class="eyebrow">L1 · PRODUCT SEMANTIC CONTRACTS</div>
+      <h2>九类公共数据合同：研发可以改字段名，但不能丢业务语义</h2>
+      <p class="contract-note">下列字段均为<strong>产品语义示例</strong>，不是正式 IDL、Topic、接口名或错误码。评审先拍板“必须传递什么”，再由技术专项确定物理协议。</p>
+      <div class="contract-grid">
+        <article class="contract"><h3>① RuntimeDefinition</h3><div class="purpose">给 Runtime 执行的版本化任务规则；不是任务中心展示元数据</div><div class="route"><strong>生产者：</strong>配置/发布平台　<strong>消费者：</strong>端侧 Runtime、云端 Runtime</div><div class="fields"><span class="field">task_definition_ref</span><span class="field">definition_version</span><span class="field">applicability</span><span class="field">trigger_policy_ref</span><span class="field">interaction_mode</span><span class="field">interaction_policy</span><span class="field">action_capabilities</span><span class="field">completion_truth</span><span class="field">owner</span></div><div class="invariant"><strong>门禁：</strong>缺信号/模型/卡/动作/回读/Owner 阻止发布；任务中心只消费独立 DisplayMetadata。</div></article>
+        <article class="contract"><h3>② TaskInstanceState</h3><div class="purpose">哪辆车/哪个账号的任务现在是否真的有效</div><div class="route"><strong>生产者：</strong>接入业务/状态承载方　<strong>消费者：</strong>任务中心、状态同步层、端/云 Runtime</div><div class="fields"><span class="field">task_instance_ref</span><span class="field">task_definition_ref</span><span class="field">vehicle/account scope</span><span class="field">effective_state</span><span class="field">state_version</span><span class="field">definition_version</span><span class="field">changed_at / reason</span></div><div class="invariant"><strong>门禁：</strong>只有 ENABLED 且版本可判定才继续；UNKNOWN 不等于关闭，也不能猜成开启。</div></article>
+        <article class="contract"><h3>③ RuntimeAssignment</h3><div class="purpose">链路经过哪里，以及谁唯一有权创建事件</div><div class="route"><strong>生产者：</strong>架构/灰度/运行资格承载方 TBD　<strong>消费者：</strong>端侧 Runtime、云端 Runtime、端侧执行门</div><div class="fields"><span class="field">task_instance_ref</span><span class="field">processing_topology</span><span class="field">run_event_producer</span><span class="field">assignment_version</span><span class="field">definition_version</span><span class="field">valid_from / until</span><span class="field">fencing/equivalent</span><span class="field">reason</span></div><div class="invariant"><strong>门禁：</strong>HYBRID 只表示拓扑；producer 只能 EDGE / CLOUD / NONE，不能填 HYBRID。</div></article>
+        <article class="contract"><h3>④ SignalSnapshot</h3><div class="purpose">冻结本次判断所依据的同车、同时间窗数据</div><div class="route"><strong>生产者：</strong>唯一 producer 所在 Trigger　<strong>消费者：</strong>规则引擎、RunEvent、模型/工具、端侧复核</div><div class="fields"><span class="field">snapshot_ref</span><span class="field">vehicle/account scope</span><span class="field">task_state_version</span><span class="field">assignment_version</span><span class="field">signal value</span><span class="field">observed_at</span><span class="field">quality</span><span class="field">age_ms</span><span class="field">cross_signal_skew</span></div><div class="invariant"><strong>门禁：</strong>任一关键项 UNKNOWN/STALE 或跨信号时间差超限，不得把整条规则算成 TRUE。</div></article>
+        <article class="contract"><h3>⑤ RunEvent</h3><div class="purpose">一次条件命中的全链路业务流水号</div><div class="route"><strong>生产者：</strong>RuntimeAssignment 指定的唯一 producer　<strong>消费者：</strong>模型、卡片、原业务、执行、结果/日志</div><div class="fields"><span class="field">run_event_ref</span><span class="field">task_instance_ref</span><span class="field">definition_version</span><span class="field">producer_assignment_version</span><span class="field">branch</span><span class="field">snapshot_ref</span><span class="field">triggered_at / valid_until</span><span class="field">status</span></div><div class="invariant"><strong>顺序：</strong>硬候选通过后先创建一次 RunEvent，再生成 Query、调模型或出卡；后面禁止再创建第二个。</div></article>
+        <article class="contract"><h3>⑥ InteractionRequest / Events</h3><div class="purpose">原业务怎样请求卡片，以及卡片怎样把三类事实还回来</div><div class="route"><strong>请求方：</strong>端侧 Trigger 原业务 / 云端原业务　<strong>展示方：</strong>即时卡 / VUI　<strong>结果消费方：</strong>原业务、VAS/Planner</div><div class="fields"><span class="field">task_definition_ref</span><span class="field">task_instance_ref</span><span class="field">run_event_ref</span><span class="field">source_type</span><span class="field">interaction_mode</span><span class="field">content / actions</span><span class="field">TTS / voice_route</span><span class="field">click_route</span><span class="field">expires_at / priority</span></div><div class="callback-list"><div><strong>DisplayAck｜展示事实：</strong>run_event_ref · card_ref · display_state（QUEUED / VISIBLE / FAILED）· failure_reason · occurred_at</div><div><strong>InteractionEvent｜用户选择：</strong>run_event_ref · card_ref · user_result（CONFIRM / REJECT / CLOSE / TIMEOUT / INTERRUPT）· input_source（CLICK / VOICE）· element_semantic · occurred_at</div><div><strong>LifecycleEvent｜生命周期：</strong>run_event_ref · card_ref · card_state（VISIBLE / HIDDEN / EXPIRED / REPLACED / RESTORED）· failure_reason · occurred_at</div></div><div class="invariant"><strong>底线：</strong>请求先携带任务定义、任务实例和本次 RunEvent；展示、选择、生命周期都必须原样带回同一 RunEvent。卡片只提供交互事实，不判断业务、不直接车控。</div></article>
+        <article class="contract"><h3>⑦ ExecutionProof</h3><div class="purpose">根据 InteractionMode 证明本次动作为什么可以执行</div><div class="route"><strong>生产者：</strong>原业务　<strong>消费者：</strong>ExecutionRequest 组装方、端侧执行前复核</div><div class="fields"><span class="field">authorization_ref</span><span class="field">silent_policy_decision_ref</span><span class="field">run_event_ref</span><span class="field">decision_type</span><span class="field">policy/version</span><span class="field">vehicle/account scope</span><span class="field">created_at / expires_at</span><span class="field">consumed</span></div><div class="invariant"><strong>分支：</strong>REQUIRE_CONFIRMATION 必须有 authorization_ref；SILENT 必须有已会签的 silent_policy_decision_ref；NOTIFY_ONLY 不产生执行凭证，告知后 NoAction 结束。</div></article>
+        <article class="contract"><h3>⑧ ExecutionRequest</h3><div class="purpose">原业务把本次一次性执行依据交给端侧</div><div class="route"><strong>生产者：</strong>端侧原业务或云端执行编排（正式发送方 TBD）　<strong>消费者：</strong>端侧执行前复核/车控</div><div class="fields"><span class="field">task / instance / run refs</span><span class="field">action</span><span class="field">inference_ref?</span><span class="field">authorization_ref XOR silent_policy_decision_ref</span><span class="field">definition_version</span><span class="field">producer_assignment_version</span><span class="field">vehicle/account scope</span><span class="field">execute_before</span><span class="field">fencing_token</span><span class="field">idempotency_key</span></div><div class="invariant"><strong>门禁：</strong>端侧拒绝旧代次、串车、过期、重复、缺本模式执行凭证、缺必要推理或车况不安全的请求。</div></article>
+        <article class="contract"><h3>⑨ Result</h3><div class="purpose">把交互、准入、车控与真实状态逐层区分并同事件收口</div><div class="route"><strong>生产者：</strong>交互/原业务/车控/状态域　<strong>消费者：</strong>原业务、VUI、Runtime日志；任务中心结果回显 TBD</div><div class="fields"><span class="field">run_event_ref</span><span class="field">interaction_or_policy_result</span><span class="field">precheck_result</span><span class="field">control_result</span><span class="field">target / observed</span><span class="field">quality / observed_at</span><span class="field">final_business_result</span><span class="field">terminal_reason</span><span class="field">cooling_until</span></div><div class="invariant"><strong>终态：</strong>真实状态达标=SUCCESS；明确未达=FAILED；不可判=UNKNOWN。终态后清理卡/上下文/执行凭证并进入 Cooling，长期任务仍保持原 ENABLED 状态。</div></article>
+      </div>
+    </section>
+
+    <section class="section" id="interaction-routes">
+      <div class="eyebrow">L1 · INTERACTION MODE & BIDIRECTIONAL ROUTES</div>
+      <h2>交互不是只有“弹卡确认”：先选三种 InteractionMode，再走端侧或云端回路</h2>
+      <div class="diagram-scroll"><table style="min-width:980px"><thead><tr><th>InteractionMode</th><th>用户看到/听到什么</th><th>若后续需要执行，原业务必须提供什么</th><th>不能做什么</th></tr></thead><tbody>
+        <tr><td><span class="pill tbd">SILENT</span>静默</td><td>不出卡、不播 TTS</td><td><code>silent_policy_decision_ref</code>：关联 RunEvent、策略版本、scope、有效期和一次消费；必须经过安全/业务会签</td><td>不能因为“没有交互”就省掉执行准入证据或端侧复核</td></tr>
+        <tr><td><span class="pill cloud">NOTIFY_ONLY</span>仅告知</td><td>卡片和/或 TTS 告知；用户不需要确认</td><td>不生成执行凭证；展示/生命周期记录后以 <strong>NoAction</strong> 结束</td><td>不能把用户看见通知当成同意，也不能从该分支进入 ExecutionRequest</td></tr>
+        <tr><td><span class="pill edge">REQUIRE_CONFIRMATION</span>需确认</td><td>卡片按钮 + TTS；端侧语音走 VAS，云端语音走 Planner</td><td><code>authorization_ref</code>：原业务校验同事件、未过期、未消费且明确 CONFIRM 后生成</td><td>点击、模拟点击或 Planner 结果本身都不能直接车控</td></tr>
+      </tbody></table></div>
+
+      <h3 style="margin:16px 0 8px;font-size:13px">端侧卡片双向数据路线｜天气示例</h3>
+      <div class="flow-board"><div class="flow-inner">
+        <div class="flow-row"><div class="lane-label">拉卡与生命周期</div><div class="flow-node edge-node"><strong>天气原业务</strong><span>RunEvent + 文案/按钮/TTS/LOCAL_VISIBLE_SPEAK</span></div><div class="flow-arrow">→</div><div class="flow-node"><strong>InteractionRequest</strong><span>带有效期、优先级、click_route</span></div><div class="flow-arrow">→</div><div class="flow-node edge-node"><strong>即时卡 / VUI</strong><span>准入、排队、真正展示</span></div><div class="flow-arrow">↩</div><div class="flow-node"><strong>原业务接回三类事实</strong><span>DisplayAck + InteractionEvent + LifecycleEvent</span></div></div>
+        <div class="flow-row"><div class="lane-label">本地语音确认</div><div class="flow-node edge-node"><strong>卡片 → VAS 元素注册</strong><span>card/run/element refs + 词表 + 注册/注销</span></div><div class="flow-arrow">→</div><div class="flow-node edge-node"><strong>用户语音 → ASR/匹配</strong><span>“好的”只能匹配当前顶层有效元素</span></div><div class="flow-arrow">→</div><div class="flow-node edge-node"><strong>页面复核 → 原按钮</strong><span>模拟点击与手点进入同一按钮处理入口</span></div><div class="flow-arrow">→</div><div class="flow-node"><strong>天气原业务校验</strong><span>同 RunEvent + 未过期/未消费 + CONFIRM → authorization_ref</span></div></div>
+      </div></div>
+
+      <h3 style="margin:16px 0 8px;font-size:13px">云端卡片双向数据路线｜充电示例</h3>
+      <div class="flow-board"><div class="flow-inner">
+        <div class="flow-row"><div class="lane-label">拉卡与上下文</div><div class="flow-node cloud-node"><strong>充电原业务</strong><span>已存在 RunEvent + FOUND inference_ref</span></div><div class="flow-arrow">→</div><div class="flow-node"><strong>InteractionRequest</strong><span>卡片内容、动作语义、Planner voice_route</span></div><div class="flow-arrow">→</div><div class="flow-node cloud-node"><strong>VUI 真正展示</strong><span>返回 DisplayAck/card_ref；生命周期独立回原业务</span></div><div class="flow-arrow">→</div><div class="flow-node tbd-node"><strong>云端上下文 Owner TBD</strong><span>VISIBLE 后绑定 card/run/content/actions/expires</span></div></div>
+        <div class="flow-row"><div class="lane-label">语音回路</div><div class="flow-node cloud-node"><strong>卡片上下文 + 用户语音</strong><span>card_ref + run_event_ref + 当前按钮语义</span></div><div class="flow-arrow">→</div><div class="flow-node cloud-node"><strong>ASR + Planner</strong><span>确认、拒绝、追问或歧义</span></div><div class="flow-arrow">→</div><div class="flow-node"><strong>标准语义结果</strong><span>CONFIRM/REJECT/UNCLEAR + 同一 RunEvent</span></div><div class="flow-arrow">→</div><div class="flow-node"><strong>充电原业务</strong><span>校验生命周期后形成 authorization_ref 或不授权</span></div></div>
+        <div class="flow-row"><div class="lane-label">点击候选 A · TBD</div><div class="flow-node cloud-node"><strong>用户点击 VUI 按钮</strong><span>button semantic + card/run refs</span></div><div class="flow-arrow">→</div><div class="flow-node tbd-node"><strong>标准 InteractionEvent</strong><span>点击直接回充电原业务</span></div><div class="flow-arrow">→</div><div class="flow-node"><strong>原业务校验</strong><span>同事件、未过期、未消费</span></div><div class="flow-arrow">→</div><div class="flow-node"><strong>authorization_ref</strong><span>仅本 RunEvent 一次有效</span></div></div>
+        <div class="flow-row"><div class="lane-label">点击候选 B · TBD</div><div class="flow-node cloud-node"><strong>用户点击 VUI 按钮</strong><span>button semantic + card/run/context refs</span></div><div class="flow-arrow">→</div><div class="flow-node tbd-node"><strong>按卡型模拟 Query</strong><span>仍必须携带当前卡/事件上下文</span></div><div class="flow-arrow">→</div><div class="flow-node cloud-node"><strong>Planner 归一语义</strong><span>同步卡片已消费，禁止重复</span></div><div class="flow-arrow">→</div><div class="flow-node"><strong>原业务校验/授权</strong><span>最终卡型专项只能二选一，不得双回调</span></div></div>
+      </div></div>
+    </section>
+
+    <section class="section" id="weather-chain">
+      <div class="eyebrow">L2 · EDGE CLOSED LOOP · 19 STEPS</div>
+      <h2>端侧天气/路况保护：从任务中心到真实车况的 19 步</h2>
+      <p class="contract-note"><strong>天气任务不是一条规则：</strong>同一个长期任务下有“雨/湿滑、雪/结冰、浓雾”三个分支。下方 19 步用雨/湿滑分支走完整链，另两个分支复用同一状态、RunEvent、卡片、授权、复核与回读框架。</p>
+      <div class="diagram-scroll">
+        <table style="min-width:1240px">
+          <thead><tr><th>分支</th><th>触发前共同门禁</th><th>本分支判断</th><th>卡片确认后的动作</th><th>执行前必须重读</th><th>最终成功真相</th></tr></thead>
+          <tbody>
+            <tr><td>雨 / 路面湿滑</td><td>任务真状态=ENABLED；定义/产生权版本有效；车速门槛满足</td><td><code>weather=RAIN OR road=WET</code>，且当前非 <code>WET_MODE</code></td><td>切换湿滑模式</td><td>最新任务、产生权、事件/授权、天气/路面、车速、模式、幂等</td><td>真实 <code>drive_mode=WET_MODE</code></td></tr>
+            <tr><td>雪 / 覆雪结冰</td><td>同上；正式车速阈值、时效、防抖次数 TBD</td><td><code>weather=SNOW OR road=SNOW/ICE</code>，且当前非 <code>SNOW_MODE</code></td><td>切换雪地模式</td><td>最新天气/路面、车速、驾驶模式与公共八项门禁</td><td>真实 <code>drive_mode=SNOW_MODE</code></td></tr>
+            <tr><td>浓雾</td><td>同上；数据必须是同车、新鲜、质量可判</td><td><code>weather=DENSE_FOG</code> 且 <code>rear_fog=OFF</code></td><td>打开后雾灯</td><td>最新浓雾、车速、后雾灯真实状态与公共八项门禁</td><td>真实 <code>rear_fog=ON</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="contract-note"><strong>当前资料中的数据来源示例（非正式 IDL）：</strong><code>vision.outside.scene → 天气情况描述/路面情况描述</code>，<code>tri_speed / vehicle_control_0004</code>，<code>con_vehDrive / vehicle_control_0003</code>，<code>con_rearFogLight / signal_light_0004</code>。产品需拍板业务语义，研发专项确认正式字段和能力 ID。</p>
+      <div class="journey">
+        <div class="journey-head"><strong>演示快照：任务 ENABLED｜RAIN + WET｜46 km/h｜NORMAL 模式</strong><span>产品语义演示；正式信号枚举、阈值、时效、TTS 和动作能力均由专项确认</span></div>
+        <div class="phase-row"><div class="phase-title">A. 定义与状态<small>Step 1—5</small></div><div class="steps">
+          <article class="step-card tbd-step"><div class="step-no">STEP 01</div><h4>定义并发布天气任务</h4><dl><dt>谁 / 哪里</dt><dd>产品 + 配置/发布 + 各能力 Owner｜PRD/后台/端侧发版</dd><dt>收到</dt><dd>三条分支、车型、信号、交互、动作、验收</dd><dt>判断</dt><dd>依赖是否真实存在，版本是否完整</dd><dt>输出</dt><dd>RuntimeDefinition + DisplayMetadata</dd><dt>失败</dt><dd class="stop">缺能力/回读/Owner：阻止发布</dd></dl></article>
+          <article class="step-card"><div class="step-no">STEP 02</div><h4>任务中心展示条目</h4><dl><dt>谁 / 哪里</dt><dd>任务中心 + 天气接入业务｜车机 HMI</dd><dt>收到</dt><dd>DisplayMetadata、适用范围、真实状态</dd><dt>判断</dt><dd>车型适用且状态可明确显示</dd><dt>输出</dt><dd>天气任务条目</dd><dt>失败</dt><dd class="stop">UNKNOWN 不假显示开启</dd></dl></article>
+          <article class="step-card tbd-step"><div class="step-no">STEP 03 · 目标链演示</div><h4>用户点击开启（一期控件范围 TBD）</h4><dl><dt>谁 / 哪里</dt><dd>任务中心｜车机 HMI</dd><dt>收到</dt><dd>用户点击“开启天气/路况保护”</dd><dt>判断</dt><dd>控件可操作、不是重复请求</dd><dt>输出</dt><dd>OperationRequest：task + vehicle/account scope + idempotency</dd><dt>失败</dt><dd class="stop">不直接改本地真状态，等待业务回包</dd></dl></article>
+          <article class="step-card tbd-step"><div class="step-no">STEP 04</div><h4>状态承载方保存真状态</h4><dl><dt>谁 / 哪里</dt><dd>接入业务/状态 Owner TBD｜物理模块 TBD</dd><dt>收到</dt><dd>OperationRequest</dd><dt>判断</dt><dd>鉴权、适用车型、幂等、持久化</dd><dt>输出</dt><dd>TaskInstanceState=ENABLED，state_version=42</dd><dt>失败</dt><dd class="stop">保持原状态 + OperationResult 失败 + UI 回滚</dd></dl></article>
+          <article class="step-card edge-step tbd-step"><div class="step-no">STEP 05</div><h4>Trigger 恢复有效状态</h4><dl><dt>谁 / 哪里</dt><dd>状态同步层 + 端侧 Trigger｜车端</dd><dt>收到</dt><dd>启动快照/变化、definition_version、assignment_version</dd><dt>判断</dt><dd>顺序新鲜；ENABLED；producer=EDGE 且唯一</dd><dt>输出</dt><dd>Runtime READY / Waiting</dd><dt>失败</dt><dd class="stop">UNKNOWN、漏消息、版本倒退或冲突：阻断并重同步</dd></dl></article>
+        </div></div>
+        <div class="phase-row"><div class="phase-title">B. 条件与事件<small>Step 6—10</small></div><div class="steps">
+          <article class="step-card edge-step"><div class="step-no">STEP 06</div><h4>订阅天气与车辆数据</h4><dl><dt>谁 / 哪里</dt><dd>Trigger + VLM/状态域｜端侧</dd><dt>收到</dt><dd>weather、road、speed、drive_mode、rear_fog</dd><dt>判断</dt><dd>来源、枚举、时间、质量是否可用</dd><dt>输出</dt><dd>带 observed_at/quality 的观察值</dd><dt>失败</dt><dd class="stop">缺失、旧值、低质量不参与 TRUE</dd></dl></article>
+          <article class="step-card edge-step"><div class="step-no">STEP 07</div><h4>组成同一时刻快照</h4><dl><dt>谁 / 哪里</dt><dd>端侧 Trigger｜车端内存/状态机</dd><dt>收到</dt><dd>各观察值 + 时间戳 + task/assignment version</dd><dt>判断</dt><dd>单项时效和跨信号时间差</dd><dt>输出</dt><dd>SignalSnapshot：RAIN、WET、46、NORMAL</dd><dt>失败</dt><dd class="stop">任一关键项 UNKNOWN/STALE：继续等待</dd></dl></article>
+          <article class="step-card edge-step"><div class="step-no">STEP 08</div><h4>三值规则计算</h4><dl><dt>谁 / 哪里</dt><dd>端侧 Trigger｜规则引擎</dd><dt>收到</dt><dd>同一 SignalSnapshot</dd><dt>判断</dt><dd>ENABLED AND speed门槛 AND (RAIN OR WET) AND mode≠WET</dd><dt>输出</dt><dd>TRUE / FALSE / UNKNOWN</dd><dt>失败</dt><dd class="stop">FALSE 等待；UNKNOWN 不能当 FALSE 后绕过</dd></dl></article>
+          <article class="step-card edge-step"><div class="step-no">STEP 09</div><h4>防抖、去重、频控</h4><dl><dt>谁 / 哪里</dt><dd>端侧 Trigger｜治理状态机</dd><dt>收到</dt><dd>连续结果、活动事件、冷却状态</dd><dt>判断</dt><dd>连续 3 周期 TRUE；无同场景活动事件；不在冷却</dd><dt>输出</dt><dd>ALLOW_NEW_RUN_EVENT</dd><dt>失败</dt><dd class="stop">抑制并记录 DEBOUNCE/DEDUP/RATE_LIMIT</dd></dl></article>
+          <article class="step-card edge-step"><div class="step-no">STEP 10</div><h4>唯一创建 RunEvent</h4><dl><dt>谁 / 哪里</dt><dd>唯一 producer：本例端侧 Trigger</dd><dt>收到</dt><dd>稳定候选、snapshot_ref、定义/产生权版本</dd><dt>判断</dt><dd>本场景没有活动事件，producer 代次仍有效</dd><dt>输出</dt><dd>run_event_ref=…001；后续全部挂此事件</dd><dt>失败</dt><dd class="stop">创建失败/冲突：不拉卡、告警；绝不创建第二个事件</dd></dl></article>
+        </div></div>
+        <div class="phase-row"><div class="phase-title">C. 卡片与授权<small>Step 11—15</small></div><div class="steps">
+          <article class="step-card edge-step"><div class="step-no">STEP 11</div><h4>原业务请求即时交互卡</h4><dl><dt>谁 / 哪里</dt><dd>Trigger/天气原业务｜端侧 → VUI</dd><dt>收到</dt><dd>RunEvent、分支和交互策略</dd><dt>判断</dt><dd>事件有效、请求字段完整</dd><dt>输出</dt><dd>InteractionRequest：文案/按钮/TTS/LOCAL_VISIBLE_SPEAK/有效期</dd><dt>失败</dt><dd class="stop">拉卡失败结束本轮，不得静默车控</dd></dl></article>
+          <article class="step-card edge-step tbd-step"><div class="step-no">STEP 12</div><h4>卡片真正展示并注册元素</h4><dl><dt>谁 / 哪里</dt><dd>即时交互卡/VUI + 页面注册方 TBD｜车机前台</dd><dt>收到</dt><dd>InteractionRequest</dd><dt>判断</dt><dd>准入、排队、是否顶层有效卡</dd><dt>输出</dt><dd>DisplayAck=VISIBLE + card_ref + VAS 元素注册</dd><dt>失败</dt><dd class="stop">排队过期/被替换：LifecycleEvent + 注销元素</dd></dl></article>
+          <article class="step-card edge-step"><div class="step-no">STEP 13</div><h4>“好的”经 ASR 与元素匹配</h4><dl><dt>谁 / 哪里</dt><dd>字节语音/ASR + 可见即可说匹配｜端侧</dd><dt>收到</dt><dd>用户语音 + 当前顶层元素集</dd><dt>判断</dt><dd>ASR 可靠且唯一命中 CONFIRM 元素</dd><dt>输出</dt><dd>element_ref 候选</dd><dt>失败</dt><dd class="stop">无匹配/多义：不操作，可追问或等待</dd></dl></article>
+          <article class="step-card edge-step"><div class="step-no">STEP 14</div><h4>页面复核并模拟点击</h4><dl><dt>谁 / 哪里</dt><dd>页面/卡片执行方｜当前 VUI</dd><dt>收到</dt><dd>element_ref + card_ref + run_event_ref</dd><dt>判断</dt><dd>卡仍顶层、元素存在、未过期、未消费</dd><dt>输出</dt><dd>调用与手点相同的原按钮处理入口</dd><dt>失败</dt><dd class="stop">旧元素/状态变化：拒绝，不绕过页面</dd></dl></article>
+          <article class="step-card edge-step"><div class="step-no">STEP 15</div><h4>卡片结果回原业务并授权</h4><dl><dt>谁 / 哪里</dt><dd>卡片 → 天气原业务/Trigger｜进程合同 TBD</dd><dt>收到</dt><dd>DisplayAck / InteractionEvent / LifecycleEvent</dd><dt>判断</dt><dd>同 RunEvent、未过期、未消费、CONFIRM</dd><dt>输出</dt><dd>一次性 Authorization；手点/模拟点击同语义</dd><dt>失败</dt><dd class="stop">REJECT/CLOSE/TIMEOUT/旧事件：Cancelled/NoAction</dd></dl></article>
+        </div></div>
+        <div class="phase-row"><div class="phase-title">D. 复核与结果<small>Step 16—19</small></div><div class="steps">
+          <article class="step-card edge-step"><div class="step-no">STEP 16</div><h4>端侧执行前重新读取复核</h4><dl><dt>谁 / 哪里</dt><dd>Trigger/端侧执行｜车端</dd><dt>收到</dt><dd>Authorization + 最新任务/assignment/天气/车况</dd><dt>判断</dt><dd>版本、producer/fencing、scope、事件、授权时效、最新条件、幂等</dd><dt>输出</dt><dd>ALLOW 或 DENY + reason</dd><dt>失败</dt><dd class="stop">任一变化立即 DENY，事件进入 Cancelled/Failed</dd></dl></article>
+          <article class="step-card edge-step"><div class="step-no">STEP 17</div><h4>调用赛力斯车控</h4><dl><dt>谁 / 哪里</dt><dd>赛力斯车控｜端侧</dd><dt>收到</dt><dd>目标 WET_MODE、run_event_ref、幂等键、有效期</dd><dt>判断</dt><dd>能力、权限、安全门禁、是否重复</dd><dt>输出</dt><dd>request_ref + ACK/拒绝/错误</dd><dt>失败</dt><dd class="stop">ACK 只表示接收；拒绝/错误不能报成功</dd></dl></article>
+          <article class="step-card result-step"><div class="step-no">STEP 18</div><h4>读取真实车辆状态</h4><dl><dt>谁 / 哪里</dt><dd>赛力斯状态域 + 天气原业务｜端侧</dd><dt>收到</dt><dd>request_ref、目标 WET_MODE、观察窗口</dd><dt>判断</dt><dd>真实 drive_mode 是否达到 WET_MODE，数据是否有效</dd><dt>输出</dt><dd>SUCCESS / FAILED / UNKNOWN</dd><dt>失败</dt><dd class="stop">未达标=FAILED；超时/不可判=UNKNOWN</dd></dl></article>
+          <article class="step-card result-step"><div class="step-no">STEP 19</div><h4>同 RunEvent 收口并进入 Cooling</h4><dl><dt>谁 / 哪里</dt><dd>原业务 + VUI + Runtime 日志｜任务中心结果回显 TBD</dd><dt>收到</dt><dd>真实状态 SUCCESS/FAILED/UNKNOWN + 同一 RunEvent 全链记录</dd><dt>判断</dt><dd>结果属于当前事件；终态原因完整；卡/上下文/授权已清理</dd><dt>输出</dt><dd>卡片终态、RunEvent 终态、Cooling；长期天气任务仍保持 ENABLED</dd><dt>失败</dt><dd class="stop">UI 更新失败不重做车控；旧授权/元素失效</dd></dl></article>
+        </div></div>
+      </div>
+      <h3 style="margin:14px 0 8px;font-size:13px">天气演示：关键数据包怎样沿同一个事件流动</h3>
+      <div class="diagram-scroll"><table style="min-width:1180px"><thead><tr><th>阶段</th><th>产品语义示例（非正式接口）</th><th>接收方用它判断什么</th></tr></thead><tbody>
+        <tr><td>TaskInstanceState</td><td><code>instance=WEATHER-7F21 · state=ENABLED · state_version=42 · definition=v12 · vehicle/account scope</code></td><td>Runtime 判断任务是否真的开启、状态是否新鲜</td></tr>
+        <tr><td>RuntimeAssignment</td><td><code>topology=EDGE · producer=EDGE · assignment_version=7</code></td><td>端侧有资格创建事件；云端不得再建</td></tr>
+        <tr><td>SignalSnapshot</td><td><code>weather=RAIN@VALID · road=WET@VALID · speed=46 · mode=NORMAL · observed_at/age_ms</code></td><td>三值规则、时效、防抖；任何关键 UNKNOWN 不触发</td></tr>
+        <tr><td>RunEvent</td><td><code>run=WEATHER-…001 · branch=RAIN_OR_WET_TO_WET · snapshot_ref · valid_until</code></td><td>后续卡片、授权、动作、回读都必须带这个 run</td></tr>
+        <tr><td>InteractionRequest</td><td><code>source=EDGE_TRIGGER · actions=CONFIRM/REJECT · voice=LOCAL_VISIBLE_SPEAK · expires_at</code></td><td>VUI 准入/展示；VAS 注册当前可见确认元素</td></tr>
+        <tr><td>三类回调</td><td><code>DisplayAck=VISIBLE · InteractionEvent=CONFIRM · LifecycleEvent=CONSUMED · card/run refs</code></td><td>原业务确认是真正展示、同一事件且未过期</td></tr>
+        <tr><td>Authorization / Result</td><td><code>authorization=one-shot · control=ACK · observed.mode=WET_MODE · final=SUCCESS</code></td><td>ACK 只看调用；只有真实 mode=WET_MODE 才成功</td></tr>
+      </tbody></table></div>
+      <div class="chain-rule"><div><strong>无事件停止</strong><br>任务无效、数据 UNKNOWN、规则 FALSE：不创建 RunEvent。</div><div><strong>NoAction</strong><br>模型业务负结果或用户明确拒绝：记录后无动作结束。</div><div><strong>Cancelled</strong><br>卡片关闭/超时、任务关闭、授权过期、复核时条件变化。</div><div><strong>Failed / Unknown</strong><br>车控拒绝或状态未达标=Failed；真实状态不可判=Unknown。</div></div>
+    </section>
+
+    <section class="section" id="charge-chain">
+      <div class="eyebrow">L2 · HYBRID TOPOLOGY · 20 STEPS</div>
+      <h2>端云充电设备识别：20 步完整链</h2>
+      <p class="contract-note"><strong>本例只固定业务顺序，不冒充架构结论：</strong>processing_topology=HYBRID 表示链路跨端云；run_event_producer 仍只能是 EDGE 或 CLOUD，最终位置待专项拍板。下列伪链临时用 CLOUD producer 讲数据流；若最终选 EDGE，只移动事件创建点，禁止云端再建第二个。</p>
+      <div class="journey">
+        <div class="journey-head"><strong>演示快照：任务 ENABLED｜D→P｜SOC 低于策略阈值｜口盖 CLOSED</strong><span>先建 RunEvent → 再由 Advisor/Planner/DT/VQA 协作 → 卡片回原业务授权 → 端侧复核/车控/回读</span></div>
+        <div class="phase-row"><div class="phase-title">A. 模板与状态<small>Step 0—3</small></div><div class="steps">
+          <article class="step-card tbd-step"><div class="step-no">PRE-STEP 0 · 发布准备</div><h4>定义并发布充电模板</h4><dl><dt>谁 / 哪里</dt><dd>产品 + Trigger/Advisor/DT/VUI/车控 Owner｜PRD/发布流程</dd><dt>收到</dt><dd>场景、硬条件、模型依赖、交互、动作、验收</dd><dt>判断</dt><dd>端云依赖和成功口径是否闭环</dd><dt>输出</dt><dd>版本化 RuntimeDefinition + DisplayMetadata</dd><dt>失败</dt><dd class="stop">任一关键依赖/Owner 缺失：拦截发布</dd></dl></article>
+          <article class="step-card"><div class="step-no">STEP 01</div><h4>任务中心展示并承接意图</h4><dl><dt>谁 / 哪里</dt><dd>任务中心 + 接入业务｜车机 HMI</dd><dt>收到</dt><dd>展示元数据、真实任务状态</dd><dt>判断</dt><dd>车型适用、是否可操作</dd><dt>输出</dt><dd>任务条目 + OperationRequest</dd><dt>失败</dt><dd class="stop">UNKNOWN 不假显示开启</dd></dl></article>
+          <article class="step-card tbd-step"><div class="step-no">STEP 02</div><h4>保存 TaskInstanceState</h4><dl><dt>谁 / 哪里</dt><dd>状态承载方｜物理位置/Owner TBD</dd><dt>收到</dt><dd>开启/关闭意图</dd><dt>判断</dt><dd>鉴权、幂等、持久化、适用范围</dd><dt>输出</dt><dd>ENABLED + state_version + OperationResult</dd><dt>失败</dt><dd class="stop">保持原状态，UI 回滚</dd></dl></article>
+          <article class="step-card cloud-step tbd-step"><div class="step-no">STEP 03</div><h4>端云 Runtime 恢复资格</h4><dl><dt>谁 / 哪里</dt><dd>状态同步 + 端/云 Runtime｜端云</dd><dt>收到</dt><dd>状态快照/变化、RuntimeDefinition、topology、producer</dd><dt>判断</dt><dd>状态/版本明确；producer 唯一且 assignment 有效</dd><dt>输出</dt><dd>READY；本例临时 producer=CLOUD</dd><dt>失败</dt><dd class="stop">TBD/NONE/冲突：端云均不生成主动动作</dd></dl></article>
+        </div></div>
+        <div class="phase-row"><div class="phase-title">B. 硬候选与事件<small>Step 4—7</small></div><div class="steps">
+          <article class="step-card edge-step"><div class="step-no">STEP 04</div><h4>车端产生 D→P 激活事件</h4><dl><dt>谁 / 哪里</dt><dd>车端状态域｜端侧</dd><dt>收到</dt><dd>挡位原始变化</dd><dt>判断</dt><dd>是变化沿 D→P 而非持续 P；数据新鲜有效</dd><dt>输出</dt><dd>带 vehicle/time/parking_episode 的激活事件</dd><dt>失败</dt><dd class="stop">UNKNOWN、旧事件、无变化沿：丢弃</dd></dl></article>
+          <article class="step-card cloud-step tbd-step"><div class="step-no">STEP 05</div><h4>唯一 producer 所在 Trigger 过滤</h4><dl><dt>谁 / 哪里</dt><dd>硬 Trigger｜端或云位置待拍板</dd><dt>收到</dt><dd>任务、主动服务总开关、P、SOC、口盖、停车周期</dd><dt>判断</dt><dd>硬条件、时效、防重、频控</dd><dt>输出</dt><dd>稳定候选</dd><dt>失败</dt><dd class="stop">FALSE/UNKNOWN：不创建 RunEvent、不调 DT</dd></dl></article>
+          <article class="step-card cloud-step tbd-step"><div class="step-no">STEP 06</div><h4>先唯一创建 RunEvent，再生成 Query</h4><dl><dt>谁 / 哪里</dt><dd>run_event_producer + 充电原业务｜本演示 CLOUD，最终 TBD</dd><dt>收到</dt><dd>硬候选、SignalSnapshot、定义/assignment version</dd><dt>判断</dt><dd>本停车周期无活动事件，产生权仍有效</dd><dt>输出</dt><dd>①创建 run_event_ref 成功；②原业务才生成“识别到再询问开盖”的系统 Query</dd><dt>失败</dt><dd class="stop">事件创建失败/冲突：不生成 Query；Query 不是用户授权</dd></dl></article>
+          <article class="step-card cloud-step"><div class="step-no">STEP 07</div><h4>Static Advisor 主动推荐准入</h4><dl><dt>谁 / 哪里</dt><dd>主动推荐/Static Advisor｜云端</dd><dt>收到</dt><dd>同 RunEvent Query、优先级/上下文</dd><dt>判断</dt><dd>当前是否允许主动推荐，事件是否新鲜</dd><dt>输出</dt><dd>ACCEPT / REJECT</dd><dt>失败</dt><dd class="stop">REJECT/过期：NoAction 结束，不调 DT</dd></dl></article>
+        </div></div>
+        <div class="phase-row"><div class="phase-title">C. 模型与卡片<small>Step 8—13</small></div><div class="steps">
+          <article class="step-card cloud-step"><div class="step-no">STEP 08</div><h4>Planner/原业务组织 DT 请求</h4><dl><dt>谁 / 哪里</dt><dd>Planner/充电原业务｜云端</dd><dt>收到</dt><dd>RunEvent、Query、允许工具、车辆 scope</dd><dt>判断</dt><dd>请求完整且事件仍有效</dd><dt>输出</dt><dd>inference request + inference_ref</dd><dt>失败</dt><dd class="stop">工具不可用/超时：ERROR，不出卡</dd></dl></article>
+          <article class="step-card cloud-step"><div class="step-no">STEP 09</div><h4>DT/VQA 获取本次视觉证据</h4><dl><dt>谁 / 哪里</dt><dd>DT/VQA + 端侧视觉能力｜云端编排/车端供数</dd><dt>收到</dt><dd>vehicle/run/parking_episode + 图像/特征</dd><dt>判断</dt><dd>本车、本事件、新鲜、合规</dd><dt>输出</dt><dd>带采集时间的视觉证据</dd><dt>失败</dt><dd class="stop">缺帧、旧帧、串车：UNKNOWN/ERROR</dd></dl></article>
+          <article class="step-card cloud-step"><div class="step-no">STEP 10</div><h4>DT/VQA 返回结构化结果</h4><dl><dt>谁 / 哪里</dt><dd>DT/VQA｜云端</dd><dt>收到</dt><dd>本次视觉证据</dd><dt>判断</dt><dd>是否达到约定“充电设备”识别标准</dd><dt>输出</dt><dd>FOUND / NOT_FOUND / UNKNOWN / ERROR + expires_at</dd><dt>失败</dt><dd class="stop">结果必须带 inference_ref、run_event_ref，不可裸返回</dd></dl></article>
+          <article class="step-card cloud-step"><div class="step-no">STEP 11</div><h4>原业务校验推理结果</h4><dl><dt>谁 / 哪里</dt><dd>充电原业务｜云端</dd><dt>收到</dt><dd>InferenceResult + 当前任务/assignment</dd><dt>判断</dt><dd>FOUND、同车同事件、未过期、未出过卡</dd><dt>输出</dt><dd>ALLOW_CARD</dd><dt>失败</dt><dd class="stop">NOT_FOUND=NoAction；UNKNOWN/ERROR=Failed/Unknown</dd></dl></article>
+          <article class="step-card cloud-step tbd-step"><div class="step-no">STEP 12</div><h4>请求云端链路即时卡</h4><dl><dt>谁 / 哪里</dt><dd>充电原业务｜云端 → 车机 VUI</dd><dt>收到</dt><dd>RunEvent + inference_ref + 卡策略</dd><dt>判断</dt><dd>卡型、点击/语音路由、TTS、有效期完整</dd><dt>输出</dt><dd>InteractionRequest：“发现设备，是否开盖？”</dd><dt>失败</dt><dd class="stop">请求失败：不授权、不下发执行</dd></dl></article>
+          <article class="step-card cloud-step"><div class="step-no">STEP 13A</div><h4>VUI 准入并真正展示卡片</h4><dl><dt>谁 / 哪里</dt><dd>即时交互卡/VUI｜车机屏幕</dd><dt>收到</dt><dd>InteractionRequest</dd><dt>判断</dt><dd>准入、排队、优先级、是否真正成为顶层有效卡</dd><dt>输出</dt><dd>DisplayAck=VISIBLE + card_ref；生命周期事件独立回原业务</dd><dt>失败</dt><dd class="stop">展示失败/排队过期/被替换：LifecycleEvent，不建立可用语音上下文</dd></dl></article>
+          <article class="step-card cloud-step tbd-step"><div class="step-no">STEP 13B</div><h4>云端建立 Planner 卡片上下文</h4><dl><dt>谁 / 哪里</dt><dd>云端卡片上下文 Owner TBD｜云端</dd><dt>收到</dt><dd>VISIBLE card_ref + run_event_ref + content/actions + expires_at</dd><dt>判断</dt><dd>卡片已真正展示；card/run 唯一绑定；上下文未过期</dd><dt>输出</dt><dd>planner_context_ref，供语音理解；与 VUI 展示职责分离</dd><dt>失败</dt><dd class="stop">绑定失败/过期：禁用本轮语音确认并通知原业务</dd></dl></article>
+        </div></div>
+        <div class="phase-row"><div class="phase-title">D. 选择与授权<small>Step 14—16</small></div><div class="steps">
+          <article class="step-card cloud-step tbd-step"><div class="step-no">STEP 14 · 双分支</div><h4>点击或语音都形成标准用户结果</h4><dl><dt>谁 / 哪里</dt><dd>点击：VUI回调链；语音：ASR + Planner｜车机/云端</dd><dt>收到</dt><dd>点击按钮，或用户表达 + 当前 card/context/run refs</dd><dt>判断</dt><dd>点击元素仍有效；语音是明确选择还是追问/歧义</dd><dt>输出</dt><dd>CONFIRM/REJECT/UNCLEAR + 同一 RunEvent；点击正式路由 TBD</dd><dt>失败</dt><dd class="stop">旧卡/无上下文/UNCLEAR/追问：不授权</dd></dl></article>
+          <article class="step-card cloud-step"><div class="step-no">STEP 15</div><h4>原业务形成一次性授权</h4><dl><dt>谁 / 哪里</dt><dd>充电原业务｜云端</dd><dt>收到</dt><dd>InteractionEvent + LifecycleEvent + RunEvent</dd><dt>判断</dt><dd>同事件、未过期、未消费、明确 CONFIRM</dd><dt>输出</dt><dd>authorization_ref，只授权本次开盖</dd><dt>失败</dt><dd class="stop">拒绝/关闭/超时/重复：Cancelled/NoAction</dd></dl></article>
+          <article class="step-card cloud-step tbd-step"><div class="step-no">STEP 16</div><h4>云端交给端侧执行</h4><dl><dt>谁 / 哪里</dt><dd>云端原业务/执行编排｜正式发送方/协议 TBD</dd><dt>收到</dt><dd>事件、定义/产生权版本、scope、推理、授权</dd><dt>判断</dt><dd>请求未过期、可被端侧防串代/幂等</dd><dt>输出</dt><dd>ExecutionRequest + fencing + idempotency_key</dd><dt>失败</dt><dd class="stop">可受控重试，但过期请求绝不执行</dd></dl></article>
+        </div></div>
+        <div class="phase-row"><div class="phase-title">E. 端侧执行收口<small>Step 17—20</small></div><div class="steps">
+          <article class="step-card edge-step"><div class="step-no">STEP 17</div><h4>端侧重新读取并复核</h4><dl><dt>谁 / 哪里</dt><dd>端侧执行/赛力斯安全门｜车端</dd><dt>收到</dt><dd>ExecutionRequest + 最新任务/P/停稳/口盖/车况</dd><dt>判断</dt><dd>definition、assignment/fencing、scope、event、授权/推理时效、车况、幂等</dd><dt>输出</dt><dd>ALLOW / DENY + reason</dd><dt>失败</dt><dd class="stop">任一不满足即 DENY；不信任云端旧快照</dd></dl></article>
+          <article class="step-card edge-step"><div class="step-no">STEP 18</div><h4>赛力斯执行开盖</h4><dl><dt>谁 / 哪里</dt><dd>赛力斯车控｜端侧</dd><dt>收到</dt><dd>ALLOW 后 OPEN_CHARGE_PORT + idempotency</dd><dt>判断</dt><dd>能力、权限、整车安全门禁、是否重复</dd><dt>输出</dt><dd>request_ref + ACK/拒绝/错误</dd><dt>失败</dt><dd class="stop">ACK 不是成功；拒绝/错误进入 Failed</dd></dl></article>
+          <article class="step-card result-step"><div class="step-no">STEP 19</div><h4>真实口盖状态回读</h4><dl><dt>谁 / 哪里</dt><dd>赛力斯状态域 + 充电原业务｜端侧，结果回云</dd><dt>收到</dt><dd>request_ref、目标 OPEN、观察窗口</dd><dt>判断</dt><dd>真实 charge_port 是否 OPEN，数据是否有效</dd><dt>输出</dt><dd>SUCCESS / FAILED / UNKNOWN</dd><dt>失败</dt><dd class="stop">CLOSED/明确未达=FAILED；超时/不可判=UNKNOWN</dd></dl></article>
+          <article class="step-card result-step"><div class="step-no">STEP 20</div><h4>端云按同一 RunEvent 共同收口</h4><dl><dt>谁 / 哪里</dt><dd>原业务 + VUI + Runtime 日志｜端云；任务中心结果回显 TBD</dd><dt>收到</dt><dd>真实状态 SUCCESS/FAILED/UNKNOWN + card/context/run 全链数据</dd><dt>判断</dt><dd>结果属于当前事件；终态原因完整；卡片/上下文/执行凭证已清理</dd><dt>输出</dt><dd>卡片与 RunEvent 终态、日志、Cooling；长期充电任务仍保持 ENABLED</dd><dt>失败</dt><dd class="stop">卡片更新失败不重做车控；旧上下文失效</dd></dl></article>
+        </div></div>
+      </div>
+      <h3 style="margin:14px 0 8px;font-size:13px">充电演示：关键数据包怎样跨端云但不串事件</h3>
+      <div class="diagram-scroll"><table style="min-width:1180px"><thead><tr><th>阶段</th><th>产品语义示例（非正式接口）</th><th>接收方用它判断什么</th></tr></thead><tbody>
+        <tr><td>Task/Assignment</td><td><code>state=ENABLED · topology=HYBRID · producer=CLOUD(演示) · assignment_version=18 · scope</code></td><td>链路可以跨端云，但只有 CLOUD 本代次有权创建事件</td></tr>
+        <tr><td>激活/硬快照</td><td><code>gear_event=D→P · parking_episode=P-1008 · SOC≤策略阈值 · port=CLOSED · timestamps</code></td><td>确定是否值得启动一次视觉判断；不是设备识别结果</td></tr>
+        <tr><td>RunEvent + Query</td><td><code>run=CHARGE-…001 · query=“识别附近充电设备；FOUND 后再询问开盖” · valid_until</code></td><td>先固定唯一事件，再把 Query 交给 Advisor/Planner；Query 不是授权</td></tr>
+        <tr><td>InferenceResult</td><td><code>inference=DT-…001 · result=FOUND · vehicle/run/parking_episode refs · expires_at</code></td><td>原业务校验本车、本事件、新鲜、明确；NOT_FOUND 不出卡</td></tr>
+        <tr><td>Interaction</td><td><code>card=…7701 · planner_context · DisplayAck=VISIBLE · InteractionEvent=CONFIRM</code></td><td>用户选择是否明确属于当前卡；语音需带当前卡片上下文</td></tr>
+        <tr><td>Authorization / ExecutionRequest</td><td><code>auth=one-shot · action=OPEN_CHARGE_PORT · definition=v1 · assignment=18 · fencing · execute_before · idempotency</code></td><td>端侧拒绝旧代次、串车、过期、重复、无推理/无授权请求</td></tr>
+        <tr><td>True-state Result</td><td><code>control=ACK · observed.charge_port=OPEN@VALID · final=SUCCESS</code></td><td>ACK 不代表开盖；只有真实口盖 OPEN 才成功</td></tr>
+      </tbody></table></div>
+      <div class="chain-rule"><div><strong>顺序不能倒</strong><br>硬条件 → 唯一 RunEvent → Advisor/Planner/DT → 卡片。</div><div><strong>模型不是授权</strong><br>FOUND 只说明识别结果；用户 CONFIRM 仍需原业务校验。</div><div><strong>云端不能直控</strong><br>ExecutionRequest 到端侧后重新读取全部安全条件。</div><div><strong>成功不看 ACK</strong><br>只有真实 charge_port=OPEN 才报成功。</div></div>
+    </section>
+
+    <section class="section" id="task-matrix">
+      <h2>端侧与云端怎么分</h2>
+      <table>
+        <thead>
+          <tr><th>决策问题</th><th>端侧</th><th>云端/端云混合</th><th>共同底线</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>主要输入</td><td>本地车况、端侧 VLM、明确枚举</td><td>合规上行状态、多源上下文、DT/VQA、开放语义</td><td>都有时间、质量、车辆和事件关联</td></tr>
+          <tr><td>核心判断</td><td>AND/OR、阈值、变化沿、状态机</td><td>推荐准入、语义、模型、工具编排</td><td>UNKNOWN/过期都不能继续执行</td></tr>
+          <tr><td>典型任务</td><td><span class="pill edge">EDGE</span>天气/路况保护</td><td><span class="pill cloud">HYBRID</span>识别充电设备后开盖</td><td>HYBRID 仍需唯一 RunEvent producer；用户确认后仍回端侧复核</td></tr>
+          <tr><td>语音</td><td>可见即可说 → 模拟点击原按钮</td><td>Planner + 当前卡片上下文</td><td>结果必须带同一 RunEvent</td></tr>
+          <tr><td>最终执行</td><td>端侧复核 → 赛力斯车控 → 回读</td><td>云端下发 → 端侧复核 → 赛力斯车控 → 回读</td><td>真实状态达到目标才成功</td></tr>
+        </tbody>
+      </table>
+      <h3 style="margin:18px 0 9px;font-size:15px">四条任务怎样复用同一套框架</h3>
+      <div class="diagram-scroll">
+        <table style="min-width:1180px">
+          <thead><tr><th>任务</th><th>处理拓扑 / producer</th><th>触发与模型</th><th>交互/授权</th><th>端侧复核</th><th>动作与成功真相</th><th>当前状态</th></tr></thead>
+          <tbody>
+            <tr><td>天气/路况保护</td><td><span class="pill edge">EDGE</span>topology=EDGE；producer=EDGE（目标方向）</td><td>任务开 + VLM天气/路面 + 车速 + 当前模式/灯；不进 Planner</td><td>即时卡 + 固定 TTS + 可见即可说；原业务校验后一次性授权</td><td>任务/代次/事件/授权 + 最新天气路面车速模式/灯</td><td>湿滑/雪地模式或后雾灯；真实模式/灯达到目标</td><td>端侧方向较明确；状态同步、卡/VAS合同、阈值仍 TBD</td></tr>
+            <tr><td>后排儿童/宠物开启儿童锁</td><td><span class="pill tbd">TBD</span>topology 与 producer 都待安全专项</td><td>行车 + 儿童/猫狗识别 + 目标锁未开；OMS/SLS/VLM 来源与时效待定</td><td>最新会议方向无卡无 TTS；是否允许长期静默授权存在旧稿冲突</td><td>任务/对象/位置/行车/门锁/识别时效 + 人工覆盖</td><td>目标范围儿童锁；真实左右锁状态</td><td>只做框架验证；安全/车控/识别会签前不进量产静默动作</td></tr>
+            <tr><td>后视镜自动加热</td><td><span class="pill tbd">建议 EDGE</span>最终 topology/producer 待拍板</td><td>雨天、洗车退出、高湿温差三候选；确定性端状态，不需 Planner/DT</td><td>最新会议方向无卡无 TTS；人工关闭后的抑制策略 TBD</td><td>任务/场景/加热/计时/人工操作</td><td>开启/退出后视镜加热；真实加热状态</td><td>触发分支、退出时机、冷却与人工覆盖待专项</td></tr>
+            <tr><td>识别充电设备后开盖</td><td><span class="pill cloud">HYBRID</span>只代表跨端云；producer=EDGE/CLOUD 待拍板</td><td>硬条件后唯一建 RunEvent；Advisor → Planner/DT/VQA 判断 FOUND</td><td>云端链卡片 + TTS；语音进 Planner；点击路由 TBD；原业务形成一次性授权</td><td>任务/总开关/P/停稳/口盖 + 推理/授权时效 + fencing/scope/幂等</td><td>OPEN_CHARGE_PORT；真实口盖=OPEN</td><td>主链方向已有；硬 Trigger 位置、卡型、下行协议待确认</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>当前评审最需要关闭的断点</h2>
+      <table>
+        <thead>
+          <tr><th>断点</th><th>当前能证明什么</th><th>需要的正式产物</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="pill tbd">TBD</span>任务中心 → Trigger</td><td>任务中心是 HMI；列表有推送/拉取方向</td><td>真实状态 Owner、启动快照、变化、顺序、重同步时序</td></tr>
+          <tr><td><span class="pill tbd">TBD</span>处理拓扑 / RunEvent 产生权</td><td>链路可经过端、云或两者</td><td>topology 与 producer 两字段、同车同任务唯一性、灰度切换、旧事件失效方案</td></tr>
+          <tr><td><span class="pill tbd">TBD</span>天气卡与可见即可说</td><td>VUI 与 VAS 都有通用能力文档</td><td>页面元素、ASR/匹配、模拟点击、回调和过期联调合同</td></tr>
+          <tr><td><span class="pill tbd">TBD</span>充电 Query/DT/VQA/卡</td><td>会议已有主链方向</td><td>硬 Trigger 位置、推理时效、卡型、点击/语音回流</td></tr>
+          <tr><td><span class="pill tbd">TBD</span>执行与真实回读</td><td>动作最终在端侧</td><td>统一复核、幂等、车控、状态 Source、超时与结果协议</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <footer>对应主文档：PRD-系统预设任务端云一体配置与执行框架-v05.md · 本图只表达产品职责与数据合同，不代表现网物理部署。· 架构图 v02</footer>
+  </main>
+
+  <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
+  <aside class="drawer" id="detailDrawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle" hidden>
+    <div class="drawer-top">
+      <div><div class="eyebrow">MODULE DETAIL · 七问责任</div><h2 id="drawerTitle">模块详情</h2><div class="drawer-sub" id="drawerSubtitle">点击总图中的核心模块查看</div></div>
+      <button class="drawer-close" id="drawerClose" type="button" aria-label="关闭详情">关闭</button>
+    </div>
+    <div class="detail-grid" id="drawerDetails"></div>
+    <div class="detail-status" id="drawerStatus"></div>
+  </aside>
+
+  <script>
+    var focusButtons = document.querySelectorAll("button[data-focus]");
+    focusButtons.forEach(function (button) {
+      button.addEventListener("click", function () {
+        document.body.setAttribute("data-focus", button.getAttribute("data-focus"));
+        focusButtons.forEach(function (item) { item.classList.remove("active"); });
+        button.classList.add("active");
+      });
+    });
+
+    var scrollButtons = document.querySelectorAll("button[data-scroll]");
+    scrollButtons.forEach(function (button) {
+      button.addEventListener("click", function () {
+        var target = document.getElementById(button.getAttribute("data-scroll"));
+        if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+        scrollButtons.forEach(function (item) { item.classList.remove("active"); });
+        button.classList.add("active");
+        if (target && history.replaceState) history.replaceState(null, "", "#" + target.id);
+      });
+    });
+
+    var observedSections = Array.prototype.map.call(scrollButtons, function (button) {
+      return document.getElementById(button.getAttribute("data-scroll"));
+    }).filter(Boolean);
+    if ("IntersectionObserver" in window) {
+      var sectionObserver = new IntersectionObserver(function (entries) {
+        entries.filter(function (entry) { return entry.isIntersecting; }).forEach(function (entry) {
+          scrollButtons.forEach(function (button) {
+            button.classList.toggle("active", button.getAttribute("data-scroll") === entry.target.id);
+          });
+        });
+      }, { rootMargin: "-12% 0px -72% 0px", threshold: 0 });
+      observedSections.forEach(function (section) { sectionObserver.observe(section); });
+    }
+
+    function setupJourneyPlayer(sectionId, sceneName) {
+      var section = document.getElementById(sectionId);
+      if (!section) return;
+      var journey = section.querySelector(".journey");
+      var cards = Array.prototype.slice.call(section.querySelectorAll(".step-card"));
+      if (!journey || !cards.length) return;
+
+      var player = document.createElement("div");
+      player.className = "journey-player";
+      player.setAttribute("aria-label", sceneName + "逐步讲解器");
+      var start = document.createElement("button");
+      var prev = document.createElement("button");
+      var next = document.createElement("button");
+      var reset = document.createElement("button");
+      var status = document.createElement("div");
+      start.type = prev.type = next.type = reset.type = "button";
+      start.textContent = "从第 1 步开始";
+      prev.textContent = "上一步";
+      next.textContent = "下一步";
+      reset.textContent = "退出逐步";
+      status.className = "journey-player-status";
+      status.textContent = "当前是总览模式。点“从第 1 步开始”后，页面会高亮当前节点；每个阶段可横向滑动。";
+      player.appendChild(start); player.appendChild(prev); player.appendChild(next); player.appendChild(reset); player.appendChild(status);
+      journey.parentNode.insertBefore(player, journey);
+
+      var current = -1;
+      function field(card, key) {
+        var terms = card.querySelectorAll("dt");
+        for (var i = 0; i < terms.length; i += 1) {
+          if (terms[i].textContent.indexOf(key) === 0 && terms[i].nextElementSibling) return terms[i].nextElementSibling.textContent.trim();
+        }
+        return "见当前卡片";
+      }
+      function update(index, shouldScroll) {
+        current = Math.max(-1, Math.min(cards.length - 1, index));
+        cards.forEach(function (card, cardIndex) {
+          card.classList.toggle("is-current", cardIndex === current);
+          card.classList.toggle("is-past", current >= 0 && cardIndex < current);
+        });
+        prev.disabled = current <= 0;
+        next.disabled = current >= cards.length - 1;
+        if (current < 0) {
+          status.textContent = "当前是总览模式。点“从第 1 步开始”后，页面会高亮当前节点；每个阶段可横向滑动。";
+          return;
+        }
+        var card = cards[current];
+        var step = card.querySelector(".step-no") ? card.querySelector(".step-no").textContent.trim() : "STEP";
+        var title = card.querySelector("h4") ? card.querySelector("h4").textContent.trim() : "";
+        status.textContent = "";
+        var strong = document.createElement("strong");
+        strong.textContent = "[" + (current + 1) + "/" + cards.length + "] " + step + " · " + title;
+        status.appendChild(strong);
+        status.appendChild(document.createTextNode(" ｜Owner：" + field(card, "谁") + " ｜判断：" + field(card, "判断") + " ｜停止：" + field(card, "失败")));
+        if (shouldScroll) card.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+      }
+      start.addEventListener("click", function () { update(0, true); });
+      prev.addEventListener("click", function () { update(current - 1, true); });
+      next.addEventListener("click", function () { update(current < 0 ? 0 : current + 1, true); });
+      reset.addEventListener("click", function () { update(-1, false); });
+      cards.forEach(function (card, index) {
+        card.setAttribute("tabindex", "0");
+        card.setAttribute("role", "button");
+        card.addEventListener("click", function () { update(index, false); });
+        card.addEventListener("keydown", function (event) {
+          if (event.key === "Enter" || event.key === " ") { event.preventDefault(); update(index, false); }
+        });
+      });
+      update(-1, false);
+    }
+    setupJourneyPlayer("weather-chain", "端侧天气");
+    setupJourneyPlayer("charge-chain", "端云充电");
+
+    function detail(owner, place, input, judge, output, fail, tbd, note) {
+      return { owner: owner, place: place, input: input, judge: judge, output: output, fail: fail, tbd: tbd, note: note };
+    }
+
+    var detailMap = {
+      "系统预设任务定义": detail("任务产品；信号、Trigger、交互、车控、测试各能力 Owner 会签", "PRD / 系统预设任务清单", "业务目标、适用车型、触发场景、交互方式、动作与验收", "任务是否是长期预设；端云边界、风险等级和成功真相是否明确", "PresetTaskDefinition 产品语义：规则、分支、依赖、交互、动作、回读、治理", "缺 Owner、缺真实回读或安全口径时不进入发布", true, "正式模板字段与会签流程仍需平台/架构专项确定。"),
+      "配置平台 / 端侧发版流程": detail("配置平台 Owner + 端侧版本发布 Owner", "云端配置后台 / 整车软件发版流程", "已会签的任务定义与各能力引用", "车型、软件版本、依赖能力、灰度、回滚、废弃版本是否完整", "两个不同发布物：DisplayMetadata 给任务中心；RuntimeDefinition 给端/云 Runtime", "校验不通过阻断发布；已发布版本通过灰度/回滚机制撤回", true, "是否所有端侧规则都能由后台动态下发尚无证据，端侧发版边界需确认。"),
+      "完整性校验": detail("配置/发布平台 + 各能力 Owner", "发布门禁", "任务定义、信号/模型/卡片/车控/回读能力清单", "引用是否存在、版本是否兼容、是否有安全复核和最终状态 Source", "PASS + 生效版本；或 FAIL + 缺失项", "FAIL 时禁止产生可运行版本", true, "门禁字段与自动化校验范围待平台方案。"),
+      "双发布物：展示 + 运行": detail("发布平台", "控制面向状态面与 Runtime 的分发边界", "通过门禁的任务定义", "哪些是给用户看的元数据，哪些是给 Runtime 执行的规则", "DisplayMetadata → 任务中心；RuntimeDefinition → 端/云 Runtime", "任一路发布失败需回滚/保持旧有效版本，不得半发布", true, "v02 详情链已明确双发布物，正式分发通道待确认。"),
+      "任务中心": detail("任务中心团队 + 各任务接入业务", "车机 HMI", "DisplayMetadata、适用范围、接入业务返回的 TaskInstanceState", "目标控件是否可见/可操作；用户操作是否重复；状态是否明确", "目标能力：开启/关闭/删除 OperationRequest 与真实结果回显；一期范围 TBD", "保存失败时回滚 UI；UNKNOWN 不假显示开启；不把本地控件状态当真状态", true, "开启、关闭、删除以及单次结果/历史回显都按目标能力表达，一期精确范围仍待任务中心确认。"),
+      "真实任务状态": detail("接入业务/状态承载方 Owner TBD", "物理承载模块 TBD", "OperationRequest：task、vehicle/account scope、目标操作、幂等键", "鉴权、车型支持、幂等、持久化、顺序、新旧版本", "TaskInstanceState：ENABLED/DISABLED/UNKNOWN + state_version + definition_version", "失败保持原状态并返回原因；不得只改任务中心本地开关", true, "已有材料只确认接入业务维护真状态；具体 Owner 与存储位置需拍板。"),
+      "状态同步与恢复": detail("状态同步层 + 端侧/云端 Runtime", "真状态与运行时之间；物理协议 TBD", "TaskInstanceState、RuntimeDefinition、启动/断连场景", "启动快照是否完成、变化是否连续、版本是否倒退/跳跃、是否要重同步", "启动快照 + 变化通知 + 重同步结果；Runtime READY/UNKNOWN", "UNKNOWN/SYNCING 阻止创建 RunEvent；缺口触发重同步，不猜状态", true, "列表 Push/Pull 只证明 HMI 方向，不等于 Trigger 运行态同步接口。"),
+      "处理拓扑 + 唯一事件产生权": detail("架构 Owner + Trigger Owner + 发布/灰度 Owner", "逻辑状态面；v02 状态视图已拆为两个独立合同", "任务状态、definition_version、灰度/车型/部署方向", "processing_topology 经过 EDGE/CLOUD/HYBRID 哪些节点；run_event_producer 是 EDGE/CLOUD/NONE 哪一侧唯一发起", "RuntimeAssignment + assignment_version/fencing", "producer 冲突或 NONE：端云双方都停止并告警；迁移使旧事件/卡/授权失效", true, "正式唯一性机制可用租约、版本或其他技术实现，但必须可证明。"),
+      "端侧 Trigger": detail("字节端侧 Trigger 团队；信号/VLM Owner 供数", "车端 Runtime", "RuntimeDefinition、TaskInstanceState、RuntimeAssignment、本地端状态/VLM", "时效、质量、三值规则、AND/OR、阈值、变化沿、防抖、去重、频控", "稳定候选；当 producer=EDGE 时创建唯一 RunEvent", "FALSE 等待；UNKNOWN/STALE/冲突不触发；记录抑制原因", false, "天气方向已较明确；正式信号、阈值和状态同步接口仍需专项。"),
+      "Cloud Trigger": detail("Cloud Trigger/主动服务相关团队", "云端 Runtime", "合规上行状态、任务/assignment、硬条件", "时效、防抖、去重、频控；producer 是否 CLOUD 且唯一", "只输出稳定候选；由唯一 producer 创建 RunEvent 成功后，原业务才能生成系统 Query", "FALSE/UNKNOWN/过期不建事件、不调模型；冲突时停止并告警", true, "充电硬 Trigger 最终在端还是云、谁是 producer 尚未拍板。"),
+      "硬条件候选通过-edge": detail("端侧 Trigger", "车端", "同一时刻 SignalSnapshot + 连续规则结果", "确定性规则和治理门禁全部通过", "稳定候选 + snapshot_ref；进入唯一 RunEvent 创建点", "防抖/去重/频控任一失败则本轮抑制，不产生事件", false, "天气示例无需 Planner/DT。"),
+      "硬条件候选通过-cloud": detail("唯一 producer 所在 Trigger", "端或云待拍板；本图用云端路线表达", "任务有效、P/SOC/口盖/停车周期等硬条件", "硬条件、数据新鲜度和本停车周期防重", "只输出稳定候选；进入唯一 RunEvent 创建点，此时还不能生成 Query", "FALSE/UNKNOWN 不建事件、不调用 Advisor/DT", true, "充电硬条件、总开关、停稳口径和位置待专项。"),
+      "创建 RunEvent": detail("RuntimeAssignment 指定的唯一 producer", "端侧或云端，只能一处", "稳定候选、TaskInstanceState、definition/assignment version、SignalSnapshot", "同车同任务同场景是否已有活动事件；producer 代次是否仍有效", "唯一 run_event_ref + branch + valid_until + status", "创建失败/冲突不进入模型或卡片；旧代次事件失效", false, "先创建一次，再分“无需模型”或“按需模型”；后续禁止重复创建。"),
+      "Query → Advisor / Planner / DT": detail("充电原业务、Static Advisor、Planner/Director、DT/VQA 各 Owner", "云端", "已经创建成功的 RunEvent、随后生成的系统 Query、车辆 scope、允许工具和上下文", "主动推荐是否准入；需调用哪个工具；结果是否本车本事件、新鲜明确", "Query 和 ACCEPT/REJECT、InferenceResult（FOUND/NOT_FOUND/UNKNOWN/ERROR）都写回同一 RunEvent", "事件未创建则禁止生成 Query；拒绝/业务负结果 NoAction；超时/错误受控结束", true, "每个任务是否进入哪些模型/工具由任务定义；充电链细节待专项。"),
+      "可见即可说": detail("字节语音/VAS + 页面元素注册方", "端侧当前可见 UI", "顶层页面元素、词表、ASR 文本、card/run refs", "ASR 是否可靠、是否唯一匹配、元素是否仍可见有效", "element_ref，并模拟点击原按钮处理入口", "无匹配/多义/元素过期不操作；页面注销旧元素", true, "天气卡正式元素注册 DRI、接口、词表与冲突策略待联调。"),
+      "Planner + 当前卡片上下文": detail("ASR + Planner/Director + 卡片上下文 Owner", "云端语义链", "用户表达、card_ref、run_event_ref、当前卡片标题/正文/按钮", "是在确认/拒绝当前卡，还是追问、歧义或新 Query", "CONFIRM/REJECT/UNCLEAR/追问结果，关联同一 RunEvent", "歧义/追问不授权；上下文过期不消费旧卡", true, "充电卡上下文建立者、追问能力和正式协议待确认。"),
+      "端侧按钮事件": detail("即时卡页面/按钮回调方", "车机 VUI", "用户手点或 VAS 模拟点击 + element/card/run refs", "卡仍顶层、元素存在、事件未过期、未消费", "进入同一个原按钮业务回调，形成 InteractionEvent", "旧卡/旧元素拒绝；不得绕过原按钮直调车控", true, "正式进程间合同与错误码待 VUI 专项。"),
+      "云端语义结果": detail("Planner/Director", "云端", "用户语音 + 当前卡片上下文", "是否明确指向当前卡片选择", "标准语义结果 + run/card/context refs", "UNCLEAR/追问不形成授权；旧上下文丢弃", true, "点击是否模拟 Query 或直接标准回调取决于最终卡型。"),
+      "即时交互卡 / VUI": detail("即时交互卡/VUI 团队", "车机屏幕", "InteractionRequest：run、文案、按钮语义、TTS、voice/click route、有效期、优先级", "准入、排队、真正可见、控件是否仍有效", "DisplayAck/InteractionEvent/LifecycleEvent 回原业务；端侧卡向 VAS 注册元素；云端卡把可见 card/run/content/actions 交给上下文 Owner", "展示失败/排队过期/被替换/关闭/超时均回原业务；不得降级为静默车控", true, "天气 VAS 注册合同、充电卡上下文 Owner 和云端点击两种候选路由待专项。"),
+      "InteractionMode + 原业务校验": detail("天气 Trigger 原业务或充电云端原业务", "端侧或云端原业务层", "RuntimeDefinition 的 InteractionMode、RunEvent、卡片三类回调或静默策略", "SILENT 是否有会签策略；NOTIFY_ONLY 是否只告知后结束；REQUIRE_CONFIRMATION 是否同事件、未过期、未消费且明确 CONFIRM", "SILENT→silent_policy_decision_ref；NOTIFY_ONLY→NoAction；REQUIRE_CONFIRMATION→authorization_ref", "缺本模式要求的执行凭证、旧事件或过期：不触发执行", false, "卡片只返回交互事实；执行准入必须由原业务按 InteractionMode 决定。"),
+      "NoAction": detail("原业务 + 即时交互卡/VUI", "端侧或云端交互链", "InteractionMode=NOTIFY_ONLY 的 RunEvent、告知内容、DisplayAck/LifecycleEvent", "卡片或 TTS 是否已经按策略完成告知；本次事件是否仍有效", "记录 NoAction 终态并清理卡片/上下文；长期任务实例仍保持原 ENABLED 状态", "展示失败记录失败原因并结束本轮；任何情况下都不生成 ExecutionProof、不进入车控", false, "NoAction 表示本次运行事件不执行动作，不等于关闭系统预设任务。"),
+      "ExecutionProof": detail("原业务", "端侧原业务或云端原业务", "RunEvent + InteractionMode + 用户确认结果或已会签静默策略", "REQUIRE_CONFIRMATION 是否可生成 authorization_ref；SILENT 是否可生成 silent_policy_decision_ref；NOTIFY_ONLY 必须结束", "authorization_ref 或 silent_policy_decision_ref，均同事件、一次、带 scope/有效期/消费状态", "NOTIFY_ONLY 不生成凭证；无事件、歧义、过期、重复一律不生成/不复用", false, "ExecutionProof 与原始交互结果分开；只证明本次事件的一次动作可进入端侧复核。"),
+      "端侧执行前复核": detail("端侧执行层 + 赛力斯安全门", "车端，紧邻真实车控", "本地意图或 ExecutionRequest + 最新任务/assignment/SignalSnapshot", "definition version、producer assignment/fencing、vehicle/account scope、RunEvent、authorization_ref 或 silent_policy_decision_ref、必要推理时效、最新车况、安全门禁、幂等", "ALLOW/DENY + reason，并在 ALLOW 后生成车控调用", "NOTIFY_ONLY 或任一执行凭证/版本/车况失效立即 DENY；不信任旧云端/旧触发快照", true, "正式安全门、下行协议和拒绝原因由车控专项。"),
+      "车控执行": detail("赛力斯车控能力 Owner", "端侧车辆控制域", "目标 action、run/request refs、幂等键、有效期", "能力支持、权限、整车安全门禁、是否重复", "request_ref + ACK/拒绝/错误", "拒绝/错误进入 Failed；ACK 只表示请求被接收，不能报业务成功", true, "四条任务正式 action 与接口由赛力斯车控专项确认。"),
+      "真实状态回读": detail("赛力斯状态域 + 原业务", "端侧；云端任务再把结果同步回云", "request_ref、目标状态、观察窗口", "真实模式/灯/儿童锁/加热/口盖是否达到目标，数据质量是否可判", "SUCCESS / FAILED / UNKNOWN + observed value/time/quality", "未达目标=FAILED；超时或无法判定=UNKNOWN；均不能假成功", false, "最终成功真相固定为真实车辆状态。"),
+      "卡片 / Runtime 日志": detail("原业务 + VUI + Runtime 观测；任务中心结果回显范围 TBD", "端侧/云端结果与日志系统", "同一 RunEvent 的交互/策略、复核、车控和真实回读结果", "真实状态达标=SUCCESS；明确未达=FAILED；不可判=UNKNOWN；结果和终态原因是否属于同一事件", "卡片与 RunEvent 终态、清理卡/上下文/执行凭证、Cooling、指标/告警/回放；长期任务保持原 ENABLED", "UI 更新失败不重做车控；旧事件不能覆盖新结果；清理失败告警", true, "任务中心是否展示单次结果/历史及一期范围仍待确认。"),
+      "全链路关联键：任务定义 / 任务实例 / 状态版本 / 处理拓扑 / 产生权代次 / RunEvent / 卡片 / 推理 / 授权 / 动作 / 真实回读": detail("平台、端/云 Runtime、交互、车控与测试共同承担", "全链路观测与治理面", "每一跳的关联键、版本、时间、质量、原因", "是否串车/串事件/串版本；是否重复/过期；终态是否闭环", "可查询、告警、回放、验收的完整事件链", "关联缺失时结果降级为 UNKNOWN，禁止用裸结果继续车控", true, "正式埋点、日志字段、保留周期和看板 Owner 待观测专项。")
+    };
+
+    var drawer = document.getElementById("detailDrawer");
+    var backdrop = document.getElementById("drawerBackdrop");
+    var drawerTitle = document.getElementById("drawerTitle");
+    var drawerSubtitle = document.getElementById("drawerSubtitle");
+    var drawerDetails = document.getElementById("drawerDetails");
+    var drawerStatus = document.getElementById("drawerStatus");
+    var closeButton = document.getElementById("drawerClose");
+    var selectedNode = null;
+
+    function openDetail(node) {
+      var titleNode = node.querySelector(".node-title");
+      if (!titleNode) return;
+      var title = titleNode.textContent.trim();
+      var key = title;
+      if (title === "硬条件候选通过") key += node.classList.contains("cloud") ? "-cloud" : "-edge";
+      var item = detailMap[key] || detail("Owner 待确认", "物理位置待确认", "需在专项中补充", "需在专项中补充", "需在专项中补充", "信息不足时停止，不推断实现", true, "该节点尚未建立独立详情。" );
+      if (selectedNode) selectedNode.classList.remove("selected");
+      selectedNode = node;
+      selectedNode.classList.add("selected");
+      drawerTitle.textContent = title;
+      drawerSubtitle.textContent = item.note;
+      drawerDetails.textContent = "";
+      [
+        ["谁负责", item.owner], ["在哪里做", item.place], ["收到什么", item.input],
+        ["判断什么", item.judge], ["输出什么", item.output], ["失败怎么办", item.fail]
+      ].forEach(function (pair) {
+        var row = document.createElement("div");
+        row.className = "detail-row";
+        var dl = document.createElement("dl");
+        var dt = document.createElement("dt");
+        var dd = document.createElement("dd");
+        dt.textContent = pair[0];
+        dd.textContent = pair[1];
+        dl.appendChild(dt); dl.appendChild(dd); row.appendChild(dl); drawerDetails.appendChild(row);
+      });
+      drawerStatus.className = "detail-status " + (item.tbd ? "tbd" : "known");
+      drawerStatus.textContent = item.tbd ? "TBD｜本节点仍包含待专项确认项，不得把示例字段当成已实现接口。" : "已明确产品底线｜物理实现与正式接口仍以研发专项设计为准。";
+      drawer.hidden = false;
+      backdrop.hidden = false;
+      closeButton.focus();
+    }
+
+    function closeDetail() {
+      drawer.hidden = true;
+      backdrop.hidden = true;
+      if (selectedNode) { selectedNode.classList.remove("selected"); selectedNode.focus(); selectedNode = null; }
+    }
+
+    document.querySelectorAll("svg .node").forEach(function (node) {
+      var titleNode = node.querySelector(".node-title");
+      node.setAttribute("tabindex", "0");
+      node.setAttribute("role", "button");
+      if (titleNode) node.setAttribute("aria-label", "查看" + titleNode.textContent.trim() + "详情");
+      node.addEventListener("click", function () { openDetail(node); });
+      node.addEventListener("keydown", function (event) {
+        if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openDetail(node); }
+      });
+    });
+    closeButton.addEventListener("click", closeDetail);
+    backdrop.addEventListener("click", closeDetail);
+    document.addEventListener("keydown", function (event) {
+      if (drawer.hidden) return;
+      if (event.key === "Escape") closeDetail();
+      if (event.key === "Tab") {
+        event.preventDefault();
+        closeButton.focus();
+      }
+    });
+  </script>
+</body>
+</html>

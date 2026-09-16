@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>豆包汽车：语音 Query 到执行闭环</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: "JetBrains Mono", "PingFang SC", monospace; background:#020617; color:#f8fafc; min-height:100vh; padding:28px; }
+    .container { max-width:1440px; margin:0 auto; }
+    .header { margin-bottom:20px; }
+    .header-row { display:flex; align-items:center; gap:12px; }
+    .pulse-dot { width:11px; height:11px; border-radius:50%; background:#22d3ee; box-shadow:0 0 18px #22d3ee; animation:pulse 2s infinite; }
+    @keyframes pulse { 50% { opacity:.4; } }
+    h1 { font-size:24px; letter-spacing:-.5px; }
+    .subtitle { margin:7px 0 0 23px; color:#94a3b8; font-size:13px; }
+    .diagram-container { background:rgba(15,23,42,.62); border:1px solid #1e293b; border-radius:16px; padding:18px; overflow-x:auto; }
+    svg { width:100%; min-width:1260px; display:block; }
+    .cards { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:16px; }
+    .card { background:rgba(15,23,42,.62); border:1px solid #1e293b; border-radius:12px; padding:16px; }
+    .card-header { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+    .card-dot { width:8px; height:8px; border-radius:50%; }
+    .cyan { background:#22d3ee; } .emerald { background:#34d399; } .amber { background:#fbbf24; } .rose { background:#fb7185; }
+    .card h3 { font-size:13px; }
+    .card ul { list-style:none; color:#a8b3c7; font-size:11px; line-height:1.75; }
+    .key { color:#f8fafc; font-weight:600; }
+    .footer { text-align:center; color:#475569; font-size:11px; margin-top:14px; }
+    @media (max-width:900px) { .cards { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="header-row"><div class="pulse-dot"></div><h1>豆包汽车：从语音 Query 到用户可见结果</h1></div>
+    <p class="subtitle">主路径 + Planner 回流 + 条件任务分支｜产品经理目标：主链路 L3，算法实现 L1–L2</p>
+  </div>
+
+  <div class="diagram-container">
+    <svg viewBox="0 0 1400 920" role="img" aria-label="豆包汽车语音请求到执行结果的完整链路">
+      <defs>
+        <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#64748b"/></marker>
+        <marker id="cyanArrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#22d3ee"/></marker>
+        <marker id="orangeArrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#fb923c"/></marker>
+        <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0 L0 0 0 40" fill="none" stroke="#1e293b" stroke-width=".5"/></pattern>
+      </defs>
+      <rect width="1400" height="920" fill="url(#grid)"/>
+
+      <!-- arrows first -->
+      <path d="M180 205 H225" stroke="#22d3ee" stroke-width="2" fill="none" marker-end="url(#cyanArrow)"/>
+      <path d="M385 205 H430" stroke="#22d3ee" stroke-width="2" fill="none" marker-end="url(#cyanArrow)"/>
+      <path d="M610 205 H655" stroke="#22d3ee" stroke-width="2" fill="none" marker-end="url(#cyanArrow)"/>
+      <path d="M835 205 H880" stroke="#22d3ee" stroke-width="2" fill="none" marker-end="url(#cyanArrow)"/>
+      <path d="M1060 205 H1105" stroke="#22d3ee" stroke-width="2" fill="none" marker-end="url(#cyanArrow)"/>
+      <path d="M1195 280 V370" stroke="#22d3ee" stroke-width="2" fill="none" marker-end="url(#cyanArrow)"/>
+      <path d="M1105 460 H1060" stroke="#22d3ee" stroke-width="2" fill="none" marker-end="url(#cyanArrow)"/>
+      <path d="M880 460 H835" stroke="#22d3ee" stroke-width="2" fill="none" marker-end="url(#cyanArrow)"/>
+      <path d="M655 460 H610" stroke="#22d3ee" stroke-width="2" fill="none" marker-end="url(#cyanArrow)"/>
+      <path d="M430 460 H385" stroke="#22d3ee" stroke-width="2" fill="none" marker-end="url(#cyanArrow)"/>
+
+      <!-- replan loop -->
+      <path d="M970 545 V625 H745 V285" stroke="#fb923c" stroke-width="2" stroke-dasharray="7 5" fill="none" marker-end="url(#orangeArrow)"/>
+      <text x="845" y="648" fill="#fb923c" font-size="11" text-anchor="middle">失败 / 缺信息 / 仍未完成 → tool_feedback 进入下一轮 Planner</text>
+
+      <!-- trigger loop -->
+      <path d="M520 545 V690 H700 V285" stroke="#a78bfa" stroke-width="2" stroke-dasharray="7 5" fill="none" marker-end="url(#arrow)"/>
+      <text x="580" y="714" fill="#a78bfa" font-size="11" text-anchor="middle">条件满足事件 → 携带原 Goal + 新环境状态，重新唤醒 Planner</text>
+
+      <!-- system boundary -->
+      <rect x="205" y="70" width="1115" height="670" rx="14" fill="rgba(251,191,36,.025)" stroke="#fbbf24" stroke-dasharray="8 5"/>
+      <text x="222" y="91" fill="#fbbf24" font-size="11" font-weight="600">DRIVER AGENT 2.0｜一次请求可能经历多轮 [SP, UP] 决策</text>
+
+      <!-- stage 0 -->
+      <rect x="20" y="130" width="160" height="150" rx="8" fill="#0f172a"/>
+      <rect x="20" y="130" width="160" height="150" rx="8" fill="rgba(30,41,59,.48)" stroke="#94a3b8" stroke-width="1.5"/>
+      <text x="100" y="157" fill="#fff" font-size="13" font-weight="700" text-anchor="middle">① 用户与车内声音</text>
+      <text x="100" y="180" fill="#94a3b8" font-size="10" text-anchor="middle">唤醒 / 麦克风 / VAD</text>
+      <text x="100" y="198" fill="#94a3b8" font-size="10" text-anchor="middle">降噪 / 回声消除</text>
+      <text x="100" y="222" fill="#22d3ee" font-size="10" text-anchor="middle">原始输入：audio</text>
+      <text x="100" y="244" fill="#fbbf24" font-size="9" text-anchor="middle">PM深度：L1 接口认知</text>
+      <text x="100" y="260" fill="#64748b" font-size="8" text-anchor="middle">知道失败类型，无需会算法</text>
+
+      <!-- ASR -->
+      <rect x="225" y="130" width="160" height="150" rx="8" fill="#0f172a"/>
+      <rect x="225" y="130" width="160" height="150" rx="8" fill="rgba(8,51,68,.4)" stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="305" y="157" fill="#fff" font-size="13" font-weight="700" text-anchor="middle">② ASR语音识别</text>
+      <text x="305" y="180" fill="#94a3b8" font-size="10" text-anchor="middle">音频 → 文本</text>
+      <text x="305" y="198" fill="#94a3b8" font-size="10" text-anchor="middle">说话人 / 位置 / 时间戳</text>
+      <text x="305" y="222" fill="#22d3ee" font-size="10" text-anchor="middle">输出：user_query</text>
+      <text x="305" y="244" fill="#fbbf24" font-size="9" text-anchor="middle">PM深度：L2 诊断</text>
+      <text x="305" y="260" fill="#64748b" font-size="8" text-anchor="middle">区分“没听对”和“没理解对”</text>
+
+      <!-- funnel -->
+      <rect x="430" y="110" width="180" height="190" rx="8" fill="#0f172a"/>
+      <rect x="430" y="110" width="180" height="190" rx="8" fill="rgba(6,78,59,.4)" stroke="#34d399" stroke-width="1.5"/>
+      <text x="520" y="137" fill="#fff" font-size="13" font-weight="700" text-anchor="middle">③ 三层分流漏斗</text>
+      <text x="520" y="163" fill="#34d399" font-size="10" text-anchor="middle">句法RAG：明确指令直达</text>
+      <text x="520" y="185" fill="#34d399" font-size="10" text-anchor="middle">情景RAG：注入上下文</text>
+      <text x="520" y="207" fill="#34d399" font-size="10" text-anchor="middle">仲裁：简单 / 复杂</text>
+      <text x="520" y="233" fill="#94a3b8" font-size="9" text-anchor="middle">简单 → 快路径执行</text>
+      <text x="520" y="251" fill="#22d3ee" font-size="9" text-anchor="middle">复杂 → Planner</text>
+      <text x="520" y="274" fill="#fbbf24" font-size="9" text-anchor="middle">PM深度：L3 机制掌握</text>
+      <text x="520" y="290" fill="#64748b" font-size="8" text-anchor="middle">误分流会让后面全部努力失效</text>
+
+      <!-- context -->
+      <rect x="655" y="110" width="180" height="190" rx="8" fill="#0f172a"/>
+      <rect x="655" y="110" width="180" height="190" rx="8" fill="rgba(76,29,149,.4)" stroke="#a78bfa" stroke-width="1.5"/>
+      <text x="745" y="137" fill="#fff" font-size="13" font-weight="700" text-anchor="middle">④ Context组装</text>
+      <text x="745" y="163" fill="#a78bfa" font-size="10" text-anchor="middle">env_info / VLM视觉</text>
+      <text x="745" y="183" fill="#a78bfa" font-size="10" text-anchor="middle">memory / goal_list</text>
+      <text x="745" y="203" fill="#a78bfa" font-size="10" text-anchor="middle">对话历史 / Advisor建议</text>
+      <text x="745" y="229" fill="#94a3b8" font-size="9" text-anchor="middle">输出：本轮UP + 动态SP变量</text>
+      <text x="745" y="253" fill="#fbbf24" font-size="9" text-anchor="middle">PM深度：L3 机制掌握</text>
+      <text x="745" y="271" fill="#64748b" font-size="8" text-anchor="middle">信息缺失 ≠ 模型推理差</text>
+      <text x="745" y="287" fill="#64748b" font-size="8" text-anchor="middle">要懂时效、置信度、裁剪规则</text>
+
+      <!-- planner -->
+      <rect x="880" y="110" width="180" height="190" rx="8" fill="#0f172a"/>
+      <rect x="880" y="110" width="180" height="190" rx="8" fill="rgba(120,53,15,.32)" stroke="#fbbf24" stroke-width="2"/>
+      <text x="970" y="137" fill="#fff" font-size="13" font-weight="700" text-anchor="middle">⑤ Planner / Director</text>
+      <text x="970" y="163" fill="#fbbf24" font-size="10" text-anchor="middle">理解意图与未知信息</text>
+      <text x="970" y="183" fill="#fbbf24" font-size="10" text-anchor="middle">拆任务 / 排依赖 / 选工具</text>
+      <text x="970" y="203" fill="#fbbf24" font-size="10" text-anchor="middle">决定说话、执行或继续等待</text>
+      <text x="970" y="228" fill="#22d3ee" font-size="9" text-anchor="middle">talk_or_not / talk_content</text>
+      <text x="970" y="245" fill="#22d3ee" font-size="9" text-anchor="middle">action_list</text>
+      <text x="970" y="269" fill="#fb7185" font-size="9" font-weight="700" text-anchor="middle">PM深度：L4 主战场</text>
+      <text x="970" y="286" fill="#64748b" font-size="8" text-anchor="middle">规则、状态、异常、评测都要深</text>
+
+      <!-- output decision -->
+      <rect x="1105" y="130" width="180" height="150" rx="8" fill="#0f172a"/>
+      <rect x="1105" y="130" width="180" height="150" rx="8" fill="rgba(251,146,60,.22)" stroke="#fb923c" stroke-width="1.5"/>
+      <text x="1195" y="157" fill="#fff" font-size="13" font-weight="700" text-anchor="middle">⑥ 决策分派</text>
+      <text x="1195" y="182" fill="#fb923c" font-size="10" text-anchor="middle">立即动作 → 工具调度</text>
+      <text x="1195" y="202" fill="#fb923c" font-size="10" text-anchor="middle">条件任务 → Goal + Trigger</text>
+      <text x="1195" y="222" fill="#fb923c" font-size="10" text-anchor="middle">缺信息 → 追问用户</text>
+      <text x="1195" y="246" fill="#fbbf24" font-size="9" text-anchor="middle">PM深度：L3 机制掌握</text>
+      <text x="1195" y="263" fill="#64748b" font-size="8" text-anchor="middle">定义依赖、幂等、打断、超时</text>
+
+      <!-- second row right to left -->
+      <rect x="1105" y="370" width="180" height="175" rx="8" fill="#0f172a"/>
+      <rect x="1105" y="370" width="180" height="175" rx="8" fill="rgba(251,146,60,.22)" stroke="#fb923c" stroke-width="1.5"/>
+      <text x="1195" y="398" fill="#fff" font-size="13" font-weight="700" text-anchor="middle">⑦ Task / Trigger</text>
+      <text x="1195" y="423" fill="#fb923c" font-size="10" text-anchor="middle">保存Goal与任务状态</text>
+      <text x="1195" y="443" fill="#fb923c" font-size="10" text-anchor="middle">等待时间 / 车况 / VLM条件</text>
+      <text x="1195" y="463" fill="#fb923c" font-size="10" text-anchor="middle">满足后生成新事件</text>
+      <text x="1195" y="488" fill="#94a3b8" font-size="9" text-anchor="middle">create → wait → fire/cancel/expire</text>
+      <text x="1195" y="513" fill="#fb7185" font-size="9" font-weight="700" text-anchor="middle">PM深度：L4 第二主战场</text>
+      <text x="1195" y="530" fill="#64748b" font-size="8" text-anchor="middle">状态生命周期必须掌握</text>
+
+      <rect x="880" y="370" width="180" height="175" rx="8" fill="#0f172a"/>
+      <rect x="880" y="370" width="180" height="175" rx="8" fill="rgba(6,78,59,.4)" stroke="#34d399" stroke-width="1.5"/>
+      <text x="970" y="398" fill="#fff" font-size="13" font-weight="700" text-anchor="middle">⑧ 工具 / 下游Agent</text>
+      <text x="970" y="423" fill="#34d399" font-size="10" text-anchor="middle">车控 / 导航 / 音乐 / 搜索</text>
+      <text x="970" y="443" fill="#34d399" font-size="10" text-anchor="middle">VLM / 记忆 / 广播 / 车志</text>
+      <text x="970" y="468" fill="#94a3b8" font-size="9" text-anchor="middle">校验参数 → 安全拦截 → 执行</text>
+      <text x="970" y="493" fill="#22d3ee" font-size="9" text-anchor="middle">输出：真实执行结果</text>
+      <text x="970" y="518" fill="#fbbf24" font-size="9" text-anchor="middle">PM深度：L3 契约掌握</text>
+      <text x="970" y="535" fill="#64748b" font-size="8" text-anchor="middle">懂输入输出和失败，不用写接口</text>
+
+      <rect x="655" y="370" width="180" height="175" rx="8" fill="#0f172a"/>
+      <rect x="655" y="370" width="180" height="175" rx="8" fill="rgba(136,19,55,.4)" stroke="#fb7185" stroke-width="1.5"/>
+      <text x="745" y="398" fill="#fff" font-size="13" font-weight="700" text-anchor="middle">⑨ tool_feedback</text>
+      <text x="745" y="423" fill="#fb7185" font-size="10" text-anchor="middle">success / rejected / timeout</text>
+      <text x="745" y="443" fill="#fb7185" font-size="10" text-anchor="middle">原因码 / 实际状态 / 可否重试</text>
+      <text x="745" y="468" fill="#94a3b8" font-size="9" text-anchor="middle">成功 ≠ 任务一定完成</text>
+      <text x="745" y="493" fill="#22d3ee" font-size="9" text-anchor="middle">反馈进入下一轮UP</text>
+      <text x="745" y="518" fill="#fb7185" font-size="9" font-weight="700" text-anchor="middle">PM深度：L4 闭环核心</text>
+      <text x="745" y="535" fill="#64748b" font-size="8" text-anchor="middle">决定系统能否纠错</text>
+
+      <rect x="430" y="370" width="180" height="175" rx="8" fill="#0f172a"/>
+      <rect x="430" y="370" width="180" height="175" rx="8" fill="rgba(120,53,15,.32)" stroke="#fbbf24" stroke-width="1.5"/>
+      <text x="520" y="398" fill="#fff" font-size="13" font-weight="700" text-anchor="middle">⑩ 任务状态收口</text>
+      <text x="520" y="423" fill="#fbbf24" font-size="10" text-anchor="middle">完成 / 继续 / 重试 / 失败</text>
+      <text x="520" y="443" fill="#fbbf24" font-size="10" text-anchor="middle">更新 goal_list 与车辆状态</text>
+      <text x="520" y="468" fill="#94a3b8" font-size="9" text-anchor="middle">清理Trigger，避免悬挂和重复</text>
+      <text x="520" y="493" fill="#22d3ee" font-size="9" text-anchor="middle">输出：最终系统状态</text>
+      <text x="520" y="518" fill="#fbbf24" font-size="9" text-anchor="middle">PM深度：L3 机制掌握</text>
+      <text x="520" y="535" fill="#64748b" font-size="8" text-anchor="middle">必须定义“什么才算完成”</text>
+
+      <rect x="225" y="370" width="160" height="175" rx="8" fill="#0f172a"/>
+      <rect x="225" y="370" width="160" height="175" rx="8" fill="rgba(8,51,68,.4)" stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="305" y="398" fill="#fff" font-size="13" font-weight="700" text-anchor="middle">⑪ 用户可见输出</text>
+      <text x="305" y="423" fill="#22d3ee" font-size="10" text-anchor="middle">TTS语音 / 屏幕卡片</text>
+      <text x="305" y="443" fill="#22d3ee" font-size="10" text-anchor="middle">车辆状态变化 / 导航音乐</text>
+      <text x="305" y="468" fill="#94a3b8" font-size="9" text-anchor="middle">结果、进度、失败解释</text>
+      <text x="305" y="493" fill="#94a3b8" font-size="9" text-anchor="middle">必要时继续对话</text>
+      <text x="305" y="518" fill="#fbbf24" font-size="9" text-anchor="middle">PM深度：L2 体验验收</text>
+      <text x="305" y="535" fill="#64748b" font-size="8" text-anchor="middle">用户看到的才是产品结果</text>
+
+      <!-- observation rail -->
+      <rect x="205" y="770" width="1115" height="105" rx="10" fill="#0f172a"/>
+      <rect x="205" y="770" width="1115" height="105" rx="10" fill="rgba(76,29,149,.22)" stroke="#a78bfa" stroke-width="1.5"/>
+      <text x="235" y="798" fill="#fff" font-size="12" font-weight="700">全链路旁路：日志、评测、安全与版本</text>
+      <text x="235" y="824" fill="#a78bfa" font-size="10">event_id / request_id / goal_id / action_id 串起全程　｜　记录模型、Prompt、动态示例、工具Schema、车型配置版本</text>
+      <text x="235" y="848" fill="#a78bfa" font-size="10">离线评测 + 实车回归 + 线上指标　｜　失败归因：分流 → Context → Planner → 工具契约 → 执行 → Feedback → Trigger时序</text>
+      <text x="235" y="869" fill="#fbbf24" font-size="9">PM深度：L4。没有它，就无法证明AI能力是否真的变好，也无法判断该修模型、规则、上下文还是执行层。</text>
+
+      <!-- labels -->
+      <text x="202" y="194" fill="#64748b" font-size="8" text-anchor="middle">audio</text>
+      <text x="408" y="194" fill="#64748b" font-size="8" text-anchor="middle">query</text>
+      <text x="632" y="194" fill="#64748b" font-size="8" text-anchor="middle">complex</text>
+      <text x="857" y="194" fill="#64748b" font-size="8" text-anchor="middle">[SP,UP]</text>
+      <text x="1082" y="194" fill="#64748b" font-size="8" text-anchor="middle">JSON</text>
+      <text x="1082" y="449" fill="#64748b" font-size="8" text-anchor="middle">execute</text>
+      <text x="857" y="449" fill="#64748b" font-size="8" text-anchor="middle">result</text>
+      <text x="632" y="449" fill="#64748b" font-size="8" text-anchor="middle">replan</text>
+      <text x="408" y="449" fill="#64748b" font-size="8" text-anchor="middle">final</text>
+    </svg>
+  </div>
+
+  <div class="cards">
+    <div class="card">
+      <div class="card-header"><div class="card-dot rose"></div><h3>你必须深入：L4</h3></div>
+      <ul>
+        <li>• <span class="key">Planner：</span>任务拆解、依赖、追问、重规划</li>
+        <li>• <span class="key">Trigger：</span>创建、等待、触发、取消、过期</li>
+        <li>• <span class="key">Feedback：</span>失败语义、重试和状态校正</li>
+        <li>• <span class="key">评测：</span>端到端成功率与根因归属</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-dot amber"></div><h3>掌握机制：L3</h3></div>
+      <ul>
+        <li>• 分流漏斗、Context组装和信息时效</li>
+        <li>• Goal / Task状态与工具调用契约</li>
+        <li>• 端云路由、幂等、打断、超时和降级</li>
+        <li>• 知道每层输入、输出、Owner和异常边界</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-dot cyan"></div><h3>理解接口即可：L1–L2</h3></div>
+      <ul>
+        <li>• ASR/VLM/端侧模型的训练算法不必亲自掌握</li>
+        <li>• 但要能读懂准确率、召回率、时延和置信度</li>
+        <li>• 不负责研发配置和实车执行，负责方案与验收</li>
+        <li>• 职业护城河是AI系统能力，不是模型名词数量</li>
+      </ul>
+    </div>
+  </div>
+  <p class="footer">Driver Agent 2.0 产品学习地图 · v01 · 2026-09-02</p>
+</div>
+</body>
+</html>

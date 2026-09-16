@@ -1,0 +1,108 @@
+%%{init: {"flowchart": {"defaultRenderer": "elk"}}}%%
+flowchart TB
+  subgraph A["① 上线准备｜先把一项任务定义完整"]
+    direction LR
+    P["系统预设任务产品<br/>定义场景、条件、交互、动作和验收"]
+    CFG["触发器配置平台<br/>选择已接入的任务状态、信号、判断、卡片、语音和车控能力"]
+    CHECK{"配置项、能力、适用范围<br/>和承接负责人是否齐全"}
+    VER["发布任务配置版本<br/>分别供任务中心、Trigger 和任务业务使用"]
+    DRAFT["不允许发布<br/>保留草稿并提示缺失项"]
+    P --> CFG --> CHECK
+    CHECK -->|齐全| VER
+    CHECK -->|缺失| DRAFT
+  end
+
+  subgraph B["② 用户启用｜把通用任务变成某辆车的有效任务"]
+    direction LR
+    USER["用户<br/>在车机开启或关闭任务"]
+    TC["任务中心 / HMI<br/>展示任务、转发开关、回显真实操作结果"]
+    TS["Task Service / 任务状态承接<br/>鉴权、保存任务实例状态、提供重启恢复<br/>是否复用现有服务待确认"]
+    STATE["真实任务状态<br/>车辆或账号范围 + 开启/关闭 + 更新时间"]
+    USER --> TC --> TS --> STATE
+  end
+
+  subgraph C["③ 云端触发｜Trigger 只回答“现在要不要启动”"]
+    direction LR
+    DATA["端状态上行<br/>档位、SOC、口盖、采集时间等"]
+    TR["Cloud Trigger<br/>读取已生效配置、真实任务状态和最新车况"]
+    GATE{"任务已开启？事件和条件满足？<br/>数据有效？本次未重复？频控允许？"}
+    EVENT["Trigger 业务事件<br/>任务、车辆、本次场景、状态快照、触发原因和配置版本"]
+    STOP1["不产生业务事件<br/>记录未通过的具体条件"]
+    DATA --> TR --> GATE
+    GATE -->|全部通过| EVENT
+    GATE -->|任一不通过| STOP1
+  end
+
+  subgraph D["④ 云端业务处理｜系统预设任务业务决定后面怎么走"]
+    direction LR
+    BIZ1["系统预设任务业务<br/>接 Trigger 事件、校验本次仍有效、读取后续处理配置"]
+    NEED{"是否需要模型或工具<br/>进一步判断"}
+    AI["主动推荐 / Advisor / DT / VQA<br/>返回看见、未看见、无法判断或失败"]
+    VALID{"判断结果明确、未过期<br/>且仍属于本次场景吗"}
+    CONTENT["系统预设任务业务<br/>确定无需交互、仅告知或询问；准备文案和后续动作"]
+    STOP2["结束本次<br/>不出卡、不执行车辆动作"]
+    BIZ1 --> NEED
+    NEED -->|不需要| CONTENT
+    NEED -->|需要| AI --> VALID
+    VALID -->|有效| CONTENT
+    VALID -->|无效| STOP2
+  end
+
+  subgraph E["⑤ 用户交互｜即时卡负责展示，语音模块负责理解，业务负责消费结果"]
+    direction LR
+    MODE{"本任务采用哪种交互方式"}
+    CARD["即时交互卡 / VUI<br/>任务业务注册卡片、TTS、按钮、回调和有效期<br/>VUI 准入、排队并真正展示"]
+    SHOWN{"卡片已真正展示<br/>且本次询问仍有效吗"}
+    NOTICE_END["仅告知完成<br/>记录展示结果，本次不产生车辆动作"]
+    CARD_STOP["交互结束<br/>未展示、已失效、关闭或超时均不执行"]
+    INPUT{"用户如何回应"}
+    CLICK["手动点击<br/>卡片把按钮对应的标准结果直接回业务"]
+    VOICE["语音交互 / ASR<br/>取得用户在当前卡片下说的话"]
+    PLANNER["Planner<br/>结合卡片上下文理解“好的、先不用”等泛化表达"]
+    VAS["可见即可说<br/>匹配业务已注册的固定按钮词并模拟点击<br/>云端是否用作降级待确认"]
+    CHOICE["系统预设任务业务<br/>收到确认、拒绝、关闭、超时或不明确"]
+    OUTCOME["本阶段输出<br/>无需交互策略，或本次用户选择"]
+    MODE -->|仅告知或需要询问| CARD --> SHOWN
+    MODE -->|无需交互| OUTCOME
+    SHOWN -->|未展示或已失效| CARD_STOP
+    SHOWN -->|已展示且仅告知| NOTICE_END
+    SHOWN -->|已展示且需要回答| INPUT
+    INPUT -->|点击| CLICK --> CHOICE
+    INPUT -->|说话| VOICE -->|云端主路线| PLANNER --> CHOICE
+    VOICE -.已注册固定词.-> VAS --> CHOICE
+    CHOICE --> OUTCOME
+  end
+
+  subgraph F["⑥ 车辆执行与结束｜端侧最新状态决定能否执行，真实状态决定是否成功"]
+    direction LR
+    AUTH{"本次允许执行吗<br/>无需交互策略已批准，或用户已明确确认"}
+    REQ["系统预设任务业务<br/>下发本次目标动作和有效信息"]
+    EDGE["端侧执行层<br/>重新检查任务、车况、时效和重复状态"]
+    CTRL["赛力斯车控 / FC<br/>执行开盖等车辆动作"]
+    BACK["端状态回读<br/>读取动作后的真实车辆状态"]
+    RESULT["本次业务结束<br/>业务更新即时卡、Task 状态和触发记录<br/>长期任务仍开启则继续等待下一次"]
+    STOP3["本次不执行<br/>记录拒绝、过期或复核失败原因"]
+    AUTH -->|允许| REQ --> EDGE --> CTRL --> BACK --> RESULT
+    AUTH -->|不允许| STOP3
+  end
+
+  VER -->|任务展示信息| TC
+  VER -.运行配置同步给 Trigger.-> TR
+  STATE -->|该车真实任务状态| TR
+  EVENT -->|一次 Trigger 业务事件| BIZ1
+  CONTENT --> MODE
+  OUTCOME -->|进入执行资格判断| AUTH
+
+  classDef config fill:#fff3e2,stroke:#d99138,color:#4b3516;
+  classDef manage fill:#edf4ff,stroke:#5287ce,color:#162b46;
+  classDef cloud fill:#f3edff,stroke:#9573c4,color:#38264f;
+  classDef screen fill:#fff0f4,stroke:#cf6d8a,color:#4a1f2e;
+  classDef vehicle fill:#e9f6f0,stroke:#4c9c79,color:#173c2c;
+  classDef decision fill:#fff8eb,stroke:#e6a33f,color:#4b3516;
+  class P,CFG,VER,DRAFT config;
+  class USER,TC,TS,STATE manage;
+  class TR,EVENT,BIZ1,AI,CONTENT,PLANNER,CHOICE,OUTCOME,REQ,RESULT cloud;
+  class CARD,NOTICE_END,CARD_STOP,CLICK,VOICE,VAS screen;
+  class DATA,EDGE,CTRL,BACK,STOP1,STOP2,STOP3 vehicle;
+  class CHECK,GATE,NEED,VALID,MODE,SHOWN,INPUT,AUTH decision;
+

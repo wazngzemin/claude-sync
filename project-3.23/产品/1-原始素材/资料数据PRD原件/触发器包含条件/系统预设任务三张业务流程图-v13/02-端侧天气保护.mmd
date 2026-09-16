@@ -1,0 +1,123 @@
+flowchart TB
+  subgraph SETUP[一、先完成接入｜产品给需求，各能力方把这张天气卡接起来]
+    SPEC[王泽民＋赛力斯天气需求方定义子场景<br/>雨／湿滑：建议湿滑模式；浓雾：建议后雾灯<br/>冰雪：建议雪地模式；不是一次确认执行所有动作<br/>阈值、车型、分支优先级和恢复规则分别确认]
+    IMPLEMENT[端侧研发实现或复用天气规则与处理<br/>接好任务中心操作、任务真实状态、车况和视觉结果<br/>接好本地即时卡、按钮处理、车控与状态读取]
+    INTEGRATE[天气业务提供文案与按钮含义<br/>卡片接入方提供本地询问入口和事件回传<br/>谁提供按钮词注册通道、谁实际注册：研发会签<br/>不是让触发器自己实现语音识别]
+    SPEC --> IMPLEMENT --> INTEGRATE
+  end
+  subgraph STATE[二、任务开关生效｜用户开的是长期服务，不是现在切模式]
+    CLICKON[用户在任务中心开启天气保护<br/>任务中心把这项任务的开启操作交给接入方]
+    SAVE[天气接入业务真正启用并保存<br/>向任务中心返回真实结果<br/>向本地判断环节提供当前有效状态]
+    READY{启用结果及本地读取状态是否明确？}
+    OFF[未成功／关闭／未知<br/>不产生新建议；先恢复或核对任务状态<br/>不能用页面按钮颜色代替任务有效状态]
+    BASE[端侧触发器开始等待相关信息<br/>例：刚开启时晴天、车速0、普通模式<br/>保持等待，不出卡、不播报、不车控]
+    INTEGRATE --> CLICKON --> SAVE --> READY
+    READY -->|不明确或未开启| OFF
+    READY -->|确认有效| BASE
+  end
+  subgraph CONDITIONS[三、收到信息后逐项判断｜数据更新不等于条件命中]
+    DATA[读取判断所需的最新信息<br/>任务接入方：任务是否有效<br/>赛力斯端状态：车速、模式、后雾灯和车型能力<br/>字节视觉能力：天气／路面识别结果]
+    NEW[任务状态或相关车况／识别结果更新<br/>触发器用此次变化重新检查完整条件<br/>不是只监听“开始下雨”，忽略后来车速变快]
+    QUALITY{必要信息有效且能支持判断吗？<br/>检查来源、时效和约定的识别稳定要求}
+    WAIT[暂不生成建议，等下一次有效更新<br/>例：下雨但车速20，仍不满足车速要求<br/>数据未知也不能当成场景已恢复]
+    SPEED{天气任务有效且车速大于30吗？<br/>这是示例的提醒进入条件，不是通用车控限制}
+    RAIN{下雨或路面湿滑<br/>且当前不是湿滑模式？}
+    FOG{识别浓雾<br/>且后雾灯关闭？}
+    SNOW{路面有冰雪<br/>且当前不是雪地模式？}
+    R[本次目标：建议切湿滑模式<br/>例：车速46、下雨／湿滑、普通模式<br/>条件组合和稳定参数按会签版实施]
+    F[本次目标：建议开启后雾灯<br/>不要把开雾灯与切驾驶模式捆成一次同意]
+    S[本次目标：建议切雪地模式<br/>先核对车型支持与对应原子能力]
+    DEDUP{本次建议允许发起吗？<br/>未在排队／待确认／执行中<br/>未触发同场景去重和约定频控}
+    SUPPRESS[本次不再发卡<br/>已有建议继续处理，重复数据不生成第二张<br/>多次拒绝后的抑制策略另行会签，不自动关任务]
+    BASE --> DATA --> NEW --> QUALITY
+    QUALITY -->|不足／过时| WAIT
+    QUALITY -->|可判断| SPEED
+    SPEED -->|否| WAIT
+    SPEED -->|是，分别检查子场景| RAIN
+    SPEED -->|是，分别检查子场景| FOG
+    SPEED -->|是，分别检查子场景| SNOW
+    RAIN -->|满足| R
+    FOG -->|满足| F
+    SNOW -->|满足| S
+    RAIN -->|不满足| WAIT
+    FOG -->|不满足| WAIT
+    SNOW -->|不满足| WAIT
+    R --> DEDUP
+    F --> DEDUP
+    S --> DEDUP
+    DEDUP -->|本次不可再发| SUPPRESS
+  end
+  subgraph CARD[四、交给即时卡｜天气业务提供内容，卡片提供展示与交互能力]
+    REQUEST[天气业务建立本次询问，向即时卡提出请求<br/>业务来源：端侧本地自闭环；关联本任务和本次建议<br/>正文：当前路面湿滑，是否切换到湿滑模式？<br/>按钮：确认／取消；说明每个按钮的业务含义<br/>同时提供播报文本、支持表达、失效条件与结果接收方]
+    ACCEPT[即时交互卡接收并校验请求<br/>返回受理、排队或失败，以及当前卡片对应关系<br/>卡片不再判断是否下雨，也不擅自决定切哪种模式]
+    ADMIT{当前可以实际展示吗？}
+    QUEUE[暂时不能：按本任务策略排队<br/>用户当前交互优先；排队不算已展示<br/>轮到前再查建议是否仍有效；过时则撤销]
+    BAD[受理／展示失败或建议失效<br/>通知天气业务结束这次询问，不调用车控<br/>失败不是用户拒绝，分开记录]
+    SHOWN[卡片真正显示，通知天气业务<br/>用户此时看见建议和确认／取消按钮<br/>询问等待与授权有效范围按实际展示策略计算]
+    VOICEOK{语音能力当前允许这类交互吗？<br/>查询语音禁用状态，不凭任务开关推断}
+    TTS[正常语音链路<br/>按VUI规范播报天气业务提供的文本<br/>播报与收音由语音模块处理；播完按规范进入聆听]
+    CARDONLY[会议接受的降级方向：只显示卡片<br/>禁语音时不播TTS，用户仍可手动点击<br/>是否允许收音单独看语音状态，不能自动当作在聆听<br/>覆盖哪些禁用状态和车型：与VUI会签]
+    REG[卡片接入／注册方维护当前可说按钮<br/>提供“确认／取消”及业务认可的支持表达<br/>只作用于当前可交互界面；页面变化时更新<br/>本地泛化靠注册词和匹配，不额外假设有小模型]
+    DEDUP -->|允许；并发顺序按已定策略| REQUEST --> ACCEPT --> ADMIT
+    ADMIT -->|暂不能，建议仍有效| QUEUE
+    QUEUE -->|轮到且有效| SHOWN
+    QUEUE -->|失效／任务关闭| BAD
+    ADMIT -->|失败或已失效| BAD
+    ADMIT -->|可以| SHOWN --> VOICEOK
+    VOICEOK -->|允许| TTS --> REG
+    VOICEOK -->|禁用／受限| CARDONLY
+  end
+  subgraph RESPONSE[五、用户回应｜手点和本地语音最终命中同一个原按钮]
+    TAP[用户手动点击确认／取消<br/>卡片触发该按钮原有的业务处理]
+    SAY[用户在允许收音时说支持的表达<br/>例如“确认”“点一下确认”<br/>不默认任意一句“好的”都能匹配]
+    ASR[字节语音模块识别并匹配<br/>将语音转为文本，与已注册的按钮词匹配<br/>返回匹配项及对应按钮标识]
+    MATCH{明确匹配到当前一个按钮吗？}
+    NOHIT[未命中或有歧义<br/>不替用户猜选；注册方处理多结果<br/>仍可手动点击；到期未确认则结束]
+    SIM[卡片接入／注册方模拟原按钮点击<br/>与手点走同一个业务处理入口<br/>不要另写一条语音直接车控路径]
+    EXIT[用户关闭、超时或卡片被替换<br/>卡片回传生命周期；隐藏不自动等于拒绝<br/>没有本次确认就不执行]
+    CHOICE[天气业务收到交互结果<br/>知道属于本次哪张卡、哪项建议、确认还是取消<br/>核对未过期、未撤销、未处理；合并手点与语音重复反馈]
+    AUTH{是当前这次有效确认吗？}
+    REJECT[否：结束本次，不操作车辆<br/>记录取消／关闭／超时／无效回应的实际原因<br/>整项天气服务保持用户原有启停设置]
+    SHOWN -->|手动操作| TAP --> CHOICE
+    REG -->|收音条件允许| SAY --> ASR --> MATCH
+    MATCH -->|唯一有效匹配| SIM --> CHOICE
+    MATCH -->|无匹配／歧义| NOHIT
+    NOHIT -->|用户改为点击| TAP
+    NOHIT -->|到期未选择| EXIT
+    CARDONLY -->|仅允许的手动路径| TAP
+    SHOWN -->|关闭／超时等| EXIT --> CHOICE
+    CHOICE --> AUTH
+    AUTH -->|不是有效确认| REJECT
+  end
+  subgraph EXEC[六、执行和结果｜确认的是这次建议，成功要看真实车况]
+    RECHECK[天气业务＋端侧执行层重新读当前状态<br/>任务未关闭；本次建议仍适用；动作未重复<br/>车辆允许当前目标；目标是否已被用户手动完成<br/>提醒阈值是否也用于执行复核，需与赛力斯逐项确认]
+    CAN{此刻还需要且允许执行吗？}
+    ABORT[不发新车控，返回具体原因<br/>场景已变、目标已达到、建议失效或不允许<br/>目标已达到可展示当前状态，不假装本次执行成功]
+    CONTROL[端侧天气执行业务请求赛力斯车控<br/>只执行当前确认的一个目标<br/>例如切湿滑，而不是顺带开雾灯或切雪地]
+    READ[执行后持续到约定观察截止点，读取真实状态<br/>车辆回报当前模式／灯状态；不只看请求受理结果]
+    OUTCOME{真实状态能确认目标达到吗？}
+    SUCCESS[达到目标：业务判定成功<br/>例如驾驶模式实际变为湿滑]
+    FAILURE[明确拒绝／失败：业务判定失败<br/>反馈原因，不说已经成功]
+    UNKNOWN[截止仍没有可信结果：暂不能确认<br/>不盲目重发车控；后续核对按结果策略处理]
+    UPDATE[天气业务把实际结果交给卡片<br/>即时卡显示结果；适配的车控组件展示真实车况<br/>原文支持的后续手调属于控件业务，不复用旧触发确认]
+    HISTORY[按VUI约定同步交互与结果到上下文<br/>标明手动／模拟点击及已经处理的结果<br/>这是记录同步，不是让Planner重新执行本地动作]
+    DONE[结束本次询问，清理旧按钮词和待确认状态<br/>任务仍有效时，等待下一次符合规则的更新<br/>用户关闭任务：不再产生新建议]
+    RESTORE[后续天气恢复是新的业务判断<br/>需恢复模式时，按已会签规则重新询问<br/>不沿用刚才的确认，不覆盖用户后来手动选择<br/>恢复目标、判断与优先级待赛力斯会签]
+    AUTH -->|有效确认| RECHECK --> CAN
+    CAN -->|不允许／无需再做| ABORT --> UPDATE
+    CAN -->|允许且需要| CONTROL --> READ --> OUTCOME
+    OUTCOME -->|明确达到| SUCCESS --> UPDATE
+    OUTCOME -->|明确失败| FAILURE --> UPDATE
+    OUTCOME -->|结果未知| UNKNOWN --> UPDATE
+    UPDATE --> HISTORY --> DONE --> RESTORE
+    REJECT --> DONE
+    BAD --> DONE
+  end
+  classDef biz fill:#eaf2ff,stroke:#587ca8,color:#183352;
+  classDef ui fill:#e7f6ed,stroke:#538d68,color:#214a31;
+  classDef decide fill:#fff2d9,stroke:#bc873c,color:#583d19;
+  classDef pending fill:#fff0e4,stroke:#c5804c,color:#663d1e,stroke-dasharray:5 3;
+  class SPEC,IMPLEMENT,SAVE,BASE,DATA,NEW,R,F,S,REQUEST,CHOICE,RECHECK,CONTROL,READ,SUCCESS,FAILURE,UNKNOWN,HISTORY,DONE biz;
+  class CLICKON,ACCEPT,SHOWN,TTS,REG,TAP,SAY,ASR,SIM,EXIT,UPDATE ui;
+  class READY,QUALITY,SPEED,RAIN,FOG,SNOW,DEDUP,ADMIT,VOICEOK,MATCH,AUTH,CAN,OUTCOME decide;
+  class INTEGRATE,CARDONLY,RESTORE pending;

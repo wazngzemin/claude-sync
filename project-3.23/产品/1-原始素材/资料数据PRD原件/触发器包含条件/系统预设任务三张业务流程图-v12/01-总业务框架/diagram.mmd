@@ -1,0 +1,70 @@
+flowchart TB
+    P["字节产品＋赛力斯需求方<br/>写清场景、触发条件、交互方式、车辆动作<br/>同时写清：何时不处理、怎样算成功、何时再触发"]
+    CAP["各能力团队确认能否承接<br/>信号／识别、触发器、任务中心、卡片／语音、车控<br/>确认各自提供什么、交给谁、还缺什么"]
+    OK{"关键能力接齐了吗？<br/>每一段有人接、规则可执行"}
+    GAP["未齐：先补缺口<br/>补信号或功能<br/>明确承接团队<br/>补齐后再检查"]
+    PUB["配置／端侧研发完成接入与发布<br/>任务中心拿到：名称、说明、开关、操作接收方<br/>运行方拿到：条件、后续处理、交互与结果要求<br/>现状：云端配置已有能力；端侧仍有按需求开发"]
+    TC["任务中心展示任务；用户开启或关闭<br/>展示内容来自任务接入方<br/>把“哪项任务、要开还是关”交给指定接入方"]
+    BIZ["任务接入方处理启停并保存真实状态<br/>真正使任务生效／停用，再反馈成功或失败<br/>天气／充电由谁承接这段：待研发认领"]
+    UI["任务中心回显<br/>按真实结果<br/>更新开关状态<br/>失败不显示成功"]
+    ON{"任务已有效开启吗？<br/>触发器拿真实状态，不读按钮颜色"}
+    OFF["关闭／状态未知<br/>不启动新处理<br/>撤销未执行建议<br/>恢复真值后再判断"]
+    ROUTE["按任务定义选择判断链路<br/>端侧／云端说的是处理位置，不是公司归属<br/>所需规则和后续能力须已接入；不随网络随意切换"]
+    EDGE["端侧触发器<br/>读取本地车况和视觉结果<br/>检查场景条件、数据可用、防重复<br/>例：天气保护"]
+    CLOUD["云端触发器<br/>读取已上行的状态<br/>检查启动条件、时效、防重复<br/>例：充电前置条件"]
+    ET["端侧任务业务确定处理目标<br/>明确规则已能确定建议／动作<br/>例：建议切换湿滑模式"]
+    AI["云端业务补充判断<br/>规则足够则直接明确处理目标<br/>否则交主动推荐／模型工具<br/>例：继续识别充电设备"]
+    TARGET{"本次处理目标明确吗？<br/>条件满足、结果有效且未重复"}
+    WAIT["不进入后续处理<br/>条件未满足就等<br/>识别不明不猜测<br/>等下次有效更新"]
+    MODE["查这项任务约定的交互方式<br/>本次允许静默执行，还是需要先询问用户？"]
+    SILENT["静默任务<br/>当前表：儿童锁、后视镜加热<br/>不出卡、不播语音<br/>端云部署和执行规则仍须会签"]
+    EASK["端侧询问（图二）<br/>天气业务提供卡片内容<br/>用户点击／本地按钮语音<br/>选择回到天气业务"]
+    CASK["云端询问（图三）<br/>云端业务组织卡片<br/>点击／语音走约定路线<br/>本例由 Planner 承接"]
+    CONSENT{"这次得到有效确认吗？<br/>两条询问链路分别校验当前选择"}
+    CANCEL["未获有效确认<br/>本次不操作车辆<br/>拒绝／关闭／超时<br/>不等于关闭整项任务"]
+    PRE{"端侧执行前复核通过吗？<br/>任务仍有效、车况允许、没有重复"}
+    ABORT["不执行新动作<br/>过期／任务已关闭<br/>车况不再允许<br/>告知本次未执行"]
+    CAR["赛力斯车控执行明确动作<br/>端侧执行逻辑提交目标动作<br/>收到请求不等于车辆已完成"]
+    READ["执行业务读取真实车辆状态<br/>达到目标：成功；明确未完成：失败<br/>状态无法确认：结果暂不能确认"]
+    RESULT["任务业务反馈结果并结束本次<br/>有有效卡片才更新；按约定回传任务状态／记录<br/>整项任务仍开启：等待下一次符合规则的场景<br/>关闭任务不自动恢复已经改变的车辆功能"]
+    P -->|完整需求| CAP
+    CAP -->|能力与缺口| OK
+    OK -.->|否| GAP
+    OK -->|是| PUB
+    PUB -->|展示与接入资料| TC
+    TC -->|用户操作| BIZ
+    BIZ -->|结果| UI
+    BIZ -->|可读取的任务状态| ON
+    ON -.->|否| OFF
+    PUB -->|任务规则与处理定义| ROUTE
+    ON -->|是| ROUTE
+    ROUTE -->|端侧任务| EDGE
+    ROUTE -->|云端任务| CLOUD
+    EDGE -->|符合条件| ET
+    CLOUD -->|值得继续处理| AI
+    ET -->|明确建议| TARGET
+    AI -->|明确结果| TARGET
+    TARGET -.->|否| WAIT
+    TARGET -->|是| MODE
+    MODE -->|静默| SILENT
+    MODE -->|本地询问| EASK
+    MODE -->|云端询问| CASK
+    EASK -->|本次选择| CONSENT
+    CASK -->|本次选择| CONSENT
+    CONSENT -.->|否| CANCEL
+    CONSENT -->|是| PRE
+    SILENT -->|静默策略允许| PRE
+    PRE -.->|否| ABORT
+    PRE -->|是| CAR
+    CAR -->|实际执行后| READ
+    READ -->|真实结果| RESULT
+    classDef business fill:#E6F1FB,stroke:#185FA5,color:#0C447C;
+    classDef screen fill:#E1F5EE,stroke:#0F6E56,color:#085041;
+    classDef decision fill:#FAEEDA,stroke:#854F0B,color:#633806;
+    classDef cloud fill:#EEEDFE,stroke:#534AB7,color:#3C3489;
+    classDef neutral fill:#F1EFE8,stroke:#5F5E5A,color:#444441;
+    class P,CAP,PUB,BIZ,ROUTE,EDGE,ET,MODE,RESULT business;
+    class TC,UI,EASK,CASK screen;
+    class OK,ON,TARGET,CONSENT,PRE decision;
+    class CLOUD,AI cloud;
+    class GAP,OFF,WAIT,SILENT,CANCEL,ABORT,CAR,READ neutral;

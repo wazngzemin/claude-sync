@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>系统预设任务完整框架架构图 v01</title>
+  <style>
+    :root {
+      --bg: #07111f;
+      --panel: #0c192b;
+      --panel-2: #101f34;
+      --line: #36506d;
+      --text: #e9f2ff;
+      --muted: #8ea5bd;
+      --blue: #50a7ff;
+      --cyan: #43d6d0;
+      --purple: #aa8cff;
+      --green: #60d394;
+      --orange: #ffb454;
+      --red: #ff6b7a;
+      --edge: #42d1a7;
+      --cloud: #8c7dff;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 10% 0%, rgba(80,167,255,.12), transparent 30%),
+        radial-gradient(circle at 90% 12%, rgba(170,140,255,.10), transparent 26%),
+        var(--bg);
+      font-family: "JetBrains Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+      line-height: 1.55;
+    }
+
+    .shell { width: min(1680px, calc(100vw - 36px)); margin: 0 auto; padding: 34px 0 64px; }
+    header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 420px;
+      gap: 24px;
+      align-items: end;
+      margin-bottom: 22px;
+    }
+    h1 { margin: 0 0 8px; font-size: clamp(26px, 3vw, 46px); line-height: 1.14; letter-spacing: -.04em; }
+    .subtitle { color: var(--muted); max-width: 960px; font-size: 14px; }
+    .principle {
+      border: 1px solid rgba(80,167,255,.38);
+      background: linear-gradient(135deg, rgba(80,167,255,.12), rgba(67,214,208,.05));
+      border-radius: 14px;
+      padding: 14px 16px;
+      color: #cae5ff;
+      font-size: 13px;
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 16px 0;
+    }
+    button {
+      color: var(--text);
+      background: #12243b;
+      border: 1px solid #2b4664;
+      border-radius: 999px;
+      padding: 8px 13px;
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    button:hover, button.active { background: #1b3d60; border-color: var(--blue); }
+    .diagram-card {
+      background: rgba(10, 23, 39, .94);
+      border: 1px solid #233a55;
+      border-radius: 18px;
+      box-shadow: 0 20px 70px rgba(0,0,0,.34);
+      overflow: hidden;
+    }
+    .diagram-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+      padding: 16px 20px;
+      border-bottom: 1px solid #21364f;
+      background: rgba(255,255,255,.02);
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .diagram-scroll { overflow-x: auto; }
+    svg { display: block; min-width: 1560px; width: 100%; height: auto; }
+    .layer {
+      fill: rgba(16,31,52,.82);
+      stroke: #29445f;
+      stroke-width: 1.5;
+      rx: 18;
+    }
+    .layer-title { fill: #a9bdd2; font-size: 15px; font-weight: 700; letter-spacing: .02em; }
+    .layer-note { fill: #68819b; font-size: 11px; }
+    .node rect {
+      fill: #12233a;
+      stroke: #3b5875;
+      stroke-width: 1.5;
+      rx: 12;
+    }
+    .node.edge rect { stroke: var(--edge); }
+    .node.cloud rect { stroke: var(--cloud); }
+    .node.interaction rect { stroke: var(--cyan); }
+    .node.execution rect { stroke: var(--orange); }
+    .node.truth rect { stroke: var(--blue); stroke-width: 2.5; }
+    .node.tbd rect { stroke: var(--orange); stroke-dasharray: 7 5; }
+    .node.result rect { stroke: var(--green); }
+    .node-title { fill: #f2f7ff; font-size: 13px; font-weight: 800; }
+    .node-owner { fill: #86a1bd; font-size: 10px; }
+    .node-copy { fill: #b8cadc; font-size: 10.5px; }
+    .node-tag { fill: #06111d; font-size: 9px; font-weight: 800; }
+    .tag-bg-blue { fill: var(--blue); }
+    .tag-bg-edge { fill: var(--edge); }
+    .tag-bg-cloud { fill: var(--cloud); }
+    .tag-bg-orange { fill: var(--orange); }
+    .tag-bg-green { fill: var(--green); }
+
+    .connection {
+      fill: none;
+      stroke: #55728f;
+      stroke-width: 2;
+      marker-end: url(#arrow);
+      vector-effect: non-scaling-stroke;
+    }
+    .connection.required { stroke: var(--blue); }
+    .connection.edge-line { stroke: var(--edge); }
+    .connection.cloud-line { stroke: var(--cloud); }
+    .connection.result-line { stroke: var(--green); }
+    .connection.tbd-line { stroke: var(--orange); stroke-dasharray: 8 6; }
+    .bus { fill: none; stroke: #314b66; stroke-width: 1.5; stroke-dasharray: 5 6; }
+    .arrow-label rect { fill: #071421; stroke: #2d4660; rx: 6; }
+    .arrow-label text { fill: #a9bfd4; font-size: 9.5px; }
+    .split { fill: #13263e; stroke: #5f7b97; stroke-width: 1.5; }
+    .split-text { fill: #f0f5fc; font-size: 11px; font-weight: 700; }
+
+    .legend {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin: 14px 0 0;
+    }
+    .legend-item {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      background: rgba(16,31,52,.72);
+      border: 1px solid #223a55;
+      border-radius: 12px;
+      padding: 11px 13px;
+      color: #b6c8da;
+      font-size: 11px;
+    }
+    .swatch { width: 28px; height: 3px; border-radius: 4px; flex: 0 0 auto; }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 18px;
+    }
+    .info {
+      background: rgba(12,25,43,.9);
+      border: 1px solid #243e59;
+      border-radius: 14px;
+      padding: 16px;
+    }
+    .info h2 { margin: 0 0 8px; font-size: 14px; color: #dcecff; }
+    .info p { margin: 0; color: #93a9bf; font-size: 11.5px; }
+    .info strong { color: #f5f9ff; }
+    .section { margin-top: 28px; }
+    .section h2 { font-size: 21px; margin: 0 0 12px; }
+    table { width: 100%; border-collapse: collapse; background: rgba(12,25,43,.86); border-radius: 14px; overflow: hidden; }
+    th, td { border: 1px solid #213a55; padding: 11px 12px; text-align: left; vertical-align: top; font-size: 11.5px; }
+    th { color: #d8e9fb; background: #12253d; }
+    td { color: #9fb4c9; }
+    .pill { display: inline-block; padding: 2px 7px; border-radius: 99px; font-size: 9px; font-weight: 800; margin-right: 5px; }
+    .pill.edge { background: rgba(66,209,167,.15); color: #75e7c4; border: 1px solid rgba(66,209,167,.45); }
+    .pill.cloud { background: rgba(140,125,255,.15); color: #b9afff; border: 1px solid rgba(140,125,255,.45); }
+    .pill.tbd { background: rgba(255,180,84,.12); color: #ffd092; border: 1px solid rgba(255,180,84,.4); }
+    footer { margin-top: 26px; color: #69829a; font-size: 10.5px; text-align: right; }
+
+    body[data-focus="edge"] .cloud { opacity: .22; }
+    body[data-focus="edge"] .cloud-line { opacity: .18; }
+    body[data-focus="cloud"] .edge { opacity: .22; }
+    body[data-focus="cloud"] .edge-line { opacity: .18; }
+    body[data-focus="contract"] .node:not(.truth):not(.interaction):not(.execution):not(.result) { opacity: .25; }
+    body[data-focus="contract"] .connection:not(.required):not(.result-line) { opacity: .18; }
+    .node, .connection { transition: opacity .22s ease; }
+
+    @media (max-width: 980px) {
+      header { grid-template-columns: 1fr; }
+      .legend, .cards { grid-template-columns: 1fr 1fr; }
+      .shell { width: min(100% - 20px, 1680px); padding-top: 20px; }
+    }
+    @media (max-width: 620px) {
+      .legend, .cards { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body data-focus="all">
+  <main class="shell">
+    <header>
+      <div>
+        <h1>系统预设任务：从后台定义到真实车辆结果</h1>
+        <div class="subtitle">五层公共框架 · 端侧与云端双运行链 · RunEvent 全程关联 · 真实状态是唯一成功依据</div>
+      </div>
+      <div class="principle">
+        <strong>读图原则：</strong>横向看每层内部职责，纵向看一次任务如何向下流动。实线是公共目标链；橙色虚线表示当前必须专项确认的接口或物理承载。
+      </div>
+    </header>
+
+    <div class="toolbar" aria-label="图层筛选">
+      <button class="active" data-focus="all">全部链路</button>
+      <button data-focus="edge">突出端侧</button>
+      <button data-focus="cloud">突出云端</button>
+      <button data-focus="contract">突出业务合同</button>
+    </div>
+
+    <section class="diagram-card">
+      <div class="diagram-head">
+        <span>完整框架 L1｜每个方框包含“谁 / 在哪里 / 做什么”</span>
+        <span>V1.0 · 2026-09-04 · 产品语义图，非现网部署图</span>
+      </div>
+      <div class="diagram-scroll">
+        <svg viewBox="0 0 1600 1610" role="img" aria-labelledby="title desc">
+          <title id="title">系统预设任务完整框架架构图</title>
+          <desc id="desc">展示控制、状态、运行、交互、执行和观测五个层面，以及端侧天气和云端充电两类数据流。</desc>
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#6d89a7"></path>
+            </marker>
+          </defs>
+
+          <!-- Layer containers -->
+          <rect class="layer" x="40" y="45" width="1520" height="220"></rect>
+          <text class="layer-title" x="62" y="75">① 控制面｜定义并发布什么任务</text>
+          <text class="layer-note" x="62" y="96">产品与平台负责可发布定义；不实时判断车辆场景</text>
+
+          <rect class="layer" x="40" y="290" width="1520" height="245"></rect>
+          <text class="layer-title" x="62" y="320">② 管理与状态面｜用户是否真的开启，链路经过哪里，谁唯一创建 RunEvent</text>
+          <text class="layer-note" x="62" y="341">任务中心是 HMI；真实状态、处理拓扑与 RunEvent 产生权必须另有明确责任</text>
+
+          <rect class="layer" x="40" y="560" width="1520" height="300"></rect>
+          <text class="layer-title" x="62" y="590">③ 运行与判断面｜什么时候产生本次 RunEvent</text>
+          <text class="layer-note" x="62" y="611">端侧做确定性本地判断；云端按需做语义、模型与工具编排</text>
+
+          <rect class="layer" x="40" y="885" width="1520" height="260"></rect>
+          <text class="layer-title" x="62" y="915">④ 交互面｜怎样问用户，并把选择还给原业务</text>
+          <text class="layer-note" x="62" y="936">卡片只负责交互；端侧语音与云端语音使用不同路由</text>
+
+          <rect class="layer" x="40" y="1170" width="1520" height="240"></rect>
+          <text class="layer-title" x="62" y="1200">⑤ 执行与结果面｜现在还能不能做，车辆是否真的完成</text>
+          <text class="layer-note" x="62" y="1221">所有车控回到端侧；真实车辆状态是最终成功真相</text>
+
+          <rect class="layer" x="40" y="1435" width="1520" height="130"></rect>
+          <text class="layer-title" x="62" y="1465">⑥ 观测与治理总线｜版本、灰度、日志、指标、告警、回放、冷却</text>
+
+          <!-- Connections rendered before nodes -->
+          <g class="connections">
+            <path class="connection required" d="M 355 170 H 435"></path>
+            <path class="connection required" d="M 745 170 H 825"></path>
+            <path class="connection required" d="M 1135 170 H 1215"></path>
+
+            <path class="connection required" d="M 1375 220 V 380 H 1290"></path>
+            <path class="connection required" d="M 1220 410 H 1000"></path>
+            <path class="connection required" d="M 785 410 H 720"></path>
+            <path class="connection tbd-line" d="M 500 410 H 425"></path>
+            <path class="connection tbd-line" d="M 295 477 V 590 H 490 V 650"></path>
+            <path class="connection edge-line" d="M 455 680 H 435"></path>
+            <path class="connection cloud-line" d="M 490 710 V 775 H 435"></path>
+
+            <path class="connection edge-line" d="M 435 680 H 685"></path>
+            <path class="connection cloud-line" d="M 435 775 H 685"></path>
+            <path class="connection cloud-line" d="M 945 775 H 1015"></path>
+            <path class="connection cloud-line" d="M 1265 775 H 1315"></path>
+            <path class="connection edge-line" d="M 945 680 H 1315"></path>
+
+            <path class="connection required" d="M 1395 820 V 995 H 1240"></path>
+            <path class="connection edge-line" d="M 570 1000 H 650"></path>
+            <path class="connection edge-line" d="M 840 1000 H 930"></path>
+            <path class="connection cloud-line" d="M 570 1085 H 650"></path>
+            <path class="connection cloud-line" d="M 840 1085 H 930"></path>
+            <path class="connection required" d="M 1180 1030 H 1240"></path>
+
+            <path class="connection required" d="M 1240 1000 H 1180"></path>
+            <path class="connection result-line" d="M 1180 1090 H 1240"></path>
+            <path class="connection required" d="M 1395 1126 V 1275 H 1215"></path>
+            <path class="connection required" d="M 985 1275 H 915"></path>
+            <path class="connection required" d="M 685 1275 H 615"></path>
+            <path class="connection result-line" d="M 385 1275 H 315"></path>
+
+            <path class="bus" d="M 200 1505 H 1450"></path>
+            <path class="bus" d="M 200 1410 V 1505"></path>
+            <path class="bus" d="M 520 1410 V 1505"></path>
+            <path class="bus" d="M 840 1410 V 1505"></path>
+            <path class="bus" d="M 1160 1410 V 1505"></path>
+            <path class="bus" d="M 1450 1410 V 1505"></path>
+
+            <path class="connection result-line" d="M 190 1235 V 470 H 1030"></path>
+            <path class="connection result-line" d="M 190 1235 V 1045 H 930"></path>
+          </g>
+
+          <!-- Arrow labels -->
+          <g class="arrow-label">
+            <rect x="364" y="148" width="64" height="24"></rect>
+            <text x="373" y="164">任务定义</text>
+            <rect x="752" y="148" width="65" height="24"></rect>
+            <text x="761" y="164">校验结果</text>
+            <rect x="1143" y="148" width="65" height="24"></rect>
+            <text x="1152" y="164">生效版本</text>
+            <rect x="1035" y="389" width="167" height="24"></rect>
+            <text x="1044" y="405">用户操作意图 / 真实回包</text>
+            <rect x="722" y="389" width="58" height="24"></rect>
+            <text x="731" y="405">状态变化</text>
+            <rect x="715" y="620" width="150" height="24"></rect>
+            <text x="724" y="636">快照 + 变化 / 接口 TBD</text>
+            <rect x="1183" y="658" width="118" height="24"></rect>
+            <text x="1192" y="674">无需模型，进入交互策略</text>
+            <rect x="1180" y="753" width="126" height="24"></rect>
+            <text x="1189" y="769">模型结果写回同一事件</text>
+            <rect x="1250" y="968" width="132" height="24"></rect>
+            <text x="1259" y="984">InteractionRequest</text>
+            <rect x="1190" y="1252" width="152" height="24"></rect>
+            <text x="1199" y="1268">一次性授权 / 执行意图或请求</text>
+          </g>
+
+          <!-- Nodes -->
+          <g class="nodes">
+            <g class="node" transform="translate(85 116)">
+              <rect width="270" height="108"></rect>
+              <rect class="tag-bg-blue" x="16" y="14" width="52" height="18" rx="9"></rect>
+              <text class="node-tag" x="28" y="27">产品</text>
+              <text class="node-title" x="16" y="51">系统预设任务定义</text>
+              <text class="node-owner" x="16" y="69">位置：PRD / 任务清单</text>
+              <text class="node-copy" x="16" y="87">场景 · 规则 · 端云 · 交互 · 动作 · 验收</text>
+            </g>
+
+            <g class="node tbd" transform="translate(435 116)">
+              <rect width="310" height="108"></rect>
+              <rect class="tag-bg-orange" x="16" y="14" width="76" height="18" rx="9"></rect>
+              <text class="node-tag" x="24" y="27">当前部分</text>
+              <text class="node-title" x="16" y="51">配置平台 / 端侧发版流程</text>
+              <text class="node-owner" x="16" y="69">位置：云端后台 / 整车版本</text>
+              <text class="node-copy" x="16" y="87">能力引用 · 车型 · 版本 · 灰度 · 回滚</text>
+            </g>
+
+            <g class="node truth" transform="translate(825 116)">
+              <rect width="310" height="108"></rect>
+              <rect class="tag-bg-blue" x="16" y="14" width="76" height="18" rx="9"></rect>
+              <text class="node-tag" x="24" y="27">发布门禁</text>
+              <text class="node-title" x="16" y="51">完整性校验</text>
+              <text class="node-owner" x="16" y="69">输入：信号 / 模型 / 卡 / 动作 / 回读</text>
+              <text class="node-copy" x="16" y="87">缺状态、缺安全、缺回读则阻止发布</text>
+            </g>
+
+            <g class="node" transform="translate(1215 116)">
+              <rect width="300" height="108"></rect>
+              <rect class="tag-bg-blue" x="16" y="14" width="52" height="18" rx="9"></rect>
+              <text class="node-tag" x="27" y="27">输出</text>
+              <text class="node-title" x="16" y="51">定义版本 + 展示元数据</text>
+              <text class="node-owner" x="16" y="69">去向：任务中心与运行时</text>
+              <text class="node-copy" x="16" y="87">不是实时车况，不代表任务已开启</text>
+            </g>
+
+            <g class="node" transform="translate(1030 365)">
+              <rect width="260" height="112"></rect>
+              <rect class="tag-bg-blue" x="16" y="14" width="56" height="18" rx="9"></rect>
+              <text class="node-tag" x="26" y="27">HMI</text>
+              <text class="node-title" x="16" y="51">任务中心</text>
+              <text class="node-owner" x="16" y="69">车机 · 任务中心团队</text>
+              <text class="node-copy" x="16" y="87">展示 / 用户操作意图 / 结果回显</text>
+              <text class="node-copy" x="16" y="102">不是真实状态，不执行 Trigger</text>
+            </g>
+
+            <g class="node truth tbd" transform="translate(785 365)">
+              <rect width="215" height="112"></rect>
+              <rect class="tag-bg-orange" x="16" y="14" width="76" height="18" rx="9"></rect>
+              <text class="node-tag" x="24" y="27">OWNER TBD</text>
+              <text class="node-title" x="16" y="51">真实任务状态</text>
+              <text class="node-owner" x="16" y="69">接入业务 / 状态承载方</text>
+              <text class="node-copy" x="16" y="87">ENABLED / DISABLED / UNKNOWN</text>
+              <text class="node-copy" x="16" y="102">鉴权 · 幂等 · 持久化 · 顺序</text>
+            </g>
+
+            <g class="node tbd" transform="translate(500 365)">
+              <rect width="220" height="112"></rect>
+              <rect class="tag-bg-orange" x="16" y="14" width="76" height="18" rx="9"></rect>
+              <text class="node-tag" x="24" y="27">接口 TBD</text>
+              <text class="node-title" x="16" y="51">状态同步与恢复</text>
+              <text class="node-owner" x="16" y="69">启动快照 + 变化 + 重同步</text>
+              <text class="node-copy" x="16" y="87">版本 / 时间 / 定义版本</text>
+              <text class="node-copy" x="16" y="102">列表 Push/Pull ≠ Trigger 状态</text>
+            </g>
+
+            <g class="node truth tbd" transform="translate(165 365)">
+              <rect width="260" height="112"></rect>
+              <rect class="tag-bg-orange" x="16" y="14" width="76" height="18" rx="9"></rect>
+              <text class="node-tag" x="24" y="27">机制 TBD</text>
+              <text class="node-title" x="16" y="51">处理拓扑 + 唯一事件产生权</text>
+              <text class="node-owner" x="16" y="69">架构 / Trigger Owner</text>
+              <text class="node-copy" x="16" y="87">topology：EDGE / CLOUD / HYBRID</text>
+              <text class="node-copy" x="16" y="102">producer：EDGE / CLOUD / NONE；冲突即停</text>
+            </g>
+
+            <polygon class="split" points="490,650 525,680 490,710 455,680"></polygon>
+            <text class="split-text" x="475" y="684">端/云</text>
+
+            <g class="node edge" transform="translate(165 635)">
+              <rect width="270" height="92"></rect>
+              <rect class="tag-bg-edge" x="16" y="14" width="52" height="18" rx="9"></rect>
+              <text class="node-tag" x="25" y="27">EDGE</text>
+              <text class="node-title" x="16" y="51">端侧 Trigger</text>
+              <text class="node-owner" x="16" y="69">本地端状态 / VLM / 事件</text>
+              <text class="node-copy" x="16" y="84">三值规则 · 时效 · 防抖 · 去重</text>
+            </g>
+
+            <g class="node cloud" transform="translate(165 730)">
+              <rect width="270" height="92"></rect>
+              <rect class="tag-bg-cloud" x="16" y="14" width="60" height="18" rx="9"></rect>
+              <text class="node-tag" x="23" y="27">CLOUD</text>
+              <text class="node-title" x="16" y="51">Cloud Trigger</text>
+              <text class="node-owner" x="16" y="69">合规上行状态 / 硬条件</text>
+              <text class="node-copy" x="16" y="84">时效 · 防抖 · 去重 · 频控</text>
+            </g>
+
+            <g class="node edge" transform="translate(685 635)">
+              <rect width="260" height="92"></rect>
+              <rect class="tag-bg-edge" x="16" y="14" width="52" height="18" rx="9"></rect>
+              <text class="node-tag" x="25" y="27">EDGE</text>
+              <text class="node-title" x="16" y="51">条件通过 → 创建 RunEvent</text>
+              <text class="node-owner" x="16" y="69">AND / OR / 阈值 / 变化沿</text>
+              <text class="node-copy" x="16" y="84">天气：先建事件，无需进入 Planner</text>
+            </g>
+
+            <g class="node cloud" transform="translate(685 730)">
+              <rect width="260" height="92"></rect>
+              <rect class="tag-bg-cloud" x="16" y="14" width="60" height="18" rx="9"></rect>
+              <text class="node-tag" x="23" y="27">CLOUD</text>
+              <text class="node-title" x="16" y="51">硬条件通过 → 创建 RunEvent</text>
+              <text class="node-owner" x="16" y="69">唯一 producer · 推荐 Query</text>
+              <text class="node-copy" x="16" y="84">先建事件；系统 Query 不是用户授权</text>
+            </g>
+
+            <g class="node cloud" transform="translate(1015 730)">
+              <rect width="250" height="92"></rect>
+              <rect class="tag-bg-cloud" x="16" y="14" width="60" height="18" rx="9"></rect>
+              <text class="node-tag" x="23" y="27">CLOUD</text>
+              <text class="node-title" x="16" y="51">Advisor / Planner / DT / VQA</text>
+              <text class="node-owner" x="16" y="69">按场景选择，结果写回本次事件</text>
+              <text class="node-copy" x="16" y="84">结果需关联本车、本事件、时效</text>
+            </g>
+
+            <g class="node truth" transform="translate(1315 650)">
+              <rect width="200" height="170"></rect>
+              <rect class="tag-bg-blue" x="16" y="14" width="70" height="18" rx="9"></rect>
+              <text class="node-tag" x="25" y="27">贯穿全链</text>
+              <text class="node-title" x="16" y="55">同一 RunEvent / 交互入口</text>
+              <text class="node-owner" x="16" y="76">硬候选后已创建；一次天气 / 一次充电</text>
+              <text class="node-copy" x="16" y="98">任务实例 + 定义版本</text>
+              <text class="node-copy" x="16" y="115">产生权版本 + SignalSnapshot</text>
+              <text class="node-copy" x="16" y="132">模型结果 + 有效期</text>
+              <text class="node-copy" x="16" y="149">卡片 + 授权 + 动作 + 回读</text>
+            </g>
+
+            <g class="node edge interaction" transform="translate(300 960)">
+              <rect width="270" height="92"></rect>
+              <rect class="tag-bg-edge" x="16" y="14" width="84" height="18" rx="9"></rect>
+              <text class="node-tag" x="23" y="27">端侧语音</text>
+              <text class="node-title" x="16" y="51">可见即可说</text>
+              <text class="node-owner" x="16" y="69">元素 → ASR/匹配 → 消歧</text>
+              <text class="node-copy" x="16" y="84">模拟点击原按钮，不做业务推理</text>
+            </g>
+
+            <g class="node cloud interaction" transform="translate(300 1055)">
+              <rect width="270" height="70"></rect>
+              <rect class="tag-bg-cloud" x="16" y="14" width="84" height="18" rx="9"></rect>
+              <text class="node-tag" x="23" y="27">云端语音</text>
+              <text class="node-title" x="16" y="51">Planner + 当前卡片上下文</text>
+            </g>
+
+            <g class="node edge interaction" transform="translate(650 960)">
+              <rect width="190" height="92"></rect>
+              <text class="node-title" x="16" y="34">端侧按钮事件</text>
+              <text class="node-owner" x="16" y="54">手点 / 模拟点击</text>
+              <text class="node-copy" x="16" y="73">同一原业务入口</text>
+            </g>
+
+            <g class="node cloud interaction" transform="translate(650 1055)">
+              <rect width="190" height="70"></rect>
+              <text class="node-title" x="16" y="31">云端语义结果</text>
+              <text class="node-copy" x="16" y="51">CONFIRM / REJECT / 追问</text>
+            </g>
+
+            <g class="node interaction truth" transform="translate(930 960)">
+              <rect width="250" height="166"></rect>
+              <rect class="tag-bg-blue" x="16" y="14" width="82" height="18" rx="9"></rect>
+              <text class="node-tag" x="24" y="27">交互合同</text>
+              <text class="node-title" x="16" y="53">即时交互卡 / VUI</text>
+              <text class="node-owner" x="16" y="73">位置：车机屏幕</text>
+              <text class="node-copy" x="16" y="94">准入 · 排队 · 真正展示 · TTS</text>
+              <text class="node-copy" x="16" y="112">点击 · 语音 · 关闭 · 超时 · 替换</text>
+              <text class="node-copy" x="16" y="130">必须带同一 RunEvent 返回</text>
+              <text class="node-copy" x="16" y="148">不判断天气/SOC，不直接车控</text>
+            </g>
+
+            <g class="node truth" transform="translate(1240 960)">
+              <rect width="275" height="166"></rect>
+              <rect class="tag-bg-blue" x="16" y="14" width="82" height="18" rx="9"></rect>
+              <text class="node-tag" x="24" y="27">业务收口</text>
+              <text class="node-title" x="16" y="53">原业务校验 + 一次性授权</text>
+              <text class="node-owner" x="16" y="73">原 Trigger / 云端原业务</text>
+              <text class="node-copy" x="16" y="94">静默 / 仅告知 / 需确认</text>
+              <text class="node-copy" x="16" y="112">校验同事件 · 未过期 · 未消费 · CONFIRM</text>
+              <text class="node-copy" x="16" y="130">EDGE 本地意图 / CLOUD 执行请求</text>
+              <text class="node-copy" x="16" y="148">卡失败时不得降级静默车控</text>
+            </g>
+
+            <g class="node execution truth" transform="translate(985 1235)">
+              <rect width="230" height="115"></rect>
+              <rect class="tag-bg-orange" x="16" y="14" width="76" height="18" rx="9"></rect>
+              <text class="node-tag" x="24" y="27">最后门禁</text>
+              <text class="node-title" x="16" y="52">端侧执行前复核</text>
+              <text class="node-owner" x="16" y="72">任务/产生权代次/授权/模型/实时车况</text>
+              <text class="node-copy" x="16" y="91">过期 · 变化 · 重复 → DENY</text>
+            </g>
+
+            <g class="node execution" transform="translate(685 1235)">
+              <rect width="230" height="115"></rect>
+              <rect class="tag-bg-orange" x="16" y="14" width="76" height="18" rx="9"></rect>
+              <text class="node-tag" x="24" y="27">赛力斯端</text>
+              <text class="node-title" x="16" y="52">车控执行</text>
+              <text class="node-owner" x="16" y="72">幂等 · 权限 · 整车安全门禁</text>
+              <text class="node-copy" x="16" y="91">RPC ACK 仅表示调用结果</text>
+            </g>
+
+            <g class="node result truth" transform="translate(385 1235)">
+              <rect width="230" height="115"></rect>
+              <rect class="tag-bg-green" x="16" y="14" width="76" height="18" rx="9"></rect>
+              <text class="node-tag" x="24" y="27">成功真相</text>
+              <text class="node-title" x="16" y="52">真实状态回读</text>
+              <text class="node-owner" x="16" y="72">模式 / 灯 / 锁 / 加热 / 口盖</text>
+              <text class="node-copy" x="16" y="91">达到目标才是业务成功</text>
+            </g>
+
+            <g class="node result" transform="translate(85 1235)">
+              <rect width="230" height="115"></rect>
+              <rect class="tag-bg-green" x="16" y="14" width="76" height="18" rx="9"></rect>
+              <text class="node-tag" x="24" y="27">结果分发</text>
+              <text class="node-title" x="16" y="52">卡片 / Runtime 日志</text>
+              <text class="node-owner" x="16" y="72">SUCCESS / FAILED / UNKNOWN</text>
+              <text class="node-copy" x="16" y="91">任务中心单次结果/历史展示 TBD</text>
+            </g>
+
+            <g class="node" transform="translate(180 1480)">
+              <rect width="1250" height="58"></rect>
+              <text class="node-title" x="18" y="27">全链路关联键：任务定义 / 任务实例 / 状态版本 / 处理拓扑 / 产生权代次 / RunEvent / 卡片 / 推理 / 授权 / 动作 / 真实回读</text>
+              <text class="node-copy" x="18" y="45">治理：版本 · 灰度 · 防抖 · 去重 · 频控 · 幂等 · 有效期 · 冷却 · 指标 · 告警 · 回放</text>
+            </g>
+          </g>
+        </svg>
+      </div>
+    </section>
+
+    <div class="legend" aria-label="图例">
+      <div class="legend-item"><span class="swatch" style="background:var(--blue)"></span><span><strong>蓝色</strong> 公共业务合同与状态真相</span></div>
+      <div class="legend-item"><span class="swatch" style="background:var(--edge)"></span><span><strong>绿色</strong> 端侧本地链路</span></div>
+      <div class="legend-item"><span class="swatch" style="background:var(--cloud)"></span><span><strong>紫色</strong> 云端判断与语义链路</span></div>
+      <div class="legend-item"><span class="swatch" style="background:var(--orange)"></span><span><strong>橙色虚线</strong> 当前接口/Owner/物理承载待确认</span></div>
+    </div>
+
+    <div class="cards">
+      <article class="info">
+        <h2>一个状态真源</h2>
+        <p>任务中心点击只是意图。接入业务真正保存后，端/云 Runtime 才能按 <strong>ENABLED</strong> 运行。</p>
+      </article>
+      <article class="info">
+        <h2>一种拓扑，一个产生方</h2>
+        <p>链路可为 EDGE、CLOUD 或 HYBRID；但同车、同任务、同版本只能由一侧创建本次 RunEvent，冲突时双方都停止。</p>
+      </article>
+      <article class="info">
+        <h2>一个 RunEvent</h2>
+        <p>硬候选通过后先建事件，再调模型或出卡；条件、模型、卡片、授权、车控和回读必须用同一事件关联。</p>
+      </article>
+      <article class="info">
+        <h2>一个成功真相</h2>
+        <p>Query、FOUND、点击、Planner 选择、RPC ACK 都不是最终成功；真实车辆状态才是。</p>
+      </article>
+    </div>
+
+    <section class="section">
+      <h2>端侧与云端怎么分</h2>
+      <table>
+        <thead>
+          <tr><th>决策问题</th><th>端侧</th><th>云端/端云混合</th><th>共同底线</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>主要输入</td><td>本地车况、端侧 VLM、明确枚举</td><td>合规上行状态、多源上下文、DT/VQA、开放语义</td><td>都有时间、质量、车辆和事件关联</td></tr>
+          <tr><td>核心判断</td><td>AND/OR、阈值、变化沿、状态机</td><td>推荐准入、语义、模型、工具编排</td><td>UNKNOWN/过期都不能继续执行</td></tr>
+          <tr><td>典型任务</td><td><span class="pill edge">EDGE</span>天气/路况保护</td><td><span class="pill cloud">HYBRID</span>识别充电设备后开盖</td><td>HYBRID 仍需唯一 RunEvent producer；用户确认后仍回端侧复核</td></tr>
+          <tr><td>语音</td><td>可见即可说 → 模拟点击原按钮</td><td>Planner + 当前卡片上下文</td><td>结果必须带同一 RunEvent</td></tr>
+          <tr><td>最终执行</td><td>端侧复核 → 赛力斯车控 → 回读</td><td>云端下发 → 端侧复核 → 赛力斯车控 → 回读</td><td>真实状态达到目标才成功</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section">
+      <h2>当前评审最需要关闭的断点</h2>
+      <table>
+        <thead>
+          <tr><th>断点</th><th>当前能证明什么</th><th>需要的正式产物</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="pill tbd">TBD</span>任务中心 → Trigger</td><td>任务中心是 HMI；列表有推送/拉取方向</td><td>真实状态 Owner、启动快照、变化、顺序、重同步时序</td></tr>
+          <tr><td><span class="pill tbd">TBD</span>处理拓扑 / RunEvent 产生权</td><td>链路可经过端、云或两者</td><td>topology 与 producer 两字段、同车同任务唯一性、灰度切换、旧事件失效方案</td></tr>
+          <tr><td><span class="pill tbd">TBD</span>天气卡与可见即可说</td><td>VUI 与 VAS 都有通用能力文档</td><td>页面元素、ASR/匹配、模拟点击、回调和过期联调合同</td></tr>
+          <tr><td><span class="pill tbd">TBD</span>充电 Query/DT/VQA/卡</td><td>会议已有主链方向</td><td>硬 Trigger 位置、推理时效、卡型、点击/语音回流</td></tr>
+          <tr><td><span class="pill tbd">TBD</span>执行与真实回读</td><td>动作最终在端侧</td><td>统一复核、幂等、车控、状态 Source、超时与结果协议</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <footer>对应主文档：PRD-系统预设任务端云一体配置与执行框架-v05.md · 本图只表达产品职责与数据合同，不代表现网物理部署。</footer>
+  </main>
+
+  <script>
+    var buttons = document.querySelectorAll("button[data-focus]");
+    buttons.forEach(function (button) {
+      button.addEventListener("click", function () {
+        document.body.setAttribute("data-focus", button.getAttribute("data-focus"));
+        buttons.forEach(function (item) { item.classList.remove("active"); });
+        button.classList.add("active");
+      });
+    });
+  </script>
+</body>
+</html>

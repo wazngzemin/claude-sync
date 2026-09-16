@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>豆包汽车｜语音 Query 到执行闭环 v02</title>
+  <style>
+    :root{
+      --bg:#050914;--panel:#0b1221;--panel2:#0f182a;--line:#26354c;--text:#edf4ff;--muted:#95a6bd;
+      --cyan:#38d9ff;--green:#44e6a2;--amber:#ffc857;--orange:#ff9156;--violet:#b49cff;--rose:#ff7890;
+      --blue:#6aa8ff;--gray:#718096;--danger:#ff5f72;
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{margin:0;background:radial-gradient(circle at 18% -10%,#13213d 0,transparent 34%),var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;line-height:1.55}
+    a{color:var(--cyan);text-decoration:none} a:hover{text-decoration:underline}
+    .page{max-width:1760px;margin:0 auto;padding:30px 30px 60px}
+    .hero{border:1px solid var(--line);border-radius:22px;background:linear-gradient(135deg,rgba(19,34,60,.96),rgba(8,14,27,.96));padding:28px 30px;position:relative;overflow:hidden}
+    .hero:after{content:"";position:absolute;width:420px;height:420px;border-radius:50%;right:-160px;top:-270px;background:rgba(56,217,255,.08);filter:blur(4px)}
+    .eyebrow{font:700 12px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.16em;color:var(--cyan);text-transform:uppercase}
+    h1{font-size:34px;line-height:1.18;margin:12px 0 10px;letter-spacing:-.03em}
+    .lead{max-width:1120px;color:#b9c7da;font-size:15px;margin:0}
+    .hero-grid{display:grid;grid-template-columns:1.35fr .65fr;gap:18px;margin-top:22px}
+    .verdict{border-left:4px solid var(--amber);background:rgba(255,200,87,.07);border-radius:0 12px 12px 0;padding:13px 16px;color:#dbe5f3;font-size:14px}
+    .meta{display:flex;flex-wrap:wrap;gap:8px;align-content:flex-start}
+    .pill{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:999px;padding:7px 11px;color:#c6d2e2;background:#09111f;font-size:12px;white-space:nowrap}
+    .dot{width:8px;height:8px;border-radius:50%}.current{background:var(--green)}.prd{background:var(--blue)}.wip{background:var(--amber)}.proposal{background:var(--violet)}.wrong{background:var(--danger)}
+    nav{position:sticky;top:0;z-index:30;margin:16px 0;background:rgba(5,9,20,.89);backdrop-filter:blur(14px);border:1px solid var(--line);border-radius:14px;padding:10px 14px;display:flex;gap:10px;flex-wrap:wrap}
+    nav a{font-size:12px;color:#b7c5d8;padding:6px 10px;border-radius:8px;background:#0c1525} nav a:hover{background:#14213a;color:#fff;text-decoration:none}
+    section{margin-top:20px;border:1px solid var(--line);border-radius:18px;background:rgba(11,18,33,.86);padding:22px;box-shadow:0 20px 55px rgba(0,0,0,.18)}
+    .section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-bottom:14px}
+    h2{margin:0;font-size:22px;letter-spacing:-.02em} h3{font-size:16px;margin:0 0 9px}.desc{font-size:13px;color:var(--muted);max-width:900px;margin:5px 0 0}
+    .diagram{overflow-x:auto;border:1px solid #1b2a40;border-radius:14px;background:#070d19;padding:8px}
+    svg{display:block;width:100%;min-width:1480px;height:auto}
+    .lane{fill:#09111f;stroke:#223149;stroke-width:1}.lane.endpoint{fill:#071923}.lane.cloud{fill:#0c1125}.lane.output{fill:#11131f}.lane.control{fill:#12131d}
+    .laneLabel{font:700 14px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.12em}
+    .edge{fill:none;stroke:#69809e;stroke-width:2}.edge.cyan{stroke:var(--cyan)}.edge.green{stroke:var(--green)}.edge.amber{stroke:var(--amber)}.edge.violet{stroke:var(--violet)}.edge.rose{stroke:var(--rose)}.edge.dash{stroke-dasharray:8 7}.edge.thick{stroke-width:3}
+    .edgeLabel{font:600 12px ui-monospace,SFMono-Regular,Menlo,monospace;fill:#9fb0c7}.edgeLabel.cyan{fill:var(--cyan)}.edgeLabel.green{fill:var(--green)}.edgeLabel.amber{fill:var(--amber)}.edgeLabel.violet{fill:var(--violet)}.edgeLabel.rose{fill:var(--rose)}
+    .box{fill:#111c2f;stroke:#40516c;stroke-width:1.3}.box.cyan{fill:#092231;stroke:var(--cyan)}.box.green{fill:#08271e;stroke:var(--green)}.box.amber{fill:#2a210e;stroke:var(--amber)}.box.violet{fill:#18132e;stroke:var(--violet)}.box.rose{fill:#2b1019;stroke:var(--rose)}.box.gray{fill:#141b26;stroke:#68758a}.box.dashed{stroke-dasharray:8 6}
+    .nodeTitle{font:700 16px -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;fill:#f7fbff}.nodeText{font:400 12.5px -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;fill:#aebed2}.nodeCode{font:600 11.5px ui-monospace,SFMono-Regular,Menlo,monospace;fill:#91a6c1}.nodeWarn{font:700 11.5px -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;fill:var(--amber)}
+    .tag{font:700 10px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em}.tagBg.current{fill:#0d4c38}.tagBg.prd{fill:#173a6d}.tagBg.wip{fill:#5d440e}.tagBg.proposal{fill:#33236b}.tagBg.risk{fill:#682032}.tagText{fill:#fff}
+    .note-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}.note{background:#0a1322;border:1px solid #21304a;border-radius:12px;padding:14px}.note p{font-size:12.5px;color:#aebdd0;margin:5px 0 0}.note strong{color:#fff}
+    .callout{margin-top:14px;border:1px solid rgba(255,200,87,.35);background:rgba(255,200,87,.06);border-radius:12px;padding:13px 15px;color:#cbd6e5;font-size:13px}.callout strong{color:var(--amber)}
+    table{border-collapse:collapse;width:100%;font-size:13px}th,td{border-bottom:1px solid #223149;padding:12px 10px;vertical-align:top;text-align:left}th{color:#8fa5be;font-size:11px;letter-spacing:.08em;text-transform:uppercase;background:#0a1322;position:sticky;top:58px}td:first-child{width:52px;color:var(--rose);font:700 12px ui-monospace,SFMono-Regular,Menlo,monospace}td:nth-child(2){width:27%;color:#f0f5fb}td:nth-child(3){color:#b5c3d5}.status{display:inline-block;font-size:10px;font-weight:700;border-radius:999px;padding:3px 8px;white-space:nowrap}.status.red{color:#ffd8de;background:#541827}.status.green{color:#cbffe8;background:#114231}.status.amber{color:#ffe7a7;background:#4d390e}.status.violet{color:#e5ddff;background:#30215b}
+    .evidence{display:grid;grid-template-columns:1fr 1fr;gap:12px}.source{border:1px solid #223149;border-radius:12px;padding:14px;background:#09111f}.source-title{display:flex;gap:8px;align-items:center;justify-content:space-between}.source h3{font-size:14px;margin:0}.source p{font-size:12px;color:#9fb0c7;margin:8px 0 0}.path{word-break:break-all;color:#7e93ad;font:11px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;margin-top:8px}
+    .depth{display:grid;grid-template-columns:1.25fr 1fr 1fr;gap:12px}.depth-card{padding:15px;border-radius:12px;border:1px solid #273853;background:#09111f}.depth-card.primary{border-color:rgba(255,120,144,.5);background:rgba(86,20,35,.18)}.depth-card h3{margin:0 0 8px}.depth-card ul{margin:0;padding-left:18px;color:#aebed2;font-size:12.5px}.depth-card li+li{margin-top:6px}
+    .footer{font-size:11px;color:#667a94;text-align:center;margin-top:20px}
+    @media(max-width:900px){.page{padding:14px}.hero-grid,.evidence,.depth,.note-grid{grid-template-columns:1fr}h1{font-size:27px}.section-head{display:block}section{padding:14px}}
+  </style>
+</head>
+<body>
+<div class="page">
+  <header class="hero">
+    <div class="eyebrow">Driver Agent 2.0 · Architecture Atlas · v02</div>
+    <h1>语音 Query → 决策 → 执行 → 长时任务：可验证的全链路</h1>
+    <p class="lead">这不是把原图继续“加框”，而是先拆开五种不同性质的链路：实时请求、端云分流、Planner/Director 多轮闭环、Task/Trigger 生命周期、两条 VLM 感知流。每个模块都标明证据状态，避免把旧架构、WIP 和产品提案误画成同一套线上系统。</p>
+    <div class="hero-grid">
+      <div class="verdict"><strong>结论：</strong>原图覆盖面很广，但不能按一条实际时序来理解。最严重的三处是：把 Planner 与 Director 画成两个大脑；把配置平台塞进每次 Query 的实时链；把 TTS、数字人、车控画成串行。新版的唯一决策主心骨是 <strong>Context 组装 → Planner/Director → action_list / talk_content → 执行反馈 → 下一轮决策</strong>。</div>
+      <div class="meta">
+        <span class="pill"><span class="dot current"></span>当前协议快照</span>
+        <span class="pill"><span class="dot prd"></span>已确认 PRD / 技术方案</span>
+        <span class="pill"><span class="dot wip"></span>WIP 目标架构</span>
+        <span class="pill"><span class="dot proposal"></span>产品补充提案</span>
+        <span class="pill"><span class="dot wrong"></span>原图误导点</span>
+      </div>
+    </div>
+  </header>
+
+  <nav>
+    <a href="#master">01 总链路</a><a href="#task">02 长时任务</a><a href="#vlm">03 两条 VLM 流</a><a href="#state">04 状态机</a><a href="#corrections">05 原图纠错</a><a href="#depth">06 你要学多深</a><a href="#evidence">07 证据台账</a>
+  </nav>
+
+  <section id="master">
+    <div class="section-head"><div><h2>01｜实时主链：从声音到用户真正拿到结果</h2><p class="desc">蓝色是一次用户请求的主干；绿色是执行；粉色虚线是反馈回路。Advisor、事件和 tool_feedback 都是“触发本轮推理的输入”，Context 是推理前组装的参考快照，不是 Director 之后的下游模块。</p></div><span class="pill"><span class="dot current"></span>协议 + 旧 PRD 可确认</span></div>
+    <div class="diagram">
+      <svg viewBox="0 0 1800 1120" role="img" aria-label="豆包汽车实时请求端到端主链路">
+        <defs>
+          <marker id="mArrow" markerWidth="11" markerHeight="8" refX="10" refY="4" orient="auto"><path d="M0,0 L11,4 L0,8 Z" fill="#69809e"/></marker>
+          <marker id="mCyan" markerWidth="11" markerHeight="8" refX="10" refY="4" orient="auto"><path d="M0,0 L11,4 L0,8 Z" fill="#38d9ff"/></marker>
+          <marker id="mGreen" markerWidth="11" markerHeight="8" refX="10" refY="4" orient="auto"><path d="M0,0 L11,4 L0,8 Z" fill="#44e6a2"/></marker>
+          <marker id="mRose" markerWidth="11" markerHeight="8" refX="10" refY="4" orient="auto"><path d="M0,0 L11,4 L0,8 Z" fill="#ff7890"/></marker>
+          <marker id="mViolet" markerWidth="11" markerHeight="8" refX="10" refY="4" orient="auto"><path d="M0,0 L11,4 L0,8 Z" fill="#b49cff"/></marker>
+        </defs>
+        <rect class="lane endpoint" x="20" y="55" width="1760" height="270" rx="18"/><text class="laneLabel" x="45" y="86" fill="#38d9ff">ENDPOINT · 端侧输入与快路径</text>
+        <rect class="lane cloud" x="20" y="345" width="1760" height="435" rx="18"/><text class="laneLabel" x="45" y="378" fill="#b49cff">CLOUD / LOGICAL · 输入汇聚、上下文与决策</text>
+        <rect class="lane output" x="20" y="800" width="1760" height="270" rx="18"/><text class="laneLabel" x="45" y="833" fill="#ff9156">EXECUTION &amp; EXPERIENCE · 执行、呈现、反馈</text>
+
+        <!-- edges first -->
+        <path class="edge cyan thick" d="M210 178 H255" marker-end="url(#mCyan)"/><path class="edge cyan thick" d="M445 178 H490" marker-end="url(#mCyan)"/><path class="edge cyan thick" d="M690 178 H735" marker-end="url(#mCyan)"/>
+        <path class="edge cyan" d="M945 150 H1000" marker-end="url(#mCyan)"/><path class="edge green" d="M1190 150 H1245" marker-end="url(#mGreen)"/><path class="edge green" d="M1435 150 H1490" marker-end="url(#mGreen)"/>
+        <path class="edge cyan" d="M840 245 V430 H920" marker-end="url(#mCyan)"/>
+        <path class="edge rose dash" d="M840 245 V254 H695 V262" marker-end="url(#mRose)"/>
+        <path class="edge cyan thick" d="M1110 487 H1160" marker-end="url(#mCyan)"/><path class="edge cyan thick" d="M1360 487 H1410" marker-end="url(#mCyan)"/><path class="edge cyan" d="M1600 487 H1650" marker-end="url(#mCyan)"/>
+        <path class="edge violet" d="M820 640 H920 V545" marker-end="url(#mViolet)"/><path class="edge violet" d="M1060 640 H1015 V545" marker-end="url(#mViolet)"/><path class="edge rose" d="M1300 640 H1105 V545" marker-end="url(#mRose)"/>
+        <path class="edge green" d="M1745 545 V690 H1505" marker-end="url(#mGreen)"/>
+        <path class="edge amber" d="M1505 545 V850 H1130" marker-end="url(#mArrow)"/>
+        <path class="edge green" d="M1505 545 V640" marker-end="url(#mGreen)"/>
+        <path class="edge violet" d="M1505 545 V760 H900 V850" marker-end="url(#mViolet)"/>
+        <path class="edge green" d="M1510 700 H1560" marker-end="url(#mGreen)"/><path class="edge green" d="M1650 760 V790 H1275 V850" marker-end="url(#mGreen)"/>
+        <path class="edge rose dash" d="M1680 760 V782 H1195 V690" marker-end="url(#mRose)"/>
+        <path class="edge amber" d="M1615 206 V325 H1325 V850" marker-end="url(#mArrow)"/>
+        <path class="edge green dash" d="M1690 206 V330 H1260 V415" marker-end="url(#mGreen)"/>
+        <path class="edge amber" d="M1130 910 H1180" marker-end="url(#mArrow)"/><path class="edge amber" d="M1370 910 H1420" marker-end="url(#mArrow)"/>
+        <path class="edge green" d="M1610 910 H1660" marker-end="url(#mGreen)"/>
+
+        <text class="edgeLabel cyan" x="835" y="414">复杂 / 非快路径</text><text class="edgeLabel rose" x="640" y="286">低置信度 / 拒识修复</text>
+        <text class="edgeLabel violet" x="835" y="622">advisor</text><text class="edgeLabel violet" x="1070" y="622">event / trigger_fired</text><text class="edgeLabel rose" x="1240" y="622">tool_feedback</text>
+        <text class="edgeLabel amber" x="1265" y="835">talk_content + emoji_id</text><text class="edgeLabel green" x="1518" y="616">action_list</text><text class="edgeLabel violet" x="915" y="793">条件 / 定时 / 持续任务 → 图 02</text>
+        <text class="edgeLabel rose" x="1220" y="777">结构化 tool_feedback 回到统一入口，触发下一轮</text><text class="edgeLabel green" x="1320" y="318">observed_state / 车辆信号回写 → 修正下一轮 Context</text>
+
+        <!-- nodes -->
+        <g><rect class="box cyan" x="40" y="115" width="170" height="126" rx="12"/><text class="nodeTitle" x="57" y="143">M01 原始声音</text><text class="nodeText" x="57" y="168">麦克风阵列 / 唤醒</text><text class="nodeText" x="57" y="188">AEC降噪 / VAD断句</text><text class="nodeText" x="57" y="208">声源定位 / 打断</text><rect class="tagBg prd" x="57" y="217" width="58" height="17" rx="8"/><text class="tag tagText" x="67" y="229">旧PRD</text></g>
+        <g><rect class="box cyan" x="255" y="115" width="190" height="126" rx="12"/><text class="nodeTitle" x="272" y="143">M02 ASR</text><text class="nodeText" x="272" y="168">audio → partial / final text</text><text class="nodeText" x="272" y="188">置信度、时间、音区</text><text class="nodeWarn" x="272" y="211">ASR 后才形成 query</text></g>
+        <g><rect class="box cyan" x="490" y="105" width="200" height="146" rx="12"/><text class="nodeTitle" x="507" y="134">M03 请求信封</text><text class="nodeCode" x="507" y="159">user_query</text><text class="nodeText" x="507" y="179">query / speaker / position</text><text class="nodeText" x="507" y="199">timestamp / session / trace</text><text class="nodeWarn" x="507" y="223">输入 ≠ 环境信号库</text></g>
+        <g><rect class="box amber" x="735" y="105" width="210" height="146" rx="12"/><text class="nodeTitle" x="752" y="134">M04 统一路由 / 仲裁</text><text class="nodeText" x="752" y="159">拒识、端云、能力与超时</text><text class="nodeText" x="752" y="179">端快路径 / 云FC / Director</text><text class="nodeText" x="752" y="199">避免端云重复执行</text><rect class="tagBg prd" x="752" y="216" width="58" height="17" rx="8"/><text class="tag tagText" x="762" y="228">旧PRD</text></g>
+        <g><rect class="box green" x="1000" y="94" width="190" height="112" rx="12"/><text class="nodeTitle" x="1017" y="124">M05 端侧快路径</text><text class="nodeText" x="1017" y="150">简单高频车控 FC</text><text class="nodeText" x="1017" y="171">白名单命中才优先</text><text class="nodeCode" x="1017" y="191">fallback on cloud timeout</text></g>
+        <g><rect class="box green" x="1245" y="94" width="190" height="112" rx="12"/><text class="nodeTitle" x="1262" y="124">M06 强制执行校验</text><text class="nodeText" x="1262" y="150">车型能力 / 权限 / 安全</text><text class="nodeText" x="1262" y="171">参数、座位、档位、幂等</text><text class="nodeWarn" x="1262" y="191">端云动作都要经过</text></g>
+        <g><rect class="box green" x="1490" y="94" width="250" height="112" rx="12"/><text class="nodeTitle" x="1507" y="124">M07 车端执行与回读</text><text class="nodeText" x="1507" y="150">下发 ECU / 媒体 / 导航能力</text><text class="nodeText" x="1507" y="171">受理 ≠ 生效；读 observed_state</text><text class="nodeCode" x="1507" y="191">action_id / status / error</text></g>
+        <g><rect class="box rose" x="560" y="262" width="270" height="56" rx="12"/><text class="nodeTitle" x="575" y="285">M04-R 拒识修复</text><text class="nodeText" x="575" y="306">确认关键数字 / 请重说 → 用户改口后生成新请求</text></g>
+
+        <g><rect class="box violet" x="920" y="430" width="190" height="115" rx="12"/><text class="nodeTitle" x="937" y="460">M08 统一输入入口</text><text class="nodeText" x="937" y="485">四类本轮输入之一</text><text class="nodeCode" x="937" y="507">query / advisor</text><text class="nodeCode" x="937" y="527">tool_feedback / event</text><rect class="tagBg current" x="1030" y="443" width="63" height="17" rx="8"/><text class="tag tagText" x="1039" y="455">SP快照</text></g>
+        <g><rect class="box violet" x="1160" y="415" width="200" height="145" rx="12"/><text class="nodeTitle" x="1177" y="445">M09 Context 组装</text><text class="nodeText" x="1177" y="470">车况 / 舱内视觉 / 记忆</text><text class="nodeText" x="1177" y="490">对话历史 / Task或Goal视图</text><text class="nodeText" x="1177" y="510">动态知识、示例、时效</text><text class="nodeWarn" x="1177" y="535">每轮决策前组装快照</text></g>
+        <g><rect class="box amber" x="1410" y="405" width="190" height="165" rx="12"/><text class="nodeTitle" x="1427" y="435">M10 Planner = Director</text><text class="nodeText" x="1427" y="462">理解目标、已知与未知</text><text class="nodeText" x="1427" y="482">拆步骤、排依赖、选工具</text><text class="nodeText" x="1427" y="502">决定说 / 做 / 等 / 问</text><text class="nodeCode" x="1427" y="529">talk_or_not · talk_content</text><text class="nodeCode" x="1427" y="549">emoji_id · action_list</text></g>
+        <g><rect class="box amber" x="1650" y="430" width="95" height="115" rx="12"/><text class="nodeTitle" x="1664" y="460">M11</text><text class="nodeText" x="1664" y="485">本轮</text><text class="nodeText" x="1664" y="505">决策</text><text class="nodeText" x="1664" y="525">分派</text></g>
+
+        <g><rect class="box violet" x="610" y="590" width="210" height="100" rx="12"/><text class="nodeTitle" x="627" y="620">S01 静态 Advisor</text><text class="nodeText" x="627" y="645">独立主动建议源</text><text class="nodeText" x="627" y="666">不是每个 Query 必经</text></g>
+        <g><rect class="box violet" x="850" y="590" width="210" height="100" rx="12"/><text class="nodeTitle" x="867" y="620">S02 系统事件 / Trigger</text><text class="nodeText" x="867" y="645">车辆状态、手动操作、任务命中</text><text class="nodeText" x="867" y="666">作为 event 唤起一轮</text></g>
+        <g><rect class="box rose" x="1090" y="590" width="210" height="100" rx="12"/><text class="nodeTitle" x="1107" y="620">S03 Tool / Agent 反馈</text><text class="nodeText" x="1107" y="645">成功 / 失败 / 拒绝 / 超时</text><text class="nodeText" x="1107" y="666">结果与可重试性</text></g>
+        <g><rect class="box green" x="1395" y="640" width="220" height="120" rx="12"/><text class="nodeTitle" x="1412" y="670">M12 Runtime Dispatcher</text><text class="nodeText" x="1412" y="695">依赖图：串行 / 并行</text><text class="nodeText" x="1412" y="715">校验、超时、重试、幂等</text><text class="nodeText" x="1412" y="735">结果聚合与路由</text><rect class="tagBg wip" x="1538" y="653" width="59" height="17" rx="8"/><text class="tag tagText" x="1548" y="665">目标层</text></g>
+        <g><rect class="box green" x="1560" y="640" width="180" height="120" rx="12"/><text class="nodeTitle" x="1577" y="670">M13 Tool / Agent</text><text class="nodeText" x="1577" y="695">车控 / 导航 / 音乐</text><text class="nodeText" x="1577" y="715">搜索 / 记忆 / VQA</text><text class="nodeText" x="1577" y="735">专业多步 Agent</text></g>
+
+        <g><rect class="box violet dashed" x="790" y="850" width="340" height="120" rx="12"/><text class="nodeTitle" x="807" y="880">M14 长时任务入口</text><text class="nodeText" x="807" y="905">当前快照：goal_list_update + Goal/Advisor/Trigger</text><text class="nodeText" x="807" y="927">WIP目标：task_manage → Task Service</text><text class="nodeWarn" x="807" y="951">两代机制不能画成同时已上线</text></g>
+        <g><rect class="box amber" x="1180" y="850" width="190" height="120" rx="12"/><text class="nodeTitle" x="1197" y="880">M15 响应协调器</text><text class="nodeText" x="1197" y="905">处理进度 / 最终态</text><text class="nodeText" x="1197" y="925">说做一致、避免先承诺</text><text class="nodeText" x="1197" y="945">部分工具可自播报</text></g>
+        <g><rect class="box amber" x="1420" y="850" width="190" height="120" rx="12"/><text class="nodeTitle" x="1437" y="880">M16 并列呈现通道</text><text class="nodeText" x="1437" y="905">TTS / 卡片 / AI PUSH</text><text class="nodeText" x="1437" y="925">emoji/数字人 / 任务岛</text><text class="nodeWarn" x="1437" y="948">不再串到车控前面</text></g>
+        <g><rect class="box green" x="1660" y="850" width="90" height="120" rx="12"/><text class="nodeTitle" x="1675" y="880">M17</text><text class="nodeText" x="1675" y="905">用户</text><text class="nodeText" x="1675" y="925">真实</text><text class="nodeText" x="1675" y="945">结果</text></g>
+      </svg>
+    </div>
+    <div class="note-grid"><div class="note"><h3>一次 Planner 调用是什么</h3><p><strong>固定 SP + 动态 Context + 本轮输入</strong>，输出 JSON 决策。它不是“一次性把整件事想完”，工具结果回来会再调用一轮。</p></div><div class="note"><h3>AI 能力真正落在哪里</h3><p>不是只看模型回答，而是看它能否利用 Context，正确拆动作、控制依赖、解释失败，并用真实反馈修正下一轮。</p></div><div class="note"><h3>完成的判定</h3><p><strong>action_list 生成 ≠ 下发成功 ≠ ECU 生效 ≠ 用户目标完成。</strong>四层状态必须在指标和日志里分开。</p></div></div>
+  </section>
+
+  <section id="task">
+    <div class="section-head"><div><h2>02｜长期任务放大图：Task、Trigger、Run 谁负责什么</h2><p class="desc">这一段必须显式区分“当前 SP 暴露的 Goal List 链”和“[WIP] Task Service 目标架构”。下面画的是 WIP 目标架构的职责与时序，用黄色虚线表示尚不能宣称已全量上线。</p></div><span class="pill"><span class="dot wip"></span>WIP 目标架构</span></div>
+    <div class="diagram">
+      <svg viewBox="0 0 1800 1130" role="img" aria-label="Task Service Trigger Run 长时任务链路">
+        <defs><marker id="lArrow" markerWidth="11" markerHeight="8" refX="10" refY="4" orient="auto"><path d="M0,0 L11,4 L0,8 Z" fill="#69809e"/></marker><marker id="lGreen" markerWidth="11" markerHeight="8" refX="10" refY="4" orient="auto"><path d="M0,0 L11,4 L0,8 Z" fill="#44e6a2"/></marker><marker id="lViolet" markerWidth="11" markerHeight="8" refX="10" refY="4" orient="auto"><path d="M0,0 L11,4 L0,8 Z" fill="#b49cff"/></marker><marker id="lRose" markerWidth="11" markerHeight="8" refX="10" refY="4" orient="auto"><path d="M0,0 L11,4 L0,8 Z" fill="#ff7890"/></marker></defs>
+        <rect class="lane cloud" x="20" y="50" width="1760" height="715" rx="18"/><text class="laneLabel" x="45" y="82" fill="#b49cff">TASK CONTROL PLANE · 任务事实、触发注册与运行分发</text>
+        <rect class="lane output" x="20" y="785" width="1760" height="290" rx="18"/><text class="laneLabel" x="45" y="818" fill="#44e6a2">RUN EXECUTION &amp; CLOSURE · 执行反馈和生命周期收口</text>
+
+        <!-- edges first -->
+        <path class="edge violet thick" d="M240 165 H285" marker-end="url(#lViolet)"/><path class="edge violet" d="M485 165 H530" marker-end="url(#lViolet)"/><path class="edge violet" d="M730 165 H775" marker-end="url(#lViolet)"/><path class="edge violet" d="M975 165 H1020" marker-end="url(#lViolet)"/><path class="edge violet" d="M1220 165 H1265" marker-end="url(#lViolet)"/><path class="edge violet" d="M1465 165 H1510" marker-end="url(#lViolet)"/>
+        <path class="edge violet" d="M1640 225 V340" marker-end="url(#lViolet)"/>
+        <path class="edge cyan" d="M1510 420 H1430" marker-end="url(#lArrow)"/><path class="edge cyan" d="M1220 420 H1140" marker-end="url(#lArrow)"/><path class="edge cyan" d="M930 420 H850" marker-end="url(#lArrow)"/>
+        <path class="edge cyan" d="M640 420 H570" marker-end="url(#lArrow)"/><path class="edge cyan" d="M360 420 H290" marker-end="url(#lArrow)"/>
+        <path class="edge violet" d="M185 480 V575 H420" marker-end="url(#lViolet)"/><path class="edge violet" d="M630 625 H700" marker-end="url(#lViolet)"/><path class="edge violet" d="M910 625 H980" marker-end="url(#lViolet)"/><path class="edge violet" d="M1190 625 H1260" marker-end="url(#lViolet)"/>
+        <path class="edge green" d="M1470 625 H1540 V865 H1485" marker-end="url(#lGreen)"/>
+        <path class="edge green" d="M1275 920 H1195" marker-end="url(#lGreen)"/><path class="edge green" d="M985 920 H905" marker-end="url(#lGreen)"/><path class="edge green" d="M695 920 H615" marker-end="url(#lGreen)"/><path class="edge green" d="M405 920 H325" marker-end="url(#lGreen)"/>
+        <path class="edge rose dash" d="M510 865 V790 H1740 V225" marker-end="url(#lRose)"/>
+
+        <text class="edgeLabel violet" x="305" y="145">action_list</text><text class="edgeLabel violet" x="530" y="145">task_manage</text><text class="edgeLabel violet" x="1030" y="145">persist</text><text class="edgeLabel violet" x="1280" y="145">RuleSpec</text>
+        <text class="edgeLabel cyan" x="1470" y="401">signal / time / VLM report</text><text class="edgeLabel cyan" x="670" y="401">TriggerCallback(task_id, callback_id)</text>
+        <text class="edgeLabel violet" x="670" y="604">idempotent Run</text><text class="edgeLabel green" x="1335" y="846">dispatch</text><text class="edgeLabel rose" x="205" y="548">通用路径重新唤醒 Planner，继续本轮 action 决策</text>
+        <text class="edgeLabel rose" x="1000" y="844">结构化 RunResult 回写</text><text class="edgeLabel rose" x="1080" y="778">完成后清理 Trigger / 动态 VLM；失败按策略保留或重试</text>
+
+        <!-- top nodes -->
+        <g><rect class="box amber dashed" x="50" y="105" width="190" height="120" rx="12"/><text class="nodeTitle" x="67" y="135">T01 Planner/Director</text><text class="nodeText" x="67" y="160">判断这是长期任务</text><text class="nodeText" x="67" y="181">只路由任务文本/运行提示</text><text class="nodeWarn" x="67" y="205">不自己持久化 Task</text></g>
+        <g><rect class="box violet dashed" x="285" y="105" width="200" height="120" rx="12"/><text class="nodeTitle" x="302" y="135">T02 Task Agent</text><text class="nodeText" x="302" y="160">薄入口：解析参数</text><text class="nodeText" x="302" y="181">转给 Task Ingress</text><text class="nodeWarn" x="302" y="205">不推进生命周期</text></g>
+        <g><rect class="box violet dashed" x="530" y="105" width="200" height="120" rx="12"/><text class="nodeTitle" x="547" y="135">T03 Ingress / Spec Builder</text><text class="nodeText" x="547" y="160">create / update / cancel</text><text class="nodeText" x="547" y="181">TaskSpec / EndPolicy</text><text class="nodeText" x="547" y="202">能力与输入校验</text></g>
+        <g><rect class="box violet dashed" x="775" y="105" width="200" height="120" rx="12"/><text class="nodeTitle" x="792" y="135">T04 Task Manager</text><text class="nodeText" x="792" y="160">确定性状态迁移</text><text class="nodeText" x="792" y="181">事件、事务、并发控制</text><text class="nodeText" x="792" y="202">创建/恢复/关闭 Run</text></g>
+        <g><rect class="box violet dashed" x="1020" y="105" width="200" height="120" rx="12"/><text class="nodeTitle" x="1037" y="135">T05 Repository</text><text class="nodeText" x="1037" y="160">Task / Run / Event</text><text class="nodeText" x="1037" y="181">Binding / TaskView</text><text class="nodeText" x="1037" y="202">唯一事实源</text></g>
+        <g><rect class="box violet dashed" x="1265" y="105" width="200" height="120" rx="12"/><text class="nodeTitle" x="1282" y="135">T06 Trigger Adapter</text><text class="nodeText" x="1282" y="160">Task Rule → Trigger 协议</text><text class="nodeText" x="1282" y="181">补 callback / scope / source</text><text class="nodeWarn" x="1282" y="205">避免第二套 DSL</text></g>
+        <g><rect class="box violet dashed" x="1510" y="105" width="260" height="120" rx="12"/><text class="nodeTitle" x="1527" y="135">T07 Trigger 注册与监听</text><text class="nodeText" x="1527" y="160">scene / rule / execute policy</text><text class="nodeText" x="1527" y="181">匹配时间、结构化信号或语义</text><text class="nodeText" x="1527" y="202">命中只代表“可产生一次运行”</text></g>
+
+        <!-- trigger branches -->
+        <g><rect class="box cyan dashed" x="1510" y="340" width="260" height="160" rx="12"/><text class="nodeTitle" x="1527" y="370">T08 三类触发运行时</text><text class="nodeText" x="1527" y="397">① schedule：延时 / 周期</text><text class="nodeText" x="1527" y="419">② signal：端云结构化状态</text><text class="nodeText" x="1527" y="441">③ vlm_inference：goal + data</text><text class="nodeText" x="1527" y="465">防抖 / 冷却 / 去重 / 过期</text><text class="nodeWarn" x="1527" y="486">执行动作不藏在 Trigger 内</text></g>
+        <g><rect class="box cyan dashed" x="1220" y="360" width="210" height="120" rx="12"/><text class="nodeTitle" x="1237" y="390">T09 标准回调</text><text class="nodeCode" x="1237" y="416">task_id / callback_id</text><text class="nodeCode" x="1237" y="437">triggered_at / channel</text><text class="nodeText" x="1237" y="460">不自由回调 Advisor</text></g>
+        <g><rect class="box cyan dashed" x="930" y="360" width="210" height="120" rx="12"/><text class="nodeTitle" x="947" y="390">T10 Task Ingress</text><text class="nodeText" x="947" y="416">恢复 Binding 与 Task</text><text class="nodeText" x="947" y="437">callback 幂等 / 迟到过滤</text><text class="nodeText" x="947" y="458">只创建一个 Run</text></g>
+        <g><rect class="box cyan dashed" x="640" y="360" width="210" height="120" rx="12"/><text class="nodeTitle" x="657" y="390">T11 执行前检查</text><text class="nodeText" x="657" y="416">Task 未取消/未更新</text><text class="nodeText" x="657" y="437">对象、位置、权限、安全</text><text class="nodeText" x="657" y="458">失败则等待/跳过/关闭</text></g>
+        <g><rect class="box cyan dashed" x="360" y="360" width="210" height="120" rx="12"/><text class="nodeTitle" x="377" y="390">T12 创建 Run</text><text class="nodeText" x="377" y="416">activation_id / run_key</text><text class="nodeText" x="377" y="437">waiting → running</text><text class="nodeText" x="377" y="458">一次激活一次运行</text></g>
+        <g><rect class="box cyan dashed" x="80" y="360" width="210" height="120" rx="12"/><text class="nodeTitle" x="97" y="390">T13 Runtime 路由</text><text class="nodeText" x="97" y="416">通用任务 / 生态 Provider</text><text class="nodeText" x="97" y="437">Planner / Agent / Tool / 直执</text><text class="nodeText" x="97" y="458">不绑定单一路径</text></g>
+
+        <g><rect class="box amber dashed" x="420" y="575" width="210" height="100" rx="12"/><text class="nodeTitle" x="437" y="605">T14 Recommend / Frontier</text><text class="nodeText" x="437" y="630">生成 recommend_id</text><text class="nodeText" x="437" y="651">唤醒车端 Client</text></g>
+        <g><rect class="box amber dashed" x="700" y="575" width="210" height="100" rx="12"/><text class="nodeTitle" x="717" y="605">T15 Client 回流</text><text class="nodeText" x="717" y="630">vehicle_id + recommend_id</text><text class="nodeText" x="717" y="651">恢复 Task / Run</text></g>
+        <g><rect class="box amber dashed" x="980" y="575" width="210" height="100" rx="12"/><text class="nodeTitle" x="997" y="605">T16 Planner 新一轮</text><text class="nodeText" x="997" y="630">任务文本 + 最新 Context</text><text class="nodeText" x="997" y="651">决定本轮 action_list</text></g>
+        <g><rect class="box amber dashed" x="1260" y="575" width="210" height="100" rx="12"/><text class="nodeTitle" x="1277" y="605">T17 Runtime Dispatcher</text><text class="nodeText" x="1277" y="630">执行 Planner/Agent/Tool</text><text class="nodeText" x="1277" y="651">或生态 Provider</text></g>
+
+        <g><rect class="box green dashed" x="1275" y="865" width="210" height="120" rx="12"/><text class="nodeTitle" x="1292" y="895">T18 真实执行</text><text class="nodeText" x="1292" y="920">工具 / Agent / GUI Provider</text><text class="nodeText" x="1292" y="941">成功、失败、部分成功</text><text class="nodeText" x="1292" y="962">结构化结果</text></g>
+        <g><rect class="box green dashed" x="985" y="865" width="210" height="120" rx="12"/><text class="nodeTitle" x="1002" y="895">T19 RunResult</text><text class="nodeText" x="1002" y="920">status / error / retryable</text><text class="nodeText" x="1002" y="941">observed_state / outputs</text><text class="nodeText" x="1002" y="962">回到 Task Manager</text></g>
+        <g><rect class="box green dashed" x="695" y="865" width="210" height="120" rx="12"/><text class="nodeTitle" x="712" y="895">T20 生命周期收口</text><text class="nodeText" x="712" y="920">one-shot success → closed</text><text class="nodeText" x="712" y="941">periodic → waiting</text><text class="nodeText" x="712" y="962">fail → retry / retain / close</text></g>
+        <g><rect class="box green dashed" x="405" y="865" width="210" height="120" rx="12"/><text class="nodeTitle" x="422" y="895">T21 清理外部绑定</text><text class="nodeText" x="422" y="920">注销 Trigger scene</text><text class="nodeText" x="422" y="941">移除动态 VLM 任务</text><text class="nodeText" x="422" y="962">防悬挂与重复触发</text></g>
+        <g><rect class="box green dashed" x="115" y="865" width="210" height="120" rx="12"/><text class="nodeTitle" x="132" y="895">T22 TaskMessage / HMI</text><text class="nodeText" x="132" y="920">状态消息、任务卡、任务岛</text><text class="nodeText" x="132" y="941">由事实状态驱动</text><text class="nodeWarn" x="132" y="962">不是由模型口头承诺驱动</text></g>
+      </svg>
+    </div>
+    <div class="callout"><strong>版本边界：</strong>2026-07-31 的当前 SP 仍是 <code>goal_list_update</code>；本地 <code>[WIP][技术方案]Task 任务管理设计</code> 才提出 <code>task_manage → Task Agent → Task Service → TaskView/Run</code>。所以图中黄色虚线用于“你应该理解的目标职责”，不能在汇报里直接写成“当前线上已经如此”。</div>
+  </section>
+
+  <section id="vlm">
+    <div class="section-head"><div><h2>03｜两条 VLM 感知流：默认 AlwaysOn 与任务专属观察不能串起来</h2><p class="desc">原图把视觉、VQA、Trigger VLM 推理揉成一条。正确理解是：默认感知用于生成最新环境事实，任务专属流才携带 task_id 与某个用户目标绑定；用户主动问“你看到了什么”又是独立的按需 VQA 工具。</p></div><span class="pill"><span class="dot prd"></span>飞书原始文字记录 + 最新技术方案</span></div>
+    <div class="diagram">
+      <svg viewBox="0 0 1800 1100" role="img" aria-label="默认 AlwaysOn 与任务专属 VLM 双链路">
+        <defs><marker id="vArrow" markerWidth="11" markerHeight="8" refX="10" refY="4" orient="auto"><path d="M0,0 L11,4 L0,8 Z" fill="#69809e"/></marker><marker id="vCyan" markerWidth="11" markerHeight="8" refX="10" refY="4" orient="auto"><path d="M0,0 L11,4 L0,8 Z" fill="#38d9ff"/></marker><marker id="vGreen" markerWidth="11" markerHeight="8" refX="10" refY="4" orient="auto"><path d="M0,0 L11,4 L0,8 Z" fill="#44e6a2"/></marker><marker id="vViolet" markerWidth="11" markerHeight="8" refX="10" refY="4" orient="auto"><path d="M0,0 L11,4 L0,8 Z" fill="#b49cff"/></marker><marker id="vRose" markerWidth="11" markerHeight="8" refX="10" refY="4" orient="auto"><path d="M0,0 L11,4 L0,8 Z" fill="#ff7890"/></marker></defs>
+        <rect class="lane endpoint" x="20" y="50" width="1760" height="310" rx="18"/><text class="laneLabel" x="45" y="82" fill="#38d9ff">A · 默认 AlwaysOn 感知流｜无用户 task_id，形成环境事实</text>
+        <rect class="lane cloud" x="20" y="385" width="1760" height="555" rx="18"/><text class="laneLabel" x="45" y="417" fill="#b49cff">B · 任务专属感知流｜Task Service 创建后才存在，结果与 task_id 绑定</text>
+        <rect class="lane control" x="20" y="965" width="1760" height="95" rx="18"/><text class="laneLabel" x="45" y="997" fill="#ffc857">C · 按需视觉问答是第三条路：Planner → visual_qa/VQA 工具 → result/description → tool_feedback → Planner；不要并入长期观察</text>
+
+        <!-- edges first -->
+        <path class="edge cyan" d="M245 190 H300" marker-end="url(#vCyan)"/><path class="edge cyan" d="M520 190 H575" marker-end="url(#vCyan)"/><path class="edge cyan" d="M795 190 H850" marker-end="url(#vCyan)"/><path class="edge cyan" d="M1070 190 H1125" marker-end="url(#vCyan)"/><path class="edge cyan" d="M1345 190 H1400" marker-end="url(#vCyan)"/><path class="edge cyan" d="M1620 190 H1660" marker-end="url(#vCyan)"/>
+        <path class="edge violet" d="M235 520 H280" marker-end="url(#vViolet)"/><path class="edge violet" d="M500 520 H545" marker-end="url(#vViolet)"/><path class="edge violet" d="M765 520 H810" marker-end="url(#vViolet)"/><path class="edge violet" d="M1030 520 H1075" marker-end="url(#vViolet)"/><path class="edge violet" d="M1295 520 H1340" marker-end="url(#vViolet)"/><path class="edge violet" d="M1560 520 H1605" marker-end="url(#vViolet)"/>
+        <path class="edge green" d="M1690 580 V705 H1535" marker-end="url(#vGreen)"/><path class="edge green" d="M1315 765 H1260" marker-end="url(#vGreen)"/><path class="edge green" d="M1040 765 H985" marker-end="url(#vGreen)"/><path class="edge green" d="M765 765 H710" marker-end="url(#vGreen)"/>
+        <path class="edge rose dash" d="M490 765 H435" marker-end="url(#vRose)"/><path class="edge rose dash" d="M215 765 H125 V520 H280" marker-end="url(#vRose)"/>
+        <path class="edge violet dash" d="M1235 260 V335 H390 V470" marker-end="url(#vViolet)"/>
+        <path class="edge rose dash" d="M955 260 V330 H1180 V470" marker-end="url(#vRose)"/>
+
+        <text class="edgeLabel cyan" x="600" y="171">周期产生</text><text class="edgeLabel cyan" x="1125" y="171">最新快照</text><text class="edgeLabel cyan" x="1415" y="171">进入 Context</text>
+        <text class="edgeLabel violet" x="560" y="501">全量替换任务列表</text><text class="edgeLabel violet" x="1090" y="501">task_id + task_version + result</text><text class="edgeLabel violet" x="1348" y="501">POST report</text>
+        <text class="edgeLabel green" x="1515" y="686">TriggerRun：一次一条任务结果</text><text class="edgeLabel green" x="1045" y="746">达成</text><text class="edgeLabel rose" x="500" y="746">未达成 / 无法判断：继续等下一次</text>
+        <text class="edgeLabel violet" x="600" y="322">提案：创建前可先检查默认能力与 Context 新鲜度</text><text class="edgeLabel rose" x="1190" y="322">当前技术链：动态结果不直接写入 Context</text>
+
+        <!-- AlwaysOn nodes -->
+        <g><rect class="box cyan" x="45" y="125" width="200" height="130" rx="12"/><text class="nodeTitle" x="62" y="155">V01 车辆上电 / AlwaysOn</text><text class="nodeText" x="62" y="181">无用户任务也会运行</text><text class="nodeText" x="62" y="202">受开关、资源、可见区影响</text><text class="nodeText" x="62" y="223">不是 Trigger 的达成结论</text></g>
+        <g><rect class="box cyan" x="300" y="125" width="220" height="130" rx="12"/><text class="nodeTitle" x="317" y="155">V02 默认 VLM 推理</text><text class="nodeText" x="317" y="181">乘员 / 座位 / 动作 / 物品</text><text class="nodeText" x="317" y="202">周期不是严格固定 5 秒</text><text class="nodeText" x="317" y="223">结果有缺失、过期与抢占</text></g>
+        <g><rect class="box cyan" x="575" y="125" width="220" height="130" rx="12"/><text class="nodeTitle" x="592" y="155">V03 结构化默认结果</text><text class="nodeText" x="592" y="181">passenger / position</text><text class="nodeText" x="592" y="202">dynamic description / objects</text><text class="nodeText" x="592" y="223">observed_at / source</text></g>
+        <g><rect class="box cyan" x="850" y="125" width="220" height="130" rx="12"/><text class="nodeTitle" x="867" y="155">V04 端数据中心 / 状态</text><text class="nodeText" x="867" y="181">融合最新默认感知快照</text><text class="nodeText" x="867" y="202">保留时间与数据来源</text><text class="nodeText" x="867" y="223">不是完整历史仓库</text></g>
+        <g><rect class="box cyan" x="1125" y="125" width="220" height="130" rx="12"/><text class="nodeTitle" x="1142" y="155">V05 云 Context</text><text class="nodeText" x="1142" y="181">作为下一轮推理参考</text><text class="nodeText" x="1142" y="202">需处理 missing / stale</text><text class="nodeText" x="1142" y="223">不自动等于条件命中</text></g>
+        <g><rect class="box cyan" x="1400" y="125" width="220" height="130" rx="12"/><text class="nodeTitle" x="1417" y="155">V06 消费者</text><text class="nodeText" x="1417" y="181">Planner / 静态 Advisor</text><text class="nodeText" x="1417" y="202">可能的结构化条件判断</text><text class="nodeText" x="1417" y="223">是否复用需能力清单</text></g>
+        <g><rect class="box gray" x="1660" y="145" width="90" height="90" rx="12"/><text class="nodeTitle" x="1678" y="177">事实</text><text class="nodeText" x="1678" y="201">不是</text><text class="nodeText" x="1678" y="220">结论</text></g>
+
+        <!-- Dynamic nodes -->
+        <g><rect class="box violet" x="45" y="460" width="190" height="120" rx="12"/><text class="nodeTitle" x="62" y="490">D01 Task Service</text><text class="nodeText" x="62" y="516">创建视觉长时任务</text><text class="nodeText" x="62" y="537">最多 3 个活动感知目标</text><text class="nodeCode" x="62" y="558">task_id / target</text></g>
+        <g><rect class="box violet" x="280" y="460" width="220" height="120" rx="12"/><text class="nodeTitle" x="297" y="490">D02 两个下游动作</text><text class="nodeText" x="297" y="516">RegisterScene(vlm_inference)</text><text class="nodeText" x="297" y="537">经 Frontier 下发最新任务列表</text><text class="nodeWarn" x="297" y="558">列表是全量替换</text></g>
+        <g><rect class="box violet" x="545" y="460" width="220" height="120" rx="12"/><text class="nodeTitle" x="562" y="490">D03 端 AI Service</text><text class="nodeText" x="562" y="516">接收 / 合并 / 替换任务</text><text class="nodeText" x="562" y="537">同步给 AlwaysOn 推理任务</text><text class="nodeText" x="562" y="558">管理有效 task_version</text></g>
+        <g><rect class="box violet" x="810" y="460" width="220" height="120" rx="12"/><text class="nodeTitle" x="827" y="490">D04 任务专属 VLM</text><text class="nodeText" x="827" y="516">按目标持续观察</text><text class="nodeText" x="827" y="537">只输出看到的描述</text><text class="nodeWarn" x="827" y="558">不在端上判“目标达成”</text></g>
+        <g><rect class="box violet" x="1075" y="460" width="220" height="120" rx="12"/><text class="nodeTitle" x="1092" y="490">D05 带任务的结果</text><text class="nodeCode" x="1092" y="516">task_id / task_version</text><text class="nodeCode" x="1092" y="537">result / report_time</text><text class="nodeText" x="1092" y="558">与用户目标绑定</text></g>
+        <g><rect class="box violet" x="1340" y="460" width="220" height="120" rx="12"/><text class="nodeTitle" x="1357" y="490">D06 上报 Task Service</text><text class="nodeCode" x="1357" y="516">/vlm/result/report</text><text class="nodeText" x="1357" y="537">关闭/旧版本/过期先拦截</text><text class="nodeText" x="1357" y="558">然后映射对应 scene</text></g>
+        <g><rect class="box violet" x="1605" y="460" width="145" height="120" rx="12"/><text class="nodeTitle" x="1622" y="490">D07 TriggerRun</text><text class="nodeText" x="1622" y="516">单次单 task</text><text class="nodeText" x="1622" y="537">goal + data</text><text class="nodeText" x="1622" y="558">驱动云推理</text></g>
+
+        <g><rect class="box green" x="1315" y="705" width="220" height="120" rx="12"/><text class="nodeTitle" x="1332" y="735">D08 云端语义匹配</text><text class="nodeText" x="1332" y="761">感知目标 vs 本轮描述</text><text class="nodeText" x="1332" y="782">达成 / 未达成 / 无法判断</text><text class="nodeText" x="1332" y="803">依据可留日志，不等于回传</text></g>
+        <g><rect class="box green" x="1040" y="705" width="220" height="120" rx="12"/><text class="nodeTitle" x="1057" y="735">D09 TriggerCallback</text><text class="nodeText" x="1057" y="761">达成才回 Task Service</text><text class="nodeText" x="1057" y="782">场景不由 Trigger 立即删</text><text class="nodeText" x="1057" y="803">等待任务执行结论</text></g>
+        <g><rect class="box green" x="765" y="705" width="220" height="120" rx="12"/><text class="nodeTitle" x="782" y="735">D10 Task 创建 Run</text><text class="nodeText" x="782" y="761">幂等 + 执行前检查</text><text class="nodeText" x="782" y="782">主动推荐/Frontier 唤醒</text><text class="nodeText" x="782" y="803">重新进入 Planner</text></g>
+        <g><rect class="box green" x="490" y="705" width="220" height="120" rx="12"/><text class="nodeTitle" x="507" y="735">D11 Planner 执行闭环</text><text class="nodeText" x="507" y="761">最新 Context + 任务文本</text><text class="nodeText" x="507" y="782">action_list → 工具/Agent</text><text class="nodeText" x="507" y="803">tool_feedback → 再决策</text></g>
+        <g><rect class="box rose" x="215" y="705" width="220" height="120" rx="12"/><text class="nodeTitle" x="232" y="735">D12 收口或继续观察</text><text class="nodeText" x="232" y="761">成功：关 Task / Scene / VLM</text><text class="nodeText" x="232" y="782">失败：重试/保留/结束</text><text class="nodeText" x="232" y="803">周期任务回 waiting</text></g>
+        <g><rect class="box violet dashed" x="45" y="705" width="170" height="120" rx="12"/><text class="nodeTitle" x="62" y="735">D13 重新下发</text><text class="nodeText" x="62" y="761">关闭或更新后</text><text class="nodeText" x="62" y="782">全量有效任务列表</text><text class="nodeText" x="62" y="803">移除旧观察目标</text></g>
+      </svg>
+    </div>
+    <div class="note-grid"><div class="note"><h3>当前已确认</h3><p>默认结果进入 Context；任务专属结果带 <code>task_id/task_version</code> 经 Task Service 送 Trigger 做云端语义匹配；命中后回 Task Service。</p></div><div class="note"><h3>仍是产品补充提案</h3><p>现有 VLM inference 技术链只消费本 Task 的动态结果；“已有 Context 状态优先、能力不覆盖才下发动态观察”在本地仍是补充 PRD，不能写成已实现。</p></div><div class="note"><h3>当前矛盾要追</h3><p>迟到结果阈值存在版本差异：TaskService 文档出现约 <strong>20 秒</strong>，Trigger 方案出现约 <strong>3 分钟</strong>。图中不固化数值，需联调书面定版。</p></div></div>
+  </section>
+
+  <section id="state">
+    <div class="section-head"><div><h2>04｜产品必须掌握的状态机与异常门</h2><p class="desc">Trigger 命中只是从“等待”进入“可执行”，并不是任务已经成功。状态变化必须由事实和反馈推进。</p></div><span class="pill"><span class="dot proposal"></span>目标产品状态模型</span></div>
+    <div class="diagram">
+      <svg viewBox="0 0 1800 620" role="img" aria-label="长期任务状态机与异常处理">
+        <defs><marker id="sArrow" markerWidth="11" markerHeight="8" refX="10" refY="4" orient="auto"><path d="M0,0 L11,4 L0,8 Z" fill="#69809e"/></marker><marker id="sGreen" markerWidth="11" markerHeight="8" refX="10" refY="4" orient="auto"><path d="M0,0 L11,4 L0,8 Z" fill="#44e6a2"/></marker><marker id="sRose" markerWidth="11" markerHeight="8" refX="10" refY="4" orient="auto"><path d="M0,0 L11,4 L0,8 Z" fill="#ff7890"/></marker></defs>
+        <rect class="lane cloud" x="20" y="45" width="1760" height="535" rx="18"/>
+        <!-- edges first -->
+        <path class="edge violet" d="M230 175 H280" marker-end="url(#sArrow)"/><path class="edge violet" d="M490 175 H540" marker-end="url(#sArrow)"/><path class="edge violet" d="M750 175 H800" marker-end="url(#sArrow)"/><path class="edge violet" d="M1010 175 H1060" marker-end="url(#sArrow)"/><path class="edge green" d="M1270 175 H1320" marker-end="url(#sGreen)"/><path class="edge green" d="M1530 175 H1580" marker-end="url(#sGreen)"/>
+        <path class="edge rose dash" d="M645 235 V340" marker-end="url(#sRose)"/><path class="edge rose dash" d="M905 235 V340" marker-end="url(#sRose)"/><path class="edge rose dash" d="M1165 235 V340" marker-end="url(#sRose)"/><path class="edge rose dash" d="M1425 235 V340" marker-end="url(#sRose)"/>
+        <path class="edge green dash" d="M1425 235 V500 H385 V235" marker-end="url(#sGreen)"/><path class="edge rose dash" d="M1425 450 V525 H905 V235" marker-end="url(#sRose)"/><path class="edge rose dash" d="M1535 395 H1665 V235" marker-end="url(#sRose)"/>
+        <text class="edgeLabel violet" x="285" y="155">create</text><text class="edgeLabel violet" x="810" y="155">activate</text><text class="edgeLabel green" x="1325" y="155">matched + recheck</text><text class="edgeLabel green" x="1430" y="486">周期成功 → 下一周期重新读取 Context</text><text class="edgeLabel rose" x="980" y="515">执行失败 → retry / retain / close，不能假装完成</text>
+        <g><rect class="box violet dashed" x="40" y="115" width="190" height="120" rx="12"/><text class="nodeTitle" x="57" y="145">S00 VALIDATING</text><text class="nodeText" x="57" y="171">能力 / 权限 / 参数</text><text class="nodeText" x="57" y="192">不支持 → REJECTED</text><text class="nodeText" x="57" y="213">通过 → created</text></g>
+        <g><rect class="box violet dashed" x="280" y="115" width="210" height="120" rx="12"/><text class="nodeTitle" x="297" y="145">S01 WAITING_SCHEDULE</text><text class="nodeText" x="297" y="171">延时 / 周期尚未到点</text><text class="nodeText" x="297" y="192">立即任务可跳过</text><text class="nodeText" x="297" y="213">到点产生 activation</text></g>
+        <g><rect class="box violet dashed" x="540" y="115" width="210" height="120" rx="12"/><text class="nodeTitle" x="557" y="145">S02 CHECKING_CONTEXT</text><text class="nodeText" x="557" y="171">当前事实、前置条件</text><text class="nodeText" x="557" y="192">missing ≠ 未达成</text><text class="nodeText" x="557" y="213">stale 不可继续使用</text></g>
+        <g><rect class="box violet dashed" x="800" y="115" width="210" height="120" rx="12"/><text class="nodeTitle" x="817" y="145">S03 WAITING_DYNAMIC</text><text class="nodeText" x="817" y="171">持续等待新 VLM report</text><text class="nodeText" x="817" y="192">未达成：继续观察</text><text class="nodeText" x="817" y="213">无上报：不调用模型</text></g>
+        <g><rect class="box amber dashed" x="1060" y="115" width="210" height="120" rx="12"/><text class="nodeTitle" x="1077" y="145">S04 MATCHED</text><text class="nodeText" x="1077" y="171">Trigger 条件已满足</text><text class="nodeText" x="1077" y="192">先校验 Task 仍有效</text><text class="nodeText" x="1077" y="213">同一激活只允许一个 Run</text></g>
+        <g><rect class="box green dashed" x="1320" y="115" width="210" height="120" rx="12"/><text class="nodeTitle" x="1337" y="145">S05 RUNNING</text><text class="nodeText" x="1337" y="171">Planner / Agent / Tool 执行</text><text class="nodeText" x="1337" y="192">记录处理中与部分结果</text><text class="nodeText" x="1337" y="213">等待结构化反馈</text></g>
+        <g><rect class="box green dashed" x="1580" y="115" width="170" height="120" rx="12"/><text class="nodeTitle" x="1597" y="145">S06 CLOSED</text><text class="nodeText" x="1597" y="171">completed</text><text class="nodeText" x="1597" y="192">canceled / expired</text><text class="nodeText" x="1597" y="213">failed / unsupported</text></g>
+
+        <g><rect class="box rose" x="535" y="340" width="220" height="110" rx="12"/><text class="nodeTitle" x="552" y="370">A01 前置条件异常</text><text class="nodeText" x="552" y="396">硬性不可恢复 → close</text><text class="nodeText" x="552" y="417">可变化 → wait condition</text><text class="nodeText" x="552" y="438">用户可见说明策略</text></g>
+        <g><rect class="box rose" x="795" y="340" width="220" height="110" rx="12"/><text class="nodeTitle" x="812" y="370">A02 感知异常</text><text class="nodeText" x="812" y="396">缺轮 / 无网 / 抢占</text><text class="nodeText" x="812" y="417">旧 task_version 丢弃</text><text class="nodeText" x="812" y="438">超时与能力边界</text></g>
+        <g><rect class="box rose" x="1055" y="340" width="220" height="110" rx="12"/><text class="nodeTitle" x="1072" y="370">A03 回调异常</text><text class="nodeText" x="1072" y="396">重复 callback 幂等拦截</text><text class="nodeText" x="1072" y="417">取消后的迟到结果丢弃</text><text class="nodeText" x="1072" y="438">保留 lineage 便于排查</text></g>
+        <g><rect class="box rose" x="1315" y="340" width="220" height="110" rx="12"/><text class="nodeTitle" x="1332" y="370">A04 执行异常</text><text class="nodeText" x="1332" y="396">超时 / 拒绝 / 部分成功</text><text class="nodeText" x="1332" y="417">可重试、需用户选择</text><text class="nodeText" x="1332" y="438">执行失败不删场景</text></g>
+      </svg>
+    </div>
+  </section>
+
+  <section id="corrections">
+    <div class="section-head"><div><h2>05｜原图哪些链路不对</h2><p class="desc">“不对”分三类：方向/时序错误、模块职责越界、版本混叠。下面按会直接影响产品判断的严重度排序。</p></div><span class="pill"><span class="dot wrong"></span>18 个纠偏点</span></div>
+    <div class="diagram" style="padding:0;max-height:820px;overflow:auto">
+      <table>
+        <thead><tr><th>#</th><th>原图问题</th><th>应改成什么</th><th>判断</th></tr></thead>
+        <tbody>
+          <tr><td>01</td><td>起点写成“用户语音 query（含 speaker/position）”</td><td>先画原始 audio → 唤醒/AEC/VAD/声源定位 → ASR；ASR final 后才构造 user_query 请求信封。</td><td><span class="status red">时序错误</span></td></tr>
+          <tr><td>02</td><td>ASR 后同时流向端 FC、云拒识、端信号库，没有统一仲裁</td><td>加统一 Router，明确端快路径、云 FC、Director 三选一与云超时降级，避免端云重复执行。</td><td><span class="status red">竞态风险</span></td></tr>
+          <tr><td>03</td><td>把 Query 与车况/VLM/埋点都当“信号源”串行相连</td><td>Query 是本轮触发输入；车况/VLM/记忆是异步更新的数据面，只有在 Context 组装时汇合。</td><td><span class="status red">概念混淆</span></td></tr>
+          <tr><td>04</td><td>Planner 条件解析（14）再串到 Director（19/20）</td><td><strong>Planner = Director</strong>，业务名与内部名指同一决策职能；不能成为两个串行大脑。</td><td><span class="status red">核心错误</span></td></tr>
+          <tr><td>05</td><td>Context 看起来在 Director 旁边甚至之后</td><td>每一轮先组装固定 SP、动态 Context 和本轮输入，再交给 Planner/Director；反馈后重新组装下一轮。</td><td><span class="status red">顺序错误</span></td></tr>
+          <tr><td>06</td><td>节点 19 把 input、Context、GoalList 混成一层</td><td>拆成“四类本轮输入：query/advisor/tool_feedback/event”与“参考快照：Context/TaskView/GoalList”两层。</td><td><span class="status red">协议错误</span></td></tr>
+          <tr><td>07</td><td>Director 输出把 emoji 藏进 talk_content</td><td>当前 SP 输出有四个独立字段：talk_or_not、talk_content、emoji_id、action_list。</td><td><span class="status green">当前快照</span></td></tr>
+          <tr><td>08</td><td>每个条件 Query 都经过“规则配置平台”</td><td>配置平台属于控制面：预置规则设计、校验、灰度、发布；用户动态任务走 Task/Goal API 注册 Trigger，不走人工配置台。</td><td><span class="status red">控制面越界</span></td></tr>
+          <tr><td>09</td><td>意图模型和 Director 都解析/注册同一个条件任务</td><td>路由模型只分流；Director 理解用户目标；Task Agent/Spec Builder 结构化；以 task_id/idempotency_key 确保一次注册。</td><td><span class="status red">重复所有者</span></td></tr>
+          <tr><td>10</td><td>Goal List、动态 Advisor、Task Center、Task Service 被画成同代模块</td><td>当前 SP 是 goal_list_update；Task Service/task_manage 是 WIP 演进；静态 Advisor 保留为独立建议源。必须标版本。</td><td><span class="status amber">版本混叠</span></td></tr>
+          <tr><td>11</td><td>Trigger 命中后可自由 callback Director / Advisor</td><td>目标态先形成标准 callback → Task Ingress 恢复 Task/Run 并幂等；通用执行路径再唤醒 Planner。Advisor不是任务执行中枢。</td><td><span class="status amber">WIP职责</span></td></tr>
+          <tr><td>12</td><td>Director 的 action_list 直接等同工具执行</td><td>中间补 Runtime Dispatcher：依赖串并行、参数/安全校验、超时重试、幂等、结果聚合、工具适配。</td><td><span class="status red">缺关键层</span></td></tr>
+          <tr><td>13</td><td>工具 feedback 就算任务成功</td><td>区分接口受理、下发成功、真实状态生效、用户目标完成；必要时回读 observed_state，Planner 再判断。</td><td><span class="status red">完成态错误</span></td></tr>
+          <tr><td>14</td><td>TTS/卡片 → 机器人 → 车控执行被画成串行</td><td>talk_content/emoji 走响应呈现；action_list 走工具执行，两者并列，由响应协调器保证“说做一致”。</td><td><span class="status red">明显错误</span></td></tr>
+          <tr><td>15</td><td>默认 VLM 与动态任务 VLM 是“先失败再兜底”的一条流</td><td>它们是两种来源：默认结果进 Context；专属任务先下发才产生带 task_id 的结果，经 Task Service → Trigger。</td><td><span class="status red">视觉链错误</span></td></tr>
+          <tr><td>16</td><td>端 VLM 直接判断“目标达成”或动态结果回写 Context</td><td>端 VLM 只给观察描述；云 Trigger 用 goal + data 做语义判断。当前专属结果走独立任务链，不直接进 Context。</td><td><span class="status green">技术方案</span></td></tr>
+          <tr><td>17</td><td>固定 500ms / 3s / 5s、P0-P4、阈值穿越等被画成通用事实</td><td>这些细节存在版本差异或未逐项核验，应标“特定方案/待确认”，不能成为主链硬编码。</td><td><span class="status amber">证据不足</span></td></tr>
+          <tr><td>18</td><td>缺取消、更新、迟到、重复、断网、下电和可观测链</td><td>补 task_version、callback 幂等、stale 丢弃、重试/结束策略，以及 request/task/run/action/scene 全链 ID。</td><td><span class="status red">闭环缺失</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="depth">
+    <div class="section-head"><div><h2>06｜你需要理解到什么程度</h2><p class="desc">不是“每个服务的代码都看懂”才有资格判断去留。你要把精力集中在能决定产品质量、能在评审里追问、能给 badcase 定责的接口和状态上。</p></div></div>
+    <div class="depth">
+      <div class="depth-card primary"><h3 style="color:var(--rose)">L4｜必须能独立画、讲、验收</h3><ul><li>Planner/Director：四类输入、Context、决策分支、依赖、重规划与结束条件。</li><li>Task/Trigger：何时创建、等待什么、命中什么、Run 怎么产生、失败后是否保留、何时清理。</li><li>反馈语义：受理/成功/生效/目标完成四层；失败码、重试性、部分成功。</li><li>评测与归因：能把 badcase 定到路由、Context、Planner、工具契约、执行、反馈或触发时序。</li></ul></div>
+      <div class="depth-card"><h3 style="color:var(--amber)">L3｜要懂契约与边界</h3><ul><li>ASR 与 Input Manager：输入字段、低置信度、打断/合并。</li><li>Advisor、Context、VLM、Dispatcher、Tool/Agent：谁触发谁，输入输出和异常。</li><li>端云职责：为何走端、为何走云、断网怎么降级。</li><li>版本边界：当前、WIP、提案、待确认。</li></ul></div>
+      <div class="depth-card"><h3 style="color:var(--cyan)">L1–L2｜知道原理，不必下钻实现</h3><ul><li>ASR 声学模型、VLM 网络结构、LLM Attention/KV Cache 数学细节。</li><li>Trigger 的具体数据库表、Go 类名、RPC 框架实现。</li><li>除非它们直接造成时延、成本、容量或安全取舍，再定向深入。</li></ul></div>
+    </div>
+  </section>
+
+  <section id="evidence">
+    <div class="section-head"><div><h2>07｜证据台账：哪些是当前，哪些只是方向</h2><p class="desc">飞书搜索扫描到大量相关文档元数据，但本图只使用实际展开阅读的高相关正文与原始文字记录；搜索摘要不当证据。会议类信息优先回到文字记录，技术设计则以更新日期更晚的正式文档为准。</p></div></div>
+    <div class="evidence">
+      <div class="source"><div class="source-title"><h3>当前模型协议快照：sp.md</h3><span class="status green">当前快照 2026-07-31</span></div><p>确认四类输入、四个输出字段、工具定义与 goal_list_update；不能单独证明全链服务已上线。</p><div class="path">/Users/bytedance/Desktop/3.23/产品/1-原始素材/资料数据PRD原件/planner 架构/动态示例/sp.md</div></div>
+      <div class="source"><div class="source-title"><h3><a href="https://bytedance.larkoffice.com/wiki/XRuKwJ0VPisdUhkxH0ecY1rRn9g">Director（对话推理引擎）PRD</a></h3><span class="status green">正式 PRD</span></div><p>确认端云协同、Context 前置、user/advisor/tool feedback 输入、action_list 与二次推理闭环。</p><div class="path">本地剪存：产品/1-原始素材/资料数据PRD原件/planner 架构/对话推理引擎(Director) PRD.html</div></div>
+      <div class="source"><div class="source-title"><h3><a href="https://bytedance.larkoffice.com/docx/K1GldxiWWouPauxhX1ZcdMsqnYI">上汽 AI 汽车功能需求 SOR</a></h3><span class="status green">最新业务口径</span></div><p>确认 Planner、静态 Advisor、动态任务、Task Center、Trigger 的业务职责，但不等于所有目标技术链已经投产。</p></div>
+      <div class="source"><div class="source-title"><h3>Task 任务管理设计</h3><span class="status amber">[WIP] 2026-07-15</span></div><p>提出 Task Agent、Task Service、Repository、Trigger Adapter、Runtime Dispatcher、TaskView/Run；明确是目标架构。</p><div class="path">/Users/bytedance/Desktop/3.23/产品/1-原始素材/资料数据PRD原件/任务管理/[WIP][技术方案]Task 任务管理设计.html</div></div>
+      <div class="source"><div class="source-title"><h3><a href="https://bytedance.larkoffice.com/docx/L1ZwdzcvZoigiXxdK8Rcx9GFn7e">2026-07-16 VLM 链路会议文字记录</a></h3><span class="status green">原始逐字稿</span></div><p>确认默认 AlwaysOn → Context 与任务专属 VLM → Task Service → Trigger 是两条独立回传路径。</p></div>
+      <div class="source"><div class="source-title"><h3><a href="https://bytedance.larkoffice.com/wiki/AmO3wnzrWiBjE3ks94icc0JjnJf">云端触发器模型解析 VLM 链路</a></h3><span class="status green">方案正文</span></div><p>确认端 VLM 只给描述，云触发器严格判断达成/未达成/无法判断。</p></div>
+      <div class="source"><div class="source-title"><h3><a href="https://bytedance.larkoffice.com/wiki/QeJkwlVkjiPZYwknFUecrjD9nxb">TaskService 车内视觉长时感知技术方案</a></h3><span class="status green">最新技术正文</span></div><p>确认最多 3 个任务、全量列表、task_id/task_version、结果上报、TriggerRun 单条转发、关闭任务丢弃与重新下发。</p></div>
+      <div class="source"><div class="source-title"><h3><a href="https://bytedance.larkoffice.com/wiki/Q11CwtB7mitzckkxmnmcKvIDnNg">触发器支持推理触发技术方案</a></h3><span class="status green">2026-08-31</span></div><p>确认服务端语义推理、达成标记、回调 TaskService、异常与可观测；与 TaskService 文档的过期阈值仍需联调定版。</p></div>
+      <div class="source"><div class="source-title"><h3>默认感知优先、动态观察兜底</h3><span class="status violet">产品补充提案</span></div><p>逻辑上补齐 Context 新鲜度、能力覆盖、动态 fallback、执行前复核和幂等；当前不能冒充已实现。</p><div class="path">/Users/bytedance/Desktop/3.23/产品/1-原始素材/资料数据PRD原件/触发器包含条件/PRD-云端触发器-已有状态优先动态观察兜底.md</div></div>
+      <div class="source"><div class="source-title"><h3>原图“含长期和 2.6 目标”</h3><span class="status amber">混合版本</span></div><p>附件底图本身混合阶段目标与长期方向，所以不能把全部节点当作同一时刻的当前生产链路。</p><div class="path">/Users/bytedance/Desktop/3.23/产品/1-原始素材/资料数据PRD原件/planner 架构/AI Car架构链路细化梳理.pdf</div></div>
+    </div>
+  </section>
+
+  <div class="footer">核验基线：2026-09-02｜v02 保留 v01，不覆盖历史版本｜图中“WIP/提案”均不代表已上线</div>
+</div>
+</body>
+</html>

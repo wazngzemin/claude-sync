@@ -1,0 +1,143 @@
+flowchart TB
+
+    START([一项云端系统预设任务<br/>以“识别充电设备后打开充电口盖”为例])
+
+    subgraph S1[① 上线前｜产品定义、平台配置与任务发布]
+        direction LR
+        A1[产品定义完整任务<br/>场景、范围、条件、识别、交互、动作、验收]
+        A2[配置平台录入<br/>任务关联｜Trigger规则｜DT/VQA｜卡片/TTS｜动作与结束策略]
+        A3{发布前是否完整<br/>信号、状态、模型、卡片、车控、回读、Owner}
+        A4[发布任务目录<br/>名称、说明、图标、适用车型版本]
+        A5[发布运行规则<br/>条件、去重、进一步判断、交互和动作]
+        AX[阻止发布<br/>返回缺失能力或Owner]
+        A1 --> A2 --> A3
+        A3 -->|完整| A4
+        A3 -->|完整| A5
+        A3 -->|不完整| AX
+    end
+
+    subgraph S2[② 用户许可｜Task Service提供目录，真实开关按车保存]
+        direction LR
+        B1[Task Service<br/>聚合任务目录并统一输出<br/>不负责业务运行]
+        B2[车辆上电/任务列表刷新<br/>懒加载最新任务目录]
+        B3[任务中心<br/>展示任务名称、说明和开关]
+        B4[用户开启/关闭<br/>只是长期许可，不是本次开盖授权]
+        B5[任务状态承载方｜P0待确认<br/>按VIN保存真实状态<br/>退出账号/重启后可恢复]
+        B6[真实状态回传<br/>任务中心回显 + 提供给Trigger]
+        B1 --> B2 --> B3 --> B4 --> B5 --> B6
+    end
+
+    subgraph S3[③ Cloud Trigger｜只判断硬条件并发出一次业务事件]
+        direction LR
+        C1[Cloud Trigger读取<br/>任务真实状态、主动服务状态、车辆上行状态]
+        C2[启动事件<br/>车辆由非P挡进入P挡]
+        C3{硬条件全部满足？<br/>任务开启｜仍在P挡｜SOC达标｜口盖关闭<br/>数据有效｜本次停车未处理}
+        C4[创建唯一run_event<br/>任务、VIN、停车事件、状态快照、原因、有效期]
+        C5[发送给系统预设任务业务<br/>Trigger职责到此结束]
+        CWAIT[不触发<br/>不调模型、不出卡、不车控<br/>等待下一次有效变化]
+        C1 --> C2 --> C3
+        C3 -->|是| C4 --> C5
+        C3 -->|否| CWAIT
+    end
+
+    subgraph S4[④ 任务业务与进一步判断｜主动推荐/DT只负责模型判断，不负责出卡]
+        direction LR
+        D1[系统预设任务业务｜研发Owner待确认<br/>接住run_event并持有本次上下文]
+        D2{本任务是否需要<br/>模型/视觉进一步判断？}
+        D3[调用Advisor/DT/VQA链路｜具体入口待确认<br/>Query只问“是否发现充电设备”]
+        D4[DT/VQA返回<br/>FOUND｜NOT_FOUND｜UNKNOWN｜ERROR<br/>带run_event、观察时间和有效期]
+        D5{业务校验结果可用？<br/>FOUND｜属于本次停车｜未过期<br/>任务仍开启｜本次未处理}
+        D6[无需模型<br/>直接按配置进入交互或动作]
+        DSTOP[结束本次<br/>无设备、无法判断、失败、过期或任务关闭<br/>不出卡、不车控]
+        D1 --> D2
+        D2 -->|需要| D3 --> D4 --> D5
+        D2 -->|不需要| D6
+        D5 -->|否| DSTOP
+    end
+
+    subgraph S5[⑤ 消息盒子与即时交互卡｜徐洋已确认：复用三方调用，出卡不走主动推荐]
+        direction LR
+        E1[系统预设任务业务组装拉卡请求<br/>系统通知样式、标题、正文、按钮、TTS<br/>run_event、有效期、结果回调]
+        E2[赛力斯消息盒子三方调用<br/>调用入口和具体字段待专项确认]
+        E3[端侧即时交互卡 / VUI<br/>校验、排队、真正展示、TTS、二次交互<br/>内部预设任务提场景适配即可]
+        E4{卡片真正展示<br/>且询问仍有效？}
+        E5{用户如何回应？}
+        E1 --> E2 --> E3 --> E4
+        E4 -->|是| E5
+    end
+
+    subgraph S6[⑥ 用户结果｜卡片提供交互事实，业务决定是否继续]
+        direction LR
+        F1[手动点击<br/>确认/取消按钮]
+        F2[可见即可说<br/>固定表达映射当前按钮]
+        F3[泛化语音｜如启用<br/>卡片上下文交给Planner理解<br/>Planner不拉卡]
+        F4[标准结果返回任务业务<br/>CONFIRM｜REJECT｜OTHER<br/>必须带回run_event]
+        F5{是否为当前、明确、有效<br/>且未消费的CONFIRM？}
+        FNO[结束本次，不执行<br/>拒绝、关闭、超时、旧回答、重复回答]
+        F1 --> F4
+        F2 --> F4
+        F3 --> F4
+        F4 --> F5
+        F5 -->|否| FNO
+    end
+
+    subgraph S7[⑦ 端侧执行与真实结果｜用户确认后仍要重新检查]
+        direction LR
+        G1[任务业务下发执行申请<br/>run_event、用户确认、动作、有效期]
+        G2[端侧执行前复核｜Owner待确认<br/>任务仍有效｜仍是本次停车｜仍在P挡<br/>口盖仍关闭｜确认未过期｜未重复]
+        G3{当前仍允许<br/>且仍需执行？}
+        G4[赛力斯车控<br/>请求打开充电口盖<br/>RPC ACK不等于已打开]
+        G5[读取真实口盖状态<br/>SUCCESS｜FAILED｜UNKNOWN]
+        G6[任务业务收口<br/>更新卡片和运行记录｜注销上下文<br/>标记本次已处理并进入冷却]
+        G7([长期任务仍开启<br/>等待下一次新的停车事件])
+        GNO[不执行/无需重复<br/>返回原因并同样收口]
+        G1 --> G2 --> G3
+        G3 -->|允许且需要| G4 --> G5 --> G6 --> G7
+        G3 -->|不允许或已完成| GNO --> G6
+    end
+
+    START --> A1
+    A4 --> B1
+    A5 --> C1
+    A5 --> D1
+    B6 -->|某辆车真实ENABLED/DISABLED| C1
+    C5 -->|run_event与状态快照| D1
+    D5 -->|是，值得询问| E1
+    D6 -->|配置为询问| E1
+    D6 -->|配置为直接动作且策略允许| G1
+    E4 -->|否：展示失败/排队过期/任务失效| FNO
+    E5 -->|点击| F1
+    E5 -->|固定按钮语音| F2
+    E5 -->|泛化语音| F3
+    E5 -->|关闭/超时| FNO
+    F5 -->|是| G1
+    FNO --> G7
+    DSTOP --> G7
+
+    NOTE1[[已确认修正<br/>“DT/VQA判断链”与“消息盒子出卡链”是两条不同链路]]
+    NOTE2[[仍需专项确认<br/>任务状态Owner｜业务研发Owner｜DT结果回传<br/>消息盒子接口/回调｜Planner路由｜车控与回读Owner]]
+    NOTE1 -.-> D3
+    NOTE1 -.-> E2
+    NOTE2 -.-> B5
+    NOTE2 -.-> G2
+
+    classDef config fill:#fff7e6,stroke:#d99138,color:#4b3516,stroke-width:1.5px;
+    classDef task fill:#edf4ff,stroke:#5287ce,color:#162b46,stroke-width:1.5px;
+    classDef business fill:#f3edff,stroke:#9573c4,color:#38264f,stroke-width:1.5px;
+    classDef card fill:#fff1f2,stroke:#e56b7f,color:#5e1f2c,stroke-width:1.5px;
+    classDef vehicle fill:#e9f6f0,stroke:#4c9c79,color:#173c2c,stroke-width:1.5px;
+    classDef decision fill:#fff8eb,stroke:#e6a33f,color:#4b3516,stroke-width:1.5px;
+    classDef stop fill:#f4f5f7,stroke:#8f959e,color:#333942,stroke-width:1.2px;
+    classDef tbd fill:#fff1f2,stroke:#e5484d,color:#5e1f2c,stroke-width:2px,stroke-dasharray:6 4;
+    classDef note fill:#f8fafc,stroke:#64748b,color:#334155,stroke-width:1.2px,stroke-dasharray:4 3;
+
+    class A1,A2,A4,A5 config;
+    class B1,B2,B3,B4,B6,C1,C2,C4,C5 task;
+    class D1,D2,D3,D4,D6 business;
+    class E1,E2,E3,E5,F1,F2,F3,F4 card;
+    class G1,G4,G5,G6,G7 vehicle;
+    class A3,C3,D5,E4,F5,G3 decision;
+    class AX,CWAIT,DSTOP,FNO,GNO stop;
+    class B5,G2 tbd;
+    class NOTE1,NOTE2 note;
+

@@ -1,0 +1,123 @@
+sequenceDiagram
+    autonumber
+    actor PM as 产品/运营
+    participant CFG as 配置平台
+    participant TS as Task Service
+    participant TC as 任务中心
+    participant STATE as 任务状态承载方<br/>P0待确认
+    participant TR as Cloud Trigger
+    participant BIZ as 系统预设任务业务<br/>研发Owner待确认
+    participant DT as Advisor/DT/VQA
+    participant MSG as 赛力斯消息盒子
+    participant CARD as 即时交互卡/VUI
+    participant PLAN as Planner<br/>仅泛化语音
+    participant EXEC as 端侧执行/车控/状态
+
+    rect rgb(255,247,230)
+        Note over PM,TR: 阶段一：上线前定义与发布
+        PM->>CFG: 定义任务范围、Trigger条件、DT/VQA、卡片/TTS、动作和验收
+        CFG->>CFG: 完整性检查：状态、信号、模型、卡片、车控、回读、Owner是否齐全
+        alt 配置不完整
+            CFG-->>PM: 阻止发布，返回具体缺口
+        else 配置完整
+            CFG->>TS: 发布任务目录：task_id、名称、说明、图标、车型版本
+            CFG->>TR: 发布运行规则：启动事件、硬条件、时效、去重和频控
+            CFG->>BIZ: 发布业务规则：进一步判断、交互、动作和结束策略
+        end
+    end
+
+    rect rgb(237,244,255)
+        Note over TS,STATE: 阶段二：用户获得任务并形成长期许可
+        TC->>TS: 车辆上电/任务列表刷新时请求任务目录
+        TS-->>TC: 返回当前车型可用的系统预设任务
+        Note over TS,TC: 会议方向：新任务不立即推全量车辆，可在下次上电/刷新时懒加载
+        TC->>TC: 展示“识别充电设备后打开充电口盖”及开关
+        TC->>STATE: 用户开启任务：VIN + task_id + ENABLE
+        STATE->>STATE: 按VIN幂等保存真实状态，退出账号/重启后可恢复
+        alt 保存失败或超时
+            STATE-->>TC: 返回失败，页面恢复原状态
+        else 保存成功
+            STATE-->>TC: 返回ENABLED，任务中心展示真实状态
+            STATE-->>TR: 提供/同步该VIN的真实任务状态
+        end
+        Note over STATE,TR: 未确认：状态具体存在哪个服务、Trigger查询还是订阅、最终研发Owner
+    end
+
+    rect rgb(237,244,255)
+        Note over TR,BIZ: 阶段三：Trigger只判断硬条件并发出一次业务事件
+        EXEC-->>TR: 上行车辆状态：非P→P、当前P挡、SOC、口盖、数据时间
+        TR->>TR: 检查任务ENABLED、主动服务状态、SOC阈值、口盖关闭、数据有效
+        TR->>TR: 检查本次停车是否已经处理，执行防抖、去重和频控
+        alt 任一条件不满足/数据缺失/重复
+            TR->>TR: 不调模型、不出卡，等待下一次有效变化
+        else 条件满足
+            TR->>TR: 创建唯一run_event，绑定task、VIN、停车事件和有效期
+            TR->>BIZ: 发送业务事件：run_event + 状态快照 + 触发原因
+            Note over TR,BIZ: Trigger成功只代表业务事件已交付，不代表识别、卡片或车辆成功
+        end
+    end
+
+    rect rgb(243,237,255)
+        Note over BIZ,DT: 阶段四：任务业务调用模型并校验结果
+        BIZ->>BIZ: 校验run_event未过期、未处理且任务仍开启
+        BIZ->>DT: 请求判断“当前车辆附近是否发现充电设备”
+        Note over BIZ,DT: 主动推荐/Advisor可作为模型调用通道，但不再承担出卡
+        DT->>DT: 按需调用端侧VQA
+        DT-->>BIZ: 返回FOUND / NOT_FOUND / UNKNOWN / ERROR<br/>携带run_event、观察时间和有效期
+        BIZ->>BIZ: 校验结果属于本次停车、未过期、任务仍开启、本次未出卡
+        alt 非FOUND/无法判断/失败/过期/场景变化
+            BIZ->>BIZ: 结束本次，不出卡、不车控，记录原因
+        else FOUND且结果仍有效
+            BIZ->>BIZ: 形成“是否打开充电口盖”的本次询问
+        end
+    end
+
+    rect rgb(255,241,242)
+        Note over BIZ,CARD: 阶段五：徐洋已确认的出卡链——业务复用消息盒子三方调用，不走主动推荐
+        BIZ->>MSG: 提交系统通知卡：标题、正文、按钮、TTS、run_event、有效期、回调
+        MSG->>CARD: 通过赛力斯消息盒子触达端侧，拉起即时交互卡
+        CARD->>CARD: 校验、排队、展示系统通知样式、播放TTS、注册二次交互
+        CARD-->>BIZ: 返回创建/排队/真正展示/展示失败等状态<br/>具体回调路径待消息盒子专项确认
+        alt 未真正展示/排队时过期/任务失效
+            BIZ->>MSG: 撤销或结束该卡片（撤卡能力待确认）
+            BIZ->>BIZ: 本次结束，不接受后续旧回答
+        else 卡片真正展示且询问有效
+            Note over CARD,PLAN: 从“真正展示”开始等待回答；卡片消失后必须注销语音上下文
+            alt 用户手动点击
+                CARD-->>BIZ: CONFIRM或REJECT + run_event
+            else 用户说固定按钮表达
+                CARD-->>BIZ: 可见即可说映射原按钮，返回标准选择 + run_event
+            else 用户说泛化表达
+                CARD->>PLAN: 注册当前卡片内容、按钮、run_event和有效期
+                PLAN-->>BIZ: 返回确认/拒绝/其他诉求/无法理解 + run_event
+                Note over CARD,PLAN: Planner只理解卡片展示后的泛化语音，不创建、不注册、不拉卡
+            else 用户关闭或等待超时
+                CARD-->>BIZ: CLOSE或TIMEOUT + run_event
+            end
+        end
+    end
+
+    rect rgb(233,246,240)
+        Note over BIZ,EXEC: 阶段六：业务校验授权，端侧复核、执行并读取真实状态
+        BIZ->>BIZ: 校验回答属于当前run_event、任务/卡片/识别仍有效且未消费
+        alt 拒绝/关闭/超时/旧回答/重复回答/无法理解
+            BIZ->>BIZ: 不执行车辆动作，记录原因并结束本次
+        else 当前有效CONFIRM
+            BIZ->>EXEC: 下发执行申请：run_event、用户确认、开盖动作、授权有效期
+            EXEC->>EXEC: 重新读取最新任务、停车、P挡、口盖、授权和重复执行状态
+            alt 当前不允许或口盖已经打开
+                EXEC-->>BIZ: 返回不执行/无需重复及具体原因
+            else 当前仍允许且需要执行
+                EXEC->>EXEC: 调用赛力斯车控打开充电口盖
+                Note over EXEC: 车控RPC ACK只代表请求结果，不代表口盖真实打开
+                EXEC->>EXEC: 读取真实口盖状态
+                EXEC-->>BIZ: 返回SUCCESS / FAILED / UNKNOWN及真实状态证据
+            end
+            BIZ->>MSG: 更新原卡片：成功、失败、无需执行或暂不能确认
+            MSG->>CARD: 刷新/关闭系统通知卡
+            BIZ->>BIZ: 保存运行记录、注销上下文、标记本次已处理并进入冷却
+        end
+        Note over TR,EXEC: 本次run_event结束；长期任务仍ENABLED时，等待下一次新的停车事件
+    end
+
+    Note over PM,EXEC: 待专项确认：任务状态Owner｜系统预设任务业务研发Owner｜DT/VQA结果回传｜消息盒子字段/回调/撤卡｜Planner路由｜车控与真实回读Owner

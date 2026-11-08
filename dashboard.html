@@ -31,7 +31,13 @@
   .violation{font-size:12.5px;color:#c9d7e6;word-break:break-all;margin:3px 0}
   .local-note{color:var(--dim);font-size:12px;margin-left:10px;white-space:nowrap}
 
-  .toolbar{display:flex;gap:9px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+  .toolbar-panel{position:sticky;top:8px;z-index:20;padding:12px 14px;margin-bottom:14px;background:var(--bg);border:1px solid var(--border);border-radius:12px;box-shadow:0 5px 18px rgba(0,0,0,.18)}
+  .toolbar{display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+  .toolbar+.toolbar{margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+  .toolbar-label{font-size:12px;color:var(--dim);min-width:36px}.btn-select{border-color:var(--accent);color:var(--accent);font-weight:600}
+  .btn-danger-secondary{color:var(--dim);margin-left:auto}.btn-danger-secondary:hover{color:var(--red);border-color:var(--red)}
+  .sync-results{margin-top:18px!important}
+  @media(max-width:680px){body{padding:14px}.header{align-items:flex-start;gap:12px;flex-direction:column}.status{flex-wrap:wrap;gap:8px}.toolbar-panel{top:0;padding:10px}.toolbar .count{width:100%;margin-left:0}.btn-danger-secondary{margin-left:0}.dsc{display:block;margin-left:0}.nm{white-space:normal}.local-note{margin-left:0;white-space:normal}}
   .btn{padding:9px 16px;border:1px solid var(--border);border-radius:8px;background:var(--surface);
     color:var(--text);font-size:13.5px;cursor:pointer;transition:.13s;display:flex;align-items:center;gap:7px;user-select:none}
   .btn:hover{background:var(--sf);border-color:var(--dim)} .btn:active{transform:scale(.97)}
@@ -100,31 +106,39 @@
 <div class="hint">
   <b>“全部”包括 Claude 配置、技能、插件、项目记忆，以及整个 3.23 工作文件夹。</b><br>
   不包含 <code>~/.codex</code> 中独立的 Codex 配置与聊天数据；保存在 3.23 中的 Codex 产出文档仍会同步。依赖、缓存、Git 元数据和密钥文件除外。<br>
-  勾选想同步的文件/文件夹 → <b>「推送选中」</b>上传到云,<span class="g">「拉取选中」</span>从云下载。
+  点<b>「全选」</b>即可选中 Claude + 整个 3.23（包括隐藏文件，仍遵守上面的排除规则），再点推送或拉取。<br>
+  也可以勾选想同步的文件/文件夹 → <b>「推送选中」</b>上传到云,<span class="g">「拉取选中」</span>从云下载。
   勾<b>文件夹</b>=整个一起同步;想只传一个文件,就点开三角 ▶ 展开,单独勾那一个。
 </div>
 
-<div class="toolbar">
-  <button class="btn btn-push" id="bPush" onclick="doSync('push')" disabled><span>📤</span>推送选中</button>
-  <button class="btn btn-pull" id="bPull" onclick="doSync('pull')" disabled><span>📥</span>拉取选中</button>
-  <button class="btn btn-del" id="bDel" onclick="doDelete()" disabled><span>🗑</span>删除选中</button>
-  <div class="sep"></div>
-  <button class="btn btn-sm" onclick="doAll('push')">推送全部（Claude + 3.23）</button>
-  <button class="btn btn-sm" onclick="doAll('pull')">拉取全部（Claude + 3.23）</button>
-  <div class="sep"></div>
-  <button class="btn btn-sm" onclick="collapseAll()">折叠全部</button>
-  <button class="btn btn-sm" onclick="clearSel()">清空勾选</button>
-  <button class="btn btn-sm" onclick="loadRoots()">🔄 刷新</button>
-  <div class="count">已选 <b id="cnt">0</b> 项</div>
+<div class="toolbar-panel">
+  <div class="toolbar">
+    <span class="toolbar-label">选择</span>
+    <button class="btn btn-select" id="bSelectAll" onclick="selectScope('all')">全选</button>
+    <button class="btn" onclick="clearSel()">取消全选</button>
+    <button class="btn" onclick="selectScope('claude')">只选 Claude</button>
+    <button class="btn" onclick="selectScope('project')">只选 3.23</button>
+    <div class="count">已选 <b id="cnt">0</b> 项<span id="selectionSummary"></span></div>
+  </div>
+  <div class="toolbar">
+    <span class="toolbar-label">同步</span>
+    <button class="btn btn-push" id="bPush" onclick="doSync('push')" disabled><span>📤</span>推送选中</button>
+    <button class="btn btn-pull" id="bPull" onclick="doSync('pull')" disabled><span>📥</span>拉取选中</button>
+    <button class="btn btn-sm" onclick="doAll('push')">直接推送全部</button>
+    <button class="btn btn-sm" onclick="doAll('pull')">直接拉取全部</button>
+    <button class="btn btn-sm" onclick="collapseAll()">折叠</button>
+    <button class="btn btn-sm" onclick="loadRoots()">刷新</button>
+    <button class="btn btn-sm btn-danger-secondary" id="bDel" onclick="doDelete()" disabled>删除选中…</button>
+  </div>
 </div>
+
+<div class="tree" id="tree"></div>
 
 <section class="sync-results" aria-live="polite" aria-atomic="false">
   <h2 id="resultTitle">本次同步结果</h2>
   <p class="result-meta" id="resultMeta">尚无本次结果。开始同步后，会在这里保留逐项结果。</p>
   <ul class="result-list" id="resultList"></ul>
 </section>
-
-<div class="tree" id="tree"></div>
 
 <div class="toasts" id="toasts"></div>
 <div class="ov" id="ov" style="display:none"><div class="box"><div class="spin"></div>
@@ -144,18 +158,42 @@ function mkNode(n, level, parentKey){
 }
 
 async function loadRoots(preserveResults=false){
+  const previousNodes={...byKey}, previousForest=forest;
   try{
     const [secs, st] = await Promise.all([
       requestJson('/api/roots'),
       requestJson('/api/status')
     ]);
     for(const k in byKey) delete byKey[k];
-    forest = secs.map(s=>({section:s.section, nodes:s.nodes.map(n=>mkNode(n,0,null))}));
+    forest = secs.map(section=>{
+      const projectSection=section.nodes.some(n=>n.scope==='project') || String(section.section).includes('3.23');
+      if(!projectSection) return {section:section.section,nodes:section.nodes.map(n=>mkNode(n,0,null))};
+      const root=mkNode({key:'scope:project:',scope:'project',rel:'',type:'dir',name:'3.23',label:'3.23 全部工作文件',icon:'📁',expandable:true,desc:'勾选整个文件夹，包含隐藏文件；展开可细选',size:''},0,null);
+      root.loaded=true;
+      root.children=section.nodes.map(n=>mkNode(n,1,root.key));
+      return {section:section.section,nodes:[root]};
+    });
+    // 重新获取已展开过的目录，使深层有效选择保留、已消失文件不再勾选。
+    async function restoreBranch(node){
+      const old=previousNodes[node.key];
+      if(old && old.loaded && node.expandable && !node.loaded){
+        const kids=await requestJson(`/api/tree?scope=${encodeURIComponent(node.scope)}&rel=${encodeURIComponent(node.rel)}`);
+        node.children=kids.map(k=>mkNode(k,node.level+1,node.key));node.loaded=true;
+      }
+      if(old) node.expanded=old.expanded;
+      await Promise.all(node.children.map(restoreBranch));
+    }
+    await Promise.all(forest.flatMap(section=>section.nodes).map(restoreBranch));
+    for(const key of [...selected]) if(!byKey[key]) selected.delete(key);
     renderStatus(st); render();
     if(!preserveResults && Array.isArray(st.log) && st.log.length){
       renderResults(st.log[st.log.length-1], true);
     }
-  }catch(e){ toast(e.message,'fail'); }
+  }catch(e){
+    for(const key in byKey) delete byKey[key];
+    Object.assign(byKey,previousNodes);forest=previousForest;
+    render();toast(e.message,'fail');
+  }
 }
 
 function renderStatus(st){
@@ -243,7 +281,9 @@ function render(){
   const has = selected.size>0;
   document.getElementById('bPush').disabled=!has;
   document.getElementById('bPull').disabled=!has;
-  document.getElementById('bDel').disabled=!has;
+  document.getElementById('bDel').disabled=!has || collectSelected().some(n=>n.scope==='memories' || (n.scope!=='file' && !n.rel));
+  const summary=document.getElementById('selectionSummary');
+  summary.textContent=isAllSelected()?' · Claude + 整个 3.23':selected.has('scope:project:')?' · 包含整个 3.23':'';
 }
 
 function rowHTML(n){
@@ -286,12 +326,26 @@ function allRootItems(){
   ];
 }
 
-async function doSync(direction){ await sync(collectSelected(), direction); }
+function isAllSelected(){
+  const items=collectSelected(), roots=allRootItems();
+  return items.length===roots.length && roots.every(root=>items.some(item=>item.scope===root.scope && item.rel===root.rel));
+}
+function selectScope(scope){
+  selected.clear();
+  for(const section of forest){
+    for(const node of section.nodes){
+      if(scope==='all' || (scope==='project' ? node.scope==='project' : node.scope!=='project')) selected.add(node.key);
+    }
+  }
+  render();
+}
+async function doSync(direction){ await sync(collectSelected(), direction, isAllSelected()); }
 async function doAll(direction){ await sync(allRootItems(), direction, true); }
 async function doDelete(){
   const items = collectSelected();
   if(!items.length){ toast('先勾选要删除的文件/文件夹','info'); return; }
-  if(!confirm(`确定删除选中的 ${items.length} 项吗？\n\n· 本机 + 云端都会删除\n· 另一台点「拉取」后也会跟着删\n· 不可撤销`)) return;
+  if(items.some(n=>n.scope==='memories' || (n.scope!=='file' && !n.rel))){ toast('删除请展开后选择具体文件或文件夹，不能删除整个同步范围','info'); return; }
+  if(!confirm(`确定删除选中的 ${items.length} 项吗？\n\n将删除这台电脑及同步仓库中的所选文件，并尝试上传删除记录。\n另一台电脑现有文件不会因普通拉取自动删除。请先确认需要保留的文件已有备份。`)) return;
   await sync(items, 'delete');
 }
 

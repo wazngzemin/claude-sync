@@ -664,7 +664,7 @@ def _run_sync_impl(items, direction, all_items=False):
         items += [{"scope": scope, "rel": "", "label": {"project": "3.23 全部工作文件", "skills": "技能", "plugins": "插件"}[scope]} for scope in SCOPES]
         items.append({"scope": "memories", "label": "Claude 项目记忆"})
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    if all_items and direction == "push":
+    if direction == "push":
         available = []
         for it in items:
             if os.path.exists(source_path(it["scope"], it.get("rel", ""), direction)):

@@ -150,7 +150,7 @@ function renderStatus(st){
   const blocked=cs.kind==='blocked';
   if(!st.initialized){dot.className='dot off';t.textContent='未初始化';}
   else if(!st.has_remote){dot.className='dot warn';t.textContent='未连 GitHub';}
-  else if(cs.status==='ok'){dot.className='dot ok';t.textContent='云端已同步';}
+  else if(cs.status==='ok'){dot.className='dot ok';t.textContent='上次同步成功';}
   else if(cs.status==='fail' && blocked){dot.className='dot off';t.textContent='云端预检阻断';}
   else if(cs.status==='fail'){dot.className='dot off';t.textContent='云端未确认（失败）';}
   else if(blocked){dot.className='dot warn';t.textContent='云端基线待核对';}
@@ -235,7 +235,8 @@ function rowHTML(n){
   const cls = 'row '+(n.type==='dir'?'dir ':'')+(sel?'sel ':'')+(covered?'covered ':'');
   const caret = n.expandable ? `<span class="caret ${n.expanded?'open':''}" onclick="event.stopPropagation();expandKey('${esc(n.key)}')">▶</span>`
                              : `<span class="caret leaf">▶</span>`;
-  const desc = n.desc ? `<span class="dsc">${escHtml(n.desc)}</span>` : '';
+  const description = [n.desc, n.local_exists===false && n.repo_exists===true ? '仅仓库有备份，本机不存在' : ''].filter(Boolean).join(' · ');
+  const desc = description ? `<span class="dsc">${escHtml(description)}</span>` : '';
   const pad = 16 + n.level*22;
   let h = `<div class="${cls}" style="padding-left:${pad}px" onclick="selKey('${esc(n.key)}')">
     ${caret}<div class="cbox"></div><span class="ico">${n.icon||'📄'}</span>
@@ -269,7 +270,7 @@ function allRootItems(){
 }
 
 async function doSync(direction){ await sync(collectSelected(), direction); }
-async function doAll(direction){ await sync(allRootItems(), direction); }
+async function doAll(direction){ await sync(allRootItems(), direction, true); }
 async function doDelete(){
   const items = collectSelected();
   if(!items.length){ toast('先勾选要删除的文件/文件夹','info'); return; }
@@ -277,18 +278,23 @@ async function doDelete(){
   await sync(items, 'delete');
 }
 
-async function sync(items, direction){
+async function sync(items, direction, all=false){
   if(!items.length){ toast('先勾选要同步的文件/文件夹','info'); return; }
   const dt = {push:'推送',pull:'拉取',delete:'删除'}[direction]||direction;
   showOv(`正在${dt}…`, `${items.length} 项`);
   try{
     const data = await fetch(API+'/api/sync',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({items,direction})}).then(r=>r.json());
+      body:JSON.stringify({items,direction,all})}).then(r=>r.json());
     hideOv();
     if(data.error){ toast(data.error,'fail'); return; }
-    const fails = data.results.filter(r=>r.status==='fail');
-    if(fails.length){ toast(`${dt}有问题：\n`+fails.map(r=>r.item+': '+r.msg).join('\n'),'fail'); }
-    else { const cloud=data.results.find(r=>r.item==='云端'); toast(`${dt}成功！`+(cloud?'\n'+cloud.msg:''),'ok'); }
+    const results = Array.isArray(data.results) ? data.results : [];
+    const fails = results.filter(r=>r.status==='fail');
+    const skipped = results.filter(r=>r.status==='skipped');
+    const skipNote = skipped.length ? `\n已跳过 ${skipped.length} 项（源不存在）` : '';
+    const cloud = results.find(r=>r.item==='云端');
+    if(fails.length){ toast(`${dt}有问题：\n`+fails.map(r=>r.item+': '+r.msg).join('\n')+skipNote,'fail'); }
+    else if(cloud && cloud.status==='ok'){ toast(`${dt}成功！\n${cloud.msg||''}`+skipNote,'ok'); }
+    else { toast(`${dt}未确认完成：没有收到云端成功结果`+skipNote,'info'); }
     loadRoots();
   }catch(e){ hideOv(); toast(`${dt}失败: ${e.message}`,'fail'); }
 }

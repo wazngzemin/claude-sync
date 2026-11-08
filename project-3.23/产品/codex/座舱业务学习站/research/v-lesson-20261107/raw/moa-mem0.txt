@@ -1,0 +1,209 @@
+MOA vs Mem0 记忆方案对比及业务应用
+
+0. 当前AI汽车记忆算法方案
+记忆模块算法技术评审：介绍Mem0开源框架的底层实现。我们Ai汽车直接复现的Mem0，提示词上针对汽车业务有更改。提示词见[File] auto/vehicle_llm | config_memory.yaml
+背景
+豆包MOA Memory是豆包MOA架构中的记忆模块。
+豆包MOA架构细节详见MoA(Mix-of-Agents)：通用Agent场景中Sub-Agent接入方案，代码实现在Swalm。
+这里主要参考MOA Memory 模块实现方案介绍其中的记忆模块，并跟我们的Mem0方案做对比。
+整体架构
+
+image.png
+
+用户偏好记忆（Preference）：每轮对话后 LLM 异步抽取用户偏好（增/更新/去重），注入所有 Agent 的 System Prompt（<<USER_PREFERENCES>>）。类比我们的长期语义记忆。
+任务历史记忆（TaskHistory）：Organizer 完成后自动生成执行摘要，完整轨迹分块向量索引，支持从历史细节中检索。类比我们的事件日志。
+近期任务概况（RecentSummary）：7 天滑动窗口自动 LLM 总结，注入 Prompt（<<RECENT_TASK_SUMMARY>>），让模型了解用户近期上下文。类比我们的短期/长期情景记忆。
+存储：SQLite + ChromaDB 向量双写，per-user 隔离；全链路 Agent 共享同一 MemoryContext，均可调用 search_memory 工具（hybrid/vector/keyword 三种模式 + RRF 融合）。我们目前使用的VikingDB的vector检索，也可以尝试VikingDB自带的混合检索。
+用户偏好记忆（Preference）
+每轮对话后，PreferenceExtractor 在后台异步调用 LLM 从用户消息中自动抽取偏好（支持新增/更新/去重），持久化到 SQLite + ChromaDB 向量索引；偏好通过 <<USER_PREFERENCES>> 占位符注入 Main Agent 和 Organizer / SubAgent 的 System Prompt，实现"越用越懂你"。如下为一条偏好记忆
+
+preference_id=pref_001
+内容: 女朋友喜欢白色
+来源: 用户明确告知
+时间: 2026-02-20
+跟我们的记忆相似，主要是记忆内容和时间。
+PreferenceExtractor
+输入：最新的用户消息 + 助手回复 + 已有偏好列表
+抽取 + 去重/冲突处理在同一个 LLM 调用中完成。Prompt 模板：
+
+你是一个用户信息抽取专家。请从下面的用户消息中抽取用户显式说出的偏好、个人事实或稳定要求。
+
+规则：
+- 仅抽取用户直接、明确陈述的内容，不要从助手回复或推理中猜测
+- 对比已有偏好列表，判断每条新抽取的偏好是"新增"还是"更新"已有偏好
+- 如果新偏好与某条已有偏好矛盾或是其更新版本，标记为 "update" 并注明被替代的 preference_id
+- 如果是全新偏好，标记为 "add"
+- 如果没有新偏好，返回空数组
+
+已有偏好列表：
+{existing_preferences}
+
+用户消息：
+{user_message}
+
+助手回复：
+{assistant_reply}
+
+返回 JSON 数组，每个元素格式：
+{{"action": "add"|"update", "content": "偏好内容", "replace_id": "被替代的preference_id（仅update时）"}}
+若无新偏好返回空数组 []
+我们的方案需要对提取的新记忆查询出相似的老记忆，再做增删改，所以记忆提取和记忆增删改为两个prompt。豆包记忆这里每次使用的所有偏好记忆，没有做筛选，所以可以合并为一个prompt。另外，我们的方案比豆包记忆多一个记忆删除能力。
+触发时机
+在 MainAgent._run_inner_loop() 中，处理完用户消息后、进入下一轮迭代前，通过 asyncio.create_task 触发后台抽取任务（非阻塞）。
+我们的方案中偏好抽取是每天凌晨定时离线触发，只有在用户明确表达记忆增删改操作时才会实时触发，这是工程侧在计算资源上的综合考虑。
+下游使用
+全量注入到上下文
+在会话启动时通过 <<USER_PREFERENCES>> 占位符一次性预注入 MainAgent 和 OrganizeAgent 的 system prompt，session 内不动态更新，保证零延迟。
+
+## 用户记忆
+### 用户偏好
+<<USER_PREFERENCES>>
+主动调用search_memory工具
+详见6 SearchMemoryTool详细设计。
+任务历史记忆（TaskHistory）
+包括完整任务trace和任务摘要两种记忆内容。
+完整任务trace按照1200 字符/chunk，180 字符 overlap切片，逐片存储。
+任务摘要每条包括任务描述任务总结等，每条任务作为一条记忆存储。如下为一条任务摘要记录
+
+task_id=task_abc123
+时间: 2026-02-25
+状态: success
+描述: 新能源车行业调研
+过程摘要: 本次任务的核心目标是为用户整理一份2025年新能源汽车行业的调研报告。任务整体
+顺利完成，最终交付了一份包含市场规模、主要厂商对比和技术趋势三个板块的完整报告文档。
+执行过程中，系统首先通过网络搜索收集了比亚迪、特斯拉、蔚来等品牌在2025年的销量数据
+和财报摘要，随后在虚拟机中使用Python对数据进行了清洗和可视化处理……（以下省略）
+产物摘要: 行业报告已保存至飞书云盘 /调研/新能源车_20260225.docx
+产物链接: https://xxx/新能源车_20260225.docx
+TaskSummarizer
+full_trace 收集：通过 build_full_trajectory_text(registry, organizer_agent_id, compact=False) 从 AgentRegistry 获取 OrganizeAgent 及其所有子 agent 的 conversations，过滤掉 system 消息，tool 消息做长度截断，全文存入 TaskRecord.full_trace。
+trace_summary 生成：复用 TaskCard 中 progress_history（periodic progress 摘要列表）和 last_task_summary，通过 build_periodic_progress_text 格式化后交给 LLM 汇总成一段连贯的任务回顾短文。不再依赖完整 trajectory。
+我们的事件日志与此类似，不过是通过工程拼接生成。
+触发时机
+仅当 OrganizeAgent（持有 TaskCard 的 agent）完成时触发，SubAgent 完成时不触发。
+下游使用
+全量注入到上下文
+在会话启动时通过 <<RECENT_TASK_SUMMARY>> 占位符一次性将近期任务摘要预注入 MainAgent 和 OrganizeAgent 的 system prompt，session 内不动态更新，保证零延迟。
+
+## 用户记忆
+### 近期任务概况
+<<RECENT_TASK_SUMMARY>>
+主动调用search_memory工具
+详见6 SearchMemoryTool详细设计。
+近期任务概况（RecentSummary）
+RecentSummaryManager
+update_summary(user_id, llm_caller) — 读取最近 7 天的任务记录，取每条 TaskRecord 的 trace_summary 字段，通过 LLM 调用生成滚动摘要，保存到存储层
+get_summary(user_id) -> str — 返回最新的摘要文本
+format_for_prompt(user_id) -> str — 渲染为适合 system prompt 注入的格式
+输入是 7 天内所有 TaskRecord 的 trace_summary 拼接，Prompt模版
+
+你是一个用户活动总结专家。下面是用户近期（过去 7 天内）完成的所有复杂任务的执行摘要。
+请你根据这些摘要，写一段简洁的总结，概括用户近期都在做什么事情。
+
+要求：
+- 以连贯的短文形式书写，概括性强
+- 覆盖：用户近期关注的主题领域、主要做了哪些类型的任务、产出了哪些重要成果、是否有失败或未完成的任务
+- 如果能发现用户的工作趋势或偏好模式，也可以提及
+- 长度控制在 200-400 字之间
+
+以下是各任务的执行摘要（按时间倒序）：
+
+{task_summaries}
+触发时机
+每次任务记录保存后触发，但限频为每小时最多一次（或每次会话启动时触发一次）。也支持手动/定时刷新。
+SearchMemoryTool 详细设计
+工具 Schema：
+
+{
+    "name": "search_memory",
+    "description": "搜索用户的长期记忆。默认搜索用户偏好；指定 memory_type 可搜索历史任务记录。",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": "搜索查询内容，可以是自然语言描述或关键词"
+            },
+            "search_mode": {
+                "type": "string",
+                "enum": ["hybrid", "vector", "keyword"],
+                "description": "搜索模式。hybrid=向量+关键词融合（默认），vector=纯语义搜索，keyword=纯关键词匹配",
+                "default": "hybrid"
+            },
+            "memory_type": {
+                "type": "string",
+                "enum": ["preference", "task_history", "all"],
+                "description": "搜索范围。preference=用户偏好（默认），task_history=历史任务记录，all=两者都搜",
+                "default": "preference"
+            },
+            "top_k": {
+                "type": "integer",
+                "description": "返回结果数量上限（默认 4）",
+                "default": 4
+            },
+            "start_date": {
+                "type": "string",
+                "description": "时间范围起始日期，格式 YYYY-MM-DD。与 end_date 传同一天表示限定该天。不传则不限。"
+            },
+            "end_date": {
+                "type": "string",
+                "description": "时间范围截止日期，格式 YYYY-MM-DD。与 start_date 传同一天表示限定该天。不传则不限。"
+            }
+        },
+        "required": ["query"]
+    }
+}
+返回格式：
+纯文本，直接给模型看。每条结果带 id 方便后续引用。不做任何"建议"或"提示"，模型自行决定下一步。
+当 memory_type 包含 task_history 时（trace_summary 返回全文，不截断，让模型自己判断相关性）：
+
+[任务记录] 共 2 条结果 (mode=hybrid)
+
+[1] task_id=task_abc123
+    时间: 2026-02-25
+    状态: success
+    描述: 新能源车行业调研
+    过程摘要: 本次任务的核心目标是为用户整理一份2025年新能源汽车行业的调研报告。任务整体
+    顺利完成，最终交付了一份包含市场规模、主要厂商对比和技术趋势三个板块的完整报告文档。
+    执行过程中，系统首先通过网络搜索收集了比亚迪、特斯拉、蔚来等品牌在2025年的销量数据
+    和财报摘要，随后在虚拟机中使用Python对数据进行了清洗和可视化处理……（以下省略）
+    产物摘要: 行业报告已保存至飞书云盘 /调研/新能源车_20260225.docx
+    产物链接: https://xxx/新能源车_20260225.docx
+
+[2] task_id=task_def456
+    时间: 2026-02-20
+    状态: success
+    描述: 电动汽车充电桩市场分析
+    过程摘要: 本次任务围绕国内电动汽车充电桩市场展开分析……（300-600字完整摘要）
+    产物摘要: 分析PPT已保存至 /调研/充电桩分析.pptx
+    产物链接: https://xxx/充电桩分析.pptx
+当 memory_type 包含 preference 时：
+
+[用户偏好] 共 2 条结果
+
+[1] preference_id=pref_001
+    内容: 女朋友喜欢白色
+    来源: 用户明确告知
+    时间: 2026-02-20
+
+[2] preference_id=pref_002
+    内容: 做PPT时偏好简约风格，不要太多动画
+    来源: 用户明确告知
+    时间: 2026-02-15
+当 memory_type="all" 时两个 section 拼接，任务记录在前、偏好在后。
+无结果时：
+
+[任务记录] 共 0 条结果 (mode=hybrid)
+未找到与查询相关的记录。
+SearchMemoryTool 位于 swalm.core.tool.agents.memory_tools，和其他 MOA 工具一样由 MainAgent / OrganizeAgent 在初始化时手动实例化并注册。
+值得借鉴的点
+使用任务历史记忆，把经常成功的trace自动抽象成skill保存，让智能体有自我学习能力。
+image.png
+
+这里的condenser跟我们的短期记忆有点类似，但输入更直接，只输入main agent中的上下文，值得尝试一下。
+image.png
+
+可以选择部分记忆内容，提前注入prompt，降低时延。
+可以考虑融合检索。VikingDB支持融合检索，直接做一下对比测试就行。
+主动调用search_memory之前，对query做多维度改写成多条搜索关键词，对每条搜索关键词返回结果做RRF融合。以期提升召回率。
+

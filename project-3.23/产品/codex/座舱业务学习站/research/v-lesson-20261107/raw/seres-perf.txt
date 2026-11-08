@@ -1,0 +1,463 @@
+赛力斯龙兴三台测试车20251225性能现状
+一、安装应用差异分析
+通用应用 (3车交集): 95个，这些是所有测试车都安装的基础应用。
+各车独有应用:
+3号车: android.auto_generated_rro_vendor_, com.bytedance.cube.litestreamsdk, com.seres.dvr, com.seres.globalsearch, com.seres.media.vision, com.seres.notificationcenter, com.seres.roborex.cdc, com.seres.sentrymode, com.seres.seresfragrance, com.seres.securitycenter
+5号车: android.auto_generated_rro_vendor_, com.bytedance.cube.alwaysonsense, com.bytedance.cube.litestreamrecord, com.bytedance.cube.litestreamsdk, com.example.camertest, com.example.myapplication, com.example.uidemo, com.larus.vehicle.vlmdemo, com.seres.dvr, com.seres.globalsearch, com.seres.media.vision, com.seres.notificationcenter, com.seres.roborex.cdc, com.seres.sentrymode, com.seres.seresfragrance, com.seres.securitycenter, com.seres.smartfittool
+6号车: com.bytedance.cube.alwaysonsense, com.example.usbmin, com.seres.adapter.demotest, com.seres.smartfittool, com.youku.phone
+二、系统整体资源占用分析
+本章节通过解析TOP日志，从系统宏观层面审视三台测试车在运行期间的CPU和内存负载情况。
+2.1 各车CPU与内存使用趋势
+3号车
+CPU使用率: 平均为 476.3%（核百分比），峰值达到 768.0%。CPU负载在测试期间有数次明显的高峰。
+内存使用: 平均使用 7.05 GB 物理内存，峰值为 7.10 GB。Swap（虚拟内存）平均使用 210 MB，峰值为 242 MB。
+
+
+car3_cpu_timeseries.png
+
+
+car3_mem_timeseries.png
+
+5号车
+CPU使用率: 平均为 568.3%，显著高于其他两车，峰值高达 797.0%，接近满载。CPU持续处于高位运行。
+内存使用: 平均使用 6.98 GB 物理内存，峰值为 7.11 GB。值得注意的是，Swap使用量巨大，平均达到 15.4 GB，峰值高达 25.2 GB，表明物理内存严重不足，系统频繁进行内存交换，这是导致性能下降和卡顿的直接原因。
+
+
+car5_cpu_timeseries.png
+
+
+car5_mem_timeseries.png
+
+6号车
+CPU使用率: 负载最为平稳，平均为 438.7%，峰值为 559.0%。
+内存使用: 平均使用 7.07 GB 物理内存，峰值为 7.10 GB。Swap平均使用 216 MB，峰值为 234 MB，状态相对健康。
+
+
+car6_cpu_timeseries.png
+
+
+car6_mem_timeseries.png
+
+2.2 三车横向对比
+
+对比小结： 5号车在CPU平均和峰值占用上均远超其他车辆。内存方面，虽然三车物理内存使用量接近，但5号车巨大的Swap使用量暴露了其严重的内存压力问题。
+
+
+CPU均值与峰值对比
+cpu_usage_mean_compare.png
+
+cpu_usage_peak_compare.png
+
+
+内存均值与峰值对比
+mem_used_mean_compare.png
+
+mem_used_peak_compare.png
+
+
+三、核心进程资源占用画像
+深入分析每个采样时间片内的进程数据，可以识别出导致系统高负载的具体应用或服务。
+3.1 Top 10 资源占用进程
+以下是各车在CPU和内存平均占用上前10名的进程榜单。
+
+
+3号车 Top 10
+car3_cpu_avg_top10.png
+
+car3_mem_avg_top10.png
+
+
+5号车 Top 10
+car5_cpu_avg_top10.png
+
+car5_mem_avg_top10.png
+
+
+6号车 Top 10
+car6_cpu_avg_top10.png
+
+car6_mem_avg_top10.png
+
+3.2 关键进程性能画像
+
+画像总结：
+com.larus.nova:vehicle (豆包进程)：所有车辆上最主要的 内存消耗者，平均占用接近1GB，且在5号车上CPU占用也最高。
+com.bytedance.vehicle.speech:voice (豆包进程)：所有车辆上最主要的 CPU消耗者 之一，持续占用较高CPU资源。
+com.seres.oms (系统服务)：在5号车上表现出异常高的CPU占用，远超其他两车，是5号车CPU负载高的关键因素。
+system_server (系统核心服务)：作为安卓系统核心，资源占用较高属正常现象，但5号车的内存占用（平均284MB）显著高于其他车辆。
+surfaceflinger (图形合成服务)：CPU占用在各车均处于较高水平，反映出UI渲染压力普遍存在。
+
+
+进程名
+
+车辆
+
+CPU均值
+
+CPU峰值
+
+内存均值 (MiB)
+
+内存峰值 (MiB)
+
+性能简评
+
+com.larus.nova:vehicle
+
+3号车
+
+61.8%
+
+89.2%
+
+886.5
+
+904.0
+
+内存占用极高，CPU占用高
+
+
+
+5号车
+
+96.6%
+
+393.0%
+
+807.1
+
+868.0
+
+CPU和内存双高，是性能瓶颈
+
+
+
+6号车
+
+50.0%
+
+75.0%
+
+1056.3
+
+1126.4
+
+内存占用最高，CPU占用高
+
+com.bytedance.vehicle.speech:voice
+
+3号车
+
+66.9%
+
+100.0%
+
+165.4
+
+
+168.0
+
+CPU占用高
+
+
+
+5号车
+
+69.7%
+
+103.0%
+
+202.4
+
+209.0
+
+CPU占用高，内存占用偏高
+
+
+
+6号车
+
+62.2%
+
+89.6%
+
+165.0
+
+166.0
+
+CPU占用高
+
+com.seres.oms
+
+3号车
+
+11.1%
+
+17.8%
+
+177.4
+
+184.0
+
+正常
+
+
+
+5号车
+
+56.7%
+
+92.8%
+
+222.7
+
+238.0
+
+CPU占用异常高
+
+
+
+6号车
+
+54.4%
+
+75.8%
+
+187.5
+
+196.0
+
+CPU占用高
+
+system_server
+
+3号车
+
+10.3%
+
+51.8%
+
+220.0
+
+230.0
+
+正常
+
+
+
+5号车
+
+9.7%
+
+39.2%
+
+283.5
+
+327.0
+
+内存占用偏高
+
+
+
+6号车
+
+9.9%
+
+35.7%
+
+224.2
+
+231.0
+
+正常
+
+surfaceflinger
+
+3号车
+
+29.8%
+
+42.8%
+
+46.0
+
+47.0
+
+CPU占用高
+
+
+
+5号车
+
+25.6%
+
+41.3%
+
+52.7
+
+55.0
+
+CPU占用高
+
+
+
+6号车
+
+26.7%
+
+43.3%
+
+46.3
+
+47.0
+
+CPU占用高
+
+com.seres.navi.bl
+
+3号车
+
+11.3%
+
+257.0%
+
+431.6
+
+476.0
+
+存在CPU尖峰
+
+
+
+5号车
+
+16.9%
+
+100.0%
+
+505.1
+
+613.0
+
+内存占用高
+
+
+
+6号车
+
+2.2%
+
+14.2%
+
+247.7
+
+256.0
+
+正常
+
+四、卡顿原因研判与优化建议
+综合以上数据，特别是5号车的异常表现，我们可以对系统当前的卡顿问题进行归因，并提出初步优化建议。
+
+核心问题： 5号车物理内存不足，导致系统大量使用Swap交换空间，引发了频繁的磁盘I/O，这是造成严重卡顿的根源。同时，多个核心应用持续的高CPU占用加剧了系统的响应延迟。
+4.1 卡顿原因分析
+内存瓶颈与频繁换页 (5号车)
+现象: 5号车Swap使用量峰值达到 25.2 GB，而物理内存几乎耗尽。这表明系统不得不将内存中不活跃的页面换出到速度慢得多的存储设备（如eMMC）上，当需要再次访问这些页面时，又必须从存储中换回内存。
+影响: 这种频繁的“换入换出”操作（Paging）会引起大量的I/O等待，直接导致系统UI无响应、应用启动缓慢等卡顿现象。
+触发点: 高内存占用的进程如 com.larus.nova:vehicle (豆包进程，峰值接近1GB)、com.seres.navi.bl (导航引擎，峰值超600MB) 等共同将物理内存推向极限。
+CPU资源竞争激烈
+现象: com.bytedance.vehicle.speech:voice (语音)、com.larus.nova:vehicle (豆包进程) 和 com.seres.oms 在5号车上持续抢占CPU资源，平均占用均超过50%。
+影响: 当多个高优先级进程同时需要CPU时，系统调度器需要频繁切换上下文，增加了系统开销。对于UI渲染线程（如 surfaceflinger）来说，如果无法及时获得CPU时间片，就会导致掉帧和动画卡顿。
+UI渲染压力过大
+现象: surfaceflinger 在所有车辆上CPU占用都不低，表明UI合成任务繁重。
+影响: 当 com.larus.nova (豆包进程) 和 com.seres.settings (设置页) 等UI进程频繁更新视图内容时，会加重 surfaceflinger 的负担。如果这些进程自身存在过度绘制或渲染效率问题，则会进一步恶化UI流畅度。
+4.2 优化建议与风险提示
+
+
+优化建议
+
+目标进程/模块
+
+具体措施
+
+风险与验证方法
+
+1. 降低语音服务后台CPU占用
+
+com.bytedance.vehicle.speech
+
+评估并降低后台状态下的音频采样率或声音事件检测（VAD）的灵敏度。
+调整服务线程的调度优先级，避免在UI关键路径上抢占CPU。
+
+风险: 可能降低语音唤醒的灵敏度或识别率。
+验证: 通过专项测试确保唤醒率和识别率在可接受范围内。
+
+2. 优化地图/桌面内存使用
+
+com.larus.nova
+
+分析并限制进程的纹理缓存和对象池大小，避免内存无节制增长。
+对地图组件、车机桌面等UI资源进行内存泄漏排查。
+引入更积极的内存回收策略，在应用切至后台时主动释放非必要资源。
+
+风险: 过度限制缓存可能导致地图加载变慢或UI切换时出现闪烁。
+验证: 通过场景切换测试UI流畅度和响应速度。
+
+3. 管控OMS服务CPU波动
+
+com.seres.oms
+
+重点排查5号车上该服务CPU占用异常的原因，是否为特定逻辑触发的死循环或频繁轮询。
+调整数据上报或状态监控的频率，采用更智能的事件驱动机制替代固定间隔轮询。
+
+风险: 降低监控频率可能影响用户状态数据的实时性。
+验证: 确认核心功能（如用户登录、状态同步）不受影响，并通过日志监控其行为。
+
+4. 缓解内存压力，降低Swap依赖
+
+系统全局 / 低内存管理(LMK)
+
+治本之策：优化高内存占用应用（见建议2）。
+辅助手段：调整Low Memory Killer (LMK)策略，使其更早、更精准地杀掉后台非必要应用，从而为前台应用释放更多物理内存。
+
+风险: 过于激进的LMK策略可能导致用户频繁使用的后台应用（如音乐）被杀，影响多任务体验。
+验证: 在多任务场景下测试应用保活情况，确保用户体验平衡。
+
+5. 审查UI刷新与合成策略
+
+surfaceflinger 及相关UI应用
+
+使用Android Profiler或Perfetto等工具分析 com.seres.settings 等应用的渲染性能，是否存在过度绘制。
+检查并优化窗口刷新策略，避免不必要的UI重绘。
+
+风险: 无明显风险，属于常规性能优化。
+验证: 通过GPU呈现模式和掉帧监控来量化优化效果。
+
+后续步骤建议：
+优先成立专项小组，深入分析5号车com.seres.oms的CPU异常问题。
+对com.larus.nova和com.bytedance.vehicle.speech团队发出性能优化需求，并提供本报告作为数据支持。
+考虑对5号车进行恢复出厂设置或刷入纯净系统版本，以排除个别测试应用引入的干扰，进行对比测试。
+3号车
+
+3号车.mp4
+
+3号车应用列表
+
+3号车mem_cpu_log_20251225_123706.txt
+
+5号车
+
+5号车.mp4
+
+5号车应用列表
+
+5号车mem_cpu_log_20251225_125415.txt
+
+6号车
+
+6号车.mp4
+
+6号车 mem_cpu_log_20251225_131137.txt
+
+6号车应用列表
+
+

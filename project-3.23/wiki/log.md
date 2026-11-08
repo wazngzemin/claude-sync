@@ -87,3 +87,14 @@ date: 2026-04-14
 | 2026-10-29 12:27 | ingest | product-lectures/2026-10-29；记忆与 Director 宣讲摘要 | 追加两份逐字稿与三份需求快照；更新记忆实体和讲解方法，纠正 Director/Planner 串行误解，用于现有 HTML 的宣讲式改写。 |
 
 | 2026-10-29 19:40 | ingest | summaries/user-case-rewrite-standard.md | 追加用户长案例原件，更新学习站讲解标准；案例用于表达深度，产品事实仍逐项核对内部正文。 |
+| 2026-11-05 14:37 | ingest | agent-kernel-2026-11-04；self-learning-and-agent-kernel | 追加用户转写及 9 月／11 月文字记录快照，新增摘要、内核实体、持续学习概念、对照与整合精讲；纠正空闲探索出处、当场补救与长期学习、账号归属及快频率准备边界。 |
+
+| 2026-11-05 21:34 | ingest | summaries/onboarding-meetings-2026-11-04.md；synthesis/onboarding-agent-prd.md | 追加三场会议、两份用户逐字稿与场景表快照；新建 Agent PRD、方案对照、结果概念与实体，保留原稿。 |
+| 2026-11-05 21:38 | ingest | synthesis/onboarding-agent-prd.md | 新版飞书 https://bytedance.larkoffice.com/docx/MkFgd7X8RoqvalxtzhdcseL9n3e；回读核对730段落/表格单元，19表与7白板完整，7图线上导出目视检查。 |
+| 2026-11-06 00:10 | query | synthesis/onboarding-agent-prd.md | 按用户 Codex 记录与飞书原文，直接扩写《新手引导需求文档》Jv2ZdOlRoo7enZxvSticmERHnJe；保留 8 白板，案例改为 Case 模板，回读 401 行无缺失。 |
+
+| 2026-11-05 | correction | synthesis/onboarding-agent-prd.md | 纠正此前生成稿方向错误：按晚间会议不做独立新手引导 Agent，采用单模型相关性、触发器条件与计次、DT 执行闭环；同步修正相关知识页。 |
+| 2026-11-06 00:50 | query | synthesis/onboarding-agent-prd.md | 按 Codex 聊天全文重写飞书 Jv2ZdOlRoo7enZxvSticmERHnJe：方案 A/B 并列，Case 改为 Face ID + 记忆同步问候，5 张 A/B 对照画板；补读群聊；回读 409 行无缺失。 |
+| 2026-11-06 01:40 | query | synthesis/onboarding-agent-prd.md | 按静态 Advisor PRD 格式重写飞书 Jv2ZdOlRoo7enZxvSticmERHnJe；5 张画板细化重画；回读 462 行无缺失。 |
+| 2026-11-06 14:10 | ingest | summaries/onboarding-meetings-2026-11-04.md | 存档 11/6 语义触发对齐会议逐字稿；飞书 Jv2ZdOlRoo7enZxvSticmERHnJe 增补 v0.6、静态/动态入口问答、语义触发规则、后续节奏与配置画板；保留用户手改的工作流画板与区别表。 |
+| 2026-11-06 14:40 | query | synthesis/onboarding-agent-prd.md | 工作流画板按用户手改版本补 11/6 结论：只新增 2 个虚线说明框（全流量 query、配置平台预设选项），原 81 个节点核对未变；接口不支持改/删节点。 |

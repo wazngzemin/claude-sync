@@ -1,0 +1,254 @@
+AIDV 车端语音 Trace 数据链路基建技术方案
+背景
+车端语音服务（AIDV）基于 CozeLoop 构建，运行时产生 OTel 风格的 span 数据，经 BMQ topic aidv_data_raw_span 上报。此前这些 trace 数据没有统一的存储与查询入口，排障只能依赖零散日志，无法按 TraceId 还原完整调用链，也无法做 span 维度的耗时 / Token / 工具调用分析。
+本期基建打通一条从 BMQ 原始 span 到 ByteHouse 可查询、再到 Grafana 可视化的完整链路，为后续车端语音的问题定位、性能分析和效果度量提供数据底座。
+
+
+事项
+
+链接、说明
+
+负责人
+
+meego
+
+
+
+@张伟晨
+
+技术方案
+
+本文档
+
+@张伟晨
+目标 & 收益
+建立 BMQ → Flink → ByteHouse → Grafana 的端到端 trace 数据链路，原始 span 分钟级入库可查。
+沉淀 span_detail 明细 + 维度字典物化视图，支撑后续业务明细查询与 Grafana 表格面板
+方案
+整体架构
+两阶段 Flink 作业 + ByteHouse 存储 + Grafana 查询：
+整体架构
+BMQ aidv_data_raw_span  (cozeloop 格式)
+    │  (消息 = {value:{spans:[...]}})
+    ▼
+[阶段一] Flink DataStream 清洗作业 (TraceIngestionJob + SpanFlattener)
+    │  拆 spans 数组 / 字段映射 / 单位换算 / 标签合并
+    ▼
+BMQ aidv_data_span_detail (otel 标准格式）
+    │  (一条 span 一条消息，key=TraceId，字段名对齐 ByteHouse 列)
+    ▼
+[阶段二] Flink SQL 写入作业 (span_detail_to_bytehouse.sql)
+    │  类型转换（纳秒 → DateTime64(9)）+ ByteHouse CDW connector
+    ▼
+ByteHouse vehicle_aidv.span_detail
+    │  ORDER BY (Timestamp, TraceId), CLUSTER BY TraceId INTO 24 BUCKETS
+    │  异步 MV → vehicle_aidv.dim_dict（维度字典）
+    ▼
+Grafana Trace 表格面板（trace 列表）
+为什么拆两阶段：清洗逻辑（嵌套 wrapper + 拆数组 + 多类型 tags 合并）用 DataStream 写更直观；ByteHouse 写入用官方 connector + SQL 最稳。中间 topic 是一份标准化的扁平 span 流，下游可接多个消费者（ByteHouse、调试、补数重放）。
+数据流转流程
+以一条车端语音 trace 为例：
+ SDK 在 vehicle.model.aidv 服务内产生 spans，封装为 {value:{spans:[...]}} 写入 BMQ aidv_data_raw_span（集群 bmq_common9_cn6）。
+阶段一 DataStream 作业消费 raw topic，拆 spans 数组、字段映射、单位换算、标签合并，输出"一条 span 一条消息"到 aidv_data_span_detail（key=TraceId，保证同 trace 落同分区）。
+阶段二 Flink SQL 作业消费 aidv_data_span_detail，做类型转换后写入 ByteHouse vehicle_aidv.span_detail。
+Grafana 表格面板直接查询 span_detail 表，按 TraceId 聚合并展示 trace 列表；单 trace 详细调用链（瀑布图）由 Fornax 提供。
+表结构与作业实现
+ByteHouse span_detail 表
+集群 cnch_sigma_gl2，数据库 vehicle_aidv，引擎 CnchMergeTree。
+span_detail 建表（核心片段）
+CREATE TABLE vehicle_aidv.span_detail
+(
+    `Timestamp` DateTime64(9) CODEC(Delta(8), ZSTD(1)),
+    `TraceId` String CODEC(ZSTD(1)),
+    `SpanId` String CODEC(ZSTD(1)),
+    `ParentSpanId` String CODEC(ZSTD(1)),
+    `TraceState` String CODEC(ZSTD(1)),
+    `SpanName` LowCardinality(String) CODEC(ZSTD(1)),
+    `SpanKind` LowCardinality(String) CODEC(ZSTD(1)),
+    `ServiceName` LowCardinality(String) CODEC(ZSTD(1)),
+    `ResourceAttributes` Map(LowCardinality(String), String) KV CODEC(ZSTD(1)),
+    `ScopeName` String CODEC(ZSTD(1)),
+    `ScopeVersion` String CODEC(ZSTD(1)),
+    `SpanAttributes` Map(LowCardinality(String), String) KV CODEC(ZSTD(1)),
+    `Duration` UInt64 CODEC(ZSTD(1)),
+    `StatusCode` LowCardinality(String) CODEC(ZSTD(1)),
+    `StatusMessage` String CODEC(ZSTD(1)),
+    `Events.Timestamp` Array(DateTime64(9)) CODEC(ZSTD(1)),
+    `Events.Name` Array(LowCardinality(String)) CODEC(ZSTD(1)),
+    `Events.Attributes` Array(String) CODEC(ZSTD(1)),
+    `Links.TraceId` Array(String) CODEC(ZSTD(1)),
+    `Links.SpanId` Array(String) CODEC(ZSTD(1)),
+    `Links.TraceState` Array(String) CODEC(ZSTD(1)),
+    `Links.Attributes` Array(String) CODEC(ZSTD(1)),
+    INDEX idx_trace_id TraceId TYPE bloom_filter(0.001) GRANULARITY 1,
+    INDEX idx_res_attr_key mapKeys(ResourceAttributes) TYPE bloom_filter(0.01) GRANULARITY 1,
+    INDEX idx_res_attr_value mapValues(ResourceAttributes) TYPE bloom_filter(0.01) GRANULARITY 1,
+    INDEX idx_span_attr_key mapKeys(SpanAttributes) TYPE bloom_filter(0.01) GRANULARITY 1,
+    INDEX idx_span_attr_value mapValues(SpanAttributes) TYPE bloom_filter(0.01) GRANULARITY 1,
+    INDEX idx_duration Duration TYPE minmax GRANULARITY 1
+)
+ENGINE = CnchMergeTree
+PARTITION BY toDate(Timestamp)
+CLUSTER BY TraceId INTO 24 BUCKETS
+ORDER BY (Timestamp, TraceId)
+SETTINGS index_granularity = 8192, ttl_only_drop_parts = 1, replace_long_file_name_to_hash = 1, storage_policy = 'cnch_default_hdfs', enable_publish_version_on_commit = 1, catalog_v2_only = 1, cnch_vw_default = 'aidv-cn6-default', cnch_vw_write = 'aidv-cn6-write'
+关键设计取舍：
+ORDER BY (Timestamp, TraceId)：时间范围查询走主键范围扫描。原表 ORDER BY (ServiceName, SpanName, toDateTime(Timestamp)) 导致时间范围查询退化为分区内全扫，已通过重建表 + 数据回填 + RENAME 切换完成迁移。
+CLUSTER BY TraceId INTO 24 BUCKETS：同 trace 的 span 落在同一 bucket，单 trace 点查 + GROUP BY TraceId 本地化。bucket 数取 VW worker 数（12）的 2 倍。
+TraceId bloom filter 索引：兜底单 trace 点查（单 key 时仍 < 1s），供 Fornax 瀑布图等下游消费。
+Map KV 编码：SpanAttributes / ResourceAttributes 用 KV 编码降低存储，attributes key 用 LowCardinality。
+阶段一：Flink DataStream 清洗作业
+代码：仓库 aidv_flink 中 TraceIngestionJob.java、SpanFlattener.java。
+核心字段映射：
+
+
+输出字段
+
+源字段
+
+转换
+
+Timestamp
+
+started_at_micros
+
+× 1000（µs → ns），long
+
+TraceId / SpanId
+
+trace_id / span_id
+
+直取，缺失则丢弃该 span
+
+ParentSpanId
+
+parent_id
+
+"0" / 空 → ""，其余直取
+
+SpanKind
+
+—
+
+恒 "INTERNAL"（span_type 不是 OTel kind，节点类型存入 SpanAttributes['span_type']）
+
+ResourceAttributes
+
+system_tags_{string,long,double,bool}
+
+四类合并，value 一律 string；同名 key string 优先
+
+SpanAttributes
+
+tags_{string,long,double,bool} + 结构字段
+
+tags 合并 + span_type / log_id / cozeloop.input 等额外字段；putIfAbsent 语义
+
+Duration
+
+duration_micros
+
+× 1000，缺失/负数 → 0
+
+StatusCode
+
+status_code
+
+0 → "OK"，非 0 / 缺失 → "ERROR"
+关键参数：
+大消息：真实单 span 最大 ~188KB，source / sink / topic 三处统一放到 max.request.size = 10MB，fetch.max.bytes = 50MB。
+BMQ 接入：不配置 bootstrap.servers，通过 cluster 属性做服务发现。
+语义：AT_LEAST_ONCE，checkpoint 60s，并行度 2，固定延迟重启（3 次 / 10s）。
+脏数据：flatMap 全量异常捕获，单 span 失败只跳过该 span，计数 + warn 日志，不阻塞作业。
+阶段二：Flink SQL 写入作业
+SQL：span_detail_to_bytehouse.sql（仓库 aidv_flink）。读取 aidv_data_span_detail，经类型转换后写入 ByteHouse。
+类型转换要点：Timestamp（epoch 纳秒）通过 FROM_UNIXTIME + LPAD 拼接 9 位小数秒，再 CAST 为 TIMESTAMP(9) WITH LOCAL TIME ZONE，映射为 ByteHouse DateTime64(9)。Flink 1.11 不支持 ARRAY 元素类型的 CAST，Events / Links 当前恒为空数组，按约定映射到各 Nested 子列。
+维度字典物化视图
+SQL：dimension_mv.sql（仓库 aidv_flink）。异步 MV 每天从 span_detail 抽取四类维度（service_name / span_name / span_attr_key / resource_attr_key），沉淀到 vehicle_aidv.dim_dict，供前端下拉框和查询过滤条件快速取值，避免每次全表 DISTINCT 扫描。
+引擎 CnchAggregatingMergeTree，SimpleAggregateFunction(sum/min/max) 在 merge 阶段聚合。
+分区对齐：目标表用 event_date = toDate(Timestamp) 分区，与基表严格对齐，支持分区级增量刷新。
+async_mv_excluded_trigger_tables 屏蔽基表写入触发，仅靠天级调度（凌晨 02:00-04:00）刷新，不阻塞实时写入链路。
+影响范围
+
+
+模块
+
+影响说明
+
+上游 BMQ topic aidv_data_raw_span
+
+只读消费，不影响上游生产
+
+新建 BMQ topic aidv_data_span_detail
+
+标准化扁平 span 流，作为中间层
+
+ByteHouse vehicle_aidv.span_detail
+
+新建表 + 排序键/分片键迁移（重建表 + 回填 + RENAME 切换）
+
+ByteHouse vehicle_aidv.dim_dict + MV
+
+新建维度字典表与异步物化视图
+
+下游 Grafana Trace 表格面板
+
+新增 trace 列表表格面板：Trace 面板；单 trace 瀑布图等详细调用链视图由 Fornax 提供
+本期为纯新增数据消费链路，不影响正常业务流量，仅对上报的 trace 数据做旁路消费与存储。
+埋点 & 监控 & 告警
+Flink 作业指标：messages.in / spans.out / parse.failed / spans.invalid / no.spans，通过 Flink Metric Group 上报。
+ByteHouse 可观测：写入行数与延迟、查询 P99 延迟、span_detail 表行数增长。
+数据完整性校验：定期对比 raw topic span 数与 span_detail 入库行数，排查清洗丢弃与写入丢失。
+告警：Flink 作业连续重启失败、ByteHouse 写入持续报错、parse.failed 占比异常升高。
+人力排期
+整体节奏：开发 10-27 ~ 10-30，已全部完成并上线。
+
+
+任务项
+
+负责人
+
+时间
+
+排期
+
+Bytehouse 容量评估与申请
+
+张伟晨
+
+1 人天
+
+10-27
+
+Flink 任务开发：源 topic 分析至结构化 span topic
+
+张伟晨
+
+1 人天
+
+10-28
+
+Flink 任务开发：span topic 写入 bytehouse
+
+张伟晨
+
+1 人天
+
+10-29
+
+Bytehouse 建模与结构调优
+
+张伟晨
+
+1 人天
+
+10-29
+
+Grafana Trace 表格建设与查询调优
+
+张伟晨
+
+1 人天
+
+10-30
+

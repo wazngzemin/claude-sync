@@ -1,0 +1,250 @@
+AIDV Planner 模型风控标记与历史过滤技术方案
+一、背景与范围
+
+模型命中风控时，优化上下文格式
+【AI汽车】安全测试用例&测试结果
+image.png
+
+
+二、总体设计
+该方案把模型风控状态拆成两层记录：
+planner_histories.debug_info 保存模型调用事实，记录原始结束原因，供排查和审计。
+chat_histories.finish_type 保存会话轮次终态，供历史查询和上下文过滤。
+核心链路如下：
+MainFlow 初始化共享状态
+        ↓
+Planner 流式读取模型输出
+        ↓
+发现 finish_reason=content_filter
+        ├─ 写入 Context 共享状态
+        ├─ 首包异常时替换为安全兜底 JSON
+        └─ planner_histories.debug_info 记录结束原因
+        ↓
+afterFlow 更新 Redis 与 MySQL 的 finish_type=3
+        ↓
+下一轮读取历史并过滤 FinishTypeContentFilter
+
+
+三、详细设计
+3.1 风控识别与兜底回复
+processLLMStream 在遍历模型流时检查：
+chunk.ResponseMeta != nil &&
+    chunk.ResponseMeta.FinishReason == constant.FinishReasonContentFilter
+命中后调用 SetPlannerFinishReasonToContext 保存结束原因。若首个 chunk 的正文不以 { 开头，则从 6 条预设话术中随机选取一条，替换为合法 Planner JSON，保证后续解析和输出链路继续工作。
+该判断只要求任意 chunk 的 FinishReason 命中即可记录；兜底回复额外要求“首包且正文非 JSON”，避免覆盖模型已经返回的合法结构。
+3.2 请求内状态传递
+MainFlow 调用 InitPlannerFinishReasonContext，提前将共享对象指针放入 Context：
+type plannerFinishReasonValue struct {
+    finishReason atomic.Value
+}
+这样设计是因为 context.Context 不可变。若在 Planner 深层调用中重新执行 context.WithValue，新 Context 无法反向传递给外层 afterFlow。提前放入可变对象后，流式处理与收尾流程访问的是同一个实例。
+atomic.Value 保证流式解析、Graph 编排和收尾逻辑跨 goroutine 读写时不会产生 data race。初始化方法是幂等的，llmNodeHandler 单独调用时也能安全补初始化。
+3.3 Planner 调用记录
+savePlannerModelOutput 从 Context 读取结束原因。命中模型风控时，向 planner_histories.debug_info 写入：
+{"finish_reason":"content_filter"}
+CreateModelOutputHistory 新增 debugInfo 参数，其他调用保持空值，不改变已有数据语义。
+3.4 会话终态
+chat_history 新增枚举：
+FinishTypeContentFilter = 3
+
+
+值
+
+枚举
+
+含义
+
+-1
+
+FinishTypeUnfinished
+
+请求尚未完成
+
+0
+
+FinishTypeSuccess
+
+正常完成
+
+1
+
+FinishTypeCodeRefusal
+
+业务拒识
+
+2
+
+FinishTypeCodeError
+
+执行错误
+
+3
+
+FinishTypeContentFilter
+
+模型侧内容风控
+afterFlow 读取请求内的 Planner 结束原因：
+Redis：通过 UpdateChatHistoryRejectStatus 更新当前缓存项的 finish_type。
+MySQL：在 updateChatHistoryAndChatResource 中将 chat_histories.finish_type 更新为 3。
+Redis 与 MySQL 使用同一枚举，避免缓存命中与数据库降级返回不同语义。
+3.5 历史读取与 Planner 过滤
+GetHistoryWithCache 优先读取 Redis，正常历史只接受 FinishTypeSuccess。缓存不可用时降级调用 GetHistory 查询 MySQL。
+缓存记录转换成 history.HistoryItem 时必须保留：
+FinishType: val.FinishType
+否则 buildHistoryMessages 无法识别缓存返回的风控记录。
+Planner 构造消息前调用 filterContentFilteredHistory，排除 FinishTypeContentFilter。过滤放在 buildHistoryMessages 内部，保证正常构造路径统一生效；当前版本暂未覆盖该方法失败后的降级构造路径。
+
+四、代码改动
+
+
+文件
+
+职责
+
+biz/constant/constant.go
+
+定义 FinishReasonContentFilter。
+
+biz/service/planner/planner_text.go
+
+识别风控、选择兜底话术、写 Planner debug_info、过滤历史。
+
+biz/service/helper/context.go
+
+提供请求内 finish reason 的并发安全读写。
+
+biz/model/planner_task/planner.go
+
+扩展 Planner 历史创建接口，持久化 debug_info。
+
+biz/model/chat_history/model.go
+
+新增 FinishTypeContentFilter，并调整历史 SQL 条件。
+
+biz/model/chat_history/cache.go
+
+支持缓存中的新终态，并在返回 HistoryItem 时保留 FinishType。
+
+biz/service/flow/base.go
+
+初始化 Planner finish reason 共享状态。
+
+biz/service/flow/after_flow.go
+
+在流程收尾阶段同步更新 Redis 和 MySQL。
+
+五、一致性与降级风险
+5.1 已观察到的问题
+LogID 202609061616408D45EB1BECA1A5425319 暴露了缓存与数据库状态不一致时的边界：
+旧历史在 Redis 中已经是拒识状态，因此按成功类型读取后结果为空。
+GetHistoryWithCache 将“过滤后为空”当成错误，转而查询 MySQL。
+MySQL 中同一历史仍为 finish_type=0，于是被当作成功历史重新返回。
+Planner 最终收到“旧敏感输入 + 当前输入”两条 User Message。
+风险判断：缓存已经正确过滤的拒识记录，可能因 MySQL 降级而重新进入 Planner。该问题属于状态一致性与空结果语义混用，不是 buildHistoryMessages 过滤失效。
+5.2 建议修正
+区分“Redis 查询异常”和“Redis 正常但过滤后为空”。后者直接返回空历史，不触发 MySQL 降级。
+当前轮初始状态使用 FinishTypeUnfinished，只在流程成功结束后写为 FinishTypeSuccess，避免处理中记录被误判为成功。
+Redis 与 MySQL 的终态更新增加一致性日志，至少记录 request_id、log_id、旧值、新值和更新结果。
+评估历史脏数据修复范围；如不回填，需明确新逻辑只保证部署后的记录。
+5.3 分支边界
+当前分支还删除了 recommend_processor.go 中未被引用的 shouldBreakRecommend。该删除与模型风控主链路无直接关系，合入前应单独确认是否属于本次变更范围。
+
+六、验证方案
+6.1 正常风控
+模型首包返回 finish_reason=content_filter 且正文非 JSON。
+用户收到 6 条安全话术中的一条。
+planner_histories.debug_info 等于 {"finish_reason":"content_filter"}。
+Redis 和 MySQL 的 finish_type 最终均为 3。
+下一轮 Planner Messages 不包含该轮 Query 和 Answer。
+6.2 非首包风控
+前序 chunk 已返回内容，后续 chunk 命中 content_filter。
+Context 仍记录结束原因，最终状态仍写为 3。
+核对用户侧输出是否需要统一替换为兜底话术；当前实现只在首包异常时替换。
+6.3 缓存与降级
+Redis 有成功历史：直接返回并保留 FinishType。
+Redis 有记录但全部被过滤：预期返回空列表，不应召回 MySQL 中的旧状态记录。
+Redis 真正报错：降级 MySQL，且只返回最终成功历史。
+Redis 与 MySQL 状态不一致：日志能够定位差异，敏感记录不得进入 Planner。
+6.4 并发与异常
+使用 race detector 验证 finish reason 的并发读写。
+模拟模型风控后进程退出，确认数据库中不会长期保留伪成功状态。
+验证多轮 Graph 调用不会被重复初始化覆盖 finish reason。
+
+七、发布与观测
+本变更属于服务端内部行为调整，可通过分支发布验证并快速回滚。建议在小流量环境重点观察：
+finish_reason=content_filter 命中量。
+planner_histories.debug_info 与 chat_histories.finish_type=3 的数量一致性。
+Redis 空结果触发 MySQL 降级的比例。
+Planner Messages 中是否仍出现已拒识或已风控的历史输入。
+兜底 JSON 解析失败率以及用户侧空回复率。
+八、结论
+当前分支已经覆盖模型风控的识别、兜底、审计记录、会话终态和下一轮过滤。合入前需要优先解决 Redis 空结果降级导致的历史“复活”问题，并确认 QueryChatHistoryByChatID 的共享语义调整以及 shouldBreakRecommend 删除是否符合本次范围。
+推荐条件：完成缓存空结果语义修正，并通过 Redis/MySQL 不一致场景验证后再合入主开发分支。
+九、自测验证
+环境：ppe_dt_filter
+mr:https://code.byted.org/stone_vehicle/aidv/merge_requests/1012
+自测case：
+第一句query
+注意，这里我是走的单人不拒识，不然不好验证
+
+curl --location --request POST 'https://api-vehicle.volcengine.com/aidv/v1/planner?channel=saic-dna&app_id=99220&device_id=16710245599&vehicle_id=LSJEG4097SG8&account_id=wuge&vehicle_type=model3&channel_app_id=99210&login_doubao_uid=2842654881357969&chat_id=12345678221900&conversation_id=12345678271&question_id=xGrLi1dFjsdqHgbkk9uSV' \
+--header 'X-Tt-Env: ppe_dt_filter' \
+--header 'Debug-Mode: 2032' \
+--header 'X-Use-Ppe: 1' \
+--header 'X-Tt-Trace: 1' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "query": {
+        "content": "介绍一下打倒共产党",
+        "query_type": 1
+    },
+    "coordination_info": {
+        "request_id": "KR3diNvy1R6o4QOefjs20000",
+        "sound_zone": "副驾",
+        "account_id": "wuge",
+        "vehicle_id": "LSJEG4097SG8"
+    },
+    "ext": {
+        "single_skip_reject": "true",
+        "first_after_wake": "true"
+    }
+}'
+fornax.bytedance.net
+image.png
+
+这里是模型的原始输出，自测看，模型命中风控也是输出一包
+这里实际上我们已经mock替换，这里会在mock输出的时候，新增一个节点，如下图红框里，方便后续查看
+image.png
+
+所以实际上，是TTS正常回答了的
+
+第二句query
+
+curl --location --request POST 'https://api-vehicle.volcengine.com/aidv/v1/planner?channel=saic-dna&app_id=99220&device_id=16710245599&vehicle_id=LSJEG4097SG8&account_id=wuge&vehicle_type=model3&channel_app_id=99210&login_doubao_uid=2842654881357969&chat_id=12345678221900&conversation_id=12345678271&question_id=xGrLi1dFjsdqHgbkk9uSV' \
+--header 'X-Tt-Env: ppe_dt_filter' \
+--header 'Debug-Mode: 2032' \
+--header 'X-Use-Ppe: 1' \
+--header 'X-Tt-Trace: 1' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "query": {
+        "content": "今天天气怎么样",
+        "query_type": 1
+    },
+    "coordination_info": {
+        "request_id": "KR3diNvy1R6o4QOefjs20002",
+        "sound_zone": "副驾",
+        "account_id": "wuge",
+        "vehicle_id": "LSJEG4097SG8"
+    },
+    "ext": {
+        "single_skip_reject": "true",
+        "first_after_wake": "true"
+    }
+}'
+fornax.bytedance.net
+image.png
+
+上一句没有进历史对话
+
+

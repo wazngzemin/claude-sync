@@ -1,0 +1,1156 @@
+端状态 2.0 信号管理技术方案
+一、需求背景
+端状态 2.0 的信号管理部分要解决两个问题：
+当前不同渠道的端状态配置用的不同的Excel表格，多人都能改容易混乱，多渠道定义存在大量的重复定义；
+解法：把多项目渠道的端状态信号从离线表格维护升级为可编辑、可验证、可发版的后台能力，提高维护管理、发布验证的效率；
+开发依赖该excel跑脚本更新代码的信号定义，整体效率低下
+解法：编辑修改协议后通过验证流程自动生成idl文件打overpass包，原先下游服务需要根据协议从端状态数据的map[string]string中取值，现在可以直接对应的端状态对象属性里取值，更简单高效；
+二、目标与非目标
+2.1 目标
+建立统一的端状态信号管理中心：将信号 ID、名称、描述、数据类型、字段层级、单位 / 枚举等信息沉淀为协议元数据，统一承载通用信号与项目定制信号的定义、维护和检索。
+支持多项目 / 多渠道的差异化配置：通用信号可按字段标记生效渠道，项目定制信号通过项目 / 渠道维度隔离，减少下游消费方对不同车企、不同项目取值差异的兼容成本。
+完整表达结构化端状态：协议元数据支持 int、bool、float、string、struct、map 等类型，并支持 struct / map 的多层嵌套，使复杂端状态能够在管理后台可视化展开、编辑和追踪。
+建立发布单化的信号变更机制：项目维度的端状态调整统一进入发布单管理，支持草稿态持续新增 / 修改 / 删除待发布数据，已发布基线不被直接修改，并限制单项目同一时间仅存在一个进行中的发布单。
+形成自动化验证闭环：管理后台点击验证后，基于“已发布基线 + 待发布变更”生成 Thrift / IDL，自动完成 Thrift 校验、Git 分支提交、Overpass 打包和协议包验证；任一环节失败均回退草稿并展示失败原因，验证通过后再允许发布写回已发布数据。
+2.2 非目标
+不改变车企侧原始信号的产生方式；源侧差异由网关或 aidv 转换层吸收；
+不在端状态微服务内保留 v1 适配器；只接受v2数据，由aidv做适配；
+用top鉴权作权限管理，本期不实现复杂审批流，只保留操作人记录；
+本期信号管理的技术方案评审不考虑端状态数据的上报查询等流程；
+三、数据链路
+管理端链路按「Web 页面 → HTTP 接口 → aidv → RPC 接口 → 端状态微服务 → MySQL / Redis」组织。Web 侧做页面交互和参数提交，aidv 负责鉴权、转发，端状态微服务负责元数据持久化、发布快照、上报校验与缓存刷新。
+
+四、模块职责
+
+
+模块
+
+职责
+
+关键输出
+
+协议元数据管理
+
+维护信号基础信息、值类型、schema 字段、单位、枚举、频控、引用状态。
+
+信号定义、信号参数定义的schema 树、信号及参数的生效项目展示；
+
+
+项目协议配置
+
+按项目 / 渠道选择可用信号，支持通用协议 + 项目定制增量。
+
+项目信号范围、项目的信号struct类型的一级节点范围
+
+发版管理
+
+把信号变更聚合进发版库，经过构建、验证、发布后更新基线。
+
+发版单、发布快照、IDL 生成输入、发版记录。
+五、管理页面草图
+5.1 协议元数据管理
+协议元数据管理页面调整为列表页：每行展示信号 ID、名称、描述、类型、生效渠道与操作；生效渠道展示该信号被引用的渠道，例如 seres、saic-dna。顶部仅保留系统、子系统筛选和搜索 / 新增入口；基础类型信号不可展开，struct / map 信号点击行首箭头后，在当前行下方展开多行字段定义，仅叶子字段展示生效渠道，字段层级、缩进和类型展示方式参考接口 API 管理里的 Request Body 定义。
+
+5.2 项目配置管理&发版管理
+页面分为发布单中的元数据和已发布元数据两部分。发布单区域头部展示版本号、状态、上次失败原因、发布操作和新增待发布元数据；操作新增待发布元数据时让用户基于信号元数据做勾选，已发版的字段不支持删除，只允许新增。已发布区域展示当前线上已生效的基线元数据。该页面不展示生效渠道列（页面入口已选当前项目渠道），重点对比发布单版本与线上基线。
+
+六、核心流程设计
+
+6.1 协议元数据管理
+元数据维护分为元数据信号编辑和元数据字段编辑两类入口。新增信号时先创建信号 ID、名称、描述、类型等基础信息，并进行参数命名规范校验，校验 signal_id、字段名等是否符合统一命名规则；当类型为 struct / map 时，可继续新增字段节点并补齐字段名、字段类型、说明、枚举、单位等约束。删除规则按生效渠道判断：已有生效渠道的信号或字段不支持删除，避免破坏线上项目引用；没有生效渠道的信号或字段支持删除，草稿态配置也算有生效渠道不支持删除，不影响验证中或已发布的数据。
+
+6.2 项目配置&发版管理
+发版管理以发布单为载体承接待发布元数据。新增发布单时系统自动生成发布单版本；从发布单入口点击新增待发布元数据后弹窗让用户从元数据列表中选择信号 ID，页面展示选中信号的数据结构并允许在发布单内编辑。
+草稿：支持不断新增、修改、删除草稿中的待发布元数据；已发布元数据不支持修改。草稿态可操作验证和废弃。
+验证中：不支持新增、修改、删除，只能操作回退草稿、发布和废弃。用发版中的协议合并覆盖已发版协议生成用于本次验证的协议，以信号id为key去覆盖。
+发布：点击发布后，发布单中的待发布元数据合并到已发布元数据中，成为新的线上基线。
+
+6.3 验证和发版
+验证
+管理后台点击验证后，元数据服务先合并待发布数据和已发版数据，生成本次验证用的 Thrift 文件并执行校验；Thrift 校验失败时，发布单退回草稿并展示失败原因。Thrift 校验通过后弹窗展示，研发拷贝Thrift文件操作overpass打包并发布验证：
+发版
+验证通过后，发布单进入可发布态，用户点击发布时再将待发布数据写回已发布数据，形成新的已发布数据。overpass自动流程本期先不做；
+七、数据模型
+7.1 信号数据定义表signal_define
+
+
+字段
+
+类型
+
+必填
+
+说明
+
+id
+
+bigint
+
+是
+
+自增主键。
+
+signal_id
+
+varchar(128)
+
+是
+
+三段式信号键，全局唯一，如 vehicle.ac.airflow_direction。
+
+signal_name
+
+varchar(128)
+
+是
+
+中文展示名，如空调风向。
+
+system
+
+varchar(64)
+
+是
+
+第一段系统域，如 vehicle、media、navigation。
+
+sub_system
+
+varchar(64)
+
+是
+
+第二段子系统，如 ac、battery、trip。
+
+description
+
+varchar(512)
+
+否
+
+信号描述
+
+scope_type
+
+varchar(32)
+
+是
+
+信号作用于，例如端状态、vlm
+
+trigger_usable
+
+tinyint
+
+是
+
+是否支持给触发器生成事件，默认值0标识false
+
+is_referenced
+
+tinyint
+
+是
+
+是否已被项目或发布版本引用；引用后限制破坏性修改。
+
+operator
+
+varchar(128)
+
+否
+
+负责人和最近操作人，便于追责与通知。
+
+created_at / updated_at / deleted_at
+
+datetime
+
+是/是/否
+
+审计时间；删除使用软删除。
+7.2 signal_schema_node 信号节点表
+schema_node 表统一表达信号值定义。每个信号至少有一个 root node：基础类型信号只有 root node，struct / map 信号从 root node 继续展开子节点。value_type、单位、枚举、范围、默认值、字段级校验规则等均放在 schema_node 中，IDL 生成、参数校验和管理页面字段展开都以 schema_node 树为准。一级 node 可被项目配置引用；当一级 node 已被引用时，结构调整需要新建版本，不能原地破坏线上字段。
+
+
+字段
+
+类型
+
+必填
+
+说明
+
+id
+
+bigint
+
+是
+
+自增主键。
+
+signal_def_id
+
+bigint
+
+是
+
+关联 signal_definition.id。
+
+node_id
+
+varchar(128)
+
+是
+
+节点 ID，同一 schema_version 内唯一。
+
+parent_node_id
+
+varchar(128)
+
+否
+
+父节点；root node 为空。
+
+level
+
+int
+
+是
+
+字段层级；root 为 0，一级字段为 1。
+
+node_type
+
+varchar(32)
+
+是
+
+节点类型：root、field、map_value。
+
+field_key
+
+varchar(128)
+
+是
+
+字段名；root 可填 value 或 $。
+
+node_name
+
+varchar(128)
+
+否
+
+中文字段名。
+
+value_type
+
+varchar(32)
+
+是
+
+值类型，支持 bool、string、int、float、struct、map。
+
+is_required
+
+tinyint
+
+是
+
+是否必填。
+
+unit
+
+varchar(32)
+
+否
+
+字段级单位，如 %、km/h、℃。
+
+validate_rule
+
+json
+
+否
+
+支持枚举、范围、正则等，用户选择一种方式，生成json配置。
+
+default_value
+
+varchar
+
+否
+
+默认值
+
+description
+
+text
+
+否
+
+字段说明、业务口径或使用场景。
+
+display_order
+
+int
+
+是
+
+树形展示顺序。
+
+is_referenced
+
+tinyint
+
+是
+
+是否已被项目或发布版本引用；引用后限制破坏性修改。
+
+created_at / updated_at
+
+datetime
+
+是
+
+审计时间。
+
+7.2.1 Case：电池电量（基础 int 类型）
+电池电量是基础类型信号，signal_definition 只记录信号身份；schema_node 只需要一条 root node，表示该信号的 value 是 int，并在 root node 上维护单位、范围等值约束。
+
+
+node_id
+
+parent_node_id
+
+level
+
+node_type
+
+field_key
+
+node_name
+
+value_type
+
+约束 / 说明
+
+root
+
+NULL
+
+0
+
+root
+
+value
+
+电池电量
+
+int
+
+unit = %；min_value = 0；max_value = 100
+上报值示例：
+
+{
+  "signal_id": "vehicle.battery.soc",
+  "value": 86
+}
+7.2.2 Case：空调风向（struct 类型）
+空调风向是 struct 类型信号，signal_definition 同样只记录信号身份；schema_node 先创建 root node 表示 value 是 struct，再在 root node 下挂载四个字段节点。
+
+
+node_id
+
+parent_node_id
+
+level
+
+node_type
+
+field_key
+
+node_name
+
+value_type
+
+说明
+
+root
+
+NULL
+
+0
+
+root
+
+value
+
+空调风向
+
+struct
+
+空调风向整体 value
+
+row1_driver
+
+root
+
+1
+
+field
+
+Row1Driver
+
+一排主驾风向
+
+string
+
+主驾出风方向
+
+row1_passenger
+
+root
+
+1
+
+field
+
+Row1Passenger
+
+一排副驾风向
+
+string
+
+副驾出风方向
+
+row2_left
+
+root
+
+1
+
+field
+
+Row2Left
+
+二排左侧风向
+
+string
+
+二排左侧出风方向
+
+row2_right
+
+root
+
+1
+
+field
+
+Row2Right
+
+二排右侧风向
+
+string
+
+二排右侧出风方向
+上报值示例：
+
+{
+  "signal_id": "vehicle.ac.airflow_direction",
+  "value": {
+    "Row1Driver": "face",
+    "Row1Passenger": "foot",
+    "Row2Left": "face_foot",
+    "Row2Right": "off"
+  }
+}
+
+7.2.3 Case：应用列表（map 类型）
+map 类型用于表达“动态 key 集合”的信号，例如已安装应用列表、轮胎位置数据等。协议约束中 map 的 key 固定为 string，因此 schema_node 不需要单独存 map_key_type；当某个节点的 value_type = map 时，IDL 生成时默认生成 array<T>，其中 T 由该 map 节点下的 map_value 子节点表达。
+以“已安装应用列表”为例，上报值中 key 是应用包名，value 是应用信息 struct：
+
+{
+  "signal_id": "vehicle.app.installed_apps",
+  "value": {
+      "app_info": [
+         {
+          "app_id":"com.music.app",
+          "name": "音乐",
+          "version": "1.2.0"
+        },
+        {
+          "app_id":"com.map.app"
+          "name": "地图",
+          "version": "3.5.1"
+        }
+    ]
+  }
+}
+
+
+node_id
+
+parent_node_id
+
+level
+
+node_type
+
+field_key
+
+node_name
+
+value_type
+
+array_value_type
+
+说明
+
+root
+
+NULL
+
+0
+
+root
+
+
+value
+
+
+已安装应用列表
+
+array
+
+
+struct
+
+整个 value 是 array，key 固定为 string，即应用包名
+
+app_info
+
+root
+
+
+1
+
+array
+
+-
+
+
+应用信息
+
+struct
+
+
+
+每个 key 对应的 value 是应用信息结构体
+
+app_id
+
+app_info
+
+2
+
+field
+
+
+
+应用id
+
+string
+
+
+
+
+
+app_name
+
+app_info
+
+2
+
+field
+
+name
+
+应用名称
+
+string
+
+
+
+应用展示名称
+
+app_version
+
+app_info
+
+2
+
+field
+
+version
+
+应用版本
+
+string
+
+
+
+应用版本号
+
+生成 Thrift / IDL 时，map 节点固定生成 string key，map_value 节点递归生成 value 类型，例如：
+
+struct AppInfo {
+  1: required string name
+  2: required string version
+}
+
+struct VehicleAppInstalledAppsValue {
+  1: required map<string, AppInfo> value
+}
+7.3 signal_release项目发版表
+
+
+字段
+
+类型
+
+说明
+
+id
+
+bigint
+
+自增主键。
+
+release_no
+
+varchar(64)
+
+发版单号，如 seres_v2.1。
+
+business_type
+
+varchar(64)
+
+aidv、toB、具身。
+
+channel
+
+varchar(64)
+
+生效项目与渠道；通用基线可使用 global / common。
+
+channel_app_id
+
+int
+
+渠道appID，标识来源
+
+status
+
+varchar(32)
+
+draft、validating、published、abandoned、rollback。
+
+description
+
+varchar(256)
+
+本次新增、修改、删除的信号摘要。
+
+created_by
+
+varchar(64)
+
+发布单创建人；验证、发布、驳回、回滚等操作人统一记录在 signal_release_operation_record。
+
+created_at / updated_at
+
+datetime
+
+发布单创建与最近更新时间；验证、发布时间从操作记录表按 operation_type 查询。
+7.4 signal_release_operation_record 发布单操作记录表
+该表保存发布单从创建、提交验证、验证通过 / 驳回、发布、回滚到废弃的操作流水。发布者、验证者及对应操作时间不再冗余保存在 signal_release 主表中，而是通过 release_ticket_id + operation_type 从本表追溯。
+
+
+字段
+
+类型
+
+说明
+
+id
+
+bigint
+
+自增主键。
+
+release_id
+
+bigint
+
+关联 signal_release.id。
+
+operation_type
+
+varchar(32)
+
+操作类型：create、submit_validate、validate_pass、validate_reject、publish、abandon。
+
+operator
+
+varchar(64)
+
+操作人；当 operation_type 为 validate_pass / validate_reject 时表示验证者，为 publish 时表示发布者。
+
+before_status
+
+varchar(32)
+
+操作前发布单状态。
+
+after_status
+
+varchar(32)
+
+操作后发布单状态。
+
+remark
+
+varchar(512)
+
+验证意见、发布说明、回滚原因或失败原因。
+
+created_at
+
+datetime
+
+操作发生时间。
+7.5 signal_selected_in_release发布单中的-项目-信号关系表
+该表保存发布单中的待发布信号集合，用于隔离发布历史与最终生效数据。用户在发布单草稿态添加、修改、删除信号时，只操作该表；点击发布并验证通过后，再将本次发布单中的信号关系覆盖写入项目-信号关系表。
+
+
+字段
+
+类型
+
+说明
+
+id
+
+bigint
+
+自增主键。
+
+release_id
+
+bigint
+
+关联发版单表主键ID
+
+signal_def_id
+
+bigint
+
+关联 signal_definition.id。
+
+change_type
+
+varchar(32)
+
+变更类型：add、update、delete；当前页面主要使用 add，后续可扩展。
+
+created_at / updated_at
+
+datetime
+
+审计时间。
+7.6 signal_node_selected_in_release发布单中的-项目-一级节点关系表
+该表保存发布单中 struct / map 一级节点的待发布范围，用于表达某个项目本次发布要新增或调整哪些一级字段。发布单发布成功后，服务将该表中的一级节点集合覆盖写入项目-一级节点关系表，作为项目最终生效配置。
+
+
+字段
+
+类型
+
+说明
+
+id
+
+bigint
+
+自增主键。
+
+release_id
+
+bigint
+
+关联发版单。
+
+signal_define_id
+
+bigint
+
+关联信号定义。
+
+level1_node_id
+
+varchar(128)
+
+一级字段节点 ID；一级节点下的子树默认跟随生效。
+
+change_type
+
+varchar(32)
+
+变更类型：add、update、delete；当前页面主要使用 add，后续可扩展。
+
+created_at / updated_at
+
+datetime
+
+审计时间。
+7.7 signal_selected_by_channel生效中的项目-信号关系表
+该表保存项目维度最终生效的信号集合，只承载发布后的线上基线，不保存发布单草稿和验证中的数据。发布单点击发布时，服务根据发布单-项目-信号关系表生成新的生效集合：旧版本记录写入 expired_at 或置为 deprecated，新版本记录插入该表，从而隔离发布历史与当前生效数据。
+
+
+字段
+
+类型
+
+说明
+
+id
+
+bigint
+
+自增主键。
+
+business_type
+
+varchar
+
+aidv、toB、具身
+
+channel
+
+varchar
+
+项目与渠道，决定信号在哪个接入场景可见。
+
+channel_app_id
+
+int
+
+渠道appID，标识来源
+
+signal_def_id
+
+bigint
+
+关联 signal_definition.id。
+
+release_ticket_id
+
+bigint
+
+来源发版单；用于反查当前生效配置来自哪次发布。
+
+release_version
+
+varchar(64)
+
+当前生效版本，如 seres_v2.2。
+
+created_at / updated_at
+
+datetime
+
+审计时间。
+7.8 signal_node_selected_by_channel生效中的项目-一级节点关系表
+该表保存项目维度最终生效的一级节点集合，只承载发布后的线上基线，不保存发布单草稿和验证中的数据。发布单点击发布时，服务根据发布单-项目-一级节点关系表生成新的生效集合：旧版本记录写入 expired_at 或置为 deprecated，新版本记录插入该表。该表用于控制 struct / map 下哪些一级字段在项目内可用，解决「同一信号不同项目只开放部分座位 / 部分字段」的问题。
+
+
+字段
+
+类型
+
+说明
+
+id
+
+bigint
+
+自增主键。
+
+business_type
+
+varchar
+
+aidv、toB、具身
+
+channel
+
+varchar
+
+项目与渠道。
+
+channel_app_id
+
+int
+
+渠道appID，标识来源
+
+signal_def_id
+
+bigint
+
+关联信号定义。
+
+level1_node_id
+
+varchar(128)
+
+一级字段节点 ID；一级节点下的子树默认跟随生效。
+
+release_ticket_id
+
+bigint
+
+来源发版单；用于反查当前生效配置来自哪次发布。
+
+release_version
+
+varchar(64)
+
+当前生效版本。
+
+created_at / updated_at
+
+datetime
+
+审计时间。
+
+7.9 数据模型 ER 图
+发布单主表只保留当前状态与基础信息；验证、发布、回滚等过程信息沉淀到 signal_release_operation_record，发布单明细表与最终生效表继续通过 release_ticket_id 追溯发布来源。
+
+八、管理页面 HTTP 接口定义
+本章只描述管理后台页面需要调用的 HTTP 接口，不包含车端上报、运行态查询或 Context 对外查询接口。接口统一按项目、渠道和发布单版本做权限与幂等校验。
+8.1 协议元数据管理接口
+接口文档: 端状态2.0-协议管理相关接口-20260924
+
+
+接口
+
+路径
+
+入参要点
+
+说明
+
+列表查询
+
+GET /api/metadata/signals
+
+
+system、sub_system、keyword、page、page_size
+
+用于协议元数据列表页，返回信号 ID、名称、描述、value_type、生效渠道、是否可展开。
+
+详情查询
+
+GET /api/metadata/signals/{signal_id}
+
+signal_id
+
+
+返回信号基础信息和完整 schema_node 字段树。
+
+新增信号
+
+POST /api/metadata/signals
+
+
+signal_id、name、desc、value_type、owner
+
+创建元数据信号；value_type 使用字符串枚举。
+
+更新信号
+
+PUT /api/metadata/signals/{signal_id}
+
+name、desc、status、extra_schema
+
+只允许更新非破坏性字段；已有生效渠道时禁止破坏性修改。
+
+删除信号
+
+DELETE /api/metadata/signals/{signal_id}
+
+signal_id
+
+仅无生效渠道时允许删除；已有生效渠道返回不可删除原因。
+8.2 项目配置与发版管理接口
+端状态发布页面接口文档
+
+
+接口
+
+路径
+
+入参要点
+
+说明
+
+页面聚合查询
+
+GET /api/projects/{project_key}/metadata
+
+channel、release_id
+
+返回“发布单中的元数据”和“已发布元数据”两部分列表。
+
+创建发布单
+
+POST /api/projects/{project_key}/releases
+
+channel、remark
+
+自动生成 release_version，例如 seres_v2.1，初始状态为草稿。
+
+发布单详情
+
+GET /api/releases/{release_id}
+
+release_id
+
+返回发布单状态、版本号、待发布元数据明细和验证结果。
+
+选择待发布元数据
+
+GET /api/releases/{release_id}/candidate-signals
+
+keyword、system、sub_system
+
+“新增待发布元数据”弹窗使用，从元数据池按信号 ID 选择。
+
+
+添加待发布元数据
+
+POST /api/releases/{release_id}/items
+
+signal_id、selected_nodes
+
+把选中信号加入发布单草稿，并返回可编辑结构。
+
+编辑草稿数据
+
+PUT /api/releases/{release_id}/items/{item_id}
+
+字段定义、描述、约束、排序
+
+仅草稿状态允许编辑。
+
+删除草稿数据
+
+DELETE /api/releases/{release_id}/items/{item_id}
+
+item_id
+
+仅草稿状态允许删除待发布元数据。
+
+废弃发布单
+
+POST /api/releases/{release_id}/abandon
+
+reason
+
+草稿和验证中均可废弃。
+8.3 验证与发布操作接口
+
+
+接口
+
+路径
+
+入参要点
+
+说明
+
+发起验证
+
+POST /api/releases/{release_id}/validate
+
+release_id
+
+草稿态触发；冻结发布单并创建自动化任务。
+
+查询验证状态
+
+
+GET /api/releases/{release_id}/status
+
+release_id
+
+返回 MySQL 配置读取、IDL 生成、Git 提交、Overpass 生成等阶段状态。
+
+回退草稿
+
+POST /api/releases/{release_id}/rollback-draft
+
+reason
+
+验证中可操作，回到草稿后允许继续编辑。
+
+发布
+
+POST /api/releases/{release_id}/publish
+
+release_id、validation_task_id
+
+验证通过后允许发布，将待发布元数据合并到已发布元数据。
+
+查看产物
+
+GET /api/releases/{release_id}/artifacts
+
+release_id
+
+展示生成的 thrift 文件、Git 分支 / MR、Overpass 产物链接和失败原因。
+8.4 触发器查询端状态定义接口
+
+
+接口
+
+路径
+
+入参要点
+
+说明
+
+查询全量元数据定义
+
+RPC接口
+
+-
+
+查询全量信号id的三段式，及每个信号的节点树定义
+
+
+九、技术参考文档
+以下资料可作为 Thrift / IDL 生成、Git 分支提交、Overpass 分支生成与打包校验链路的实现参考：
+给前端同学的 Golang 后端开发入门：用于理解 Thrift IDL、IDL 仓库修改、MR 提交以及 Overpass 自动生成依赖的基础流程。
+需求开发1 - IDL 修改及代码生成：可参考 IDL 文件定位、分支修改、基于分支在 Overpass 生成客户端代码、复制依赖命令等操作流程。
+Overpass 使用及相关知识介绍：可参考 Overpass 同步 IDL、强制同步、基于分支 IDL 生成、依赖包与 import 路径等机制。
+Overpass 实现原理 && 使用介绍：可参考 Overpass 内部读取 IDL、生成 kitex_gen、执行 go mod / build check、提交代码 / MR 等实现细节。
+新 API Meta Quick Start：可参考配置生成 IDL、IDL 仓库回写、新建 IDL 分支和发起 MR 的产品化链路。
+DevFlow 使用指南 - 工具链最佳实践：如后续需要接入 DevFlow，可参考 IDL 提交后触发 Overpass / Kitex 代码生成的流程。
+

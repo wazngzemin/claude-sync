@@ -1,0 +1,185 @@
+情景记忆生成/召回策略调整
+需求背景
+
+
+需求类型
+
+产品需求
+
+Meego链接
+
+
+
+PRD链接
+
+记忆系统
+
+PM
+
+产品：@郝晓伟
+
+研发Owner
+
+@高军   @向超然
+
+需求群
+
+
+
+
+技术相关文档
+
+
+生成方案
+方案一
+ 复用现有表逻辑，改动量少，好落地
+详细方案
+短期记忆生成调整
+
+情景记忆生成调整
+情景记忆扫描memory_task_record表，依赖短期记忆分组，不需分组
+
+配置信息
+Mysql
+memory_task_record 新增所属人列
+
+ALTER TABLE `memory_task_record`
+ADD COLUMN `associated_users` JSON NULL COMMENT '任务关联的目标用户列表，存储用户ID的数组';
+
+memory_content_record 表
+
+ALTER TABLE `memory_content_record`
+ADD COLUMN `associated_users` JSON NULL COMMENT '任务关联的目标用户列表，存储用户ID的数组';
+
+memory_gen_account_history 表
+
+ALTER TABLE `memory_gen_account_history`
+ADD COLUMN `associated_users` JSON NULL COMMENT '任务关联的目标用户列表，存储用户ID的数组';
+Eventbus
+消息体，新增用户信息
+
+接口设计
+cloud.bytedance.net
+AccountMem 接口
+
+
+方案二
+新建表，改动量大
+配置信息
+Mysql
+
+/* 新增的用户-记忆关联表 */
+CREATE TABLE `user_memory_relation` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `entity_id` varchar(128) COLLATE utf8mb4_general_ci NOT NULL COMMENT '用户唯一标识',
+  `memory_id` bigint unsigned NOT NULL COMMENT '关联的记忆ID (外键关联 memory_content_record.id)',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '关联创建时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_entity_memory` (`entity_id`, `memory_id`), /* 确保一个用户和一条记忆的关联是唯一的 */
+  KEY `idx_memory_id` (`memory_id`), /* 按记忆ID查询，找到所有关联用户 */
+  KEY `idx_entity_id` (`entity_id`)  /* 按用户ID查询，找到他所有的记忆 */
+) ENGINE=InnoDB COMMENT='用户与记忆的多对多关联表';
+
+memory_content_record表
+删除用户id 信息
+
+/* 改造后的记忆内容表 (职责单一) */
+CREATE TABLE `memory_content_record` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID, 代表一条唯一的记忆',
+  `channel` varchar(64) COLLATE utf8mb4_general_ci NOT NULL COMMENT '渠道标识',
+  `channel_app_id` bigint NOT NULL DEFAULT '0' COMMENT '标识来源',
+  `batch_num` varchar(64) COLLATE utf8mb4_general_ci NOT NULL DEFAULT '' COMMENT '批次编号',
+  `business_type` varchar(64) COLLATE utf8mb4_general_ci NOT NULL COMMENT '记忆业务类型',
+  `viking_id` varchar(128) COLLATE utf8mb4_general_ci NOT NULL DEFAULT '' COMMENT '对应的向量数据库ID',
+  `content` text COLLATE utf8mb4_general_ci COMMENT '记忆的具体内容',
+  `labeling` json DEFAULT NULL COMMENT '标签打标信息',
+  `memory_type` varchar(16) COLLATE utf8mb4_general_ci NOT NULL DEFAULT '' COMMENT '记忆的类别',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `deleted_at` datetime DEFAULT NULL COMMENT '删除时间',
+  `memory_date` int unsigned NOT NULL DEFAULT '0' COMMENT '记录日期',
+  PRIMARY KEY (`id`),
+  KEY `idx_viking_id` (`viking_id`)
+  /* 移除了和 entity_id 相关的所有索引 */
+) ENGINE=InnoDB COMMENT='记忆内容表';
+
+Vikingdb
+
+接口设计
+消费端涉及查询memory_content_record  所有位置需要调整
+接口
+queryCotent 查询接口逻辑调整
+画像查询接口调整
+打标查询接口调整
+
+
+
+
+
+召回方案
+一句话描述召回需求
+可以根据产品设定的隐私策略，对于不同的记忆标签，进行车上乘客的最大集合、最小集合的标量召回逻辑。
+
+举个例子：
+车上坐了4个人abcd，此时a说话了，a的记忆里，有以下3条：
+x，属于集合{a,b,c,d,p}
+y，属于集合{a,b,c}
+z，属于集合{a,b,d}
+根据策略有两种召回情况：
+对于指定标签，支持最大集合abcd的召回，即所召回的记忆，只能包括包括a的abcd的子集，比如{a},{a,b},{a,b,c},{a,c}等，此时可以召回记忆y，z。
+对于指定标签，支持最小集合abcd的召回，即所召回的记忆，只能包括包括abcd的全集，这种情况下，可以召回记忆x。
+整体召回链路概览
+
+核心实现
+核心需要实现的是对集合的子集、超集判断，这块逻辑不管是放在向量数据库还是数据库本身，都比较难以平衡效率和结果，所以考虑放在召回链路中，从代码中层面实现。
+考虑使用三方库：https://github.com/deckarep/golang-set，实现对于超集和子集的判断逻辑：
+
+setA := set.NewSet("1", "2", "3")         
+setB := set.NewSet("1", "2", "3", "4")         
+setC := set.NewSet("1", "2", "5")          
+fmt.Println(setA.IsSubset(setB))    // true
+fmt.Println(setA.IsSubset(setC))    // false
+fmt.Println(setB.IsSuperset(setA))  // true
+车上最多5个faceid用户，集合中必须包括说话人的元素，所以最大情况下的枚举是15种，记忆召回的个数为N，那么整体的时间复杂度是：O（15N），按照当下N<=1000评估，总的耗时在微秒级别，对主链路基本没有影响。
+其他
+涉及服务
+分支命名：feature/scene_memory_users
+Idl
+Memory
+Aidv
+
+召回分支
+分支命名：feature/scene_memory_users_recall
+Idl
+Memory
+Aidv
+
+短期情景记忆
+sql：
+新增注释：type 3 时，短期记忆(情景)打标
+
+ALTER TABLE `memory_labeling_content`
+MODIFY COLUMN `type` tinyint NOT NULL DEFAULT 0 COMMENT '类型：0=未设置 1=语义记忆打标 2=长期情景打标 3=短期记忆(情景)打标';
+
+ALTER TABLE `memory_tag_category`
+MODIFY COLUMN `type` tinyint NOT NULL DEFAULT 0 COMMENT '类型：1-语义记忆打标，2-长期情景打标，3-短期记忆(情景)打标';
+
+
+
+消费组：
+short_scene_memory_labeling
+Tcc 新增消费组
+打标配置新增短期记忆
+
+ "short_scene_memory_labeling": {
+    "aidv":["seres","8099221","saic-dna","master"]
+  }
+
+涉及服务：
+Memory
+idl
+feature/short_memory_scene_gen
+
+评审记录
+
+

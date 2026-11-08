@@ -1,0 +1,145 @@
+常见问题自查指南
+宿主进程
+能唤醒但 ASR 文字不上屏
+问题描述：语音能够正常唤醒，但识别文字没有显示在豆包界面。
+问题原因：高概率是豆包账号未登录，或当前设备没有生成有效的 OEM 账号 ID，导致 ASR 结果无法进入后续展示链路。
+解决方案：依次执行退登、模拟 OEM 登录、拉起扫码登录：
+重新登录修复 ASR 不上屏
+adb shell am broadcast -a "com.cube.vehicle.test" --es "opt" "logout"
+adb shell am broadcast -a "com.cube.vehicle.test" --es "opt" "account_oem_login" --es "userId" "oem_001" --ei "role" 1
+adb shell am broadcast -a "com.cube.vehicle.test" --es "opt" "account_qr_login"
+
+确认泳道后仍未生效
+问题描述：在 DevelopActivity 中确认泳道后，客户端仍未进入目标 PPE 环境，常伴随登录链路异常。
+问题原因：环境名配置错误，或旧应用数据、系统目录中的旧 APK 与当前安装包残留冲突。
+解决方案：先在 DevelopActivity 核对环境名，例如赛力斯应使用 ppe_aidv_seres_test，不能误用 ppe_aidv_test。仍无效时执行 adb shell pm clear com.larus.nova 后卸载重装；系统目录安装场景还需删除旧 /system/app/Doubao/Doubao.apk，重新 push 并重启车机，最后重新授权、生成 OEM 账号并登录。注意：清数据会删除本地配置，仅作为兜底操作。
+参考文档：AICar 安装运行与验证 SOP（通用流程 + 赛力斯 / 上汽 / PAD）“13.6 泳道确认失效 / 二维码拉不起”
+
+车机安装豆包时报 Persistent apps not updateable
+问题描述：安装豆包时出现 INSTALL_FAILED_INVALID_APK，并提示 Persistent apps are not updateable。
+问题原因：系统分区中已有同包名的持久化应用，Android 不允许直接覆盖安装。
+解决方案：执行 adb root、adb remount，用 pm path com.larus.nova 找到系统 APK；将原 APK 改名备份并重启设备，再执行 adb install -r -t -d doubao.apk。
+
+豆包登录二维码不刷新或无法登录
+问题描述：豆包二维码页面不刷新，或扫码后无法完成登录。
+问题原因：宿主进程中的登录页面或登录状态卡住，已有页面没有重新初始化。
+解决方案：先执行 adb shell am force-stop com.larus.nova，再执行 adb shell am start -n com.larus.nova/com.larus.nova.VehicleMainActivity 重启豆包。
+
+豆包首次安装后不显示悬浮窗
+问题描述：首次安装并启动豆包后，界面中没有豆包悬浮窗。
+问题原因：宿主缺少悬浮窗或运行所需的系统权限，导致窗口无法创建。
+解决方案：为 com.larus.nova 授予所需运行权限和 SYSTEM_ALERT_WINDOW，杀掉宿主进程后点击豆包头像重新拉起。先执行对应渠道的 appops 授权，再强杀重启。
+赛力斯车控浮窗兜底
+adb shell appops set com.bytedance.vehicle.control SYSTEM_ALERT_WINDOW allow
+adb shell am force-stop com.bytedance.vehicle.control
+adb shell am start -n com.bytedance.vehicle.control/com.bytedance.vehiclecontrol.MainActivity
+豆包首次安装浮窗仍不显示时，可执行整组运行时权限兜底，最后强杀豆包：
+豆包首次安装兜底授权
+adb shell pm grant com.larus.nova android.permission.READ_CALENDAR
+adb shell pm grant com.larus.nova android.permission.POST_NOTIFICATIONS
+adb shell pm grant com.larus.nova android.permission.ACCESS_FINE_LOCATION
+adb shell pm grant com.larus.nova android.permission.READ_MEDIA_VISUAL_USER_SELECTED
+adb shell pm grant com.larus.nova android.permission.BLUETOOTH_CONNECT
+adb shell pm grant com.larus.nova android.permission.READ_EXTERNAL_STORAGE
+adb shell pm grant com.larus.nova android.permission.ACCESS_COARSE_LOCATION
+adb shell pm grant com.larus.nova android.permission.READ_MEDIA_IMAGES
+adb shell pm grant com.larus.nova android.permission.CAMERA
+adb shell pm grant com.larus.nova android.permission.WRITE_CALENDAR
+adb shell pm grant com.larus.nova android.permission.READ_MEDIA_AUDIO
+adb shell pm grant com.larus.nova android.permission.READ_MEDIA_VIDEO
+adb shell pm grant com.larus.nova android.permission.BLUETOOTH_ADVERTISE
+adb shell pm grant com.larus.nova android.permission.GET_ACCOUNTS
+adb shell pm grant com.larus.nova android.permission.WRITE_EXTERNAL_STORAGE
+adb shell pm grant com.larus.nova android.permission.RECORD_AUDIO
+adb shell pm grant com.larus.nova android.permission.ACCESS_BACKGROUND_LOCATION
+adb shell pm grant com.larus.nova android.permission.BLUETOOTH_SCAN
+adb shell pm grant com.larus.nova android.permission.ACCESS_MEDIA_LOCATION
+adb shell pm grant com.larus.nova android.permission.SYSTEM_ALERT_WINDOW
+adb shell am force-stop com.larus.nova
+参考文档：豆包inCar常用调试命令、赛力斯天气查询未上屏问题分析
+
+设备未解锁时豆包反复崩溃
+问题描述：车机启动后、用户尚未解锁时，com.larus.nova 反复崩溃；日志包含 SharedPreferences in credential encrypted storage are not available until after user is unlocked。
+问题原因：宿主初始化过早，在用户解锁前访问了 CE（Credential Encrypted）存储中的 SharedPreferences。
+解决方案：现场先完成用户解锁再拉起豆包；研发侧将相关 SharedPreferences 初始化延后到解锁完成之后，或将确需直启的数据迁移到可在解锁前访问的存储。
+参考文档：0715 路测日志 Crash 汇总
+
+赛力斯查询天气未上屏并伴随宿主崩溃
+问题描述：赛力斯车机询问“今天天气怎么样”后没有结果上屏，日志出现 View not attached to window manager 或 permission denied for window type 2038。
+问题原因：悬浮窗未获得系统级授权，addView() 失败后状态监听仍触发 updateViewLayout()，导致宿主崩溃并中断回复链路；天气独立卡监听缺失还会带来二次不上屏风险。
+解决方案：先确认赛力斯系统签名、系统级授权与 appops 已放开悬浮窗能力；临时验证可执行 adb shell appops set com.bytedance.vehiclecontrol SYSTEM_ALERT_WINDOW allow。研发侧同时校验浮窗 attach 状态，并补齐赛力斯独立卡监听链路。
+参考文档：赛力斯天气查询未上屏问题分析
+
+语音进程
+无法唤醒或无法识别语音
+问题描述：喊“豆包豆包”没有响应，或唤醒后无法识别用户语音。
+问题原因：常见原因包括语音 APK 版本过旧、语音服务未正常运行、录音链路无数据，或 VAD 参数与现场不匹配。
+解决方案：打开悬浮窗 dump 开关录制 PCM，先检查波形是否有声音；确认安装最新语音 APK，依次重启 com.bytedance.vehicle.speech 与 com.larus.nova。波形无声时转车厂排查录音链路；波形正常时附 PCM 提单，并按现场需要调整 VAD 时长。
+参考文档：豆包inCar常用调试命令、AI Car 客户端问题日志过滤指南
+
+TTS 唤醒音色不对或播放慢
+问题描述：唤醒语音色不符合预期，或唤醒语播放明显变慢。
+问题原因：宿主侧预置 TTS 缓存陈旧、损坏或与当前版本不匹配。
+解决方案：删除 /data/data/com.larus.nova/cache/tts_cache/preset，向开发获取最新预置音频并重新放入该目录。仍有异常时开启在线 TTS 音频保存，拉取 PCM 后结合日志检查合成与播放链路。
+参考文档：豆包inCar常用调试命令、AI Car 客户端问题日志过滤指南
+
+思必驰离线初始化崩溃
+问题描述：语音模块离线初始化崩溃。
+问题原因：2026.7.3及之后发的包资源拆分,需要不同渠道独立下载资源包推送至对应目录解压,pad上也是独立包。
+解决方案：参考里豆包InCar客户端发版记录“语音前端”章节手动push资源文件
+
+1021CDC 版本语音无法唤醒
+问题描述：1020 包配合当天豆包使用时收不到唤醒事件，音频 dump 也没有落盘；使用 1021CDC / 21 号系统版本时，语音服务不可用，表现为无法语音唤醒。
+问题原因：系统声学模块缺少读取 /sspeech/AICarSpeech/speech_config.json 的权限，日志提示 [SpeechConfig] resource file is not accessible /sspeech/AICarSpeech/speech_config.json。同包换回 18 号系统后无问题，结合现场确认，当前判断为 21 号系统版本 SELinux 权限导致声学不可用。
+解决方案：临时绕过可先将 SELinux 切到 permissive，再杀掉语音进程并重启；稍等片刻后语音可唤醒。后续需由系统侧补齐 SELinux 权限策略，保证声学模块可读取 /sspeech/AICarSpeech/speech_config.json。
+参考文档：会话截图记录；临时方案由赛力斯同学在群内提供。
+1021CDC 语音唤醒临时绕过
+adb shell
+setenforce 0
+
+# 杀掉语音进程后重启，稍等片刻再验证唤醒
+执行交互进程
+赛力斯车控浮窗或卡片不显示
+问题描述：赛力斯环境中车控浮窗或车控卡片没有显示，但车控应用已经安装。
+问题原因：com.bytedance.vehicle.control 没有获得 SYSTEM_ALERT_WINDOW 权限，窗口无法正常创建。
+解决方案：执行 adb shell appops set com.bytedance.vehicle.control SYSTEM_ALERT_WINDOW allow 授权；随后执行 adb shell am force-stop com.bytedance.vehicle.control 强杀进程，再用 adb shell am start -n com.bytedance.vehicle.control/com.bytedance.vehiclecontrol.MainActivity 重启车控。
+参考文档：AICar 安装运行与验证 SOP（通用流程 + 赛力斯 / 上汽 / PAD）“13.2 豆包浮窗 / 卡片不显示”
+
+语音无法拉起支付宝小程序
+问题描述：语音指令已发出，但支付宝小程序没有被拉起。
+问题原因：常见原因是 AICarSpeech 或 GUI 应用未运行、Pad 后台进程被回收、支付宝车载助手没有后台弹窗权限，或后端下发的小程序 ID 错误。
+解决方案：确认语音与 GUI 应用均已启动；重新拉起被回收的 App；为支付宝车载助手开启后台弹窗权限；在红色悬浮窗中核对 launch 指令，小程序 ID 应为纯数字，不能使用微信小程序的 wx 前缀。
+
+任务执行出错并提示“会话结束”
+问题描述：Agent 执行过程中提示“任务执行出错，会话结束”，可能同时出现 lateinit property service has not been initialized、-1 或 -104。
+问题原因：service has not been initialized 通常是 Agent 被回收后无障碍服务失效；-1 表示设备断网；-104 表示当前网络无法访问后端地址。
+解决方案：服务未初始化时重启 Agent 并重新授予无障碍权限，仍无效则重启设备；-1 先恢复网络；-104 检查是否需要内网或飞连环境。
+
+车控指令无响应
+问题描述：豆包已理解车控指令，但车辆没有动作或没有执行结果。
+问题原因：可能是对手件/车控服务未启动，也可能是 FC 已到宿主但 Binder、车控路由或 OEM Adapter 链路中断。
+解决方案：先用设置 App 直接执行车控，确认硬件与对手件服务正常；检查日志是否出现 onVehicleControl to client。没有该日志时回查 Flow 与 Binder；已有该日志时检查 ConnectionManager、VehCtrlController 与 OEM 返回，并按车型重启车控服务。
+参考文档：豆包inCar常用调试命令、AI Car 客户端问题日志过滤指南
+
+
+AIService
+多项能力同时不可用并出现 Binder 断连
+问题描述：语音、车控等多项能力同时失效，日志出现 bind service failure、Remote service is died 或 heartbeat timeout。
+问题原因：AIService 跨进程 Binder 连接或服务发现失败；重连后若 Listener、能力或子服务没有重新注册，业务仍不会恢复。
+解决方案：按 ConnectionManager → CubeRemoteServiceBinder 检查连接、服务分发、Listener 注册、心跳和 attempt to rebind service 是否完整；同时保留通信两端日志。Binder 已恢复但业务仍异常时，重点检查 Listener 与子服务是否重新注册。
+参考文档：AI Car 客户端问题日志过滤指南、Bug分类与 Repo 路由指南
+
+通用
+PAD上调试上汽豆包二维码登录弹窗黑屏问题
+问题描述：PAD上调试上汽豆包二维码登录弹窗黑屏；
+问题原因：为避免豆包VehicleMainActivity启动打破上汽三分屏状态，VehicleMainActivity在上汽上，在Display 3显示。在某些平板上【例如华为】可以成功在Display 3上显示导致出现各种黑屏问题，而三星会自动回落到Display 0。
+解决方案：手动创建一个空文件在“/sdcard/AICarSpeech/pad_tag”【手动push上去】，则该设备被认为是平板，会在Display 0显示VehicleMainActivity。
+
+Demo（问题模板）
+问题描述：无
+问题原因：无
+解决方案：无
+参考文档：无
+
+
+

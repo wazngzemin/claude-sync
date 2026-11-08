@@ -307,6 +307,24 @@ def safe_rel(rel):
     return rel
 
 
+def source_path(scope, rel, direction):
+    side = "local" if direction == "push" else "repo"
+    if scope == "file":
+        return FILES[rel][side]
+    if scope == "memories":
+        return os.path.join(CLAUDE_DIR, "projects") if side == "local" else os.path.join(SYNC_REPO, "claude-config", "project-memories")
+    clean = safe_rel(rel)
+    if clean is None:
+        raise ValueError("非法路径")
+    return os.path.join(SCOPES[scope][side], clean)
+
+
+def availability(node):
+    for side, direction in (("local", "push"), ("repo", "pull")):
+        node[side + "_exists"] = os.path.exists(source_path(node["scope"], node.get("rel", ""), direction))
+    return node
+
+
 def list_children(scope, rel):
     """列出某 scope 下 rel 目录的直接子项（本机 + 仓库 取并集）。"""
     sc = SCOPES.get(scope)
@@ -339,7 +357,7 @@ def list_children(scope, rel):
                         "expandable": isdir, "icon": "📁" if isdir else "📄",
                         "size": node_meta(full, isdir),
                     }
-    items = list(seen.values())
+    items = [availability(n) for n in seen.values()]
     items.sort(key=lambda x: (x["type"] != "dir", x["name"].lower()))
     return items
 
@@ -376,7 +394,7 @@ def get_roots():
         n["label"] = n["name"]
 
     return [
-        {"section": "Claude 配置", "nodes": claude_nodes},
+        {"section": "Claude 配置", "nodes": [availability(n) for n in claude_nodes]},
         {"section": "3.23 项目文件（可展开到单个文件）", "nodes": project_nodes},
     ]
 
@@ -633,7 +651,7 @@ def apply_repo_deletions():
     return n
 
 
-def run_sync(items, direction):
+def run_sync(items, direction, all_items=False):
     results = []
     if not os.path.isdir(os.path.join(SYNC_REPO, ".git")):
         return [{"item": "错误", "status": "fail", "msg": "仓库未初始化"}]
@@ -641,6 +659,17 @@ def run_sync(items, direction):
         return [{"item": "错误", "status": "fail", "msg": "无效同步方向"}]
     items = dedupe_items(items)
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    if all_items and direction == "push":
+        available = []
+        for it in items:
+            if os.path.exists(source_path(it["scope"], it.get("rel", ""), direction)):
+                available.append(it)
+            else:
+                results.append({"item": it.get("label") or it.get("rel") or it["scope"],
+                                "status": "skipped", "msg": "本机不存在，已跳过；仓库备份保留"})
+        items = available
+        if not items:
+            return results + [{"item": "云端", "status": "fail", "msg": "本机没有可推送的内容"}]
 
     if direction in ("push", "delete"):
         prepare_large_files(SYNC_REPO)
@@ -657,6 +686,8 @@ def run_sync(items, direction):
             try:
                 if not any(r["status"] == "fail" for r in results):
                     _git_push_result(results)
+                else:
+                    write_cloud_state("fail", "本次文件收集失败，未上传；此前云端版本保留", direction, _head_sha())
             except Exception as e:
                 write_cloud_state("fail", f"Git: {e}", direction, _head_sha())
                 results.append({"item": "云端", "status": "fail", "msg": _scrub_line(str(e))})
@@ -795,7 +826,7 @@ class H(http.server.BaseHTTPRequestHandler):
                     except BlockingIOError:
                         self._json({"error": "另一个同步入口正在运行"}, 409)
                         return
-                    self._json({"results": run_sync(items, direction)})
+                    self._json({"results": run_sync(items, direction, all_items=body.get("all") is True)})
             finally:
                 sync_lock.release()
             return

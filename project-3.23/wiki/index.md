@@ -1,7 +1,7 @@
 ---
 title: Wiki Index
 date: 2026-04-14
-updated: 2026-10-29
+updated: 2026-11-05
 status: active
 ---
 
@@ -13,6 +13,8 @@ status: active
 
 | 页面 | 摘要 |
 |------|------|
+| [新手引导 Agent（历史提案）](entities/onboarding-agent.md) | 下午提案已被晚间方案替代，本期不建设独立 Agent |
+| [豆包内核](entities/agent-kernel.md) | 11 月 4 日五本账与持续认知的讨论，区分快慢更新、身份连续及待确认边界 |
 | [记忆系统](entities/memory-system.md) | 生产、检索与管理用户经历和偏好，区分 10 月宣讲中的使用状态 |
 | [[director]] | 车载语音助手核心对话推理引擎，以 SP 驱动，当前面临 PE 过长问题 |
 | [[planner]] | 与 Director 对应的规划职能名称；10 月宣讲按同一对话推理模块理解 |
@@ -31,6 +33,8 @@ status: active
 
 | 页面 | 摘要 |
 |------|------|
+| [新手引导结果分层与计次](concepts/onboarding-outcome-stages.md) | 按 DT 对应推理计次，区分下发、触达与功能成功 |
+| [从交互经历到下一次服务的持续学习](concepts/learning-from-interactions.md) | 四种观察入口有交叉；按证据、适用条件、保存、召回和真实结果检查学习 |
 | [按真实业务讲解产品模块](concepts/product-lecture-explanation.md) | 按用户问题、输入缺口、判断、动作、反馈讲清业务交接 |
 | [[sp-compression-strategy]] | SP 压缩策略：从 34K tokens 压到 15K 以下，静态+动态示例拆分 |
 | [[planner-tool-simplification]] | Planner 职责分离方案：自然语言规划 + Flash 模型参数转换 |
@@ -57,6 +61,8 @@ status: active
 
 | 页面 | 摘要 |
 |------|------|
+| [新手引导触发链路 PRD](synthesis/onboarding-agent-prd.md) | 按晚间方案修订，触发器与 DT 闭环，撤掉独立 Agent |
+| [自学习四种方式与内核连续性整合](synthesis/self-learning-and-agent-kernel.md) | 串起 9 月专家知识与 11 月内核讨论，附完整业务案例、验收样本与会上发言 |
 | [上汽定时任务与触发器产品分工](synthesis/saic-timed-task-trigger.md) | 2026-10-13 飞书正文核验；按赛力斯参考结构重写上汽评审稿，区分弋途定时、豆包条件触发及后台预置，附 Word 与三张业务图 |
 | [[planner-eval-methodology]] | **正文** · Planner 评测方法论对外分享:1.0→2.0 演进叙事,3 次重构(场景化/过程归因/像人),5 阶段自动化流水线,5 条建议;完整 HTML 嵌入式图表 |
 | [[planner-eval-methodology-outline]] | 大纲 · 上文的详细骨架与每章要点 |
@@ -67,12 +73,16 @@ status: active
 
 | 页面 | 摘要 |
 |------|------|
+| [新手引导方案演变](comparisons/onboarding-agent-vs-trigger.md) | 说明晚间触发链路替代下午 Agent 提案 |
+| [专家知识会议与内核会议对照](comparisons/expert-knowledge-and-agent-kernel.md) | 对照学会做事与持续理解用户，保留阶段方向与未定事项 |
 | —    | —    |
 
 ## 源文件摘要 (summaries/)
 
 | 页面 | 来源 | 摘要 |
-|------|------|------|
+|------|------|
+| [新手引导三场会议核验](summaries/onboarding-meetings-2026-11-04.md) | 核验业务入口、账号、一次性能力及两类记忆场景 |------|
+| [豆包车载智能体项目推进会：内核与持续学习](summaries/agent-kernel-2026-11-04.md) | 11 月 4 日逐字稿及用户补充转写 | 五本账、后台探索、人物关系、身份连续和最小输入输出 |
 | [记忆产品宣讲与需求对照](summaries/memory-product-lecture.md) | 10 月 28 日逐字稿及记忆 PRD | 同乘分段、分层召回、开关和删除、画像与跨端状态 |
 | [Director 产品宣讲与需求对照](summaries/director-product-lecture.md) | Director 逐字稿、PRD 及探索需求 | 工具依赖、批内反馈、背景使用与能力范围 |
 | [用户提供的座舱业务案例讲解标准](summaries/user-case-rewrite-standard.md) | 用户长案例 | 用业务动作解释每次信息交接与分叉，完整正文先行，移除重复附录 |

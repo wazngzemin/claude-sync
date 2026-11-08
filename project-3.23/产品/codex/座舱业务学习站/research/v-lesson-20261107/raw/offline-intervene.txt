@@ -1,0 +1,509 @@
+aidv接入离线车控干预方案
+需求
+在 AIDV 主链路接入车控干预能力，与拒识并行执行，当拒识未命中且干预命中时，直接返回车控协议给客户端
+「干预工具配置平台」平台化，支持对干预项进行增、删、查、改
+PRD：【AI汽车】干预工具V0.1
+方案
+迁移 ToB 干预模块
+2.1.1 数据库
+数据不迁移，只迁移 表结构 + DAO/查询逻辑，核心 4 张表及字段如下：
+
+
+表名
+
+业务字段
+
+说明
+
+intervene_rules
+
+
+id、created_at、updated_at、deleted_at、query、similar_threshold、effect_count、remark、enable_status、creator_id、creator_name、updater_id、updater_name、keyword_match_enabled、keyword_rules
+
+规则主表，承载 query、阈值、开关、关键词规则和审计字段
+
+intervene_rule_env_relation
+
+id、created_at、updated_at、deleted_at、intervene_rule_id、channel、env、app_id
+
+规则与渠道 / 环境 / app_id 的关系表
+
+intervene_rule_function_relation
+
+
+id、created_at、updated_at、deleted_at、intervene_rule_id、function_type、function_key、result
+
+规则命中后真正返回什么功能、什么结果，车控干预的一步 FC 结果也落这里
+
+intervene_rule_generalization_relation
+
+id、created_at、updated_at、deleted_at、intervene_rule_id、generalization_query
+
+规则泛化问表，用于补充向量召回和同义 query 命中
+可以先按下面的建表骨架在 AIDV 落地，字段长度和索引名再按 AIDV 现有 MySQL 规范校准：
+CREATE TABLE intervene_rules (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  created_at DATETIME(3) NULL,
+  updated_at DATETIME(3) NULL,
+  deleted_at DATETIME(3) NULL,
+  query TEXT NOT NULL,
+  similar_threshold BIGINT NOT NULL DEFAULT 0,
+  effect_count BIGINT NOT NULL DEFAULT 0,
+  remark TEXT NULL,
+  enable_status TINYINT(1) NOT NULL DEFAULT 1,
+  creator_id VARCHAR(64) NOT NULL DEFAULT '',
+  creator_name VARCHAR(128) NOT NULL DEFAULT '',
+  updater_id VARCHAR(64) NOT NULL DEFAULT '',
+  updater_name VARCHAR(128) NOT NULL DEFAULT '',
+  keyword_match_enabled TINYINT(1) NOT NULL DEFAULT 0,
+  keyword_rules TEXT NULL,
+  PRIMARY KEY (id),
+  KEY idx_intervene_rules_deleted_at (deleted_at)
+);
+
+CREATE TABLE intervene_rule_env_relation (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  created_at DATETIME(3) NULL,
+  updated_at DATETIME(3) NULL,
+  deleted_at DATETIME(3) NULL,
+  intervene_rule_id BIGINT UNSIGNED NOT NULL,
+  channel VARCHAR(64) NOT NULL,
+  env VARCHAR(64) NOT NULL,
+  app_id VARCHAR(64) NOT NULL DEFAULT '',
+  PRIMARY KEY (id),
+  KEY idx_intervene_rule_env_relation_rule_id (intervene_rule_id),
+  KEY idx_intervene_rule_env_relation_deleted_at (deleted_at)
+);
+
+CREATE TABLE intervene_rule_function_relation (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  created_at DATETIME(3) NULL,
+  updated_at DATETIME(3) NULL,
+  deleted_at DATETIME(3) NULL,
+  intervene_rule_id BIGINT UNSIGNED NOT NULL,
+  function_type VARCHAR(64) NOT NULL,
+  function_key VARCHAR(128) NOT NULL,
+  result TEXT NOT NULL,
+  PRIMARY KEY (id),
+  KEY idx_intervene_rule_function_relation_rule_id (intervene_rule_id),
+  KEY idx_intervene_rule_function_relation_deleted_at (deleted_at)
+);
+
+CREATE TABLE intervene_rule_generalization_relation (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  created_at DATETIME(3) NULL,
+  updated_at DATETIME(3) NULL,
+  deleted_at DATETIME(3) NULL,
+  intervene_rule_id BIGINT UNSIGNED NOT NULL,
+  generalization_query TEXT NOT NULL,
+  PRIMARY KEY (id),
+  KEY idx_intervene_rule_generalization_relation_rule_id (intervene_rule_id),
+  KEY idx_intervene_rule_generalization_relation_deleted_at (deleted_at)
+);
+
+2.1.2 向量库
+向量库迁移 Collection 结构、索引参数和 Upsert/Search 逻辑，然后基于 AIDV 自己的规则数据重新写入。DPFM 当前实现位于 dpfm_repo/biz/service/chat_ai/intervene/viking.go，关键信息如下：
+
+
+对象
+
+名称 / 类型
+
+说明
+
+Collection
+
+dpfm_intervene_rule_auto_created
+
+干预规则向量集合
+
+Index
+
+index_intervene_rule_query_auto_created
+
+HNSW + COSINE + Float
+
+字段
+
+id / string
+
+主键，主 query 记录格式为 ruleID:0，泛化 query 记录格式为 ruleID:generalizationID
+
+字段
+
+query / string
+
+主 query 或泛化 query 原文
+
+字段
+
+query_vector / vector(1024)
+
+使用 bge-m3 生成的 embedding
+
+字段
+
+channel_env / list<string>
+
+渠道环境列表；有 app_id 时同时写入二段格式和三段格式以兼容历史逻辑
+
+maas_config:EnableInterveneChannelEnvAppIDMatch
+
+字段
+
+function_key / list<string>
+
+规则覆盖的功能 key 集合
+
+字段
+
+keyword_rules / list<string>
+
+关键词规则
+
+字段
+
+keyword_match_enabled / bool
+
+是否启用关键词匹配
+
+AIDV 侧可复用 aidv/biz/dal/viking/client.go 的基础设施，在 service/intervention/viking.go 中实现 Upsert / Delete / Search。数据来源建议统一以 AIDV MySQL 中的新规则为准：创建 / 更新规则时同步 upsert 向量，删除规则时同步删主 query 与泛化 query。
+2.1.3 干预链路与代码迁移
+
+
+核心逻辑： DPFM 干预是一套“规则匹配直出”机制。请求进入后，优先从上下文缓存读取命中结果；缓存缺失则触发 SearchAndStore（Viking 向量召回 + MySQL 规则回查）；最终按 functionKey 过滤后直接返回结果，短路后续 LLM 推理。
+迁移决策： effect_count（命中计数）和 CtxKeyDisableIntervene（禁用开关）确认保留；GetCanaryToProdEnv()（环境映射）待定，需对齐 AIDV 环境隔离策略。
+
+
+
+DPFM 能力
+
+当前职责
+
+AIDV 迁移落点
+
+biz/service/chat_ai/intervene/chat.go
+
+GetInterveneRule / ModuleInterveneRule：按 query、channel、functionKey 判断是否命中规则
+
+aidv/biz/service/intervention/module.go
+
+biz/service/chat_ai/intervene/cache.go
+
+把一次请求内命中的规则缓存到 SyncExtensionInfo，避免同 request 重复检索
+
+aidv 可在 FlowContext 或 request context 内复用同类 request 级缓存
+
+biz/service/chat_ai/intervene/viking.go
+
+向量召回、Collection 初始化、向量写入与删除
+
+
+aidv/biz/service/intervention/viking.go
+
+biz/service/web/intervene/excel.go
+
+GetRulesFromExcel：解析 Excel 并组装 Rule / RuleEnv / RuleFunction / RuleGeneralization
+
+aidv/biz/service/intervention/import.go + aidv/biz/handler/web/intervention.go
+建议保留的核心接口如下：
+func ModuleInterveneRule(ctx context.Context, channel, query, functionKey string) *RuleSimpleInfo
+
+func ImportInterventionRules(ctx context.Context, file multipart.File, commonInfo *constant.CommonInfo) error
+
+AIDV 接入干预 Processor
+
+图中对应的关键裁决顺序如下：
+DirectAgent / SyntaxRAG 保持最高优先级，不受本次改造影响。
+拒识依旧是编排层的安全前置判断；一旦拒识命中，直接返回并取消预启动 Planner。
+InterventionProcessor 放在 processors 列表第一个位置，只消费已经准备好的干预结果；命中后立刻直出车控协议。
+AlwaysPlannerProcessor / SimpleIntentProcessor / Planner 仅在干预未命中时继续执行。
+返回客户端的 FunctionResponse
+命中干预后，SendRefusalChunk(ctx, flowCtx, false)， 并将FunctionResponse返回给客户端，调用 flowCtx.Cancel() 取消预启动 Planner。
+
+type FunctionResponse struct {
+    Functions              []FunctionSlotData `json:"functions"`
+    SoundZone              string             `json:"sound_zone"`
+    IsSimpleVehicleControl bool               `json:"is_simple_vehicle_control"`
+}
+
+
+functionResponse.IsSimpleVehicleControl = isSimpleArbitration
+pushMsg, _ := config.Json.MarshalToString(functionResponse)
+a.SimpleVehicleControl(ctx, pushMsg)
+设置 FunctionResponse.IsSimpleVehicleControl = true，告诉端侧是命中干预结果下发的车控，使用端侧播报。
+代码改动
+3.1 扩展流程上下文 FlowContext
+文件：aidv/biz/service/flow/processor.go
+type FlowContext struct {
+	ChatReq        *types.ChatRequest
+	Responses      []*types.ChatResponse
+	AnswerSource   history.AnswerSource
+	ProcessorName  string             // 处理器名称
+	Cancel         context.CancelFunc // planner 取消函数
+	ResultChan     chan *types.ChatResponse
+	PlanChan       <-chan *types.ChatResponse // 预启动的Planner结果通道
+	HistoryCache   *chat_history.HistoryCache
+	RecommendCache *recommend.CacheValue
+
+	// Analysis results
+	SyntaxMatchResult   string
+	HasSyntaxMatch      bool
+	IntentAndRefusal    *dpfm.IntentData
+	IntentAndRefusalErr error
++	InterventionHit    bool
++	InterventionResult *intervention.RuleSimpleInfo
++	InterventionErr    error
+	FlowTimeCost        int64 // 流程耗时
+}
+
+3.2 编排层并行准备与裁决
+文件：aidv/biz/service/flow/orchestrator.go
+func NewFlowOrchestrator() *FlowOrchestrator {
+ 	return &FlowOrchestrator{
+ 		processors: []FlowProcessor{
++			NewInterventionProcessor(),
+ 			NewAlwaysPlannerProcessor(),
+ 			NewSimpleIntentProcessor(),
+ 		},
+ 		preStarter: NewPreStartManager(),
+ 	}
+ }
+ 
+ func (o *FlowOrchestrator) Orchestrate(ctx context.Context, flowCtx *FlowContext) (<-chan *types.ChatResponse, error) {
+ 	flowCtx.ResultChan = make(chan *types.ChatResponse, constant.RespBuffSize)
+ 	go func() {
+ 		defer func() {
+ 			close(flowCtx.ResultChan)
+ 			if flowCtx.Cancel != nil {
+ 				flowCtx.Cancel()
+ 			}
+ 		}()
+ 
+ 		// ... DirectAgent / SyntaxRAG / SeatProcessor 保持不变
+ 
+ 		// 拒识裁决仍然先于 processors，干预不能绕过这一步
+ 		if flowCtx.IntentAndRefusal != nil && flowCtx.IntentAndRefusal.Reject {
+ 			fullChatDetailReject(ctx, true)
+ 			SendRefusalChunk(ctx, flowCtx, true)
+ 			flowCtx.AnswerSource = history.AnswerSourceCloudRefusal
+ 			flowCtx.Cancel()
+ 			return
+ 		}
+ 
+ 		SendRefusalChunk(ctx, flowCtx, false)
+ 		ctx_msg.SendMsg(ctx, constant.MsgKeyRefusalPass)
+ 
+ 		for _, processor := range o.processors {
+ 			if processor.CanHandle(ctx, flowCtx) {
+ 				_ = processor.Process(ctx, flowCtx)
+ 				return
+ 			}
+ 		}
+ 	}()
+ 	return flowCtx.ResultChan, nil
+ }
+ 
+ func (o *FlowOrchestrator) runPrepare(ctx context.Context, flowCtx *FlowContext) {
+ 	if flowCtx == nil || flowCtx.ChatReq == nil {
+ 		return
+ 	}
+ 	go func() {
+ 		// context 预处理保持原样
+ 	}()
+ 	go func() {
+ 		// intent 预查询保持原样
+ 	}()
++	go func() {
++		// 准备阶段只负责规则获取
++		rule, err := prepareIntervention(ctx, flowCtx.ChatReq)
++		if err != nil {
++			flowCtx.InterventionErr = err
++			return
++		}
++		if rule != nil {
++			flowCtx.InterventionHit = true
++			flowCtx.InterventionResult = rule
++		}
++	}()
+ }
+
+3.3 新增 InterventionProcessor
+文件：aidv/biz/service/flow/intervention_processor.go（新增）
+package flow
+
+import (
+    "context"
+    "errors"
+
+    "code.byted.org/stone_vehicle/aidv/biz/config"
+    "code.byted.org/stone_vehicle/aidv/biz/constant"
+    "code.byted.org/stone_vehicle/aidv/biz/infrastructure/ctx_msg"
+    "code.byted.org/stone_vehicle/aidv/biz/infrastructure/network"
+    agent_list "code.byted.org/stone_vehicle/aidv/biz/service/agent_server/executor/dpfm/agent_list"
+    "code.byted.org/stone_vehicle/aidv/biz/types"
+    "code.byted.org/stone_vehicle/aidv/biz/types/history"
+)
+
+type InterventionProcessor struct{}
+
+func NewInterventionProcessor() *InterventionProcessor {
+    return &InterventionProcessor{}
+}
+
+func (p *InterventionProcessor) Name() string {
+    return "InterventionProcessor"
+}
+
+func (p *InterventionProcessor) CanHandle(ctx context.Context, flowCtx *FlowContext) bool {
+    if flowCtx.IntentAndRefusal != nil && flowCtx.IntentAndRefusal.Reject {
+        return false
+    }
+    return flowCtx.InterventionErr == nil && flowCtx.InterventionResult != nil
+}
+
+func (p *InterventionProcessor) Process(ctx context.Context, flowCtx *FlowContext) error {
+    flowCtx.ProcessorName = p.Name()
+    flowCtx.AnswerSource = history.AnswerSourceCloudAgent
+    ctx_msg.SendMsgKV(ctx, constant.MsgKeyAnswerSource, flowCtx.AnswerSource.String())
+    return p.dispatchInterventionResult(ctx, flowCtx)
+}
+
+func (p *InterventionProcessor) dispatchInterventionResult(ctx context.Context, flowCtx *FlowContext) error {
+    // 这里按规则类型进行分发适配
+    if flowCtx.InterventionResult != nil && flowCtx.InterventionResult.Answer != "" {
+        // 当前仅支持简单车控干预
+        return p.handleVehicleControlIntervention(ctx, flowCtx, flowCtx.InterventionResult.Answer)
+    }
+
+    err := errors.New("unsupported intervention result")
+    flowCtx.ResultChan <- network.NewChatError(ctx, constant.ErrorSystem, err.Error())
+    return err
+}
+
+func (p *InterventionProcessor) handleVehicleControlIntervention(ctx context.Context, flowCtx *FlowContext, answer string) error {
+    // 解析 rule.Answer 并补齐简单车控标记
+    functionResponse := &types.FunctionResponse{}
+    if err := config.Json.UnmarshalFromString(answer, functionResponse); err != nil {
+        flowCtx.ResultChan <- network.NewChatError(ctx, constant.ErrorSystem, err.Error())
+        return err
+    }
+    
+    functionResponse.SoundZone = flowCtx.ChatReq.CoordinationInfo.SoundZone
+    functionResponse.IsSimpleVehicleControl = true
+
+    pushMsg, err := config.Json.MarshalToString(functionResponse)
+    if err != nil {
+        flowCtx.ResultChan <- network.NewChatError(ctx, constant.ErrorSystem, err.Error())
+        return err
+    }
+
+    vehicleAgent := agent_list.NewAgentVehicleControl()
+    responses, _, err := vehicleAgent.SimpleVehicleControl(ctx, pushMsg)
+    if err != nil {
+        flowCtx.ResultChan <- network.NewChatError(ctx, constant.ErrorSystem, err.Error())
+        return err
+    }
+
+    for i := range responses {
+        resp := responses[i]
+        flowCtx.ResultChan <- &resp
+    }
+
+    flowCtx.Cancel()
+    return nil
+}
+
+3.4 prepareIntervention 并行准备逻辑
+文件：aidv/biz/service/flow/intervention_prepare.go（新增）
+// aidv/biz/service/flow/intervention_prepare.go
+package flow
+
+import (
+    "context"
+
+    "code.byted.org/stone_vehicle/aidv/biz/service/helper"
+    "code.byted.org/stone_vehicle/aidv/biz/service/intervention"
+    "code.byted.org/stone_vehicle/aidv/biz/types"
+)
+
+func prepareIntervention(ctx context.Context, req *types.ChatRequest) (*intervention.RuleSimpleInfo, error) {
+    if req == nil {
+        return nil, nil
+    }
+
+    // 1. 检查是否禁用干预
+    if ctxValue := helper.GetContextValueFromContext(ctx);
+        ctxValue != nil && ctxValue.ExtensionInfo != nil && ctxValue.ExtensionInfo[helper.CtxKeyDisableIntervene] == true {
+        return nil, nil
+    }
+
+    // 2. 准备阶段只负责规则查询 (MySQL + VikingDB)
+    return intervention.ModuleInterveneRule(ctx, req)
+}
+
+3.5 后台导入与向量同步
+文件：aidv/biz/service/intervention/import.go
+复用dpfm/intervene/rules接口，biz/handler/web/intervene.go
+
+测试点
+拒识优先：同一 query 同时命中拒识与干预时，只返回拒识，并确认 Planner 已取消。
+干预命中：返回 refusal=false + 车控协议，并校验 FunctionResponse.IsSimpleVehicleControl=true；不进入 Planner，不发送 MsgKeyPlannerContinue。
+干预 miss：继续走现有 processors / Planner 主链路，结果与改造前保持一致。
+异常降级：规则服务超时、空 rule.Answer都必须自动回落原链路。
+导入链路：Excel 导入同时覆盖规则主表、泛化问 Sheet、MySQL 落库和 VikingDB 同步四个环节。
+任务与排期
+
+
+任务
+
+负责角色
+
+排期
+
+产出
+
+服务端开发（干预模块迁移，干预Processor接入）
+
+服务端开发
+
+TBD 
+
+
+MR + 单测通过
+
+数据准备
+
+服务端开发/算法
+
+TBD 7.15-7.16
+
+
+mysql、向量库 配置好干预数据
+
+提测
+
+
+
+7.20
+
+
+
+测试验收
+
+QA
+
+TBD 
+
+
+验收通过
+
+上线
+
+服务端
+
+计划07-24（DDL）
+
+-
+
+

@@ -1,0 +1,100 @@
+动态示例与动态知识技术方案 (One Page)
+
+动态示例 (scenario_sample)：基于 VikingDB 的 Few-shot RAG 机制，按用户 Query 语义检索 Top 3 最相似的 SFT Case，解决长尾 badcase 并降低 SP 基础 Token 消耗。
+动态知识 (knowledge)：基于 LLM Routing 的场景化注入，由小模型（Seed-2.0-mini）根据上下文选择特定的场景 SOP（Standard Operating Procedure，标准操作流程）（如儿童安抚、急速调温），指导 Planner 完成复杂、多步骤、高阶的流程编排。
+核心差异：动态示例侧重于“教模型如何调用具体工具”的原子案例；动态知识侧重于“高阶业务逻辑与多步骤 SOP”的场景指导。
+1. 背景与目标
+随着业务场景增多，Planner 的系统提示词（System Prompt, SP）面临以下挑战：
+Token 膨胀：静态示例全部堆叠在 SP 中会导致基础 Token 成本高昂且上下文窗口压力大。
+灵活性差：代码内硬编码或 Fornax 平台静态配置的示例难以实时更新以覆盖线上快速发现的 badcase。
+场景感知弱：传统 RAG 在检索长文 SOP 时，单纯依赖向量相似度难以准确匹配复杂业务场景的深层意图。
+本方案通过引入“动态示例”和“动态知识”机制，实现示例数据的动态加载与场景知识的精准注入。
+
+2. 动态示例 (Dynamic Example)
+2.1 核心机制
+动态示例采用 Few-shot RAG 模式。将海量的“用户输入 → 处理逻辑”示例存入向量数据库，在请求时根据当前 Query 动态拉取最相关的案例注入 SP。
+2.2 数据存储与管理
+存储架构：VikingDB（线上向量检索源）+ MySQL（后台台账与元数据管理）。
+管理后台：支持产品/算法同学通过管理页面进行 CRUD 操作。写入时采用“双写+补偿”机制，确保 VikingDB 与 MySQL 数据一致。
+环境隔离：env支持 prod、ppe 环境标识。非生产环境检索时，会自动合并 prod 与当前环境（如 ppe）的数据。channel指定渠道,master；
+2.3 检索与注入逻辑
+预跑处理：在 pre-query 阶段并行发起检索，避免 VikingDB 检索耗时拖慢主链路。
+混合检索：通过 VikingDB SearchByText（文本+向量混合检索）取 Top 3。
+格式化注入：每条示例格式化为 用户输入“<query>”，需要遵循的处理逻辑“<content>”，注入 SP 变量 scenario_sample。
+
+3. 动态知识 (Dynamic Knowledge)
+3.1 核心机制
+动态知识属于“高阶示例”，主要针对复杂业务流程（SOP）。它不使用向量检索，而是通过 LLM Routing 机制，利用一个小参数量模型（如 doubao-Seed-2.0-mini）根据对话历史和当前意图选择对应的场景 ID。
+3.2 场景定义 (Planner Skill)
+场景知识以 SOP 长文形式定义在代码配置中（skillConfig），涵盖如“儿童安抚”、“车内观影”、“急速调温”等 8 大核心场景。每段知识包含：
+场景描述与典型触发：定义何时应进入该场景。
+边界条件：明确哪些行为是禁止的（如行驶中禁止前排观影）。
+分步执行逻辑：指导模型进行多轮对话或多工具调用的标准路径。
+3.3 检索逻辑
+意图路由：调用 director.prompt.select_skill 函数（fornax上prompt开发的Prompt Key），将近两轮对话历史输入小模型，模型输出匹配的场景 ID 列表。
+知识拼接：根据返回的 ID 从缓存的 skillConfig 中获取 Content，换行拼接后注入 SP 变量 knowledge。
+
+4. 架构图与数据流
+
+
+5. 方案对比
+
+
+维度
+
+静态示例
+
+动态示例 (Scenario Sample)
+
+动态知识 (Knowledge/Skill)
+
+定位
+
+通用原子规则
+
+长尾 Badcase 修复
+
+高阶场景编排 (SOP)
+
+存储位置
+
+Fornax SP 模板正文
+
+VikingDB + MySQL
+
+Go 代码静态配置 (SkillConfig)
+
+检索技术
+
+无 (全量下发)
+
+向量/文本相似度检索 (Top 3)
+
+LLM 选 ID (Seed-2.0-mini)
+
+注入变量
+
+直接固化在 SP
+
+scenario_sample
+
+knowledge
+
+维护方式
+
+手动改 Fornax 平台
+
+管理后台在线热更新
+
+代码发版更新
+
+6. 预期收益
+显著降本：将 1000+ 示例从 SP 中释放到外部存储，仅按需注入 Top 3，大幅缩减基础 Token 成本。
+灵活干预：支持针对特定 Query 的 Badcase 进行秒级热修复，无需发版。
+复杂任务编排：通过专家定义的场景化 SOP 指导，提升 Planner 在极端温控、儿童安抚等复杂任务上的处理合规性与成功率。
+
+7.展望
+赛力斯的动态知识扩展丰富
+模型自动总结用户独有的个性化知识
+
+

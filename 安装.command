@@ -28,5 +28,5 @@ if [ -e "$APP" ]; then
     mv "$APP" "$BUILD_DIR/Claude同步管理-安装前备份.app"
 fi
 mv "$BUILD_DIR/Claude同步管理.app" "$APP"
-echo "安装完成：桌面 App 已创建。同步的是配置、技能、项目记忆和工作文件，不包含聊天记录或账号登录。"
+echo "安装完成：桌面 App 已创建。同步的是配置、技能、项目记忆和 3.23 工作文件，不包含聊天记录或账号登录。"
 if [ -t 0 ]; then read -r -p "按回车关闭..." _ || true; fi

@@ -98,7 +98,8 @@
 </details>
 
 <div class="hint">
-  <b>同步范围：Claude 配置 + 选定工作文件；不包含 Codex 聊天记录。</b><br>
+  <b>“全部”包括 Claude 配置、技能、插件、项目记忆，以及整个 3.23 工作文件夹。</b><br>
+  不包含 <code>~/.codex</code> 中独立的 Codex 配置与聊天数据；保存在 3.23 中的 Codex 产出文档仍会同步。依赖、缓存、Git 元数据和密钥文件除外。<br>
   勾选想同步的文件/文件夹 → <b>「推送选中」</b>上传到云,<span class="g">「拉取选中」</span>从云下载。
   勾<b>文件夹</b>=整个一起同步;想只传一个文件,就点开三角 ▶ 展开,单独勾那一个。
 </div>
@@ -108,8 +109,8 @@
   <button class="btn btn-pull" id="bPull" onclick="doSync('pull')" disabled><span>📥</span>拉取选中</button>
   <button class="btn btn-del" id="bDel" onclick="doDelete()" disabled><span>🗑</span>删除选中</button>
   <div class="sep"></div>
-  <button class="btn btn-sm" onclick="doAll('push')">全部推送</button>
-  <button class="btn btn-sm" onclick="doAll('pull')">全部拉取</button>
+  <button class="btn btn-sm" onclick="doAll('push')">推送全部（Claude + 3.23）</button>
+  <button class="btn btn-sm" onclick="doAll('pull')">拉取全部（Claude + 3.23）</button>
   <div class="sep"></div>
   <button class="btn btn-sm" onclick="collapseAll()">折叠全部</button>
   <button class="btn btn-sm" onclick="clearSel()">清空勾选</button>
@@ -233,7 +234,8 @@ function render(){
   const el = document.getElementById('tree');
   let html='';
   for(const sec of forest){
-    html += `<div class="sec">${sec.section}</div>`;
+    const sectionLabel = sec.nodes.some(n=>n.scope==='project') ? '3.23 工作文件（包含在全部同步中）' : sec.section;
+    html += `<div class="sec">${escHtml(sectionLabel)}</div>`;
     for(const n of sec.nodes) html += rowHTML(n);
   }
   el.innerHTML = html;
@@ -273,14 +275,14 @@ function collectSelected(){
   return [...selected].map(k=>{const n=byKey[k];return n?{scope:n.scope,rel:n.rel,label:n.label||n.name}:null;}).filter(Boolean);
 }
 function allRootItems(){
-  // 固定的"全部"集合，保证真的全（含未显示的隐藏项）
+  // 全部同步包含 Claude 配置及完整 3.23 工作文件，不读取 ~/.codex。
   return [
     {scope:'file', rel:'claude-md', label:'CLAUDE.md'},
     {scope:'file', rel:'settings', label:'settings.json'},
     {scope:'skills', rel:'', label:'技能'},
     {scope:'plugins', rel:'', label:'插件'},
     {scope:'memories', rel:'', label:'记忆'},
-    {scope:'project', rel:'', label:'3.23 全部'},
+    {scope:'project', rel:'', label:'3.23 全部工作文件'},
   ];
 }
 

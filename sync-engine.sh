@@ -3,7 +3,7 @@
 # Claude Code 一键同步引擎
 # 用法:
 #   bash sync-engine.sh push    — 推送到远程
-#   bash sync-engine.sh pull    — 从远程拉取
+#   bash sync-engine.sh pull    — 从远程拉取 Claude 配置和整个 3.23 工作文件
 #   bash sync-engine.sh init    — 首次初始化
 #   bash sync-engine.sh status  — 查看状态
 # ============================================================
@@ -69,17 +69,21 @@ collect_files() {
         rsync -a --delete \
             --exclude='.git/' \
             --exclude='node_modules/' \
-            --exclude='video-panel/output/' \
-            --exclude='video-panel/bin/' \
+            --exclude='.venv/' \
+            --exclude='venv/' \
+            --exclude='.env' \
+            --exclude='*.env' \
+            --exclude='*.pem' \
+            --exclude='*.key' \
+            --exclude='id_rsa*' \
+            --exclude='*.p12' \
+            --exclude='*credentials*' \
+            --exclude='*secret*.json' \
             --exclude='Recordly/.git/' \
             --exclude='Recordly/node_modules/' \
             --exclude='Recordly/.tmp/' \
             --exclude='.whiteboard-build/' \
             --exclude='claude-code-sync/' \
-            --exclude='*.mp4' \
-            --exclude='*.mp3' \
-            --exclude='*.wav' \
-            --exclude='*.tar.gz' \
             --exclude='.DS_Store' \
             --exclude='__pycache__/' \
             "$PROJECT_DIR/" "$SYNC_REPO/project-3.23/"
@@ -146,14 +150,14 @@ PYSET
 
     log "Claude 配置已分发"
 
-    # --- 3.23 项目 ---
+    # 分发整个工作目录，包括隐藏文件；同名旧文件备份，不删除本机独有文件。
     if [ -d "$SYNC_REPO/project-3.23" ]; then
         mkdir -p "$PROJECT_DIR"
         rsync -a --backup --backup-dir="$backup_dir/project-3.23" \
-            --exclude='claude-code-sync/' \
             "$SYNC_REPO/project-3.23/" "$PROJECT_DIR/"
-        log "3.23 项目已分发"
+        log "3.23 工作文件已分发"
     fi
+
 }
 
 # ============================================================
@@ -175,10 +179,6 @@ case "${1:-help}" in
 __pycache__/
 *.pyc
 node_modules/
-*.mp4
-*.mp3
-*.wav
-*.tar.gz
 EOF
             log "仓库已创建"
         fi

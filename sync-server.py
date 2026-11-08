@@ -22,12 +22,12 @@ ERROR_LOG_MAX_LINES = 500
 
 IGNORE = {".git", "node_modules", ".venv", "__pycache__", ".DS_Store"}
 RSYNC_EX = ["--exclude=.git/", "--exclude=node_modules/", "--exclude=.venv/",
-            "--exclude=.env", "--exclude=*.env", "--exclude=*.mp4", "--exclude=*.mp3",
-            "--exclude=*.wav", "--exclude=*.tar.gz", "--exclude=__pycache__/",
-            "--exclude=.DS_Store",
-            "--exclude=video-panel/output/", "--exclude=video-panel/bin/",
-            "--exclude=Recordly/.tmp/", "--exclude=.whiteboard-build/",
-            "--exclude=claude-code-sync/"]
+            "--exclude=venv/", "--exclude=__pycache__/", "--exclude=.preview_dependencies/",
+            "--exclude=.env", "--exclude=*.env", "--exclude=*.pem", "--exclude=*.key",
+            "--exclude=id_rsa*", "--exclude=*.p12", "--exclude=*credentials*",
+            "--exclude=*secret*.json", "--exclude=.DS_Store", "--exclude=*.pyc",
+            "--exclude=Recordly/.tmp/", "--exclude=video-panel/output/tmp/"]
+
 MIRROR = False   # 镜像模式：删除也同步（推送带 --delete，拉取按 git 精确删除）
 
 SCOPES = {
@@ -395,7 +395,7 @@ def get_roots():
 
     return [
         {"section": "Claude 配置", "nodes": [availability(n) for n in claude_nodes]},
-        {"section": "3.23 项目文件（可展开到单个文件）", "nodes": project_nodes},
+        {"section": "3.23 工作文件（包含在全部同步中）", "nodes": project_nodes},
     ]
 
 
@@ -658,6 +658,11 @@ def _run_sync_impl(items, direction, all_items=False):
     if direction not in ("push", "pull", "delete"):
         return [{"item": "错误", "status": "fail", "msg": "无效同步方向"}]
     items = dedupe_items(items)
+    # Authoritative bulk scope also corrects requests sent by an older page.
+    if all_items:
+        items = [{"scope": "file", "rel": key, "label": value["label"]} for key, value in FILES.items()]
+        items += [{"scope": scope, "rel": "", "label": {"project": "3.23 全部工作文件", "skills": "技能", "plugins": "插件"}[scope]} for scope in SCOPES]
+        items.append({"scope": "memories", "label": "Claude 项目记忆"})
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     if all_items and direction == "push":
         available = []
@@ -815,6 +820,8 @@ class H(http.server.BaseHTTPRequestHandler):
                     except (OSError, ValueError, TypeError):
                         recent = []
             self._json({
+                "service": "claude-code",
+                "bulk_scope": "Claude 配置、技能、插件、记忆 + 3.23 工作文件；不包含独立 Codex 数据",
                 "initialized": os.path.isdir(os.path.join(SYNC_REPO, ".git")),
                 "has_remote": has_remote,
                 "cloud_state": cloud,

@@ -651,7 +651,7 @@ def apply_repo_deletions():
     return n
 
 
-def run_sync(items, direction, all_items=False):
+def _run_sync_impl(items, direction, all_items=False):
     results = []
     if not os.path.isdir(os.path.join(SYNC_REPO, ".git")):
         return [{"item": "错误", "status": "fail", "msg": "仓库未初始化"}]
@@ -749,10 +749,25 @@ def run_sync(items, direction, all_items=False):
             except Exception as e:
                 results.append({"item": label, "status": "fail", "msg": str(e)})
 
+    return results
+
+
+def run_sync(items, direction, all_items=False):
+    """Every batch, including early failures, gets a durable result."""
+    try:
+        results = _run_sync_impl(items, direction, all_items)
+    except Exception as exc:
+        message = _scrub_line(str(exc))
+        append_error_log("batch-failed", message)
+        results = [{"item": "同步服务", "status": "fail", "msg": message}]
+    if any(r.get("status") == "fail" for r in results):
+        write_cloud_state("fail", "本次同步未完成，查看逐项结果；此前云端版本保留", direction, _head_sha())
+    event = {"time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+             "direction": direction, "count": len(items), "results": results}
     with log_lock:
-        sync_log.append({"time": ts, "direction": direction, "count": len(items), "results": results})
-        if len(sync_log) > 8:
-            del sync_log[:-8]
+        sync_log.append(event)
+        del sync_log[:-8]
+        _atomic_write_json(os.path.join(STATE_DIR, "batch-results.json"), sync_log)
     return results
 
 
@@ -793,6 +808,12 @@ class H(http.server.BaseHTTPRequestHandler):
             cloud = read_cloud_state()
             with log_lock:
                 recent = list(sync_log[-8:])
+                if not recent:
+                    try:
+                        with open(os.path.join(STATE_DIR, "batch-results.json")) as fh:
+                            recent = json.load(fh)[-8:]
+                    except (OSError, ValueError, TypeError):
+                        recent = []
             self._json({
                 "initialized": os.path.isdir(os.path.join(SYNC_REPO, ".git")),
                 "has_remote": has_remote,
@@ -808,8 +829,16 @@ class H(http.server.BaseHTTPRequestHandler):
     def do_POST(self):
         u = urlparse(self.path)
         if u.path == "/api/sync":
-            n = int(self.headers.get("Content-Length", 0))
-            body = json.loads(self.rfile.read(n))
+            try:
+                n = int(self.headers.get("Content-Length", 0))
+                if not 0 < n <= 1024 * 1024:
+                    raise ValueError("请求大小不正确")
+                body = json.loads(self.rfile.read(n))
+                if not isinstance(body, dict) or not isinstance(body.get("items"), list):
+                    raise ValueError("请求格式不正确")
+            except (ValueError, TypeError) as exc:
+                self._json({"error": str(exc)}, 400)
+                return
             items = body.get("items", [])
             direction = body.get("direction", "push")
             if not items:
@@ -827,6 +856,9 @@ class H(http.server.BaseHTTPRequestHandler):
                         self._json({"error": "另一个同步入口正在运行"}, 409)
                         return
                     self._json({"results": run_sync(items, direction, all_items=body.get("all") is True)})
+            except Exception as exc:
+                append_error_log("request-failed", str(exc))
+                self._json({"error": "同步服务异常：" + _scrub_line(str(exc))}, 500)
             finally:
                 sync_lock.release()
             return

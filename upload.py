@@ -14,11 +14,10 @@ with open(Path(server.STATE_DIR) / "upload.lock", "w") as lock:
             results = []
             server._git_push_result(results)
         else:
-            items = [{"scope": scope} for scope in server.SCOPES if Path(server.SCOPES[scope]["local"]).exists()]
-            items += [{"scope": "file", "rel": key} for key, value in server.FILES.items() if Path(value["local"]).exists()]
-            if (Path(server.CLAUDE_DIR) / "projects").exists():
-                items.append({"scope": "memories"})
-            results = server.run_sync(items, "push")
+            items = [{"scope": scope} for scope in server.SCOPES]
+            items += [{"scope": "file", "rel": key} for key in server.FILES]
+            items.append({"scope": "memories"})
+            results = server.run_sync(items, "push", all_items=True)
         print(json.dumps(results, ensure_ascii=False, indent=2))
         sys.exit(1 if any(x["status"] == "fail" for x in results) else 0)
     except Exception as exc:

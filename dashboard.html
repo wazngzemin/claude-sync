@@ -69,6 +69,11 @@
   .sz{font-size:11.5px;color:var(--dim);background:rgba(255,255,255,.05);padding:2px 8px;border-radius:4px;flex-shrink:0}
   .kids{overflow:hidden}
 
+  .sync-results{margin:0 0 18px;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:10px}
+  .sync-results h2{font-size:15px;margin-bottom:7px}.result-meta{font-size:12px;color:var(--dim);line-height:1.6}
+  .result-list{list-style:none;margin-top:10px}.result-row{display:flex;gap:10px;padding:8px 0;border-top:1px solid var(--border);font-size:13px;line-height:1.6}
+  .result-tag{flex-shrink:0;font-weight:600}.result-tag.ok{color:var(--green)}.result-tag.fail{color:var(--red)}.result-tag.skipped{color:var(--orange)}
+  .result-content{min-width:0;overflow-wrap:anywhere}.result-message{color:var(--dim);white-space:pre-wrap}
   .toasts{position:fixed;top:20px;right:20px;z-index:999;display:flex;flex-direction:column;gap:8px}
   .toast{padding:13px 18px;border-radius:10px;font-size:13.5px;max-width:420px;box-shadow:0 8px 24px rgba(0,0,0,.4);white-space:pre-line;animation:sl .3s}
   .toast.ok{background:var(--greend);border:1px solid var(--green)}
@@ -93,6 +98,7 @@
 </details>
 
 <div class="hint">
+  <b>同步范围：Claude 配置 + 选定工作文件；不包含 Codex 聊天记录。</b><br>
   勾选想同步的文件/文件夹 → <b>「推送选中」</b>上传到云,<span class="g">「拉取选中」</span>从云下载。
   勾<b>文件夹</b>=整个一起同步;想只传一个文件,就点开三角 ▶ 展开,单独勾那一个。
 </div>
@@ -110,6 +116,12 @@
   <button class="btn btn-sm" onclick="loadRoots()">🔄 刷新</button>
   <div class="count">已选 <b id="cnt">0</b> 项</div>
 </div>
+
+<section class="sync-results" aria-live="polite" aria-atomic="false">
+  <h2 id="resultTitle">本次同步结果</h2>
+  <p class="result-meta" id="resultMeta">尚无本次结果。开始同步后，会在这里保留逐项结果。</p>
+  <ul class="result-list" id="resultList"></ul>
+</section>
 
 <div class="tree" id="tree"></div>
 
@@ -130,16 +142,19 @@ function mkNode(n, level, parentKey){
   return node;
 }
 
-async function loadRoots(){
+async function loadRoots(preserveResults=false){
   try{
     const [secs, st] = await Promise.all([
-      fetch(API+'/api/roots').then(r=>r.json()),
-      fetch(API+'/api/status').then(r=>r.json())
+      requestJson('/api/roots'),
+      requestJson('/api/status')
     ]);
     for(const k in byKey) delete byKey[k];
     forest = secs.map(s=>({section:s.section, nodes:s.nodes.map(n=>mkNode(n,0,null))}));
     renderStatus(st); render();
-  }catch(e){ toast('连不上同步服务，请重开 App','fail'); }
+    if(!preserveResults && Array.isArray(st.log) && st.log.length){
+      renderResults(st.log[st.log.length-1], true);
+    }
+  }catch(e){ toast(e.message,'fail'); }
 }
 
 function renderStatus(st){
@@ -190,7 +205,7 @@ function renderStatus(st){
 async function toggleExpand(node){
   if(!node.expandable) return;
   if(!node.loaded){
-    const kids = await fetch(`${API}/api/tree?scope=${encodeURIComponent(node.scope)}&rel=${encodeURIComponent(node.rel)}`).then(r=>r.json());
+    const kids = await requestJson(`/api/tree?scope=${encodeURIComponent(node.scope)}&rel=${encodeURIComponent(node.rel)}`);
     node.children = kids.map(k=>mkNode(k, node.level+1, node.key));
     node.loaded = true;
   }
@@ -251,7 +266,7 @@ function rowHTML(n){
 
 function esc(s){return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");}
 function escHtml(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
-window.expandKey = k => toggleExpand(byKey[k]);
+window.expandKey = k => toggleExpand(byKey[k]).catch(e=>toast(e.message,'fail'));
 window.selKey = k => toggleSel(byKey[k]);
 
 function collectSelected(){
@@ -278,16 +293,54 @@ async function doDelete(){
   await sync(items, 'delete');
 }
 
+async function requestJson(path, options){
+  let response;
+  try{ response = await fetch(API+path, options); }
+  catch(e){
+    throw new Error('本机同步服务连接中断，未收到执行结果；这不代表 GitHub 上传失败。请重新打开 App 后刷新，核对最近一次结果。');
+  }
+  let data;
+  try{ data = await response.json(); }
+  catch(e){ throw new Error(`本机同步服务返回了无法解析的结果（HTTP ${response.status}），本次结果尚未确认。请刷新后核对。`); }
+  if(!response.ok){ throw new Error(`本机同步服务请求未成功（HTTP ${response.status}）：${data && data.error || '请刷新后核对最近一次结果'}`); }
+  if(!data || typeof data!=='object'){ throw new Error('本机同步服务返回格式异常，本次结果尚未确认。'); }
+  return data;
+}
+
+function renderResults(entry, restored=false){
+  const names={push:'推送',pull:'拉取',delete:'删除'};
+  const rows=Array.isArray(entry.results)?entry.results:[];
+  const counts={ok:0,skipped:0,fail:0};
+  for(const r of rows){ if(r.status in counts) counts[r.status]++; }
+  const cloud=rows.find(r=>r.item==='云端');
+  const confirmation=entry.pending?'正在执行，等待结果':counts.fail?'有失败项，请查看下方说明':cloud && cloud.status==='ok'?'已收到云端成功结果':'尚未收到云端成功结果';
+  document.getElementById('resultTitle').textContent=(restored?'最近一次':'本次')+(names[entry.direction]||'同步')+'结果';
+  document.getElementById('resultMeta').textContent=[entry.time||'',confirmation,`成功 ${counts.ok} 项 · 跳过 ${counts.skipped} 项 · 失败 ${counts.fail} 项`].filter(Boolean).join(' ｜ ');
+  const list=document.getElementById('resultList');
+  list.replaceChildren();
+  for(const r of rows){
+    const status=['ok','skipped','fail'].includes(r.status)?r.status:'unknown';
+    const row=document.createElement('li');row.className='result-row';
+    const tag=document.createElement('span');tag.className='result-tag '+status;tag.textContent={ok:'成功',skipped:'跳过',fail:'失败',unknown:'未确认'}[status];
+    const content=document.createElement('div');content.className='result-content';
+    const item=document.createElement('strong');item.textContent=r.item||'同步项';
+    const message=document.createElement('div');message.className='result-message';message.textContent=r.msg||'';
+    content.append(item,message);row.append(tag,content);list.append(row);
+  }
+}
+
 async function sync(items, direction, all=false){
   if(!items.length){ toast('先勾选要同步的文件/文件夹','info'); return; }
   const dt = {push:'推送',pull:'拉取',delete:'删除'}[direction]||direction;
   showOv(`正在${dt}…`, `${items.length} 项`);
+  renderResults({direction,pending:true,results:[]});
   try{
-    const data = await fetch(API+'/api/sync',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({items,direction,all})}).then(r=>r.json());
+    const data = await requestJson('/api/sync',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({items,direction,all})});
     hideOv();
-    if(data.error){ toast(data.error,'fail'); return; }
+    if(data.error){ throw new Error(data.error); }
     const results = Array.isArray(data.results) ? data.results : [];
+    renderResults({direction,time:new Date().toLocaleString(),results});
     const fails = results.filter(r=>r.status==='fail');
     const skipped = results.filter(r=>r.status==='skipped');
     const skipNote = skipped.length ? `\n已跳过 ${skipped.length} 项（源不存在）` : '';
@@ -295,8 +348,12 @@ async function sync(items, direction, all=false){
     if(fails.length){ toast(`${dt}有问题：\n`+fails.map(r=>r.item+': '+r.msg).join('\n')+skipNote,'fail'); }
     else if(cloud && cloud.status==='ok'){ toast(`${dt}成功！\n${cloud.msg||''}`+skipNote,'ok'); }
     else { toast(`${dt}未确认完成：没有收到云端成功结果`+skipNote,'info'); }
-    loadRoots();
-  }catch(e){ hideOv(); toast(`${dt}失败: ${e.message}`,'fail'); }
+    await loadRoots(true);
+  }catch(e){
+    hideOv();
+    renderResults({direction,time:new Date().toLocaleString(),results:[{item:'执行结果',status:'unknown',msg:e.message}]});
+    toast(`${dt}未确认完成: ${e.message}`,'fail');
+  }
 }
 
 function collapseAll(){ for(const k in byKey) byKey[k].expanded=false; render(); }

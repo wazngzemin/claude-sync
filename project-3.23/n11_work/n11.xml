@@ -1,0 +1,33 @@
+<p>你负责触发器，读到"Advisor""Goals"这两个词时最容易慌，因为它们和你的 G 图、T 图叠在一起。这一章先把今天已经落地的链路讲清，再把 W2/W1 里还没落地的动态 Advisor 愿景讲清，最后用一张表把三者的分界钉死。贯穿案例还是那句：主驾说"快到时提醒我拿泳镜"。</p><whiteboard type="mermaid">
+flowchart TB
+  N1101["N11-01 用户开口：'快到时提醒我拿泳镜'【已落地】"]:::main
+  N1102["N11-02 静态 Advisor 四类：舒适/出行/情感/内容【已落地】"]:::main
+  N1103["N11-03 落地链路：aidv_trigger 识别机会→Extour 生成建议→AIDV 校验→Planner【已落地】"]:::main
+  N1104["N11-04 动态示例 scenario_sample：VikingDB 检索 Top3 最相似 SFT Case 注入 SP【已落地-2.6】"]:::main
+  N1105["N11-05 动态知识 knowledge：Seed-2.0-mini 按近两轮选 8 大场景 SOP 注入 SP【已落地-2.6】"]:::main
+  N1106["N11-06 动态 Advisor1..AdvisorX 实例化（W1 多 Advisor 集中汇报）【长期愿景】"]:::dashed
+  N1107["N11-07 S02 叫醒：G08 事件 / 动态事件 / S08 子目标每10分钟回看【2.6目标】"]:::trig
+  N1108["N11-08 S03 读 Context：车况/乘员/已有目标【2.6目标】"]:::main
+  N1109["N11-09 S04 时机判断：睡眠/通话/驾驶负荷/刚被拒（金）【2.6目标】"]:::trig
+  N1110["N11-10 S05 选交互：saic-dna 走主对话 / seres 走 AI Bar+结果回传【已落地】"]:::main
+  N1111["N11-11 S06 → M1 输入管理，和用户 query 排队【已落地】"]:::main
+  N1112["N11-12 S08 舒适/出行子目标：完成/删除/下电结束【2.6目标】"]:::back
+  N1113["N11-13 G 分界：G 只判断条件成立不成立、能不能派发，不生成建议【已落地】"]:::trig
+  N1114["N11-14 T 分界：T 保管用户说的未来安排，不主动发现需求【已落地】"]:::back
+  N1115["N11-15 Extour 目标引擎：add_goal/delete_goal，goal_status creating/pending/running/done【已落地】"]:::main
+  N1101 --> N1115
+  N1102 --> N1103 --> N1107
+  N1104 -.-> N1103
+  N1105 -.-> N1103
+  N1107 --> N1108 --> N1109 --> N1110 --> N1111
+  N1108 --> N1112
+  N1112 -.-> N1107
+  N1113 --> N1107
+  N1114 --> N1113
+  N1114 --> N1115
+  N1106 -.-> N1111
+  classDef main fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+  classDef trig fill:#fef3c7,stroke:#d97706,color:#78350f
+  classDef back fill:#d1fae5,stroke:#059669,color:#064e3b
+  classDef dashed fill:#f5f5f4,stroke:#78716c,color:#57534e,stroke-dasharray: 4 3
+</whiteboard><h2>这张图怎么看</h2><p><b>入口</b>：两条。一条是 N11-01 用户自己开口的未来安排（今天走 N11-15 Extour 目标引擎）；一条是 N11-07 系统自己发现的情况（今天走 N11-03 静态 Advisor 落地链路）。<b>出口</b>：只有 N11-11 一个出口——任何建议最后都要进 M1 输入管理，和用户的话排队，由 Director 决定这轮怎么说怎么做。<b>关键发现</b>：W2 图上写的"Advisor Creator"，今天并没有长成"现场招顾问"，而是拆成了 N11-04 和 N11-05 两条<b>给主模型注入弹药</b>的链路（动态示例+动态知识）；真正的动态 Advisor 实例化仍是 N11-06 灰虚线愿景。<b>读法顺序</b>：先沿 N11-03→N11-07→N11-08→N11-09→N11-10→N11-11 走一遍"系统觉得你晕车，要不要递薄荷糖"，再回头看 N11-13/11-14 两条分界。</p><h2>逐个节点讲透</h2><p><b>N11-01 用户开口的未来安排</b>：主驾说"快到时提醒我拿泳镜"。这不是 Advisor 发现的，是用户明确交办的。【已落地】输入=用户原话+对象（拿泳镜）+时间（快到时）；去向=N11-15；用户感受=一句"好，到游泳馆前提醒你"，而不是马上播报。</p><p><b>N11-02 静态 Advisor 四类</b>：舒适、出行、情感、内容四个固定方向。固定的是关注方向，实际建议仍要看当下状态——充电等待和乘员晕车叫醒的不是同一个方向。【已落地】</p><p><b>N11-03 静态 Advisor 的真实落地链路</b>：不是一个模型在车里想，而是四段——①aidv_trigger 识别机会（信号"有变更"=新值≠旧值、"变更为"=新值=目标值，<b>不分析连续趋势</b>）；②Extour 生成建议（POST /aidv/v1/recommend，source=static_advisor）；③AIDV 校验下发；④Planner 规划执行。配置四要素：条件/动作/执行策略（总次数/单日次数/单次上电/间隔频控）/生效范围（测试车辆 ID）。车端回流 vehicle_recommend_id，缓存 1 分钟。【已落地】你排障时按这四段查：没机会=①没触发；有机会没建议=②；有建议没下发=③；下发没执行=④。</p><p><b>N11-04 动态示例 scenario_sample</b>：W2 图上"Advisor Creator"的第一部分真实落地。基于 VikingDB 的 Few-shot RAG，按 query 语义检索 Top3 最相似的 SFT Case，注入 SP（System Prompt）变量 scenario_sample。VikingDB+MySQL 双写补偿，pre-query 并行检索。【已落地-2.6】作用：长尾 badcase 不用手写进 SP，按语义现教。</p><p><b>N11-05 动态知识 knowledge</b>："Advisor Creator"的第二部分真实落地。小模型 Seed-2.0-mini 按近两轮对话选场景 SOP（儿童安抚/车内观影/急速调温等 8 大核心场景），通过 director.prompt.select_skill 注入 SP 变量 knowledge。【已落地-2.6】区别：N11-04 教模型"怎么调具体工具"（原子案例），N11-05 教模型"高阶业务逻辑多步骤 SOP"。</p><p><b>N11-06 动态 Advisor 实例化</b>：W1 长期架构画的是 Advisor Creator 现场生成 Advisor1..AdvisorX、每个带自己 Goal、集中向主 Agent 汇报。【长期愿景】2.6 不做——今天只有"给主模型现教案例和 SOP"，没有多个独立顾问在并行跑。</p><p><b>N11-07 S02 三种叫醒来源</b>：①触发器送来预设事件（G08→S02，你管的）；②对话和状态里发现的动态线索（乘员说"有点晕"）；③舒适/出行子目标定期回看（N11-12）。【2.6目标】</p><p><b>N11-08 S03 读 Context</b>：被叫醒后从 Context 读车况、乘员、视觉背景，再参考已有 Task/Goal 和自己近五轮建议。【2.6目标】关键约束：它<b>不能默认自己看见刚才所有对话</b>。</p><p><b>N11-09 S04 时机判断</b>（金底检查关卡）：用户在通话、睡着、驾驶负荷高、刚拒绝过同类建议，这四种情况都不打扰。【2.6目标】</p><p><b>N11-10 S05 选交互方式</b>：渠道差异是这一章最容易踩的坑——<b>saic-dna（上汽）复用主对话</b>，建议直接进主链路；<b>seres（赛力斯）增加 AI Bar 交互与结果回传</b>，卡片确认后再回流 Planner。【已落地】同一套建议，在两个品牌的车里走法不同。</p><p><b>N11-11 S06→M1 输入管理</b>：建议进输入管理，和用户 query、工具反馈排同一条交互流。【已落地】"建议≠已执行"：它只是进入本轮处理队列。</p><p><b>N11-12 S08 舒适/出行子目标</b>：持续服务建一个子目标，每 10 分钟回看一次；完成/用户删除/下电三种结束。【2.6目标】情感和内容顾问不共用这套机制。</p><p><b>N11-13 G 分界（你最该背的一条）</b>：G（13 节云端触发器）只做三件事——条件成不成立（G05）、这次让不让派发（G06 频控）、派给谁（G07 回任务系统 / G08 派业务出口）。<b>G 不生成建议、不决定说什么</b>。【已落地】例子：孩子哭了这个事实，G05 判断成立，G08 派给 S02；递纸巾还是薄荷糖是 S03/S05 的事。排障时"建议生成错了"不要先查 G。</p><p><b>N11-14 T 分界</b>：T（12 节任务生命周期）只保管"用户明确说的未来安排"。<b>T 不主动发现需求</b>。【已落地】G07 命中后回 T07 检查任务还有效吗，T08 再把"请 Director 再决定"送回 M1。</p><p><b>N11-15 Extour 目标引擎</b>：Goal 位于主对话与 Extour 目标引擎之间；Planner 选长时任务工具 add_goal/delete_goal 创建取消；Extour 维护目标判断触发；AIDV 回调经 Frontier 下发。【已落地】关键概念区分：<b>Goal 是持续管理目标，trigger 是其中一次触发通知</b>——每次触发生成独立 recommend_id，循环 Goal 可多次触发。goal_status 四态：creating/pending/running/done；scene 枚举：出行/服务/娱乐/舒适/情感/内容/其他。接口：/goal-list、/goal/detail、/goal/operate、/goal/lifecycle_callback（成功卡/失败消息/推荐消息三类）。Goal List 字段：goal_id int64 / goal_text / goal_detail / goal_headline / goal_sketch / icon_url / enabled。</p><h2>分界小结：一张表</h2><table><thead><tr><th><p>问题</p></th><th><p>归谁</p></th><th><p>不归谁</p></th></tr></thead><tbody><tr><td><p>"条件成不成立"（后排有没有人在哭）</p></td><td><p>G05 / aidv_trigger</p></td><td><p>不归 S、不归 T</p></td></tr><tr><td><p>"这次让不让打扰用户"（频控/时机）</p></td><td><p>G06 + S04（两段都要过）</p></td><td><p>不归 M1</p></td></tr><tr><td><p>"说什么建议"（递纸巾还是薄荷糖）</p></td><td><p>Extour 生成 + S03/S05</p></td><td><p>不归 G、不归 T</p></td></tr><tr><td><p>"用户自己说的未来安排"（快到时提醒）</p></td><td><p>T01 / Extour add_goal</p></td><td><p>不归 S 主动发现</p></td></tr><tr><td><p>"Advisor 自己盯的服务目标"（座舱温度）</p></td><td><p>S08 子目标</p></td><td><p>不归 T、不归 goal-list</p></td></tr></tbody></table><h2>状态标注与待核</h2><ul><li>N11-06 动态 Advisor 实例化：【长期愿景】，出自 W1/W2。</li><li>N11-03/04/05/10/15 静态 Advisor 与注入链路：【已落地】，出处静态 Advisor One-pager、动态示例与动态知识技术方案、动态 Advisor One-pager、Goal List 接口文档。</li><li>主动服务质量口径：逻辑准确率≥90%、端到端耗时 P50≤5000ms（W3 FT）。</li><li>车型/渠道：saic-dna（channel_app_id=99220，ROEWE）走主对话；seres 走 AI Bar+encrypted_doubao_uid。</li><li>火山分工：AIDV 部署在火山引擎，Goal List 接口域名 api-vehicle.volcengine.com。</li><li>待核：N11-04/05 注入对 badcase 改善的量化口径；N11-06 动态 Advisor 的排期。</li></ul>

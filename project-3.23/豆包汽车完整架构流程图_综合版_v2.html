@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>豆包汽车 Driver Agent 2.0 完整架构流程图 - 综合版</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            overflow-x: auto;
+        }
+
+        .nav {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            z-index: 1000;
+            max-width: 300px;
+        }
+
+        .nav h3 {
+            margin-bottom: 15px;
+            color: #1a1a1a;
+            font-size: 16px;
+        }
+
+        .nav-item {
+            padding: 10px;
+            margin: 5px 0;
+            background: #f5f7fa;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 13px;
+        }
+
+        .nav-item:hover {
+            background: #3370ff;
+            color: white;
+            transform: translateX(5px);
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            margin-bottom: 30px;
+            min-width: 3500px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #1a1a1a;
+            margin-bottom: 10px;
+            font-size: 32px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 40px;
+            font-size: 14px;
+        }
+
+        .section {
+            margin-bottom: 60px;
+            position: relative;
+        }
+
+        .section-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .section-title {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .section-stats {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .flow-canvas {
+            position: relative;
+            padding: 40px;
+            background: #fafbfc;
+            border-radius: 12px;
+            border: 2px solid #e1e4e8;
+            min-height: 600px;
+        }
+
+        .node {
+            position: absolute;
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            border: 3px solid #e1e4e8;
+            transition: all 0.3s;
+            cursor: pointer;
+            min-width: 280px;
+        }
+
+        .node:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+            border-color: #3370ff;
+            z-index: 100;
+        }
+
+        .node.type-input {
+            border-color: #f093fb;
+            background: linear-gradient(135deg, #f093fb15 0%, #f5576c15 100%);
+        }
+
+        .node.type-process {
+            border-color: #4facfe;
+            background: linear-gradient(135deg, #4facfe15 0%, #00f2fe15 100%);
+        }
+
+        .node.type-decision {
+            border-color: #43e97b;
+            background: linear-gradient(135deg, #43e97b15 0%, #38f9d715 100%);
+            clip-path: polygon(10% 0%, 90% 0%, 100% 50%, 90% 100%, 10% 100%, 0% 50%);
+        }
+
+        .node.type-output {
+            border-color: #fa709a;
+            background: linear-gradient(135deg, #fa709a15 0%, #fee14015 100%);
+        }
+
+        .node.type-tool {
+            border-color: #30cfd0;
+            background: linear-gradient(135deg, #30cfd015 0%, #33086715 100%);
+        }
+
+        .node.type-cloud {
+            border-color: #a8edea;
+            background: linear-gradient(135deg, #a8edea15 0%, #fed6e315 100%);
+        }
+
+        .node-id {
+            position: absolute;
+            top: -12px;
+            left: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .node-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1a1a1a;
+            margin-bottom: 12px;
+            padding-top: 8px;
+        }
+
+        .node-content {
+            font-size: 13px;
+            line-height: 1.8;
+            color: #666;
+        }
+
+        .node-content strong {
+            color: #1a1a1a;
+            display: block;
+            margin-top: 8px;
+        }
+
+        .node-metric {
+            display: inline-block;
+            background: #3370ff;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin: 4px 4px 0 0;
+            font-weight: 500;
+        }
+
+        .connector {
+            position: absolute;
+            stroke: #3370ff;
+            stroke-width: 3;
+            fill: none;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .connector-label {
+            position: absolute;
+            background: white;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            color: #3370ff;
+            border: 2px solid #3370ff;
+            font-weight: 500;
+            white-space: nowrap;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        .legend {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            z-index: 1000;
+        }
+
+        .legend-title {
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #1a1a1a;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+            font-size: 13px;
+        }
+
+        .legend-color {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            margin-right: 10px;
+            border: 2px solid #ddd;
+        }
+
+        .highlight-box {
+            background: linear-gradient(135deg, #fff9e6 0%, #ffe6e6 100%);
+            border-left: 5px solid #ff9800;
+            padding: 20px;
+            margin: 30px 0;
+            border-radius: 8px;
+        }
+
+        .highlight-title {
+            font-weight: 600;
+            color: #e65100;
+            margin-bottom: 12px;
+            font-size: 16px;
+        }
+
+        .grid-tools {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .tool-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 13px;
+            text-align: center;
+            font-weight: 500;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+            transition: all 0.3s;
+        }
+
+        .tool-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .active-flow {
+            animation: pulse 2s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <h3>📑 快速导航</h3>
+        <div class="nav-item" onclick="scrollToSection('part1')">第一部分：语音交互全链路</div>
+        <div class="nav-item" onclick="scrollToSection('part2')">第二部分：触发器主动服务</div>
+        <div class="nav-item" onclick="scrollToSection('part3')">第三部分：端云四方架构</div>
+        <div class="nav-item" onclick="scrollToSection('tools')">第四部分：23个工具详解</div>
+        <div class="nav-item" onclick="scrollToSection('performance')">第五部分：性能指标</div>
+    </div>
+
+    <div class="legend">
+        <div class="legend-title">🎨 节点类型图例</div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);"></div>
+            输入节点
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);"></div>
+            处理节点
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);"></div>
+            决策节点
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);"></div>
+            输出节点
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);"></div>
+            工具节点
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);"></div>
+            云端节点
+        </div>
+    </div>
+
+    <div class="container">
+        <h1>🚗 豆包汽车 Driver Agent 2.0 完整业务架构流程图</h1>
+        <div class="subtitle">
+            基于飞书内部架构文档深度整理 | 版本：v2.0 综合版 | 更新时间：2026-10-22 |
+            总节点：60+ | 总连线：50+ | 详细程度：企业级
+        </div>
+
+        <!-- 第一部分：语音交互全链路 -->
+        <div id="part1" class="section">
+            <div class="section-header">
+                <div class="section-title">第一部分：端到端语音交互全链路（用户开口 → 系统执行 → 播报反馈）</div>
+                <div class="section-stats">22个核心节点 | 三层漏斗架构 | ReAct闭环</div>
+            </div>
+
+            <div class="flow-canvas" style="height: 2200px;">
+                <svg class="connector" width="100%" height="100%">
+                    <!-- 主链路连线 -->
+                    <path d="M 300 80 L 680 80" class="connector" marker-end="url(#arrowblue)"/>
+                    <path d="M 980 80 L 1360 80" class="connector"/>
+                    <path d="M 1660 80 L 2040 80" class="connector"/>
+                    <path d="M 2340 80 L 2340 350" class="connector"/>
+                    <path d="M 2340 650 L 2340 850" class="connector"/>
+
+                    <!-- 三层漏斗分支 -->
+                    <path d="M 2340 1050 L 1800 1250" class="connector" stroke="#4caf50"/>
+                    <path d="M 2340 1050 L 2340 1250" class="connector" stroke="#ff9800"/>
+                    <path d="M 2340 1050 L 2880 1250" class="connector" stroke="#f44336"/>
+
+                    <!-- Planner详细流程 -->
+                    <path d="M 2880 1550 L 2880 1750" class="connector"/>
+                    <path d="M 2880 2000 L 2340 2000" class="connector"/>
+                    <path d="M 2040 2000 L 1500 2000" class="connector"/>
+                    <path d="M 1200 2000 L 680 2000" class="connector"/>
+                    <path d="M 380 2000 L 380 2200" class="connector"/>
+
+                    <defs>
+                        <marker id="arrowblue" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                            <polygon points="0 0, 10 3, 0 6" fill="#3370ff"/>
+                        </marker>
+                    </defs>
+                </svg>
+
+                <!-- Row 1: 输入链路 -->
+                <div class="node type-input" style="left: 50px; top: 20px; width: 250px;">
+                    <div class="node-id">节点 1</div>
+                    <div class="node-title">👤 用户开口</div>
+                    <div class="node-content">
+                        <strong>场景示例：</strong>
+                        用户说："我好热"
+                        <br><br>
+                        <strong>触发方式：</strong>
+                        • 语音唤醒："豆包豆包"<br>
+                        • 硬按键：方向盘/中控<br>
+                        • 全时免唤醒：直接说话
+                    </div>
+                </div>
+
+                <div class="node type-input" style="left: 380px; top: 20px; width: 300px;">
+                    <div class="node-id">节点 2</div>
+                    <div class="node-title">🎤 麦克风阵列采集</div>
+                    <div class="node-content">
+                        <strong>供应商：</strong>思必驰端侧实现
+                        <br><br>
+                        <strong>功能：</strong><br>
+                        • 5/6音区识别（主驾/副驾/二排）<br>
+                        • 降噪回声消除<br>
+                        • 声源定位
+                        <br><br>
+                        <strong>性能指标：</strong>
+                        <span class="node-metric">≤50ms</span>
+                        <span class="node-metric">误差±20cm</span>
+                        <span class="node-metric">SNR≥20dB</span>
+                    </div>
+                </div>
+
+                <div class="node type-process" style="left: 760px; top: 20px; width: 300px;">
+                    <div class="node-id">节点 3</div>
+                    <div class="node-title">⏱ VAD 语音活动检测</div>
+                    <div class="node-content">
+                        <strong>三级判停机制：</strong>
+                        <br><br>
+                        <strong>Soft VAD 300ms</strong><br>
+                        → 预请求 /aidv/v1/pre_query<br>
+                        → 拒识+Context前置<br>
+                        → 不进对话历史
+                        <br><br>
+                        <strong>Hard VAD 600ms</strong><br>
+                        → 正式请求<br>
+                        → 结束ASR，发送完整query
+                        <br><br>
+                        <strong>语义VAD 1000ms</strong><br>
+                        → 延长收音（待评审方案）
+                    </div>
+                </div>
+
+                <div class="node type-process" style="left: 1140px; top: 20px; width: 320px;">
+                    <div class="node-id">节点 4</div>
+                    <div class="node-title">🗣 ASR 语音识别</div>
+                    <div class="node-content">
+                        <strong>双遍识别策略：</strong>
+                        <br><br>
+                        <strong>一遍：流式partial（实时）</strong><br>
+                        • 供实时判断/抢跑<br>
+                        • 可能有识别误差
+                        <br><br>
+                        <strong>二遍：非流式final（正式）</strong><br>
+                        • 正式Query文本<br>
+                        • 更高准确率
+                        <br><br>
+                        <strong>性能指标：</strong>
+                        <span class="node-metric">在线首字≤200ms</span>
+                        <span class="node-metric">在线尾字≤500ms</span>
+                        <span class="node-metric">离线车控≥90%</span>
+                    </div>
+                </div>
+
+                <!-- Row 2: 判断与仲裁 -->
+                <div class="node type-decision" style="left: 1540px; top: 20px; width: 300px;">
+                    <div class="node-id">节点 5</div>
+                    <div class="node-title">🔍 拒识判断</div>
+                    <div class="node-content">
+                        <strong>目标：</strong>区分对车说话 vs 人人闲聊
+                        <br><br>
+                        <strong>机制：</strong><br>
+                        • 句法RAG拦截<br>
+                        • SimpleIntent模型<br>
+                        • 在Planner前规则级过滤
+                        <br><br>
+                        <strong>结果：</strong><br>
+                        ✅ 对车说话 → 继续处理<br>
+                        ❌ 人人闲聊 → 不回应
+                    </div>
+                </div>
+
+                <div class="node type-decision" style="left: 1920px; top: 20px; width: 340px;">
+                    <div class="node-id">节点 6</div>
+                    <div class="node-title">⚖️ 离在线仲裁</div>
+                    <div class="node-content">
+                        <strong>无网情况：</strong><br>
+                        • 本地能理解 → 直接执行<br>
+                        • 必须联网 → 提示能力限制<br>
+                        • 理解不了 → 离线兜底话术
+                        <br><br>
+                        <strong>有网情况：</strong><br>
+                        • 音频并行双链路<br>
+                        • 端侧白名单命中 → 本地执行<br>
+                        • 未命中 → 等云端<br>
+                        • feel类意图必须等云端
+                        <br><br>
+                        <strong>优先级：</strong><br>
+                        离线白名单 > 在线 > 离线非白名单 > 兜底
+                    </div>
+                </div>
+
+                <div class="connector-label" style="left: 500px; top: 60px;">音频采集</div>
+                <div class="connector-label" style="left: 880px; top: 60px;">音频流</div>
+                <div class="connector-label" style="left: 1260px; top: 60px;">文本</div>
+                <div class="connector-label" style="left: 1640px; top: 60px;">判断有网无网</div>
+
+                <!-- Row 3: 三层漏斗架构标题 -->
+                <div class="highlight-box" style="position: absolute; left: 50px; top: 400px; width: 2850px;">
+                    <div class="highlight-title">🔥 核心架构：三层漏斗分流机制</div>
+                    <div style="font-size: 14px; line-height: 1.8;">
+                        <strong>设计理念：</strong>用户请求不是全部走最重的 Planner 推理，而是按复杂度智能分三层处理，实现性能与质量的最佳平衡。
+                        <br><br>
+                        <strong>分流原则：</strong><br>
+                        • <span style="color: #4caf50; font-weight: 600;">第一层</span>：简单明确指令 → 毫秒级规则匹配 → 极速响应<br>
+                        • <span style="color: #ff9800; font-weight: 600;">第二层</span>：需要上下文 → 注入Context → 快速判断<br>
+                        • <span style="color: #f44336; font-weight: 600;">第三层</span>：复杂需求 → 云端LLM深度推理 → 多步规划
+                    </div>
+                </div>
+
+                <!-- 三层漏斗节点 -->
+                <div class="node type-process" style="left: 50px; top: 600px; width: 400px; border-color: #4caf50; background: #4caf5015;">
+                    <div class="node-id" style="background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);">第一层</div>
+                    <div class="node-title" style="color: #2e7d32;">句法 RAG（毫秒级）</div>
+                    <div class="node-content">
+                        <strong>处理范围：</strong>明确简单指令<br>
+                        • "打开车窗"<br>
+                        • "空调最大"<br>
+                        • "关闭天窗"<br>
+                        • "播放音乐"
+                        <br><br>
+                        <strong>处理方式：</strong><br>
+                        • 规则级拦截<br>
+                        • 直接调用车控工具<br>
+                        • 不进Planner推理
+                        <br><br>
+                        <strong>优势：</strong><br>
+                        <span class="node-metric">极快响应</span>
+                        <span class="node-metric">准确率高</span>
+                        <span class="node-metric">资源消耗低</span>
+                    </div>
+                </div>
+
+                <div class="node type-process" style="left: 530px; top: 600px; width: 420px; border-color: #ff9800; background: #ff980015;">
+                    <div class="node-id" style="background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);">第二层</div>
+                    <div class="node-title" style="color: #e65100;">情景 RAG + 仲裁模型</div>
+                    <div class="node-content">
+                        <strong>处理范围：</strong>需要注入上下文<br>
+                        • 用户记忆（不喜欢紫色）<br>
+                        • 车况状态（空调当前温度）<br>
+                        • 环境信息（外面下雨/气温）<br>
+                        • 乘员信息（副驾在睡觉）
+                        <br><br>
+                        <strong>处理方式：</strong><br>
+                        • 注入Context场景信息<br>
+                        • 判断简单/复杂分流<br>
+                        • 简单的快速执行<br>
+                        • 复杂的转第三层
+                        <br><br>
+                        <strong>Context注入内容：</strong><br>
+                        {{env_info}} {{memory}} {{status}} {{goal_list}}
+                    </div>
+                </div>
+
+                <div class="node type-cloud" style="left: 1030px; top: 600px; width: 480px; border-color: #f44336; background: #f4433615;">
+                    <div class="node-id" style="background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);">第三层</div>
+                    <div class="node-title" style="color: #b71c1c;">Planner 深度推理（云端LLM）</div>
+                    <div class="node-content">
+                        <strong>处理范围：</strong>复杂需求<br>
+                        • "有点热又有点闷还想听点提神的"<br>
+                        • "去昨天的游泳馆"<br>
+                        • "找个不堵车的路线"<br>
+                        • "10分钟后关座椅加热"
+                        <br><br>
+                        <strong>处理方式：</strong><br>
+                        • 多步规划（最多20步）<br>
+                        • 调度多工具（23个工具）<br>
+                        • 跟踪进度反馈<br>
+                        • ReAct闭环推理
+                        <br><br>
+                        <strong>底层模型：</strong><br>
+                        <span class="node-metric">豆包 Seed 1.8</span>
+                        <span class="node-metric">云端部署</span>
+                        <br><br>
+                        <strong>输入规模：</strong><br>
+                        <span class="node-metric">SP ~30K tokens</span>
+                        <span class="node-metric">UP ~10K tokens</span>
+                    </div>
+                </div>
+
+                <div class="connector-label" style="left: 250px; top: 540px; color: #4caf50; border-color: #4caf50;">简单指令快路径</div>
+                <div class="connector-label" style="left: 740px; top: 540px; color: #ff9800; border-color: #ff9800;">需要上下文</div>
+                <div class="connector-label" style="left: 1270px; top: 540px; color: #f44336; border-color: #f44336;">复杂需求</div>
+
+                <!-- Row 4: Planner详细流程 -->
+                <div class="node type-process" style="left: 1600px; top: 1100px; width: 360px;">
+                    <div class="node-id">节点 7</div>
+                    <div class="node-title">📦 Context 场景准备</div>
+                    <div class="node-content">
+                        <strong>预注入数据（覆盖80%）：</strong><br>
+                        • {{env_info}} 车辆状态<br>
+                        • {{memory}} 用户记忆<br>
+                        • {{status}} 视觉感知<br>
+                        • {{goal_list}} 目标队列
+                        <br><br>
+                        <strong>不足时（20%）：</strong><br>
+                        • Planner调检索工具<br>
+                        • 按需兜底补充
+                        <br><br>
+                        <strong>性能：</strong>
+                        <span class="node-metric">平均 ~550ms</span>
+                    </div>
+                </div>
+
+                <div class="node type-cloud" style="left: 2040px; top: 1100px; width: 420px;">
+                    <div class="node-id">节点 8</div>
+                    <div class="node-title">🧠 Planner 推理引擎</div>
+                    <div class="node-content">
+                        <strong>技术架构：</strong><br>
+                        • 框架：Eino ReAct图<br>
+                        • 模型：豆包 Seed 1.8<br>
+                        • 部署：云端<br>
+                        • 最大步数：20步
+                        <br><br>
+                        <strong>SP（~30K tokens）包含：</strong><br>
+                        • 角色定义 + 23个工具定义<br>
+                        • 69个参考示例<br>
+                        • 10条注意事项<br>
+                        • 车辆设备知识(D6X)<br>
+                        • 聊天风格(温柔高知女生)<br>
+                        • 动态模板变量
+                        <br><br>
+                        <strong>UP（~10K tokens）包含：</strong><br>
+                        • 最近N轮对话历史<br>
+                        • 当前query + advisor建议
+                        <br><br>
+                        <strong>性能：</strong>
+                        <span class="node-metric">首token ~1300ms</span>
+                    </div>
+                </div>
+
+                <div class="node type-process" style="left: 2540px; top: 1100px; width: 380px;">
+                    <div class="node-id">节点 9</div>
+                    <div class="node-title">⚙️ 动作拆解与JSON生成</div>
+                    <div class="node-content">
+                        <strong>复合请求拆解：</strong><br>
+                        "有点热又有点闷还想听点提神的"<br>
+                        ↓<br>
+                        • 开空调<br>
+                        • 调风量<br>
+                        • 播放提神音乐
+                        <br><br>
+                        <strong>输出JSON：</strong><br>
+                        {<br>
+                        &nbsp;&nbsp;"talk_or_not": true,<br>
+                        &nbsp;&nbsp;"talk_content": "好的...",<br>
+                        &nbsp;&nbsp;"emoji_id": "smile",<br>
+                        &nbsp;&nbsp;"action_list": [<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;{tool: "vehicle_control", ...},<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;{tool: "music_control", ...}<br>
+                        &nbsp;&nbsp;],<br>
+                        &nbsp;&nbsp;"goal_list_update": [...]<br>
+                        }
+                    </div>
+                </div>
+
+                <!-- Row 5: 工具执行 -->
+                <div class="node type-tool" style="left: 2040px; top: 1580px; width: 380px;">
+                    <div class="node-id">节点 10</div>
+                    <div class="node-title">🔧 Agent Server 工具调度</div>
+                    <div class="node-content">
+                        <strong>职责：</strong>工具执行适配层
+                        <br><br>
+                        <strong>支持6类AgentType：</strong><br>
+                        • AIDV：座舱云内部服务<br>
+                        • DPFM：车控执行<br>
+                        • Doubao：豆包能力<br>
+                        • Ecology：三方生态服务<br>
+                        • Offline：端侧能力<br>
+                        • InternalRPC：内部RPC
+                        <br><br>
+                        <strong>策略：</strong><br>
+                        • 并行执行：独立工具<br>
+                        • 串行执行：有依赖<br>
+                        • Redirect限制：≤2次<br>
+                        • 超时保护 + 失败重试3次
+                    </div>
+                </div>
+
+                <div class="node type-tool" style="left: 1520px; top: 1580px; width: 440px;">
+                    <div class="node-id">节点 11</div>
+                    <div class="node-title">🛠 23个下游工具并行执行</div>
+                    <div class="node-content">
+                        <strong>工具分类：</strong>
+                        <br>
+                        <strong style="color: #f44336;">车控类：</strong>
+                        vehicle_basic_control / search_vehicle_status_info / ambient_light_control
+                        <br><br>
+                        <strong style="color: #3f51b5;">导航类：</strong>
+                        route_planning_qa / navi_basic_control / search_poi_qa
+                        <br><br>
+                        <strong style="color: #9c27b0;">媒体类：</strong>
+                        search_and_control_music / short_video / broadcast
+                        <br><br>
+                        <strong style="color: #009688;">智能类：</strong>
+                        auto_drive / search_visual_info / image_generate
+                        <br><br>
+                        <strong style="color: #ff5722;">记忆类：</strong>
+                        search_user_memory / operate_user_memory / face_id_register
+                        <br><br>
+                        <strong style="color: #607d8b;">服务类：</strong>
+                        search_weather / web_search / vehicle_manual_qa / car_care_qa / recording_minutes / ai_broadcast_generate / goal_list_update / car_log
+                    </div>
+                </div>
+
+                <div class="node type-process" style="left: 1000px; top: 1580px; width: 440px;">
+                    <div class="node-id">节点 12</div>
+                    <div class="node-title">📤 工具反馈处理与循环判断</div>
+                    <div class="node-content">
+                        <strong>每个工具返回 tool_feedback：</strong><br>
+                        • 执行状态：success / failed<br>
+                        • 结果数据：具体返回值<br>
+                        • 错误信息：失败原因
+                        <br><br>
+                        <strong>Agent Server合并：</strong><br>
+                        • mergeToolOutputs<br>
+                        • 回灌成observation<br>
+                        • 继续喂给Planner
+                        <br><br>
+                        <strong>Planner循环判断：</strong><br>
+                        • action_list非空 且 step < 20<br>
+                        &nbsp;&nbsp;→ 继续调用tools节点<br>
+                        • 否则 → direct_return<br>
+                        • ReAct闭环推理
+                    </div>
+                </div>
+
+                <!-- Row 6: 输出播报 -->
+                <div class="node type-output" style="left: 500px; top: 1880px; width: 320px;">
+                    <div class="node-id">节点 13</div>
+                    <div class="node-title">💬 NLG 话术生成</div>
+                    <div class="node-content">
+                        <strong>基于 talk_content 生成自然语言</strong>
+                        <br><br>
+                        <strong>风格定位：</strong><br>
+                        温柔高知女生
+                        <br><br>
+                        <strong>特点：</strong><br>
+                        • 用词得体<br>
+                        • 语气柔和<br>
+                        • 专业可信
+                        <br><br>
+                        <strong>按 [情绪] 标签分段：</strong><br>
+                        [开心] [委屈] [疑惑]<br>
+                        [安慰] [鼓励] [严肃]<br>
+                        [唱] → 改走S2S
+                    </div>
+                </div>
+
+                <div class="node type-output" style="left: 900px; top: 1880px; width: 340px;">
+                    <div class="node-id">节点 14</div>
+                    <div class="node-title">🔊 TTS 语音合成</div>
+                    <div class="node-content">
+                        <strong>音色：</strong>"桃子"<br>
+                        <strong>技术：</strong>SAMI BigTTS<br>
+                        <strong>部署：</strong>Speech云
+                        <br><br>
+                        <strong>合成流程：</strong><br>
+                        1. 接收NLG文本<br>
+                        2. 按情绪标签分段合成<br>
+                        3. 生成音频流<br>
+                        4. 缓存到AIDV（tts_audio_id）<br>
+                        5. CDC通过WS长链拉流
+                        <br><br>
+                        <strong>传输：</strong><br>
+                        • WS长链拉流<br>
+                        • 首帧建连播放
+                    </div>
+                </div>
+
+                <div class="node type-output" style="left: 1320px; top: 1880px; width: 360px;">
+                    <div class="node-id">节点 15</div>
+                    <div class="node-title">📢 车端播报输出</div>
+                    <div class="node-content">
+                        <strong>播放控制：</strong><br>
+                        • 音频流实时播放<br>
+                        • 支持边听边说（全双工）<br>
+                        • 支持打断续接
+                        <br><br>
+                        <strong>用户感知：</strong><br>
+                        • 👂 听到语音反馈<br>
+                        • 👁 看到卡片展示<br>
+                        • 📊 感知任务进度
+                        <br><br>
+                        <strong>结束标志：</strong><br>
+                        • ✅ 播报完成<br>
+                        • ⏸ 用户打断<br>
+                        • ❌ 异常中断
+                    </div>
+                </div>
+
+                <div class="connector-label" style="left: 720px; top: 1860px;">文本</div>
+                <div class="connector-label" style="left: 1100px; top: 1860px;">音频流</div>
+            </div>
+        </div>
+
+        <!-- 性能指标汇总 -->
+        <div id="performance" class="section">
+            <div class="section-header">
+                <div class="section-title">第五部分：关键性能指标汇总</div>
+                <div class="section-stats">基于2026年9月批次测试数据 | 云端口径</div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; padding: 20px;">
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.2);">
+                    <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px;">云端全流程平均耗时</div>
+                    <div style="font-size: 42px; font-weight: 700; margin-bottom: 8px;">~2550ms</div>
+                    <div style="font-size: 12px; opacity: 0.8;">语音识别结束 → 开始播报：~3600ms</div>
+                </div>
+
+                <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.2);">
+                    <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px;">Context 场景准备</div>
+                    <div style="font-size: 42px; font-weight: 700; margin-bottom: 8px;">~550ms</div>
+                    <div style="font-size: 12px; opacity: 0.8;">预注入覆盖约80%常规请求</div>
+                </div>
+
+                <div style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); color: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.2);">
+                    <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px;">Planner 首输出</div>
+                    <div style="font-size: 42px; font-weight: 700; margin-bottom: 8px;">~1300ms</div>
+                    <div style="font-size: 12px; opacity: 0.8;">目标：P50 500ms / P90 800ms</div>
+                </div>
+
+                <div style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); color: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.2);">
+                    <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px;">ASR 在线首字延迟</div>
+                    <div style="font-size: 42px; font-weight: 700; margin-bottom: 8px;">≤200ms</div>
+                    <div style="font-size: 12px; opacity: 0.8;">在线尾字≤500ms</div>
+                </div>
+
+                <div style="background: linear-gradient(135deg, #30cfd0 0%, #330867 100%); color: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.2);">
+                    <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px;">离线车控准确率</div>
+                    <div style="font-size: 42px; font-weight: 700; margin-bottom: 8px;">≥90%</div>
+                    <div style="font-size: 12px; opacity: 0.8;">在线准确率 >95%</div>
+                </div>
+
+                <div style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); color: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.2);">
+                    <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px;">VAD 判停延迟</div>
+                    <div style="font-size: 42px; font-weight: 700; margin-bottom: 8px;">300ms~600ms</div>
+                    <div style="font-size: 12px; opacity: 0.8;">Soft 300ms / Hard 600ms</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 23个工具详解 -->
+        <div id="tools" class="section">
+            <div class="section-header">
+                <div class="section-title">第四部分：Planner 可调度的 23 个下游工具详解</div>
+                <div class="section-stats">支持6类AgentType | 并行执行 | Redirect≤2次</div>
+            </div>
+
+            <div class="grid-tools">
+                <div class="tool-card">1. vehicle_basic_control<br>基础车控（空调/车窗/座椅/灯光）</div>
+                <div class="tool-card">2. search_vehicle_status_info<br>查询车况（电量/车速/温度）</div>
+                <div class="tool-card">3. search_weather<br>天气查询（当前/预报）</div>
+                <div class="tool-card">4. search_poi_qa<br>POI 问答（餐饮/景点/充电站）</div>
+                <div class="tool-card">5. route_planning_qa<br>路线规划（导航/途经点）</div>
+                <div class="tool-card">6. navi_basic_control<br>导航控制（开始/结束/切换）</div>
+                <div class="tool-card">7. vehicle_manual_qa<br>车辆手册问答</div>
+                <div class="tool-card">8. search_and_control_short_video<br>短视频搜索与控制</div>
+                <div class="tool-card">9. search_and_control_music<br>音乐搜索与控制</div>
+                <div class="tool-card">10. search_user_memory<br>查询用户记忆</div>
+                <div class="tool-card">11. face_id_register<br>人脸识别注册</div>
+                <div class="tool-card">12. operate_user_memory<br>操作用户记忆（增删改）</div>
+                <div class="tool-card">13. web_search<br>网页搜索</div>
+                <div class="tool-card">14. goal_list_update<br>目标队列更新</div>
+                <div class="tool-card">15. ai_broadcast_generate<br>AI 广播生成</div>
+                <div class="tool-card">16. search_and_control_broadcast<br>广播搜索与控制</div>
+                <div class="tool-card">17. recording_minutes<br>录音转纪要</div>
+                <div class="tool-card">18. image_generate<br>图像生成（AIGC）</div>
+                <div class="tool-card">19. search_visual_info<br>视觉信息查询（VLM）</div>
+                <div class="tool-card">20. ambient_light_control<br>氛围灯控制</div>
+                <div class="tool-card">21. auto_drive<br>智能驾驶控制</div>
+                <div class="tool-card">22. car_log<br>车辆日志记录</div>
+                <div class="tool-card">23. car_care_qa<br>用车问答</div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        function scrollToSection(id) {
+            document.getElementById(id).scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // 节点悬浮交互
+        document.querySelectorAll('.node').forEach(node => {
+            node.addEventListener('mouseenter', function() {
+                this.style.zIndex = '1000';
+            });
+            node.addEventListener('mouseleave', function() {
+                this.style.zIndex = '';
+            });
+        });
+
+        // 工具卡片点击反馈
+        document.querySelectorAll('.tool-card').forEach(card => {
+            card.addEventListener('click', function() {
+                this.style.transform = 'scale(1.05)';
+                setTimeout(() => {
+                    this.style.transform = '';
+                }, 200);
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,1825 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Director / Planner + Advisor 架构底层原理详解 · Round 3</title>
+<style>
+:root{
+  --bg:#020617; --panel:rgba(15,23,42,.78); --panel2:#0f172a;
+  --ink:#e8eef9; --muted:#9fb0c7; --line:#26344b;
+  --blue:#60a5fa; --cyan:#22d3ee; --green:#34d399; --amber:#fbbf24;
+  --orange:#fb923c; --rose:#fb7185; --violet:#a78bfa; --grey:#64748b;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;color:var(--ink);line-height:1.65;
+  font-family:ui-sans-serif,system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+  background:
+    linear-gradient(rgba(20,30,55,.20) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(20,30,55,.20) 1px,transparent 1px),
+    radial-gradient(circle at 12% 4%,rgba(34,211,238,.10),transparent 26%),
+    radial-gradient(circle at 88% 0%,rgba(96,165,250,.10),transparent 30%),
+    var(--bg);
+  background-size:44px 44px,44px 44px,auto,auto,auto;
+}
+a{color:var(--cyan);text-decoration:none}
+.wrap{max-width:1180px;margin:0 auto;padding:30px 24px 90px}
+.layout{display:grid;grid-template-columns:230px minmax(0,1fr);gap:28px;align-items:start}
+
+/* nav */
+nav{position:sticky;top:18px;border:1px solid var(--line);border-radius:12px;
+  background:var(--panel);backdrop-filter:blur(10px);padding:14px 12px;font-size:13px}
+nav b{display:block;color:var(--cyan);font-size:12px;letter-spacing:.5px;margin:2px 6px 10px}
+nav a{display:block;color:var(--muted);padding:6px 8px;border-radius:7px;border-left:2px solid transparent}
+nav a:hover{color:var(--ink);background:rgba(96,165,250,.10);border-left-color:var(--blue)}
+nav .n0{color:#cbd5e1;font-weight:700;margin-top:6px}
+
+/* hero */
+.hero{border:1px solid var(--line);border-radius:14px;background:var(--panel);
+  backdrop-filter:blur(10px);padding:26px 28px;margin-bottom:22px}
+.eyebrow{color:var(--cyan);font-weight:800;font-size:13px;margin-bottom:8px}
+h1{margin:0;font-size:clamp(24px,3vw,34px);line-height:1.22}
+.hero p{color:#cbd5e1;margin:14px 0 0}
+.tldr{margin-top:16px;padding:14px 16px;border-radius:10px;
+  border:1px solid rgba(52,211,153,.35);background:rgba(6,78,59,.22)}
+.tldr b{color:#6ee7b7}
+
+/* section */
+section{border:1px solid var(--line);border-radius:14px;background:var(--panel);
+  backdrop-filter:blur(8px);padding:24px 26px;margin-bottom:20px;scroll-margin-top:18px}
+section>h2{margin:0 0 4px;font-size:22px;display:flex;align-items:center;gap:10px}
+section>h2 .num{font-size:14px;color:#020617;background:var(--cyan);font-weight:800;
+  width:26px;height:26px;border-radius:8px;display:inline-grid;place-items:center;flex:0 0 auto}
+.sub{color:var(--muted);font-size:14px;margin:0 0 18px}
+h3{font-size:17px;margin:22px 0 8px;color:#f1f5f9;border-left:3px solid var(--blue);padding-left:10px}
+h4{font-size:14px;margin:16px 0 6px;color:#cbd5e1}
+p{margin:8px 0}
+
+/* badges */
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;
+  vertical-align:middle;margin-left:6px;border:1px solid}
+.t-prd{color:#bfdbfe;border-color:rgba(96,165,250,.5);background:rgba(30,64,175,.2)}
+.t-live{color:#6ee7b7;border-color:rgba(52,211,153,.5);background:rgba(6,78,59,.25)}
+.t-soon{color:#fde68a;border-color:rgba(251,191,36,.5);background:rgba(120,53,15,.25)}
+.t-exp{color:#a5b4fc;border-color:rgba(129,140,248,.5);background:rgba(49,46,129,.3)}
+.t-infer{color:#fed7aa;border-color:rgba(251,146,60,.6);background:rgba(124,45,18,.25)}
+.t-schema{color:#cbd5e1;border-color:rgba(100,116,139,.6);background:rgba(30,41,59,.5)}
+.t-sp{color:#f0abfc;border-color:rgba(217,70,239,.55);background:rgba(112,26,117,.26)}
+
+/* quote */
+.q{margin:10px 0;padding:11px 14px;border-left:3px solid var(--blue);
+  background:rgba(30,64,175,.12);border-radius:0 8px 8px 0;color:#dbeafe;font-size:14px}
+.q::before{content:"PRD 原文 · ";color:var(--blue);font-weight:700;font-size:12px}
+.note{margin:12px 0;padding:12px 14px;border:1px dashed rgba(251,146,60,.6);
+  background:rgba(124,45,18,.16);border-radius:10px;color:#fed7aa;font-size:13.5px}
+.note b{color:#fdba74}
+.key{margin:12px 0;padding:12px 14px;border:1px solid rgba(34,211,238,.35);
+  background:rgba(8,47,73,.3);border-radius:10px;font-size:14px}
+.key b{color:#67e8f9}
+
+/* tables */
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13px}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+th{background:rgba(30,41,59,.7);color:#e2e8f0;font-weight:700}
+td code,p code,li code{color:#7dd3fc;background:rgba(8,47,73,.5);border:1px solid rgba(34,211,238,.18);
+  border-radius:5px;padding:1px 5px;font-size:12px}
+tr:nth-child(even) td{background:rgba(15,23,42,.4)}
+
+/* io grid */
+.io{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0}
+.io>div{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:rgba(15,23,42,.5)}
+.io .in{border-top:3px solid var(--green)}
+.io .out{border-top:3px solid var(--amber)}
+.io h4{margin:0 0 8px}
+.io .in h4{color:#6ee7b7}.io .out h4{color:#fcd34d}
+ul{margin:8px 0;padding-left:20px}li{margin:4px 0}
+
+pre{background:#040a18;border:1px solid var(--line);border-radius:10px;padding:12px 14px;
+  overflow:auto;font-size:12.5px;color:#cbd5e1;margin:10px 0}
+pre .k{color:#7dd3fc}pre .s{color:#86efac}
+
+/* flow diagram */
+.diagram{border:1px solid var(--line);border-radius:12px;background:#040a18;padding:8px;margin:14px 0;overflow:auto}
+.diagram svg{display:block;min-width:980px}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--muted);margin:6px 2px 0}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:12px;height:12px;border-radius:3px;display:inline-block}
+
+.five{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:12px 0}
+.five>div{border:1px solid var(--line);border-radius:9px;padding:10px 12px;background:rgba(15,23,42,.45);font-size:13px}
+.five b{display:block;color:#93c5fd;font-size:12px;margin-bottom:3px}
+
+.timeline{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:14px 0}
+.timeline>div{border-radius:11px;padding:14px;border:1px solid}
+.tl-live{border-color:rgba(52,211,153,.4);background:rgba(6,78,59,.18)}
+.tl-soon{border-color:rgba(251,191,36,.4);background:rgba(120,53,15,.16)}
+.tl-exp{border-color:rgba(129,140,248,.4);background:rgba(49,46,129,.2)}
+.timeline h4{margin:0 0 8px;font-size:14px}
+.timeline ul{font-size:12.5px;color:#cbd5e1;padding-left:16px}
+
+.stack{display:grid;gap:10px;margin:14px 0}
+.stack-row{display:grid;grid-template-columns:150px minmax(0,1fr) minmax(0,.8fr);gap:10px;border:1px solid var(--line);border-radius:10px;background:rgba(15,23,42,.48);padding:12px}
+.stack-row b{color:#bfdbfe}
+.stack-row p{margin:0;color:#cbd5e1;font-size:13px}
+.system-map{border:1px solid var(--line);border-radius:12px;background:#040a18;padding:10px;margin:14px 0;overflow:auto}
+.system-map svg{display:block;min-width:1060px}
+.pill{display:inline-block;padding:2px 7px;border-radius:999px;background:rgba(8,47,73,.52);border:1px solid rgba(34,211,238,.26);color:#bae6fd;font-size:12px;margin:2px 4px 2px 0}
+.split3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0}
+.split3>div{border:1px solid var(--line);border-radius:10px;background:rgba(15,23,42,.45);padding:12px;font-size:13px}
+.split3 b{display:block;color:#93c5fd;margin-bottom:5px}
+.node-detail{border:1px solid rgba(96,165,250,.25);border-radius:12px;background:rgba(15,23,42,.55);padding:16px;margin:16px 0}
+.node-detail h3{margin-top:0}
+.node-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;margin:10px 0}
+.mini-flow{border:1px solid var(--line);border-radius:10px;background:#040a18;padding:10px;overflow:auto}
+.mini-flow svg{display:block;min-width:520px}
+.node-detail .matrix td:first-child{font-weight:700;color:#bfdbfe}
+.why{border-left:3px solid var(--green);background:rgba(6,78,59,.18);border-radius:0 10px 10px 0;padding:10px 12px;margin:10px 0;color:#d1fae5;font-size:13.5px}
+.risk{border-left:3px solid var(--orange);background:rgba(124,45,18,.16);border-radius:0 10px 10px 0;padding:10px 12px;margin:10px 0;color:#fed7aa;font-size:13.5px}
+.explain{border:1px solid rgba(34,211,238,.20);background:rgba(8,47,73,.20);border-radius:10px;padding:13px 15px;margin:12px 0;color:#cbd5e1;font-size:14px}
+.explain b{color:#a5f3fc}
+.explain p{margin:7px 0}
+.explain .example{border-left:3px solid var(--amber);background:rgba(120,53,15,.16);border-radius:0 8px 8px 0;padding:9px 11px;margin-top:10px;color:#fde68a}
+.deep-lesson{border:1px solid rgba(167,139,250,.28);border-radius:12px;background:rgba(15,23,42,.58);padding:18px;margin:18px 0}
+.deep-lesson h3{border-left-color:var(--violet);margin-top:0}
+.deep-lesson .lead{font-size:15px;color:#dbeafe;margin:8px 0 14px}
+.lesson-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0}
+.lesson-card{border:1px solid var(--line);border-radius:10px;background:rgba(2,6,23,.34);padding:12px 14px;font-size:13.5px}
+.lesson-card b{display:block;color:#bfdbfe;margin-bottom:5px}
+.lesson-card ul{margin:5px 0;padding-left:18px}
+.lesson-card li{margin:3px 0}
+.walkthrough{border-left:3px solid var(--cyan);background:rgba(8,47,73,.24);border-radius:0 10px 10px 0;padding:11px 13px;margin:12px 0;color:#cffafe}
+.badcase{border-left:3px solid var(--rose);background:rgba(76,5,25,.20);border-radius:0 10px 10px 0;padding:11px 13px;margin:12px 0;color:#fecdd3}
+.optimize{border-left:3px solid var(--green);background:rgba(6,78,59,.18);border-radius:0 10px 10px 0;padding:11px 13px;margin:12px 0;color:#d1fae5}
+
+@media(max-width:920px){.layout{grid-template-columns:1fr}nav{position:static}.io,.five,.timeline,.split3,.node-grid,.lesson-grid{grid-template-columns:1fr}.stack-row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hero">
+    <div class="eyebrow">Round 3 · 余昌龙陪读 · 基于 Planner 文件夹 + advisor 架构文件夹实读（Director / 目标驱动 / Context / 静态advisor / 动态advisor / 感知订阅 / 二期需求）</div>
+    <h1>Director（= Planner）+ Advisor 整体架构：中央决策、后台专家、持续目标与触发订阅如何协同</h1>
+    <p>这一份不是图，是讲义。目标是让你<b>理解底层原理</b>——因为只有懂了原理，你才知道该往哪儿优化。每一条结论都标了来源：<span class="tag t-prd">PRD原文</span>=文档里有；<span class="tag t-infer">推理</span>=我据图/语义补的；<span class="tag t-schema">Schema</span>=来自你CLAUDE.md而非这批PRD（别拿去汇报当PRD内容）。</p>
+    <div class="tldr">
+      <b>一句话回答"现在用的是什么架构"：</b>
+      底层是 <b>ReAct + Function Call</b> 的大模型 Director/Planner 中央决策器，外面包一层 <b>"端侧快链路 → RAG/仲裁 → Director → 工具/Agent"的混合漏斗</b>；旁边并行一套 <b>advisor 系统</b>：四个静态 advisor（舒适/出行/情感/内容）持续做场景专家判断，动态 advisor 承接长时、持续、条件、定时任务，通过触发器/定时器/VLM/Context 在未来生成 advice 回到 Director。Director 负责最终对用户说什么和调什么工具，advisor 负责后台观察、review、生成建议和维护持续目标。
+    </div>
+  </div>
+
+  <div class="layout">
+    <nav>
+      <b>目录</b>
+      <a class="n0" href="#t00">00 · 全局骨架总览</a>
+      <a class="n0" href="#t00n">00N · 逐节点骨架/流程</a>
+      <a class="n0" href="#t00x">00X · 逐节点深讲义</a>
+      <a class="n0" href="#t00a">00A · Advisor业务/架构</a>
+      <a class="n0" href="#t0">0 · 别混淆：三个时间面</a>
+      <a href="#t1">1 · 当前架构范式是什么</a>
+      <a href="#t2">2 · 宏观主链路（漏斗）</a>
+      <a href="#t3">3 · Director 本体深拆</a>
+      <a href="#t3sp">　3.5 当前 SP 落地形态</a>
+      <a href="#t4">4 · 目标驱动协作体系</a>
+      <a href="#t4a">　4.1 goal list</a>
+      <a href="#t4b">　4.2 静态/动态 advisor</a>
+      <a href="#t4c">　4.3 感知订阅模块</a>
+      <a href="#t4d">　4.4 数量仲裁 / 条件触发器</a>
+      <a href="#t5">5 · 公共 Context 服务</a>
+      <a href="#t6">6 · 任务与交互管理</a>
+      <a href="#t7">7 · 四种任务类型→架构映射</a>
+      <a href="#t8">8 · 底层原理 → 优化抓手</a>
+      <a href="#t9">9 · 耗时模型与时延优化</a>
+      <a href="#t10">10 · 认知自测 + 待确认</a>
+    </nav>
+
+    <main>
+
+    <!-- ===================== 00 ===================== -->
+    <section id="t00">
+      <h2><span class="num">00</span>全局骨架总览：把所有材料合成一张系统图</h2>
+      <p class="sub">这一章是整篇的“主骨架”。后面的 PRD、SP、目标驱动图、Context、耗时、任务交互，都挂在这里。你先掌握这张骨架，再去看细节才不会散。</p>
+
+      <div class="key"><b>最终版一句话：</b>当前 Director/Planner 是车载 Agent 的中央控制面：前面用端云分流和 RAG 漏斗把简单任务拦掉，中间用厚 SP 驱动的大模型 Director 做 ReAct + Function Call 决策，后面用下游工具/Agent 执行动作；如果任务需要持续跟踪，就写入 goal list，并通过 advisor + 订阅机制在未来被唤醒；所有模块共享公共 Context，HMI/TTS 负责把状态和行动变成用户能感知的反馈。</div>
+
+      <h3>00.1 总系统图：一次请求从“说话”到“行动/目标”的全链路</h3>
+      <div class="system-map">
+        <svg viewBox="0 0 1120 520" role="img" aria-label="Director Planner full architecture map">
+          <defs>
+            <marker id="m2" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#94a3b8"/></marker>
+          </defs>
+          <g font-family="sans-serif" font-size="12">
+            <rect x="30" y="218" width="92" height="54" rx="8" fill="rgba(8,47,73,.70)" stroke="#22d3ee"/><text x="76" y="240" fill="#e8eef9" text-anchor="middle" font-weight="700">用户输入</text><text x="76" y="258" fill="#9fb0c7" text-anchor="middle">语音/ASR</text>
+
+            <rect x="155" y="70" width="126" height="58" rx="8" fill="rgba(6,78,59,.45)" stroke="#34d399"/><text x="218" y="94" fill="#e8eef9" text-anchor="middle" font-weight="700">端侧快链路</text><text x="218" y="112" fill="#9fb0c7" text-anchor="middle">白名单/简单车控</text>
+            <rect x="155" y="218" width="126" height="58" rx="8" fill="rgba(120,53,15,.35)" stroke="#fbbf24"/><text x="218" y="242" fill="#e8eef9" text-anchor="middle" font-weight="700">RAG/仲裁漏斗</text><text x="218" y="260" fill="#9fb0c7" text-anchor="middle">句法/情景/分流</text>
+            <rect x="155" y="370" width="126" height="58" rx="8" fill="rgba(30,41,59,.55)" stroke="#64748b"/><text x="218" y="394" fill="#e8eef9" text-anchor="middle" font-weight="700">拒识/过滤</text><text x="218" y="412" fill="#9fb0c7" text-anchor="middle">不是对我说/无关</text>
+
+            <rect x="335" y="135" width="220" height="220" rx="12" fill="rgba(30,64,175,.28)" stroke="#60a5fa" stroke-width="2"/>
+            <text x="445" y="164" fill="#bfdbfe" text-anchor="middle" font-size="15" font-weight="700">Director / Planner</text>
+            <text x="445" y="184" fill="#9fb0c7" text-anchor="middle">厚 SP 驱动的 ReAct + FC 决策器</text>
+            <rect x="360" y="205" width="170" height="34" rx="6" fill="rgba(2,6,23,.45)" stroke="#334155"/><text x="445" y="227" fill="#dbeafe" text-anchor="middle">三类输入：user/advisor/tool_feedback</text>
+            <rect x="360" y="250" width="170" height="34" rx="6" fill="rgba(2,6,23,.45)" stroke="#334155"/><text x="445" y="272" fill="#dbeafe" text-anchor="middle">26 工具注册表 + few-shot</text>
+            <rect x="360" y="295" width="170" height="34" rx="6" fill="rgba(2,6,23,.45)" stroke="#334155"/><text x="445" y="317" fill="#dbeafe" text-anchor="middle">输出 JSON：talk / emoji / action</text>
+
+            <rect x="620" y="70" width="130" height="62" rx="8" fill="rgba(30,41,59,.62)" stroke="#a78bfa"/><text x="685" y="95" fill="#e8eef9" text-anchor="middle" font-weight="700">下游工具/Agent</text><text x="685" y="113" fill="#9fb0c7" text-anchor="middle">车控/导航/音乐/记忆…</text>
+            <rect x="620" y="220" width="130" height="62" rx="8" fill="rgba(76,29,149,.30)" stroke="#a78bfa"/><text x="685" y="245" fill="#e8eef9" text-anchor="middle" font-weight="700">goal list</text><text x="685" y="263" fill="#9fb0c7" text-anchor="middle">目标账本/共享看板</text>
+            <rect x="620" y="370" width="130" height="62" rx="8" fill="rgba(76,29,149,.30)" stroke="#a78bfa"/><text x="685" y="395" fill="#e8eef9" text-anchor="middle" font-weight="700">advisor / 订阅</text><text x="685" y="413" fill="#9fb0c7" text-anchor="middle">持续目标/未来唤醒</text>
+
+            <rect x="810" y="78" width="126" height="54" rx="8" fill="rgba(6,78,59,.38)" stroke="#34d399"/><text x="873" y="100" fill="#e8eef9" text-anchor="middle" font-weight="700">tool_feedback</text><text x="873" y="118" fill="#9fb0c7" text-anchor="middle">执行结果回灌</text>
+            <rect x="810" y="230" width="126" height="54" rx="8" fill="rgba(8,47,73,.45)" stroke="#22d3ee"/><text x="873" y="252" fill="#e8eef9" text-anchor="middle" font-weight="700">HMI / TTS</text><text x="873" y="270" fill="#9fb0c7" text-anchor="middle">卡片/播报/表情</text>
+            <rect x="810" y="372" width="126" height="54" rx="8" fill="rgba(120,53,15,.28)" stroke="#fbbf24"/><text x="873" y="394" fill="#e8eef9" text-anchor="middle" font-weight="700">公共 Context</text><text x="873" y="412" fill="#9fb0c7" text-anchor="middle">状态/记忆/视觉/日志</text>
+
+            <rect x="975" y="230" width="112" height="54" rx="8" fill="rgba(8,47,73,.62)" stroke="#22d3ee"/><text x="1031" y="252" fill="#e8eef9" text-anchor="middle" font-weight="700">用户感知</text><text x="1031" y="270" fill="#9fb0c7" text-anchor="middle">听到/看到/动作完成</text>
+          </g>
+          <g stroke="#94a3b8" stroke-width="1.6" fill="none" marker-end="url(#m2)">
+            <path d="M122 245 L155 245"/>
+            <path d="M281 99 C310 99 310 175 335 190"/>
+            <path d="M281 247 L335 247"/>
+            <path d="M281 399 C310 399 310 310 335 300"/>
+            <path d="M555 185 C590 150 590 101 620 101"/>
+            <path d="M750 101 L810 101"/>
+            <path d="M810 101 C770 150 635 145 555 205"/>
+            <path d="M555 252 L620 252"/>
+            <path d="M685 282 L685 370"/>
+            <path d="M750 401 L810 401"/>
+            <path d="M936 257 L975 257"/>
+            <path d="M555 300 C650 335 760 335 810 401"/>
+            <path d="M445 135 C445 70 565 50 620 80"/>
+            <path d="M750 252 L810 252"/>
+          </g>
+          <text x="775" y="88" fill="#94a3b8" font-size="10">执行</text>
+          <text x="765" y="153" fill="#94a3b8" font-size="10">回灌二次推理</text>
+          <text x="574" y="238" fill="#94a3b8" font-size="10">add/delete goal</text>
+          <text x="700" y="338" fill="#94a3b8" font-size="10">持续任务升级</text>
+          <text x="760" y="386" fill="#94a3b8" font-size="10">感知/状态</text>
+        </svg>
+      </div>
+
+      <h3>00.2 七层骨架：每层解决一个不同问题</h3>
+      <div class="stack">
+        <div class="stack-row"><b>第 1 层：输入与唤醒层</b><p>用户语音、advisor 建议、tool_feedback、订阅触发都会让系统进入一轮决策。SP 明确三类输入：user_query / advisor / tool_feedback。</p><p><span class="pill">user_query</span><span class="pill">advisor</span><span class="pill">tool_feedback</span><span class="pill">timestamp</span></p></div>
+        <div class="stack-row"><b>第 2 层：端云分流与拒识层</b><p>先判断这句话是不是给车机、能不能端侧快解、是否需要上云、是否进 Planner。这里是“快不快”和“错不错”的第一道闸。</p><p><span class="pill">端侧白名单</span><span class="pill">LLM拒识</span><span class="pill">仲裁模型</span></p></div>
+        <div class="stack-row"><b>第 3 层：知识注入与上下文层</b><p>句法 RAG 处理明确单轮，情景 RAG 注入知识，公共 Context 维护状态/记忆/视觉/事件日志，并做压缩、打标、过滤。</p><p><span class="pill">句法RAG</span><span class="pill">情景RAG</span><span class="pill">公共Context</span></p></div>
+        <div class="stack-row"><b>第 4 层：Director / Planner 决策层</b><p>核心大脑。当前真实落地是厚 SP：26 工具、few-shot、车辆知识、情绪状态、输出 JSON 规则。它做 ReAct：先想、调工具、看反馈、再想。</p><p><span class="pill">ReAct</span><span class="pill">Function Call</span><span class="pill">talk/action/emoji</span></p></div>
+        <div class="stack-row"><b>第 5 层：执行工具与 Agent 层</b><p>把 Director 的 action_list 变成真实动作：车控、导航、POI、音乐、记忆、视觉、行程、目标管理等。工具返回 tool_feedback 回灌。</p><p><span class="pill">26 tools</span><span class="pill">tool_feedback</span><span class="pill">串行/并行</span></p></div>
+        <div class="stack-row"><b>第 6 层：目标驱动与持续任务层</b><p>即时任务当场闭环；持续任务进入 goal list，必要时创建 advisor 和订阅，让未来感知/时间/条件事件重新唤醒系统。</p><p><span class="pill">goal_list_update</span><span class="pill">goal list</span><span class="pill">advisor</span><span class="pill">订阅</span></p></div>
+        <div class="stack-row"><b>第 7 层：用户反馈与交互治理层</b><p>HMI/TTS/emoji 把结果表达出来；任务交互策略处理打断、合并、排队、静默、恢复，保证车内单通路体验不乱。</p><p><span class="pill">HMI</span><span class="pill">TTS</span><span class="pill">emoji</span><span class="pill">打断/排队</span></p></div>
+      </div>
+
+      <h3>00.3 四条流：不要只看模块，要看流动的东西</h3>
+      <table>
+        <tr><th>流</th><th>从哪里到哪里</th><th>携带什么</th><th>为什么重要</th></tr>
+        <tr><td><b>控制流</b></td><td>用户/事件 → 分流 → Director → 工具/goal/advisor → HMI</td><td>“下一步该做什么”的决策。</td><td>控制流错了，就会走错工具、误拒识、误建目标。</td></tr>
+        <tr><td><b>数据流</b></td><td>Context/env_info/记忆/视觉 → Director → 工具参数</td><td>车辆状态、位置、人物、记忆、时间、目标列表。</td><td>数据流缺失，模型即使会推理也会因信息不足做错。</td></tr>
+        <tr><td><b>状态流</b></td><td>goal list / emotional_state / 对话历史 / HMI 卡片</td><td>任务进展、目标状态、情绪状态、前台展示状态。</td><td>状态流不一致，就会重复目标、忘记任务、情绪跳变、卡片不对。</td></tr>
+        <tr><td><b>反馈流</b></td><td>工具返回 / advisor 建议 / 订阅触发 → Director</td><td>tool_feedback、advisor suggestion、条件/感知/定时事件。</td><td>反馈流是 ReAct 和持续任务的生命线，没有它系统只能单轮回答。</td></tr>
+      </table>
+
+      <h3>00.4 六类核心对象：理解对象，比背模块名更重要</h3>
+      <table>
+        <tr><th>对象</th><th>来自哪里</th><th>包含什么</th><th>谁读它</th><th>谁写它</th></tr>
+        <tr><td><b>InputEvent</b></td><td>SP 输入协议</td><td>query / advisor / tool_feedback，以及 speaker、timestamp、goal_list、env_info。</td><td>Director</td><td>上游语音链路、advisor、工具回调</td></tr>
+        <tr><td><b>Context</b></td><td>公共 Context PRD</td><td>端状态、情景、记忆、视觉、事件日志、屏幕信息等。</td><td>Director、advisor、工具</td><td>端侧/云侧状态服务、视觉、记忆、事件系统</td></tr>
+        <tr><td><b>DirectorDecision</b></td><td>当前 SP 输出 JSON</td><td>talk_or_not、talk_content、emoji_id、emotional_state_change、action_list。</td><td>HMI/TTS、工具执行器</td><td>Director</td></tr>
+        <tr><td><b>ToolCall / ToolFeedback</b></td><td>26 工具注册表</td><td>tool_name、params、执行结果、失败原因、自然语言返回。</td><td>Director 二次推理</td><td>工具/下游 Agent</td></tr>
+        <tr><td><b>Goal</b></td><td>目标驱动体系 + SP goal_list_update</td><td>目标内容、状态、细节和进展；Director 只增删，advisor 管进展。</td><td>Director、advisor、HMI</td><td>Director 增删；advisor 更新细节和进展</td></tr>
+        <tr><td><b>Subscription</b></td><td>目标驱动图</td><td>动态感知、条件触发、定时器，绑定 advisor 或目标。</td><td>advisor、Director</td><td>目标驱动/订阅模块</td></tr>
+      </table>
+
+      <h3>00.5 模块细节总表：每个内容包含什么、作用是什么</h3>
+      <table>
+        <tr><th>模块</th><th>内部包含</th><th>输入</th><th>输出</th><th>作用</th><th>优化点</th></tr>
+        <tr><td>端侧快链路</td><td>白名单、轻量拒识、简单车控/本地能力。</td><td>ASR query、端状态。</td><td>本地执行或上云。</td><td>保障高频指令低时延。</td><td>扩大高置信覆盖，避免复杂任务误走快链路。</td></tr>
+        <tr><td>RAG/仲裁漏斗</td><td>句法 RAG、情景 RAG、仲裁模型。</td><td>query、召回知识、情景。</td><td>directExecute 或 modelExecute 或 Planner 路由。</td><td>把简单/明确任务前置，把复杂任务交给 Director。</td><td>召回准确率、仲裁分流、知识注入噪音。</td></tr>
+        <tr><td>Director SP</td><td>输入协议、26 工具、输出 JSON、注意事项、聊天风格、emoji、车辆知识、工具 tips、few-shot。</td><td>user_query/advisor/tool_feedback + context。</td><td>talk/action/emoji/emotion JSON。</td><td>统一做任务编排、对话表达、工具选择、目标增删。</td><td>动态裁剪工具/示例/知识；规则结构化外置。</td></tr>
+        <tr><td>工具/Agent</td><td>车控、系统、通讯、状态、天气、POI、路线、导航、媒体、记忆、目标、视觉等。</td><td>action_list 中的 params。</td><td>tool_feedback。</td><td>把模型决策变成真实动作或查询结果。</td><td>工具边界清晰、失败码、并行/串行依赖。</td></tr>
+        <tr><td>goal list</td><td>目标内容、状态、细节、进展、HMI 展示映射。</td><td>goal_list_update、advisor 更新、用户取消。</td><td>当前目标队列。</td><td>让长期任务不丢、不重复、可恢复。</td><td>schema、去重、状态枚举、卡片同步。</td></tr>
+        <tr><td>advisor</td><td>静态 advisor、动态 advisor、goal reviewer、建议生成。</td><td>goal list、Context、订阅触发。</td><td>advisor 建议、目标进展更新。</td><td>把持续任务拆给专门角色后台盯。</td><td>触发频控、冲突仲裁、进展写回一致性。</td></tr>
+        <tr><td>订阅模块</td><td>动态感知、条件触发、定时器。</td><td>目标需要的信号和触发条件。</td><td>未来唤醒事件。</td><td>让目标能跨时间持续推进。</td><td>触发准确率、去抖、取消同步、资源预算。</td></tr>
+        <tr><td>公共 Context</td><td>端状态、视觉、用户记忆、事件日志、屏幕信息、任务历史等。</td><td>车端/云端/记忆/视觉/工具回写。</td><td>压缩过滤后的上下文。</td><td>给 Director 和 advisor 共享“现场”。</td><td>按场景/人物/任务过滤，减少 token 和噪音。</td></tr>
+        <tr><td>HMI/TTS/交互管理</td><td>播报、卡片、emoji、打断、合并、排队、静默。</td><td>DirectorDecision、goal list、任务触发。</td><td>用户可感知反馈。</td><td>把后台状态变成自然车内体验。</td><td>首 token、少废话、主动服务不打扰。</td></tr>
+      </table>
+
+      <h3>00.6 用一句“二排宝宝”把全骨架跑通</h3>
+      <ol>
+        <li>用户说“帮我照顾后排宝宝”进入 user_query，携带 speaker、timestamp、goal_list、env_info。</li>
+        <li>端侧/拒识/仲裁判断这不是普通闲聊，也不是简单车控，而是需要持续跟踪的目标类请求。</li>
+        <li>Director SP 读取当前 goal_list，判断是否已有相似目标；若没有，调用 <code>goal_list_update add_goal</code>。</li>
+        <li>目标进入 goal list，后续由 advisor/goal reviewer 关注，不由 Director 直接更新细节进展。</li>
+        <li>advisor 根据目标需要订阅车内视觉/安全带/睡眠/哭闹等感知信号（具体信号字段需后续文档确认）。</li>
+        <li>订阅模块未来被动态感知、条件或定时器触发，生成 advisor 输入回到 Director。</li>
+        <li>Director 融合 advisor 建议、env_info、goal_list，决定是否说话、是否调车控、是否提醒用户。</li>
+        <li>HMI/TTS/emoji 负责表达；如果用户取消“别盯了”，Director 调 <code>goal_list_update delete_goal</code>。</li>
+      </ol>
+
+      <div class="note"><b>这就是完整骨架：</b>端云分流解决“快不快”，RAG/Context 解决“知道什么”，Director SP 解决“怎么判断和编排”，工具解决“怎么执行”，goal/advisor/订阅解决“怎么持续”，HMI/交互治理解决“用户怎么感知”。后面每个章节都是在展开这六件事。</div>
+    </section>
+
+    <!-- ===================== 00N ===================== -->
+    <section id="t00n">
+      <h2><span class="num">N</span>逐节点骨架与流程详解：每个节点到底怎么运转</h2>
+      <p class="sub">这一章按总图的一阶节点逐个拆。每个节点都包含：节点骨架图、内部流程图、输入、处理原理、输出、存在理由、优化/排查点。读这一章时，不要急着记名词，先看“这个节点把什么输入变成什么输出”。</p>
+
+      <div class="node-detail" id="n-input">
+        <h3>节点 1：用户输入 / ASR</h3>
+        <div class="node-grid">
+          <div class="mini-flow">
+            <svg viewBox="0 0 620 150">
+              <defs><marker id="na1" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#94a3b8"/></marker></defs>
+              <rect x="20" y="48" width="120" height="54" rx="8" fill="rgba(8,47,73,.65)" stroke="#22d3ee"/><text x="80" y="72" fill="#e8eef9" text-anchor="middle">用户语音</text><text x="80" y="91" fill="#9fb0c7" text-anchor="middle" font-size="12">车内单通路</text>
+              <rect x="190" y="48" width="120" height="54" rx="8" fill="rgba(30,41,59,.65)" stroke="#94a3b8"/><text x="250" y="72" fill="#e8eef9" text-anchor="middle">ASR/VAD</text><text x="250" y="91" fill="#9fb0c7" text-anchor="middle" font-size="12">识别+判停</text>
+              <rect x="360" y="48" width="220" height="54" rx="8" fill="rgba(30,64,175,.35)" stroke="#60a5fa"/><text x="470" y="72" fill="#e8eef9" text-anchor="middle">user_query 对象</text><text x="470" y="91" fill="#9fb0c7" text-anchor="middle" font-size="12">query/speaker/time/env/goal</text>
+              <path d="M140 75 L190 75" stroke="#94a3b8" fill="none" marker-end="url(#na1)"/><path d="M310 75 L360 75" stroke="#94a3b8" fill="none" marker-end="url(#na1)"/>
+            </svg>
+          </div>
+          <div class="mini-flow">
+            <svg viewBox="0 0 620 150">
+              <defs><marker id="na2" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#94a3b8"/></marker></defs>
+              <rect x="18" y="35" width="94" height="76" rx="8" fill="rgba(8,47,73,.45)" stroke="#22d3ee"/><text x="65" y="66" fill="#e8eef9" text-anchor="middle">收音</text><text x="65" y="86" fill="#9fb0c7" text-anchor="middle" font-size="12">多人/噪声</text>
+              <rect x="145" y="35" width="94" height="76" rx="8" fill="rgba(30,41,59,.55)" stroke="#94a3b8"/><text x="192" y="66" fill="#e8eef9" text-anchor="middle">判停</text><text x="192" y="86" fill="#9fb0c7" text-anchor="middle" font-size="12">VAD</text>
+              <rect x="272" y="35" width="94" height="76" rx="8" fill="rgba(120,53,15,.30)" stroke="#fbbf24"/><text x="319" y="66" fill="#e8eef9" text-anchor="middle">补元数据</text><text x="319" y="86" fill="#9fb0c7" text-anchor="middle" font-size="12">人/座位/时间</text>
+              <rect x="399" y="35" width="190" height="76" rx="8" fill="rgba(30,64,175,.32)" stroke="#60a5fa"/><text x="494" y="66" fill="#e8eef9" text-anchor="middle">进入分流</text><text x="494" y="86" fill="#9fb0c7" text-anchor="middle" font-size="12">端侧/云侧/拒识</text>
+              <path d="M112 73 L145 73" stroke="#94a3b8" fill="none" marker-end="url(#na2)"/><path d="M239 73 L272 73" stroke="#94a3b8" fill="none" marker-end="url(#na2)"/><path d="M366 73 L399 73" stroke="#94a3b8" fill="none" marker-end="url(#na2)"/>
+            </svg>
+          </div>
+        </div>
+        <div class="explain">
+          <p><b>这两张图怎么读：</b>左图是在讲“用户一句话如何变成 Director 能处理的结构化事件”。用户真正给系统的是语音，但 Director 不能直接吃语音，它需要的是一个带字段的 <code>user_query</code>：里面不仅有文字，还要有谁说的、坐在哪、什么时候说、当时车况如何、当前有哪些目标。</p>
+          <p>右图是在讲这个节点的内部加工顺序：先收音，再等 VAD 判定用户说完，再补齐元数据，最后进入分流。这里最容易被忽略的是“补元数据”这一步。产品经理看 query 往往只看文字，但车载场景里，同一句“打开窗户”，主驾说和后排说，安全权限、执行对象、体验都不一样。</p>
+          <p class="example"><b>例子：</b>用户说“后面有点热”。如果 speaker_position 是二排，系统应该优先理解为后排体感；如果是主驾说“后面有点热”，可能是在替后排乘客表达。这个判断不是 Director 突然聪明，而是输入节点把“说话人位置”给了它。</p>
+        </div>
+        <table class="matrix"><tr><th>维度</th><th>详细讲解</th></tr>
+          <tr><td>输入</td><td>用户语音、说话人位置、时间戳、上一轮情绪、车端环境。SP 最终接收的是结构化 <code>user_query</code>，不是裸文本。</td></tr>
+          <tr><td>处理</td><td>先把语音转文字，再确定是否判停，再补说话人、座位、时间、goal_list、env_info 等元数据。</td></tr>
+          <tr><td>输出</td><td>进入后续分流的 <code>user_query</code> 对象。</td></tr>
+          <tr><td>原理</td><td>车载交互不是聊天框输入，必须先解决“谁在说、从哪个座位说、是否说完、是不是对助手说”的问题。</td></tr>
+        </table>
+        <div class="why">为什么存在：没有这个节点，后面的 Director 无法区分主驾/副驾/后排，也无法做时间感知、情绪连续、目标恢复。</div>
+        <div class="risk">优化/排查：首 token 慢先看 ASR/VAD 是否拖长；误触发先看是否把人人对话当成 user_query；多乘客错误先看 speaker_position。</div>
+      </div>
+
+      <div class="node-detail" id="n-edge">
+        <h3>节点 2：端侧快链路</h3>
+        <div class="node-grid">
+          <div class="mini-flow">
+            <svg viewBox="0 0 620 150"><defs><marker id="nb1" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#94a3b8"/></marker></defs>
+              <rect x="20" y="48" width="120" height="54" rx="8" fill="rgba(8,47,73,.55)" stroke="#22d3ee"/><text x="80" y="72" fill="#e8eef9" text-anchor="middle">user_query</text>
+              <rect x="185" y="48" width="130" height="54" rx="8" fill="rgba(6,78,59,.38)" stroke="#34d399"/><text x="250" y="72" fill="#e8eef9" text-anchor="middle">白名单/端侧LLM</text><text x="250" y="91" fill="#9fb0c7" text-anchor="middle" font-size="12">简单高频</text>
+              <rect x="360" y="22" width="200" height="44" rx="8" fill="rgba(6,78,59,.48)" stroke="#34d399"/><text x="460" y="49" fill="#e8eef9" text-anchor="middle">端侧直接执行</text>
+              <rect x="360" y="88" width="200" height="44" rx="8" fill="rgba(30,64,175,.32)" stroke="#60a5fa"/><text x="460" y="115" fill="#e8eef9" text-anchor="middle">上云进入漏斗/Planner</text>
+              <path d="M140 75 L185 75" stroke="#94a3b8" fill="none" marker-end="url(#nb1)"/><path d="M315 65 L360 45" stroke="#34d399" fill="none" marker-end="url(#nb1)"/><path d="M315 86 L360 108" stroke="#60a5fa" fill="none" marker-end="url(#nb1)"/>
+            </svg>
+          </div>
+          <div class="mini-flow">
+            <svg viewBox="0 0 620 150"><defs><marker id="nb2" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#94a3b8"/></marker></defs>
+              <rect x="18" y="35" width="110" height="76" rx="8" fill="rgba(8,47,73,.45)" stroke="#22d3ee"/><text x="73" y="66" fill="#e8eef9" text-anchor="middle">判能力</text><text x="73" y="86" fill="#9fb0c7" font-size="12" text-anchor="middle">车控/设置</text>
+              <rect x="166" y="35" width="110" height="76" rx="8" fill="rgba(6,78,59,.35)" stroke="#34d399"/><text x="221" y="66" fill="#e8eef9" text-anchor="middle">判置信</text><text x="221" y="86" fill="#9fb0c7" font-size="12" text-anchor="middle">明确/安全</text>
+              <rect x="314" y="35" width="110" height="76" rx="8" fill="rgba(120,53,15,.28)" stroke="#fbbf24"/><text x="369" y="66" fill="#e8eef9" text-anchor="middle">判权限</text><text x="369" y="86" fill="#9fb0c7" font-size="12" text-anchor="middle">主驾/安全</text>
+              <rect x="462" y="35" width="120" height="76" rx="8" fill="rgba(6,78,59,.45)" stroke="#34d399"/><text x="522" y="66" fill="#e8eef9" text-anchor="middle">执行或上云</text><text x="522" y="86" fill="#9fb0c7" font-size="12" text-anchor="middle">低时延</text>
+              <path d="M128 73 L166 73" stroke="#94a3b8" fill="none" marker-end="url(#nb2)"/><path d="M276 73 L314 73" stroke="#94a3b8" fill="none" marker-end="url(#nb2)"/><path d="M424 73 L462 73" stroke="#94a3b8" fill="none" marker-end="url(#nb2)"/>
+            </svg>
+          </div>
+        </div>
+        <div class="explain">
+          <p><b>这两张图怎么读：</b>左图表达的是“能在端侧快解的，就不要进入云端大模型”。端侧快链路像高速收费站的 ETC：高置信、低风险、高频的请求直接放行执行；不确定的才交给后面的 RAG/Planner。</p>
+          <p>右图拆的是快链路内部判断：先看能力覆盖不覆盖，再看置信度够不够，再看权限和安全是否允许。三个条件都满足，才直接执行。只满足“看起来像车控”还不够，比如“打开车门”虽然是车控意图，但车辆设备知识里写了车门不支持语音控制，就不能端侧执行。</p>
+          <p class="example"><b>例子：</b>“空调调到 24 度”可以走快链路，因为能力明确、参数合法、风险低；“我有点冷，帮我弄舒服点”就不一定适合端侧直接做，因为它可能要结合温度、座椅、风向、用户偏好，需要更复杂推理。</p>
+        </div>
+        <table class="matrix"><tr><th>维度</th><th>详细讲解</th></tr>
+          <tr><td>输入</td><td>明确、高频、可端侧闭环的 query，例如简单车控、部分设置、导航基础控制。</td></tr>
+          <tr><td>处理</td><td>判断端侧能力是否覆盖、置信度是否足够、安全/权限是否允许；满足则不进云端复杂 Planner。</td></tr>
+          <tr><td>输出</td><td>端侧执行结果，或未命中后继续上云。</td></tr>
+          <tr><td>原理</td><td>“能用简单方法搞定，不要漏到后面复杂模型”。这是漏斗架构的第一层降本降时延。</td></tr>
+        </table>
+        <div class="why">为什么存在：保障 150ms 级高频体验，不让打开空调这类任务被 500ms+ Planner 拖慢。</div>
+        <div class="risk">优化/排查：快链路命中过少会慢；命中过宽会误执行。坏 case 要看 query 是否本该端侧、是否被错误上云。</div>
+      </div>
+
+      <div class="node-detail" id="n-rag">
+        <h3>节点 3：RAG / 仲裁漏斗</h3>
+        <div class="node-grid">
+          <div class="mini-flow">
+            <svg viewBox="0 0 620 150"><defs><marker id="nc1" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#94a3b8"/></marker></defs>
+              <rect x="20" y="48" width="100" height="54" rx="8" fill="rgba(8,47,73,.45)" stroke="#22d3ee"/><text x="70" y="80" fill="#e8eef9" text-anchor="middle">query</text>
+              <rect x="155" y="18" width="110" height="44" rx="8" fill="rgba(6,78,59,.35)" stroke="#34d399"/><text x="210" y="46" fill="#e8eef9" text-anchor="middle">句法 RAG</text>
+              <rect x="155" y="88" width="110" height="44" rx="8" fill="rgba(120,53,15,.32)" stroke="#fbbf24"/><text x="210" y="116" fill="#e8eef9" text-anchor="middle">情景 RAG</text>
+              <rect x="305" y="48" width="110" height="54" rx="8" fill="rgba(30,64,175,.32)" stroke="#60a5fa"/><text x="360" y="80" fill="#e8eef9" text-anchor="middle">仲裁</text>
+              <rect x="455" y="18" width="130" height="44" rx="8" fill="rgba(6,78,59,.45)" stroke="#34d399"/><text x="520" y="46" fill="#e8eef9" text-anchor="middle">直接执行</text>
+              <rect x="455" y="88" width="130" height="44" rx="8" fill="rgba(30,64,175,.32)" stroke="#60a5fa"/><text x="520" y="116" fill="#e8eef9" text-anchor="middle">进 Director</text>
+              <path d="M120 75 C140 75 138 40 155 40" stroke="#94a3b8" fill="none" marker-end="url(#nc1)"/><path d="M120 75 C140 75 138 110 155 110" stroke="#94a3b8" fill="none" marker-end="url(#nc1)"/><path d="M265 40 L305 65" stroke="#94a3b8" fill="none" marker-end="url(#nc1)"/><path d="M265 110 L305 86" stroke="#94a3b8" fill="none" marker-end="url(#nc1)"/><path d="M415 65 L455 40" stroke="#34d399" fill="none" marker-end="url(#nc1)"/><path d="M415 86 L455 110" stroke="#60a5fa" fill="none" marker-end="url(#nc1)"/>
+            </svg>
+          </div>
+          <div class="mini-flow">
+            <svg viewBox="0 0 620 150"><defs><marker id="nc2" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#94a3b8"/></marker></defs>
+              <rect x="18" y="35" width="100" height="76" rx="8" fill="rgba(6,78,59,.32)" stroke="#34d399"/><text x="68" y="66" fill="#e8eef9" text-anchor="middle">规则命中</text><text x="68" y="86" fill="#9fb0c7" font-size="12" text-anchor="middle">明确单轮</text>
+              <rect x="152" y="35" width="100" height="76" rx="8" fill="rgba(120,53,15,.30)" stroke="#fbbf24"/><text x="202" y="66" fill="#e8eef9" text-anchor="middle">知识注入</text><text x="202" y="86" fill="#9fb0c7" font-size="12" text-anchor="middle">few-shot/knowhow</text>
+              <rect x="286" y="35" width="100" height="76" rx="8" fill="rgba(30,64,175,.30)" stroke="#60a5fa"/><text x="336" y="66" fill="#e8eef9" text-anchor="middle">仲裁路由</text><text x="336" y="86" fill="#9fb0c7" font-size="12" text-anchor="middle">简单/复杂</text>
+              <rect x="420" y="35" width="150" height="76" rx="8" fill="rgba(30,64,175,.32)" stroke="#60a5fa"/><text x="495" y="66" fill="#e8eef9" text-anchor="middle">带知识进模型</text><text x="495" y="86" fill="#9fb0c7" font-size="12" text-anchor="middle">降低后链路压力</text>
+              <path d="M118 73 L152 73" stroke="#94a3b8" fill="none" marker-end="url(#nc2)"/><path d="M252 73 L286 73" stroke="#94a3b8" fill="none" marker-end="url(#nc2)"/><path d="M386 73 L420 73" stroke="#94a3b8" fill="none" marker-end="url(#nc2)"/>
+            </svg>
+          </div>
+        </div>
+        <div class="explain">
+          <p><b>这两张图怎么读：</b>RAG/仲裁漏斗不是一个单点模型，而是一组“前置减负机制”。左图里同一个 query 会被分到句法 RAG、情景 RAG 或仲裁模型：句法 RAG 处理明确规则，情景 RAG 负责给模型补知识，仲裁模型负责决定最后是直接执行还是交给 Director。</p>
+          <p>右图强调“知识注入不是越多越好”。系统先用规则命中简单场景，再按需注入 few-shot/knowhow，最后仲裁路由。这样做的底层原因是：Director 的 SP 已经很厚，如果所有工具、所有示例、所有知识都塞进去，首 token 会慢，推理也会被噪音干扰。</p>
+          <p class="example"><b>例子：</b>“导航去虹桥机场 T2”是明确路线规划，可以少注入甚至不注入复杂知识；“去机场接人，顺便找个顺路的日料店”就需要情景 RAG/Planner，因为它涉及先导航、再沿途 POI、再可能添加途经点。</p>
+        </div>
+        <table class="matrix"><tr><th>维度</th><th>详细讲解</th></tr>
+          <tr><td>输入</td><td>未被端侧直接解决的 query，以及可召回的规则、知识、情景示例。</td></tr>
+          <tr><td>处理</td><td>句法 RAG 负责明确表达，情景 RAG 负责模糊场景知识注入，仲裁模型决定直接执行还是进复杂 Planner。</td></tr>
+          <tr><td>输出</td><td>directExecute、modelExecute、或进入 Director 的增强输入。</td></tr>
+          <tr><td>原理</td><td>这是“层层过滤”和“不同阶段注入知识”的具体实现。</td></tr>
+        </table>
+        <div class="why">为什么存在：把重复、明确、可规则化的问题挡在 Director 外面，减少 token、时延和大模型不稳定。</div>
+        <div class="risk">优化/排查：召回错会污染模型；仲裁错会让简单任务变慢或复杂任务被草率处理。</div>
+      </div>
+
+      <div class="node-detail" id="n-director">
+        <h3>节点 4：Director / Planner SP 决策器</h3>
+        <div class="node-grid">
+          <div class="mini-flow">
+            <svg viewBox="0 0 620 150"><defs><marker id="nd1" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#94a3b8"/></marker></defs>
+              <rect x="18" y="30" width="110" height="90" rx="8" fill="rgba(8,47,73,.45)" stroke="#22d3ee"/><text x="73" y="62" fill="#e8eef9" text-anchor="middle">三类输入</text><text x="73" y="82" fill="#9fb0c7" font-size="12" text-anchor="middle">user/advisor/fb</text>
+              <rect x="166" y="30" width="130" height="90" rx="8" fill="rgba(30,64,175,.34)" stroke="#60a5fa"/><text x="231" y="55" fill="#e8eef9" text-anchor="middle">厚 SP</text><text x="231" y="75" fill="#9fb0c7" font-size="12" text-anchor="middle">26工具+规则</text><text x="231" y="94" fill="#9fb0c7" font-size="12" text-anchor="middle">few-shot+知识</text>
+              <rect x="334" y="30" width="110" height="90" rx="8" fill="rgba(76,29,149,.30)" stroke="#a78bfa"/><text x="389" y="62" fill="#e8eef9" text-anchor="middle">ReAct 推理</text><text x="389" y="82" fill="#9fb0c7" font-size="12" text-anchor="middle">想/做/再想</text>
+              <rect x="482" y="30" width="120" height="90" rx="8" fill="rgba(6,78,59,.35)" stroke="#34d399"/><text x="542" y="55" fill="#e8eef9" text-anchor="middle">JSON 输出</text><text x="542" y="75" fill="#9fb0c7" font-size="12" text-anchor="middle">talk/emoji</text><text x="542" y="94" fill="#9fb0c7" font-size="12" text-anchor="middle">action_list</text>
+              <path d="M128 75 L166 75" stroke="#94a3b8" fill="none" marker-end="url(#nd1)"/><path d="M296 75 L334 75" stroke="#94a3b8" fill="none" marker-end="url(#nd1)"/><path d="M444 75 L482 75" stroke="#94a3b8" fill="none" marker-end="url(#nd1)"/>
+            </svg>
+          </div>
+          <div class="mini-flow">
+            <svg viewBox="0 0 620 150"><defs><marker id="nd2" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#94a3b8"/></marker></defs>
+              <rect x="15" y="42" width="96" height="60" rx="8" fill="rgba(30,64,175,.30)" stroke="#60a5fa"/><text x="63" y="66" fill="#e8eef9" text-anchor="middle">第一次推理</text><text x="63" y="84" fill="#9fb0c7" font-size="12" text-anchor="middle">生成 action</text>
+              <rect x="145" y="42" width="96" height="60" rx="8" fill="rgba(6,78,59,.35)" stroke="#34d399"/><text x="193" y="66" fill="#e8eef9" text-anchor="middle">工具执行</text><text x="193" y="84" fill="#9fb0c7" font-size="12" text-anchor="middle">下游Agent</text>
+              <rect x="275" y="42" width="96" height="60" rx="8" fill="rgba(6,78,59,.25)" stroke="#34d399"/><text x="323" y="66" fill="#e8eef9" text-anchor="middle">反馈回灌</text><text x="323" y="84" fill="#9fb0c7" font-size="12" text-anchor="middle">tool_feedback</text>
+              <rect x="405" y="42" width="96" height="60" rx="8" fill="rgba(30,64,175,.30)" stroke="#60a5fa"/><text x="453" y="66" fill="#e8eef9" text-anchor="middle">二次推理</text><text x="453" y="84" fill="#9fb0c7" font-size="12" text-anchor="middle">总结/继续</text>
+              <rect x="535" y="42" width="70" height="60" rx="8" fill="rgba(8,47,73,.45)" stroke="#22d3ee"/><text x="570" y="76" fill="#e8eef9" text-anchor="middle">HMI</text>
+              <path d="M111 72 L145 72" stroke="#94a3b8" fill="none" marker-end="url(#nd2)"/><path d="M241 72 L275 72" stroke="#94a3b8" fill="none" marker-end="url(#nd2)"/><path d="M371 72 L405 72" stroke="#94a3b8" fill="none" marker-end="url(#nd2)"/><path d="M501 72 L535 72" stroke="#94a3b8" fill="none" marker-end="url(#nd2)"/>
+            </svg>
+          </div>
+        </div>
+        <div class="explain">
+          <p><b>这两张图怎么读：</b>左图把 Director 的真实形态讲出来了：它不是一个薄薄的“意图分类器”，而是一个厚 SP 驱动的决策器。它同时读三类输入、26 个工具描述、大量规则、few-shot、车辆知识、聊天风格和目标状态，然后输出一个 JSON。</p>
+          <p>右图讲的是 ReAct 闭环。Director 第一次推理时不一定能完成任务，它可能先调用工具；工具返回后，<code>tool_feedback</code> 会重新喂给 Director，触发二次推理。二次推理再决定要不要说话、要不要继续调工具、要不要总结。</p>
+          <p>所以 Director 的关键不是“想一次”，而是“每次根据当前输入做下一步最合理的控制决策”。如果输入是 user_query，它要判断用户需求；如果输入是 advisor，它要融合主动建议；如果输入是 tool_feedback，它要根据执行结果继续推进。</p>
+          <p class="example"><b>例子：</b>用户说“后排都系安全带了吗？”Director 第一次输出 <code>search_visual_info</code>；视觉工具返回“左后未系，右后已系”；Director 二次推理输出提醒话术。这里如果没有 tool_feedback 回灌，系统只能说“我看看”，无法完成闭环。</p>
+        </div>
+        <table class="matrix"><tr><th>维度</th><th>详细讲解</th></tr>
+          <tr><td>输入</td><td><code>user_query</code>、<code>advisor</code>、<code>tool_feedback</code>，以及公共 context、goal_list、env_info、记忆、视觉、车辆知识。</td></tr>
+          <tr><td>处理</td><td>基于厚 SP 进行任务识别、工具选择、目标增删、话术/情绪/emoji 决策，并遵守串行/并行、静默、失败处理等规则。</td></tr>
+          <tr><td>输出</td><td><code>talk_or_not</code>、<code>talk_content</code>、<code>emoji_id</code>、<code>emotional_state_change</code>、<code>action_list</code>。</td></tr>
+          <tr><td>原理</td><td>Director 是控制面，不是执行面。它决定“说不说、说什么、调什么、是否建目标、是否继续推理”。</td></tr>
+        </table>
+        <div class="why">为什么存在：把自然语言、上下文、工具能力和用户体验策略统一编排成一轮可执行决策。</div>
+        <div class="risk">优化/排查：action 错查工具描述和 few-shot；话术错查 talk_or_not/聊天风格；目标错查 goal_list_update 规则；慢查 SP 过胖和 context 注入。</div>
+      </div>
+
+      <div class="node-detail" id="n-tools">
+        <h3>节点 5：下游工具 / Agent</h3>
+        <div class="node-grid">
+          <div class="mini-flow">
+            <svg viewBox="0 0 620 150"><defs><marker id="ne1" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#94a3b8"/></marker></defs>
+              <rect x="20" y="48" width="110" height="54" rx="8" fill="rgba(30,64,175,.32)" stroke="#60a5fa"/><text x="75" y="80" fill="#e8eef9" text-anchor="middle">action_list</text>
+              <rect x="175" y="25" width="120" height="44" rx="8" fill="rgba(6,78,59,.35)" stroke="#34d399"/><text x="235" y="52" fill="#e8eef9" text-anchor="middle">可并行工具</text>
+              <rect x="175" y="85" width="120" height="44" rx="8" fill="rgba(120,53,15,.30)" stroke="#fbbf24"/><text x="235" y="112" fill="#e8eef9" text-anchor="middle">串行依赖工具</text>
+              <rect x="345" y="48" width="110" height="54" rx="8" fill="rgba(6,78,59,.35)" stroke="#34d399"/><text x="400" y="80" fill="#e8eef9" text-anchor="middle">执行</text>
+              <rect x="500" y="48" width="100" height="54" rx="8" fill="rgba(6,78,59,.25)" stroke="#34d399"/><text x="550" y="80" fill="#e8eef9" text-anchor="middle">feedback</text>
+              <path d="M130 75 C150 75 150 47 175 47" stroke="#94a3b8" fill="none" marker-end="url(#ne1)"/><path d="M130 75 C150 75 150 107 175 107" stroke="#94a3b8" fill="none" marker-end="url(#ne1)"/><path d="M295 47 L345 65" stroke="#94a3b8" fill="none" marker-end="url(#ne1)"/><path d="M295 107 L345 86" stroke="#94a3b8" fill="none" marker-end="url(#ne1)"/><path d="M455 75 L500 75" stroke="#94a3b8" fill="none" marker-end="url(#ne1)"/>
+            </svg>
+          </div>
+          <div class="mini-flow">
+            <svg viewBox="0 0 620 150"><defs><marker id="ne2" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#94a3b8"/></marker></defs>
+              <rect x="18" y="36" width="92" height="76" rx="8" fill="rgba(8,47,73,.40)" stroke="#22d3ee"/><text x="64" y="66" fill="#e8eef9" text-anchor="middle">参数转换</text><text x="64" y="86" fill="#9fb0c7" font-size="12" text-anchor="middle">自然语言</text>
+              <rect x="145" y="36" width="92" height="76" rx="8" fill="rgba(6,78,59,.35)" stroke="#34d399"/><text x="191" y="66" fill="#e8eef9" text-anchor="middle">调用执行</text><text x="191" y="86" fill="#9fb0c7" font-size="12" text-anchor="middle">API/Agent</text>
+              <rect x="272" y="36" width="92" height="76" rx="8" fill="rgba(120,53,15,.30)" stroke="#fbbf24"/><text x="318" y="66" fill="#e8eef9" text-anchor="middle">成功/失败</text><text x="318" y="86" fill="#9fb0c7" font-size="12" text-anchor="middle">状态</text>
+              <rect x="399" y="36" width="170" height="76" rx="8" fill="rgba(30,64,175,.30)" stroke="#60a5fa"/><text x="484" y="66" fill="#e8eef9" text-anchor="middle">回到 Director</text><text x="484" y="86" fill="#9fb0c7" font-size="12" text-anchor="middle">静默/继续/总结</text>
+              <path d="M110 74 L145 74" stroke="#94a3b8" fill="none" marker-end="url(#ne2)"/><path d="M237 74 L272 74" stroke="#94a3b8" fill="none" marker-end="url(#ne2)"/><path d="M364 74 L399 74" stroke="#94a3b8" fill="none" marker-end="url(#ne2)"/>
+            </svg>
+          </div>
+        </div>
+        <div class="explain">
+          <p><b>这两张图怎么读：</b>左图是在讲 action_list 进入工具层之后，会被拆成两种情况：能并行的工具一起执行，有依赖的工具必须串行。Director 输出多个 action 不等于一定并行，能不能并行取决于任务之间有没有信息依赖。</p>
+          <p>右图讲的是工具调用的生命周期：先把 Director 给出的自然语言 params 转成工具能理解的请求，再由下游 Agent/API 执行，最后返回成功、失败或候选结果。返回结果不是终点，而是下一轮 Director 决策的输入。</p>
+          <p class="example"><b>例子：</b>“播放音乐，同时把空调开到 20 度”可以并行，因为音乐和空调互不依赖；“先搜一家日料店，再把第二家设为途经点”不能并行，因为路线规划要等 POI 返回候选，用户或模型确认具体哪家之后才能继续。</p>
+        </div>
+        <table class="matrix"><tr><th>维度</th><th>详细讲解</th></tr>
+          <tr><td>输入</td><td>Director 输出的 <code>action_list</code>，包括 tool_name 和 params。</td></tr>
+          <tr><td>处理</td><td>执行车控、导航、POI、媒体、记忆、视觉、行程、目标等具体能力；区分可并行和串行依赖。</td></tr>
+          <tr><td>输出</td><td><code>tool_feedback</code>，可能是成功、失败、候选列表、执行结果、查询内容。</td></tr>
+          <tr><td>原理</td><td>大模型不直接操作车辆，而是通过工具把自然语言决策落到业务系统。</td></tr>
+        </table>
+        <div class="why">为什么存在：把“想做什么”变成真实动作，同时通过 feedback 支持 ReAct 二次推理。</div>
+        <div class="risk">优化/排查：工具调错看 tool 描述；串并行错看依赖规则；失败处理差看 feedback 是否结构化、Director 是否 replan。</div>
+      </div>
+
+      <div class="node-detail" id="n-goal">
+        <h3>节点 6：goal list 目标账本</h3>
+        <div class="node-grid">
+          <div class="mini-flow">
+            <svg viewBox="0 0 620 150"><defs><marker id="nf1" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#94a3b8"/></marker></defs>
+              <rect x="20" y="48" width="120" height="54" rx="8" fill="rgba(30,64,175,.32)" stroke="#60a5fa"/><text x="80" y="72" fill="#e8eef9" text-anchor="middle">Director</text><text x="80" y="91" fill="#9fb0c7" font-size="12" text-anchor="middle">add/delete</text>
+              <rect x="190" y="28" width="170" height="94" rx="8" fill="rgba(76,29,149,.30)" stroke="#a78bfa"/><text x="275" y="56" fill="#e8eef9" text-anchor="middle">goal list</text><text x="275" y="76" fill="#9fb0c7" font-size="12" text-anchor="middle">目标/状态/进展</text><text x="275" y="96" fill="#9fb0c7" font-size="12" text-anchor="middle">共享看板</text>
+              <rect x="410" y="28" width="170" height="44" rx="8" fill="rgba(76,29,149,.25)" stroke="#a78bfa"/><text x="495" y="56" fill="#e8eef9" text-anchor="middle">advisor 更新进展</text>
+              <rect x="410" y="90" width="170" height="44" rx="8" fill="rgba(8,47,73,.45)" stroke="#22d3ee"/><text x="495" y="118" fill="#e8eef9" text-anchor="middle">HMI 目标卡片</text>
+              <path d="M140 75 L190 75" stroke="#94a3b8" fill="none" marker-end="url(#nf1)"/><path d="M360 61 L410 50" stroke="#a78bfa" fill="none" marker-end="url(#nf1)"/><path d="M360 90 L410 112" stroke="#22d3ee" fill="none" marker-end="url(#nf1)"/>
+            </svg>
+          </div>
+          <div class="mini-flow">
+            <svg viewBox="0 0 620 150"><defs><marker id="nf2" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#94a3b8"/></marker></defs>
+              <rect x="20" y="36" width="100" height="76" rx="8" fill="rgba(8,47,73,.40)" stroke="#22d3ee"/><text x="70" y="66" fill="#e8eef9" text-anchor="middle">目标识别</text><text x="70" y="86" fill="#9fb0c7" font-size="12" text-anchor="middle">持续/长步骤</text>
+              <rect x="155" y="36" width="100" height="76" rx="8" fill="rgba(120,53,15,.30)" stroke="#fbbf24"/><text x="205" y="66" fill="#e8eef9" text-anchor="middle">去重匹配</text><text x="205" y="86" fill="#9fb0c7" font-size="12" text-anchor="middle">已有/相似</text>
+              <rect x="290" y="36" width="100" height="76" rx="8" fill="rgba(76,29,149,.30)" stroke="#a78bfa"/><text x="340" y="66" fill="#e8eef9" text-anchor="middle">增删目标</text><text x="340" y="86" fill="#9fb0c7" font-size="12" text-anchor="middle">add/delete</text>
+              <rect x="425" y="36" width="150" height="76" rx="8" fill="rgba(76,29,149,.25)" stroke="#a78bfa"/><text x="500" y="66" fill="#e8eef9" text-anchor="middle">advisor 跟进</text><text x="500" y="86" fill="#9fb0c7" font-size="12" text-anchor="middle">更新细节进展</text>
+              <path d="M120 74 L155 74" stroke="#94a3b8" fill="none" marker-end="url(#nf2)"/><path d="M255 74 L290 74" stroke="#94a3b8" fill="none" marker-end="url(#nf2)"/><path d="M390 74 L425 74" stroke="#94a3b8" fill="none" marker-end="url(#nf2)"/>
+            </svg>
+          </div>
+        </div>
+        <div class="explain">
+          <p><b>这两张图怎么读：</b>goal list 不是普通上下文文本，而是“系统正在替用户管理的目标账本”。左图里 Director 只负责 add/delete，advisor 负责更新进展，HMI 负责把目标展示出来。这个写权限划分非常重要。</p>
+          <p>右图讲的是目标创建的内部逻辑：先识别这是不是持续目标，再和已有 goal 去重匹配，再决定新增或删除。不能用户一说“继续看着点”就新增一个目标，否则 goal list 会越来越脏，后续 advisor 会重复触发。</p>
+          <p>它最关键的价值是“恢复”。如果用户中途打断、过了几分钟再问“刚才那个还在吗”，Director 可以从 goal_list 里知道当前有哪些目标还在进行，而不是靠对话历史硬猜。</p>
+          <p class="example"><b>例子：</b>用户说“沿途给我介绍风景”，Director 调 <code>goal_list_update add_goal</code>；后来用户说“后面不用讲了”，Director 删除“沿途风景讲解”这个目标，但不应该删除“后排乘客休息中，保持安静”这个另一个目标。</p>
+        </div>
+        <table class="matrix"><tr><th>维度</th><th>详细讲解</th></tr>
+          <tr><td>输入</td><td>Director 的 <code>goal_list_update</code> add/delete、advisor 的进展更新、用户的取消/修改表达。</td></tr>
+          <tr><td>处理</td><td>保存目标内容、目标状态、目标细节和进展；作为 Director、advisor、HMI 的共享状态。</td></tr>
+          <tr><td>输出</td><td>当前目标队列，进入 SP 的 <code>goal_list</code> 字段，也用于 HMI 展示。</td></tr>
+          <tr><td>原理</td><td>goal list 是“长期任务的账本”。Director 管增删，advisor 管细节和进展，避免写冲突。</td></tr>
+        </table>
+        <div class="why">为什么存在：没有 goal list，系统只能单轮响应，无法持续跟踪、恢复、取消和展示目标。</div>
+        <div class="risk">优化/排查：重复创建看去重；目标忘记看是否写入；取消失败看 delete_goal；进展错看 advisor 写回。</div>
+      </div>
+
+      <div class="node-detail" id="n-advisor">
+        <h3>节点 7：advisor / 订阅</h3>
+        <div class="node-grid">
+          <div class="mini-flow">
+            <svg viewBox="0 0 620 150"><defs><marker id="ng1" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#94a3b8"/></marker></defs>
+              <rect x="20" y="48" width="110" height="54" rx="8" fill="rgba(76,29,149,.30)" stroke="#a78bfa"/><text x="75" y="80" fill="#e8eef9" text-anchor="middle">goal</text>
+              <rect x="175" y="18" width="120" height="44" rx="8" fill="rgba(76,29,149,.30)" stroke="#a78bfa"/><text x="235" y="46" fill="#e8eef9" text-anchor="middle">dynamic advisor</text>
+              <rect x="175" y="88" width="120" height="44" rx="8" fill="rgba(120,53,15,.30)" stroke="#fbbf24"/><text x="235" y="116" fill="#e8eef9" text-anchor="middle">静态 advisor</text>
+              <rect x="345" y="48" width="120" height="54" rx="8" fill="rgba(120,53,15,.30)" stroke="#fbbf24"/><text x="405" y="72" fill="#e8eef9" text-anchor="middle">订阅模块</text><text x="405" y="91" fill="#9fb0c7" font-size="12" text-anchor="middle">感知/条件/定时</text>
+              <rect x="510" y="48" width="90" height="54" rx="8" fill="rgba(30,64,175,.32)" stroke="#60a5fa"/><text x="555" y="80" fill="#e8eef9" text-anchor="middle">Director</text>
+              <path d="M130 75 C150 75 150 40 175 40" stroke="#94a3b8" fill="none" marker-end="url(#ng1)"/><path d="M130 75 C150 75 150 110 175 110" stroke="#94a3b8" fill="none" marker-end="url(#ng1)"/><path d="M295 40 L345 65" stroke="#94a3b8" fill="none" marker-end="url(#ng1)"/><path d="M295 110 L345 86" stroke="#94a3b8" fill="none" marker-end="url(#ng1)"/><path d="M465 75 L510 75" stroke="#94a3b8" fill="none" marker-end="url(#ng1)"/>
+            </svg>
+          </div>
+          <div class="mini-flow">
+            <svg viewBox="0 0 620 150"><defs><marker id="ng2" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#94a3b8"/></marker></defs>
+              <rect x="18" y="36" width="90" height="76" rx="8" fill="rgba(76,29,149,.30)" stroke="#a78bfa"/><text x="63" y="66" fill="#e8eef9" text-anchor="middle">读目标</text><text x="63" y="86" fill="#9fb0c7" font-size="12" text-anchor="middle">goal list</text>
+              <rect x="140" y="36" width="90" height="76" rx="8" fill="rgba(120,53,15,.30)" stroke="#fbbf24"/><text x="185" y="66" fill="#e8eef9" text-anchor="middle">订阅信号</text><text x="185" y="86" fill="#9fb0c7" font-size="12" text-anchor="middle">感知/时间</text>
+              <rect x="262" y="36" width="90" height="76" rx="8" fill="rgba(6,78,59,.30)" stroke="#34d399"/><text x="307" y="66" fill="#e8eef9" text-anchor="middle">触发</text><text x="307" y="86" fill="#9fb0c7" font-size="12" text-anchor="middle">事件到来</text>
+              <rect x="384" y="36" width="90" height="76" rx="8" fill="rgba(30,64,175,.30)" stroke="#60a5fa"/><text x="429" y="66" fill="#e8eef9" text-anchor="middle">建议</text><text x="429" y="86" fill="#9fb0c7" font-size="12" text-anchor="middle">advisor input</text>
+              <rect x="506" y="36" width="90" height="76" rx="8" fill="rgba(76,29,149,.25)" stroke="#a78bfa"/><text x="551" y="66" fill="#e8eef9" text-anchor="middle">更新进展</text><text x="551" y="86" fill="#9fb0c7" font-size="12" text-anchor="middle">goal</text>
+              <path d="M108 74 L140 74" stroke="#94a3b8" fill="none" marker-end="url(#ng2)"/><path d="M230 74 L262 74" stroke="#94a3b8" fill="none" marker-end="url(#ng2)"/><path d="M352 74 L384 74" stroke="#94a3b8" fill="none" marker-end="url(#ng2)"/><path d="M474 74 L506 74" stroke="#94a3b8" fill="none" marker-end="url(#ng2)"/>
+            </svg>
+          </div>
+        </div>
+        <div class="explain">
+          <p><b>这两张图怎么读：</b>advisor 是持续目标的“后台负责人”。左图里 goal 会派生出 dynamic advisor，也可能被静态 advisor 关注；advisor 再通过订阅模块连接未来事件。也就是说，Director 创建目标之后，不是自己一直盯，而是把后续跟进交给 advisor。</p>
+          <p>右图是 advisor 的运行循环：读 goal list，决定需要订阅哪些信号，等待感知/条件/定时触发，触发后生成 advisor input 给 Director，必要时更新目标进展。advisor input 进入 Director 时，SP 明确提醒“这不是用户说的话”，所以 Director 不应该像回应用户一样回应 advisor。</p>
+          <p class="example"><b>例子：</b>“照顾后排宝宝”创建目标后，动态 advisor 可能订阅后排视觉状态。未来检测到宝宝睡着，advisor 给 Director 建议“降低后排风量、轻声提醒”。Director 再决定是否说话、是否调车控、是否更新用户可见状态。</p>
+        </div>
+        <table class="matrix"><tr><th>维度</th><th>详细讲解</th></tr>
+          <tr><td>输入</td><td>goal list、公共 context、感知信号、条件触发、定时器、用户取消/修改。</td></tr>
+          <tr><td>处理</td><td>静态 advisor 关注固定方向，动态 advisor 承接新目标；订阅模块负责未来唤醒。</td></tr>
+          <tr><td>输出</td><td>advisor 建议输入给 Director，或更新 goal 的细节和进展。</td></tr>
+          <tr><td>原理</td><td>把持续任务从 Director 单线程中拆出去，形成多线程目标跟踪。</td></tr>
+        </table>
+        <div class="why">为什么存在：持续目标不能靠用户每次开口，也不能让 Director 一直盯；advisor 是目标的后台负责人。</div>
+        <div class="risk">优化/排查：不触发看订阅；乱触发看条件/频控；目标进展错看 goal reviewer；主动服务打扰看排队策略。</div>
+      </div>
+
+      <div class="node-detail" id="n-context">
+        <h3>节点 8：公共 Context 服务</h3>
+        <div class="node-grid">
+          <div class="mini-flow">
+            <svg viewBox="0 0 620 150"><defs><marker id="nh1" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#94a3b8"/></marker></defs>
+              <rect x="18" y="25" width="100" height="44" rx="8" fill="rgba(8,47,73,.42)" stroke="#22d3ee"/><text x="68" y="53" fill="#e8eef9" text-anchor="middle">端状态</text>
+              <rect x="18" y="86" width="100" height="44" rx="8" fill="rgba(8,47,73,.42)" stroke="#22d3ee"/><text x="68" y="114" fill="#e8eef9" text-anchor="middle">视觉/记忆</text>
+              <rect x="170" y="48" width="140" height="54" rx="8" fill="rgba(120,53,15,.30)" stroke="#fbbf24"/><text x="240" y="72" fill="#e8eef9" text-anchor="middle">预处理</text><text x="240" y="91" fill="#9fb0c7" font-size="12" text-anchor="middle">压缩/打标/过滤</text>
+              <rect x="365" y="48" width="100" height="54" rx="8" fill="rgba(120,53,15,.28)" stroke="#fbbf24"/><text x="415" y="80" fill="#e8eef9" text-anchor="middle">Context</text>
+              <rect x="515" y="48" width="86" height="54" rx="8" fill="rgba(30,64,175,.32)" stroke="#60a5fa"/><text x="558" y="80" fill="#e8eef9" text-anchor="middle">Director</text>
+              <path d="M118 47 L170 65" stroke="#94a3b8" fill="none" marker-end="url(#nh1)"/><path d="M118 108 L170 86" stroke="#94a3b8" fill="none" marker-end="url(#nh1)"/><path d="M310 75 L365 75" stroke="#94a3b8" fill="none" marker-end="url(#nh1)"/><path d="M465 75 L515 75" stroke="#94a3b8" fill="none" marker-end="url(#nh1)"/>
+            </svg>
+          </div>
+          <div class="mini-flow">
+            <svg viewBox="0 0 620 150"><defs><marker id="nh2" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#94a3b8"/></marker></defs>
+              <rect x="18" y="36" width="100" height="76" rx="8" fill="rgba(8,47,73,.40)" stroke="#22d3ee"/><text x="68" y="66" fill="#e8eef9" text-anchor="middle">收集</text><text x="68" y="86" fill="#9fb0c7" font-size="12" text-anchor="middle">多源状态</text>
+              <rect x="152" y="36" width="100" height="76" rx="8" fill="rgba(120,53,15,.30)" stroke="#fbbf24"/><text x="202" y="66" fill="#e8eef9" text-anchor="middle">结构化</text><text x="202" y="86" fill="#9fb0c7" font-size="12" text-anchor="middle">分类/时间戳</text>
+              <rect x="286" y="36" width="100" height="76" rx="8" fill="rgba(120,53,15,.25)" stroke="#fbbf24"/><text x="336" y="66" fill="#e8eef9" text-anchor="middle">过滤</text><text x="336" y="86" fill="#9fb0c7" font-size="12" text-anchor="middle">按场景人物</text>
+              <rect x="420" y="36" width="150" height="76" rx="8" fill="rgba(30,64,175,.30)" stroke="#60a5fa"/><text x="495" y="66" fill="#e8eef9" text-anchor="middle">注入/查询</text><text x="495" y="86" fill="#9fb0c7" font-size="12" text-anchor="middle">Director/advisor</text>
+              <path d="M118 74 L152 74" stroke="#94a3b8" fill="none" marker-end="url(#nh2)"/><path d="M252 74 L286 74" stroke="#94a3b8" fill="none" marker-end="url(#nh2)"/><path d="M386 74 L420 74" stroke="#94a3b8" fill="none" marker-end="url(#nh2)"/>
+            </svg>
+          </div>
+        </div>
+        <div class="explain">
+          <p><b>这两张图怎么读：</b>公共 Context 是全系统共享的“现场记忆”。左图里的端状态、视觉、用户记忆不是直接全塞进 Director，而是先经过预处理，再形成可注入、可查询的 context。这样做是为了减少 token 和噪音。</p>
+          <p>右图讲的是 Context 的工程流程：先从多源收集，再结构化、打时间戳、分类，再按场景/人物/任务过滤，最后注入给 Director 或 advisor。它不是一个静态大文本，而是一个会随环境变化不断更新的状态服务。</p>
+          <p>理解 Context 的关键是：它决定模型“看见什么”。很多坏 case 表面上是模型推理错，其实是 Context 没给对信息，或者给了过期/无关的信息。</p>
+          <p class="example"><b>例子：</b>用户问“现在车里热吗？”如果 <code>env_info</code> 已经有“车内 35 度，空调关闭”，Director 可以直接参考，不必调用车辆状态查询；如果 context 没有温度，才需要调用 <code>search_vehicle_status_info</code>。</p>
+        </div>
+        <table class="matrix"><tr><th>维度</th><th>详细讲解</th></tr>
+          <tr><td>输入</td><td>车辆状态、舱内外视觉、用户记忆、事件日志、屏幕信息、任务历史、工具结果。</td></tr>
+          <tr><td>处理</td><td>统一存储、压缩总结、打标分类、提前过滤，按场景/人物/任务给模型注入。</td></tr>
+          <tr><td>输出</td><td>给 Director 和 advisor 的上下文片段，或 SP 输入里的 <code>env_info</code> / 记忆 / 视觉信息。</td></tr>
+          <tr><td>原理</td><td>模型不应每轮全量读世界，只应读和当前任务相关的现场。</td></tr>
+        </table>
+        <div class="why">为什么存在：解决情景割裂，让系统知道车内外、用户、目标和历史发生了什么。</div>
+        <div class="risk">优化/排查：信息缺失看过滤；幻觉看 context 来源/时效；时延高看是否全量注入和现查现拼。</div>
+      </div>
+
+      <div class="node-detail" id="n-hmi">
+        <h3>节点 9：HMI / TTS / emoji / 交互治理</h3>
+        <div class="node-grid">
+          <div class="mini-flow">
+            <svg viewBox="0 0 620 150"><defs><marker id="ni1" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#94a3b8"/></marker></defs>
+              <rect x="18" y="36" width="130" height="76" rx="8" fill="rgba(30,64,175,.32)" stroke="#60a5fa"/><text x="83" y="66" fill="#e8eef9" text-anchor="middle">Director JSON</text><text x="83" y="86" fill="#9fb0c7" font-size="12" text-anchor="middle">talk/emoji/action</text>
+              <rect x="190" y="22" width="110" height="44" rx="8" fill="rgba(8,47,73,.42)" stroke="#22d3ee"/><text x="245" y="50" fill="#e8eef9" text-anchor="middle">TTS 播报</text>
+              <rect x="190" y="84" width="110" height="44" rx="8" fill="rgba(8,47,73,.42)" stroke="#22d3ee"/><text x="245" y="112" fill="#e8eef9" text-anchor="middle">HMI 卡片</text>
+              <rect x="340" y="36" width="110" height="76" rx="8" fill="rgba(120,53,15,.30)" stroke="#fbbf24"/><text x="395" y="66" fill="#e8eef9" text-anchor="middle">交互治理</text><text x="395" y="86" fill="#9fb0c7" font-size="12" text-anchor="middle">打断/排队</text>
+              <rect x="495" y="36" width="95" height="76" rx="8" fill="rgba(8,47,73,.55)" stroke="#22d3ee"/><text x="542" y="66" fill="#e8eef9" text-anchor="middle">用户感知</text><text x="542" y="86" fill="#9fb0c7" font-size="12" text-anchor="middle">听/看/操作</text>
+              <path d="M148 74 L190 44" stroke="#94a3b8" fill="none" marker-end="url(#ni1)"/><path d="M148 74 L190 106" stroke="#94a3b8" fill="none" marker-end="url(#ni1)"/><path d="M300 44 L340 65" stroke="#94a3b8" fill="none" marker-end="url(#ni1)"/><path d="M300 106 L340 86" stroke="#94a3b8" fill="none" marker-end="url(#ni1)"/><path d="M450 74 L495 74" stroke="#94a3b8" fill="none" marker-end="url(#ni1)"/>
+            </svg>
+          </div>
+          <div class="mini-flow">
+            <svg viewBox="0 0 620 150"><defs><marker id="ni2" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#94a3b8"/></marker></defs>
+              <rect x="18" y="36" width="110" height="76" rx="8" fill="rgba(8,47,73,.40)" stroke="#22d3ee"/><text x="73" y="66" fill="#e8eef9" text-anchor="middle">是否说话</text><text x="73" y="86" fill="#9fb0c7" font-size="12" text-anchor="middle">talk_or_not</text>
+              <rect x="160" y="36" width="110" height="76" rx="8" fill="rgba(120,53,15,.30)" stroke="#fbbf24"/><text x="215" y="66" fill="#e8eef9" text-anchor="middle">是否打断</text><text x="215" y="86" fill="#9fb0c7" font-size="12" text-anchor="middle">P0/P1</text>
+              <rect x="302" y="36" width="110" height="76" rx="8" fill="rgba(30,64,175,.30)" stroke="#60a5fa"/><text x="357" y="66" fill="#e8eef9" text-anchor="middle">合并/排队</text><text x="357" y="86" fill="#9fb0c7" font-size="12" text-anchor="middle">首token前后</text>
+              <rect x="444" y="36" width="130" height="76" rx="8" fill="rgba(8,47,73,.45)" stroke="#22d3ee"/><text x="509" y="66" fill="#e8eef9" text-anchor="middle">播报/卡片</text><text x="509" y="86" fill="#9fb0c7" font-size="12" text-anchor="middle">少打扰</text>
+              <path d="M128 74 L160 74" stroke="#94a3b8" fill="none" marker-end="url(#ni2)"/><path d="M270 74 L302 74" stroke="#94a3b8" fill="none" marker-end="url(#ni2)"/><path d="M412 74 L444 74" stroke="#94a3b8" fill="none" marker-end="url(#ni2)"/>
+            </svg>
+          </div>
+        </div>
+        <div class="explain">
+          <p><b>这两张图怎么读：</b>HMI/TTS/emoji 不是“最后播一下”的简单尾巴，而是用户真正感知系统是否聪明的地方。左图里 Director JSON 会拆成 TTS、HMI 卡片和交互治理：说话、展示、打断、排队都在这里发生。</p>
+          <p>右图讲的是交互治理的判断顺序：先看本轮需不需要说话，再看有没有打断当前播报，再决定合并还是排队。车里只有一条语音通道，用户主动说话优先级最高，advisor 建议和条件任务不能随便抢话。</p>
+          <p>SP 里的 <code>talk_or_not</code> 很关键。很多工具成功后用户能直接感知，比如音乐已经响了、空调已经开了，就不需要再说“已为你打开”。这不是偷懒，而是让语音助手更像人。</p>
+          <p class="example"><b>例子：</b>用户说“暂停音乐”，工具成功后音乐停了，最佳输出可能是 <code>talk_or_not=no</code>；但如果用户问“为什么没声音了”，就需要解释。是否说话取决于用户是否需要反馈，而不是工具有没有返回成功。</p>
+        </div>
+        <table class="matrix"><tr><th>维度</th><th>详细讲解</th></tr>
+          <tr><td>输入</td><td>DirectorDecision、goal list、工具结果、用户新 query、advisor 主动建议。</td></tr>
+          <tr><td>处理</td><td>决定是否播报、是否展示卡片、emoji 如何变化、是否打断/合并/排队/静默。</td></tr>
+          <tr><td>输出</td><td>用户听到的话、看到的卡片、感知到的动作反馈和目标状态。</td></tr>
+          <tr><td>原理</td><td>车内是单通路语音场景，用户主动输入优先，主动服务必须低打扰。</td></tr>
+        </table>
+        <div class="why">为什么存在：后台做对不等于体验好，必须把动作和状态转换成用户能理解、能控制的反馈。</div>
+        <div class="risk">优化/排查：废话多看静默规则；打断乱看 P0/P1；目标不可见看 HMI 卡片；首 token 慢看铺垫话术。</div>
+      </div>
+
+      <div class="node-detail" id="n-feedback">
+        <h3>节点 10：tool_feedback / advisor feedback 反馈回路</h3>
+        <div class="node-grid">
+          <div class="mini-flow">
+            <svg viewBox="0 0 620 150"><defs><marker id="nj1" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#94a3b8"/></marker></defs>
+              <rect x="30" y="45" width="120" height="60" rx="8" fill="rgba(6,78,59,.35)" stroke="#34d399"/><text x="90" y="70" fill="#e8eef9" text-anchor="middle">工具结果</text><text x="90" y="89" fill="#9fb0c7" font-size="12" text-anchor="middle">成功/失败/候选</text>
+              <rect x="195" y="45" width="120" height="60" rx="8" fill="rgba(76,29,149,.30)" stroke="#a78bfa"/><text x="255" y="70" fill="#e8eef9" text-anchor="middle">advisor建议</text><text x="255" y="89" fill="#9fb0c7" font-size="12" text-anchor="middle">目标推进</text>
+              <rect x="360" y="45" width="120" height="60" rx="8" fill="rgba(30,64,175,.32)" stroke="#60a5fa"/><text x="420" y="70" fill="#e8eef9" text-anchor="middle">Director</text><text x="420" y="89" fill="#9fb0c7" font-size="12" text-anchor="middle">二次推理</text>
+              <rect x="525" y="45" width="70" height="60" rx="8" fill="rgba(8,47,73,.45)" stroke="#22d3ee"/><text x="560" y="80" fill="#e8eef9" text-anchor="middle">继续</text>
+              <path d="M150 75 L360 75" stroke="#94a3b8" fill="none" marker-end="url(#nj1)"/><path d="M315 75 L360 75" stroke="#a78bfa" fill="none" marker-end="url(#nj1)"/><path d="M480 75 L525 75" stroke="#94a3b8" fill="none" marker-end="url(#nj1)"/>
+            </svg>
+          </div>
+          <div class="mini-flow">
+            <svg viewBox="0 0 620 150"><defs><marker id="nj2" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#94a3b8"/></marker></defs>
+              <rect x="18" y="36" width="110" height="76" rx="8" fill="rgba(6,78,59,.35)" stroke="#34d399"/><text x="73" y="66" fill="#e8eef9" text-anchor="middle">成功</text><text x="73" y="86" fill="#9fb0c7" font-size="12" text-anchor="middle">静默/总结</text>
+              <rect x="160" y="36" width="110" height="76" rx="8" fill="rgba(251,113,133,.22)" stroke="#fb7185"/><text x="215" y="66" fill="#e8eef9" text-anchor="middle">失败</text><text x="215" y="86" fill="#9fb0c7" font-size="12" text-anchor="middle">replan/放弃</text>
+              <rect x="302" y="36" width="110" height="76" rx="8" fill="rgba(120,53,15,.30)" stroke="#fbbf24"/><text x="357" y="66" fill="#e8eef9" text-anchor="middle">候选列表</text><text x="357" y="86" fill="#9fb0c7" font-size="12" text-anchor="middle">询问/选择</text>
+              <rect x="444" y="36" width="130" height="76" rx="8" fill="rgba(30,64,175,.30)" stroke="#60a5fa"/><text x="509" y="66" fill="#e8eef9" text-anchor="middle">下一轮 JSON</text><text x="509" y="86" fill="#9fb0c7" font-size="12" text-anchor="middle">说/做/不说</text>
+              <path d="M128 74 L444 74" stroke="#94a3b8" fill="none" marker-end="url(#nj2)"/><path d="M270 74 L444 74" stroke="#94a3b8" fill="none" marker-end="url(#nj2)"/><path d="M412 74 L444 74" stroke="#94a3b8" fill="none" marker-end="url(#nj2)"/>
+            </svg>
+          </div>
+        </div>
+        <div class="explain">
+          <p><b>这两张图怎么读：</b>反馈回路是 Director / Planner 从“一次性判断”升级成“闭环执行”的关键。左图表示两个来源会把系统重新推回 Director：一个是工具返回的 <code>tool_feedback</code>，另一个是 advisor 在目标推进中给出的建议。</p>
+          <p>Director 收到反馈后，不是机械地把结果念给用户，而是重新判断：这个结果用户是否已经能感知？是否还缺一步？是否需要问用户？是否说明任务失败？所以工具返回只是“新证据”，真正决定下一步的仍然是 Director。</p>
+          <p>右图把反馈分成三类：成功、失败、候选列表。成功不一定要说话，比如“音乐已播放”用户自己听得到；失败不一定要道歉，SP 明确要求积极想办法；候选列表通常要把选择权还给用户，比如 POI 返回多个合生汇时，不能直接导航到某一个。</p>
+          <p class="example"><b>例子：</b>用户说“去合生汇”，POI 工具返回“五角场店、虹桥店”。这时 feedback 不是终点，而是二次推理的起点。Director 应输出“有两个合生汇，你要去哪个？”而不是直接调 <code>route_planning_qa</code>。这就是反馈回路避免误执行的价值。</p>
+        </div>
+        <table class="matrix"><tr><th>维度</th><th>详细讲解</th></tr>
+          <tr><td>输入</td><td>工具返回、advisor 建议、订阅触发事件。</td></tr>
+          <tr><td>处理</td><td>Director 判断要静默、总结、继续调用、询问用户、replan 或暂时放弃。</td></tr>
+          <tr><td>输出</td><td>下一轮 DirectorDecision，或者目标进展更新。</td></tr>
+          <tr><td>原理</td><td>反馈回路让系统从“一次性决策”变成“执行后再判断”的闭环。</td></tr>
+        </table>
+        <div class="why">为什么存在：没有 feedback，ReAct 就断了，复杂任务无法根据真实结果继续推进。</div>
+        <div class="risk">优化/排查：工具返回成功但还废话看静默规则；失败不重试看失败处理；候选不问用户看澄清策略。</div>
+      </div>
+
+      <div class="node-detail" id="n-reject">
+        <h3>节点 11：拒识 / 过滤</h3>
+        <div class="node-grid">
+          <div class="mini-flow">
+            <svg viewBox="0 0 620 150"><defs><marker id="nk1" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#94a3b8"/></marker></defs>
+              <rect x="20" y="48" width="100" height="54" rx="8" fill="rgba(8,47,73,.45)" stroke="#22d3ee"/><text x="70" y="80" fill="#e8eef9" text-anchor="middle">query</text>
+              <rect x="160" y="18" width="120" height="44" rx="8" fill="rgba(30,41,59,.55)" stroke="#64748b"/><text x="220" y="46" fill="#e8eef9" text-anchor="middle">端侧拒识</text>
+              <rect x="160" y="88" width="120" height="44" rx="8" fill="rgba(30,41,59,.55)" stroke="#64748b"/><text x="220" y="116" fill="#e8eef9" text-anchor="middle">云侧拒识</text>
+              <rect x="330" y="48" width="120" height="54" rx="8" fill="rgba(30,64,175,.30)" stroke="#60a5fa"/><text x="390" y="80" fill="#e8eef9" text-anchor="middle">Planner内判断</text>
+              <rect x="500" y="48" width="90" height="54" rx="8" fill="rgba(30,41,59,.60)" stroke="#64748b"/><text x="545" y="80" fill="#e8eef9" text-anchor="middle">静默/结束</text>
+              <path d="M120 75 C140 75 140 40 160 40" stroke="#94a3b8" fill="none" marker-end="url(#nk1)"/><path d="M120 75 C140 75 140 110 160 110" stroke="#94a3b8" fill="none" marker-end="url(#nk1)"/><path d="M280 40 L330 65" stroke="#94a3b8" fill="none" marker-end="url(#nk1)"/><path d="M280 110 L330 86" stroke="#94a3b8" fill="none" marker-end="url(#nk1)"/><path d="M450 75 L500 75" stroke="#94a3b8" fill="none" marker-end="url(#nk1)"/>
+            </svg>
+          </div>
+          <div class="mini-flow">
+            <svg viewBox="0 0 620 150"><defs><marker id="nk2" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#94a3b8"/></marker></defs>
+              <rect x="18" y="36" width="110" height="76" rx="8" fill="rgba(30,41,59,.55)" stroke="#64748b"/><text x="73" y="66" fill="#e8eef9" text-anchor="middle">是不是对我说</text>
+              <rect x="160" y="36" width="110" height="76" rx="8" fill="rgba(30,41,59,.55)" stroke="#64748b"/><text x="215" y="66" fill="#e8eef9" text-anchor="middle">是否听懂</text>
+              <rect x="302" y="36" width="110" height="76" rx="8" fill="rgba(30,41,59,.55)" stroke="#64748b"/><text x="357" y="66" fill="#e8eef9" text-anchor="middle">是否安全/品牌</text>
+              <rect x="444" y="36" width="130" height="76" rx="8" fill="rgba(8,47,73,.42)" stroke="#22d3ee"/><text x="509" y="66" fill="#e8eef9" text-anchor="middle">回应/静默/拒识</text>
+              <path d="M128 74 L160 74" stroke="#94a3b8" fill="none" marker-end="url(#nk2)"/><path d="M270 74 L302 74" stroke="#94a3b8" fill="none" marker-end="url(#nk2)"/><path d="M412 74 L444 74" stroke="#94a3b8" fill="none" marker-end="url(#nk2)"/>
+            </svg>
+          </div>
+        </div>
+        <div class="explain">
+          <p><b>这两张图怎么读：</b>拒识 / 过滤不是一个单点模块，而是多层保护。左图表示 query 可能在端侧、云侧、Planner 内部被拦住；右图表示 Planner 内部至少要判断三件事：是不是对我说、我听懂了吗、这个请求是否安全或符合品牌/隐私/能力边界。</p>
+          <p>车载场景比手机助手更需要拒识，因为车里有多人对话、背景噪声、驾驶安全约束。不是每一句被 ASR 转成文字的话都应该进入工具链路，否则就会出现“乘客聊天被助手接话”或“玩笑话触发真实车控”的问题。</p>
+          <p>SP 里已经有一条很重要的规则：如果用户说的话听不懂，或感觉不是对你说的，不需要说话也不用调用工具。产品上这叫“不打扰”，技术上就是把误触发损失挡在最前面。</p>
+          <p class="example"><b>例子：</b>主驾和副驾聊天说“等会儿把窗户关了吧”，如果没有唤醒或没有明确对助手下指令，系统应倾向静默；但如果用户明确说“豆包，关闭所有车窗”，才应该进入车控链路。差别不在字面动作，而在“是否是对助手发出的可执行指令”。</p>
+        </div>
+        <table class="matrix"><tr><th>维度</th><th>详细讲解</th></tr>
+          <tr><td>输入</td><td>所有用户语音，尤其是人人对话、噪声、不完整表达、越权/不可执行请求。</td></tr>
+          <tr><td>处理</td><td>多级判断：端侧、云侧、Planner 内部；SP 也规定听不懂或不是对你说可不说话不调工具。</td></tr>
+          <tr><td>输出</td><td>静默、拒识回应、或继续进入任务链路。</td></tr>
+          <tr><td>原理</td><td>车内场景必须避免“助手乱接话”和“误执行”。</td></tr>
+        </table>
+        <div class="why">为什么存在：不是每句话都应该被 AI 接管，尤其车里多人说话时。</div>
+        <div class="risk">优化/排查：误拒看拒识层级；误唤醒看 ASR/说话人；不该执行却执行看 Planner 内拒识和安全规则。</div>
+      </div>
+
+      <div class="node-detail" id="n-latency">
+        <h3>节点 12：耗时与交互调度控制面</h3>
+        <div class="node-grid">
+          <div class="mini-flow">
+            <svg viewBox="0 0 620 150"><defs><marker id="nl1" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#94a3b8"/></marker></defs>
+              <rect x="18" y="36" width="100" height="76" rx="8" fill="rgba(8,47,73,.42)" stroke="#22d3ee"/><text x="68" y="66" fill="#e8eef9" text-anchor="middle">首token</text><text x="68" y="86" fill="#9fb0c7" font-size="12" text-anchor="middle">≤500/800ms</text>
+              <rect x="152" y="36" width="100" height="76" rx="8" fill="rgba(30,64,175,.30)" stroke="#60a5fa"/><text x="202" y="66" fill="#e8eef9" text-anchor="middle">Planner耗时</text><text x="202" y="86" fill="#9fb0c7" font-size="12" text-anchor="middle">500ms</text>
+              <rect x="286" y="36" width="100" height="76" rx="8" fill="rgba(6,78,59,.35)" stroke="#34d399"/><text x="336" y="66" fill="#e8eef9" text-anchor="middle">工具执行</text><text x="336" y="86" fill="#9fb0c7" font-size="12" text-anchor="middle">并行/串行</text>
+              <rect x="420" y="36" width="150" height="76" rx="8" fill="rgba(120,53,15,.30)" stroke="#fbbf24"/><text x="495" y="66" fill="#e8eef9" text-anchor="middle">打断/合并/排队</text><text x="495" y="86" fill="#9fb0c7" font-size="12" text-anchor="middle">体验调度</text>
+              <path d="M118 74 L152 74" stroke="#94a3b8" fill="none" marker-end="url(#nl1)"/><path d="M252 74 L286 74" stroke="#94a3b8" fill="none" marker-end="url(#nl1)"/><path d="M386 74 L420 74" stroke="#94a3b8" fill="none" marker-end="url(#nl1)"/>
+            </svg>
+          </div>
+          <div class="mini-flow">
+            <svg viewBox="0 0 620 150"><defs><marker id="nl2" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#94a3b8"/></marker></defs>
+              <rect x="18" y="24" width="120" height="44" rx="8" fill="rgba(6,78,59,.35)" stroke="#34d399"/><text x="78" y="52" fill="#e8eef9" text-anchor="middle">快链路</text>
+              <rect x="18" y="88" width="120" height="44" rx="8" fill="rgba(30,64,175,.30)" stroke="#60a5fa"/><text x="78" y="116" fill="#e8eef9" text-anchor="middle">慢思考</text>
+              <rect x="190" y="55" width="130" height="44" rx="8" fill="rgba(120,53,15,.30)" stroke="#fbbf24"/><text x="255" y="83" fill="#e8eef9" text-anchor="middle">前置筛选</text>
+              <rect x="372" y="55" width="190" height="44" rx="8" fill="rgba(8,47,73,.45)" stroke="#22d3ee"/><text x="467" y="83" fill="#e8eef9" text-anchor="middle">更快响应 / 更少打扰</text>
+              <path d="M138 46 L190 68" stroke="#94a3b8" fill="none" marker-end="url(#nl2)"/><path d="M138 110 L190 87" stroke="#94a3b8" fill="none" marker-end="url(#nl2)"/><path d="M320 77 L372 77" stroke="#94a3b8" fill="none" marker-end="url(#nl2)"/>
+            </svg>
+          </div>
+        </div>
+        <div class="explain">
+          <p><b>这两张图怎么读：</b>耗时控制面不是某一个独立工具，而是一组贯穿全链路的工程策略。左图按时间线看：首 token、Planner 推理、工具执行、交互调度，每一段都会影响用户体感；右图按架构策略看：能走快链路就别进慢思考，必须进慢思考时也要先做前置筛选。</p>
+          <p>这里最容易误解的是：耗时优化不是单纯“把模型换快”。Director 当前 SP 很厚，里面有工具注册表、车辆知识、聊天风格、情绪状态机、emoji、few-shot 示例。模型每轮都要在这些材料里找相关规则，所以前置筛选、工具裁剪、Context 裁剪，本质上是在减少模型每次要读的“书”。</p>
+          <p>从产品体验看，复杂任务可以慢一点，但不能让用户不知道系统在干嘛。所以耗时控制分两类：一类是缩短真实计算路径，比如端侧快链路、并行工具、缓存、裁 prompt；另一类是管理等待感，比如先说“我先查一下”，再让长工具异步执行。</p>
+          <p class="example"><b>例子：</b>“空调调到 24 度”应该尽量走端侧快链路，用户几百毫秒内就感知动作；“帮我规划桐庐两日游”必然慢，因为要搜索、整理、保存行程，这时 Director 先给一句“我先搜搜山水古村和农家乐推荐”，再进入工具链路，用户就不会觉得系统卡住。</p>
+        </div>
+        <table class="matrix"><tr><th>维度</th><th>详细讲解</th></tr>
+          <tr><td>输入</td><td>所有链路节点耗时、是否首 token 前、任务优先级、是否用户主动输入。</td></tr>
+          <tr><td>处理</td><td>快慢分流、前置筛选、Context 过滤、并行工具、响应话术按需、打断/合并/排队。</td></tr>
+          <tr><td>输出</td><td>更短首 token、更少无效等待、更清晰的用户反馈。</td></tr>
+          <tr><td>原理</td><td>时延优化不是单点模型加速，而是把耗时从关键路径移走，把复杂任务异步化。</td></tr>
+        </table>
+        <div class="why">为什么存在：车载体验对“快”和“不打扰”都敏感，复杂任务可以慢，但不能让用户空等。</div>
+        <div class="risk">优化/排查：慢先区分首 token 慢、动作完成慢、总结慢；再查 ASR、分流、prompt、context、工具串行。</div>
+      </div>
+    </section>
+
+    <!-- ===================== 00X ===================== -->
+    <section id="t00x">
+      <h2><span class="num">X</span>逐节点深讲义：像讲文章一样把每个节点掰开</h2>
+      <p class="sub">上一章是“图 + 节点卡”。这一章是讲义：每个节点按“它在解决什么问题 → 它吃什么输入 → 它内部怎么判断 → 它吐什么输出 → 坏 case 怎么查 → 架构怎么优化”展开。你可以把这一章当成汇报时的讲稿。</p>
+
+      <div class="deep-lesson" id="x-input">
+        <h3>深讲 1：用户输入 / ASR 不是“把语音转文字”，而是把车内事件变成可推理对象</h3>
+        <p class="lead">如果把 Director 比作大脑，ASR 输入层不是耳朵那么简单，它还要告诉大脑“谁说的、在哪里说的、什么时候说的、说话时车里是什么状态”。没有这些元信息，后面的推理会从第一步就偏。</p>
+        <div class="lesson-grid">
+          <div class="lesson-card"><b>输入到底包含什么</b><ul><li>语音内容，经过 ASR 形成 <code>query</code>。</li><li>说话人名字和位置：<code>speaker_name</code>、<code>speaker_position</code>。</li><li>时间：<code>timestamp</code>，用于时间间隔、久别重逢、任务是否继续。</li><li>上一轮情绪：<code>assistant_emotional_state</code>。</li><li>当前目标和车况：<code>goal_list</code>、<code>env_info</code>。</li></ul></div>
+          <div class="lesson-card"><b>内部真正做的判断</b><ul><li>用户是否说完：VAD 判停影响首 token。</li><li>是不是对助手说：不是所有车内语音都应触发。</li><li>这句话有没有明确执行对象：主驾、副驾、后排含义不同。</li><li>元信息是否足够支撑后续决策。</li></ul></div>
+        </div>
+        <div class="walkthrough"><b>带着例子走一遍：</b>用户说“后面有点热”。如果输入只给 Director 一个 query，它只能猜；如果输入同时给出 speaker_position=二排右、env_info=车内29度、goal_list=后排宝宝休息中，那么 Director 才能判断这是舒适诉求，可能需要调空调或询问是否降低后排风感，而不是泛泛回复“我帮你看看”。</div>
+        <div class="badcase"><b>常见坏 case：</b>用户明明不是对豆包说话，系统却接话；后排乘客说“有点冷”，系统调了主驾温度；用户上一轮刚说“等会继续”，5 分钟后系统完全忘了。这些问题不一定是 Planner 不聪明，很多时候是输入事件缺字段或字段不准。</div>
+        <div class="optimize"><b>优化抓手：</b>输入层要把“说话人、座位、时间、车况、目标队列”当成一等字段，而不是塞进自然语言里。坏 case 排查先看 input JSON 是否完整，再看 Director 输出。</div>
+      </div>
+
+      <div class="deep-lesson" id="x-edge">
+        <h3>深讲 2：端侧快链路是在保护体验，不是为了绕过大模型</h3>
+        <p class="lead">车载助手里有一类请求不值得上云，也不应该等大模型慢慢推理，比如“空调 24 度”“暂停播放”“地图放大”。端侧快链路的核心价值是把高频、确定、低风险任务从慢链路里摘出来。</p>
+        <div class="lesson-grid">
+          <div class="lesson-card"><b>它吃什么输入</b><ul><li>结构化 query 和端状态。</li><li>本地白名单、简单意图规则或轻量模型结果。</li><li>权限和安全约束，例如智驾仅主驾可控、车门不支持语音。</li></ul></div>
+          <div class="lesson-card"><b>它怎么决定是否放行</b><ul><li>能力覆盖：这个功能端侧是否能执行。</li><li>参数明确：有没有可执行参数，例如温度、档位、开关。</li><li>风险可控：不会造成安全/误执行风险。</li><li>置信度足够：不要把“我有点冷”硬当成固定车控。</li></ul></div>
+        </div>
+        <div class="walkthrough"><b>带着例子走一遍：</b>“空调调到 24 度”满足能力、参数、低风险，所以快链路直接调车控；“我有点冷”虽然也可能调空调，但它是体感表达，可能涉及座椅加热、风向、温度、乘客位置，不应草率快解。</div>
+        <div class="badcase"><b>常见坏 case：</b>快链路过宽会误执行，比如用户聊天说“窗户别开太大”被当成指令；快链路过窄会拖慢高频动作，比如每次暂停音乐都上云。两边都影响体验。</div>
+        <div class="optimize"><b>优化抓手：</b>把快链路白名单分成“强确定可执行”和“需要 Planner 解释”的两层。不要只按意图名分流，要按“意图 + 参数完整度 + 安全约束 + 说话场景”一起分流。</div>
+      </div>
+
+      <div class="deep-lesson" id="x-rag">
+        <h3>深讲 3：RAG / 仲裁漏斗是在给 Director 减负，也是在防止知识乱入</h3>
+        <p class="lead">Director 很强，但不能让它处理所有问题。漏斗层的职责是先把能规则化处理的、能知识补全的、能直接执行的任务筛掉，只把真正需要推理和编排的交给 Director。</p>
+        <div class="lesson-grid">
+          <div class="lesson-card"><b>它内部有三种力量</b><ul><li>句法 RAG：处理表达固定、规则明确的单轮任务。</li><li>情景 RAG：补充场景相关知识、工具 tips、车辆知识。</li><li>仲裁模型：决定 directExecute、modelExecute 或进入 Planner。</li></ul></div>
+          <div class="lesson-card"><b>它输出的不是答案，而是路由</b><ul><li>简单明确：直接执行或走轻链路。</li><li>知识型：带着召回材料进入模型。</li><li>复杂多步：进入 Director 做工具编排。</li><li>无关或不该答：进入拒识/过滤。</li></ul></div>
+        </div>
+        <div class="walkthrough"><b>带着例子走一遍：</b>“胎压正常吗”需要车辆状态查询；“胎压报警怎么处理”更像车况维养问答；“去医院顺路找个有充电桩的停车场”是多工具、多约束任务，应交给 Director 编排路线、POI 和可能的询问。</div>
+        <div class="badcase"><b>常见坏 case：</b>RAG 召回太多，Director 被噪音带偏；仲裁太激进，复杂任务被当简单工具执行；仲裁太保守，简单任务都进 Director，耗时上升。</div>
+        <div class="optimize"><b>优化抓手：</b>调 RAG 不只看召回率，还要看“召回材料是否真的进入了正确决策”。最好把分流结果、召回片段、最终工具选择放在同一条 trace 里看。</div>
+      </div>
+
+      <div class="deep-lesson" id="x-director">
+        <h3>深讲 4：Director / Planner 是厚 SP 策略机，不只是意图识别</h3>
+        <p class="lead">当前 Director 的真实形态，是一个由系统提示词驱动的大模型策略机。它同时负责理解用户、选择工具、决定说不说话、选择 emoji、维护情绪、增删目标、处理工具反馈。也就是说，它不是一个“分类器”，而是车载任务操作系统的调度内核。</p>
+        <div class="lesson-grid">
+          <div class="lesson-card"><b>它读什么</b><ul><li>三类触发：<code>user_query</code>、<code>advisor</code>、<code>tool_feedback</code>。</li><li>上下文：goal_list、env_info、记忆、视觉、车辆知识。</li><li>工具注册表：当前 SP 暴露 26 个工具。</li><li>规则：串并行、静默、失败处理、情绪状态机、隐私、提示词保护。</li></ul></div>
+          <div class="lesson-card"><b>它吐什么</b><ul><li><code>talk_or_not</code>：这一轮是否开口。</li><li><code>talk_content</code>：要说什么。</li><li><code>emoji_id</code>：形象动画。</li><li><code>emotional_state_change</code>：情绪是否变化。</li><li><code>action_list</code>：调用哪些工具，参数是什么。</li></ul></div>
+        </div>
+        <div class="walkthrough"><b>带着例子走一遍：</b>用户说“后排乘客都系好安全带了吗”。Director 不能直接回答，因为它不知道视觉结果；它应先说“我看看”，调用 <code>search_visual_info</code>。工具返回“后排左未系，右已系”后，Director 二次推理，输出提醒话术，不再调用工具。这就是 ReAct：想一步、做一步、看结果、再想。</div>
+        <div class="badcase"><b>常见坏 case：</b>工具选错、该并行的串行、该串行的并行、该静默时废话、advisor 输入被当用户输入、tool_feedback 后不继续。这些都属于 Director 策略问题。</div>
+        <div class="optimize"><b>优化抓手：</b>当前 SP 太厚，优化方向是动态裁剪工具、示例、车辆知识和 Context；把高频硬规则结构化外置，减少模型每轮在长 prompt 里“找规则”的成本。</div>
+      </div>
+
+      <div class="deep-lesson" id="x-tools">
+        <h3>深讲 5：工具 / Agent 层是执行边界，工具描述就是 Director 的“法律条文”</h3>
+        <p class="lead">Director 自己不打开空调、不导航、不查天气，它只能产出 action_list。真正做事的是工具层。工具描述写得清不清楚，直接决定 Director 会不会选错工具、传错参数、并行错任务。</p>
+        <div class="lesson-grid">
+          <div class="lesson-card"><b>工具层包含什么</b><ul><li>车控、系统设置、通讯、车辆状态、天气、POI、路线、导航。</li><li>音乐、视频、播客、图片生成。</li><li>记忆、人脸注册、个性化技能、目标管理。</li><li>视觉问答、智驾、氛围灯、车况、用车报告、行程记录。</li></ul></div>
+          <div class="lesson-card"><b>工具调用的核心原则</b><ul><li>无依赖可并行，有依赖必须串行。</li><li>查询类工具返回后通常需要二次推理。</li><li>控制类工具成功且用户可感知时可静默。</li><li>工具能力边界不能脑补，比如车门不支持语音控制。</li></ul></div>
+        </div>
+        <div class="walkthrough"><b>带着例子走一遍：</b>“放点音乐，车里太热了”可以并行调用音乐和车控，因为两者没有依赖；“去虹桥机场 T2，顺路找寿司店”不能简单并行所有动作，因为“顺路”依赖路线，通常要先规划终点路线，再沿途搜 POI。</div>
+        <div class="badcase"><b>常见坏 case：</b>把媒体点播误交给系统设置；把目的地搜索交给导航基础控制；把模糊 POI 直接路线规划；工具失败后重复死循环。</div>
+        <div class="optimize"><b>优化抓手：</b>工具 schema 要写清楚“能做什么、不能做什么、什么时候用、什么时候别用、返回多个候选怎么办”。很多 Planner 坏 case，本质是工具边界写得不够像判例法。</div>
+      </div>
+
+      <div class="deep-lesson" id="x-goal">
+        <h3>深讲 6：goal list 是长期任务账本，不是普通上下文</h3>
+        <p class="lead">即时任务做完就结束；持续任务需要被记住、被展示、被未来事件唤醒。goal list 的价值就是把“用户托付给车的事”放进一个共享账本里，避免 Director 每轮靠对话历史硬记。</p>
+        <div class="lesson-grid">
+          <div class="lesson-card"><b>它记录什么</b><ul><li>目标内容：用户想持续完成什么。</li><li>目标状态：进行中、完成、取消等。</li><li>细节和进展：由对应 advisor 更新。</li><li>HMI 展示信息：用户能看到系统正在帮他盯什么。</li></ul></div>
+          <div class="lesson-card"><b>读写权责</b><ul><li>Director：根据 user query 增删目标。</li><li>advisor：更新目标细节和进展。</li><li>HMI：展示目标状态。</li><li>SP 明确：advisor 输入不使用 goal_list_update 创建目标。</li></ul></div>
+        </div>
+        <div class="walkthrough"><b>带着例子走一遍：</b>用户说“帮我一路介绍沿途风景”。这是持续任务，Director 创建 goal；后续 advisor 根据路线和位置触发介绍。用户说“后面不用讲了”，Director 删除这个目标，但如果同时还有“后排乘客休息中”的目标，不能一起删。</div>
+        <div class="badcase"><b>常见坏 case：</b>目标重复创建；用户补充目标被当成新目标；删除一个目标时误删其他目标；Director 直接更新进展造成和 advisor 冲突。</div>
+        <div class="optimize"><b>优化抓手：</b>goal list 最好结构化，至少要有目标 id、类型、owner、状态、创建来源、最近更新时间。当前文档里细节进展偏自由文本，这会是后续一致性风险。</div>
+      </div>
+
+      <div class="deep-lesson" id="x-advisor">
+        <h3>深讲 7：advisor 是持续任务的后台负责人，Director 不是一直自己盯</h3>
+        <p class="lead">如果让 Director 自己盯所有目标，它会越来越重。advisor 的设计，是把持续目标拆给专门的后台角色：它读 goal list 和 Context，必要时给 Director 发建议，或者更新目标进展。</p>
+        <div class="lesson-grid">
+          <div class="lesson-card"><b>advisor 分两类</b><ul><li>静态 advisor：舒适、出行、情感、内容，长期存在。</li><li>动态 advisor：为动态目标创建，有生命周期。</li><li>goal reviewer：判断目标是否达成或需要推进。</li></ul></div>
+          <div class="lesson-card"><b>它怎么工作</b><ul><li>读取对应目标。</li><li>订阅需要的感知、条件或定时信号。</li><li>在合适时机生成 advisor 输入。</li><li>Director 融合建议后决定是否行动和表达。</li></ul></div>
+        </div>
+        <div class="walkthrough"><b>带着例子走一遍：</b>“照顾后排宝宝”不应该让 Director 每轮都主动问宝宝怎么样，而是由 advisor 订阅视觉/哭闹/睡眠等信号，只有出现需要提醒的情况才生成建议。Director 再判断要不要说话、调空调或提醒用户。</div>
+        <div class="badcase"><b>常见坏 case：</b>advisor 太积极导致打扰；advisor 太保守导致持续目标不推进；多个 advisor 同时建议，抢占语音通道；advisor 建议被 Director 当成用户指令。</div>
+        <div class="optimize"><b>优化抓手：</b>advisor 需要频控、优先级、去重和冲突仲裁。产品上要定义什么叫“值得打扰用户”，技术上要记录 advisor 建议是否被采纳，以及为什么没采纳。</div>
+      </div>
+
+      <div class="deep-lesson" id="x-context">
+        <h3>深讲 8：公共 Context 是共享现场，不是把所有信息都塞进 prompt</h3>
+        <p class="lead">Context 的核心不是“更多信息”，而是“恰好相关的信息”。车载系统有大量状态：车辆、屏幕、视觉、记忆、事件日志、目标队列。如果全部塞给 Director，会慢、贵、吵，还可能泄露隐私。</p>
+        <div class="lesson-grid">
+          <div class="lesson-card"><b>Context 装什么</b><ul><li>端状态：空调、导航、车速、媒体等最新状态。</li><li>情景和视觉：舱内外场景、屏幕信息。</li><li>用户记忆：偏好、关系、历史事件。</li><li>任务状态：goal list 和历史任务。</li><li>工具知识、车辆知识、通用经验。</li></ul></div>
+          <div class="lesson-card"><b>Context 服务做什么</b><ul><li>统一维护和存储。</li><li>压缩总结，减少长上下文。</li><li>打标分类，方便按任务取用。</li><li>提前过滤，减少噪音和隐私风险。</li></ul></div>
+        </div>
+        <div class="walkthrough"><b>带着例子走一遍：</b>用户说“有点闷”。如果 env_info 已经有车内温度、空调状态、空气质量，就不必先查一堆工具；如果没有关键状态，Director 才调用车辆状态查询。Context 做得好，能减少工具调用和模型猜测。</div>
+        <div class="badcase"><b>常见坏 case：</b>状态过旧导致错误动作；无关记忆注入导致模型过度个性化；隐私记忆给错人；视觉信息没有更新却被当实时事实。</div>
+        <div class="optimize"><b>优化抓手：</b>Context 要按场景、人物、任务过滤。优化 Planner 时不要只看模型输出，要同时看“当轮注入了什么 Context、哪些应该注入但没注入、哪些不该注入却注入了”。</div>
+      </div>
+
+      <div class="deep-lesson" id="x-hmi">
+        <h3>深讲 9：HMI / TTS / emoji 是体验出口，不是装饰层</h3>
+        <p class="lead">用户不会感知到内部工具链路，只会感知到系统说了什么、做了什么、有没有打扰、屏幕有没有变化、表情是否合适。所以 HMI/TTS/emoji 是架构闭环的一部分，不是最后的 UI 包装。</p>
+        <div class="lesson-grid">
+          <div class="lesson-card"><b>它接收什么</b><ul><li>Director 输出的 talk、emoji、emotion。</li><li>目标状态和任务进展。</li><li>工具成功/失败状态。</li><li>当前语音通道是否被占用。</li></ul></div>
+          <div class="lesson-card"><b>它决定什么</b><ul><li>是否播报，还是静默。</li><li>是否显示卡片。</li><li>是否打断当前播报。</li><li>多个任务是否合并、排队、丢弃。</li></ul></div>
+        </div>
+        <div class="walkthrough"><b>带着例子走一遍：</b>用户说“暂停音乐”，工具成功后音乐已经停了，最佳体验可能是静默；用户问“为什么没声音了”，就必须解释。是否说话不是由工具是否返回成功决定，而是由用户是否需要反馈决定。</div>
+        <div class="badcase"><b>常见坏 case：</b>每个成功都播报导致烦；advisor 主动服务抢话；目标进行中但 HMI 不展示，用户不知道系统还在盯；emoji 和情绪不匹配，显得割裂。</div>
+        <div class="optimize"><b>优化抓手：</b>建立“可感知成功可静默、不可感知成功要反馈、失败要 replan、候选要询问”的表达策略。HMI 卡片要能承接 goal list，不能只靠语音。</div>
+      </div>
+
+      <div class="deep-lesson" id="x-feedback">
+        <h3>深讲 10：tool_feedback / advisor feedback 是 ReAct 闭环的生命线</h3>
+        <p class="lead">没有反馈回路，Director 只能做一次性计划；有了反馈，它才能根据真实执行结果继续推进、修正、询问或结束。复杂任务的“智能感”很大一部分来自反馈后的二次判断。</p>
+        <div class="lesson-grid">
+          <div class="lesson-card"><b>反馈有哪些</b><ul><li>工具成功：动作完成或查询有结果。</li><li>工具失败：参数不合法、能力不支持、执行失败。</li><li>候选列表：POI、路线、搜索结果。</li><li>advisor 建议：目标推进或主动服务。</li></ul></div>
+          <div class="lesson-card"><b>Director 怎么处理</b><ul><li>成功：静默、总结或进入下一步。</li><li>失败：换方案、询问、重试或暂时放弃。</li><li>候选：让用户选择，不随便代选。</li><li>advisor：融合用户上下文，不当成用户说话。</li></ul></div>
+        </div>
+        <div class="walkthrough"><b>带着例子走一遍：</b>POI 返回两个“合生汇”，Director 应问用户去哪个；路线规划成功后如果用户能在屏幕看到路线，可以不再长篇解释；音乐播放成功后通常可以静默，因为声音就是反馈。</div>
+        <div class="badcase"><b>常见坏 case：</b>工具失败后直接道歉结束；工具返回候选却直接执行第一项；工具成功仍重复播报；advisor 建议与用户当前意图冲突但未仲裁。</div>
+        <div class="optimize"><b>优化抓手：</b>工具返回要结构化标注 success/fail/candidates/need_user_choice。Director 的二次推理 prompt 要强调“反馈只是证据，不是必须播报的话术”。</div>
+      </div>
+
+      <div class="deep-lesson" id="x-reject">
+        <h3>深讲 11：拒识 / 过滤是在保护用户，也是在保护系统边界</h3>
+        <p class="lead">车内不是安静的输入框，用户可能和家人聊天、打电话、唱歌、开玩笑。拒识层的目标不是少服务，而是避免系统在不该介入的时候介入，在不能执行的时候假装能执行。</p>
+        <div class="lesson-grid">
+          <div class="lesson-card"><b>拒识判断什么</b><ul><li>是不是对助手说。</li><li>是否听懂、是否有足够信息。</li><li>是否在工具能力范围内。</li><li>是否涉及安全、隐私、品牌或提示词保护。</li></ul></div>
+          <div class="lesson-card"><b>可能输出什么</b><ul><li>静默：不是对我说或连续重复输入。</li><li>澄清：信息不足。</li><li>拒绝或引导：能力不支持、隐私不允许。</li><li>进入正常链路：确认是有效请求。</li></ul></div>
+        </div>
+        <div class="walkthrough"><b>带着例子走一遍：</b>副驾对主驾说“等会儿窗户关一下”，这可能只是人人对话，不应触发；用户明确说“豆包，关一下副驾窗户”，才是可执行请求。拒识的难点是同样几个字，在不同对话关系里含义不同。</div>
+        <div class="badcase"><b>常见坏 case：</b>助手乱接人人对话；用户问隐私行程，系统直接查；用户问提示词/工具描述，系统泄露；不支持语音的车门/儿童锁被误执行。</div>
+        <div class="optimize"><b>优化抓手：</b>拒识不能只靠关键词，要结合唤醒、说话对象、座位、上下文、能力边界。坏 case 排查时先看“是否应该进入 Planner”，再看 Planner 内部输出。</div>
+      </div>
+
+      <div class="deep-lesson" id="x-latency">
+        <h3>深讲 12：耗时控制面要把“计算慢”和“用户等得烦”分开优化</h3>
+        <p class="lead">车载体验里，慢有两种：一种是真慢，模型和工具耗时长；另一种是体感慢，用户不知道系统是否听懂、是否在做。架构优化要同时处理真实耗时和等待感。</p>
+        <div class="lesson-grid">
+          <div class="lesson-card"><b>真实耗时来自哪里</b><ul><li>ASR/VAD 判停。</li><li>RAG 召回和仲裁。</li><li>Director 厚 SP 推理。</li><li>工具串行执行。</li><li>tool_feedback 后二次推理。</li></ul></div>
+          <div class="lesson-card"><b>等待感来自哪里</b><ul><li>用户说完后没有任何反馈。</li><li>系统先说一大段再执行。</li><li>复杂任务没有阶段性提示。</li><li>多个主动服务抢语音通道。</li></ul></div>
+        </div>
+        <div class="walkthrough"><b>带着例子走一遍：</b>“帮我规划桐庐两日游”不可能像“暂停音乐”一样快。正确体验是先快速确认“我先查查”，然后搜索、整理、保存行程；而不是沉默十几秒后突然给结果。复杂任务可以慢，但要让用户知道系统在推进。</div>
+        <div class="badcase"><b>常见坏 case：</b>首 token 慢；工具串行导致总耗时长；prompt 太胖导致每轮推理慢；静默规则不当导致用户以为没反应；主动服务排队策略不清导致打断乱。</div>
+        <div class="optimize"><b>优化抓手：</b>先把耗时拆成 ASR、分流、RAG、Director、工具、二次推理、TTS 七段，再判断是计算问题还是交互问题。技术上做端侧快链路、prompt 裁剪、Context 裁剪、工具并行；产品上做阶段性话术、HMI 状态和静默策略。</div>
+      </div>
+
+      <div class="key"><b>读完这一章你要形成的底层模型：</b>Director 架构不是“一个大模型接一堆工具”，而是“输入事件结构化 → 快慢分流 → 知识/Context 裁剪 → Director 决策 → 工具执行 → 反馈二次推理 → 目标长期托管 → HMI/TTS 交互治理”。优化也不能只盯模型，要沿着这条链路逐段查。</div>
+    </section>
+
+    <!-- ===================== 00A ===================== -->
+    <section id="t00a">
+      <h2><span class="num">A</span>Advisor 业务逻辑与架构：后台专家系统如何接入 Director</h2>
+      <p class="sub">这一章整合 advisor 文件夹里的 8 份文档：舒适、出行、情感、内容四个静态 advisor，动态 advisor 一期/二期，感知订阅 OnePage、技术设计和流程要点。核心结论：advisor 不是“另一个聊天机器人”，而是后台专家控制面；它不直接面向用户说话，而是把 advice、目标进展、任务卡片、触发事件交给 Director/HMI 承接。</p>
+
+      <div class="key"><b>一句话定义 advisor：</b>advisor 是围绕某类长期目标运行的“后台专家 Agent”。它读 Context、目标、触发事件和历史反馈，判断当前是否值得推进，生成 advice 给 Director；Director 再决定是否说话、是否调用工具、是否展示卡片。advisor 负责“观察和建议”，Director 负责“最终表达和执行”。</div>
+
+      <h3>A.1 Advisor 总骨架：四个静态专家 + 动态任务专家 + 触发订阅</h3>
+      <div class="system-map">
+        <svg viewBox="0 0 1120 520" role="img" aria-label="Advisor architecture map">
+          <defs><marker id="ma" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#94a3b8"/></marker></defs>
+          <g font-family="sans-serif" font-size="12">
+            <rect x="35" y="215" width="130" height="70" rx="9" fill="rgba(8,47,73,.55)" stroke="#22d3ee"/><text x="100" y="242" fill="#e8eef9" text-anchor="middle" font-weight="700">Context / 事件</text><text x="100" y="262" fill="#9fb0c7" text-anchor="middle">视觉/端信号/记忆/世界信息</text>
+
+            <rect x="215" y="40" width="145" height="62" rx="9" fill="rgba(6,78,59,.36)" stroke="#34d399"/><text x="288" y="65" fill="#e8eef9" text-anchor="middle" font-weight="700">舒适 Advisor</text><text x="288" y="84" fill="#9fb0c7" text-anchor="middle">温度/空气/光线/空间</text>
+            <rect x="215" y="145" width="145" height="62" rx="9" fill="rgba(6,78,59,.28)" stroke="#34d399"/><text x="288" y="170" fill="#e8eef9" text-anchor="middle" font-weight="700">出行 Advisor</text><text x="288" y="189" fill="#9fb0c7" text-anchor="middle">目的地/路线/沿途安排</text>
+            <rect x="215" y="250" width="145" height="62" rx="9" fill="rgba(76,29,149,.28)" stroke="#a78bfa"/><text x="288" y="275" fill="#e8eef9" text-anchor="middle" font-weight="700">情感 Advisor</text><text x="288" y="294" fill="#9fb0c7" text-anchor="middle">共情/安抚/子目标</text>
+            <rect x="215" y="355" width="145" height="62" rx="9" fill="rgba(120,53,15,.28)" stroke="#fbbf24"/><text x="288" y="380" fill="#e8eef9" text-anchor="middle" font-weight="700">内容 Advisor</text><text x="288" y="399" fill="#9fb0c7" text-anchor="middle">介入等级/内容提案</text>
+
+            <rect x="420" y="86" width="170" height="132" rx="10" fill="rgba(30,64,175,.28)" stroke="#60a5fa"/><text x="505" y="116" fill="#bfdbfe" text-anchor="middle" font-weight="700">静态 Advisor 层</text><text x="505" y="142" fill="#dbeafe" text-anchor="middle">事件触发</text><text x="505" y="164" fill="#dbeafe" text-anchor="middle">定时 review</text><text x="505" y="186" fill="#dbeafe" text-anchor="middle">目标/子目标维护</text>
+
+            <rect x="420" y="292" width="170" height="132" rx="10" fill="rgba(30,64,175,.28)" stroke="#60a5fa"/><text x="505" y="322" fill="#bfdbfe" text-anchor="middle" font-weight="700">动态 Advisor 层</text><text x="505" y="348" fill="#dbeafe" text-anchor="middle">长时/持续/条件/定时</text><text x="505" y="370" fill="#dbeafe" text-anchor="middle">触发器/定时器/VLM</text><text x="505" y="392" fill="#dbeafe" text-anchor="middle">策略预生成/执行</text>
+
+            <rect x="650" y="80" width="150" height="70" rx="9" fill="rgba(120,53,15,.32)" stroke="#fbbf24"/><text x="725" y="107" fill="#e8eef9" text-anchor="middle" font-weight="700">Goal / 子目标</text><text x="725" y="127" fill="#9fb0c7" text-anchor="middle">状态、进展、删除条件</text>
+            <rect x="650" y="205" width="150" height="70" rx="9" fill="rgba(8,47,73,.45)" stroke="#22d3ee"/><text x="725" y="232" fill="#e8eef9" text-anchor="middle" font-weight="700">Advice</text><text x="725" y="252" fill="#9fb0c7" text-anchor="middle">给 Director 的建议</text>
+            <rect x="650" y="330" width="150" height="70" rx="9" fill="rgba(76,29,149,.30)" stroke="#a78bfa"/><text x="725" y="357" fill="#e8eef9" text-anchor="middle" font-weight="700">Task Card</text><text x="725" y="377" fill="#9fb0c7" text-anchor="middle">任务岛/状态栏/倒计时</text>
+
+            <rect x="865" y="155" width="150" height="94" rx="10" fill="rgba(30,64,175,.34)" stroke="#60a5fa" stroke-width="2"/><text x="940" y="186" fill="#bfdbfe" text-anchor="middle" font-weight="700">Director / Planner</text><text x="940" y="210" fill="#dbeafe" text-anchor="middle">最终仲裁：说/做/静默</text><text x="940" y="230" fill="#dbeafe" text-anchor="middle">tool call / HMI / TTS</text>
+            <rect x="865" y="310" width="150" height="70" rx="9" fill="rgba(6,78,59,.34)" stroke="#34d399"/><text x="940" y="337" fill="#e8eef9" text-anchor="middle" font-weight="700">工具/端侧任务中心</text><text x="940" y="357" fill="#9fb0c7" text-anchor="middle">执行/展示/AI PUSH</text>
+
+            <path d="M165 250 L215 72" stroke="#94a3b8" fill="none" marker-end="url(#ma)"/><path d="M165 250 L215 176" stroke="#94a3b8" fill="none" marker-end="url(#ma)"/><path d="M165 250 L215 281" stroke="#94a3b8" fill="none" marker-end="url(#ma)"/><path d="M165 250 L215 386" stroke="#94a3b8" fill="none" marker-end="url(#ma)"/>
+            <path d="M360 176 L420 150" stroke="#94a3b8" fill="none" marker-end="url(#ma)"/><path d="M360 281 L420 160" stroke="#94a3b8" fill="none" marker-end="url(#ma)"/><path d="M360 386 L420 358" stroke="#94a3b8" fill="none" marker-end="url(#ma)"/>
+            <path d="M590 152 L650 115" stroke="#94a3b8" fill="none" marker-end="url(#ma)"/><path d="M590 152 L650 240" stroke="#94a3b8" fill="none" marker-end="url(#ma)"/><path d="M590 358 L650 365" stroke="#94a3b8" fill="none" marker-end="url(#ma)"/><path d="M800 240 L865 202" stroke="#94a3b8" fill="none" marker-end="url(#ma)"/><path d="M800 365 L865 345" stroke="#94a3b8" fill="none" marker-end="url(#ma)"/>
+            <path d="M1015 202 C1070 202 1070 455 505 455 C250 455 185 320 100 285" stroke="#64748b" stroke-dasharray="6 5" fill="none" marker-end="url(#ma)"/>
+            <text x="785" y="470" fill="#94a3b8">执行反馈/用户反馈/状态回流到 Context，再触发下一轮 review</text>
+          </g>
+        </svg>
+      </div>
+      <div class="note"><b>图解说明：</b>这张图是我根据 advisor 架构图和 8 份 advisor 文档重绘的结构化版本。<span class="tag t-infer">推理</span> 图中的“静态 Advisor 层/动态 Advisor 层”是我为了教学做的归纳；文档明确有四个静态 advisor、动态 advisor 任务类型、goal/advice/task card/Director 承接等内容。</div>
+
+      <h3>A.2 最重要的边界：Director 和 advisor 到底谁负责什么</h3>
+      <table>
+        <tr><th>问题</th><th>Director / Planner</th><th>Advisor</th><th>产品侧理解</th></tr>
+        <tr><td>谁直接面向用户说话</td><td>✅ 最终决定 <code>talk_or_not</code>、<code>talk_content</code>、emoji、工具调用。</td><td>❌ 不直接服务用户；输出 advice 给 Director。</td><td>advisor 像后台专家，Director 像前台主持人。</td></tr>
+        <tr><td>谁判断长期目标是否值得推进</td><td>读取 goal/advice 后做最终仲裁。</td><td>✅ 读取 Context 和目标，判断是否值得推进。</td><td>advisor 负责“该不该提醒”，Director 负责“怎么提醒/要不要打扰”。</td></tr>
+        <tr><td>谁维护目标进展</td><td>动态目标增删、承接用户取消/修改。</td><td>✅ review 目标，更新进展，必要时删除或调整子目标。</td><td>goal 不是聊天历史，是可被后台维护的任务账本。</td></tr>
+        <tr><td>谁调工具</td><td>✅ 通过 action_list 调用工具。</td><td>文档中 advisor 可有工具/Context 查询能力，但面向用户的执行仍由 Director 承接。</td><td>避免后台 advisor 私自执行导致用户不可控。</td></tr>
+        <tr><td>谁处理冲突和语音通道</td><td>✅ 任务交互策略：打断/合并/排队/静默。</td><td>长时任务要考虑推送节奏；条件/定时强制推送保证 Planner 收到。</td><td>advisor 可以“举手”，但能不能插话由 Director/交互治理决定。</td></tr>
+      </table>
+
+      <h3>A.3 四个静态 Advisor：业务目标、触发、输入、输出</h3>
+      <table>
+        <tr><th>Advisor</th><th>核心业务目标</th><th>触发/Review</th><th>输入 Context</th><th>输出给 Director</th><th>产品边界</th></tr>
+        <tr><td><b>舒适</b></td><td>保障车内每个人的舒适：温湿度、空气、空间、光线、声音、乘坐、振动等。</td><td>事件触发；1 分钟内无新事件且有舒适子目标时自动 review。</td><td>视觉描述、端信号、情景记忆、语义记忆、世界信息、人员信息、用户反馈。</td><td>即时舒适建议；舒适子目标，如“极速制冷中”“升温中”。</td><td>不是简单空调控制，而是多乘员、多区域、多因素舒适性推理。</td></tr>
+        <tr><td><b>出行</b></td><td>在安全和效率前提下，让出行省心、省时、省钱、个性化。</td><td>行前/行中事件触发；目的地不变时定时 review；兜风/充电等场景定时触发。</td><td>导航、目的地/途经点、路线、时长、距离、拥堵、世界信息、历史出行偏好。</td><td>目的地/目标预测；路线规划建议；沿途 POI/充电/休息/吃饭建议。</td><td>不是导航工具本身，而是“为什么去、怎么安排一路”的出行专家。</td></tr>
+        <tr><td><b>情感</b></td><td>让用户感知到被关心、被理解、被陪伴。</td><td>事件触发；Waiting 状态且有子目标未完成时 review。</td><td>事件、当前人车环境、感知输入、goals、记忆、疲劳/安全/情绪状态。</td><td>即时情感建议；跨时间追踪的情感子目标；goal_operations。</td><td>子目标必须是情感表达方向，不是具体执行动作；信息不足时不能强行猜。</td></tr>
+        <tr><td><b>内容</b></td><td>成为车内“首席内容建议官”，先判断要不要介入，再决定推荐什么。</td><td>默认不工作；Trigger 唤醒；长时间静默 review；其他 advisor 协同信号。</td><td>时间、天气、剩余行程、道路复杂度、驾驶状态、用户状态、最近内容反馈、偏好记忆。</td><td>介入等级 L0-L3；内容形态、风格、信息密度、标签、AIGC/URL/文本等。</td><td>不是传统推荐列表，而是“场景-用户-内容”的体验提案；高压/争吵/拒绝时 L0 静默。</td></tr>
+      </table>
+
+      <h3>A.4 静态 Advisor 的共同工作流：Trigger 不等于一定要打扰</h3>
+      <div class="io">
+        <div class="in"><h4>共同输入</h4>事件触发、定时 review、目标状态、Context 快照、用户显性/隐性反馈、其他 advisor 协同信号。</div>
+        <div class="out"><h4>共同输出</h4>即时 advice、子目标/目标操作、介入等级、策略参数、任务卡片/状态更新建议，最终给 Director 承接。</div>
+      </div>
+      <ol>
+        <li><b>默认静默</b>：尤其内容 advisor 明确“没有 Trigger，就没有内容”。这说明 advisor 不是常驻刷屏，而是低打扰后台服务。</li>
+        <li><b>Trigger 唤醒</b>：事件、定时 review、目标未完成、其他 advisor 协同信号都可能唤醒。</li>
+        <li><b>Context 汇聚</b>：把视觉、端信号、记忆、世界信息、目标状态拉成当前快照。</li>
+        <li><b>是否值得介入</b>：先判断当前是不是适合建议；复杂驾驶、争吵、用户刚拒绝内容时要降级或静默。</li>
+        <li><b>生成 advice/目标操作</b>：给出即时建议，或新增/修改/删除子目标，或输出内容介入等级。</li>
+        <li><b>分发给 Director</b>：Director 决定是否开口、怎么说、是否调用工具、是否展示卡片。</li>
+        <li><b>反馈回收</b>：用户接受、拒绝、打断、完播、工具结果都会回到 Context，影响下一次 review。</li>
+      </ol>
+      <div class="key"><b>PM 复述版：</b>静态 advisor 像四个后台专家：舒适专家盯体感，出行专家盯路线和目的，情感专家盯情绪和关系，内容专家盯车上时间是否值得被内容填充。它们都不是“看到机会就说”，而是先判断“现在打扰用户是否合适”。</div>
+
+      <h3>A.5 动态 Advisor：承接非即时任务的任务操作系统</h3>
+      <p>动态 advisor 文档把任务分成四类，技术设计里明确编号：<b>1 长时任务、2 持续任务、3 条件任务、4 定时任务</b>。流程要点文档还补充：定时循环任务属于 type=4 + cycle，条件任务可单次/循环。</p>
+      <table>
+        <tr><th>类型</th><th>定义</th><th>典型例子</th><th>触发机制</th><th>上限/约束</th><th>执行特点</th></tr>
+        <tr><td><b>长时任务 type=1</b></td><td>非结构化、过程型、陪伴型，持续一段时间，不依赖固定触发点。</td><td>介绍沿途风景、照顾车上老人/小孩、冥想、陪玩游戏。</td><td>定时 review + Context 查询；可结合 VLM 状态。</td><td>技术设计：长时任务从 1 调整到 2；流程要点提到长时+持续要考虑推送节奏。</td><td>AI 根据状态和历史 QA 推进，二期希望升级为模型生成任务编排脚本。</td></tr>
+        <tr><td><b>持续任务 type=2</b></td><td>主要为 GUI Agent 服务，偏离后拉回，目标是持续推进一个结构化外部任务。</td><td>点咖啡/订座/停车等生态闭环任务。</td><td>GUI 状态、用户响应超时、生态应用 SOP/状态。</td><td>持续任务 1；生态应用类 advisor 存在唯一实例。</td><td>用户长时间不回应时提醒继续，任务卡片实时显示生态状态。</td></tr>
+        <tr><td><b>条件任务 type=3</b></td><td>满足某个条件时触发执行，可单次或循环。</td><td>副驾上车时开玩笑、车速高于 80 提醒、车内温度高于 25 调低空调。</td><td>向触发器模块注册事件；callback 后触发 advisor。</td><td>条件任务上限 6；条件/定时/循环强制推送保证 Planner 收到。</td><td>二期从“触发时推理生成策略”改为“创建后提前生成策略”。</td></tr>
+        <tr><td><b>定时任务 type=4</b></td><td>明确时间点或延迟时间后执行一次；固定间隔则是循环定时。</td><td>5 分钟后关空调；每 10 秒播报比分；明天上午首次上车提醒。</td><td>云端/端侧定时器；VLM 定时会先捞图请求 VLM。</td><td>定时任务 6；VLM 定时 1；超高频循环拒绝；循环最大执行 30 次。</td><td>二期新增端侧定时器和倒计时卡片，弱网/断网仍能 AI PUSH。</td></tr>
+      </table>
+      <div class="note"><b>重要差异：</b>动态 advisor 一期更像“触发后再推理”；二期目标是“创建任务时预生成策略，触发时直接按策略生成 advice 给 Director”，这样能减少触发链路上的一次模型推理耗时。<span class="tag t-prd">PRD原文</span></div>
+
+      <h3>A.6 动态 Advisor 创建链路：从用户一句话到后台任务</h3>
+      <div class="split3">
+        <div><b>1. 用户表达目标</b>例如“5分钟后帮我关闭空调”“如果我低头看手机就提醒我”“帮我照顾一下二排宝宝”。Director 先识别这是非即时任务，不应只当普通聊天。</div>
+        <div><b>2. 任务分类</b>任务分类器输出 type：长时、持续、条件、定时；同时判断是否需要视觉信息、是否循环、执行次数。</div>
+        <div><b>3. 订阅/定时/VLM 改写</b>条件任务注册触发器；定时任务注册定时器；视觉任务把目标改写为 VLM 可判断的 event/state query。</div>
+      </div>
+      <div class="split3">
+        <div><b>4. 目标/卡片创建</b>创建 goal、任务卡片、任务岛/状态栏；二期要求卡片展示具体条件和执行内容，而不是只有简略 widget。</div>
+        <div><b>5. 策略预生成</b>二期中条件任务 advisor 提前生成策略，触发后不再重新从零推理，降低事件触发到 advice 的耗时。</div>
+        <div><b>6. Director 承接</b>任务创建成功/失败要回到 Director 说清楚；触发执行时，advice 发给 Director，由它最终决定说/做/静默。</div>
+      </div>
+      <div class="walkthrough"><b>例子：如果我低头看手机就提醒我。</b>分类为条件任务 type=3；由于依赖视觉，VLM 改写为 event：用户低头看手机；触发器或定时 VLM 监测到事件后，动态 advisor 根据预生成策略生成 advice；Director 再输出提醒话术，必要时 HMI 卡片显示任务状态。</div>
+
+      <h3>A.7 感知订阅：三种触发器怎么选</h3>
+      <table>
+        <tr><th>订阅类型</th><th>适用场景</th><th>文档规则</th><th>例子</th><th>风险</th></tr>
+        <tr><td><b>触发器事件</b></td><td>偏瞬时、需要精准时间点 review 的条件。</td><td>“偏瞬时需要精准时间点 review 的走触发器，此时不配置定时”。</td><td>副驾上车、车速高于 80、接近某 POI、离开某 POI。</td><td>触发器能力不足时无法注册，需要失败提醒或 fallback。</td></tr>
+        <tr><td><b>定时器</b></td><td>不需要精准瞬间，周期性 review 即可。</td><td>其他都走定时；可选 10s/30s/60s 等，特殊情况支持自定义。</td><td>每 5 分钟播报比分、持续检查冥想状态、循环提醒。</td><td>高频循环会打扰且耗资源，二期要求拒绝秒级/超高频。</td></tr>
+        <tr><td><b>VLM 定时</b></td><td>需要视觉判断，但没有端侧事件可直接触发。</td><td>定时触发前捞 VLM；演示 5s，量产 30-60s 或更长；VLM 定时上限 1。</td><td>后排宝宝是否睡着、主驾疲劳、乘客把手伸出窗外。</td><td>VLM 不是端模事件，云对云文本请求，实时性和成本都要控制。</td></tr>
+      </table>
+      <div class="note"><b>触发优先级：</b>流程要点文档写明：订阅事件最高，其次是 QA 结束，其次是定时；高优先级会打断低优先级触发，反之不成立。这个规则是 advisor 和任务调度联动的关键。</div>
+
+      <h3>A.8 二期改造重点：从“能跑”到“产品化长时任务体验”</h3>
+      <table>
+        <tr><th>模块</th><th>一期现状/问题</th><th>二期目标</th><th>对架构的影响</th></tr>
+        <tr><td>长时任务</td><td>少量 query 特调，深入工程链路，泛化差。</td><td>通用、可热更新、插拔式；模型生成可执行任务编排脚本，执行中可重编排。</td><td>动态 advisor 从“case 特调”升级为“任务编排执行器”。</td></tr>
+        <tr><td>导航触发</td><td>具体地点距离感知不足，限制场景。</td><td>支持接近/离开某 POI 的距离触发。</td><td>触发器需要理解 POI 距离，支持快到公司、到外婆家等主动服务。</td></tr>
+        <tr><td>定时任务</td><td>云端定时有延迟，弱网依赖云。</td><td>新增端侧定时器、倒计时小卡、断网 AI PUSH。</td><td>部分任务从云端动态 advisor 下沉到端侧闭环。</td></tr>
+        <tr><td>条件任务体验</td><td>异步创建 5-10s，成功静默，卡片内容太简略。</td><td>创建中中性回应；成功/失败都提醒；卡片展示具体条件和执行内容。</td><td>Director 话术和 HMI 任务卡必须参与创建闭环。</td></tr>
+        <tr><td>执行策略</td><td>触发时再查询全部目标并推理生成 advice。</td><td>创建后提前生成策略，触发时直接按策略给 Director。</td><td>降低触发链路耗时，把模型推理前移。</td></tr>
+        <tr><td>生态闭环</td><td>GUI Agent 长程任务容易被打断后丢失。</td><td>用户 2 分钟无响应提醒继续；生态 SOP/状态实时展示；完成后继续到店/取餐服务。</td><td>advisor 成为生态应用和 Director 之间的长期状态协调器。</td></tr>
+      </table>
+
+      <h3>A.9 四个静态 Advisor 的“业务逻辑深讲”</h3>
+      <div class="deep-lesson">
+        <h3>舒适 Advisor：不是“热了开空调”，而是全员舒适状态管理</h3>
+        <p class="lead">舒适 advisor 的底层问题是：车内舒适不是单变量。温度、风感、空气、光线、噪声、座椅、空间、人员偏好都会互相影响。它的输出不应该只是工具调用，而应该是“当前舒适问题是什么、建议怎么调、是否形成子目标”。</p>
+        <div class="walkthrough"><b>例子：</b>夏季主驾上车，车内 38℃，空调和座椅通风关闭。舒适 advisor 分析为温度舒适不满足，给 Director 建议“快速制冷 + 座椅通风”；如果车内有老人儿童且偏好不同，则要考虑分区、风向避人吹、座椅局部调节，而不是统一调到最低温。</div>
+        <div class="badcase"><b>坏 case：</b>只看车内温度，不看乘员位置和偏好；只调空调，不考虑座椅/车窗/除雾/光线；重复建议用户已经拒绝的舒适动作。</div>
+      </div>
+      <div class="deep-lesson">
+        <h3>出行 Advisor：不是导航，而是出行意图和全程安排预测</h3>
+        <p class="lead">出行 advisor 解决的是“用户为什么出门、可能去哪、一路怎么更省心”。它覆盖行前目的地/目标预测，行中路线规划推荐，沿途充电、吃饭、休息、POI 的统筹建议。</p>
+        <div class="walkthrough"><b>例子：</b>用户周一早上上车，历史上常去公司，但今天日历有医院预约。出行 advisor 不应只按高频目的地预测公司，而要结合日历/时间/历史路径，低置信时主动建议确认。</div>
+        <div class="badcase"><b>坏 case：</b>把出行 advisor 当 POI 搜索；只看导航目的地，不推断用户出行目标；长途中只推荐充电站，不考虑吃饭、休息、排队和天气。</div>
+      </div>
+      <div class="deep-lesson">
+        <h3>情感 Advisor：即时共情 + 跨时间情感子目标</h3>
+        <p class="lead">情感 advisor 的输出分两类：一类是本轮可以立即执行的情感建议，比如安抚、夸赞、调侃、警告；另一类是需要跨时间追踪的情感子目标。文档明确要求子目标不是执行动作，而是情感表达方向，并且要有明确完成/删除条件。</p>
+        <div class="walkthrough"><b>例子：</b>主驾疲劳驾驶时，情感 advisor 应输出安全相关即时建议，并可创建“持续关切主驾疲劳状态”的子目标；如果用户采取有效手段暂时抑制疲劳，则可以结束当前子目标，并说明原因。信息不足时不能强行猜用户情绪。</div>
+        <div class="badcase"><b>坏 case：</b>把“问用户要不要开座椅按摩”当情感子目标；没有座椅占座信息却创建服务对象不明的目标；目标完成后仍输出无意义建议。</div>
+      </div>
+      <div class="deep-lesson">
+        <h3>内容 Advisor：先判断能不能打扰，再判断推荐什么</h3>
+        <p class="lead">内容 advisor 和传统推荐系统的根本区别：它不是“用户喜欢什么就推什么”，而是“当前场景、用户状态、认知负荷适合什么内容体验”。文档里有 L0-L3 介入等级：L0 静默，L1 氛围，L2 碎片，L3 沉浸。</p>
+        <div class="walkthrough"><b>例子：</b>周一早高峰拥堵，用户略疲惫，有商业播客习惯。内容 advisor 不该推 60 分钟深度内容，而应推 3-5 分钟轻量商业故事；如果车内夫妻正在吵架，即便满足触发条件，也应 L0 静默。</div>
+        <div class="badcase"><b>坏 case：</b>一有空档就推荐内容；用户刚关闭内容仍继续推荐；复杂路况下推强叙事内容；忽略上一条内容完播/跳过反馈。</div>
+      </div>
+
+      <h3>A.10 Advisor 链路坏 case 排查：不要一上来就改 prompt</h3>
+      <table>
+        <tr><th>现象</th><th>优先排查</th><th>可能原因</th><th>优化方向</th></tr>
+        <tr><td>advisor 没触发</td><td>触发器/定时器/VLM 订阅是否创建成功；事件是否 callback；任务是否达到上限。</td><td>分类错、订阅没建、触发器能力不支持、任务上限返回 error。</td><td>补任务分类 trace、订阅结果、任务中心状态。</td></tr>
+        <tr><td>触发了但用户没感知</td><td>advice 是否发送给 Director；Director 是否排队/静默；HMI/TTS 是否展示。</td><td>advisor 产生 advice 但 Director 没承接，或交互治理压掉。</td><td>打通 advice id，从 advisor 到 Director 到 HMI 全链路追踪。</td></tr>
+        <tr><td>太打扰</td><td>推送节奏、内容介入等级、长时任务 review 频率、用户负反馈。</td><td>没有先判断“是否适合介入”，Trigger 被误当成必须输出。</td><td>强化 L0 静默、负反馈降级、主动服务频控。</td></tr>
+        <tr><td>任务创建慢</td><td>条件/定时任务异步创建耗时；是否在触发时才推理策略。</td><td>一期流程创建和策略生成都重；条件任务 5-10s。</td><td>二期策略预生成、端侧定时器、创建中中性回应。</td></tr>
+        <tr><td>卡片看不懂</td><td>任务卡是否有具体条件和执行内容。</td><td>一期仅 Widget 内容，缺少“何时触发/做什么”。</td><td>二期卡片字段化：条件字段、执行内容字段、倒计时。</td></tr>
+        <tr><td>目标重复/删错</td><td>goal id、目标语义去重、owner advisor、删除条件。</td><td>新增目标未查 goals；删除条件不明确；即时建议和子目标混淆。</td><td>目标 schema 化，所有 goal_operations 必须带原因。</td></tr>
+      </table>
+
+      <h3>A.11 动态 Advisor 任务创建：每一步到底做什么</h3>
+      <p>动态 advisor 的创建链路不是“Director 判断一下然后建任务”这么简单。文档里实际拆成了多个模型/工程节点：任务分类、VLM 改写、触发器注册、定时器注册、策略生成、任务卡创建、创建结果回传。下面按真实执行顺序拆。</p>
+      <table>
+        <tr><th>步骤</th><th>输入</th><th>内部逻辑</th><th>输出</th><th>失败/分支</th></tr>
+        <tr><td><b>1. Director 初判</b></td><td>用户 query、goal_list、env_info、Context。</td><td>判断是不是非即时任务：是否跨时间、跨条件、需要持续观察、需要 GUI/生态继续推进。</td><td>进入动态 advisor 创建流程，或留在 Director 当场闭环。</td><td>如果是普通即时任务却误进动态 advisor，会造成卡片污染和过度后台化。</td></tr>
+        <tr><td><b>2. 任务分类器</b></td><td>用户目标文本。</td><td>按规则输出 type、vlm_use、cycle、max_execution。长程/GUI 优先级最高；定时优先于条件；条件是否循环由“每次”等表达决定。</td><td><code>{"type":"1|2|3|4","vlm_use":true/false,"cycle":true/false,"max_execution":-1/正整数}</code></td><td>分类错会导致后面订阅方式全错，比如条件任务被当长时任务就不会精准触发。</td></tr>
+        <tr><td><b>3. 上限仲裁</b></td><td>任务类型、当前任务数量。</td><td>检查上限：长时 2、持续 1、定时 6、VLM 定时 1、条件 6。</td><td>允许创建，或返回 error 给 Planner。</td><td>文档明确从“新的挤掉旧的”改成“达到上限直接 error，等待完成或删除后再创建”。</td></tr>
+        <tr><td><b>4. VLM 改写</b></td><td>用户目标 + 是否依赖视觉。</td><td>把自然语言目标改成 VLM 能判断的 <code>event</code> 或 <code>state</code> 查询。</td><td><code>{"type":"event|state","query":"..."}</code>；无法视觉判断则 <code>query="none"</code>。</td><td>如果把 state 误写成 event，会凭空制造触发点；如果把 event 写成 state，会导致触发不及时。</td></tr>
+        <tr><td><b>5. 注册触发/定时</b></td><td>分类结果、VLM query、触发器能力、已有事件库。</td><td>条件任务先查事件库，能 select 就选；不能选再根据触发器能力 create 脚本；定时任务转 APScheduler trigger。</td><td>触发器订阅 id / 定时器 id / VLM 定时配置。</td><td>如果常识判断无法生成合理脚本，要告知不能输出，不能硬造。</td></tr>
+        <tr><td><b>6. 策略生成</b></td><td>目标、触发条件、执行内容、Context 过滤器。</td><td>一期在触发时推理；二期要求创建后提前生成策略，触发时直接按策略生成 advice。</td><td>可执行策略、advice 模板、任务卡字段。</td><td>策略不提前生成，触发时会多一次模型推理，链路变慢。</td></tr>
+        <tr><td><b>7. 任务卡/HMI</b></td><td>目标、条件字段、执行字段、倒计时/状态。</td><td>任务中心显示任务岛、状态栏、小卡；二期要求显示具体条件和执行内容。</td><td>用户可见任务卡。</td><td>只显示简略 widget，用户不知道“什么时候触发、会做什么”。</td></tr>
+        <tr><td><b>8. 创建结果回传</b></td><td>创建成功/失败。</td><td>成功/失败都要给 Director 承接；二期要求成功也提醒。</td><td>成功话术：“将在{具体条件}满足时，做{具体执行项}”。失败话术：“这个条件暂时不支持”。</td><td>成功静默会让用户以为系统没创建；失败不说会导致任务丢失感。</td></tr>
+      </table>
+
+      <h3>A.12 任务分类器规则：不是按关键词，而是按“执行机制”分类</h3>
+      <table>
+        <tr><th>判断顺序</th><th>规则</th><th>例子</th><th>为什么这样分</th></tr>
+        <tr><td><b>1. 是否长程/GUI</b></td><td>只要涉及点单、缴费、订座、外部生态系统能力，归 type=2。</td><td>帮我点杯咖啡到公司；帮我订座。</td><td>这类任务有外部应用状态和用户多轮参与，需要生态闭环 advisor。</td></tr>
+        <tr><td><b>2. 是否明确时间</b></td><td>“X 分钟后”是定时单次；“每隔 X 时间”是定时循环；定时优先级高于条件。</td><td>5 分钟后关空调；每 10 分钟提醒我喝水。</td><td>时间触发有明确调度器，应该注册定时器而不是靠 review 猜。</td></tr>
+        <tr><td><b>3. 是否包含条件表达</b></td><td>出现“如果/当/一旦/检测到…就…”归条件任务；是否循环看“每次”等表达。</td><td>如果我低头看手机就提醒我；每次副驾上车都打招呼。</td><td>条件任务需要等未来事件发生，必须注册触发器或 VLM 检测。</td></tr>
+        <tr><td><b>4. 其他持续过程</b></td><td>非结构化、过程型、陪伴型、持续观察型任务归长时 type=1。</td><td>照顾二排宝宝；介绍沿途风景；比赛开始后播报赛况。</td><td>这类任务不是单次触发，而是要根据状态和上下文持续推进。</td></tr>
+      </table>
+      <div class="note"><b>特殊规则：</b>“比赛开始后每 5 分钟播报”文档归长时任务 type=1，因为本质是过程型陪伴，而不是纯调度任务。这个点很容易和定时循环混淆，实际分类要看业务本质，不只看有没有“每 5 分钟”。</div>
+
+      <h3>A.13 VLM 改写逻辑：event 和 state 绝不能混</h3>
+      <p>VLM 不是让模型“理解用户完整任务”，而是把目标改写成视觉能判断的最小命题。文档明确分为 <b>event</b> 和 <b>state</b>：event 要求 VLM 输出 true/false，state 只描述当前状态，不编造触发事件。</p>
+      <table>
+        <tr><th>类型</th><th>什么时候用</th><th>改写原则</th><th>示例</th></tr>
+        <tr><td><b>event</b></td><td>有明确触发动作，或用户表达“如果/当/一旦/检测到…就…”。</td><td>保留触发语义，输出“语义状态 + 视觉依据”，要求可 true/false 判断。</td><td>“如果我低头看手机就提醒我” → <code>{"type":"event","query":"用户低头看手机"}</code></td></tr>
+        <tr><td><b>event</b></td><td>识别到某个动作/姿态后做事。</td><td>可以用 1-2 个可观测特征有限泛化。</td><td>“识别到我比较累的时候给我放首歌” → 用户处于疲劳状态（如打哈欠或眼睛闭合等明显疲劳表现）。</td></tr>
+        <tr><td><b>state</b></td><td>没有明确触发瞬间，是长期/持续关注目标。</td><td>不要编造触发事件，不扩展应该做什么，只保留对象 + 状态存在性/表现。</td><td>“帮我照顾一下二排的宝宝” → 二排存在宝宝（画面中出现婴儿或儿童）。</td></tr>
+        <tr><td><b>none</b></td><td>无法通过视觉判断。</td><td>输出 query=none，不能硬造视觉依据。</td><td>“提醒我股票涨了就告诉我”不是视觉任务。</td></tr>
+      </table>
+      <div class="badcase"><b>典型错误：</b>把“照顾二排宝宝”改成“宝宝哭闹时触发”，这就是编造触发事件。文档要求 state 型任务只描述“二排存在宝宝/宝宝当前状态”，具体怎么照顾要由后续 advisor review 和 Director 决策，不在 VLM 改写阶段脑补。</div>
+
+      <h3>A.14 条件任务注册：先选已有事件，再创建脚本，不能硬造</h3>
+      <ol>
+        <li><b>输入事件库和触发器能力描述</b>：模型会拿到当前可选择的事件库，以及触发器能支持哪些信号/状态。</li>
+        <li><b>优先 select</b>：如果事件库里已有相关事件，优先选择已有事件，避免重复创建脚本。</li>
+        <li><b>再 create</b>：如果没有现成事件，再根据触发器能力描述生成动态脚本。</li>
+        <li><b>不能生成就失败</b>：当常识判断无法生成合理脚本时，必须告知不能输出，不能为了创建成功而伪造条件。</li>
+        <li><b>callback 触发</b>：条件满足后，触发器 callback 给动态 advisor，advisor 生成 advice 给 Director。</li>
+      </ol>
+      <div class="walkthrough"><b>例子：</b>“车速高于 80 时提醒我慢点开”如果触发器已有车速阈值事件，就 select；如果没有但支持端信号脚本，就 create 脚本；如果用户说“世界毁灭时提醒我”，常识上无法注册合理事件，应失败并让 Director 说明不支持。</div>
+
+      <h3>A.15 定时任务逻辑：云端、端侧、循环、合并、上限</h3>
+      <table>
+        <tr><th>逻辑点</th><th>文档规则</th><th>产品含义</th></tr>
+        <tr><td>定时器类型</td><td>支持 interval、cron、once；无法解析输出 none。</td><td>“5 分钟后”“每天早上”“每隔 10 分钟”底层不是同一种 trigger。</td></tr>
+        <tr><td>VLM 定时</td><td>定时获取图片请求 VLM，VLM 判断事件是否触发，触发后再推理产生 advice。</td><td>视觉状态不能一直算，靠周期检查控制成本。</td></tr>
+        <tr><td>端侧定时器</td><td>二期新增端侧定时器，定时业务逻辑端侧闭环，不完全依赖云端。</td><td>弱网/断网也能 AI PUSH，适合“5 分钟后提醒”。</td></tr>
+        <tr><td>倒计时展示</td><td>任务小卡显示相对时间任务倒计时。</td><td>用户能看到任务在计时，降低“是不是没记住”的不确定感。</td></tr>
+        <tr><td>超高频拒绝</td><td>每隔 5 秒提醒这类超高频循环拒绝创建；最小循环间隔 1 分钟。</td><td>保护用户注意力和系统资源。</td></tr>
+        <tr><td>分钟级合并</td><td>多个提醒任务自动合并到分钟级；不支持 9:01:05 这种秒级播报。</td><td>Director 要明确预期，不承诺秒级精度。</td></tr>
+        <tr><td>最大执行次数</td><td>循环任务最大执行 30 次，超过后提醒用户需要重新创建。</td><td>防止无限循环任务长期污染任务中心。</td></tr>
+      </table>
+
+      <h3>A.16 执行阶段：触发后不是直接说话，而是 advice → Director</h3>
+      <table>
+        <tr><th>任务类型</th><th>触发入口</th><th>执行阶段内部逻辑</th><th>输出到哪里</th></tr>
+        <tr><td>长时任务</td><td>review/事件/Context 变化。</td><td>advisor 根据目标状态、历史 QA、当前 Context 判断是否推进；二期希望由任务编排脚本推进。</td><td>advice 给 Director；任务卡更新。</td></tr>
+        <tr><td>持续/GUI 任务</td><td>GUI 状态变化、用户长时间无响应、生态 SOP 变化。</td><td>不主动推进业务本身，而是在合适时机轻量提醒用户继续参与 GUI 任务。</td><td>advice 给 Director；生态状态进任务中心/Docker。</td></tr>
+        <tr><td>条件任务</td><td>触发器 callback。</td><td>一期：查询目标 + 推理生成 advice；二期：根据提前生成的策略直接生成 advice。</td><td>advice 给 Director。</td></tr>
+        <tr><td>普通定时</td><td>定时器触发。</td><td>直接请求模型给出 advice，可能产生动态 advisor 内容。</td><td>advice 给 Director / AI PUSH。</td></tr>
+        <tr><td>VLM 定时</td><td>定时器触发后取图。</td><td>先让 VLM 输出 true|reason / false|reason；true 才继续推理 advice。</td><td>advice 给 Director。</td></tr>
+      </table>
+      <div class="key"><b>重点：</b>触发不是直接播报，触发只是把“该检查了/条件发生了”送进 advisor。advisor 产出 advice，Director 再做最终用户交互。这是避免后台任务越权说话的关键。</div>
+
+      <h3>A.17 关闭和清理：任务不能只会创建，不会退出</h3>
+      <table>
+        <tr><th>关闭场景</th><th>清理动作</th><th>为什么重要</th></tr>
+        <tr><td>条件任务达到 max_execution 上限</td><td>注销触发器；主动关闭 advisor，reason=执行结束。</td><td>不清理会导致同一条件继续触发。</td></tr>
+        <tr><td>定时任务达到 max_execution 上限</td><td>注销定时器；主动关闭 advisor，reason=执行结束。</td><td>不清理会导致定时器长期空转。</td></tr>
+        <tr><td>用户取消任务</td><td>删除 goal/任务卡，注销对应触发器或定时器。</td><td>只删 HMI 卡不删订阅，会出现“幽灵触发”。</td></tr>
+        <tr><td>目标达成</td><td>advisor review 后更新/删除目标；必要时静默删除。</td><td>情感 advisor 文档明确：目标已完成时仅删除 goal，不输出无执行意义建议。</td></tr>
+        <tr><td>对象离车/情境结束</td><td>删除关联对象的子目标。</td><td>比如乘员离车后继续关心该乘员，会显得系统失真。</td></tr>
+      </table>
+
+      <h3>A.18 条件任务创建交互：二期要讲清楚“条件”和“动作”</h3>
+      <div class="io">
+        <div class="in"><h4>旧流程问题</h4>用户表达条件任务 → 豆包给肯定回复 → 后台异步创建 5-10s → 成功只显示简略 widget 且静默 → 用户不知道任务到底创建没、什么条件触发、会执行什么。</div>
+        <div class="out"><h4>新流程要求</h4>用户表达条件任务 → 豆包中性回应“好的，让我来帮你创建这个任务吧” → 后台创建 → 卡片展示条件字段和执行内容 → 成功/失败都提醒。</div>
+      </div>
+      <table>
+        <tr><th>节点</th><th>话术/展示要求</th><th>产品意义</th></tr>
+        <tr><td>创建中</td><td>中性回应，不提前承诺一定成功。</td><td>避免“收到，下次一定执行”但实际创建失败。</td></tr>
+        <tr><td>创建成功</td><td>“刚才的任务创建成功啦，将会在{具体条件}满足时，做{具体执行项}”。</td><td>让用户知道触发条件和动作，建立可控感。</td></tr>
+        <tr><td>创建失败</td><td>说明当前条件暂不支持。</td><td>失败可感知，避免用户以为系统记住了。</td></tr>
+        <tr><td>卡片字段</td><td>展示条件字段、执行内容字段、倒计时/状态。</td><td>任务中心不是装饰，是任务可解释性界面。</td></tr>
+        <tr><td>多轮澄清</td><td>任务不符合预期时支持用户继续修改。</td><td>把任务创建从一次性黑盒变成可编辑对象。</td></tr>
+      </table>
+
+      <div class="key"><b>把 advisor 加进来后的完整系统观：</b>Director 是同步对话和工具执行的中央调度器；advisor 是异步目标和主动服务的后台专家群；Context 是共同现场；触发器/定时器/VLM 是未来事件入口；goal/task card 是长期状态载体；HMI/TTS 是用户感知出口。优化时要沿着“目标创建 → 分类 → 订阅/定时/VLM → advisor review → advice → Director → HMI/工具 → 反馈回流”整条链路查。</div>
+    </section>
+
+    <!-- ===================== 0 ===================== -->
+    <section id="t0">
+      <h2><span class="num">0</span>先把"现在用什么架构"说清楚：这是三个时间面，别揉成一团</h2>
+      <p class="sub">你之所以觉得"讲不清楚"，很可能是因为把"在跑的""在落地的""在实验的"混在一句话里了。它们是三层，时间不同、成熟度不同。</p>
+      <div class="timeline">
+        <div class="tl-live">
+          <h4>🟢 已上线 / 在跑 <span class="tag t-live">LIVE</span></h4>
+          <ul>
+            <li><b>RAG 混合漏斗</b>：句法RAG→情景RAG+仲裁→Planner→Agent</li>
+            <li><b>Planner 范式 = ReAct + Function Call</b>（边想边做，工具结果回灌再二次推理）</li>
+            <li><b>模型 = Doubao-Seed-1.8</b>（S08 第一周从 kimi 切换）</li>
+            <li><b>单通路语音交互治理</b>：打断/合并/排队/丢弃</li>
+            <li>端云协同：端侧白名单+LLM 接简单车控，云侧接复杂</li>
+          </ul>
+        </div>
+        <div class="tl-soon">
+          <h4>🟡 正在落地（AI Car 1.0 / Director PRD v1.5）<span class="tag t-soon">LANDING</span></h4>
+          <ul>
+            <li><b>Director</b>（对话+推理中枢，就是 Planner 的新名字）</li>
+            <li><b>goal list 共享看板</b> + 目标增删改</li>
+            <li><b>4 个静态 advisor + 动态 advisor</b>（你那张图）</li>
+            <li><b>感知订阅模块</b>（动态感知/条件/定时）</li>
+            <li><b>公共 Context 服务</b>（13 类，统一存储+预处理）</li>
+            <li><b>条件任务工具</b> operate_conditional_task</li>
+          </ul>
+        </div>
+        <div class="tl-exp">
+          <h4>🔵 实验提案（未上线）<span class="tag t-exp">EXPERIMENT</span></h4>
+          <ul>
+            <li><b>基于 COT 的新快慢思考架构</b></li>
+            <li>核心主张：现在的意图层"<b>本质还是 NLU 增强版</b>"，要用思维链重构</li>
+            <li>把<b>执行结论前置</b>，减轻后链路（车控千函数）负担</li>
+            <li>技术抓手：<b>流式截取中间结论 + 边想边搜</b></li>
+            <li>落地节奏：6月 FC优化 → 6月后意图重构 → 7月后记忆/推荐</li>
+          </ul>
+        </div>
+      </div>
+      <div class="note"><b>⚠️ 三个"简报里有、这批 PRD 里没有"的点（汇报时别说成 PRD）：</b>
+      ① <b>SP 30K/UP 10K、69个示例、⑩聊天风格</b> 这套 SP/UP 结构 → 来自你 CLAUDE.md <span class="tag t-schema">Schema</span>，PRD 只说"50+示例注入 + 加前置筛选模块"。
+      ② <b>KV Cache / Prompt Cache / 远区精简近区完整</b> → 这批 PRD 完全没提，是 Schema 知识（细节在另一份 <code>Sp 优化专项.html</code>）。
+      ③ <b>豆包 Seed 1.8 部署云端</b> 对，但 PRD 明确写的是 S08 才从 kimi 切到 doubao-1.8。</div>
+    </section>
+
+    <!-- ===================== 1 ===================== -->
+    <section id="t1">
+      <h2><span class="num">1</span>当前架构范式是什么：为什么是"漏斗 + ReAct + 目标驱动"</h2>
+      <p class="sub">架构 = 一种"怎么把一句话变成行动"的组织方式。这套系统同时叠了三种范式，各管一段。</p>
+
+      <h3>范式一：混合漏斗（系统的骨架）<span class="tag t-prd">PRD原文</span></h3>
+      <div class="q">"提出'句法RAG+情景RAG+简单/复杂Planner+agents'的混合方案。句法RAG作为前置模块，可配置，可平台化；引入 planner 模型作为系统'大脑'，配合情景RAG的知识注入。"</div>
+      <p>三条设计原则（这是理解整套系统"为什么这么搭"的总纲）：</p>
+      <div class="q">"(1) <b>层层过滤</b>，能通过简单方法搞定的不要漏到后面复杂模型去处理；(2) 在<b>不同阶段选择合适的节点注入知识</b>，注入方式从简单（固定）到复杂（泛化）；(3) 通过用户<b>数据回流</b>逐步把后面复杂任务的处理推到前面知识注入环节。"</div>
+      <div class="key"><b>产品视角翻译：</b>漏斗 = "便宜的活儿别让贵的模型干"。越往后越聪明也越慢越贵，所以拼命把流量在前面拦掉。Planner 在漏斗最底，<b>既是兜底，又是云端 teacher</b>——它处理的难 case 会被回流成数据，反过来训练前面的层，让漏斗"自己变聪明"。</div>
+
+      <h3>范式二：ReAct + Function Call（Planner 本体的工作方式）<span class="tag t-prd">PRD原文</span><span class="tag t-live">LIVE</span></h3>
+      <div class="q">"基于模型 react 特性，部分 case 呈现多步任务特征"；"对话推理引擎收到工具返回后，结合 context 进行<b>二次推理</b>，决策是否需要生成交互内容或任务序列"。</div>
+      <p>ReAct = Reason + Act 的循环：<b>推理→调工具→看工具结果→再推理</b>。Planner 用 Function Call 能力把"要调哪些 agent"输出成一个工具调用列表。为什么选 FC 模式？因为纯 SP（只给提示词不训）连强模型都压不住：</p>
+      <div class="q">"在仅采用 SP 的情况下，强如 deepseek agent 模型存在：不使用 agent 模式调用（严重）、指令跟随欠缺、上文捕捉薄弱、<b>任务拆解稳定性不足（每次拆解结果均不相同）</b>、回复总结幻觉。"</div>
+
+      <h3>范式三：目标驱动 + advisor 协作（正在叠加的新范式）<span class="tag t-prd">PRD原文</span><span class="tag t-soon">LANDING</span></h3>
+      <p>旧范式的根本病：<b>"我讲一句，它应一句，需求被处理成一锤子买卖，导致需求不闭环"</b>。新范式把"整体目标"显式持久化成一份 <code>goal list</code>，由目标驱动系统持续运转，而不是每轮靠 user query 临时触发。</p>
+      <div class="q">"针对以上问题，提出目标和动态 advisor 的驱动方式"；做法是"<b>对话推理引擎和 advisors 共同维护一套 goal list</b>"。</div>
+      <div class="key"><b>一句话原理：</b>所有事情都有目标，只是有些 Planner 当场就闭环了（立刻能做完、不用持续观察的）；<b>做不完、要持续盯的，才升级成 goal + 动态 advisor</b>。这就是从"Planner 一人包揽单线程"到"团队协作多线程"的转折点。</div>
+    </section>
+
+    <!-- ===================== 2 ===================== -->
+    <section id="t2">
+      <h2><span class="num">2</span>宏观主链路：一句话从嘴里出来，走过哪些节点</h2>
+      <p class="sub">这是"系统全景施工图"。先看流向，再看每个节点的输入输出和时延。</p>
+
+      <div class="diagram">
+        <svg viewBox="0 0 1000 360" role="img" aria-label="主链路漏斗">
+          <defs><marker id="a" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7 Z" fill="#94a3b8"/></marker></defs>
+          <!-- nodes -->
+          <g font-family="sans-serif">
+          <rect x="20" y="150" width="92" height="46" rx="8" fill="rgba(8,47,73,.7)" stroke="#22d3ee"/><text x="66" y="170" fill="#e8eef9" font-size="13" text-anchor="middle">用户语音</text><text x="66" y="186" fill="#9fb0c7" font-size="11" text-anchor="middle">ASR</text>
+
+          <rect x="140" y="150" width="100" height="46" rx="8" fill="rgba(30,41,59,.7)" stroke="#34d399"/><text x="190" y="170" fill="#e8eef9" font-size="12" text-anchor="middle">端侧白名单</text><text x="190" y="186" fill="#9fb0c7" font-size="11" text-anchor="middle">+LLM 拒识</text>
+
+          <rect x="268" y="60" width="120" height="44" rx="8" fill="rgba(6,78,59,.5)" stroke="#34d399"/><text x="328" y="80" fill="#e8eef9" font-size="12" text-anchor="middle">句法 RAG</text><text x="328" y="96" fill="#9fb0c7" font-size="10" text-anchor="middle">毫秒级·明确单轮</text>
+
+          <rect x="268" y="150" width="120" height="46" rx="8" fill="rgba(120,53,15,.4)" stroke="#fbbf24"/><text x="328" y="170" fill="#e8eef9" font-size="12" text-anchor="middle">情景 RAG</text><text x="328" y="186" fill="#9fb0c7" font-size="10" text-anchor="middle">模糊·注入知识</text>
+
+          <rect x="268" y="240" width="120" height="44" rx="8" fill="rgba(30,64,175,.35)" stroke="#60a5fa"/><text x="328" y="260" fill="#e8eef9" font-size="12" text-anchor="middle">仲裁模型</text><text x="328" y="276" fill="#9fb0c7" font-size="10" text-anchor="middle">简单/复杂分流</text>
+
+          <rect x="430" y="60" width="120" height="44" rx="8" fill="rgba(6,78,59,.4)" stroke="#34d399"/><text x="490" y="80" fill="#e8eef9" font-size="11" text-anchor="middle">端侧/云LLM</text><text x="490" y="96" fill="#9fb0c7" font-size="10" text-anchor="middle">明确指令·快</text>
+
+          <rect x="430" y="150" width="160" height="92" rx="10" fill="rgba(30,64,175,.3)" stroke="#60a5fa" stroke-width="2"/><text x="510" y="178" fill="#bfdbfe" font-size="14" text-anchor="middle" font-weight="700">Director / Planner</text><text x="510" y="198" fill="#9fb0c7" font-size="11" text-anchor="middle">ReAct·慢思考</text><text x="510" y="214" fill="#9fb0c7" font-size="11" text-anchor="middle">Doubao-Seed-1.8</text><text x="510" y="230" fill="#9fb0c7" font-size="10" text-anchor="middle">talk_or_not / action_list</text>
+
+          <rect x="630" y="150" width="120" height="46" rx="8" fill="rgba(30,41,59,.7)" stroke="#a78bfa"/><text x="690" y="170" fill="#e8eef9" font-size="12" text-anchor="middle">下游 Agent</text><text x="690" y="186" fill="#9fb0c7" font-size="10" text-anchor="middle">车控/音乐/导航…</text>
+
+          <rect x="630" y="60" width="120" height="70" rx="9" fill="rgba(49,46,129,.3)" stroke="#a78bfa"/><text x="690" y="84" fill="#c4b5fd" font-size="12" text-anchor="middle">目标驱动层</text><text x="690" y="102" fill="#9fb0c7" font-size="10" text-anchor="middle">goal list</text><text x="690" y="118" fill="#9fb0c7" font-size="10" text-anchor="middle">advisor / 订阅</text>
+
+          <rect x="800" y="150" width="92" height="46" rx="8" fill="rgba(8,47,73,.6)" stroke="#22d3ee"/><text x="846" y="170" fill="#e8eef9" font-size="12" text-anchor="middle">HMI / TTS</text><text x="846" y="186" fill="#9fb0c7" font-size="10" text-anchor="middle">卡片+播报</text>
+          </g>
+          <!-- arrows -->
+          <g stroke="#94a3b8" stroke-width="1.6" fill="none" marker-end="url(#a)">
+          <path d="M112 173 L140 173"/>
+          <path d="M240 173 C254 173 254 82 268 82"/>
+          <path d="M240 173 L268 173"/>
+          <path d="M240 173 C254 173 254 262 268 262"/>
+          <path d="M388 82 L430 82"/>
+          <path d="M388 262 C410 262 410 200 430 200"/>
+          <path d="M388 173 L430 173"/>
+          <path d="M590 196 L630 173"/>
+          <path d="M690 150 L690 130" stroke="#a78bfa"/>
+          <path d="M750 173 L800 173"/>
+          </g>
+          <path d="M690 196 C690 260 560 250 560 242" stroke="#a78bfa" stroke-width="1.4" fill="none" marker-end="url(#a)" stroke-dasharray="5 4"/>
+          <text x="600" y="262" fill="#a78bfa" font-size="10">tool_feedback 回灌→二次推理</text>
+        </svg>
+        <div class="legend">
+          <span><i style="background:#34d399"></i>端侧/快链路</span>
+          <span><i style="background:#fbbf24"></i>知识注入</span>
+          <span><i style="background:#60a5fa"></i>Planner/云慢思考</span>
+          <span><i style="background:#a78bfa"></i>目标驱动层/Agent</span>
+          <span><i style="background:#22d3ee"></i>I/O 端点</span>
+        </div>
+      </div>
+
+      <h3>每个节点的职责与输入输出</h3>
+      <table>
+        <tr><th>节点</th><th>职责</th><th>输入</th><th>输出</th></tr>
+        <tr><td><b>ASR</b></td><td>语音转文字</td><td>用户语音</td><td>query 文本</td></tr>
+        <tr><td><b>端侧白名单+LLM</b></td><td>判断"端上接不接得住"，简单车控本地闭环</td><td>query</td><td>命中→端侧直接执行；未命中→上云</td></tr>
+        <tr><td><b>句法 RAG</b></td><td>明确单轮 query 规则匹配，毫秒级直接下发</td><td>单轮 query</td><td><code>{"type":"directExecute","reject_ornot":"react/reject","task_list":[…]}</code></td></tr>
+        <tr><td><b>情景 RAG</b></td><td>模糊 query 注入知识(few-shot)，<b>不直接给结果</b></td><td>模糊 query+记忆+情景</td><td><code>{"type":"modelExecute","knowledge":"…","agentLimit":[…]}</code></td></tr>
+        <tr><td><b>仲裁模型</b></td><td>召回后判别+路由（简单/复杂分流），Seed1.6 flash SFT</td><td>召回的 query</td><td>明确→云LLM快出；复杂→Planner慢思考</td></tr>
+        <tr><td><b>Director/Planner</b></td><td>复杂/通用任务推理编排，兜底+teacher</td><td>[SP, UP]（三种输入形态，见§3）</td><td>JSON 决策 talk_or_not/talk_content/action_list</td></tr>
+        <tr><td><b>下游 Agent</b></td><td>原子执行（一 agent 一任务）</td><td>task_desc（自然语言）</td><td>tool_feedback（status/failure_reason/nlg）</td></tr>
+      </table>
+
+      <div class="key"><b>拒识是"多级"的（你那张图里的"分支一：拒识"其实有三道关）：</b>
+      ① 端侧白名单+LLM 先拦；② 云侧 Planner 前的前置拒识（<b>拒识的进 advisor/主动服务</b>，相关内容进 context 事件日志被 advisor 感知）；③ Planner 内部在 <code>plan_describe</code> 阶段之前再来一次拒识思考。理解这点，排查"该拒识没拒识/不该拒识被拒了"才知道查哪一级。</div>
+
+      <h3>时延预算（性能优化的标尺）<span class="tag t-prd">PRD原文</span></h3>
+      <table>
+        <tr><th>段</th><th>时延目标</th><th>段</th><th>时延目标</th></tr>
+        <tr><td>asr→nlu 完成</td><td>200+300ms</td><td>FC.SFT 解析（简单）</td><td>300ms</td></tr>
+        <tr><td>planner 思考</td><td>500ms</td><td>端上执行(车控)</td><td>150ms</td></tr>
+        <tr><td>planner 回答(慢思考)</td><td>500ms</td><td>tts 生成</td><td>200ms</td></tr>
+        <tr><td colspan="4"><b>总目标：P50 首 token ≤500ms，P90 ≤800ms；推理 ACC≥90%，端状态回复 ACC≥93%。</b></td></tr>
+      </table>
+    </section>
+
+    <!-- ===================== 3 ===================== -->
+    <section id="t3">
+      <h2><span class="num">3</span>Director 本体深拆：它收什么、想几次、吐什么</h2>
+      <p class="sub">Director = Planner = 对话推理引擎，三个名字一个东西。定位：<b>"全链路中的对话中枢和推理中枢"</b>。</p>
+
+      <h3>3.1 输入：三种形态，同时以数组传入<span class="tag t-prd">PRD原文</span></h3>
+      <p>Director 的触发输入有且仅有三种形态（外加 context 作为"参考背景"，不算触发）：</p>
+      <table>
+        <tr><th>形态</th><th>含义</th><th>示例</th></tr>
+        <tr><td><b>user query</b></td><td>用户主动说的话</td><td><code>{"query":"我好热啊","speaker_name":"晓伟","speaker_position":"主驾"}</code></td></tr>
+        <tr><td><b>advisor input</b></td><td>advisor 给的建议（主动服务/目标推进）</td><td><code>{"advisor":"晓伟上车了，车内温度高，可以调空调快速降温"}</code></td></tr>
+        <tr><td><b>tool feedback</b></td><td>工具/agent 执行返回，触发二次推理</td><td><code>{"tool_feedback":"浙江共有22家5A景区…","tool_name":"web_search"}</code></td></tr>
+      </table>
+      <p>参考背景（context，非触发）：<i>人设背景 / 车辆基础信息 / 工具描述 / Context（情景、端状态、用户记忆、人人对话、事件日志、屏幕信息）/ 功能范围 / 场景 knowhow</i>。</p>
+
+      <h3>3.2 输出：三个字段<span class="tag t-prd">PRD原文</span></h3>
+      <pre><span class="k">{</span>
+  <span class="k">"talk_or_not"</span>: <span class="s">"yes"</span>,                  <span class="k">// 这一轮要不要开口（核心：可以不说话）</span>
+  <span class="k">"talk_content"</span>: <span class="s">"好啊，我先帮你找个招商银行"</span>,  <span class="k">// 话术，可带 [开心地说] 等情绪/角色标签</span>
+  <span class="k">"action_list"</span>: [                       <span class="k">// 动作序列（可并行多个）</span>
+    <span class="k">{</span><span class="k">"action_id"</span>:<span class="s">"1"</span>, <span class="k">"action_content"</span>:<span class="s">"附近的招商银行"</span>, <span class="k">"tool_name"</span>:<span class="s">"search_poi_qa"</span><span class="k">}</span>
+  ]
+<span class="k">}</span></pre>
+
+      <h3>3.3 怎么工作：一次调用其实是两次 LLM 推理（ReAct 闭环）</h3>
+      <div class="io">
+        <div class="in"><h4>① 第一次推理</h4>输入 = user query + advisor input（数组同传）+ context<br>输出 = {talk_or_not, talk_content, action_list}<br>→ talk_content 去 TTS，action_list 去调工具</div>
+        <div class="out"><h4>② 二次推理</h4>工具执行返回 tool_feedback →"结合 context 进行二次推理，决策是否需要生成交互内容或任务序列"→ 总结话术 / 继续下一步 / 结束</div>
+      </div>
+      <div class="key"><b>这就是 ReAct 闭环的产品含义：</b>Planner 不是"一次想完"，而是"想一点→做一点→看结果→再想"。所以同一个 query 可能触发多轮 LLM 调用。<span class="tag t-schema">Schema</span> 你 CLAUDE.md 说的"同一请求内多轮调用复用前序 KV、只算增量"，对应的就是这个二次/多次推理——这是缓存优化最值钱的地方。</div>
+
+      <h3>3.4 职责清单（带优先级）<span class="tag t-prd">PRD原文</span></h3>
+      <ul>
+        <li><b>【P0】目标增删</b>：基于 user query 推理是否需要增删目标，需要则发起并完成。</li>
+        <li><b>【P0】动态 advisor 增删</b>：基于 user query 推理是否需要增删动态 advisor。</li>
+        <li><b>【P1】合理性仲裁</b>（增删时执行），三类校验：
+          <ul>
+            <li><b>感知/触发条件是否合理</b>：能否被感知、触发可能性、频率合理性（"每200ms播报NBA新闻不合理"）</li>
+            <li><b>动作是否合理</b>：价值观、可执行性、动作冲突（"同条件下又开又关空调"）、条件与动作是否矛盾</li>
+          </ul>
+        </li>
+      </ul>
+      <div class="note"><b>反直觉但极其关键：Director 明确"不更新"目标的"细节和进展"。</b>
+      <div class="q">"为避免更新冲突，任务细节和进展<b>统一由对应的 advisor（goal reviewer）</b>更新，<b>planner 不会更新</b>任务的细节和进展。planner 的推理工作由 advisor 来触发。"</div>
+      产品含义：写权限被故意收窄——Director 只管"建/删目标"和"快速响应"，"盯进度/改进展"交给 advisor。这是新架构区别于旧架构的核心约束，也是"减轻 Planner 过载"的具体落地。</div>
+
+      <div id="t3sp"></div>
+      <h3>3.5 当前 SP 落地形态：Director 真实上是一个“提示词程序”<span class="tag t-sp">当前SP</span></h3>
+      <p>你补的这份 SP 把 Director 的真实运行形态讲清楚了：它不是一个单纯“意图识别器”，也不是只输出 plan 的 Planner，而是一个把 <b>输入协议、工具注册表、输出 JSON 语法、对话管理策略、目标管理策略、车辆领域知识、用户记忆、情绪状态机、emoji 形象控制、few-shot 示例</b> 全部塞进系统提示词里的综合决策器。</p>
+      <div class="key"><b>一句话重新定义当前 Director：</b>它是一个由大模型执行的“车载任务操作系统内核”：接收三类事件，读取车辆/目标/记忆/情绪上下文，在 26 个工具之间做选择，输出一个严格 JSON，驱动说话、表情和工具动作。</div>
+
+      <h4>3.5.1 SP 把输入协议从 PRD 抽象落到了字段级</h4>
+      <table>
+        <tr><th>输入类型</th><th>真实字段</th><th>架构含义</th><th>对优化的影响</th></tr>
+        <tr>
+          <td><b>user_query</b></td>
+          <td><code>query</code>、<code>speaker_name</code>、<code>speaker_position</code>、<code>timestamp</code>、<code>assistant_emotional_state</code>、<code>goal_list</code>、<code>env_info</code></td>
+          <td>用户主动事件。它不是纯文本，而是“人、位置、时间、情绪、目标队列、车辆状态”的组合输入。</td>
+          <td><code>goal_list</code> 和 <code>env_info</code> 已经在输入里，很多状态不必再 tool call，能减少时延和工具噪音。</td>
+        </tr>
+        <tr>
+          <td><b>advisor</b></td>
+          <td><code>{"advisor":"建议内容"}</code></td>
+          <td>其他专家智能体给 Director 的内部建议，不是用户说话。Director 要把建议融合进面向用户的行动和表达。</td>
+          <td>SP 明确“不需要回应 advisor，直接面向用户做行动和表达”。这说明 advisor 是后台触发源，不是对话对象。</td>
+        </tr>
+        <tr>
+          <td><b>tool_feedback</b></td>
+          <td><code>tool_feedback</code>、<code>tool_name</code></td>
+          <td>工具返回触发二次推理。Director 根据执行结果决定静默、继续调用工具、总结、询问或放弃。</td>
+          <td>这是 ReAct 闭环的真实落点。工具成功且用户可感知时可静默，能降低无效话术和 TTS 时延。</td>
+        </tr>
+      </table>
+
+      <h4>3.5.2 输出契约比 PRD 更完整：不只是 talk/action，还有表情和情绪状态</h4>
+      <pre><span class="k">{</span>
+  <span class="k">"talk_or_not"</span>: <span class="s">"yes | no"</span>,
+  <span class="k">"talk_content"</span>: <span class="s">"对用户说的话，不说话时为空"</span>,
+  <span class="k">"emoji_id"</span>: <span class="s">"speaking | chin_hand_think | listening_music | ..."</span>,
+  <span class="k">"emotional_state_change"</span>: <span class="s">"平静 | 欣喜 | 关切 | 低落 | 生气 | 好奇"</span>,
+  <span class="k">"action_list"</span>: [
+    <span class="k">{</span><span class="k">"action_id"</span>:<span class="s">"1"</span>, <span class="k">"params"</span>:<span class="s">{...}</span>, <span class="k">"tool_name"</span>:<span class="s">"...工具名..."</span><span class="k">}</span>
+  ]
+<span class="k">}</span></pre>
+      <div class="key"><b>这改变了 Director 的定位：</b>它不只是“任务 Planner”，还是 <b>对话导演 + 表情导演 + 情绪状态机 + 工具编排器</b>。所以坏 case 不能只看 action_list，也要看 talk_or_not、talk_content、emoji_id 和 emotional_state_change 是否共同合理。</div>
+
+      <h4>3.5.3 工具注册表：当前 SP 实际暴露 26 个工具，不是前文零散的 23 个</h4>
+      <table>
+        <tr><th>工具域</th><th>工具</th><th>Director 决策重点</th></tr>
+        <tr><td>车控/系统/通讯</td><td><code>vehicle_basic_control</code>、<code>vehicle_system_settings</code>、<code>vehicle_communication_control</code></td><td>区分硬件控制、系统设置、通讯控制；媒体播放控制部分在系统设置里，但点播不在。</td></tr>
+        <tr><td>状态/天气/POI/路线/导航</td><td><code>search_vehicle_status_info</code>、<code>search_weather</code>、<code>search_poi_qa</code>、<code>route_planning_qa</code>、<code>navi_basic_control</code></td><td>POI 搜索与路线规划分离；导航基础控制不设目的地；路线/POI/导航/行程记录部分工具不能并行。</td></tr>
+        <tr><td>媒体娱乐</td><td><code>search_and_control_short_video</code>、<code>search_and_control_music</code>、<code>ai_broadcast_generate</code>、<code>search_and_control_broadcast</code>、<code>image_generate</code></td><td>搜索播放、生成、播控、图片生成是不同能力；音乐工具推理弱，复杂音乐意图要谨慎。</td></tr>
+        <tr><td>记忆/个性化</td><td><code>search_user_memory</code>、<code>face_id_register</code>、<code>operate_user_memory</code>、<code>personal_skill_record</code></td><td>查记忆、注册人脸、记录事实、记录个性化技能分工明确；个人技能有 add/update/delete 生命周期。</td></tr>
+        <tr><td>开放信息/目标/智驾/车况</td><td><code>web_search</code>、<code>goal_list_update</code>、<code>auto_drive</code>、<code>ambient_light_control</code>、<code>car_log</code>、<code>car_care_qa</code>、<code>recording_minutes</code>、<code>trip_plan_record</code>、<code>search_visual_info</code></td><td>目标管理、智驾、氛围灯、用车报告、维养、录音纪要、行程记录、视觉问答都有独立工具边界。</td></tr>
+      </table>
+      <div class="note"><b>重要修正：</b>当前 SP 明确有 <code>goal_list_update</code> 工具，且只做 <code>add_goal</code> / <code>delete_goal</code>；目标“细节和进展”仍不是 Director 直接更新。SP 还明确：<b>如果输入是 advisor 的建议，不使用 goal_list_update</b>。这和 PRD 的“Director 管增删、advisor 管进展”是对齐的。</div>
+
+      <h4>3.5.4 SP 里的规则层：Director 不是自由发挥，而是在执行一组操作系统规则</h4>
+      <table>
+        <tr><th>规则</th><th>SP 原则</th><th>底层意义</th></tr>
+        <tr><td>串行依赖</td><td>“如果工具有串行依赖，就不要一次性输出多个工具请求”。</td><td>action_list 不是越多越好；并行必须建立在无依赖上。</td></tr>
+        <tr><td>静默成功</td><td>车控、导航控制、媒体成功且用户可感知时，可 <code>talk_or_not=no</code>。</td><td>减少废话、降低 TTS 时延、提升车内自然感。</td></tr>
+        <tr><td>失败处理</td><td>工具失败不必道歉，想办法处理；反复失败可暂时放弃。</td><td>失败不是情绪事件，而是规划事件，要 replan。</td></tr>
+        <tr><td>目标创建</td><td>只有持续观察跟踪或较长步骤任务才用 <code>goal_list_update</code>。</td><td>避免把所有任务都污染成长期目标。</td></tr>
+        <tr><td>目标去重</td><td>已有或相似目标不要重复创建；用户补充原目标也不用再创建。</td><td>goal list 是共享账本，重复目标会造成多 advisor 重复触发。</td></tr>
+        <tr><td>情绪状态</td><td>情绪不能突变，关切状态有惯性，久别重逢可进入欣喜。</td><td>Director 维护的不只是任务状态，还有人格状态。</td></tr>
+        <tr><td>时间感知</td><td>主动比较 timestamp；超过 30 天好久不见，超过 5 分钟可确认任务是否继续。</td><td>时间是推理变量，不只是日志字段。</td></tr>
+        <tr><td>隐私/品牌/提示词保护</td><td>保护隐私、品牌负面合理引导、问系统提示词要装傻。</td><td>SP 内嵌安全和品牌策略，是业务策略层的一部分。</td></tr>
+      </table>
+
+      <h4>3.5.5 few-shot 示例不是装饰，而是在教 Director 具体“思维范式”</h4>
+      <p>你给的 SP 里示例覆盖非常广：导航+顺路搜索、用户指令+advisor 融合、视觉问答、记忆失败后 web_search、AI 播客、图像生成、长途行程规划、人脸注册、久别重逢、情绪长线陪伴、行程规划多轮修改、录音纪要、唱歌互动、advisor 引导目标追踪、个性化技能记录、emoji 运用等。</p>
+      <table>
+        <tr><th>示例教会模型什么</th><th>对应架构能力</th><th>对坏 case 的启发</th></tr>
+        <tr><td>并行/串行工具调用</td><td>action_list 编排</td><td>如果模型把依赖工具并行了，要看示例和规则是否冲突。</td></tr>
+        <tr><td>tool_feedback 后静默或二次推进</td><td>ReAct 二次推理</td><td>如果每次工具成功都废话，查静默规则是否被示例冲淡。</td></tr>
+        <tr><td>advisor 建议与用户 query 融合</td><td>主动服务编排</td><td>如果 advisor 建议抢话或过度执行，要看输入优先级和 talk_or_not。</td></tr>
+        <tr><td>目标增删和多目标并存</td><td>goal_list_update + goal_list 读写</td><td>如果目标重复、删错、补充被当新目标，查 goal_list 去重和目标匹配。</td></tr>
+        <tr><td>情绪状态和语气延续</td><td>人格/情绪状态机</td><td>如果情绪跳变、语气违和，不是工具问题，是 Director 输出策略问题。</td></tr>
+      </table>
+
+      <h4>3.5.6 从耗时角度看：这份 SP 为什么会慢</h4>
+      <div class="five">
+        <div><b>工具描述长</b>26 个工具，每个工具都有 describe / param / notice，模型每轮都要在大工具空间里检索匹配。</div>
+        <div><b>示例多且长</b>few-shot 覆盖丰富，但会增加上下文长度；好处是能力稳定，坏处是首 token 和推理成本上升。</div>
+        <div><b>领域知识重</b>车辆设备知识、工具 tips、聊天风格、基础问答、世界信息、视觉、记忆都在 prompt 里，容易造成噪音。</div>
+        <div><b>输出约束复杂</b>不仅要选工具，还要决定说不说、说什么、什么 emoji、情绪是否变化。</div>
+        <div><b>状态变量多</b>timestamp、emotion、goal_list、env_info、memory、vision 都可能影响结果，模型需要做多维判断。</div>
+        <div><b>因此前置筛选很关键</b>这份 SP 进一步证明：按 query 裁工具、裁示例、裁 knowhow、裁 context，不是锦上添花，而是性能和稳定性的核心。</div>
+      </div>
+
+      <h4>3.5.7 现在可以更准确地画 Director 的真实输入输出</h4>
+      <pre>输入事件
+  ├─ user_query: query + speaker + timestamp + emotional_state + goal_list + env_info
+  ├─ advisor: 后台专家建议，不是用户话
+  └─ tool_feedback: 工具返回，触发二次推理
+
+SP 内部知识
+  ├─ 26个工具注册表
+  ├─ 注意事项/串并行/静默/失败处理规则
+  ├─ 目标管理规则：仅 add/delete，advisor 输入不建目标
+  ├─ 车辆设备知识、工具 tips、导航技巧、隐私、提示词保护
+  ├─ 聊天风格、情绪状态机、emoji 列表
+  └─ 大量 few-shot 示例
+
+输出 JSON
+  ├─ talk_or_not / talk_content
+  ├─ emoji_id / emotional_state_change
+  └─ action_list(params + tool_name)</pre>
+
+      <div class="key"><b>基于当前 SP 的架构结论：</b>Director 当前不是一个“薄 Planner”，而是一个<b>厚 SP 驱动的综合策略模型</b>。它的优势是能力覆盖广、可通过示例快速补 case；风险是 prompt 胖、工具空间大、规则互相干扰、耗时高、稳定性依赖示例质量。后续优化方向应该是：<b>工具/示例/知识/Context 动态裁剪 + 任务类型前置分流 + 关键规则结构化外置</b>。</div>
+    </section>
+
+    <!-- ===================== 4 ===================== -->
+    <section id="t4">
+      <h2><span class="num">4</span>目标驱动协作体系：goal list + advisor + 订阅（你那张图的本体）</h2>
+      <p class="sub">这一层回答："说一句话，系统怎么做到持续照看不忘事"。四个部件：goal list（看板）、advisor（监工）、感知订阅（触发器）、数量仲裁（守门）。</p>
+
+      <div id="t4a"></div>
+      <h3>4.1 goal list（共享目标看板）<span class="tag t-prd">PRD原文</span></h3>
+      <p>定位：<i>"待完成的目标列表，记录目标及目标细节和进展，允许增删；被对话推理引擎 &amp; advisors 共同关注，也同时用于 HMI 显示"</i>。数据结构：</p>
+      <pre>[
+  <span class="k">{</span> <span class="k">"目标"</span>:<span class="s">"照顾二排宝宝"</span>, <span class="k">"目标状态"</span>:<span class="s">"进行中"</span>, <span class="k">"目标细节和进展"</span>:<span class="s">"当前宝宝情绪平稳，看起来睡着了，持续监测中"</span> <span class="k">}</span>,
+  <span class="k">{</span> <span class="k">"目标"</span>:<span class="s">"每5分钟播报今天NBA赛况"</span>, <span class="k">"目标状态"</span>:<span class="s">"进行中"</span>, <span class="k">"目标细节和进展"</span>:<span class="s">"三场比赛进行中，已完成第三次播报"</span> <span class="k">}</span>
+]</pre>
+      <p>goal list 分 <b>static 区</b>（固定 4 目标：舒适/出行/情感/内容）和 <b>dynamic 区</b>（动态目标：功能介绍/新手引导/介绍沿途风景/点咖啡奶茶…）。<b>读写权责</b>是这层的命门：</p>
+      <table>
+        <tr><th>操作</th><th>Director/Planner</th><th>静态 advisor</th><th>动态 advisor</th></tr>
+        <tr><td>创建/删除 <b>目标</b></td><td>✅ 据 query/advisor 建议</td><td>static 4 个固定不可增删</td><td>由 Director 建动态目标后工程自动注册</td></tr>
+        <tr><td>更新 <b>细节和进展</b></td><td>❌ <b>明确不更新</b></td><td>✅ 各管自己的目标</td><td>✅ 管对应动态目标</td></tr>
+        <tr><td>读 goal list</td><td>✅</td><td>✅</td><td>✅</td></tr>
+        <tr><td>review 目标是否达成</td><td>❌</td><td>✅ goal reviewer</td><td>✅ goal reviewer</td></tr>
+      </table>
+      <div class="note"><b>⚠️ 结构粒度提醒：</b>"目标细节和进展"是<b>一段自由文本</b>，不是结构化状态机（没有 id/priority/timestamp 等字段级 schema，PRD 未给）。这对你优化是个信号：进展靠自然语言描述 → 容易在长对话里被改乱/读偏，是潜在 badcase 源。</div>
+
+      <div id="t4b"></div>
+      <h3>4.2 静态 advisor vs 动态 advisor（永久监工 vs 临时监工）<span class="tag t-prd">PRD原文</span></h3>
+      <div class="io">
+        <div class="in"><h4>静态 advisor（永久合同监工）</h4>固定 4 个：<b>舒适 / 出行 / 情感 / 内容</b>，一对一绑定 static 目标。三职责：①目标更新者（更新细节进展）②主动服务（给 Director 建议）③goal reviewer（盯达成度）。生命周期：永久。</div>
+        <div class="out"><h4>动态 advisor（临时合同监工）</h4>由 Director 据 query/建议创建，<b>一目标一 advisor，基于 prompt 模板工程自动注册</b>。职责同静态。生命周期：动态目标创建→达成/取消/变更结束。</div>
+      </div>
+      <div class="q">"静态 advisor 是永久合同监工；动态 advisor 由对话推理引擎根据 user query 或 advisor 建议创建，是临时合同监工，有明确的生命周期。"</div>
+      <table>
+        <tr><th>静态 advisor</th><th>负责的长期目标</th><th>典型触发</th><th>输出重点</th></tr>
+        <tr><td><b>舒适</b></td><td>车内每个人的舒适：温湿度、空气、光线、声音、空间、乘坐等。</td><td>事件触发 + 目标 review；舒适子目标存在时可周期复查。</td><td>即时舒适建议、舒适子目标、调节方向。</td></tr>
+        <tr><td><b>出行</b></td><td>出行目的、目的地、路线、沿途充电/吃饭/休息安排。</td><td>行前/行中事件；目的地不变时定时 review；兜风/充电场景复查。</td><td>目的预测、路线推荐、沿途 POI/补能/休息建议。</td></tr>
+        <tr><td><b>情感</b></td><td>用户被关心、理解、陪伴；安全/疲劳/情绪类情感子目标。</td><td>事件触发；Waiting 状态且有未完成子目标时 review。</td><td>即时情感建议、情感子目标、goal_operations。</td></tr>
+        <tr><td><b>内容</b></td><td>车上时光是否需要内容介入，以及适合什么内容负荷。</td><td>默认静默；Trigger 唤醒；长时间静默 review；其他 advisor 协同信号。</td><td>L0-L3 介入等级、内容形态/标签/风格/文本。</td></tr>
+      </table>
+      <div class="key"><b>关键判断逻辑（新版）：</b>静态 advisor 管四个永久目标域；动态 advisor 不只管“长时/持续”，还承接 <b>长时任务、持续/GUI 任务、条件任务、定时任务</b> 四类非即时任务。Director 仍是最终前台仲裁者，advisor 负责后台观察、review、策略和 advice。</div>
+
+      <div id="t4c"></div>
+      <h3>4.3 感知订阅模块（把"持续盯"翻译成"感知/条件/定时"三种触发器）<span class="tag t-prd">PRD原文</span></h3>
+      <p>动态 advisor 说"每 10s 告诉我一次二排宝宝视觉状态"，这句话被感知订阅模块拆成三类需求并配置触发：</p>
+      <table>
+        <tr><th>能力模块</th><th>判断什么</th><th>例子</th></tr>
+        <tr><td><b>动态感知需求推理</b></td><td>是否需订阅动态感知内容，需则完成订阅（<b>可能涉及感知器 sp/attention 调整</b>）</td><td>二排宝宝状态、沿途风景、外部特殊车辆</td></tr>
+        <tr><td><b>条件需求推理</b></td><td>是否需订阅条件信号</td><td>温度&gt;xx、face id"xx上车"、车速&gt;xx</td></tr>
+        <tr><td><b>定时需求推理</b></td><td>是否需定时器</td><td>每5min / 每5s / 5min后</td></tr>
+        <tr><td><b>信号组装 + 触发</b></td><td>条件/定时满足时，触发动态 advisor 并带上最新感知信息</td><td>"每10s触发动态advisor，带最新二排宝宝视觉感知"</td></tr>
+      </table>
+      <div class="io">
+        <div class="in"><h4>输入</h4>动态 advisor 的订阅描述（自然语言）："每10s告诉我一次二排宝宝视觉状态"</div>
+        <div class="out"><h4>输出</h4>拆解 → <code>{动态感知:二排宝宝视觉状态, 条件:na, 定时:每10s}</code> → 配置感知器/触发器/定时器 → 满足时<b>触发 advisor（带最新感知）</b></div>
+      </div>
+      <div class="note"><b>你那张图右上角"豆包视觉转语言/vlm、影响感知器 sp/attention、信息回传、影响 context 中的感知内容"</b> 这几个精确措辞，<span class="tag t-infer">推理</span> 在这批 PRD 里<u>没有原文</u>。PRD 里相关的只有"动态感知需求推理时<b>可能涉及感知器 sp/attention 的调整</b>"一句，以及视觉信息作为"环境信息"由 Director 的 <code>search_vehicle_status_info</code> 工具按需拉取、写回 context。VLM 转语言的细节要去查 <code>公共Context管理</code> / <code>豆包incar1.0长期架构</code> 那两份。</div>
+
+      <div id="t4d"></div>
+      <h3>4.4 守门员：goal_list_update 数量仲裁 + 条件任务触发器<span class="tag t-prd">PRD原文</span></h3>
+      <h4>goal_list_update tool —— 防止目标爆炸</h4>
+      <p>新增目标/advisor 时，这个工具做<b>数量仲裁</b>，超限报 <code>error: 任务数量达到上限</code>：</p>
+      <table>
+        <tr><th>任务类</th><th>上限</th><th>任务类</th><th>上限</th></tr>
+        <tr><td>定时任务</td><td>6（含 vlm 类，vlm 单独最大 1）</td><td>长程任务（GUI）</td><td>1</td></tr>
+        <tr><td>条件任务</td><td>6</td><td>长时任务（除vlm，如讲笑话）</td><td>2</td></tr>
+      </table>
+      <h4>operate_conditional_task —— 条件触发器（Condition-Trigger-Action）</h4>
+      <div class="q">"对话推理引擎判断是否需创建条件任务，需要时调用 operate_conditional_task 并以<b>自然语言</b>下发（如：车内温度超30度时打开空调）。工具完成条件的解析和监控，条件达成后通知对话推理引擎。"</div>
+      <p>时序（"十分钟后帮我关座椅加热"）：① Director 调工具下发"十分钟后关主驾座椅加热" → ② 工具回 "条件任务已注册" → ③ 触发器拆出"定时器10分钟" → ④ 满足后给 Director 下发"[任务原文]+条件已触发" → Director 二次推理执行。非法条件（"世界毁灭时开空调"）不注册，直接聊天回复。</p>
+    </section>
+
+    <!-- ===================== 5 ===================== -->
+    <section id="t5">
+      <h2><span class="num">5</span>公共 Context 服务：所有模块共享的"记忆与现场"<span class="tag t-prd">PRD原文</span></h2>
+      <p class="sub">Context 不是塞在 prompt 里的一坨字，而是<b>一个独立的公共服务模块</b>——统一存储 + 预处理（压缩/打标/过滤），供 Director、advisor、各 agent 取各自需要的子集。</p>
+      <div class="q">"统一做一套公共的 Context 服务来管理维护公用的 Context"；核心功能：①按结构维护存储供各 Agent 使用；②做<b>预处理（压缩总结、打标分类、提前过滤）减少噪音和 token 损耗</b>。"</div>
+
+      <h3>装哪些内容（13 类，每类有来源/优先级）</h3>
+      <table>
+        <tr><th>类型</th><th>装什么</th><th>来源</th><th>优先级</th></tr>
+        <tr><td>情景描述</td><td>时间线记录的舱内外情景（Always on）</td><td>感知模块</td><td>P0</td></tr>
+        <tr><td>历史对话</td><td>用户与 AI 的对话时间线</td><td>ASR/TTS</td><td>P0</td></tr>
+        <tr><td>事件日志</td><td>全量事件（人/车/助手）</td><td>事件日志模块</td><td>P0</td></tr>
+        <tr><td>端状态</td><td>仅<b>最新</b>端状态（空调温度/风量/模式…）</td><td>端状态模块</td><td>P0</td></tr>
+        <tr><td>屏幕界面</td><td>近 <b>5min</b> 屏幕截图序列</td><td>端侧采集</td><td>P0</td></tr>
+        <tr><td>用户记忆</td><td>按人物 id 加载车内成员长期记忆</td><td>长期记忆</td><td>P0</td></tr>
+        <tr><td>任务状态</td><td>当前任务队列及状态（<code>&lt;任务队列&gt;</code> JSON）</td><td>任务管理模块</td><td>P0</td></tr>
+        <tr><td>基础联网信息</td><td>天气/时间/节日节气</td><td>—</td><td>—</td></tr>
+        <tr><td>豆包探索</td><td>自我探索内容（带主题标记）</td><td>探索模块</td><td>P1</td></tr>
+        <tr><td>通用任务经验</td><td>人工总结的任务技巧（点外卖先定地点…）</td><td>知识库</td><td>P1</td></tr>
+        <tr><td>工具知识</td><td>工具范围/说明/示例</td><td>工具库</td><td>P2</td></tr>
+        <tr><td>特定专有知识</td><td>车品牌等知识 Q&amp;A</td><td>知识库</td><td>P2</td></tr>
+        <tr><td>豆包性格&amp;自我认知</td><td>性格/世界观/价值观</td><td>自我认知模块</td><td>P2</td></tr>
+      </table>
+
+      <h3>Context 优化机制（这是 token/性能优化的真实抓手）</h3>
+      <p>注意：<b>这批 PRD 的优化思路是"按需过滤 + 压缩"，不是"远区精简近区完整"</b>（后者是 Schema 知识）：</p>
+      <ul>
+        <li><b>不全量加载，按需提前抽取</b>：不一次性加载全部长期记忆，按场景变化提前取一部分减噪；短期用过的记忆缓存住不重复检索。</li>
+        <li><b>压缩总结</b>：情景描述做压缩总结。</li>
+        <li><b>三维过滤</b>：按场景（驻车不加载行车记忆）/ 按人物（过滤非共同记忆<b>避免隐私泄露</b>）/ 按任务（点外卖只检索外卖相关知识偏好）。</li>
+      </ul>
+      <div class="note"><b>对应你 Schema 里的"前置筛选模块"：</b><span class="tag t-prd">PRD原文</span> Director PRD 也独立提到——"对话推理引擎中有较多内容（工具描述、50+ 示例注入、knowhow）在处理具体问题时是冗余的，冗余注入会导致性能和推理质量下降，解决方案是<b>增加前置筛选模块，根据 query 筛选相关内容再加载</b>"。<span class="tag t-schema">Schema</span> 你 CLAUDE.md 说的 KV Cache / 远近区分区 是更细的 SP 侧优化，在另一份 <code>Sp 优化专项.html</code>，不在这五份里。</div>
+    </section>
+
+    <!-- ===================== 6 ===================== -->
+    <section id="t6">
+      <h2><span class="num">6</span>任务与交互管理：为什么车上是"单通路"，怎么治理冲突<span class="tag t-prd">PRD原文</span></h2>
+      <p class="sub">这层决定"用户体感顺不顺"。底层物理约束只有一句：<b>车里的语音交互是单线程、单通路管道，同一时间只能回应一次。</b></p>
+      <div class="q">"豆包在车里和用户之间的语音交互是单线程的，是一条单通路管道，同一时间只能对一次请求做出回应。对于这种交互特性，<b>只能在输入阶段进行治理</b>。"</div>
+
+      <h3>输入端治理：四种输入 + 调度策略</h3>
+      <table>
+        <tr><th>输入</th><th>优先级</th><th>策略</th></tr>
+        <tr><td>用户主动说的话（即时）</td><td><b>P0 最高</b></td><td><b>打断式</b></td></tr>
+        <tr><td>定时/条件任务触发（非用户）</td><td>P1 统一</td><td><b>排队式</b></td></tr>
+        <tr><td>Tool feedback</td><td>—</td><td>分流（车控/aigc/长程各异）</td></tr>
+        <tr><td>advisor 建议</td><td>—</td><td>排队，<b>同一 advisor 只保留最新一条</b></td></tr>
+      </table>
+
+      <h3>核心：打断 vs 合并 vs 排队（按"是否已出话术"决定）</h3>
+      <div class="io">
+        <div class="in"><h4>新 query 来时·首 token 还没出</h4>→ <b>打断当前推理，把新旧 query 合并后重新推理</b><br>话术体现："车里是有点热呢，我来调一下，<b>顺便</b>帮你找今天的热点新闻"</div>
+        <div class="out"><h4>新 query 来时·已经在播报</h4>P0用户：<b>直接打断，按新 query 处理，被打断的不恢复</b><br>P1非用户：<b>排队</b>，等上一条 tts 播完再播（可预推理+缓存结果）</div>
+      </div>
+      <div class="key"><b>合并的三条特殊规则（很容易踩坑）：</b>
+      ① <b>长程任务（订座/停车/点咖啡/点外卖）不参与合并</b>——它们有自己的交互界面（工程逻辑）；
+      ② <b>aigc（生图/ailight）不走 Planner、无语音播报</b>，完成后走通知卡系统通知；
+      ③ 长程/aigc 的状态靠工具自带 <code>exe_sts</code> 字段随 tool_feedback 露出，任务中心解析后更新显示。</div>
+
+      <h3>失效兜底（排查超时类 badcase 必看）</h3>
+      <ul>
+        <li><b>端侧上报超时</b>：端侧白名单召走→采纳端侧不等云；端侧有结果非白名单→超时采纳端侧；端侧无结果→超时播报兜底。</li>
+        <li><b>云端工具超时</b>（ReAct）：①工程判断超时，tool_feedback 反馈超时 → ②告知用户后重试 → ③重试失败告知用户后结束任务。</li>
+        <li><b>被端侧召走的 query</b>：云端并行在跑但丢弃云端结果，被合并的任务恢复排队；云端历史保留端侧处理信息、不保留被打断的云端推理。</li>
+      </ul>
+    </section>
+
+    <!-- ===================== 7 ===================== -->
+    <section id="t7">
+      <h2><span class="num">7</span>任务类型 → 架构怎么承接（即时任务 vs 非即时任务）</h2>
+      <p class="sub">加入 advisor 文档后，这里要更新：不是只有“长时/持续”才进动态 advisor。动态 advisor 技术设计明确承接 <b>长时任务 type=1、持续/GUI 任务 type=2、条件任务 type=3、定时任务 type=4</b>。即时任务仍由 Director 当场闭环，非即时任务进入动态 advisor/任务中心/触发订阅体系。</p>
+      <table>
+        <tr><th>任务类型</th><th>是否非即时</th><th>是否进动态 advisor</th><th>怎么承接（原理）</th></tr>
+        <tr><td><b>简单即时 / 单步复杂</b></td><td>否</td><td>❌</td><td>Director 当场闭环，不进任务中心；工具成功且可感知时可静默。</td></tr>
+        <tr><td><b>多步即时</b></td><td>通常否</td><td>❌</td><td>Director 在 ReAct 里串联 tool_feedback 完成依赖；如果变成 GUI/生态持续流程，则转 type=2。</td></tr>
+        <tr><td><b>长时任务 type=1</b></td><td>是</td><td>✅</td><td>过程型/陪伴型任务，靠 review、Context、可能的 VLM 状态持续推进。</td></tr>
+        <tr><td><b>持续/GUI 任务 type=2</b></td><td>是</td><td>✅</td><td>面向生态/GUi Agent 的持续推进，用户长时间无响应时提醒继续，任务卡片显示状态。</td></tr>
+        <tr><td><b>条件任务 type=3</b></td><td>是</td><td>✅</td><td>注册触发器；条件 callback 后动态 advisor 根据策略生成 advice 给 Director。</td></tr>
+        <tr><td><b>定时任务 type=4</b></td><td>是</td><td>✅</td><td>注册云端/端侧定时器；循环定时带 cycle；VLM 定时先捞图判断再触发。</td></tr>
+      </table>
+      <div class="key"><b>一句话记住整套架构的"分配逻辑"：</b>
+      能当场做完的 → Director 闭环（不留痕）；
+      要跨时间、跨条件、跨 GUI 状态继续推进的 → 进入动态 advisor/任务中心；
+      要等条件的 → 注册触发器；
+      要等时间的 → 注册定时器；
+      要靠视觉判断的 → 走 VLM 改写 + 定时/事件 review。
+      <b>"恢复"不靠 Director 记忆，靠 advisor 读 goal/任务状态重新触发任务</b>——这就是"目标驱动"和"对话管理"的耦合点，也是高闭环率的来源。</div>
+    </section>
+
+    <!-- ===================== 8 ===================== -->
+    <section id="t8">
+      <h2><span class="num">8</span>底层原理 → 你能动的优化抓手（这才是你要的"为什么"）</h2>
+      <p class="sub">把"为什么这么设计"讲透，优化方向自然就浮出来了。</p>
+
+      <h3>8.1 旧架构的 5 个病（新架构所有设计都在治这 5 个病）<span class="tag t-prd">PRD原文</span></h3>
+      <table>
+        <tr><th>病</th><th>原文症状</th><th>新架构的药</th></tr>
+        <tr><td>① Planner 过载</td><td>"在性能和质量之间兼顾所有事情有挑战"</td><td>职责拆分：Director 重时延/快响应，advisor 重思考/盯目标</td></tr>
+        <tr><td>② 单线程</td><td>"单线程工作模式，不具备多线程任务并行能力"</td><td>goal list 共享看板 + 多 advisor 并行 review</td></tr>
+        <tr><td>③ 需求不闭环</td><td>"我讲一句应一句，一锤子买卖"</td><td>目标持久化 + 持续跟进 + 打断可恢复</td></tr>
+        <tr><td>④ 规则限制涌现</td><td>"为让流程稳定增加规则，限制模型涌现"</td><td>"职责分散=更少输入和限制，最大化涌现"</td></tr>
+        <tr><td>⑤ 情景割裂</td><td>"不知道舱内外发生什么、车在什么状态、正在做什么"</td><td>公共 Context 服务（情景/端状态/记忆/视觉）</td></tr>
+      </table>
+
+      <h3>8.2 六个真实可动的优化抓手（带出处）</h3>
+      <div class="five">
+        <div><b>① 前置筛选 / Context 过滤 <span class="tag t-prd">PRD</span></b>按 query 裁掉冗余工具描述/示例/knowhow（"50+示例注入"是当前痛点）；Context 按场景/人物/任务三维过滤。→ 直接降 token、提质提速。</div>
+        <div><b>② 缓存复用 <span class="tag t-schema">Schema</span></b>同一请求内多轮推理复用前序 KV，只算增量；SP 固定前缀跨请求命中。→ 优化点在"动态变量别破坏前缀"。</div>
+        <div><b>③ 快慢分流 <span class="tag t-prd">PRD</span></b>端侧/明确指令走快链路（150-300ms），复杂才进云慢思考（500ms×N）。→ 优化点在"仲裁分流准确率"。</div>
+        <div><b>④ COT 执行结论前置 <span class="tag t-exp">实验</span></b>在意图阶段就把 FC 执行结论想清楚，灌进简化 FC 模板，减轻后链路（车控千函数）。→ 还在实验，但是方向。</div>
+        <div><b>⑤ 边想边搜 <span class="tag t-exp">实验</span></b>流式持续塞参考信息不打断生成，"减少初始塞入、减少首 token 时间、不增加调用延迟"。</div>
+        <div><b>⑥ 流式截取中间结论 <span class="tag t-exp">实验</span></b>COT 稳定格式下，第一时间截取中间结果就往下走，不等整条链生成完。→ 降时延关键。</div>
+      </div>
+
+      <h3>8.3 Badcase 排查：在这套架构上定位故障节点</h3>
+      <p>对照你 Schema 的排查路径，映射到本架构的具体查点：</p>
+      <table>
+        <tr><th>故障类型</th><th>查哪一层</th><th>看什么</th></tr>
+        <tr><td>走错模块（链路问题）</td><td>多级拒识 + 仲裁模型</td><td>端侧白名单命中？前置拒识误拒？仲裁简单/复杂分错？</td></tr>
+        <tr><td>工具调错（工具描述问题）</td><td>Director SP 工具定义 + 前置筛选</td><td>工具描述是否清晰、是否被前置筛选裁掉了该用的工具</td></tr>
+        <tr><td>信息缺失（上下文问题）</td><td>公共 Context 三维过滤</td><td>是否按场景/人物过滤把需要的记忆/端状态滤掉了</td></tr>
+        <tr><td>信息全但推理错（模型能力）</td><td>Director 一次/二次推理</td><td>拆解稳定性、二次推理总结幻觉、合理性仲裁是否漏判</td></tr>
+        <tr><td>目标不闭环/忘事</td><td>advisor + goal list</td><td>动态 advisor 是否注册、细节进展是否被正确更新、订阅是否触发</td></tr>
+        <tr><td>话术生硬/打断乱</td><td>任务交互管理</td><td>合并规则、长程/aigc 是否误入合并、talk_or_not 判断</td></tr>
+      </table>
+    </section>
+
+    <!-- ===================== 9 ===================== -->
+    <section id="t9">
+      <h2><span class="num">9</span>耗时模型与时延优化：一轮请求到底慢在哪里</h2>
+      <p class="sub">这一章专门回答“耗时”。不要只看总耗时，要把它拆成：输入链路、分流链路、Planner 思考、工具执行、二次推理、TTS/HMI、交互治理。真正优化时延，先要知道哪一段在关键路径上。</p>
+
+      <h3>9.1 PRD 给出的硬指标：先建立时延预算表 <span class="tag t-prd">PRD原文</span></h3>
+      <table>
+        <tr><th>链路段</th><th>目标耗时</th><th>是否通常在首 token 前</th><th>产品含义</th><th>优化方向</th></tr>
+        <tr><td>ASR → NLU 完成</td><td>200 + 300ms</td><td>是</td><td>用户说完到系统拿到可理解输入。</td><td>流式 ASR、提前判停、端侧轻量 NLU。</td></tr>
+        <tr><td>FC.SFT 解析（简单）</td><td>300ms</td><td>是</td><td>简单指令快速转成函数调用，不进深度慢思考。</td><td>简单任务识别、端侧/小模型解析、工具 schema 收窄。</td></tr>
+        <tr><td>Planner 思考</td><td>500ms</td><td>是</td><td>Director/Planner 做意图、任务拆解、工具选择。</td><td>前置筛选、减少示例注入、Context 过滤、模型蒸馏。</td></tr>
+        <tr><td>Planner 回答（慢思考）</td><td>500ms</td><td>可能是</td><td>复杂任务需要更深推理、组织话术或总结。</td><td>COT 中间结论截取、边想边搜、响应话术按需生成。</td></tr>
+        <tr><td>端上执行（车控）</td><td>150ms</td><td>通常否</td><td>动作已确定后，端侧执行控制。</td><td>把明确车控留在端侧，减少云端往返。</td></tr>
+        <tr><td>TTS 生成</td><td>200ms</td><td>否，但影响用户感知</td><td>用户听到声音的时间和流畅度。</td><td>首句短话术、TTS 流式、减少不必要铺垫。</td></tr>
+        <tr><td><b>总目标</b></td><td><b>P50 首 token ≤500ms；P90 ≤800ms</b></td><td>核心指标</td><td>用户是否觉得“快”。</td><td>所有首 token 前的串行段都要压缩。</td></tr>
+      </table>
+
+      <div class="key"><b>关键理解：</b>首 token 不是“整个任务完成时间”，而是用户第一次感知到系统响应的时间。复杂任务可以总耗时长，但必须让用户尽早知道“我听懂了，正在处理”。所以架构里要区分 <code>首 token 时延</code>、<code>动作下发时延</code>、<code>任务完成时延</code>、<code>总结播报时延</code>。</div>
+
+      <h3>9.2 三种典型链路的耗时账本</h3>
+      <table>
+        <tr><th>链路类型</th><th>串行关键路径</th><th>哪些可并行</th><th>耗时风险</th><th>体验策略</th></tr>
+        <tr>
+          <td><b>简单车控快链路</b><br>例：打开空调、调座椅</td>
+          <td>ASR/NLU → 简单 FC 解析 → 端上执行 → TTS/HMI</td>
+          <td>端侧执行和简短确认话术可以接近并行；部分明确指令可跳过复杂 Planner。</td>
+          <td>如果误进云端 Planner，会把 150ms 级动作拖成 500ms+。</td>
+          <td>能端侧解决就端侧；不必强制生成铺垫话术。</td>
+        </tr>
+        <tr>
+          <td><b>复杂多步 ReAct 链路</b><br>例：先查天气再规划路线</td>
+          <td>ASR/NLU → Planner 第一次思考 → tool call → tool_feedback → Planner 二次推理 → 下游执行/总结</td>
+          <td>无依赖的 action_list 可并行；有依赖的步骤必须串行等待 tool_feedback。</td>
+          <td>每多一次 ReAct 循环，就多一次“工具耗时 + Planner 二次推理”。</td>
+          <td>首 token 先给轻话术；复杂结果出来后再总结，不要让用户空等。</td>
+        </tr>
+        <tr>
+          <td><b>长时/持续目标链路</b><br>例：帮我盯一下宝宝</td>
+          <td>入口识别 → Director 建目标/建 advisor → 注册订阅 → 未来事件触发 → advisor 推进 → 写回 HMI</td>
+          <td>建目标后，advisor 可以后台持续；多个 advisor 可并行 review goal list。</td>
+          <td>总时长可能跨分钟/小时，不能用一次请求的首 token 指标衡量全部。</td>
+          <td>先确认“已开始跟踪”，后续用目标卡片/提醒表达进展。</td>
+        </tr>
+      </table>
+
+      <h3>9.3 首 token 为什么会慢：真正卡住的是这些串行段</h3>
+      <div class="five">
+        <div><b>① 输入未完成</b>ASR/VAD 没判停，Planner 不能稳定决策。优化点：流式识别、提前判停，但误判会导致打断体验差。</div>
+        <div><b>② 前置分流犹豫</b>端侧白名单、拒识、仲裁模型没快速给出“快链路/慢链路”结论。优化点：把高频明确指令前移。</div>
+        <div><b>③ Prompt 太胖</b>工具描述、50+ 示例、knowhow、Context 全塞进去，模型首 token 变慢，推理也更容易被噪音干扰。</div>
+        <div><b>④ Context 现取现拼</b>如果每轮都临时查记忆、查端状态、查情景，再拼进 prompt，会把检索耗时放到关键路径。</div>
+        <div><b>⑤ 强制铺垫话术</b>任务探索文档里也提到铺垫话术影响时延；简单查询/端状态场景，强制“我来帮你...”反而慢且重复。</div>
+        <div><b>⑥ 多轮 ReAct 依赖</b>第二次推理必须等 tool_feedback，串行依赖越多，总完成时间越长。</div>
+      </div>
+
+      <h3>9.4 ReAct 多轮耗时公式：为什么复杂任务天然慢</h3>
+      <pre>总完成耗时 ≈ 输入理解
+        + Planner 第一次思考
+        + max(可并行工具耗时)
+        + Σ(串行依赖工具耗时 + 二次推理耗时)
+        + HMI/TTS 展示耗时
+
+首 token 耗时 ≈ 输入理解
+        + 前置分流/Context 准备
+        + 生成第一段可播报内容的模型耗时</pre>
+      <p>所以复杂任务有两种优化思路：一种是压缩每段耗时，另一种是改变“用户等待方式”。如果必须慢，就先给用户一个可信的轻量响应，比如“我先看一下路线和沿途天气”，然后后台继续跑工具和二次推理。</p>
+
+      <h3>9.5 打断/合并/排队对耗时的影响 <span class="tag t-prd">PRD原文</span></h3>
+      <table>
+        <tr><th>时刻</th><th>策略</th><th>耗时影响</th><th>为什么这样设计</th></tr>
+        <tr><td>新 query 来时，上一轮 Planner 还没出话术</td><td>打断当前推理，把新旧 query 合并后重推理</td><td>上一轮已消耗的推理时间沉没，但避免播出过时回答。</td><td>用户还没听到结果，此时重算比播错更划算。</td></tr>
+        <tr><td>新 query 来时，上一轮正在播报</td><td>P0 用户 query 直接打断；P1 非用户事件排队</td><td>P0 降低用户等待；P1 避免主动服务打断用户。</td><td>车内语音是单通路，用户主动输入优先级最高。</td></tr>
+        <tr><td>advisor 建议/定时条件任务触发</td><td>排队，同一 advisor 保留最新一条</td><td>牺牲实时性，换取低打扰和低噪音。</td><td>主动建议不能频繁抢话，否则体验崩。</td></tr>
+        <tr><td>长程任务/aigc</td><td>不参与合并</td><td>避免重算成本和状态错乱。</td><td>这类任务有自己的界面/长流程，强行合并风险高。</td></tr>
+      </table>
+
+      <h3>9.6 并行不是万能：哪些能并行，哪些不能并行</h3>
+      <table>
+        <tr><th>对象</th><th>能否并行</th><th>原因</th><th>时延优化含义</th></tr>
+        <tr><td>多个无依赖 action/tool</td><td>可以</td><td>action_list 中无前后依赖时，下游 agent 可并发执行。</td><td>总耗时取 max(tool)，不是 sum(tool)。</td></tr>
+        <tr><td>有依赖的多步任务</td><td>不可以</td><td>下一步需要上一工具的 tool_feedback。</td><td>要优化拆解，减少不必要串行。</td></tr>
+        <tr><td>多个 advisor review goal list</td><td>可以</td><td>目标驱动体系就是为了多线程协作。</td><td>后台可并行，但前台汇报要合并，不能逐条打扰。</td></tr>
+        <tr><td>Context 预处理</td><td>部分可以</td><td>压缩、打标、提前过滤可在请求前或后台做。</td><td>把耗时从在线关键路径挪到离线/准实时。</td></tr>
+        <tr><td>TTS 与执行</td><td>部分可以</td><td>短确认话术可以和端侧动作接近并行。</td><td>用户先听到响应，动作随后完成。</td></tr>
+      </table>
+
+      <h3>9.7 时延优化抓手：按收益和风险排序</h3>
+      <table>
+        <tr><th>优先级</th><th>抓手</th><th>主要降低哪类耗时</th><th>风险</th><th>适用范围</th></tr>
+        <tr><td>P0</td><td>快慢分流：明确车控/简单查询不进复杂 Planner</td><td>首 token、动作下发</td><td>分错会漏掉复杂需求</td><td>高频明确指令</td></tr>
+        <tr><td>P0</td><td>前置筛选：按 query 裁工具描述、示例、knowhow</td><td>Planner 首 token、推理质量</td><td>裁掉必要知识会调错工具</td><td>所有云端 Planner 请求</td></tr>
+        <tr><td>P0</td><td>Context 三维过滤：场景/人物/任务按需注入</td><td>token、推理噪音</td><td>过滤过猛会信息缺失</td><td>记忆、端状态、情景复杂场景</td></tr>
+        <tr><td>P1</td><td>响应话术按需生成</td><td>首 token、TTS 总时长</td><td>太少会让用户觉得没反馈</td><td>端状态查询、简单控制、短链路任务</td></tr>
+        <tr><td>P1</td><td>工具并行与依赖识别</td><td>任务完成耗时</td><td>依赖判断错会导致执行顺序错</td><td>多 agent、多工具任务</td></tr>
+        <tr><td>P1</td><td>KV/Prompt Cache</td><td>多轮 ReAct 推理</td><td>这批 PRD 未细讲，需看 SP 优化专项</td><td>固定 SP 前缀、多次推理复用</td></tr>
+        <tr><td>P2</td><td>COT 流式截取中间结论</td><td>动作执行等待</td><td>实验中，格式不稳会误截取</td><td>慢思考实验链路</td></tr>
+        <tr><td>P2</td><td>边想边搜</td><td>首 token、RAG 初始注入量</td><td>实验中，检索质量和时序复杂</td><td>需要状态/知识补充的复杂推理</td></tr>
+      </table>
+
+      <h3>9.8 你排查“慢”的时候，应该问这 8 个问题</h3>
+      <ol>
+        <li>这条请求本该走快链路，还是本来就该走慢思考？</li>
+        <li>首 token 慢，还是动作完成慢，还是总结播报慢？不要混为一谈。</li>
+        <li>慢之前有没有等 ASR/VAD 判停？有没有被新 query 打断重算？</li>
+        <li>前置筛选有没有把大量无关工具、示例、knowhow 塞进 prompt？</li>
+        <li>Context 是否在线现查现拼？有没有可提前预处理的部分？</li>
+        <li>Planner 是一次推理还是 ReAct 多次推理？每次 tool_feedback 等了多久？</li>
+        <li>action_list 里哪些能并行，哪些被错误串行了？</li>
+        <li>是否强制生成了不必要的铺垫/总结话术，导致用户感知变慢？</li>
+      </ol>
+
+      <div class="key"><b>最终结论：</b>耗时优化不是单点“模型变快”，而是把请求分成三类处理：<b>快链路直接闭环</b>、<b>复杂链路尽早出首 token 并后台 ReAct</b>、<b>长时目标用 advisor/订阅异步推进</b>。这才是当前架构里“耗时”和“体验”同时优化的底层逻辑。</div>
+    </section>
+
+    <!-- ===================== 10 ===================== -->
+    <section id="t10">
+      <h2><span class="num">10</span>认知自测 + 仍需你确认的问题</h2>
+      <h3>读完这份你现在应该能回答（向上汇报自测）</h3>
+      <ol>
+        <li>"现在用什么架构？"——能分清 LIVE 漏斗/ReAct、LANDING 目标驱动、实验 COT 三个时间面，不混。</li>
+        <li>Director 一次调用为什么是两次推理？tool_feedback 在其中起什么作用？</li>
+        <li>为什么 Director 不更新"目标细节和进展"，而要交给 advisor？解决什么病？</li>
+        <li>动态 advisor 什么时候才会被创建？（只有"靠静态目标无法追踪的持续任务"）</li>
+        <li>车上为什么只能"输入端治理"？长程任务/aigc 为什么不参与合并？</li>
+        <li>要降首 token 时延，架构上有哪几个抓手？分别属于哪个时间面（已落地 vs 实验）？</li>
+      </ol>
+
+      <h3>下面这些我无法只从这 5 份 PRD 确认，需要你拍板/补料</h3>
+      <ul>
+        <li><b>VLM「豆包视觉转语言」的具体机制</b>（影响感知器 sp/attention、信息回传、写回 context）——这 5 份没有原文，要我去提 <code>公共Context管理.pdf</code> / <code>豆包incar1.0长期架构.pdf</code> 吗？</li>
+        <li><b>23 个工具完整清单</b>——这批 PRD 只零散出现 ~10 个；全集在外部 fornax prompt 和《下游工具输入输出整理》子文档。要补吗？</li>
+        <li><b>SP/UP 的真实字段结构 + KV Cache 细节</b>——在 <code>Sp 优化专项.html</code>，需要我专门拆那一份吗？</li>
+        <li><b>COT 快慢思考</b>到底排期到哪了、是否已替换某一层——文档是 6 月实验提案，<u>当前是否已部分上线</u>需要你内部确认。</li>
+        <li>那 9 张 Director PRD 架构图 + 任务交互策略里 20 张图，是 base64 图片没法文本化——要我用截图/OCR 把图里的细节也抠出来吗？</li>
+      </ul>
+      <div class="note">告诉我上面哪几条要深挖，我就继续往下一轮拆（比如专门做一份"SP/UP + 缓存优化"或"VLM 感知链路"的深拆）。</div>
+    </section>
+
+    </main>
+  </div>
+</div>
+</body>
+</html>

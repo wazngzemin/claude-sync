@@ -1,0 +1,721 @@
+{
+  "walkthroughs": [
+    {
+      "id": "seres-timed-seat-heating",
+      "title": "十分钟后关座椅加热：赛力斯 Task Service 的完整走查",
+      "query": "十分钟后关闭主驾座椅加热。",
+      "scope": "教学场景固定为 Seres（赛力斯）普通一次性时间任务：用户、车辆与主驾对象明确，本例从 14:00 计时，目标 14:10，仅在本次行程内有效。执行前约束沿用定时 PRD Case 1 的在线、座椅有人、加热仍开三项 Guard；目标赛力斯版本是否配置这组约束仍待核，不是所有任务的通用必查项。依据 2026-10-23 已读 Task Service OnePager、一期设计与定时 PRD 组织教学验收链，不代表已获取一条现网成功日志。",
+      "boundary": "不接入上汽 Extour Goal 创建卡/consumed/done，也不使用二期 Script/Runtime。入口技术名 task_manage 与 PRD 名 task_agent 的实际注册映射须核；时间锚点、车辆下电、执行前约束及 Input Manager 新机制按目标版本确认。定时 PRD 的动作简写必须展开为任务回流→Director→工具，不表示 Trigger 直接车控。取消/失效分支一旦成立，后续执行步骤不再发生。",
+      "sourceIds": [
+        "VOICE-ONEPAGE",
+        "VOICE-CLIENT",
+        "INPUT-PRD",
+        "INPUT-TECH",
+        "CONTEXT-ONEPAGE",
+        "DT-PRD",
+        "ASY-A02",
+        "ASY-A03",
+        "ASY-A17",
+        "TOOLS-IO",
+        "AGENT-PROTOCOL",
+        "ROOT-ENDCLOUD"
+      ],
+      "steps": [
+        {
+          "id": "ST-01",
+          "title": "先形成一条正式请求",
+          "actor": "车端语音链路",
+          "moduleIds": [
+            "V",
+            "R"
+          ],
+          "known": [
+            "原话明确主驾和十分钟后"
+          ],
+          "unknown": [
+            "临时转写尚不代表用户说完"
+          ],
+          "input": "音频、音区与说话信息。",
+          "decision": "判停并取得正式文本；本例选择云端承接，临时文本不创建任务。",
+          "output": "带来源和请求身份的正式 Query。",
+          "next": "交 ST-02；拒识或文本不完整则不进入创建。",
+          "evidence": "对照音频、最终转写、正式请求与端云采信记录。",
+          "failure": "不能把预请求当正式命令，或端云各创建一遍任务。",
+          "sourceIds": [
+            "VOICE-ONEPAGE",
+            "VOICE-CLIENT"
+          ]
+        },
+        {
+          "id": "ST-02",
+          "title": "准入并补齐本轮背景",
+          "actor": "输入管理与 Context",
+          "moduleIds": [
+            "M",
+            "C",
+            "F"
+          ],
+          "known": [
+            "当前对象为主驾",
+            "本车加热功能可用"
+          ],
+          "unknown": [
+            "十分钟后是否在线、是否仍有人"
+          ],
+          "input": "正式 Query、身份、当前车况和任务视图。",
+          "decision": "按本版本准入策略接入，带当前可用任务工具；未来状态保留未知。",
+          "output": "可追溯的本轮输入与相关背景。",
+          "next": "交 ST-03，不把旧轮反馈冒充当前事实。",
+          "evidence": "检查本轮身份、状态时间、TaskView 和实际 tool_info。",
+          "failure": "缺权限或关键能力时先说明，不能靠模型补出可用功能。",
+          "sourceIds": [
+            "INPUT-PRD",
+            "INPUT-TECH",
+            "CONTEXT-ONEPAGE",
+            "DT-PRD"
+          ]
+        },
+        {
+          "id": "ST-03",
+          "title": "交办未来目标，不立即关闭",
+          "actor": "Director 与工具执行层",
+          "moduleIds": [
+            "D",
+            "E",
+            "F",
+            "T"
+          ],
+          "known": [
+            "用户要十分钟后执行",
+            "不是现在关闭"
+          ],
+          "unknown": [
+            "任务是否保存、规则是否注册"
+          ],
+          "input": "本轮输入与当前渠道任务工具合同。",
+          "decision": "D 输出任务文本，经 E 找到合法实现；不同时发关闭加热车控。",
+          "output": "一次任务管理调用，保留原请求关联。",
+          "next": "交 ST-04；实际工具入口名称按注册配置核对。",
+          "evidence": "对照 action_list、工具实现和外发请求。",
+          "failure": "模型说“好的”只表示回应；立即关闭或声称已安排均需查依据。",
+          "sourceIds": [
+            "DT-PRD",
+            "ASY-A02",
+            "ASY-A03"
+          ]
+        },
+        {
+          "id": "ST-04",
+          "title": "任务系统解释时间与结束条件",
+          "actor": "Task Service 规格解析与管理",
+          "moduleIds": [
+            "T",
+            "C"
+          ],
+          "known": [
+            "本例确认 14:00 为起点",
+            "只执行一次、本行程有效"
+          ],
+          "unknown": [
+            "是否已有同目标待办"
+          ],
+          "input": "任务文本、TaskView、车辆与用户归属。",
+          "decision": "识别新增或管理既有任务，生成时间、主驾关闭动作与结束策略；本例目标为 14:10。",
+          "output": "待保存的 Task 定义，不是已生效任务。",
+          "next": "校验通过交 ST-05；对象或时间不明先澄清。",
+          "evidence": "核对解析结果、已有任务及时间锚点。",
+          "failure": "D 不直接生成任务事实；重复诉求不能盲目叠加相同任务。",
+          "sourceIds": [
+            "ASY-A02",
+            "ASY-A03",
+            "ASY-A17"
+          ]
+        },
+        {
+          "id": "ST-05",
+          "title": "先保存任务事实",
+          "actor": "Task Service 持久化模块",
+          "moduleIds": [
+            "T"
+          ],
+          "known": [
+            "任务定义已校验"
+          ],
+          "unknown": [
+            "时间规则尚未注册"
+          ],
+          "input": "用户目标、归属、执行内容与结束策略。",
+          "decision": "先保存 Task 及其身份；普通规则任务此时等待，不等于已产生一次真实执行。",
+          "output": "可查询的 task_id 与保存结果。",
+          "next": "保存成功交 ST-06；失败返回本次调用。",
+          "evidence": "检查任务记录、保存时间和失败原因。",
+          "failure": "数据库有任务不等于闹钟已登记；不能把这一半成功展示为安排已生效。",
+          "sourceIds": [
+            "ASY-A02",
+            "ASY-A03"
+          ]
+        },
+        {
+          "id": "ST-06",
+          "title": "登记时间规则，再确认安排",
+          "actor": "Task Service 与云端触发器",
+          "moduleIds": [
+            "T",
+            "G",
+            "E",
+            "M",
+            "D",
+            "O"
+          ],
+          "known": [
+            "Task 已保存",
+            "目标时间 14:10"
+          ],
+          "unknown": [
+            "注册是否成功、通知是否可见"
+          ],
+          "input": "时间规则与任务关联信息。",
+          "decision": "向 Trigger 注册；按真实结果分别处理保存成功与注册失败。两者成功才回创建成功。",
+          "output": "任务—规则关联及创建应答；此时加热仍不应关闭。",
+          "next": "成功进入 ST-07，失败回主链说明未完成安排。",
+          "evidence": "核 task_id、规则记录、注册返回及创建话术/展示。",
+          "failure": "卡片出现或通知成功不能替代规则注册；补偿方式按项目确认。",
+          "sourceIds": [
+            "ASY-A02",
+            "ASY-A03",
+            "ASY-A17",
+            "DT-PRD"
+          ]
+        },
+        {
+          "id": "ST-07",
+          "title": "等待期间仍可取消或失效",
+          "actor": "Task Service 与用户管理链路",
+          "moduleIds": [
+            "T",
+            "G",
+            "M",
+            "D",
+            "U"
+          ],
+          "known": [
+            "任务等待到点",
+            "当前会话可以结束"
+          ],
+          "unknown": [
+            "用户是否会改口、车辆是否下电"
+          ],
+          "input": "等待任务及新的用户/车辆事件。",
+          "decision": "若八分钟时明确取消，定位原任务并关闭、清理规则；本例下电也按行程内策略结束。",
+          "output": "继续等待，或有明确原因的关闭状态。",
+          "next": "未关闭才到 ST-08；已关闭仍须拦迟到回调。",
+          "evidence": "查看取消原请求、任务状态、规则清理和下电事件。",
+          "failure": "只删卡或停止播报不是取消；已发出的车辆动作也不会因此倒转。",
+          "sourceIds": [
+            "ASY-A02",
+            "ASY-A03",
+            "ASY-A17"
+          ]
+        },
+        {
+          "id": "ST-08",
+          "title": "到点由触发器报告命中",
+          "actor": "云端时间触发能力",
+          "moduleIds": [
+            "G",
+            "T"
+          ],
+          "known": [
+            "本例目标时间已到"
+          ],
+          "unknown": [
+            "任务此刻是否仍有效"
+          ],
+          "input": "已登记时间规则及当前时间。",
+          "decision": "Trigger 完成时间匹配，回调关联任务；它只报告到点，不直接发座椅车控。",
+          "output": "带原任务关联、回调身份与触发时刻的通知。",
+          "next": "交 ST-09；重复或迟到也走有效性检查。",
+          "evidence": "核规则时间、匹配时刻与原始 callback。",
+          "failure": "回调成功不证明用户收到提醒，更不证明加热已关闭。",
+          "sourceIds": [
+            "ASY-A02",
+            "ASY-A03",
+            "ASY-A17"
+          ]
+        },
+        {
+          "id": "ST-09",
+          "title": "过取消、失效与执行前条件门",
+          "actor": "Task Service",
+          "moduleIds": [
+            "T",
+            "C",
+            "G"
+          ],
+          "known": [
+            "收到时间命中通知"
+          ],
+          "unknown": [
+            "是否已取消、过期或加热已关闭"
+          ],
+          "input": "原任务、回调及当前必要状态。",
+          "decision": "校验归属与去重；已关闭不激活。有效时登记 Run；仅任务配置了相应执行前约束时检查在线、有人及加热仍开，未满足记录跳过。",
+          "output": "可执行 Run，或带原因的跳过/拒绝记录。",
+          "next": "通过交 ST-10；未通过停在本次结果处理。",
+          "evidence": "核任务有效性、run_id、实时状态和跳过原因。",
+          "failure": "Task 不重复匹配原时间条件；跳过不等于工具失败，也不应再尝试关闭。",
+          "sourceIds": [
+            "ASY-A02",
+            "ASY-A03",
+            "ASY-A17"
+          ]
+        },
+        {
+          "id": "ST-10",
+          "title": "建议经客户端回到同一主链",
+          "actor": "Task Service、推荐通道与输入管理",
+          "moduleIds": [
+            "T",
+            "M",
+            "C",
+            "D"
+          ],
+          "known": [
+            "本次 Run 已允许执行"
+          ],
+          "unknown": [
+            "推荐是否送达、用户是否插话"
+          ],
+          "input": "任务原意、命中事实与本次运行关联。",
+          "decision": "先保存 recommend_id 与 Task/Run 的绑定，经 Recommend/Frontier 到客户端；回流后恢复关联，由 M 安排 D。",
+          "output": "携当前背景的 advice 输入，不是新用户命令。",
+          "next": "交 ST-11；未送达或关联失败留明确状态。",
+          "evidence": "追推荐标识、客户端上行和恢复的 task_id/run_id。",
+          "failure": "这是赛力斯通用任务方案，不套上汽 Goal 卡默认执行或 consumed 语义。",
+          "sourceIds": [
+            "ASY-A02",
+            "ASY-A03",
+            "INPUT-PRD"
+          ]
+        },
+        {
+          "id": "ST-11",
+          "title": "重新核现场，再发合法车控",
+          "actor": "Director 与执行层",
+          "moduleIds": [
+            "D",
+            "F",
+            "E"
+          ],
+          "known": [
+            "这是原任务的本次执行"
+          ],
+          "unknown": [
+            "排队期间车况或用户意图是否又变"
+          ],
+          "input": "advice、当前加热状态、权限及可用工具。",
+          "decision": "D 再核实际条件，生成明确主驾关闭动作；E 在许可和参数通过后调用本车型车控。",
+          "output": "关联本次任务运行的 vehicle_basic_control 调用。",
+          "next": "交 ST-12；新取消或条件变化不应沿用过时动作。",
+          "evidence": "对照本轮 Context、action_list、发布许可及端侧接收。",
+          "failure": "收到建议或生成动作不算执行完成；不能因工具名存在就跳过权限检查。",
+          "sourceIds": [
+            "DT-PRD",
+            "INPUT-TECH",
+            "TOOLS-IO",
+            "ASY-A03"
+          ]
+        },
+        {
+          "id": "ST-12",
+          "title": "执行、任务状态与用户结果分别验收",
+          "actor": "车控、主链与 Task Service",
+          "moduleIds": [
+            "E",
+            "M",
+            "D",
+            "T",
+            "O",
+            "EL"
+          ],
+          "known": [
+            "工具已下发"
+          ],
+          "unknown": [
+            "车辆是否真正关闭、用户是否听见"
+          ],
+          "input": "结构化车控结果与实际车辆状态。",
+          "decision": "反馈经 M 回 D 准确回应；关联结果回写 Run，按一次性结束策略关闭 Task 并清理规则。",
+          "output": "真实成功/失败/未知、任务状态及用户可见结果。",
+          "next": "终止本例；发现不一致进入证据排查。",
+          "evidence": "同查调用、车况、结果回写、任务视图和实际播放。",
+          "failure": "受理不算关闭，Run 结束不算播完；回写保障与超时口径须实查，不能仅靠异步收尾。",
+          "sourceIds": [
+            "ASY-A02",
+            "ASY-A03",
+            "DT-PRD",
+            "TOOLS-IO",
+            "ROOT-ENDCLOUD"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "nap-personal-rule-to-governance",
+      "title": "以后午睡别放音乐：个人规则复用与团队治理分开走",
+      "query": "以后午睡别放音乐。",
+      "scope": "教学时间线含两个明确分开的会话。当前只提出未来偏好，不隐含立即停播；下一会话的新增原话是“我要睡会，把现在的音乐也暂停”。后一句是本例专门给出的当前操作授权，不是从“以后”推断出来。个人规则支路依据产品愿景与 personal_skill_record 提示词合同；只有目标项目的保存、授权、查询/召回和发布实现核实后，才可执行完整复用链。",
+      "boundary": "没有已核实现时只形成待评审候选，不承诺已经记住或自动生效。普通 Memory 的授权原则不能替代个人技能自身接口核验；完整替换/局部更新、技能召回与删除传播仍待确认。末步团队治理是独立的有评测、有发布责任的改进流程，不是个人规则保存触发模型实时训练，也不是已经验证的自动 Reflector 全链路。",
+      "sourceIds": [
+        "VOICE-ONEPAGE",
+        "INPUT-PRD",
+        "DT-PRD",
+        "ME-IDENTITY",
+        "ME-MEM-PRD",
+        "CONTEXT-ONEPAGE",
+        "DYNAMIC-EXAMPLE",
+        "SE-PRODUCT",
+        "TOOLS-IO",
+        "AGENT-PROTOCOL",
+        "SE-Q4",
+        "EVAL-GUIDE",
+        "SE-RELEASE0514",
+        "ISSUE-TECH"
+      ],
+      "steps": [
+        {
+          "id": "NP-01",
+          "title": "把纠偏作为用户的新输入",
+          "actor": "语音链路与输入管理",
+          "moduleIds": [
+            "V",
+            "R",
+            "M"
+          ],
+          "known": [
+            "原话只说“以后午睡”"
+          ],
+          "unknown": [
+            "是否还要求现在停播"
+          ],
+          "input": "正式 Query、说话人来源及当前会话。",
+          "decision": "形成完整文本并按用户输入准入，保留被打断内容和已执行事实。",
+          "output": "明确含未来意图的新一轮输入。",
+          "next": "交 NP-02，不能仅据停播事件推断长期偏好。",
+          "evidence": "核原始语音、最终 Query 与中断记录。",
+          "failure": "临时停顿不是命令完成；若 TTS 被打断，也不等于媒体音乐已暂停。",
+          "sourceIds": [
+            "VOICE-ONEPAGE",
+            "INPUT-PRD",
+            "DT-PRD"
+          ]
+        },
+        {
+          "id": "NP-02",
+          "title": "先分当前操作与未来偏好",
+          "actor": "Director 与 Context",
+          "moduleIds": [
+            "D",
+            "C"
+          ],
+          "known": [
+            "希望未来午睡不放音乐"
+          ],
+          "unknown": [
+            "未明确现在也要停音乐"
+          ],
+          "input": "原话、当前场景和已知媒体状态。",
+          "decision": "本轮只处理未来偏好意图；不自动发暂停、关灯或修改其他午睡设备。若当前诉求不清再问。",
+          "output": "范围为“该用户的午睡服务不主动放音乐”。",
+          "next": "交 NP-03；额外当前动作须有单独依据。",
+          "evidence": "检查本轮 action_list 没夹带未经要求的即时控制。",
+          "failure": "不能因产品原例曾关灯，就把关灯复制成本用户的偏好。",
+          "sourceIds": [
+            "DT-PRD",
+            "SE-PRODUCT"
+          ]
+        },
+        {
+          "id": "NP-03",
+          "title": "先核属于谁、有没有权限保存",
+          "actor": "账号/记忆边界与能力准入",
+          "moduleIds": [
+            "K",
+            "F",
+            "D"
+          ],
+          "known": [
+            "有长期个人化意图"
+          ],
+          "unknown": [
+            "技能接口、身份和授权是否满足"
+          ],
+          "input": "可信用户/车辆归属、授权状态与实际可用工具。",
+          "decision": "核目标渠道技能能力及权限合同；普通记忆开关规则作边界依据，不能自动证明技能已接入。",
+          "output": "允许继续核技能，或需要授权/能力未就绪。",
+          "next": "具备条件交 NP-04；否则仅解释限制。",
+          "evidence": "查身份映射、授权状态、运行工具配置与生效版本。",
+          "failure": "说出偏好不等于允许读取他人记录；工具在文档里也不证明可用。",
+          "sourceIds": [
+            "ME-IDENTITY",
+            "ME-MEM-PRD",
+            "DYNAMIC-EXAMPLE"
+          ]
+        },
+        {
+          "id": "NP-04",
+          "title": "检查已有规则，别越写越冲突",
+          "actor": "项目已实现的技能查询能力",
+          "moduleIds": [
+            "K",
+            "C",
+            "SE"
+          ],
+          "known": [
+            "归属和读取范围已核"
+          ],
+          "unknown": [
+            "是否已有午睡规则及其真实 ID"
+          ],
+          "input": "当前用户与午睡场景。",
+          "decision": "仅按已核查询路径检查现有规则，区分新增、修改；不把普通记忆结果直接冒充技能库。",
+          "output": "已有规则及 ID，或有依据的未找到。",
+          "next": "交 NP-05；查询未接入则保留候选和缺口。",
+          "evidence": "核查询输入、范围、返回内容与 skill_id 来源。",
+          "failure": "没有检索证据不能假造 ID，也不能靠猜测覆盖旧规则。",
+          "sourceIds": [
+            "DYNAMIC-EXAMPLE",
+            "SE-PRODUCT",
+            "ME-IDENTITY"
+          ]
+        },
+        {
+          "id": "NP-05",
+          "title": "形成可解释的个人规则候选",
+          "actor": "Director / 个人技能能力",
+          "moduleIds": [
+            "D",
+            "F",
+            "K",
+            "SE"
+          ],
+          "known": [
+            "条件是本人午睡",
+            "行为是不主动放音乐"
+          ],
+          "unknown": [
+            "更新是整份替换还是局部修改"
+          ],
+          "input": "当前意图与已核已有规则。",
+          "decision": "按合同生成 op、名称、条件和行动原则；修改必须用真实 ID，更新语义冲突未澄清不盲写。",
+          "output": "合法保存参数，或待确认的候选规则。",
+          "next": "合同明确交 NP-06；否则停止在候选。",
+          "evidence": "对照 personal_skill_record 定义、现有内容与拟修改差异。",
+          "failure": "不把午睡规则扩成全车永久禁播；普通偏好不覆盖安全和其他乘客。",
+          "sourceIds": [
+            "DYNAMIC-EXAMPLE",
+            "SE-PRODUCT"
+          ]
+        },
+        {
+          "id": "NP-06",
+          "title": "保存成功才说记住了",
+          "actor": "执行层与技能存储实现",
+          "moduleIds": [
+            "E",
+            "K",
+            "M",
+            "D"
+          ],
+          "known": [
+            "参数、权限与实现已经确认"
+          ],
+          "unknown": [
+            "是否真实持久化成功"
+          ],
+          "input": "合法的个人规则保存调用。",
+          "decision": "读取真实接口结果，失败或仅受理就准确说明；未接入时只保留待评审候选，不宣称长期生效。",
+          "output": "可追溯的保存结果及规则身份/版本。",
+          "next": "真实成功才进入下一会话 NP-07。",
+          "evidence": "核保存返回、授权范围及后续可读结果。",
+          "failure": "生成 skill_content 不等于保存；保存也不证明下次能召回，更不改变模型参数。",
+          "sourceIds": [
+            "DYNAMIC-EXAMPLE",
+            "AGENT-PROTOCOL",
+            "SE-PRODUCT"
+          ]
+        },
+        {
+          "id": "NP-07",
+          "title": "下一次先认人，再取适用规则",
+          "actor": "输入管理、Context 与技能检索",
+          "moduleIds": [
+            "V",
+            "M",
+            "C",
+            "K"
+          ],
+          "known": [
+            "本例新话是“我要睡会，把现在的音乐也暂停”"
+          ],
+          "unknown": [
+            "旧规则是否仍有效、是否能召回"
+          ],
+          "input": "新会话的可信身份、场景与当前媒体状态。",
+          "decision": "仅在已核召回实现中取该用户适用规则；本次暂停请求有自己的明确授权。",
+          "output": "当前 Query、相关个人规则及来源。",
+          "next": "交 NP-08；身份不明或召回失败保留未知。",
+          "evidence": "查新请求、规则 ID/版本和实际进入模型的内容。",
+          "failure": "不能拿上一会话账号猜本次说话人，也不能把未召回伪装成模型已知。",
+          "sourceIds": [
+            "ME-IDENTITY",
+            "CONTEXT-ONEPAGE",
+            "DYNAMIC-EXAMPLE",
+            "DT-PRD"
+          ]
+        },
+        {
+          "id": "NP-08",
+          "title": "旧偏好提供参考，不代替新决策",
+          "actor": "Director",
+          "moduleIds": [
+            "D",
+            "C",
+            "F"
+          ],
+          "known": [
+            "午睡偏好与当前暂停请求均明确"
+          ],
+          "unknown": [
+            "当前是否有可控制媒体"
+          ],
+          "input": "实际注入规则、本轮指令与车型能力。",
+          "decision": "本次不追加播放音乐；核当前媒体和合法控制能力后决定暂停。若用户说今天想听歌，重新按当次明确意图判断。",
+          "output": "只包含有当前依据的动作计划。",
+          "next": "可执行交 NP-09；无媒体或对象不明先说明/澄清。",
+          "evidence": "对照规则内容、当前状态和实际 action_list。",
+          "failure": "不机械重放旧午睡套餐，不因有规则就调整车窗、座椅或其他设备。",
+          "sourceIds": [
+            "DT-PRD",
+            "SE-PRODUCT",
+            "TOOLS-IO"
+          ]
+        },
+        {
+          "id": "NP-09",
+          "title": "把明确暂停交给实际媒体工具",
+          "actor": "执行层与本车媒体实现",
+          "moduleIds": [
+            "E",
+            "F"
+          ],
+          "known": [
+            "当前用户明确要求暂停音乐"
+          ],
+          "unknown": [
+            "服务是否接受、播放是否真的停止"
+          ],
+          "input": "D 输出的明确暂停动作与调用身份。",
+          "decision": "校验实现和参数后调用 media_basic_control；没有新的明确暂停请求时，本步骤可不产生工具调用。",
+          "output": "原调用的媒体控制反馈。",
+          "next": "经 M 交 NP-10；失败保持原因为事实。",
+          "evidence": "查工具名、参数、当前媒体会话及真实返回。",
+          "failure": "不能把“以后不主动放”偷换为现在关闭所有声音，受理也不是暂停完成。",
+          "sourceIds": [
+            "TOOLS-IO",
+            "DT-PRD",
+            "AGENT-PROTOCOL"
+          ]
+        },
+        {
+          "id": "NP-10",
+          "title": "同时验证动作与个人化效果",
+          "actor": "Director、呈现链与产品验收",
+          "moduleIds": [
+            "E",
+            "M",
+            "D",
+            "O",
+            "SE"
+          ],
+          "known": [
+            "有本次控制结果"
+          ],
+          "unknown": [
+            "用户是否实际听见音乐停止"
+          ],
+          "input": "工具反馈、播放状态和本轮全部动作。",
+          "decision": "D 据实告知；检查音乐确已暂停，且系统没有再主动加一条播放动作。失败与规则是否保存分开解释。",
+          "output": "本次履约结果与个人规则应用证据。",
+          "next": "交 NP-11；不一致进入具体环节排查。",
+          "evidence": "对照召回、模型采用、工具结果与真实声音。",
+          "failure": "一次成功不证明稳定学会；“记住了”与“音乐停了”是两种不同结果。",
+          "sourceIds": [
+            "TOOLS-IO",
+            "DT-PRD",
+            "EVAL-GUIDE",
+            "SE-PRODUCT"
+          ]
+        },
+        {
+          "id": "NP-11",
+          "title": "测例外、换人和撤回，不只测正例",
+          "actor": "用户与个人规则管理链路",
+          "moduleIds": [
+            "K",
+            "D",
+            "E",
+            "SE"
+          ],
+          "known": [
+            "规则仅在指定身份与场景适用"
+          ],
+          "unknown": [
+            "修改/删除传播是否可靠"
+          ],
+          "input": "“今天想听音乐”、另一乘客或“不用记这条了”等测试输入。",
+          "decision": "当次例外不自动删除长期规则；明确修改/删除按已核合同和真实 ID 处理，再验证后续使用。",
+          "output": "正确例外处理，或可追踪的变更/撤回结果。",
+          "next": "形成个人层验收证据；需平台优化再到 NP-12。",
+          "evidence": "测跨会话、换人、改口、撤销后召回及失败分支。",
+          "failure": "删除接口成功不证明缓存已失效；未核传播不能宣称完全撤回。",
+          "sourceIds": [
+            "DYNAMIC-EXAMPLE",
+            "ME-IDENTITY",
+            "SE-PRODUCT"
+          ]
+        },
+        {
+          "id": "NP-12",
+          "title": "团队治理另起一层，不自动训练上线",
+          "actor": "产品、算法、工程与测试",
+          "moduleIds": [
+            "EL",
+            "SE",
+            "D",
+            "C",
+            "F"
+          ],
+          "known": [
+            "可用证据包含诉求、规则、决策和真实结果"
+          ],
+          "unknown": [
+            "问题根因、改哪层、是否可泛化"
+          ],
+          "input": "经权限和范围治理的反馈证据。",
+          "decision": "先归因再选规则/检索/Prompt/工具/模型候选；重点集和回归评测通过，再按责任流程受控发布并观察回退。",
+          "output": "有版本、范围与验收结果的团队改进候选。",
+          "next": "未过门槛退回修正；发布后继续看复发与副作用。",
+          "evidence": "核脱敏证据、候选差异、独立评测及发布记录。",
+          "failure": "个人保存不等于参数训练；Reflector 只有历史 Test 声明，自动全链路未证实。",
+          "sourceIds": [
+            "ISSUE-TECH",
+            "SE-Q4",
+            "EVAL-GUIDE",
+            "SE-RELEASE0514"
+          ]
+        }
+      ]
+    }
+  ]
+}

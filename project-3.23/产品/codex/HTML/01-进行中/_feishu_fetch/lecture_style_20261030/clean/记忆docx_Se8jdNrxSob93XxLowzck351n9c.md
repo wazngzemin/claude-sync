@@ -1,0 +1,2866 @@
+# 文字记录：AI汽车-产品需求内审 2026年8月19日
+
+<quote-container>
+
+会议主题：AI汽车-产品需求内审
+
+会议时间：2026年8月19日（周三） 19:00 - 21:38 （GMT+08）
+
+智能纪要：[AI汽车-产品需求内审 2026年8月19日](https://bytedance.larkoffice.com/docx/YhdXdWVCcomg9ixnLBpcHX3Gn0s)
+</quote-container>
+
+<mention-user id="ou_5db39c36f6959ac9bb6e0128d774e9a9"/> <text color="gray">00:02:02</text>
+
+鹏浩，那要不要不我们先开始？对。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:02:06</text>
+
+先开始吧。
+
+<mention-user id="ou_5db39c36f6959ac9bb6e0128d774e9a9"/> <text color="gray">00:02:11</text>
+
+OK， 那我简单介绍一下，就我们还是按照就之前这个表里的顺序来过，然后大家尽可能地控制时长，然后按照预计的这个时间来。然后如果说现在评审的模块和大家不相关的，可以不上。那第一个是仁杰评审端状态，然后这个时候需要左晨仁杰。张航都在。那要不仁杰你开始。
+
+<mention-user id="ou_86010a55eb07891b35f657d63ab30198"/> <text color="gray">00:02:41</text>
+
+这个比较简单，就是上汽这边，他到时候会再有一些迭代，加了一些信号。就是。这是第一点，第二点是，像原先那个表达的查询工具上，那这个表其实是现在列表就是服务于有多点，或者说。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:02:54</text>
+
+诶？没有，仁杰没有投屏吗？
+
+<mention-user id="ou_86010a55eb07891b35f657d63ab30198"/> <text color="gray">00:02:57</text>
+
+我这个比较简单，不用投屏，它主要是展示一下那个表格。这个是不是应该大家也看了也没啥，最多只让用户预览到下一个。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:03:05</text>
+
+那你让你旁边的人不要讲话。
+
+<mention-user id="ou_86010a55eb07891b35f657d63ab30198"/> <text color="gray">00:03:07</text>
+
+这个是。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:03:08</text>
+
+这个。
+
+<mention-user id="ou_86010a55eb07891b35f657d63ab30198"/> <text color="gray">00:03:15</text>
+
+现在好点了吗？
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:03:17</text>
+
+可以了，刚才那是不是嘉锋在逼逼啊？
+
+<mention-user id="ou_86010a55eb07891b35f657d63ab30198"/> <text color="gray">00:03:17</text>
+
+所以其实我们也没有强加一个行程。对，嘉锋他在开另外一个会。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:03:20</text>
+
+你让嘉锋先别逼逼。
+
+<mention-user id="ou_86010a55eb07891b35f657d63ab30198"/> <text color="gray">00:03:21</text>
+
+他既然跟豆包交互了，他在开另外一个会。对，然后还有一点就是原先那个端状态查查询工具的话，它是走模型筛选的，然后最近不是1.6什么都下线了嘛。然后跟韩杰商量了一下，也不打算去那个再去切模型，重新去测了，然后我们直接打算把查询工具切成 rag 的方案，这个现在赛力斯已经上了。然后上汽这边也在测试，然后后面准备切掉。就这。应该。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:03:56</text>
+
+就你这个需求是啥？就是说要把现在的状，那个方案切成 RAG 的方案，是吧？
+
+<mention-user id="ou_86010a55eb07891b35f657d63ab30198"/> <text color="gray">00:04:03</text>
+
+对，然后同时把整体协议再迭代一下。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:04:07</text>
+
+不是，那个 rag 的方案是指那个主动查询的那个工具是不是吗？
+
+<mention-user id="ou_86010a55eb07891b35f657d63ab30198"/> <text color="gray">00:04:09</text>
+
+嗯，太低，他并没有表达。因为我觉得他。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:04:12</text>
+
+他不是说一开始预第筛选的那个。
+
+<mention-user id="ou_86010a55eb07891b35f657d63ab30198"/> <text color="gray">00:04:13</text>
+
+对的。对对对，那个初筛还是我们之前定的模型化，对预筛选还是模型化。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:04:18</text>
+
+对，我觉得那你换成 RAG 的，你的准确率啊，那些你得。要有一个指标呀，就是它的评测得。
+
+<mention-user id="ou_86010a55eb07891b35f657d63ab30198"/> <text color="gray">00:04:25</text>
+
+有的，我们现在，这个之前在 tob 上其实已经有评测过，大概是90%多的准确率，然后我们现在上汽这边也在评测。目前看效果应该还可以。就是他没有车。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:04:45</text>
+
+我就像这种，这个待会我跟徐洋对吧？就这个我觉得切 rag， 这个也是必然的，也没什么可说能，说不能切的，因为现在模型下了，也没有其他办法。我们只是关心准确率，你要对齐以前的，不能退化。
+
+<mention-user id="ou_86010a55eb07891b35f657d63ab30198"/> <text color="gray">00:05:00</text>
+
+嗯，会从那个测试保证的。因为是那个，经过那个 director 改写，所以这块准确率其实还好，我们初筛还会仍然保留那个那个大模型筛选。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:05:11</text>
+
+那初筛现在那个模型筛选是用2.0 mini 吗？还是什么？
+
+<mention-user id="ou_86010a55eb07891b35f657d63ab30198"/> <text color="gray">00:05:16</text>
+
+对，会切到2.0 mini。把这个当前。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:05:18</text>
+
+哦。那这个就，我觉得你换，从1.6的那个筛选换成 rag， 我觉得这个没啥了，这个就过呗。
+
+<mention-user id="ou_7d458fef5309420dc1afd0ec1a97e6c0"/> <text color="gray">00:05:29</text>
+
+诶，等一下。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:05:29</text>
+
+就是保证那个评测不要退化就行。
+
+<mention-user id="ou_7d458fef5309420dc1afd0ec1a97e6c0"/> <text color="gray">00:05:34</text>
+
+那初三都用2.0厘米了，为什么后面要用 rag？
+
+<mention-user id="ou_86010a55eb07891b35f657d63ab30198"/> <text color="gray">00:05:43</text>
+
+因为我用起来比较麻烦，然后那个查询工具本身其实 rag 效果也还可以。就不打算再维护模型了。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:05:54</text>
+
+我觉得就这个，你到时候那个。评测的一些结果，你给左晨，给我们都看一下。如果他的效果不好，那我觉得，就是我们现在关心的，就说他切可以，但是他效果不能退化。
+
+<mention-user id="ou_86010a55eb07891b35f657d63ab30198"/> <text color="gray">00:05:59</text>
+
+好的。嗯嗯嗯。如果首先你上午是去多点还是单步？
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:06:06</text>
+
+但如果它效果不好了，肯定到时候要重新看方案。
+
+<mention-user id="ou_86010a55eb07891b35f657d63ab30198"/> <text color="gray">00:06:09</text>
+
+就是你上午要做的事情。嗯，对的，我们肯定也是有准出要求的。如果是你去了多个。
+
+<mention-user id="ou_5db39c36f6959ac9bb6e0128d774e9a9"/> <text color="gray">00:06:19</text>
+
+行，那要不这个议题先这样，然后仁杰你下来可以补充一下，就预计什么时候会有研测的结果。然后第二个议题是晓伟这边的记忆和弋图的打通方案。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">00:06:34</text>
+
+稍等，我来那个共享一下屏幕。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">00:06:40</text>
+
+build policy 的，它其他地方有用。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">00:06:50</text>
+
+OK， 大家能看到，是吧？就是这个背景我就不介绍了，总之就是那个记忆跟车机。它都有一些存储的东西，然后需要做打通，不然的话整体的体验就不一致。然后再从场景维度来看，我们目前有两类场景。一个比较偏记忆，可能用户他直接讲，你记一下我家地址是哪，你记一下我公司的地址是哪里。然后另外就是偏设置类的，比如说把某个地方设为我的家，把某地方设为我的公司，会有这两类不同的语义，或者帮我找一下那个什么什么店。然后第二家帮我收藏一下，这种普通 POI 点的收藏。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">00:07:31</text>
+
+然后具体的方案的话，首先我们分长短期来看，短期的话就是它的量。链路大概是这样。就首先用户他表达我刚提到那两类语义，然后 DT 基于语义理解之后，他区分如果是偏记忆类的表达。还是按照原来那种方式去调记忆操作的工具。偏设置类的表达的话，他要去调这个导航基础控制的工具，然后最主要的需求点是在这个记忆工具的下游，会有一个提槽的模块。就这个工具来进行分流，如果是跟这个家公司。或者说其他 POI 收藏，就涉及到跟车机打通相关的这种 query， 它接到 query， 它就分流给这个提槽模块，这个提槽模块主要输出三个东西。一个是 user name 是什么，这个主要是记忆所属的主体，就比如说小敏。这个主要是用在后面判断这个人是不是车主，然后如果这个是那个产品的期望，如果说车主判断不了的话，我们就判断主驾。大概有这样一个退一步的方案。然后如果 POI 的类型是加，它会输出加工。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:08:41</text>
+
+其实就我就直接打断问啊，就是其实这个这里面有个逻辑啊，就是那个是所有人，比如说他说记一下我的家什么的，他都会去同步到车机吗？
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">00:08:48</text>
+
+然后我再确认一下，就是。那就。嗯。开始有简单聊过。单，单，只要不管那一列的。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:08:57</text>
+
+还是说是要必须是车主或者是主驾才行啊？这个逻辑是什么样啊？
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">00:09:02</text>
+
+就是这个提操模块会输出 user name， 然后根据这个 name 来判断，如果是能判断车主的话。那就只允许车主去设置到加这个地方，然后如果，就是不是的话，那他就结束了，就正好是下面这一条线，就把这种比如说记一下小敏家地址是哪哪哪给过滤掉了。然后但这个有一个依赖是，得判断得了这个人是不是车主，如果判断不了的话，我们的需求范围就缩窄到主驾。判断他是不是主驾来进行，看是不是设置或者结束。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:09:34</text>
+
+我觉得这里面就是延伸有一个需求，这里面就是拉仁，作为一个 todo 吧，就是拉仁杰一起看一下，就是我们需要维护这台车的车主是谁？
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">00:09:37</text>
+
+靠背和它的格式是，是以。前面一轮当前轮，到后面这个。啊，那就没问题。对。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:09:49</text>
+
+这一个状态。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">00:09:53</text>
+
+是的，就这个得看一下能不能，好不好判断，就当前车主有没有跟这个人的昵称关联在一起。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:09:59</text>
+
+因为昨天我们跟杜宸在车上体验，就出现一个问题，杜宸他们随便上来就说，哎，我要回家，他就他就导航直接回家了，但他回家是。就现在那个相当于端状态上报的那个就地图里的那个但地图里的那个那杜宸就说，这个不是我家呀，你这是谁的家呀？
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">00:10:15</text>
+
+好的好的，然后因为还不是还有，一个多媒体的，还有。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:10:22</text>
+
+怎么怎么的，这种。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">00:10:25</text>
+
+OK， 所以其实还是期望 DT 能够基于这个人的 face id 来找到他具体的家是哪，而不是直接把这个语义发给车控。让车控直接去发起。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:10:34</text>
+
+对，所以我的意思是说，是不是真正跟地图打通的那个只有车主才会跟地图打通，是不是？
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">00:10:36</text>
+
+好。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">00:10:43</text>
+
+对。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:10:43</text>
+
+或者说，你当前的，不过我估计你的授权账号都没有。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">00:10:45</text>
+
+我想看一下那个工具调用的内容是不是。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:10:50</text>
+
+授权账号都没有这个能力，只有车主才能跟地图去打通，是不是？
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">00:10:55</text>
+
+对。我这边就是设计的是只有车主，但车主这件事情，看一下仁杰现在好不好及时的判断，如果不好及时判断的话，我们会后再聊一下。就车主如果说判断不了的话，就只能把范围缩窄了。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:11:14</text>
+
+对，我觉得这里面就要考虑一下，就是一个，如果比如说有车主。车主路过 faceid， 一种是比如说他的车主没有录过 FaceID， 实际上我判断不了。那两种情况下，他们对应的逻辑应该是什么样子？
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">00:11:37</text>
+
+OK。
+
+<mention-user id="ou_5db39c36f6959ac9bb6e0128d774e9a9"/> <text color="gray">00:11:43</text>
+
+然后就晓伟，我也有个问题，要不我开麦？
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">00:11:43</text>
+
+然后啊，你直接讲。
+
+<mention-user id="ou_5db39c36f6959ac9bb6e0128d774e9a9"/> <text color="gray">00:11:49</text>
+
+就是就是我把扬声器关了，就是用户不同的说法会决定了他会不会经过 Face ID 的校验，是吗？就是如果这个人没有露人脸，他说的是设置，他是能够去进行家和公司的地址设置。但如果说的是记一下我家在哪哪哪。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">00:12:08</text>
+
+就会被。
+
+<mention-user id="ou_5db39c36f6959ac9bb6e0128d774e9a9"/> <text color="gray">00:12:08</text>
+
+他就会被提醒，你还没有录入 FaceID， 就感觉这个体验稍微有一点点割裂。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">00:12:14</text>
+
+因为这只是个短期方案，不想做得太复杂，所以现在是区分语义的，就上面有解释两种语义分别是什么。
+
+<text color="gray">说话人 1</text> <text color="gray">用 </text><mention-user id="ou_5db39c36f6959ac9bb6e0128d774e9a9"/><text color="gray"> 的设备</text> <text color="gray">00:12:14</text>
+
+因为这只是个短期方案，不想做太复杂，所以现在是区分语义的，就上面有解释两种语是什么。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">00:12:22</text>
+
+然后如果这个语义本身就走到了记忆工具，那我们就去做提槽，判断它。要存的是不是家和公司，是不是车主，如果这两个条件都满足，那我给他设置到车机，此外的话就结束。然后你说的那种是，它本身就是偏设置类的表达，比如说把某某某设置为我的家，像这种的话就直接会给到导航技术控制这个工具。就直接去完成设置了。但是因为是同一个功能，但是话术有一些差异，就导致了流程的。那我没有问题了。如果说这就是。就是按我们刚刚讲的那边可能调整一下。
+
+<text color="gray" bgcolor="gray">@赵益红</text> <text color="gray">00:12:56</text>
+
+发一个信息，就是我们在，我在给，在和赛力斯对那个。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">00:13:00</text>
+
+对对，是的。
+
+<text color="gray" bgcolor="gray">@赵益红</text> <text color="gray">00:13:02</text>
+
+能听到吗？晓伟。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">00:13:05</text>
+
+你能。好的。OK， 你能声音再大一点吗？
+
+<text color="gray" bgcolor="gray">@赵益红</text> <text color="gray">00:13:06</text>
+
+我大声一点。我再大声一点啊。就是他们的那个地图的，除了跟车主账号，他们还有一个开关，就赛力斯这边还有个开关，叫自动切换开关。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">00:13:12</text>
+
+好，拜拜。
+
+<text color="gray" bgcolor="gray">@赵益红</text> <text color="gray">00:13:18</text>
+
+就是这个意思，就是这个开关开了之后，然后他才会把那个车主的那个高泽的那个账号和这个对应的 FaceID 去有关联。如果这个开关没开，那就有可能说，我车上登的是晓伟的账号，现在我是益红，我可能就有些东西数据是不匹配的，无法用的。所以这个开关的状态，你可能是你一个关注的点。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">00:13:45</text>
+
+不是，你说的自动切换是说根据脸来自动切换登录的账号，是吗？
+
+<text color="gray" bgcolor="gray">@赵益红</text> <text color="gray">00:13:51</text>
+
+反正他这个是跟高德地图的，账号，车机高德地图的账号要不要自动切换，是一个关联的一个开关。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:14:01</text>
+
+是这样的。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">00:14:01</text>
+
+OK， 我觉得我们短期就是为了满足自己主线，包括上汽赛力斯的诉求，我觉得不用考虑这么多。
+
+<text color="gray" bgcolor="gray">@赵益红</text> <text color="gray">00:14:10</text>
+
+但这个是赛力斯的现状哎。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">00:14:14</text>
+
+现状就是他会基于人脸去切当前的账号。然后但是他那个是不是车主这个事情，不是跟人脸唯一绑定的吗？一个车也不会因为切换了账号，然后就什么变掉车主什么的。我这个地方其实只判断他是不是车主，不判断当前登录什么账号。
+
+<text color="gray" bgcolor="gray">@赵益红</text> <text color="gray">00:14:32</text>
+
+就，因为有可能就是。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:14:36</text>
+
+不，这里面其实有两种情况呀，就是一种是，比如说，就是像益红说的，比如说他切了这个赛力斯的账号。他的高德账号也跟着切。你比如说那样的情况下，他切账号，比如切成了一个授权的赛力斯账号，那他跟着的他授权账号的一个都，那个高德账号也切了。那这个授权账号其实也有也可以把他的这个同步到这个手机上，但是如果说你切赛力斯的账号，你的那个高德账号不跟着走。那这个就是另一种逻辑了。诶，现在赛力斯这个逻辑你们谁清楚啊？就是像益红说的，有开关吗？不开的时候就不跟着走，开了才跟着走吗？
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">00:15:33</text>
+
+我不清楚这个逻辑。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:15:37</text>
+
+我觉得这个要跟赛力斯要确认一下啊，就这里面，就是比如说你换赛力斯的账号。那你这个账号下的系统中的高德账号。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:15:59</text>
+
+咋了？我现在去吃饭的路上。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">00:16:02</text>
+
+As。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:16:08</text>
+
+晚上我们团队一起吃。上午不在那个马薇家吗？对啊。我先不跟你说了，我现在在会上。哦。待会吃饭时候再视频。截图，你要看哪个截图？哦，那这个我截图给你们。
+
+<mention-user id="ou_5db39c36f6959ac9bb6e0128d774e9a9"/> <text color="gray">00:16:37</text>
+
+航哥，要不我们先再对一下？
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:16:59</text>
+
+我来了，为什么我可以同时接两个电话，还不关麦呢？
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:17:12</text>
+
+那个我觉得就是这块的东西，你们要去确认一下赛力斯的账号的逻辑。就这个里要有个待办。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">00:17:18</text>
+
+OK。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:17:20</text>
+
+嗯。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">00:17:20</text>
+
+诶，我觉得，对，这个待办我记下了，就这个我觉得是要确认的，但我们在当前短期方案里面，要考虑这么复杂的逻辑吗？这个短期方案是到哪个节点？就915之前会，就赛力斯量产的时候都会被替换掉。其实准确来说，最近上汽跟赛力斯都在催这个事情。我觉得他的可能存活的周期应该就是到915的时候，估计我们整体把长期一点的方案盘出来之后，就切换掉。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">00:18:10</text>
+
+然后。接下来还有仁杰一起简单对了一下，就可能会增加一个类似于 profile 的，这然后统一来接收仲裁以及存储。就是有一些来自于记忆啊，还有一些车机的就用户信息类的东西，这可能就不止包含家跟公司 POI 收藏，也会包含一些类似于车牌啊、通讯录这种信息。然后由这个模块来完成这两部分的更新互通，这个后面再看吧，还得再整理。就关于这个当前的实施方案，大家还有什么意见吗？
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">00:19:00</text>
+
+没有的话。对对，是的。要不开你的麦吧。
+
+<mention-user id="ou_5db39c36f6959ac9bb6e0128d774e9a9"/> <text color="gray">00:19:11</text>
+
+OK， 然后针对这个就是记忆地图的短期方案，大家还有问题吗？然后到915之前，然后这个方案通过，航哥你看 OK 吗？
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:19:29</text>
+
+可以吧，先这样吧。
+
+<text color="gray">说话人 1</text> <text color="gray">用 </text><mention-user id="ou_5db39c36f6959ac9bb6e0128d774e9a9"/><text color="gray"> 的设备</text> <text color="gray">00:19:29</text>
+
+可以。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:19:30</text>
+
+我，但我觉得那个就刚才说的那些。那些账号相关的，还是要赶紧确认清楚。
+
+<text color="gray">说话人 1</text> <text color="gray">用 </text><mention-user id="ou_5db39c36f6959ac9bb6e0128d774e9a9"/><text color="gray"> 的设备</text> <text color="gray">00:19:38</text>
+
+到左侧停车。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:19:38</text>
+
+问过一个问题，就是收藏地点上海市游泳馆在这个范围内吗？
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">00:19:48</text>
+
+在的，这个刚讲过了。
+
+<mention-user id="ou_5db39c36f6959ac9bb6e0128d774e9a9"/> <text color="gray">00:20:02</text>
+
+行，那这个我就记待问题通过了，本身可以进行需求评审，然后再去看一下长期方案。然后下一个议题应该是思晴这里的，思晴和天亮这里的地图相关的内容。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:20:18</text>
+
+对，地图的内容比较多，我就快点讲啊。首先我们先讲第一个问题，第一个问题就是我们在赛力斯的项目上，要决策是否要接入高德的 agent。那我讲一下整体的需求背景。因为我们现在是用高德 SDK 去实现的嘛，所以有一些相对复杂的这种指令是没有办法支持的。而且这些指令都是和道路信息强相关的，比如说我要去浦东机场，走中环路，那它是属于一个复杂算路的这样的一个诉求。然后还有就是前方出口下高速，以及为什么走这条路的问询，像这类的话，基于目前我们现有的能力来说的话，都是没有办法支持的。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:21:00</text>
+
+所以呢，在这个整体的背景下，我们的一个核心的目标就是要接入高德的 agent 去补足一些缺失的能力。完善整体的产品体验。然后这里的话就是存在一个风险点，就是在于我们接入了，我们也做了一些高德 agent 的实验，发现它整体的性能是比较差的。个人感觉是没有办法满足端到端的这个性能指标要求的。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:21:21</text>
+
+提交。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:21:24</text>
+
+对。所以呢，要在本次的会议上决策，就所有的产品决策是否要接入高德的 agent。嗯，然后简单讲一下整体的接入方式吧。其实整个链路很简单，无非就是用户的 query 进来了之后，由 DT 去做对应的改写。然后他会去判断说哪些内容要调哪一个工具，那他调用工具的时候也是给的。
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">00:21:46</text>
+
+稍等我打断一下，那个思晴，我理解你现在在说怎么接，我想问为什么接？
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:21:47</text>
+
+嗯。
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">00:21:51</text>
+
+能先说明一下吗？
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:21:53</text>
+
+前面已经讲过了，就是我们现在对于复杂道路的这种说法，其实都不支持，包括一些相对详细的针对于道路层级的一些控制。比如说前方出口下高速，以及指定道路的名称去算路，这些都是我们现在不支持的能力。啊，然后以及现在这些能力的话，未来在理想的这个车上都是会支持的，因为他们理想是用了高德的 agent。所以呢，我们在整体的能力上就会有缺失。
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">00:22:24</text>
+
+有没有一些更具体的？就是他的那个能力的差异项，就比如说，因为你这个是就举了两个例子嘛，有没有一些表？就他的能力表之类的。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:22:33</text>
+
+有呀，在下面呢，我们要先把架构让大家了解清楚之后，再去看整个的功能的范围以及现状， OK 吗？
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">00:22:40</text>
+
+我我理解，是不是我们先对清楚价值，就是它能够提升我们体验的价值，然后再看怎么接呀？
+
+<text color="gray">说话人 2</text> <text color="gray">用 </text><text color="gray" bgcolor="gray">@Jojo(思晴)</text><text color="gray"> 的设备</text> <text color="gray">00:22:42</text>
+
+嗯？你说什么？我现在和晚上还没睡着吗？现在。
+
+<mention-user id="ou_7d458fef5309420dc1afd0ec1a97e6c0"/> <text color="gray">00:22:48</text>
+
+嗯，不行。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:22:49</text>
+
+价值点还需要再说些什么呢？你比如说哪些维度呢？
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">00:22:53</text>
+
+就是那个具体他，就这 agent 具体有啥多的能力？
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:22:58</text>
+
+嗯，多能力在这里呢，就他可以指定一些个性的偏好去算路。
+
+<mention-user id="ou_7d458fef5309420dc1afd0ec1a97e6c0"/> <text color="gray">00:23:01</text>
+
+原来是上汽没接，是商务问题，要钱，要单独的钱，然后。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:23:05</text>
+
+对。然后可以看一下吧，就是现在高德 agent 它支持，就是这个范围已经是梳理出来，我们没有办法支持，但是高德可以支持的一个范围。比如说他指定了走中环路，或者是指定不走某条道路，或者指定他有一些特殊的偏好，比如说走一条沿河的路线，然后以及针对于导航的控制。它也有一些能力，比如说指定一些上下高速，比如说前方出口下高速。前方要走辅路，以及前方路口我要右转，或者是什么下下个收费站出去吧，就出收费站吧，以及特定的路口的位置的控，路口的控制。假设说我要在第二个路口直行掉头，它可以语音的去针对于它的这个地图的路线做一些控制。然后包括他也可以指定一些环岛的环岛的这些控制，然后以及他可以做一些信息的问询，但这个信息问询我们可以看后面有没有必要啊。就比如说漕溪北路限速是多少，那地图的数据它肯定是更准确的嘛。然后以及前方拥堵多少米，我理解这个前方拥堵多少米应该是我们现有的多少状态就能够做到的吧。这个如果仁杰或者天亮知道的话，也可以标一下，可以讲一下。然后还有。
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">00:24:27</text>
+
+诶，这个下面几个线是有的，是吧？
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:24:28</text>
+
+做不到吧？
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:24:31</text>
+
+对，可以看一下这些是不是已经有了？就是前方拥堵多少米，以及还有多久到终点？
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:24:35</text>
+
+我看这些应该还有多久到终点，这种应该没什么，但是拥堵多少米，限速，这个应该都没有。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:24:45</text>
+
+那我把这个先置灰一下。不是啊，这活啊。
+
+<text color="gray">说话人 2</text> <text color="gray">用 </text><text color="gray" bgcolor="gray">@Jojo(思晴)</text><text color="gray"> 的设备</text> <text color="gray">00:24:50</text>
+
+智谱啊，有个弊端。可以这么看。
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">00:24:54</text>
+
+也就是总结来讲，它就是在指定路线的规划上面，还有就是你临时调整一些，比如下个路口的这个路线改变上面它是增强了。
+
+<text color="gray">说话人 2</text> <text color="gray">用 </text><text color="gray" bgcolor="gray">@Jojo(思晴)</text><text color="gray"> 的设备</text> <text color="gray">00:25:04</text>
+
+字节电脑。
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">00:25:06</text>
+
+还有就是查询增强了。
+
+<text color="gray">说话人 2</text> <text color="gray">用 </text><text color="gray" bgcolor="gray">@Jojo(思晴)</text><text color="gray"> 的设备</text> <text color="gray">00:25:06</text>
+
+啊，吕鑫呢？
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:25:09</text>
+
+对，就是总结来讲的话，就是这四个维度做了对应的增强。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">00:25:14</text>
+
+诶，思晴，他们有没有那一种就是复杂的地点搜索的的的能力，给可以提供。
+
+<text color="gray">说话人 2</text> <text color="gray">用 </text><text color="gray" bgcolor="gray">@Jojo(思晴)</text><text color="gray"> 的设备</text> <text color="gray">00:25:20</text>
+
+下，你等我一下。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">00:25:21</text>
+
+比如说哈，我想找一下那个，那个附近带什么花园的餐厅，888之类的。这些东西呢，在现在高德传递的数据里面，其实是缺失，很少很多的。也许我们可能要靠他的评论啊和更多的 context 去，才能去解决。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:25:38</text>
+
+保姆说上课了。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">00:25:39</text>
+
+那这东西呢，他有可能不给我们，所以我不知道他的 agent 能不能解决这些问题。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:25:44</text>
+
+它的 agent， 首先它的 agent 是能够有更多的数据的，是可以解决的。但是现在有一个问题是在于它的性能特别慢，可能你的一个搜索要10多秒才有结果。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">00:25:56</text>
+
+所以就是复杂的搜点，它也是可以的。是吧？
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:26:01</text>
+
+对，苏联是可以的，但是因为我们现在已经具备了一些能力嘛，所以就没有写在这个整体的一个范围内，但是高德确实是支持的。没有问题。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">00:26:10</text>
+
+除了这个能力之外，它还有什么那个支持的范围，我们先暂时把它去掉的。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:26:16</text>
+
+我们可以看一下这个吧，这个更详细一点。
+
+<text color="gray">说话人 2</text> <text color="gray">用 </text><text color="gray" bgcolor="gray">@Jojo(思晴)</text><text color="gray"> 的设备</text> <text color="gray">00:26:19</text>
+
+对，那个。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:26:22</text>
+
+这个就是他全部的能力的清单，这个是P0部分，就是我刚刚摘抄出来的这个这部分，然后其次的话，P1的部分可以看到他支持一些。地点条件类的、模糊类的，以及一些实时条件的。这这大家可以飞阅一下看一看。
+
+<text color="gray">说话人 2</text> <text color="gray">用 </text><text color="gray" bgcolor="gray">@Jojo(思晴)</text><text color="gray"> 的设备</text> <text color="gray">00:26:40</text>
+
+他都已经16号都发过吧。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">00:26:41</text>
+
+诶，其实这些我我首先性能问题咱单说啊，就是看上去也可以更好满足，因为它的 context 足够多嘛，我们暂时把它干掉的原因是是因为我们现在已有。
+
+<text color="gray">说话人 2</text> <text color="gray">用 </text><text color="gray" bgcolor="gray">@Jojo(思晴)</text><text color="gray"> 的设备</text> <text color="gray">00:26:44</text>
+
+哦哦，对， OK。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:26:50</text>
+
+嗯，对。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">00:26:53</text>
+
+是吗？
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:26:54</text>
+
+对，现在已经有了，并且我们的性能是具备优势的。比如说我们的搜索在两三秒就能够有结果了，但是高德的这个 agent 的话，它可能要10秒左右。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">00:27:07</text>
+
+OK， 那我们先聊性能问题，然后再看看这个吧。如果性能问题能解，我们可能得对比一下，他的这个结果和我们现在结果到底哪个更好。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:27:15</text>
+
+是的。是的，然后讲一下目前P0P1的划分逻辑，就是P0部分是我们完全没有办法实现的，只能依赖高德去实现的部分是P0。然后P1部分的话就是我们现在 Navi 也能够实现，只是说效果没有高德那么好。但是后续比如说高德的性能提升上来的话。也可以考虑这一部分就直接接高德 agent 了。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">00:27:37</text>
+
+嗯。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:27:38</text>
+
+嗯， OK， 我们回到回到刚刚的。嗯。然后整体的一个范围大家有什么问题吗？OK， 没有什么问题，那我们就回到前面的这个整个的链路。整个的一个接入方式的话，大概其实就是这个样子。Navi 的云端服务、终端服务无非只是做透传，但最终它去调用的实际是底层的高德的 agent， 然后高德的 agent 呢。它会有一些对应的响应，比如说他搜索到的结果会以文字的方式就会将，就是搜索到数据总结成 TTS 去上报。那他给到端侧服务的时候，我们 Navi 的端侧服务会同时去绘制到 AI 的这个地图中绘制 HMI 的同时，把相关的结果按照原链路上报回去。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:28:27</text>
+
+然后这里的话，你比如说它会有一些然后这个总结其实我也看了一下，它目前内容还好，就是和我们现有的这种总结的风格啊以及内容也都差不多。所以之前我们为了在整体的全链路上节省耗时，就以这种上报 TTS 的形式给到 DT 了，然后 DT 可以看是否直接将这个高德给出的 TTS 直接播报出去。就不去做对应的总结了。这个就是需要我们一起看一下的。反正之前最开始的时候和明骏和以及晓伟聊的时候是说也可以直接播 TTS。但这块大家可以看一下在整个链路当中是否有这样的能力，以及是否合理。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">00:29:19</text>
+
+我想问一下，现在耗时比较多的是在哪个环节？
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:29:25</text>
+
+耗时比较多，主要是在于工具的请求啊，对，看这个。我们之前是做了一些实验的。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:29:44</text>
+
+可以看一下我们请求开始的时间和结束的时间，这个请求以及请求结束它的耗时不是很少，但是它的首 token 的耗时基本上要个。比如说算路的话，加急了。可以看一下这大概要平均7秒左右吧。才有首 token 的响应，然后整体的等它输出全部的结果，大概要十几秒，15秒左右吧。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">00:30:12</text>
+
+它在哪个环节分别耗时多少能看出来吗？在刚才你的链路图上面。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:30:17</text>
+
+这个是没有的，因为这个整体的就过于细节了，基本上都是研发从日志的角度去看的，所以我们没有做对应的详细的分析。
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">00:30:23</text>
+
+Well.
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:30:27</text>
+
+只是说从整体的我，从我们请求高德到从高德拿，从高德拿到结果。是有对应的统计的。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">00:30:35</text>
+
+嗯，那我会有个问题啊，就是可能未必专业啊，就是一定要透传，通过 AI 内位透传吗？DT 能直接给到高德 Agent 吗？
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:30:44</text>
+
+也可以啊，但是这个部分相当于就不走 navi 的链路了嘛，就属于在这个链路直接就接一个接一个东西去请求，直接请求高德嘛。向阳就这个样子了。对吧？
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">00:31:04</text>
+
+对，所以我刚刚好奇说各环节的延时是不是，假如说不做这各种透传，它这延时是不是能搞得定？
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:31:14</text>
+
+即使不做透传的话，它高德该有的耗时它也不会去减少。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:31:19</text>
+
+诶，那个思晴，我问一下，就现在我们请求高德，然后返回的时间是多长时间啊？现在，现在。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:31:27</text>
+
+我们请求高德的时间就在这里嘛，就是比如说请求的首 token 大概，比如说以算路举例哈，7秒左右，然后完全地拿到结果。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:31:38</text>
+
+就光请求高德，都要这么久时间了。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:31:41</text>
+
+是。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">00:31:43</text>
+
+等一下，这个首响应耗时其实在你的链路图里面是要通过 AI 那位两层，然后再达到高德，对不对？
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:31:50</text>
+
+不不不，是是是 Navi 去请求高德的这个 agent。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">00:31:56</text>
+
+这个首响。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:31:56</text>
+
+就这里面明确一下，就是对，我跟陈敏一样的意思，就是这里就是纯高德的耗时就这么多，是吧？
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:32:03</text>
+
+对，是的。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">00:32:08</text>
+
+这首响应怎么理解啊？因为等于，比如说我一个 query 发下去，对吧？然后层层往下走，然后它首字往回返回嘛，那在你的链路里必然会通过 Navi 两层。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:32:21</text>
+
+嗯。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">00:32:23</text>
+
+那如果是这样的话，就这个耗时我理解就不是纯高德 agent 的耗时，这是我的理解哈。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:32:24</text>
+
+这个你可以。不，这个不是，这个是我们去请求高德 agent 的耗时，我们做的实验，可以理解为是我们代码层请求，然后并且统计出来的结果。即使是 DT 直接去接，无非就是省了单位中间的这个链路的耗时。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">00:32:52</text>
+
+他这个耗时跟在理想上面的表现有差异不？
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:32:56</text>
+
+没有差异，这个就是理想的版本。然后讲一下理想的背景吧，这块也和他们沟通过，之前 livis 在整个的发布会当中，那个效果就是基于这个版本做的。然后他们之所以在体感上觉得耗时没有那么久，是因为他们做了一个移图的交互的策略，而且展示的是搜索的场景，那搜索的场景它其实是可以针对于用户的诉求不断地去选点嘛。那所以在整体的一个体验上会觉得没有那么久的耗时。但是呢，这一块即使是发布会那个效果。应该是在理想内部也没有通过这个指标的要求，原本是打算在8月份 OTA 的，但是呢，已经延迟到9月底了。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:33:51</text>
+
+这个总之就是这个就是当前的一个现状。然后这部分我们也和高德去沟通了，看看说可不可以在整体的耗时上做一些优化。然后这部分我们看回原来的这个图吧。这个吧。然后这个是我们给他们定义的期望的指标，其实我们希望能够达到的，比如说你的算路，你至少要4秒能给我们结果。然后但是现在也是基于原本的这些他给的这种指标做了一些压缩，那目前高德反馈可以做到的首 token 的平均的耗时大概在4.6秒。然后全链路在12.3秒。像控制类的，比如说这种导航控制类的，那大概首 token 是在5.8秒，然后全链路13秒。然后问询的话会快一点，就是4.2秒吧。这当前就是这个现状。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:34:54</text>
+
+也这个也是我们中间做了很多轮沟通，去 push 他们给的一个提优之后的一个指标。当然这个我们的首 token 的耗时里面可能有一些也是因为我们没有很好地去遵循它的上下文去请求。可能会，所以可能会有些超时的情况出现。导致了这个耗时。嗯，然后它实际的有一些实际的表现也还可以吧，就比如说这种查询类的，它平均大概也就3秒就能有结果。过了，然后控制类的话，你看有的快有的慢，所以它其实是也会根据不同的，这种指令吧，它会有不同的就是一种效果。比如说这个，它其实实际上平均大概在3.5秒左右吧。就是动作控制这块。只是说算路这个确实会有一点长，然后这块也就是也细节了解了一下他们的策略，他们现在相当于就是说会假设说他就算了一条路。他是会把所有的地点都确认好之后，然后再去发起算路，而且他们是由反，就是可以理解为这个东西在高德侧，它就是一个。master agent， 就它不是一个 sub agent 的这一个定义，所以他们也会有自己的深度思考的这样的一个链路在。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">00:36:31</text>
+
+其实我有点奇怪的是说五到10哈，它其实封装一个接口，给咱们作为工具去用就好了。为什么一定要走到 agent 里？
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:36:42</text>
+
+对，但是他们不提供，就没有办法去做 sub agent 给到我们。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">00:36:49</text>
+
+那不是 sub， 就是一个类似于我今天说刷新路线这样的一些透。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:36:54</text>
+
+嗯，没有，就是这个东西相当于是他们在自己内部定义的，然后他的自己的反推也是会调这些工具的，但是他不会把这些工具拆分出来给到我们。而是把一个完整体的产品给到我们。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:37:16</text>
+
+嗯， OK， 然后这个指标，我们先讲到这里啊，然后讲一下，就是整体的接入方式，其实之前也有聊过，说 DT 要不要直接接高德 agent。只是说，但是我理解这块也还是需要我们端侧去做一些封装的，无非就说不过这个云端嘛，但是我不确定这个， DT 直接接我们端侧会不会有什么合规上的问题。所以就先暂时这样划了。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:37:43</text>
+
+嗯，然后整体的一个在 DT 侧，如果是接入高德 agent 的话，它是需要定义一些新的工具的嘛，那这一部分其实主要就定义了两个工具。一个工具是复杂规划工具，另外一个工具就是导航交互工具。那这个的话，我就不详细展开里面的描述了，这块之前和晓伟以及明骏有对齐过，但是我理解，如果是真正的要接入的话。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:38:10</text>
+
+这一块的内容肯定还是要改的，因为也要结合一下我们赛力斯的端状态问答的能力呀，以及它的一些风声控的能力呀之类的。就看有没有一些冲突，那有冲突的地方我们还是要继续去做对应的优化的。OK， 那现在这些就是整体的高德 agent 的内容，大家有什么问题吗？
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:38:37</text>
+
+如果没有什么问题的话，那我们就要进入最后一个议题了，就是我们要决策在赛力斯的项目上是否要接入高德的 agent。这个韩哥有什么建议吗？
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:39:01</text>
+
+以及陈敏有没有什么建议？就是我们可以看一看，聊一下，就是这块，因为我理解这个事情要，如果是需要再进一步讨论的话，我们可以拉着赛力斯一起再去聊。然后我们三方去决策，我们要不要接入高德 agent， 以及这个性能赛力斯能不能接受，然后赛力斯可不可以以他们的角度去给到高德一些压力。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">00:39:29</text>
+
+我建议是你说的这个，三方在一起聊一下。嗯，这是我观点，就是那个张航，你帮忙也看一下。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:39:36</text>
+
+对，我意思也是，这个今天我觉得要单独约会再聊一下，这个事。好的。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:39:55</text>
+
+OK， 那我理解这个我们的决策现在已经有了，那我们要不就进入下一个环节，就是 POI 搜索策略优化这一块。OK， 那我们进入下一趴。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">00:40:11</text>
+
+诶，思晴，不好意思我插问一句，就刚才第一个议题，我们因为时间冲突没上，就是晓伟，咱第一个需求是通过了吗？
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:40:12</text>
+
+嗯。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">00:40:18</text>
+
+就关于家和公司那个。或者徐洋你知道吗？
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">00:40:23</text>
+
+过了。过了。通过了。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">00:40:26</text>
+
+OK OK， 好的。嗯，思晴你继续。嗯。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:40:33</text>
+
+好。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:40:42</text>
+
+OK， 我们讲一下 POI 搜索优化策略这个需求吧。先简单讲一下这个策略优化的一个背景，是我们发现在整个 AI Navi 的体验当中，会存在一些搜索的，执行不符合用户预期。这种状态出现，以及在高速上会搜，想要找一下卫生间，但是返回的结果却是离用户周边很远的这样的一些地点出来，所以针对于这个场景。我们做了对应的整体的策略的优化。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:41:15</text>
+
+我们可以看一下大的一个细分的这样一些问题吧。就比如说在导航或者松龙态的时候，用户说找一下卫生间，现状是搜索了周边的卫生间，其实他没有结合这个导航的状态去。合理地进行一些沿途的搜索，然后我们也看了一下高德的表现，高德在这种状态下是会去进行沿途搜的。然后这个时候的话，我们针对于这种情况，我们在上一次评审的时候，其实已经初步有了一个结论，在这种情况下，我们 follow 高德的表现。然后去进行沿途搜。当然这个沿途搜没有结果的时候，要告知用户并确认是否要周边搜，这个是上次的结论。然后另外就是如果是沿途搜。这但针对于这个预期的话，在本次的话又做了一些调整，是因为在和用户去交互确认这种流程就有点太繁琐了。所以在这种情况下，我整体的一个产品期望就是，能够自动地去执行周边关键字搜索的兜底，并且告知用户说附近就沿途搜没有。我为你找了一些附近的结果出来。这块就是我们要最新，修改的这样的一个策略。然后另外还有一种情况就是它属于导航或者算路状态，这个我加一下。知道。导航算路状态，并且他在高速上的时候，他说，诶，你帮我找一下卫生间。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:42:44</text>
+
+其实之前的现状也是周边搜卫生间，然后这个问题是婧文发现的，这种现象还是挺在整体的体验上还挺差的，然后包括这一块也和左晨以及芮婷。以及天亮，我们其实也有做过两轮的，大概两轮的讨论了。那在这里的话，整体的一个核心的用户预期是期望沿途搜，并且优先推荐处于服务区内且最近的。这个预期是婧文提出来的。那针对于这个问题的话，我们整体的确定了一个目标，就是我们整体的一个搜索效果能做得比高德端侧好，比高德端侧准。那就是更好的。如果做不到，那就要保持整体的体验的一致性。然后简单讲一下整体的一个搜索链路的背景吧，这个内容其实很多，我就只是说从整体的链路上大致讲一下。是，当这个用户说了一句 query 的时候，我在这里举了一个示例哈，就比如说帮我找一下附近适合两人约会的西餐厅。要安静一点的。那在这种情况下的话，他用户的 query 会给到 DT， 那 DT 会去结合用户上下文啊，以及他的， context 信息啊去做一些改写。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:43:56</text>
+
+那把对应的实际的搜索的指令给到 AI Navi 的云端，那 AI Navi 的云端会去做方生后的一些拆解，比如说它会识别到说你的关键词是什么？你的偏好是什么？以及你有没有指定一些排序规则？那在这种情况下，我们去拆解完之后，首先会以关键词的方式去调用端侧的这个接口。那端侧接口呢，是会去调用 OEM 封装好的高德 SDK 的底层能力去进行搜的。搜完之后呢，我们会在云端去做对应的 react 筛选。就比如说用户提及了说两个人约会要安静的，那我们会基于高德，我们召回的所有的 POI 的详情数据，结合用户这个 reank 的诉求。去通过模型的方式进行一步初筛，那初筛完了之后。我们还会结合用户提及的，比如说他要求要评分高的，那我们会再将这个 rank 之后符合用户要求的这些数据按照评分做一个排序。然后最终呢得到一个这个 list， 然后把这个 list 给回 DT 去用于给到用户的总结，同时呢也会把对应的一些信息给到了我们 AINAVI 的端侧。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:45:12</text>
+
+然后 AI Navi 的端侧去在 AI 地图中呈现出来对应的地点，然后这里面的地点的 list 是由 AI Navi 的团队来开发的。但是地图的呈现我们就是 follow 的高德， follow 的高德的那种效果，其实它整体的效果就和 OEM 在系统地图上的图层的表现是一样的。然后这就是我们一个整体的大致的流程。嗯，然后我们讲一下这个基于这个流程我们要怎么去做对应的优化？这个最终的方案，我们也是在上次的和那个晓杰以及加忠。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:45:52</text>
+
+我们也得出了一个初步的最终的方案，就是在这个整个的已经明确了 Navi 作为工具被复杂跳推理调用的这种就背景下。那我们对于 DT 是有一些核心的诉求的。就比如说用户提及了沿途、周边等词汇，那需要严格的遵循这个词汇。就不要进行改写的上的丢失啊，或者是多加之类的。然后另外对于 AI Navi 的核心的要求，就是要基于 DT 给到的 query， 加上导航的状态以及高速的状态去调用合理的接口进行搜索。接口进行搜索啊，这就是对于双方的一个要求，然后我们看可以主要看一下 AI Navi 的这个搜索的策略。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:46:39</text>
+
+在讲到这个搜索策略之前呢。我们可以先主要看一下高德场景是高速的这个场景是要如何去判断的。针对于导航的状态下的话，其实我们可以通过一个接口，就是原子能力接口去获取到它当前的道路类型，如果是等于高速公路的话。那我们则认定这个用户是在高速上。然后非导航状态下，我们就只能通过这个微地理去看它所属的道路名是什么。如果这个道路名包含高速的一些关键词，或者是 GS 编号啊，然后并且它不包含国道、省道、辅助、辅路这类词汇的话，那我们就认为它是一个。这个高速的这种状态。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:47:21</text>
+
+然后我们可以看一下整体的搜索的主场景，我们整体的主场景呢，是分为四类，第一类是指定关键字搜索，第二类就是指定当前周边搜。第三类的话就是指定中心点搜，第四类是指定沿途搜。我们先看一下指定关键字搜，这个指定关键自搜呢，主要的一个大的场景就是用户他只说明了一些关键词，没有要求说沿途呀。或者是周边呀这种状态下，那我们会去进入到二级场景的判断。就比如说这个用户，他有一些具体的 POI 的名称，那我们会在这种状态下，就这里举了一些 query 示例啊，就比如说帮我找各个深夜食堂。那我们会结合它这整体的状态去做对应的接口的调用。当然这个状态在这种场景下其实是所有的状态下，我们都会去调用关键字，周边关键字搜索去给用户呈现对应的信息的。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:48:17</text>
+
+这个最后整体呈现的一个效果呢，其实在没有 rank 以及它的排序的要求的情况下，它搜索到的结果就是会和高德。就是基本上会和高德的就是系统地图的车机一框搜出来的效果是一样的。然后当然这个它可能和用户手机搜索的会存在一点点差异主要是这个他的这个排序也会针对于每个用户而呈现出来信息是不一样的导致的。然后因为他这个就是他只是说要找这个地点嘛，那其实我们会默认给用户设置一个中心点，就是用户的当前位置。它会结合用户的当前位置，按照一些距离啊，参作为参考去做整体的排序。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:49:04</text>
+
+那当这种搜索没有结果的时候，我们会去建议联网搜，但是这一块的话可能还要再看一看，因为今天下午，如。就是聊了那个 error code 的时候，和晓伟聊下来定的一个策略是，当这个我们没有搜到这个地点的时候，其实滴滴它其实可以结合自己的工具自行地去判断的。就没有必要说是我们整体的一个工具当中要求他去怎么做，所以这里的话我先打个黄色吧，可能也要改一下。所有的，反正所有的联网搜索都是这个样子。然后我们讲一下。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">00:49:43</text>
+
+对。哎，思晴。问题在哪？那个这部分我们今天不是又重新对了一遍吗？就以我们今天对的那个表格为准。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:49:49</text>
+
+对对。是的，这个我后面会整体的再更新一下，首先标个黄。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">00:49:56</text>
+
+OK OK。嗯。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:49:58</text>
+
+然后如果是 POI 这个 tab 的情况下，比如说他是指定了某一些 POI 的类型。就例如卫生间，然后或者是指定什么前面的卫生间。那在这种情况下，我们会针对于不同的，就是导航的状态去做对应的判断。比如说如果是非导航的状态的话，就它现在没有路线的情况下，我们就会默认去进行就边关键字搜索，然后如果他有路线的话。那我们就会去进行沿途搜，这块的整个一个标黄色的这块的逻辑其实就是 follow 高德的一个沿途搜的策略，然后他搜索到的结果的话。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:50:33</text>
+
+我这里是会有一些预期上的要求的，就比如说我们现在他只是说针对于沿途路做一些扎点，但是呢，我们看了一下高德手机端。它其实也是沿途搜嘛，但是针对于这种服务区类型的地点，它其实是会做一些特殊的标识呈现出来的。就是他会标注哪些地点是在服务区内，同时呢他的 POI list 里面也会去标注服务区的这样的一个标签。喂。就他的一个效果是这样的，就他可能推荐的并不是。因为呢。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:51:05</text>
+
+在处于服务区内，并且距离用户最近的，它是，也会结合沿途搜，就比如说距离用户的距离啊，以及绕路啊这样的信息去做综合的排序的。所以在这里的话，我们就不会在这里面做一些特别复杂的策略，因为我们认为在这种场景下，高德它肯定自身的这种接口的策略已经做得相对比较完善了。并且也已经覆盖到用户的一些使用的这个场景了。所以我们仅仅是说在这个情况下，对于整个的 HMI 层去做一些。你要在车棚那里等我吗？就是特别的呈现。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:51:41</text>
+
+然后后续这一块的沿途搜的地点的话，我们也不会展示三个地点了，而是会一页展示10个地点给到用户，所以他这种相对来说。这种体验给到用户的还是挺好的。嗯，然后下一个的话就是指定周边搜索，那周边搜索的话它也会存在两种情况，一种就是指定 POI 名称，它其实和上面也是一样的。就所有状态下它都是会周边，默认的就去周边搜，因为它毕竟也指定了周边这个事情嘛。然后还一种情况下就是他也是指定了附近的卫生间，但是呢他这个时候他可能会存在一种情况，就是他在导航的算路过程中。那在这种情况下，并且他指定是一个 POI 的类型，那我们也会结合这个算路的状态去看我们要不要给他去进行不同的这种搜索的策略。比如说它在算路中，并且它是非高速的，那我们这种情况下是可以周边搜的，但是呢，他在高速中的时候，那就要沿途搜了。因为高速你是没有办法不方便到周边去，没有办法方便的到达周边的地点。所以在这种，这类场景下，我们会基于高速的状态，再做一层判断，就会给它走到沿途搜，然后它的整个一个效果的呈现，其实就和上面的是一样的。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:53:03</text>
+
+然后下面的话就是指定中心点搜索，这个其实就没有什么可讲的了，其实无非就是它指定一个地点附近的某类地点，然后这个的话它是会明确一个中心点。但是这里的话我们就没有针对于 POI 的名称或是 POI 的类型去再去做判断了。因为在这种情况下，我们默认他就是要去点周边搜。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:53:24</text>
+
+然后在这里的话， HMI 提了一些对应的预期啊，就是我们期望搜索到的地点能够展示出他的基准点，以及他搜索到的所有的地点的信息。这样的话就方便用户去查看他一地点的一些相对的位置以及距离之类的，这样的一些信息。嗯，然后最后一个场景的话，就是沿途搜索，这个沿途搜的话，我们也会这分那个分为两种情况吧，比如说如果他现在都没有在导航的状态。非导航算路。对，如果它是非导航和算路的情况下，我们其实就会给一个报错去做兜底。如果是导航或者算路态的话，那么就会去给它进行沿途搜。嗯，然后针对于这一块的话，我们整体也做了一些策略吧，无非就是沿途搜和中心点搜索没有结果的时候，会默认给他周边搜。然后整体的链路上，能够实现的一种体验就是，比如说找卫生间，然后 DT 改写成搜索卫生间，那 Navi 会结合状态去判断。然后调不同的接口，呈现出对应的信息。嗯，这个就是整体的搜索的策略的优化，大家有什么问题吗？没有问题，我理解就是这块的一个评审结果也是通过喽。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:54:51</text>
+
+诶，这块的这些策略是不是要 director 那边做，是吧？
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:54:58</text>
+
+原本是想要 director 去做的，但是因为 director 确实压力也比较大嘛。所以这块就是 navi 去找了一下就是端侧他们那个地图团队要了一些状态，我们自己来做。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:55:12</text>
+
+可以搞定，是吧？
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:55:14</text>
+
+对，是的，当然我们做也是用模型的方式去做啊，没有办法保证百分百遵循，就只能说是尽量遵循。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:55:25</text>
+
+那我差不多，肯定你也看一下，我的策略如果没问题，可以先你们过也行。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">00:55:30</text>
+
+嗯，对，这策略 re 了两遍，就是目前还大面是 OK， 然后只是有两点啊，第一个是说这东西需要持续跑，可能有不同的情况还要再去细分。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:55:30</text>
+
+嗯。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">00:55:41</text>
+
+这是第一点。第二点是说那个思晴，我们后面会有 POI 详情页，如果在 POI 详情页，然后你再发起一个关键词搜索，是一般是要基于那个位置去弄的。就它是某一种情况的中心点搜，是基于 POI 详情页搞的。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:55:55</text>
+
+哦，那。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">00:56:00</text>
+
+比如说啊。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:56:00</text>
+
+这种的话就需要 DT 拿到这个当前详情页是是哪个，然后改写给到我们。
+
+<text color="gray">说话人 2</text> <text color="gray">用 </text><text color="gray" bgcolor="gray">@Jojo(思晴)</text><text color="gray"> 的设备</text> <text color="gray">00:56:06</text>
+
+嗯。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">00:56:06</text>
+
+准确来说它属于指定中心点搜索，只是它的前提条件是说我当前是在某一个 POI 详情页，此时我说在这附近找一下啥啥啥。我要基于这个 POI 详情去找。所以我建议你就在现在的方案里就把这种情况加上，省得后面再补充串讲了。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:56:16</text>
+
+OK。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:56:24</text>
+
+我这样写一下吧，非某地点详情页。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">00:56:33</text>
+
+对，然后其他就没啥了。嗯。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:56:45</text>
+
+这种我们，这个我觉得我们可能还是要再讨论一下这个场景的，就比如说用户他虽然说是在某一个地点的详情页。但是他未见得是说要基于这个地点周边搜。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">00:56:59</text>
+
+对，看他的一种表达，比如说找一下这附近的，对吧？
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:57:01</text>
+
+对。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">00:57:03</text>
+
+所以他有这种情况，然后我建议把它一起补上，只是跟研发讲清楚。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:57:06</text>
+
+他得有一些指代，对，指代词。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">00:57:08</text>
+
+对，给研发讲清楚。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:57:14</text>
+
+嗯，可以啊。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:57:25</text>
+
+嗯，可以看大家还有什么问题不？没有什么问题，我这里就先到这了。OK， 那我们要不徐洋，我们进入下一环节。
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:57:56</text>
+
+我 Navi Navi 侧就是这些。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">00:58:00</text>
+
+诶，那个，对，旭阳，就是我听那个尹尧说说那个交互相关的方案不上产品内审，这个这个确定吗？
+
+<text color="gray" bgcolor="gray">@Jojo(思晴)</text> <text color="gray">00:58:00</text>
+
+诶，我看啊，徐洋在。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">00:58:11</text>
+
+因为我也很担心交互相关的，我们就是不去共识一下，可能后面又得变更内。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:58:19</text>
+
+比如什么样算是交互的方案？
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">00:58:23</text>
+
+比如说我们的路线它是横向布局还是竖向布局？
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:58:27</text>
+
+我觉得如果只是横向纵向，我觉得这种还好，因为他不动我们的。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">00:58:27</text>
+
+比如说。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:58:32</text>
+
+不动产品的逻辑还好，但是比如说你三个改五个，或者三个改三页改10个，我觉得那个可能就要，还要一起进。对对，因为那种玩意它要动链路。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">00:58:44</text>
+
+它分两种，就是我想想啊。嗯嗯，就是动链路那一块，就是会在产品的策略需求里会去输出。哦。但也会看一下那个交互效果。
+
+<mention-user id="ou_5ec566afdbf9ab8344f9928a7e30ea51"/> <text color="gray">00:58:59</text>
+
+咱们的方案里有那个 POI 三改10个那个需要上吗？
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">00:59:04</text>
+
+是这样的，就是我重新说一下，就是关于关于三个变10个，它背后是有两套需求，一个是交互相关的，我们得看效果是什么样。第二个呢，基于这样的交互，就是在策略上，也会有一些变化。思行，还会整理一套方案。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">00:59:20</text>
+
+这今天会上这部分吗？如果只是讲，比如说三个变十个的交互部分，那我觉得这个可以不上，但是如果说是产品层面的三个变十个。那可能就要上会去要聊，因为变10个他对，比如说他返回给 director 的 feedback 到底是什么？如果返回10个给 feedback 给他，那 director 没法没法来承接这个事情。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">00:59:46</text>
+
+我理解你的意思，只是之前我们是，就是只要跟交互相关的，也会参上一下产品跟交互共同的一个联合式评审。避免因为交互相关，然后大家又可能又不同意，然后又变更，所以就看怎么弄，如果今天这个会议聊不了，我们再商量一下这种情况下后面要怎么走评审。
+
+<mention-user id="ou_5db39c36f6959ac9bb6e0128d774e9a9"/> <text color="gray">01:00:10</text>
+
+陈敏这个优先专项聊吧，就之前我们也是想放在一起的，但是实际上因为交互还是相对比较细碎一点，占的时间比较长。并且就也和交互同学了解了一下，就是他们出这个方案之前，是和模块的产品同学做过打合。并且和 April 评审过的，就是如果是有争议的，可以再上咱们这个会来聊，不然的话就有一点重复评审了。你看呢？
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">01:00:40</text>
+
+我们单独再聊吧，看有没有必要做一个产品加交互的联合评审。嗯。
+
+<mention-user id="ou_5db39c36f6959ac9bb6e0128d774e9a9"/> <text color="gray">01:00:46</text>
+
+OK。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">01:00:48</text>
+
+那尹尧，我们今天先不讲吧，然后我们下来看怎么样去聊这事。那徐洋你继续。嗯。
+
+<mention-user id="ou_5db39c36f6959ac9bb6e0128d774e9a9"/> <text color="gray">01:00:58</text>
+
+OK， 然后辛苦下一个产品看一下自己的议题。
+
+<mention-user id="ou_5db39c36f6959ac9bb6e0128d774e9a9"/> <text color="gray">01:01:17</text>
+
+哦，我来看一下，下一个应该是需要丁彬那边评审，我拉一下。
+
+<text color="gray">说话人 3</text> <text color="gray">用 </text><mention-user id="ou_5db39c36f6959ac9bb6e0128d774e9a9"/><text color="gray"> 的设备</text> <text color="gray">01:01:24</text>
+
+那就把这个和其他人推到一起吧。好的。
+
+<text color="gray">说话人 4</text> <text color="gray">用 </text><mention-user id="ou_5db39c36f6959ac9bb6e0128d774e9a9"/><text color="gray"> 的设备</text> <text color="gray">01:01:27</text>
+
+就这个对应点。不得不说这个真的很难一个东西，就是放那一烧的时候。我觉得还可以。哈哈哈。这个方面都认可。
+
+<mention-user id="ou_5db39c36f6959ac9bb6e0128d774e9a9"/> <text color="gray">01:01:51</text>
+
+我看丁彬休假了，就如果他拉不上来的话，我们就跳过这个往下过吧。雪晴，要不你讲一下交互相关的问题。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:02:00</text>
+
+好，我刚正好说到了那个交互和产品的行哥，正好这个有一个话题是主交互相关，但是我理解跟各个模块的产品有一定的关联。然后我跟徐洋讨论一下，还是在这个会上讨论一下？啊，好，我先说一下这个话题的要讨论的内容，就是针对说，如果是 DT 下发了多工具的结果，那它的卡片展示策略。然后大概的流程是。就是首先如果是首 token 播报完，这些都是一个固定的流程。然后如果需要调用工具，比如说需要调用多工具，它会有车控工具调用中。或者是联网搜索，或者是音乐搜索，然后他就会去在这个胶囊里去刷新，他具体调用哪几个工具。然后等到这个结果卡片需要返回的时候，然后会存在两个问题，正好那个西钺在我旁边，刚刚因为昨天不是还有一个那个结果卡片那个就是混在一起的问题。我理解也可以在这个话题下一起聊。然后分为两个点哈，第一个就是工具的结果展示的时序，目前的话，之前跟那个徐洋定主交互的时候。就是为了避免慢的问题，所以就是哪个工具先返回，就先展示哪个，就不做这个工具结果的排序。这是第一个点。诶，那你看那个七月那个就是混在一起的问题要一起说一下吗？诶？我在投屏，可以看到吧？
+
+<mention-user id="ou_1883019f892771d6ebe48a86ef751013"/> <text color="gray">01:03:35</text>
+
+可以看到，就是我理解那个问题其实就很简单的一个策略嘛，就现在是你在投，是吧？
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:03:41</text>
+
+我在投。
+
+<mention-user id="ou_1883019f892771d6ebe48a86ef751013"/> <text color="gray">01:03:42</text>
+
+对，你看现在这个就很典型嘛，就是问了王心凌的演唱会，然后问了财经新闻。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:03:42</text>
+
+对。
+
+<mention-user id="ou_1883019f892771d6ebe48a86ef751013"/> <text color="gray">01:03:48</text>
+
+他的播报时候就会一句王鑫林的内容，一句那个财经新闻，就完全乱掉了。但这个很简单，其实就做一个策略，就是 Action 一播报完了，再去播报，再去上屏 Action 二的就好了。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:03:59</text>
+
+诶，等一下，为什么会一句王心凌的那个然后一句那个财经新闻的，不应该出现这种情况呀。
+
+<mention-user id="ou_1883019f892771d6ebe48a86ef751013"/> <text color="gray">01:04:08</text>
+
+因为他单次调。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:04:09</text>
+
+我同时返回，他就放一起，放一起总结呀，他总结也不可能出现，这个讲两句，那个讲两句这种情况呀，这种情况如果出现，就是 badcase 呀。不可能。
+
+<mention-user id="ou_1883019f892771d6ebe48a86ef751013"/> <text color="gray">01:04:20</text>
+
+嗯，是这样，我解释一下，就是我们总结是没问题的，它会 director 会依次总结，但是上屏它是流式的，就工具返回它就立刻开始。上屏就相当于两边打字机同时在打，就它就会在展示的层面它就会混在一起。所以这种情况。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:04:38</text>
+
+说话不会出，就说话他不会说是那个说话没有问题，只是说那个界面上只先出了一个联网的返回的结果的工具的界面。
+
+<mention-user id="ou_1883019f892771d6ebe48a86ef751013"/> <text color="gray">01:04:42</text>
+
+对，说话没有问题，播报是没问题的。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:04:49</text>
+
+然后另一个又返回了，就刷成了另一个，对吧？应该是这样的一个效果。
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">01:04:54</text>
+
+诶，我我确认一下，现在的效果是，现在效果是两个工具都在流，是返回，然后同时交叉在展示，造成了混乱，是吗？
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:04:55</text>
+
+有，预期的是。
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">01:05:05</text>
+
+那如果说它是有先后关系的，比如说先是1，然后再是2，那这个显示接受，这效果是那也就是说我们可能要基于工具做一个抑制。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:05:11</text>
+
+对，我们预期的是这样。
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">01:05:17</text>
+
+是不是比如说先去要去请求的那个联网的结果就先呈现，然后它流式生成完了。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:05:23</text>
+
+是，不是，就是你同一个工具，比如说你两个是调的同一个工具，你哪个先返回，那就是上面的那个就应该是它。
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">01:05:24</text>
+
+再放第二段。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:05:33</text>
+
+先展示那个。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:05:35</text>
+
+对，然后你另一个后返回，就应该在它的底下直接是开始流式，不应该穿插着流式。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:05:35</text>
+
+对。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:05:43</text>
+
+是的，我们预期的是，比如说车控先回来，就先展示车控嘛。
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">01:05:44</text>
+
+但可能会有问题，比如说你的那个联网，要应该回答用户的，日后返回的那个联网的结果，比如说我先拿了天气的，然后你新请求的也是。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:05:49</text>
+
+你说。
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">01:06:03</text>
+
+或者别新闻啊，然后你在回复用户的时候是应该先回复那个新闻的，但是因为他后返回了，但同时他也是因为是同时在给用户总结的嘛。那有可能 director 他先回了那个后面的信息。然后再说那个话，这样就可能导致你按照工具的先后，就会让这个顺序反掉。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:06:24</text>
+
+配不上了，是吗？
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">01:06:26</text>
+
+不知道能不能，对，不知道能不能理解我意思啊？
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:06:29</text>
+
+理解，就是，嗯。
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">01:06:29</text>
+
+就是一个 director 总结的话术可能跟工区时区不一样啊。诶，你说。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:06:35</text>
+
+一个是用户说了，比如说我先开座椅按摩，你再给我介绍怎么调座椅。然后如果用户是这么问的，但是他实际回来有可能是反着的。你是这个意思对吧？然后包括 query 总结也跟下面的结果是对不上的。
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">01:06:54</text>
+
+这也是一种情况，一种是用户说的跟他回的不是一个顺序，一种是工具先后回的跟用户期望一个顺。然后他， director 回复的也不是一个顺序，就都有可能性。就我们要定义我们期望的那个显示顺序，是否要强求跟回复的顺序一致？
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:07:19</text>
+
+这个徐洋看呢？
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">01:07:20</text>
+
+就先说实现，可能会有点难。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:07:30</text>
+
+这个要不讨论一下？就是一个是用户 query 的这个顺序和结果要不要做强绑定？然后第二个是 query 总结的结果和底下的展示结果顺序要不要做强顺序绑定？我其实个人也觉得这样会导致它变慢。有点没有必要。它本身这个问题就是合并展示了嘛，合并的话。我觉得也没必要，就是除非用户一定说你先给我干啥再干啥，那他可能对这个预期比较强，可能一定要按顺序。
+
+<mention-user id="ou_1883019f892771d6ebe48a86ef751013"/> <text color="gray">01:08:09</text>
+
+就我在体验的时候会发现，我先问天气，再问联网的时候，它会先回答联网的信息，再回答天气，这种是经常会出现的，所以我理解是不是上屏只要它是没有混乱的。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:08:15</text>
+
+你这种是，所以我理解是不是上屏只要是没有混乱的，就。
+
+<mention-user id="ou_1883019f892771d6ebe48a86ef751013"/> <text color="gray">01:08:21</text>
+
+就但它顺序不一定要和播报顺序是一致啊。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:08:22</text>
+
+嗯。我觉得这个快速讨论。决策吧，航哥嘉锋看呢？
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">01:08:29</text>
+
+那我就我觉得我们就这应该只有两种顺序，一种是按照我调工具的顺序，一种是按工具返回的顺序，就选一种嘛。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:08:41</text>
+
+我理解只能按工具返回的顺序吧。
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">01:08:42</text>
+
+然后我们 director 应该大概是去基于返回的顺序回的是吧？
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:08:49</text>
+
+因为你调工具的顺序，每个工具时间不一样呀。
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">01:08:50</text>
+
+我不知道，因为这种情就是这个情况也指的是那种 React 一次连续的请求，或同时我调了两个过去。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:08:52</text>
+
+就比如说有可能有的很慢，但是它返回了有可能第一，就是本来在第二个的，但它很快回来了，你不可能让它再等着。前一个的呀。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:09:03</text>
+
+审拍照诶。不是，这里面跟我们这两天，就上周对的那个打断恢复有关系，因为这里面其实是有个策略的问题嘛，就现在我们的策略是后来的那个优先。
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">01:09:14</text>
+
+有关系。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:09:20</text>
+
+然后才做刚才恢复那个任务。但是如果我们后面的策略是比如说不同音区的时候，我优先把刚才的任务做完，再去做新的任务，那就不一样了，这个事情我觉得这个可能跟后面的整个对话榜单的策略有关。
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">01:09:43</text>
+
+我我觉得那个概率出现的还是比较少的，就是一瞬间你同时先后出了一个东西，那我可能先回一个慢出的工具的结果。但是我觉得从这个结果来说，第一它的概率很低，然后第二就算它说的跟显示顺序没有那么一致，只要你的。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:10:01</text>
+
+对，就首先我觉得就是首先大家有个共识，就是我们现在肯定做不到100%对话跟那个界面完全一致，允许。如果出现不一致，现在是能接受的吗？是不是？对吧？
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:10:19</text>
+
+我理解听起来大家应该是能接受的，至少在就是这个场，就先不说那个打断的，就只是说单，就是一句 query 里嘛。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:10:20</text>
+
+听起来大家都非常，做的非常专业。我觉得除非我们到下一代生成式 UI， 在这一代的这种交互层面上，没有办法做到肯定一致。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:10:31</text>
+
+嗯。就可以动态排序，对吧？
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:10:36</text>
+
+所以说这个我觉得短时间只能说。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:10:37</text>
+
+行。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:10:39</text>
+
+能接受，只能说我们在梳理这些策略上，尽可能让他能保持比较好的时序。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:10:39</text>
+
+好。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:10:48</text>
+
+的，诶航哥，因为我要讨论的还不是这个点，我我我加速啊，就是这个先结论掉，就是我们目前还是按照哪个工具先返回，就先展示哪个。这个时序不做干预，这样来结论，然后那个打断策略就单独聊，可以吧？
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:11:03</text>
+
+可以的。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:11:04</text>
+
+好，然后那聊第二个点啊，第二个是要重点讨论的。就是因为在赛力斯上，尤其在上汽的时候，也遇到了很多这个就是小卡、大卡的问题。然后在赛力斯上，我们是定义了三种卡片尺寸嘛，就是先有一个前情提要，就是小卡、中卡和大卡，然后它分别满足不同的业务场景。比如说小卡，它就是适用这种单控件的小控件的场景。然后让它不至于说就是太遮挡，比较轻量。然后中卡的话是大部分场景，比如说一些媒体列表呀，然后还有一些多控件的组合。然后大卡的话，一般是服务于，就是内容量比较大大的，像导航啊，还有视频类的，以及可能以后不确定生图啊，或者一些其他游戏等等。可能会用到大卡。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:11:51</text>
+
+所以本身会有三种这个卡片的尺寸，然后同时我们在赛力斯上所有的这个系统的控件也都做了一。些，就是只针对车控和一些媒体的，就是赛力斯这边开发会为我们的这个控件都做一些，就是自信。拉伸的能力，就比如说它会有不同的尺寸，然后如果根据卡片，不同大小的卡片，它可以去做拉。那基于这个背景的话，我们现在有一个就是在卡片遇到这个多结果需要展示的时候，它的这个策略问题需要在这个会上讨论和决策。然后具体的点的话，就是如果只是单一工具的话，就还好。比如说我就是查个天气或者听个歌，就按照我们设计的。然后这个尺寸和类型来决定这个适用小卡、中卡还是大卡。但会存在一种情况是多工具，就是刚刚说到的，比如说它会有车控和媒体的组合，或各种其他的组合。然后那首先这个现在服务端给到客户端的这个工具返回的结果是流式返回的。然后会导致他在第一个工具出卡片的时候。他不知道后面的工具要不要出卡片，以及他不知道后面还有几个要出。它是什么尺寸，所以就会导致就是我们这个卡片到底在一开始到底是用哪种尺寸，就会存在这个问题。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:13:23</text>
+
+然后我们列了一下，有两种方案。就是一种的话是假设是做完全流式的，就比如说他在第一个工具先出的时候，发现它是一个车控的小控件。就先出一个小卡，然后紧接着第二个工具回来了，发现是一个媒体，因为媒体列表是比较长的，它必须得在中卡或大卡里展示。那它就得把这个卡片变大，然后同时把原来的那个车控的小卡拉伸，再把这个媒体的卡组合起来，然后也有可能他刚组合好。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:13:59</text>
+
+又发现又来了一个导航，因为我们会存在多工具组合的情况嘛，就会导致这个卡继续变大，然后出现三种组合，然后所以会存在这种小卡到中卡。或者是他直接从小卡到大卡的情况，比如说第一个先出了一个小控件，然后紧接着又来了一个导航，那他就要把，就是需要火山这边开发去把这个卡片变大。然后再把工具给的这个结果做拉伸。比如说像车控这个，在小卡里出的时候是赛力斯组装好的，那当但是赛力斯没办法再基于已经展示出来的做拉伸了，所以就只能由火山的开发发现又有一个导航卡的时候。再把赛力斯组合好的这个 view 再把它拉大。然后也会存在说本来出的是一个中卡，然后发现又来了一个导航，再出大卡。所以这个方案呢，它的好处是相对比较灵活，不会出现说出现不会出现说这个时候。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:15:02</text>
+
+这个方案我们 get 到，你在讲方案啊。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:15:05</text>
+
+好的好的，等等一下啊，我再讲一下这个问题啊，这个问题是有可能三个卡之间的跳变会很快，会不稳定。第二个就是会存在三种情况导致所有的工具模块都要做两到三种的 UI 拉伸，然后开发这边评估的话会比较困难，就是前台这边。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:15:25</text>
+
+对，我感觉这个它会让人感觉很不稳定。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:15:28</text>
+
+嗯嗯嗯。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">01:15:29</text>
+
+诶，雪晴，那方案一里面我想问一下，比如说我已经到了第二张图，就是那个车控它已经拉大了，这时候我又来了一个车控。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:15:29</text>
+
+然后方案二，诶。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">01:15:39</text>
+
+你会再把它缩小成两个吗？
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:15:42</text>
+
+不会，因为车控如果已经在中卡里了，它就会在中卡里假设没有到大卡的情况，它就会在中卡里，比如说再出一个空间，应该是在下面。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">01:15:51</text>
+
+往下叠，是吧？
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:15:52</text>
+
+就是按对对对。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">01:15:54</text>
+
+O- OK， 好的，谢谢。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:15:57</text>
+
+好，方二，然后方二的话。是一开始聊的方案，就是提前根据工具类型和控件尺寸，先判断好现在是要用中卡还是用大卡。因为我们在整个过程中，虽然，返回结果是流式的，但其实我们已经知道要调用哪几种工具了。然后我们的工具对应的设计也是相对稳定的，所以比如说在第一个工具需要出卡的时候，就先判断说这一句 query 里需要有车控和媒体工具。那媒体是一个中卡，那车控一开始出来的时候，这个时候媒体的结果还没返回，他就先用中卡来承接这个车控的，然后等第二个工具返回的时候。直接在中卡上变高。但如果说第二，但这种方案二就是会导致，如果工具第二个工具是 fail 的情况，那它可能就不出现，那这个车控的它就在中卡里展示了。就是会，方二的问题是这个，然后也会存在说第一个工具需要出卡的时候，它先判断，比如说是，这个工具是车控加导航，他就先用大卡图。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:17:03</text>
+
+诶，我首先，我再问一下啊，就是我再问一下，就是不管方案一方案二，新出的那些。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:17:04</text>
+
+然后导航本身是有一个 loading 的占位。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:17:10</text>
+
+它会罚上去吗？比如说后出的，他会把他比如说后出的工具，比如导航是最后出的，他会把它顶，我觉得如果顶上去，那我上面的那些工具在那里还有啥意义吗？
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:17:13</text>
+
+他会什么？挤上去，会，它会挤，它会往上顶，会的会的。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:17:28</text>
+
+有益呀，因为你本身这个卡是空间有限的，然后如果顶上去了，且你又要查看和操作它，你可以往下滑一下操作嘛。但如果你不顶上去，你下面出来的东西有可能都看不到。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:17:40</text>
+
+我的意思就是如果我，我知道就是如果我顶上去，用户会去。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:17:40</text>
+
+就是我这个图画的还有点问题。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:17:46</text>
+
+再把它划回来看它上面吗？
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:17:50</text>
+
+像以前，比如说车上问答类的比较多，如果然后它的流式打字也是往上顶嘛，就是如果要。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:17:51</text>
+
+比如说我们问答类。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:17:58</text>
+
+我觉得大概率不会太往前滑，但是像控件类的我觉得他有操作的诉求，可能还是会划的吧。就我意思是，它可能不会是一个高频的，但是它肯定得保留，就不能说它直接替换了，或者是不往上顶，因为它肯定要展示最新的。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:18:16</text>
+
+你现在方案二不就是不就是之前M9的那个方案吗？M9上实现的不就是方案二吗？就你说。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:18:24</text>
+
+M9。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:18:25</text>
+
+对，就我们M9的那个 demo car 的，那个实现的效果不就是方案二的效果吗？
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:18:33</text>
+
+可以啊，方案二就是看大家能不能接受，比如说我还没讲这种情况，就是一开始是，比如说他先根据要出导航，出了一张大卡。导航是 loading， 结果导航最后 fail 了，那他就会导致这个车控保留在这，这个加载失败情况也保留在这。就是方案二的问题，可能就是他没办法说。他先出了，但又最后又出不来的情况，这种没法避免。但是第二种我理解会相对好实现一点。这个我，这个方案我还没来得及跟 April 过，我会再跟她对一下，然后先听听各个产品，大家看这个方案一和方案二。就是比较倾向哪种？航哥、嘉锋、徐洋，主要核心点就是你们来看一下。
+
+<mention-user id="ou_5db39c36f6959ac9bb6e0128d774e9a9"/> <text color="gray">01:19:28</text>
+
+我我倾向于方案二，就感觉方案一的这个跳变和工作量会比较大。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:19:38</text>
+
+另外那个可能也要从里。
+
+<text color="gray">说话人 5</text> <text color="gray">用 </text><mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/><text color="gray"> 的设备</text> <text color="gray">01:19:39</text>
+
+就我跟你核实一下。
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">01:19:41</text>
+
+不，没事的。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:19:41</text>
+
+少看，你要会学，也看一下。嗯。这个我们还没来得及设计这边对，但是之前也讨论过。
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">01:19:52</text>
+
+诶，我确定一下，放二的话，你是根据先出的，比如，那如果你先出了那个小卡，又出导。把小凯去砍掉吗？
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:20:05</text>
+
+不是，就是方案二的核心逻辑是，他在出卡前，他就判断有没有导航或有没有视频，如果有导航有视频，他就直接在大卡里出。
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">01:20:15</text>
+
+那那如果的 react 的就如果他下一轮推理出现要出导航咋办？
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:20:16</text>
+
+这个车控的东西。同时出导航的占位。
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">01:20:24</text>
+
+如果他不是一轮推理出，他是连续的第二轮推理出来要导航。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:20:28</text>
+
+如果 React 的话，他可以 React 就算重新来了呀。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:20:30</text>
+
+他的美，不是，他的卡片，我觉得首先。对，我觉得首先的逻辑是，每一次 react 肯定是一次卡片。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:20:40</text>
+
+重新来一次，对对对。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:20:41</text>
+
+如果你 re， 对，如果你 re react 下一轮，那这个卡片肯定应该是刷下一轮。
+
+<text color="gray">说话人 6</text> <text color="gray">用 </text><mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/><text color="gray"> 的设备</text> <text color="gray">01:20:43</text>
+
+对，如果你 react 在下一轮，那你卡片肯定应该是刷下一轮。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:20:46</text>
+
+ret 下一轮。
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">01:20:48</text>
+
+那如果 react。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:20:48</text>
+
+对，比如说你先是导航， react 之后发现用车控，那它就会成为小卡了，它就从这个导航去缩小为一个小卡，这个卡之间肯定是有动画的嘛。
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">01:21:00</text>
+
+但会有一个问题啊，比如说我说先导航，然后再帮我调空调，那它导航还没结束呢，它就那卡就消失了。它就出了那个了呀，出了车控了。
+
+<text color="gray">说话人 6</text> <text color="gray">用 </text><mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/><text color="gray"> 的设备</text> <text color="gray">01:21:10</text>
+
+你你说的这种情况是，你不是 react， 它就是在同一轮的推理。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:21:12</text>
+
+不拒 act 的吧？对呀。
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">01:21:15</text>
+
+不，我说的是，就是用 react 来推，先导航，再那个调车控，那咋办？我就强，就出现这种情况。
+
+<text color="gray">说话人 6</text> <text color="gray">用 </text><mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/><text color="gray"> 的设备</text> <text color="gray">01:21:22</text>
+
+如果你是先后顺序，那就应该是先做这件事情，做完做下一件事。
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">01:21:27</text>
+
+但这显然你的导航还应该留在那个界面。啊。导航的应该还留在那个界面上。
+
+<text color="gray">说话人 6</text> <text color="gray">用 </text><mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/><text color="gray"> 的设备</text> <text color="gray">01:21:32</text>
+
+不是，你是先做导航还是先做什么？
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">01:21:34</text>
+
+先做导航再调车窗。肯定是导航做。
+
+<text color="gray">说话人 6</text> <text color="gray">用 </text><mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/><text color="gray"> 的设备</text> <text color="gray">01:21:36</text>
+
+往下再下发下一个呀。不是。
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">01:21:39</text>
+
+他就连续做了呀。
+
+<text color="gray">说话人 6</text> <text color="gray">用 </text><mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/><text color="gray"> 的设备</text> <text color="gray">01:21:40</text>
+
+不是，你要是连续就不是 React。
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">01:21:42</text>
+
+为什么不是 React？
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:21:42</text>
+
+是的，我也是这样理解。
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">01:21:45</text>
+
+就比如说我说你先帮我导航到那个天安门，然后把窗给打开。
+
+<text color="gray">说话人 6</text> <text color="gray">用 </text><mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/><text color="gray"> 的设备</text> <text color="gray">01:21:50</text>
+
+那这个不是，就是一次下放。对。他不是。你能保证吗？
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">01:21:55</text>
+
+你能保证吗？
+
+<text color="gray">说话人 6</text> <text color="gray">用 </text><mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/><text color="gray"> 的设备</text> <text color="gray">01:21:57</text>
+
+保证呀，为啥每次下发呀？
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">01:21:59</text>
+
+那我就说，我说你导航完了再。
+
+<text color="gray">说话人 6</text> <text color="gray">用 </text><mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/><text color="gray"> 的设备</text> <text color="gray">01:22:01</text>
+
+你说你导航完了就是 react， 那肯定是导航做完任务回去之后，他兰兰才会下下一个调控的。
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">01:22:08</text>
+
+对啊。那这个情况就会变成你导航就先砍掉了。
+
+<text color="gray">说话人 6</text> <text color="gray">用 </text><mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/><text color="gray"> 的设备</text> <text color="gray">01:22:11</text>
+
+对啊，对，导航就应该砍掉，因为你的要求就是说导航做完我再做这个。
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">01:22:16</text>
+
+对，那这只是我就证明逻辑上存在这种可能，对不对？那可能存在大量的 case。他就把导航给盖掉了。
+
+<text color="gray">说话人 6</text> <text color="gray">用 </text><mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/><text color="gray"> 的设备</text> <text color="gray">01:22:22</text>
+
+不就应该盖掉吗？你本来不就说你导航做完之后你再给我开放。
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">01:22:27</text>
+
+那我那我再确认一下，比如说导航查天气是 react 吗？不是。
+
+<text color="gray">说话人 6</text> <text color="gray">用 </text><mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/><text color="gray"> 的设备</text> <text color="gray">01:22:32</text>
+
+不是。
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">01:22:33</text>
+
+导航之后查天气。
+
+<text color="gray">说话人 6</text> <text color="gray">用 </text><mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/><text color="gray"> 的设备</text> <text color="gray">01:22:35</text>
+
+你说你把导航做完再给我查天气，那我觉得是。
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">01:22:38</text>
+
+我我就说，你先帮我导航去天安门，然后看看那边的天气怎么样。你会并行出两个结果。对。这是模型能稳定的吗？
+
+<text color="gray">说话人 6</text> <text color="gray">用 </text><mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/><text color="gray"> 的设备</text> <text color="gray">01:22:49</text>
+
+是，就那上汽就是很稳定的呀，这种的。
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">01:22:52</text>
+
+啊，就相当于。
+
+<text color="gray">说话人 6</text> <text color="gray">用 </text><mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/><text color="gray"> 的设备</text> <text color="gray">01:22:54</text>
+
+你就是一个人并行，一个串行。啊。或并行就在一张卡。啊。串行就是。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:22:58</text>
+
+对对对，是的。
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">01:22:58</text>
+
+如果如果能做这个效果，我觉得没问题。但但我有一个另外一个小小的问题，就是假设是拉伸情况下，那个比如说像音量呀，然后那个光线啊，它为什么一定要拉到整个宽度呢？
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:23:14</text>
+
+视觉效果，如果你这里卡一半更奇怪。
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">01:23:18</text>
+
+就是如果，比如说左对齐呢？
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:23:21</text>
+
+左对齐，一样的。这个芮雪啊。
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">01:23:25</text>
+
+因为我这好像我上次哪里看到过一个版本，他是不是那个就是左对齐的话，也还行的呀。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:23:32</text>
+
+哎呀，操作不了了。这个单独聊吧，好吧，不浪费大家时间了。那我总总结一下啊，就是一个是。
+
+<mention-user id="ou_f658cdb7d4a9a149c8add37a3572244e"/> <text color="gray">01:23:40</text>
+
+好的。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:23:41</text>
+
+对，因为这个不影响它的逻辑。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">01:23:41</text>
+
+诶，不好意思，我接着问一下雪倩，我有两个问，一个问题一个建议。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:23:43</text>
+
+嗯。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">01:23:46</text>
+
+一个问题是说刚才说的那种 query， 比如说导航去哪哪哪，然后顺便帮我把窗户打开，我想问一下，在我们现在的这个链路里面。是会让我先把导航这个东西确认完，然后再执行开窗，还是说两者是并行的？
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:24:03</text>
+
+就是如果是，我先说卡片哈，就是这个任务上可以谁来回答一下？
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">01:24:03</text>
+
+这个，对。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:24:09</text>
+
+反正就是我理解是，如果你你换一个不用开窗的，比如说你说屏幕亮度调亮一点，然后导航去哪哪哪，那我们的卡片上是会同时展示的。但是我理解会先执行这个车控的，因为车控比导航快吧。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">01:24:27</text>
+
+所以是并行的，是吧？
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:24:27</text>
+
+就是他俩。对，是并行的。就你刚刚说的这个场景是并行的，但是他会先执，我理解他会先执行车控，因为车控可能会更快一点。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:24:37</text>
+
+对，因为车控比导航快。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">01:24:39</text>
+
+他说，啊，我先把你窗户打开了，然后那你看一下你要去哪个地方，是吧？
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:24:39</text>
+
+对对。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:24:39</text>
+
+车控肯定是先回来。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:24:43</text>
+
+对对对，然后我们的界面展。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">01:24:43</text>
+
+这样子吧。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:24:46</text>
+
+示就是会把车控排前面，然后导航加载，然后导航加载完了就到这，如果导航失败了就失败。对。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">01:24:55</text>
+
+嗯，好，然后我还有个建议是说，基于你的方案二，有一个方法是说，假如我这个 query 里面有一个车控，也有一个地图。还有一个音乐。但是又很有可能担心地图最终加载不出来，最终出现一个第二排第三个大大的卡片的那种情况。有一种方式是说我先在第一、第二排的第一页先展示一个中卡的效果。然后他再拉伸成大的，这样子用户他感知到的只有一次拉伸，这种感觉还 OK， 否则他就会是大的小的，然后就是就是那种体感不太好。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:25:35</text>
+
+不会啊，就是那其实这个我们之前也讨论过，说一定要走流式的话，可能会把最小的卡给砍掉这种尺寸，只让它在中卡和大卡里来去做。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">01:25:47</text>
+
+哦哦。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:25:47</text>
+
+但是我们还是觉得视觉上还是需要保留一些小卡的情况的，所以暂时。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">01:25:54</text>
+
+这个不矛盾，这个不矛盾，我是刚刚是那个意思，比如说刚才三个，一个 query 里面这种三种情况都有，它可能有三种尺寸。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:25:56</text>
+
+嗯。对，这个。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">01:26:02</text>
+
+对吧？那我们先不要默认拉伸成最大。比如我可能默认拉生成中号的，然后等到地图真出来之后，我再把它撑成大的。会好过于，比如说我默认就撑很大，然后最后他有兜底。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:26:15</text>
+
+你这个是，我，但你这个是两个方案都要做了，那假设你先出来的是一个小的车控，再出导航，那你不还是得做从小卡到大卡的拉伸吗？就你怎么去判断？因为导航既可能跟最小的卡结合，也有可能跟中间的，就你不能只做导航跟中间卡的考虑呀，我理解。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">01:26:41</text>
+
+我的点在于说，我们希望能减少一次那种跳变。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:26:48</text>
+
+我们的点不只是减少跳变。我理解还要考虑就是所有场景的兼容嘛，就是跳变，但如果按你说的这种方式是指从小卡到中卡和大卡的时候，不做跳变。只按照，就是提前按照固定尺寸。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">01:27:09</text>
+
+按那个中的来。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:27:10</text>
+
+但是在中卡，然后到中卡到大卡的时候做调编，那其实你的逻辑就跟我刚说的把小卡干掉嘛。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">01:27:10</text>
+
+嗯。嗯。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:27:18</text>
+
+只有单一场景再出小卡，我会认为这个有点复杂，但是收益可能只是减少一次跳变。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">01:27:20</text>
+
+对对。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:27:28</text>
+
+这样吧，就是这个方案我会跟 April 再对一下，然后再看最终。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">01:27:31</text>
+
+诶，最后一个建议，嗯。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:27:33</text>
+
+好的好的，收到。然后结论一下，然后留给下个同学啊，然后这个点刚是按照时序就是先，怎么反馈怎么来，然后我们先按方案二推进。好的。行，那先这样，下一个。哦，对，稍等啊，那个徐洋，徐刚，西钺那个点可能算主交互范围内，需要需求提一下，对。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:28:03</text>
+
+那结论是方案二还是什么？
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:28:07</text>
+
+结论方案二吧，先方案二吧，至少从今天这个会上，大家建议方案二，我会跟 April 再对一下，如果他没有什么别的意见。我们就按方案二推，我跟研发同步。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:28:15</text>
+
+你跟你跟 Apple 再对一下吧。嗯嗯。
+
+<mention-user id="ou_705d52c8cf4df4fba7a05def123b43c1"/> <text color="gray">01:28:18</text>
+
+嗯嗯，好的。
+
+<mention-user id="ou_5db39c36f6959ac9bb6e0128d774e9a9"/> <text color="gray">01:28:22</text>
+
+然后下一个是领阅。
+
+<mention-user id="ou_cbb7bb25b1024172c248e9a8136aaeb4"/> <text color="gray">01:28:25</text>
+
+OK， 我先投下屏。
+
+<mention-user id="ou_cbb7bb25b1024172c248e9a8136aaeb4"/> <text color="gray">01:28:36</text>
+
+就是我建评的需求就是联网工具模型推理和音乐查播工具的边界。现在有两个问题，第一个问题是音乐查播工具它本身的推理能力比较弱，所以用户的一些模糊 query， 如果直接给到这个工具的话。仅依赖 CP 的这个接口，它的效果是不太好的。然后第二个问题是，像酷音啊、网易这种 CP， 它搜歌的接口本身就对部分类型的检索能力是比较差的。所以就是需要明确什么类型的 query 直接走音乐工具，什么类型需要先走联网或者模型推理做信息补全，拿到歌曲结果之后再交给音乐查播工具执行搜播。然后首先是几个原则，第一个是音乐查播工具，它就是负责执行歌曲的插播。然后第二个是联网工具和模型推理是负责补全用户 query 的理解，不会最终执行播放音乐。然后有结果之后，需要主动去调音乐工具，完成音乐的播放。然后第三个就是如果能直接由音乐工具承接的，肯定是直接调音乐工具了，必要的时候才会去不联网或者模型推理。
+
+<mention-user id="ou_cbb7bb25b1024172c248e9a8136aaeb4"/> <text color="gray">01:29:53</text>
+
+然后第一个部分是音乐查询播放工具，它适用的一个边界。就目前整理下来，这几个类型它是执行得比较好的。第一个是 query 里明确了歌名、歌手名、专辑名。或者是歌名、歌手、专辑的组合，然后还有这种应用内的指定歌单的播放，然后再就是单个歌曲标签的类型，比如说轻音乐、韩语歌这种。这是音乐歌曲播放的那个 FC 的一个函数，它是有很多个宋态度的标签分类的。但是其实我感觉这些，因为比如说 Q 音的搜索接口对我们来说是个黑盒。也不太清楚他到底哪些是执行得比较好的。我只能说就是拿经验来说，就是说像这种语言类型。或者说这种地区类型它是执行得比较好的，然后像其他的话，我感觉不太好评估出来，但是可以保证它就是单个歌曲标签输入的时候。是相对来说比较好的。
+
+<mention-user id="ou_cbb7bb25b1024172c248e9a8136aaeb4"/> <text color="gray">01:31:08</text>
+
+然后第二个就是联网工具模型推理使用的边界，主要就是 query 里没有明确能直接检索的音乐歌曲的对象，然后或者说它 query 里包含一些热点趋势。抽象偏好，然后这种复杂的一些标签组合，比如说第一个就是热点或者事件找歌，下面就是一些的 query 类型，然后还有就是通过歌词、歌曲信息。内容找歌，然后还有一类就是影视综艺歌手等衍生信息找歌。然后再就是这种。复杂标签，多个组合的这种条件。然后还有最后一类就是依赖一些主观的或者抽象的语义理解。这是我目前能识别到的一些适合通过联网工具，或者说模型推理之后。
+
+<mention-user id="ou_cbb7bb25b1024172c248e9a8136aaeb4"/> <text color="gray">01:32:06</text>
+
+再去给到音乐搜歌的类型。然后就比如说放一首，和杭州相关的歌，或者说播放一些下雨天通勤，但不要太伤感的歌。之前的链路是都会经过 FC 的模型。提槽出具体的参数，比如这个就是杭州，这个就是天通情，不要伤感。最后发现搜出来的质量是一般的，所以这类是希望给到联网或者推理。然后还有一个衍生的需求，是希望有一个兜底的策略，比如说 director 他直接调音乐工具的时候。如果返回的歌曲结果和用户 query 它核心条件不一致。因为现在工具它是可以返回当前在播歌曲的歌曲名。然后所以希望是不是 director 可以做一轮校验？就是如果不一致的时候，它可以再调联网工具推理出歌曲的信息之后再调。音乐查播工具完成播放，这个是需要 director 去评估一下，然后我是觉得这里的兜底策略执行一轮就可以了。如果二轮返回的一些歌曲结果还是不一致的话，就不需要再来一轮了。
+
+<mention-user id="ou_cbb7bb25b1024172c248e9a8136aaeb4"/> <text color="gray">01:33:28</text>
+
+明骏说做不好，那这个可能是后期再看了。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:33:35</text>
+
+我觉得这个策略整体没什么问题，可以，真的，我觉得内审可以过，然后这个要让晓伟和明骏整基于这个再做一下可行性评估。看看到时候跟李睿对一下，到底哪些能实现的，所以可能有问题再讨论。
+
+<mention-user id="ou_cbb7bb25b1024172c248e9a8136aaeb4"/> <text color="gray">01:33:51</text>
+
+嗯，好。然后还有一个点是希望讨论一下的，第一个是模型推理和联网工具，如果它需要输出多首歌曲结果的时候，再去输给音乐工具的时候。要不要规定这个歌曲的数量上限？因为我担心联网工具有的，它会不会给出很多首歌曲？
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:34:10</text>
+
+诶，现在灵钥，我们那个多首歌的那个播放支持了吗？
+
+<mention-user id="ou_cbb7bb25b1024172c248e9a8136aaeb4"/> <text color="gray">01:34:16</text>
+
+支持了。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:34:18</text>
+
+是，现在的版本，那现在它的上限是多少首？
+
+<mention-user id="ou_cbb7bb25b1024172c248e9a8136aaeb4"/> <text color="gray">01:34:24</text>
+
+现在还没有。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:34:24</text>
+
+现在很有定义，我们得都在放下。
+
+<mention-user id="ou_cbb7bb25b1024172c248e9a8136aaeb4"/> <text color="gray">01:34:25</text>
+
+定义，我得问一下上汽那边有没有做限制。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:34:30</text>
+
+现在就没注意。啊。你可以先问一下嘛，但感觉这里确实得加一个限名。
+
+<mention-user id="ou_cbb7bb25b1024172c248e9a8136aaeb4"/> <text color="gray">01:34:48</text>
+
+我可以问一下上汽，如果他们那边已经做了一个上限，并且比较是一个比较合理的数量的话，我觉得就可以跟随上汽那边的策略。如果不符合要求的话，再带过来内部评估一下。然后第二个问题是，就是如果通过联网工具再给到音乐工具的话，它这个整体的耗时会增加，因为联网工具好像本身出的那个结果。耗时就会有一定时间，然后我现在用 fornax 模拟，看到有些 query 它是直接可以通过那个模型推理出来，然后改写送到音乐工具的。看一下这里有没有办法区分模型推理。和联网工具的边界，就是一些 query 模型可以推理出来的话，就不用给到联网工具再输出一遍结果了。
+
+<mention-user id="ou_cbb7bb25b1024172c248e9a8136aaeb4"/> <text color="gray">01:35:43</text>
+
+比如说我测下来。像这种播放那个天青色等烟雨的歌，这个是 director， 它就可以直接推理出来是哪首歌，像这种类型的话，它就不需要再去调联网工具了。但是目前这个边界我不太好区分。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:36:02</text>
+
+对，我估计这种到时候你让明骏去实验实验吧，只能说，我估计不一定能完全做得很好。我喜我觉得他自己不一定就非常清楚说这首歌他很，他很能拿得准，那首歌他拿不准。
+
+<mention-user id="ou_cbb7bb25b1024172c248e9a8136aaeb4"/> <text color="gray">01:36:24</text>
+
+嗯，明白。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:36:25</text>
+
+对，我觉得可能就说我们只能说调到一个平衡的状态，说有一些好，你直接推理，有一些他是走的，但是没有办法说能保证。比如说我们希望他直出的，一定不走的，这种就是不一定能达到。
+
+<mention-user id="ou_cbb7bb25b1024172c248e9a8136aaeb4"/> <text color="gray">01:36:44</text>
+
+然后就是明骏晓伟看一下，那这种实验是不是需要输出一份一些经典的 case 集，供你们去跑一遍看看效果。
+
+<mention-user id="ou_cbb7bb25b1024172c248e9a8136aaeb4"/> <text color="gray">01:37:07</text>
+
+就是因为我这里是主要是按一些我自己感觉的分类，还有 query 去整理的这种边界。但是我不太确定 director 那边他要怎么知道啥时候，就是到底是去调哪个工具。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:37:23</text>
+
+我觉得这个挺挺清晰的，这个就算导入给他们吧，让他们再去基于这个来看怎么在 SP 里面上。
+
+<mention-user id="ou_cbb7bb25b1024172c248e9a8136aaeb4"/> <text color="gray">01:37:33</text>
+
+嗯，好呀。那我的需求就是这样。
+
+<mention-user id="ou_5db39c36f6959ac9bb6e0128d774e9a9"/> <text color="gray">01:37:48</text>
+
+那这个就。
+
+<mention-user id="ou_5db39c36f6959ac9bb6e0128d774e9a9"/> <text color="gray">01:38:17</text>
+
+汇文，现在到你了。
+
+<text color="gray">说话人 7</text> <text color="gray">用 </text><mention-user id="ou_5db39c36f6959ac9bb6e0128d774e9a9"/><text color="gray"> 的设备</text> <text color="gray">01:38:18</text>
+
+为什么要这样做？
+
+<mention-user id="ou_7e195dd405cfbe353f7c2edfe7662959"/> <text color="gray">01:38:20</text>
+
+啊，这么快？我还说怎么也得到10点。我在路上，你能帮我投一下吗？我是不是发给过你？
+
+<mention-user id="ou_7e195dd405cfbe353f7c2edfe7662959"/> <text color="gray">01:38:37</text>
+
+手机是怎么调？
+
+<text color="gray">说话人 7</text> <text color="gray">用 </text><mention-user id="ou_5db39c36f6959ac9bb6e0128d774e9a9"/><text color="gray"> 的设备</text> <text color="gray">01:38:39</text>
+
+哈哈哈。
+
+<mention-user id="ou_7e195dd405cfbe353f7c2edfe7662959"/> <text color="gray">01:38:57</text>
+
+大听得到吗？
+
+<mention-user id="ou_5db39c36f6959ac9bb6e0128d774e9a9"/> <text color="gray">01:38:57</text>
+
+是这个文档吗？
+
+<mention-user id="ou_7e195dd405cfbe353f7c2edfe7662959"/> <text color="gray">01:38:58</text>
+
+对对对对对，是， OK。这个需求其实比较简单，因为现在 SOP 阶段，智驾的一些接口和，他能力现在还不具备，然后，我这背景就简单说一下，就主要是满足一些。比如说，要临时去挪车的时候，往前往后开的时候，取物的时候，可能我们现在抱着小孩啊，或者抱的重物，其实现在已经有一个解决方案。就是掏手机，然后去直进直出。但是这个时候不方便掏手机，所以通过语音把它，往前开，开出来一点，往后开一点是 OK 的，就主要是满足这个需求。徐洋麻烦再往下，对。然后主要的需求是有三个，第一，有两个是位移的，就对，就是模糊的，就用户没有明确表达出来往前开多远。然后主要是这些模糊指令。然后我试了一下那个 fornax， 好像基本上都能去调智驾工具，这些，然后只有一个好像你给我过来呀，你给我出来。
+
+<mention-user id="ou_7e195dd405cfbe353f7c2edfe7662959"/> <text color="gray">01:40:10</text>
+
+好像这个还没有啊，就可能也就主要好玩的这个 query， 再往下是比较精准的数值，现在，智驾那边支持最大可以支持往前开或往后开10米。然后0.1，也就是一，0.1米为一个可，可以一个刻度。对，比如说往前开5.6米，往后开20厘米，这个时候是支持的。然后再往下就是任务的终止指令，因为之前，应该好几个月前。他们原有的产品经理，定这个需求的产品经理。好像给智驾提的需求是没有暂停的这个逻辑，所以现在有一个体验，但是可能是还在推的地方，就是，目前它只能，就是如果你已经在执行中。你再发起一个指令，它是直接退功能的，不是一个暂停的状态。所以他现在，我先把这个现状说一下，然后这是任务终止，然后具体的场景的话。
+
+<mention-user id="ou_7e195dd405cfbe353f7c2edfe7662959"/> <text color="gray">01:41:18</text>
+
+链路的话，基本上基础的链路基本上跟那个车内的那个，就是4G加选择老司机那个基本上是一样的。对。然后再往下详细的需求说明，就刚才说的，这一 SP 阶段只支持直进直出，也就是直着往前开往后开。然后不支持什么往左啊或往右啊。或指定一个车位去，这样在车外。OK， 这个是不支持的。
+
+<mention-user id="ou_7e195dd405cfbe353f7c2edfe7662959"/> <text color="gray">01:41:43</text>
+
+然后，第二个就上面提到的，然后另外一个第三就是只支持单一的指令，不支持组合指令。比如说什么先往前开10米，然后你再往前开，或者是再往后开什么的，类似这样的一些组合的指令。这是单一，然后第四个点就是任务执行的时候，如果你，比如说你发起新的 query， 然后当前是终止。就我们的目标，现状我跟大家说一下。就现状是他直接会退工的。因为之前的产品经理定的是就赛力斯那边的同学定的是。有一个执行的任务，然后你再唤醒的话，是直接去下发终止的指令。所以它现在也没有接口，就智驾这边定义接口的时候也没有增加这个暂停的逻辑，或者是重新执行新 query 的这个逻辑。但是现在目前在推，赛力斯在走变更，然后这个，上周还上上周的周会提过，就是最差就是这个， OK。然后下面是一个典型的 query， 我不知道大家要不要看一下还是怎么样？对，因为需求跟之前的这个车内的比较类似，只是说他现在车里面没有人。
+
+<mention-user id="ou_7e195dd405cfbe353f7c2edfe7662959"/> <text color="gray">01:43:24</text>
+
+然后大家没问题的话。我就往下，然后这具体的场景的细分的场景，就不说了，然后这里面只是有个风景，就是，应该也是就是我们识别到。就现在的声纹的鉴权应该只支持唤醒词，那有可能会存在说比如说车主唤醒了，但是他收的是旁边人的这个 query 进来啊。然后目前也跟赛力斯这边的法规的同学有聊过。目前的话，就是强标其实是没有要求说要对声纹进行鉴权的。然后我也了解了其他的友商，目前其实甚至连唤醒词的声纹鉴权都没有做。然后目前的法规只要求驾驶员在环，或者是用户在环就可以，就，比如说保持蓝牙的长连接，然后哦，我蓝牙的距离在6米。
+
+<mention-user id="ou_7e195dd405cfbe353f7c2edfe7662959"/> <text color="gray">01:44:29</text>
+
+这个是 OK 的，但是这里面有个问题，就是接下来到明年可能会有个强标，这个就是会非常严重的影响体验，就是你只要车里面没人的这种泊车。它是要强制你要求按住手机或按住钥匙的，那这个就跟上面提到的，就我本身用手机去把它叫出来和开进去是没什么区别了。但是所以想说的是，这个生命周期可能，有可能就最多到明年年底。啊。OK， 然后，我的建议就是这个可以先做啊，然后具体能不能上线发布，或者是需要等下架，到时候以实际的法规要求来定就好了。OK， 大概是这样。
+
+<mention-user id="ou_7e195dd405cfbe353f7c2edfe7662959"/> <text color="gray">01:45:22</text>
+
+大家有什么问题吗？
+
+<mention-user id="ou_5db39c36f6959ac9bb6e0128d774e9a9"/> <text color="gray">01:45:30</text>
+
+那个张航和嘉锋看一下。
+
+<text color="gray">说话人 7</text> <text color="gray">用 </text><mention-user id="ou_5db39c36f6959ac9bb6e0128d774e9a9"/><text color="gray"> 的设备</text> <text color="gray">01:45:36</text>
+
+就是主要的功能点是这些。左晨可激动。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:45:50</text>
+
+诶，我先问一下，就是诶汇文，就是诶，我说话能听到吗？
+
+<mention-user id="ou_7e195dd405cfbe353f7c2edfe7662959"/> <text color="gray">01:45:53</text>
+
+啊，诶。好像没声音。刚刚没有，现在可以。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:46:07</text>
+
+我说我们那个南阳和声纹的鉴权都不做，是吧？
+
+<mention-user id="ou_7e195dd405cfbe353f7c2edfe7662959"/> <text color="gray">01:46:12</text>
+
+做做做，本身车外语音就已经做了，然后蓝牙这个逻辑是本身坐在智驾里面会有的。对，就是因为它离车泊入和那个手机的泊出、遥控泊出，也都是需要这个条件的。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:46:30</text>
+
+也都必须要这个条件。诶，是，就是说车主和授权账号的人应该是可以有这个权限，是吧？
+
+<mention-user id="ou_7e195dd405cfbe353f7c2edfe7662959"/> <text color="gray">01:46:39</text>
+
+对。就是必须蓝牙在6米以内。嗯。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:46:46</text>
+
+然后你，就是你手机蓝牙，相当于你是授权账号，或者说车主，然后你还要有声纹之前注册过。
+
+<mention-user id="ou_7e195dd405cfbe353f7c2edfe7662959"/> <text color="gray">01:46:46</text>
+
+手机蓝牙。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:46:59</text>
+
+那我举个例子，晚上好。
+
+<mention-user id="ou_7e195dd405cfbe353f7c2edfe7662959"/> <text color="gray">01:47:01</text>
+
+声纹声纹注册过，就是现在整个车外语音控车，包括控车窗这些统一的逻辑。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:47:09</text>
+
+诶，现在左晨那个我们那个声纹注册是什么样的流程啊？对，在那个账号的里面专门有个。就语音设置里单独有一个。那那个设置页其实是要跟账号要有关系的啊。诶，那这样子，那这样子他的声纹怎么对应到对应到人了。就是相当于你这台车上只要注册过这个声纹，然后同时校验你有蓝牙钥匙就行，就不管了，反正就是这样的。行吧。
+
+<mention-user id="ou_7e195dd405cfbe353f7c2edfe7662959"/> <text color="gray">01:47:52</text>
+
+好像是这样。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:47:54</text>
+
+然后那个他能支持这个能力就是直接出来了。
+
+<mention-user id="ou_7e195dd405cfbe353f7c2edfe7662959"/> <text color="gray">01:48:00</text>
+
+直着出来，直着往后。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:48:00</text>
+
+这个直直直着直着进去。
+
+<mention-user id="ou_7e195dd405cfbe353f7c2edfe7662959"/> <text color="gray">01:48:04</text>
+
+对，就 SOP 这个阶段。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:48:08</text>
+
+就是向左开出来不行，向右开出来，这种都不行。
+
+<mention-user id="ou_7e195dd405cfbe353f7c2edfe7662959"/> <text color="gray">01:48:11</text>
+
+对，现在还不行，就是他们之前的接口和能力都没有定。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:48:14</text>
+
+就是他们没想的。诶，那这个车停在原地，我跟一直跟它讲，你向前一点向前一点，它会可以向前一直走，是吧？
+
+<mention-user id="ou_7e195dd405cfbe353f7c2edfe7662959"/> <text color="gray">01:48:20</text>
+
+嗯。其实是可以的，只是说你每次最多走10米。最多啊。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:48:38</text>
+
+因为上次李博给我演示了一下，那天我跟他吃饭，然后下暴雨，他的车就停在不远处，他就控制这个车，他从雨地里开到了我们面前。
+
+<mention-user id="ou_7e195dd405cfbe353f7c2edfe7662959"/> <text color="gray">01:48:50</text>
+
+诶？是啥车？那个是召唤功能吧？
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:48:53</text>
+
+那个道。就问界，它不是召唤，它就是用这个功能，在 APP 上他用手动操作的，就一直点，把它给点出来的。
+
+<mention-user id="ou_7e195dd405cfbe353f7c2edfe7662959"/> <text color="gray">01:49:00</text>
+
+哦哦。哦，那我知道了，那他就是手机的那个遥控泊车。对，这个是本身他们应该有的。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:49:14</text>
+
+那我没啥了，我现在就是觉得他这个功能确实有点少，但现在也没办法，是吧？
+
+<mention-user id="ou_7e195dd405cfbe353f7c2edfe7662959"/> <text color="gray">01:49:21</text>
+
+哈哈，对，只是说那个终止那个我们在推，就是让他改一下，就是相当于。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:49:29</text>
+
+诶，另外就是这一套。这一套车外语音，它是只走的纯离线的模型吗？还是走的，会走 director？现在的最后的方案，上次你们对完是说，会。
+
+<mention-user id="ou_7e195dd405cfbe353f7c2edfe7662959"/> <text color="gray">01:49:39</text>
+
+好像端云都会走。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:49:44</text>
+
+都走是吧？好。no， 我们少。
+
+<mention-user id="ou_7e195dd405cfbe353f7c2edfe7662959"/> <text color="gray">01:49:49</text>
+
+对，那这个就是可能对 DT、 晓伟和明骏这边也会有依赖，然后就是方轩扣，方轩扣我跟宛玉聊过了。是复用之前的在车里面的那个向前。走向后走，只是那个车控 APP 到时候做一些适配。啊。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">01:50:15</text>
+
+OK。嗯。
+
+<mention-user id="ou_5db39c36f6959ac9bb6e0128d774e9a9"/> <text color="gray">01:50:20</text>
+
+行，那这个需求就通过了，然后晓伟看一下最后一个需求了。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">01:50:51</text>
+
+什么，比如我今天。他说问他今天。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">01:51:12</text>
+
+还是需要的。OK， 那个那我把这一块的需求简单讲一下，就是我先简单介绍一下背景吧，因为其实对于车上来讲，它相对还是一个比较半开放的空间。就虽然人比较少，但还是有其他的人存在，所以尤其是对于记忆这种比较偏个人隐私、个人信息、个人数据这一类的东西。我们还是要考虑它的隐私策略。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">01:51:36</text>
+
+这是一个为什么要做这件事情的原因，然后另外的话，就当前其实我们有做的一件事情是基。会基于车以及豆包账号做隔离。这是一个当前的现状，然后此外的话，就本次的，哦，包括那个当前其实我们会基于 faceid 去做一个筛选，这是当前做的事情。然后我们本次需求要做的内容就是更多地去考虑车上到底有谁，然后来定更细化的一个隐私的策略。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">01:52:07</text>
+
+下面我先介绍一个记忆单位的概念吧。这个记忆单位其实就是决定了在某个车上以及某个豆包账号下，用户能看到的记忆的全量数据，能召回的那个全量数据。目前我们的记忆是分为情景记忆以及语义记忆，情景记忆的话，当前在那个做记忆生成以及存储的时候，是根据用车场景来做的隔离。就比如说， A 单独用车时候，他有哪些记忆？以及 AB 共同用车的时候，它正常的记忆有哪些？就是它是本身跟当时的用车场景已经做了数据层面的隔离，从事件开始，再到短期情景记忆，再到长期情景记忆，都有这个逻辑。然后语义记忆的话，语义记忆就是一些比较偏向个人信息以及个人偏好类数据，比如这个用户喜欢什么，不喜欢什么。然后他的话，目前的记忆落库的方式是直接对应到了具体的人，就比如说这个 faceid 对应的昵称晓伟，晓伟喜欢吃什么？是到那个就是这样来记忆的，所以其实在记忆一开始做这件事情的时候，就已经生成了情景记忆跟语义记忆的不同，我们的隐私策略也会基于这个来做。然后就是我下面就介绍一下具体的做这件事情的逻辑吧。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">01:53:30</text>
+
+就首先我们有一个记忆白名单的定义，这个也是区分语义记忆跟情景记忆的，就可以理解为，对于哪些？首先这些都是记忆的标签，这个是我们现有的东西。标签的话，基本上大家可以看，就它相当于是记忆的一个。就它的一个子分类，就比如它是饮食偏好类的，住宿偏好类的，还有一些补能偏好类的。它就给记忆本身就打上了标签，做了一个区分。记忆其实也是类似的。然后我们整体的做记忆隐私策略，就是先考虑不同的记忆标签，不同的标签。就不同的标签，它其实背后的信息是有不同的优先级的。就比如有些可能不太需要考虑它的细节的隐私，那相对应的就能够更加的在召回时候开放一点。然后有一些非白名单的，它相对来讲比较跟个人的隐私强相关，就像这些涉及到个人信息跟社交关系啊，还有一些情感偏好什么的。像这一类的，我们就把它放在非白名单里面，然后这种非白名单的话，将来在召回的时候就会比较严格一点。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">01:54:40</text>
+
+然后那个就是具体的怎么把刚我们列的那个记忆标签对应的白名单跟非白名单落到这个记忆隐私的策略里面？我们也是会大概会做这样的一个区分，比如说针对白名单内的记忆的话。这种语义级，就人在车上就允许召回。就比如说可能两个人在车上，然后那个他说我们今天去那个其中一个人之前心心念念那家餐厅去庆祝一下，然后这时候比较好的体验就是豆包能够从记忆里面捞回之前他讲的记忆是什么。所以其实只要这个人在车上，就能够召回，不考虑这时候车上是否有其他的人存在。像这种非白名单内的记忆，是这种的话。就是必须要人在车上，且没有其他人的时候，也就是他的单人场景。就是非白名单这种的召回必须是子集。对。啊。是。对。如果本身就是有两个人在车上发产生了这个记忆。对啊，那两个人就包含关系啊。不，他写的是 A 人在车上嘛。你比如说，我这个是我这个记忆，我这个记忆是 A 和 B 一起产生的。产生的。在车上，那我就觉得可以召回。我也觉得。但是 A B C 在车上就不能召回。但是 A 在车上是也是可以召回的，对吧？嗯。就是只要是它的包含关系。就可以。哦。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">01:55:57</text>
+
+对，晓伟不是说是白名单。我是说非白名单的这种情况，白名单就直接招。那没问题，但是白名单的范围是什么？怎么定？他刚刚不是给了一个列表吗？前面，唉，就我知道这个列表我们需要。我好无奈。嗯。就是刚刚简单介绍了一下，就这个，首先当前是按照大概的一个。陈敏都帮你帮你说话。就是从当前我们本身有记忆的标签，记忆的标签是根据记忆的类型来。说我的意思是说这些名单我们都认可，需要去确认吗？还是就？他是说要不要一项一项看？那就一项一项看一下。我只是说我们应该有。我觉得这个首先我们会上逻辑，大家对逻辑就行，逻辑没有问题，然后这个具体的这个项。可以。让让到群里，让大家。对对对。评论就评论就行了，比如说大家评论之后有问题，再来一起看就行。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">01:56:52</text>
+
+OK， 然后刚你们说那个是，就刚讨论到的按照子集的方式来召回。这个其实是情景记忆，因为当前语义记忆并没有跟场景绑定，这是它的一个局限，所以没有办法基于还原当时记忆生成时候的场景。所以对于情景记忆的话，我们像非白名单记忆就可以从在场人的最小集内召回。最小集就比如说在场人是 A、 B， 它的最小集就是这两个人同时都在车上的时候。可能也有其他的人，因为他们本身 AB 也在场， AB 知道，所以召回是没有关系的。然后另外对应的就是一个白名单内的，白名单内的话就从最大级召回。就比如说车上当前有 A 的话，就如果是 A 询问的，他的最大集就包含他在场的所有的跟其他人有关的记忆都是可以召回的。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">01:57:41</text>
+
+这边有一个最大级以及最小级的说明。我我想确认一下，就比如说如果是 A 和 B 都在车上，然后 A 说我喜欢吃苹果，那这个记忆是记在 A 身上，也记在 B 身上吗？这个是语义记忆，这个是直接记在 A 身上的，这个是。的是不记的。对，这个是最原始的时候记忆生成就是这么生成的。说你喜欢吃苹果呢？A 说 B 喜欢吃苹果，那就记在了 B 的上面。是是这样子记的吗？对，就这一部分的逻辑我后面没有动过，就都是。当时不是这么做的。啊。是这么做的。不是。是这么做的。嗯。就我之前。但如果你没有动过逻辑的话，之前不是这么设定。那可能就是你之前需求没有按照你的需求来实现。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">01:58:26</text>
+
+诶，那晓伟，就是刚才那个情境，我有个问题啊，就比如说能帮我记一下，晓伟喜欢吃苹果。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">01:58:26</text>
+
+是这样吗？对。嗯。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">01:58:34</text>
+
+这是我的理解，晓伟未必真的喜欢吃苹果，然后你记在晓伟身上不是有问题吗？
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">01:58:34</text>
+
+说。不管我希不希望，但当你是这。豆包豆包，如水喜欢穿。你刚刚说，就是你说了一个我的偏好，然后是会记在谁的身上？是这样吗？怎么不合适呢？
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">01:58:47</text>
+
+对。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">01:58:48</text>
+
+你去去，去如水喜欢吃的那个餐厅。那就忽视了羽义的作用。然诶，我看到你说了个，对，就是如果是这样的话，就是会跟我的，会跟我这个人关联起来，就会跟晓伟关联起来。不是关联在你的名字下面的，这是当前的那个语义机，它存储的现状。这个偏好是谁的就记在谁头上。对。那他不在场也行吗？他不在场也行，只要他注册过就行，这是当前的做法。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">01:59:15</text>
+
+就是这个东西还是在 A 的记忆里头，只是说挂在晓伟的名下了，是吧？
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">01:59:22</text>
+
+它其实当前就是区分两种，一种是情景记忆，情景类的记忆的话就是基于当前车上有谁。就记在了跟他们有关的场景当中。你，但是你刚提到的那个偏好，它其实是属于一个语义记忆，语义记忆当前只会跟这条记忆的主体挂钩，就他那个记忆工具。他收到的就是，他收到不是陈敏说晓伟喜欢吃苹果，他收到只是晓伟喜欢吃苹果，然后他就去看有没有晓伟这个人，如果有的话。就直接在我的名下生成了这条记忆。然后它的上层的隔离架构是这台车以及这台车当前登录的账号。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">02:00:02</text>
+
+那我想知道这个人到底指的是谁呢？这个人就是讲，因为现在记忆召回，他是根据一个他讲话有一个人嘛，就有一个讲话的主体，有一个 query。对。然后是跟这个人对的，所以这个地方指的人也是讲话的人是谁？我举个例子，比如说，我说晓伟喜欢吃苹果，这个苹果的记记在你的头上了。对。那这个时候是晓伟在车上能召回这条记忆，还是我在车上能召回这条记忆呢？像你说的那个，其实是。它是属于白名单里面，白名单里面的话，只要我在车上，哪怕你问或者谁问，都能够去召回。不在白名单。不在，那就只有我自己能够召回了。只有你能召回，我说这话的人不能召回。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">02:00:45</text>
+
+对，所以关于这个非白名单记忆的范围就得收窄一点，真的是跟个人的隐私强相关的。很奇怪诶。对啊。然后我已经没有办法召回。嗯。所以你说的话应该是通过事件，就那个情境记忆召回。情景记忆它目前应该也会记下来。对啊，所以你说的话应该是从情景记忆召回。所以我也我也是倾向。所以就是情景它本身就是全篇的流。就是我也，我还是倾向于整体，不管是哪种。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">02:01:15</text>
+
+就像刚才说的，比如说，对，就比如说你在车上，陈敏说，晓伟喜欢吃苹果。你不能直接就记到晓伟身上去，这本质上就是陈敏表达了晓伟喜欢吃苹果，但不代表小，第一个不代表晓伟一定喜欢吃苹果。而且就算晓伟真的喜欢吃苹果。我们也不知道，我们的来源就是说，我现在的记忆就是说，陈敏讲过晓伟喜欢吃苹果，或者说陈敏认为晓伟喜欢吃苹果。但是我不能认认为晓伟就是喜欢吃。我理解简化的例子，你实际情况肯定是小米有户，那个，晓伟有互动嘛，他说你怎么知道呀？或者是啊，又被你发现了，你才会记嘛。但是你单纯 b 说 a 这个。不是，我觉得我这，我的前提无论如何。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">02:02:07</text>
+
+记忆都是晓伟的这个豆包的视角。嗯。他来看待问题。对啊。我觉得记忆不能直接说晓伟不在场的时候，直接挂到晓伟身上来给他打标签，这类事情我觉得不太能。张航喜欢穿裙子。就是情景记忆当前是这样的，但是如果。我觉得我觉得语义记忆也不应该直接打，你这个人都不在场，你凭什么？嗯。就是因为我表达了这个东西，就给他打上标签。我觉得这个是一个。而而且我觉得记忆的本质就是我觉得我。跟我相关的。我一直认为记忆就是我车上的这个豆包对这个事情的认知。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">02:02:44</text>
+
+我认为记忆是应该是别人对这个人的印象，也可以记到这个人身上，就是晓伟被大家认为是。我觉得别人对他的印象，而且比如说我还是以什么观念？陈敏当着我的面讲晓伟喜欢吃苹果，那是陈伟，陈敏当着我的面才会这样做这件事情的。那可能陈敏当着晓伟的面，他就会说晓伟喜欢吃梨。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">02:03:09</text>
+
+哈哈哈，我觉得陈敏表达这句话的很大的一个因素就是因为他在我的面前，我才是造成这件事情的主要的一个原因。我觉得。所以说这个记忆的这个主体我觉得就是，对。就是应该跟我有关系，你不能说，你直接说，表达这个事情，晓伟就是喜欢吃苹果，这件事情，我觉得。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">02:03:25</text>
+
+是的是的，我刚也是这么理解的。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">02:03:30</text>
+
+所以我觉得这个可能是。大浩，你确定喜欢吃是。这个可能是当前记忆工具的一个缺陷。记一个事实就好了，就是陈敏认为晓伟想吃苹果就好了。对啊，你比如说陈敏。陈敏，比如说陈敏跟我在一起的时候，他讲他喜欢听爵士乐。不可能他在我面前会装的。他因为是因为是你喜欢听，是吧？所以他说。对啊，然后比如说他陈敏自己的时候，他可能说啊，我喜欢听摇滚。对呀，我觉得就是不同的人在一起就是不一样，你比如说，那嘉锋跟我在一起，他想装逼，他说他喜欢什么？但他自己一个人，或者说他在徐洋面前，他又想让徐洋对他有好感，他讲他喜欢这样的一个东西。这完全是不一样的嘛，我觉得你不能说。嗯。我觉得记忆就是应该以在场人作为作为前提来。这个会在，这个会在晓伟和不同的人在同一空间里的时候。说话。对啊，我觉得你的，我觉得不管是哪种记，都应该以在场人。而且如果用这种方式的话，他的这个黑白名单就更好。他就更有情商了。嗯。我这个是这样的，就是就是情景当前就是这么记的，语义当前。我知道，就你的，这是现状嘛，现状是。语义当前现现在相当于是有一个缺陷，就是比如说陈敏说我喜欢吃什么，当前会被语义的工具直接记到我的名下。其实我觉得可以加一层限制，就是必须得这个人当前在车上，可能才关联，直接关联到我的。你比如说陈敏讲习喜欢吃苹果。你不要上来这么。我。高压的 case。哦，不对，不是不是，这样吧，陈敏是说这个马薇喜欢吃苹果。但马薇没在我车上住过，都 faceid。对，这种就不。但是我的豆包就是记得陈敏讲过。嗯。马薇喜欢吃苹果呀。这个应该在你们俩头上啊。对啊，就是在场嘛，就我跟马，我跟陈敏在场的时候，陈敏讲过这个话就行了。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">02:05:20</text>
+
+或者下一次，我跟陈敏两个人聊起马薇的时候，那那那豆包召回了说那个我们那个马薇可能喜欢吃苹果，我觉得这个没问题。但你不能说等到哪天马在我车上，马薇注册了个 faceid。我就认为马薇喜欢吃苹果，那我觉得这个肯定不行。我不吃醋。你跟他说一下，你跟豆包说左晨喜欢吃香菜，然后我一上车，我跟豆包说我可以添加一个香菜产品吧。我说你是不是有病啊？知道吧。不是，我觉得马薇喜欢吃苹果这件事情，是我，是我这个豆包账号。记的一个客观事实，不会关联，我认为不应该关联。不应该关联什么。而且我觉得马薇有那么多个马薇，你怎么知道你说的这个马薇就是正好注册 faceid 那个马薇啊？你说不应该关联。你是说不应该关联，就是马薇这个人本身的 faceid。你说在车上说我喜欢吃香菜。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">02:06:15</text>
+
+是的是的，晓伟，就再举一个极端一点的例子，我在车上说。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">02:06:19</text>
+
+谁说的就记在谁身上。但是我觉得。记在在场的人身上。但是我去购买。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">02:06:24</text>
+
+我说晓伟喜欢某个女生，然后有一天你问豆包我喜欢谁，然后你突然来一个女生的名字。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">02:06:29</text>
+
+对。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">02:06:30</text>
+
+你会懵逼的。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">02:06:30</text>
+
+对呀对呀对呀。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">02:06:32</text>
+
+嗯。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">02:06:36</text>
+
+我不觉得这首歌好听。无限。我就觉得我的导师。就我的。我跟他说的话。我觉得就应该在场。就一个是如果不在场，那就应该明确就不记到那个人的。对，我觉得就是以在场作为原则。对，那就语义在当前的基础上再加一层在场人的限制，就我觉得这个逻辑是 OK 的。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">02:07:02</text>
+
+其实在场，我觉得即使在场也不能直接挂到他的名下。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">02:07:03</text>
+
+不太一样。对，对。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">02:07:06</text>
+
+比如我就说，诶，我觉得晓伟你喜欢谁谁谁，然后我记下来之后就注入到你的记忆里了，你不觉得很冒犯吗？
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">02:07:06</text>
+
+然后再考虑。是在考虑做一个重要的信息啊。在场我觉得应该是这样，就如果你说晓伟怎么怎么样，晓伟给出认可的反应，他说我就是喜欢你。怎么了？晓伟他他就。他不反对不就行了吗？啊？他不反对不就好了？我说左晨喜欢吃香菜，难道他不会说话吗？不一定啊。我觉得无所谓，他他不说就代表默认了。他不一定要晓伟开口。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">02:07:35</text>
+
+不能这样，比如说我因为社交的一些原因，我可能没有去回应，我沉默了，但这个东西就被记入到我的记忆里，这肯定是不可以的。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">02:07:36</text>
+
+啊。在多人对话期间有但那我，我们先讨论，如果晓伟说就是这样，要记吗？
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">02:07:44</text>
+
+我的记忆就是我的记忆，不要乱篡改嘛。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">02:07:48</text>
+
+我觉得应该记的吧，因为你是基于上下文的理解。晓伟就说，被你发现了，我确实怎么样，我就爱吃。就是这个人在车上，并且他给了肯定的回应。嗯。这个是嗯。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">02:07:58</text>
+
+嗯嗯嗯，这种我觉得还 OK， 但陈诺的话就不要。嗯。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">02:08:03</text>
+
+嗯。为啥呀？我觉得沉默也可以啊。所以这件事情。难道可能会有商家的话，还要跟他去确认。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">02:08:07</text>
+
+我如果是个爱人，我就不张嘴说那句话，难道你就要去篡改我的记忆吗？
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">02:08:11</text>
+
+或者确认他也可以，碍于面子他也。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">02:08:12</text>
+
+对吧？
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">02:08:13</text>
+
+我觉得我，不然我觉得这种。就不应该。就是如果你的你的你的语义是另外一个人嘴里说出来的，就不应该直接。记到。即使在场。即使在场。对，不应该记到哪。
+
+<mention-user id="ou_ee34114ef6a91173e633588666527216"/> <text color="gray">02:08:26</text>
+
+是的。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">02:08:26</text>
+
+一定要记到。比如说如果是你说晓伟的事情。我也比较倾向于，除非这个人表示什么，承认。是是，就是这个逻辑刚刚我们已经认可了，就不应该直接记在他。但晓伟不答应，不说话。不说话也不应该记在。对，不说话不应该直接记。那他说话呢？说话是靠认可，靠认可。那我确认一下。我说话他可以认可。如果说晓伟不沉默了，记不记在我身上呢？记啊。记啊。那可以。无论说什么你都会记。就除非晓伟自己明确说，确实我就是这样。晓伟拒绝、沉默还是怎么样，都记在。我认我认我还是觉得就是记忆本质。沉淀记忆肯定是。就整体原则上要克制一点。就是如果我拿不准，你就不要。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">02:09:09</text>
+
+刚刚他说有两个人都有。从隐私的角度，其实这个话题已经结束了，我只是稍微下去。对对对。但是下一块就是怎么生产的问题。那你们不写他什么方式？那个生产方式。记到我头上，没记他头上。对，就是我觉得豆包永远是说。我觉得这个不是，我们就不要讨论了，就是我觉得这个应该达成一致的，首先要在场，这个大家应该都没问题。第二个就是我们应该还是比较偏向了。克制，就机器如果拿不准，就不要记。嗯。如果拿不准的话。那就。然后生产方式，这个到时候再说。嗯。所以语义的记忆就是跟我们今天讨论隐私的可能无关，就是它生成这个层面的，再加一个人必须在场，并且这个人给一些肯定答复之后。才记到他的名下。那记不记在我名下？记，情景和语义都记。语义记不记？不会，就现在不会。语义我觉得不记。也就是说。你的情景记只是说你聊过这个东西而已，这个正常记我觉得没事。替你说话就够了。因为我觉得语义这个事情也还得克制，对，不要过强。就是他会刻画一个人。我感觉。就你刻画的不准。记晓伟喜欢这个，记在你下面。干预。但我觉得跟超然确认一下吧。我我们我们语义，我们那个情景机本质只是说他聊过这个话。对，是做过这件事。对，他不是说他记，但真要记，我觉得还是要很确信的情况下记，不然你就不要急。行，那就语义再严格一点。这个，晓伟，要不你重新再整理一下。我觉得跟今天讲的其实没什么关系。对。我觉得是有关系。我也觉得是有关系。主体都不一样了。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">02:10:50</text>
+
+到底这个人指的是哪个人呢？讲话的人。你就把这个结论整理意向，比如说大家群里面，大家确认一下，大家有个共识一下，没有问题。我就是就是我觉得看一下这个逻辑里面有哪些你们是不认可的？就是这个人在车上，你说的是这个，讲话的人在车上，但记又记在他身。上了，那这个怎么怎么理解你这句话？那就所以就召不回嘛，你刚说的像你说我怎么怎么样，记在了你的情景记忆里面，记在咱俩的共同用车情景记忆里面。我们说语义记嘛，情景记忆我没问题。语义记就没有记在我的名下。对。那所以我自己的时候。什么情况下才能召回呢？就是必须是我讲的，或者说我咱俩一起讲的时候，我给予了你肯定的认可，然后他就会记在我的名下。对。然后当时我在车上的时候，就能够把这一条去召。那你说讲话的人如果是我呢？按照刚的，我们聊那个严格的限制，就除非我给了你这句话比较肯定的答复，不然的话就不会在我的名下。对，但是是，我是说后面要召回的时候，说话的人是我。说话的人是你。对啊。所以这个地方，我觉得我们到底要不要允许你的语义里面记我的信息，我觉得是不需要。是不需要，对，但那这个记忆记在你身上了。比如说你经常说晓伟。是一个爱八卦的人。嗯。可以这么记，或者你经常爱吐槽晓伟，他也可以不用。不，我我的点是在于说，就算记在你头上了，我能不能召回这条记忆，当你在车上的时候。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">02:12:18</text>
+
+我在车上的时候，如果是非白名单里面是不行的。是不行的。对。所以这个这话哪怕是我说的，之后也只有你能召回了。对，但是你要知道非白名单它其实是一个很小很小的范围，就比如说银行卡号、身份证号，以及有一些非常。但我不太理解的是。这句话本身就是我说的。他都知道了。对，我不认可这个方案。就他都知道你的是，如果银行卡号了，我还不能找银行卡。对。不是这个当前召不回，是因为受到刚我们聊的另一件事件影响，就说，他根本不能在他自己的语义记忆下面生成我的有关对啊。所以我就说这个，如果是这个方案的话，你现在这个就对不上了嘛。但我觉得你这个是一个语义记忆生成的问题，而并不是我这边召回。但是这整是整个记忆的方案的问题。所以大家就讨论一下到底要怎么做嘛。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">02:13:12</text>
+
+就是我们今天可以达成一个非常一致的结论，然后我去改这个东西。它是豆，没有所谓晓伟的记忆，都是豆包的记忆，是豆包和晓伟接触过后，对对对，是的。他对晓伟的记忆，而不是晓伟的记忆。他的主观的。然后如果是芮婷讲了晓伟的这个事情，那也是对芮婷的这个记，只是你那个记更多是事件记，除非你特别爱八卦，我上升为一个对你人的总结了。那是另外一回事。啊，芮婷爱说晓伟爱八卦，这个偏好变成了。对啊。对啊，你比方说每，每天上车，芮婷都去去一次晓伟。或者变成了芮婷对晓伟的印象。对啊。哈哈哈。对你人的作用，但如果你只说一次，他只会放到世界里面。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">02:13:56</text>
+
+对，就情景记忆，我觉得我们没有意义。嗯。现在我说的是，当我说了晓伟的偏好，晓伟认可了，这个记忆按照我们刚刚讨论，存存在晓伟名下了。那我是不是以后还能召回这条记忆？这个是我们的分歧点。所以你如果能召回，要么就是从试审结束，我上次说了晓伟什么，豆包想起来告诉你，且晓伟要在这在场。嗯。因为得，就是你们在场才能。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">02:14:19</text>
+
+但是按照情景记忆的话，晓伟不在场也可以吧。如果是情景记忆，如果上升到你的，对你个人的总结，你就爱吐槽晓伟，那你可以召回。不不不，那如果我没有，我请那个情景记忆我们先不说，因为情景记忆说过什么话，可能后面就没有了。嗯，但是语义记忆里面只记在晓伟名下了，我以后能召回这条记忆吗？你还是没有回答我。如果上升到语义级，我说反了，那那就召回吧，你你如果确实存在你的，我对你有。不是，没存在我名下，刚刚不是说存在晓伟名下了吗？存在小你没有啊，肯定没有。那我能召回吗？不能召回。为什么？他的意思是，他的意思是这个是他讲。说晓伟确认了。对啊。对啊。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">02:14:58</text>
+
+如果晓伟确认了，那是一个情景记忆。不是。因为是一个事实嘛。那个情景记忆它不一定会留存这么久。不不不，你再你再举个例子，你怎么说的？那如果如果不留存的话。你你的这个白板白名单有哪些东西？你说一个。不是，你就先说你现在。就是我说晓伟喜欢吃苹果。啊。这个语义记忆是不是记在晓伟名下了？是。那下次我是不是还能说去水果店买晓伟喜欢吃的东西？如，对，这个得从事件记忆拿吗？就是情景记忆拿呀，就是这个不上升为你对你的。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">02:15:30</text>
+
+不不，你们，不是你们说的这不对，比如说我们还要有个前提。你注没注册过 face id？注册过呀。肯定有呀。你注册过了 face id， 然后晓伟也在车上，是不是？对。然后现在呢，那车上登的谁的账号是？我的。你的账号呀。对啊。这有什么关系？有什么关系？当然有关系了。没关系嘛，就这个账号我们俩都注册了 Face ID。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">02:15:52</text>
+
+不是，你你首先你你，比如说你再说一下，比如说登的是你的账号，然后你说的啥？晓伟喜欢吃苹果。可以加一个。晓伟喜欢吃苹果，是吧？嗯。然后晓伟承认了，是不是？承认了，嗯。然后那你那边记了一个东西，就是说那个你的那个豆包，就是知道晓伟喜欢吃苹果。对。然后你下次说什么呀？去水果店买晓伟爱吃的水果，晓伟在场。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">02:16:18</text>
+
+在场能召回。那就召回啊。我们就在问。能不能召回？你们刚刚晓伟说不能召回呀。是从你的记忆去召回，你记忆没有这个。我什么时候说过从我的记忆？ok， 那在场的召回，那没问题。所以我问了嘛，我就说他的豆包账号，那就能召回啊。他的记忆里是有的，绝对有。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">02:16:33</text>
+
+情景记忆里面有可能有，但是这个事事实这个信息在情景记忆并不是个重要的信息，很多后面就没了，是不是过了三个月以后再问我是不是就没了？有啊，情景记忆是长期的呀。半年就没了吗？不，现在半年还有。你的意思说这种这种我说了一句话，它也会一直存在吗？有效信息会不会存下来？包括我们。你们不要那么激动，这个。你们不要聊聊聊就这么激动。哎呀，这有啥激动不激动的？所以你们要问清楚，你看我如果，我觉得问清楚是他的豆包账号就应该招呀，这个没问题啊。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">02:17:06</text>
+
+刚刚他说的是不招。没有，情景里面本来就会照伟。我说的。如果是晓伟的豆包账号，那就，那就是，那如果这个时候芮婷。讲这个话的时候，又是登芮婷的账号，那肯定不招呀。账号切换了肯定不招。刚才那 case 只记到了芮婷的情境记忆里。没有语义记忆，然后语义记忆，晓伟的意思语义就记忆不会召回，对吧？就是没，我不会从，被瑞聊的，不知道语义和记忆的边界是什么。就是对，非白里面是不会召。OK， 这个没问题，对吧？但是因为晓伟在场，你从晓伟自己也能召回这个信息，其这是其一，其二你。没有，第其一就没有对齐，因为刚刚晓伟说的是我不能召回他的语义。因为对，因为是我的语义记忆。对啊，所以我就会在这个地方没有聊清楚啊。不是晓伟在说话。那我觉得这有一点。不是。对呀。我觉得语义记忆里面也可以加一条，就是人和人之间的这个印象，或者说那个啥。比如说你说过晓伟怎么样，那你你可以有一条语义。不是啊，你这个时候，你这个时候他召回的前提是芮婷的语义记忆里有晓伟的这个标签，才会召回。那肯定不招回。你看你就是有分析。肯定不召回啊。我觉得我也觉得肯定不召回。我觉得如果你要招晓伟的语义记忆，我也觉得不召回。必须是晓伟自己。你为什不是。对。你首先你这个时候是豆包的账号，只是芮婷的豆包账号。嗯。芮婷的豆包账号里面为什么会有晓伟的语义记忆呢？每个人都会有。对啊。faceid 下面的呀。对呀。嗯。不是啊。你都在场。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">02:18:32</text>
+
+不是，我觉得不是，我觉得首先他的豆，就是芮婷的豆包账号下只有都，芮婷，只有我的，芮婷的那个豆包给晓伟打的标签，而不存在说。晓伟，晓伟的豆包账号给晓伟打的标签。那你现在说这，是这样的，不是不是，那，上层是基于账号做隔离，但是下面这些基于的主，那你首先你这个时候的，你这个时候根本根本就不存在晓伟的语义记忆。只有芮婷的那个豆包账号。不是，有，就是晓伟的语义记忆。我知道，那个我，我们先对齐概念啊，我认为芮婷的豆包账号给晓伟打的标签不是晓伟的语义记忆。不是晓伟的语义记忆。是我的记忆打了晓伟的标签。对，是是首先，所以我认为那个应该是芮婷的语义记忆。好，他完全跟我们讲的不是一个东西。我们先不说，我们先不说理解错。就是我就说那个玩意，他是记在芮婷的豆包账号下，对，对不对？对。如果记芮婷的豆包账号下，然后他打的标签是打的晓伟，对不对嘛？对。然后那现在比如说这个时候说晓伟的啥啥啥，那我觉得就不应该召回啊。我就觉得是不该召回的呀。不是，应该是芮婷的豆包，它有对每一个人的。对。对啊，语义，对啊，所以我就说，所以说我认为那个就是芮婷的豆包账号下的语义记忆中，对晓伟的标签。对。但我不认可那个叫晓伟的语义记忆。如果晓伟认可的。不，这只是。就算晓伟认可，我也不认可这个概念。就我觉得只要晓伟不是自己说话，那就不应该召回他自己的语音。这这个只是一个概念。对。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">02:20:03</text>
+
+对，我觉得概念不管，首先我们对齐的是这个东西是存在。那个芮婷的豆包账号下，这个没问题，给晓伟打的标签，对吧？没问题，那我能召回吗？你自己存在你自己的账号。对啊，如果比如说存在你的豆包账号下，就是能召回啊。那我这是说现在。所以说你们刚才的概念，你们刚才的概念说是什么？存在晓伟的语义记忆下，那我肯定觉得不能召回。我们刚说存在他的记忆，就是你说的打标签是一个意思。对啊，如果是打在你的豆包账号下，然后那就是可以召回啊，我觉得。那就我可以召回。对啊。那晓伟不在场，我能召回吗？当然可以了，那为啥不能？不一样啊，因为他把那个语义记忆是他的标签。都要，这个跟晓伟一点关系都没有。这只是一个标签类的信息。你不要看着我，我是在说跟。我知道，我就所以说这个可以召回，因为因为你这个记忆跟跟晓伟没有任何关系啊。就是你的，你你你。要不这个话题我们先不聊，不聊，展开了。这个本来就有个专题要聊。对呀。一个你想说你要深了，下一个吗？没了吧。有有有，就是丁彬来了，就插入先聊一下 VLM 的。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">02:21:08</text>
+
+那这个后面再聊，是吧？重新聊。但是我觉得隐私的前面那个。没问题，没问题。竞争力是没有问题。那我觉得隔离这事没问题，但是语义记忆。但情景记忆这样的话，我觉得是有很多很多的信息的。情景记忆现在信息本来就挺多的。就是没有做压缩，也不会删。那就做压缩。调呀。那压缩。事件的短期本来做了一次压缩。那这样的话我说过的一句话不一定后面还有呀。但是取决于这句话里面的信息量。就我说的这个是。
+
+<mention-user id="ou_5db39c36f6959ac9bb6e0128d774e9a9"/> <text color="gray">02:21:35</text>
+
+丁彬你现在 OK 吗？我们评一下 VLM 的。
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:21:37</text>
+
+啊，可以的，那我来共享啊。
+
+<text color="gray">说话人 7</text> <text color="gray">用 </text><mention-user id="ou_5db39c36f6959ac9bb6e0128d774e9a9"/><text color="gray"> 的设备</text> <text color="gray">02:21:38</text>
+
+对，就是。
+
+<mention-user id="ou_3baf7833d83aa407032f6eef9f6fa18a"/> <text color="gray">02:21:38</text>
+
+就是。
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:21:44</text>
+
+好呀。那个那我来开始吧，能听到我说话， OK， 是吧？然后屏幕也能看到。好，这样子呢，就是我这边呢，主要是一个那个 VLM 的一个通道类的一个需求。这个需求是什么呢？其实它是一个承接类的需求，主要是晓伟这边呢，有一个那个动态的 Weather 嘛，动态的 Weather 有那个动态感知需求订阅的这样的一个模块。主要是呢把一些用户的一些这种常识感知的任务，比如说宝宝醒了告诉我，或者每分钟看告诉我宝宝在干啥。这种任务转化成端侧 VLM 去推理的一个任务，然后再把我们的结果返回回来。整体上来说会偏向这样的一种数据通道的一个建立。然后这里面的一些概念呢，比如说什么动态需求感知呢，是我们产品上定义的一些模块，但实际在我们跟研发的沟通中的话。他们其实是没有设立这样的一些模块的，他们反倒是有一套这种任务体系架构，叫 task service 去承接。所以后面讲的这块的话，会这样的两种，会以这样 task service 这样一个视角去讲这块的具体的一个工作。
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:22:53</text>
+
+然后因为这个任务下发呢，它涉及的模块比较多，就有我们的，有云端的，也有端侧的，客户端的是，客户端还有 VLM 这边。那所以说会以这样的一个链路图。大概去讲一下。那先说一下，就是能做什么样的功能呢？那就是需要 VLM 去做常识感知的，跟 VQA 要做一个区分， VQA 是一次性的任务。嗯。然后如果是常识感知的，就比如持续地观察，就刚才说的宝宝醒了就告诉我，那 VLM 就一直会去看宝宝醒没醒。那或者说每一分钟告诉我宝宝在干啥。那这一分钟内就需要持续去关注宝宝，那这一类的都属于此类需求，需要去解决的问题。
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:23:34</text>
+
+如果用户的 query 过来了以后。我们会到我们的 director 这边，然后再来给到底下的这样的一个 task service 的模块。这个 task service 就是我刚才说的，它其实会把这个 advisor 呀，还有触发器呀，这些都融入到里头。那所以我会一个整体来去讲它如何是跟 VLM 去做一个交互的， VLM 就是这个 AI box 这一块。
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:23:55</text>
+
+如果用户的那个 query 下来的时候呢，我们需要在 task service 把用户的 query 呢，变成一个 VLM 需要去执行的任务。这个任务就叫做高频任务 UP。比如说刚才说的那个宝宝醒了就告诉我，或者宝宝醒了就给他放歌这样子的，那么需要 VLm 干的就是宝宝醒了，就是需要 VLm 去观察宝宝有没有醒。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:24:15</text>
+
+诶，现在丁彬，就现在是哪个模块来做这件事情，把它转成对 VLM 的需求？是哪个模块在承接这个事情啊？
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:24:26</text>
+
+整个就 task service 这样的一个任务模块。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:24:29</text>
+
+TaskService 是我们赛力斯项目的那个长时任务的那个模块吗？
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:24:36</text>
+
+他不是一个，就是他会兼顾很多，这是那个研发设计的一个大模块。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:24:40</text>
+
+就首先你看啊，这个比如说我照顾后排的宝宝，或者说宝宝醒了通知我这件事情，首先得有一个模块把它区分出，它是一种需要长时感知的任务。
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:24:52</text>
+
+嗯嗯嗯。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:24:52</text>
+
+这是第一步，第二个是要有一个模块把它对 VLM 的需求解析出来。
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:24:58</text>
+
+嗯，对。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:24:59</text>
+
+就是对 VLM 的需求解析出来的这个模块是什么模块在做呀？这个事情现在。
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:25:04</text>
+
+但是整个就是以 task service 这样的一个是，这个模块去做的。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:25:08</text>
+
+就单独要新开一个 task service 这个模块吗？
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:25:12</text>
+
+对。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:25:14</text>
+
+好，解。
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:25:15</text>
+
+他这边现在是有一个新的一个设计，就是这个，这是应该是研发庆磊那边去整体设计的一个模块，而这个模块会兼顾。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:25:15</text>
+
+西。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:25:23</text>
+
+庆磊设计的，那就应该跟我们现在那个动态来的那个任务是一个模块，是吧？
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:25:27</text>
+
+诶，对，是一个模块。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:25:29</text>
+
+因为现在庆磊不就专门在做那个吗？
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:25:29</text>
+
+啊。对对，是的是的，嗯。然后我这边的话，就是会把。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:25:37</text>
+
+那就是我理解一下，那就是那个模块，首先我们不是长时任务，还是都定时任务，都是到那个模块去。那个模块会把这种任务类型分出来。
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:25:49</text>
+
+对。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:25:50</text>
+
+乔治。解析出不同的对下游的要求，比如说解析出来是定时器跳。我得这个要求，都是由这个模块做的。
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:26:03</text>
+
+我刚才信号没太好，没太听清。嗯。诶，你刚刚说什么，没太听清。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:26:07</text>
+
+没事，你接着说吧，你接着说吧。
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:26:09</text>
+
+嗯。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:26:10</text>
+
+嗯。
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:26:11</text>
+
+那对，他就需要把用户的 query 拆成我们需要感知的任务。啊。然后这个任务呢，就会通过这红线这个通道下发到这个 AI Box 里面，因为我们这个就是云端没有办法直接跟 AI Box 通信的。所以会有这个客户端的一个类似的模块。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:26:25</text>
+
+还有这里面还有个问题啊，就是比如说我说那个宝宝醒了你就告诉我。这个任务是 VLM 那边一遍一遍地去识别宝宝醒没醒，然后识别出醒了就通知我们一个模块，还是说是定时器那个让那个模块去一遍一遍去告诉 VLM。你去给我查一下现在宝宝醒没醒。是哪种逻辑啊？
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:26:57</text>
+
+现在是这样子，就是我们只会描述宝宝的状态，然后状态给过来了以后，由触发器来判断有没有达成宝宝醒的这件事情。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:27:08</text>
+
+就是说你下一个任务，你让他去描述宝宝的状态，然后这个状态会给到触发器，然后触发器的模块去判断他现在是不是醒的。
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:27:12</text>
+
+诶，对对。
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:27:20</text>
+
+对。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:27:20</text>
+
+那触发器那个模块，它就不是纯电规则要求有语义理解的能力。
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:27:25</text>
+
+是的，对，这个泽民这边他会有这样的一个能力，有模型能力。嗯。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:27:30</text>
+
+诶，那块的算法是谁做的？
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:27:36</text>
+
+泽民这边的那个吗？
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:27:39</text>
+
+没事，先过吧。嗯。
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:27:40</text>
+
+啊，行，好好，嗯。然后其实就是刚才就按航哥说的这个，就是任务下发下来以后，我们会通过端上最快的一个舱内任务，就是高频的舱内 always on。来去把这个任务就插入到这个任务里头去。由这个任务带着去网上去上传。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:27:56</text>
+
+诶，你插入的这个时候，你本来的那些 always on， 就是本来就预置的那些 always on 还在吗？
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:27:57</text>
+
+所以它的周期就。对。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:28:02</text>
+
+还是说是替代关系？还是就是在他那个原来那个 prompt 上加了一些任务？
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:28:04</text>
+
+还在。对对对，追加了一个任务，相当于是。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:28:11</text>
+
+诶，同时呢，支持加多少个？
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:28:13</text>
+
+我们目前是想不要超过3个。这个主要会影响到它的速度，如果加的特别多的话， decode 太多了就啊。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:28:19</text>
+
+好的。
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:28:25</text>
+
+对，然后结果就上传，然后其实这里它只是做描述嘛，就是真正这个结果 o 不 OK， 有没有达成用户的目标，都是由触发器来判断。如果触发器判断达成任务目标的话，就通知我们把刚才加进来这个任务删除，那它又回到之前的 all 文档里头去了。这大概是这样的一个流。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:28:44</text>
+
+那我举个例子啊，比如说这个需求，我说我说那个。
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:28:45</text>
+
+嗯。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:28:50</text>
+
+帮我。照看一下后排的宝宝。那这个时候那我这个时候，那个给 VLM 下的需求是什么？那触发器就是什么。
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:29:04</text>
+
+嗯，这个时候给的其实是一个需求，就是由这边要去做一个改写的。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:29:10</text>
+
+我知道，你比如我照顾后排的宝宝，我觉得照顾后排的宝宝不存在触发。
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:29:10</text>
+
+就是 director 这个种子数据里。嗯。不是，就是对，对。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:29:17</text>
+
+你比如照顾后排的宝宝，我就一直在描述宝宝的状态，但是我不需要出触发器去基于某种状态去把它捞出来，再给上游的这种 task。这种模块去触发呀。那你这个时候，这个触发器做什么呢？
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:29:34</text>
+
+明白，照顾后排宝宝这个任务需要，比如说在 query 这块来说，需要拆成 VLM 要去干什么，就是 VLM 的这样的一个任务。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:29:42</text>
+
+我知道，那这种时候的链路， VLM 返回的结果就不应该过触发器啊，应该直接返回到 advisor 呀，由 advisor 直接推理。
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:29:42</text>
+
+VLM 本身它是，对，这个时候就会直接给到 advisor。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:29:51</text>
+
+为什么会这种情况下应该不走，对，但是我对，但是我现在看这个链路上应该，我看现在的链路应该所有的 VLM 都是过触发器的。
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:29:55</text>
+
+对对，是的是的，嗯。
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:30:04</text>
+
+没有，就是我们会回到 Task Service 整个这个 service 里头，然后这个里头过不过触发器是由庆磊那边的他这个模块去一块去做这样的设计的。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:30:12</text>
+
+我觉得他自己来判断是吧？
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:30:13</text>
+
+嗯。对对，有的是涉及到周期类的任务，或需要满足条件达成的，就会过触发器。如果不是的话，比如下发这个任务，照顾后排的宝宝，那下发的任务就是就是让我们描述宝宝当前在干什么，那我们就会把这个状态不断地返回回来。这个就会直接给到 advisor 里面去。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:30:36</text>
+
+有类似于沿途介绍风景也一样，是吧？
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:30:40</text>
+
+对，只不过沿途介绍风景就是它属于一个舱外 always on， 舱外 always on 上 VLM 上还没支持。但是如果这个链路通了的话，只需要把这个功能加上去就可以了。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:30:50</text>
+
+前提是你是一个的确。
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:30:57</text>
+
+好呀。嗯，那我继续啊，就是然后因为这就分为几块，一个就是这个任务的下发，目前来说我们提供的就是可以插入这个长时感知任务的原始任务的。就是高频的 Always on 任务，这个 Always on 任务我们定义是5秒多左右。然后最近我们实测了以后，它的上报周期可能会在6秒到7秒钟左右，比原来说的那个10秒钟左右来说已经提速了一些了。如果不插入的话，它就是默认的感知结果。如果插入的话，就会输出我们想插入的这个结果。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:31:27</text>
+
+我我这块逻辑比较清楚了，我觉得应该还好，就是这个 task 模块来区分长时任务跟条件任务，条件任务就走触发器嘛。
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:31:30</text>
+
+嗯嗯，行。对对。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:31:38</text>
+
+长时任务就直接走。然后这块是，这块需求评是，赛力斯是915要搞定，还是8月底啊？还是什么时候？
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:31:47</text>
+
+915，这个需求是915。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:31:50</text>
+
+就是相当于是。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:32:04</text>
+
+经常跑嘛，这算是但这个对我们挺重要的。
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:32:08</text>
+
+对，是的。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:32:12</text>
+
+其实他现在是在拖着，那我在手里一般已经搞定了这件事。大比赛时候没有跟他天健说。那你就就约一下，我觉得还是要一起过一下现在庆磊的那套。庆磊的那套动态的 advisor 跟之前上汽的有什么区别？我们再看一下，李子。嗯。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:32:38</text>
+
+丁彬，就是你这次就是这些，是吧？
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:32:41</text>
+
+对，我主要是评审这个链路这一块。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:32:43</text>
+
+嗯，我觉得这个我这边应该没啥问题。
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:32:43</text>
+
+嗯。啊，行，好呀。嗯。对，我这边还需要就是就晓伟这边的这个种子数据需要再帮我补充一下，因为我原来引用那部分现在已经不存在了。晓伟，你再帮我把这个最新的索引给我发一下吧，就比如说这边的用户的 query 是什么样子，以及转换成 VLM 的任务是什么样子。改写的 query。我可能需要这样的一个信息，特别是舱内这一块的。嗯，晓伟，这个 OK 吧？晓伟是不在线上，是吧？我看。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:33:23</text>
+
+他在我旁边，应该没问题。
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:33:23</text>
+
+嗯。啊行，好嘞好嘞，嗯，好。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:33:25</text>
+
+嗯。好。
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:33:29</text>
+
+行，然后这个就没啥了，就是讲这个量，啊嗯。
+
+<mention-user id="ou_1883019f892771d6ebe48a86ef751013"/> <text color="gray">02:33:30</text>
+
+丁彬，我这边有一个问题。就是如果说用户他问询他参考 VLM 的这个频率会比我们识别的频率更高，这种怎么办？就比如说我们是两分钟回一次结果，但他可能是每多少秒就给我说一次什么什么，那这个信息我们是用，云端已经存的这上一轮的信息吗？
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:33:53</text>
+
+你不是现在最快的是5秒那个吗？
+
+<mention-user id="ou_1883019f892771d6ebe48a86ef751013"/> <text color="gray">02:33:56</text>
+
+对，就如果说它的频率更高呢？
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:33:56</text>
+
+我们用的是5秒的这。
+
+<mention-user id="ou_1883019f892771d6ebe48a86ef751013"/> <text color="gray">02:33:59</text>
+
+而且现在应该不是5秒吧？
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:34:00</text>
+
+多高到什现在大概实测这个是6~7秒钟左右吧，舱内高频 AlwaysOn。
+
+<mention-user id="ou_1883019f892771d6ebe48a86ef751013"/> <text color="gray">02:34:01</text>
+
+就是现在如果我们高低频合在一起，加上舱内舱外的，它肯定是5秒搞不定的，对吧？
+
+<mention-user id="ou_1883019f892771d6ebe48a86ef751013"/> <text color="gray">02:34:14</text>
+
+那加上舱外的呢？他们俩不是循环的吗？
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:34:18</text>
+
+加上的舱外，舱外是每三点几秒报一次，舱内是每五点几秒报一次。加上链路应该是6秒到7秒左右。
+
+<mention-user id="ou_1883019f892771d6ebe48a86ef751013"/> <text color="gray">02:34:26</text>
+
+嗯，那如果说他的频率要求的问询的频率会比这个更高怎么办呢？
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:34:26</text>
+
+就一块跑。嗯。什么频率？比如说快到1秒这种，如此这样，是吗？
+
+<mention-user id="ou_1883019f892771d6ebe48a86ef751013"/> <text color="gray">02:34:37</text>
+
+对，就如果说他这个频率更高怎么办？
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:34:40</text>
+
+因为我理解现在舱内你现在最快的这个不是也是你定义的嘛，就是5秒钟嘛，感知频率就5秒一次。你更快是多快？
+
+<mention-user id="ou_1883019f892771d6ebe48a86ef751013"/> <text color="gray">02:34:50</text>
+
+所以我的问题是，是不是这种就直接用云端存的之前的那一波的信息就可以了？
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:34:52</text>
+
+比如说举个例子呢？啊，你，我觉得举个例子吧，啥是？
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:34:57</text>
+
+诶，西西钺西钺，你的意思是什么意思啊？就是对，你举个例子。
+
+<mention-user id="ou_1883019f892771d6ebe48a86ef751013"/> <text color="gray">02:35:03</text>
+
+就比如说你多长时间跟我说一下宝宝的状态，那或者是多长时间跟我说一下宠物的状态，但是我们可能我们的识别它的是有个周期的嘛。比如我们是5秒或者是10秒一个周期，但它可能周期时间会长于用户要求播报的那个周期。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:35:18</text>
+
+就比如说你。比如说用户说每一秒钟给我讲一下状态里的意思，这种，但我们实际周期可能要六七秒才能搞定。
+
+<mention-user id="ou_1883019f892771d6ebe48a86ef751013"/> <text color="gray">02:35:27</text>
+
+对，所以它时效性没有那么高，对。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:35:27</text>
+
+这懂意思吗？我的建议啊，这种场景直接在前期就告诉用户，我做不到。
+
+<mention-user id="ou_1883019f892771d6ebe48a86ef751013"/> <text color="gray">02:35:37</text>
+
+嗯， OK， 那就相当是我们要给 director 一个边界，就是我们执行的。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:35:41</text>
+
+有一个边界，比如说我们现在的上汽项目上的定时任务，我们应该最定时任务的那个定时的应该是30秒还是1分钟？但至少应该是30秒，不能再低，再低我们就不支持。我觉得这个感知也一样，你比如说你说每秒钟看一下宝宝状态，这种我觉得我就是做不到。还有就是我觉得最近那个 seed 那边不是出了那个带视频通话的那个玩意吗？
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:36:18</text>
+
+Omni 是吧？
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:36:18</text>
+
+就是那个就整个合到一起的那个打电话嘛。
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:36:19</text>
+
+嗯。啊啊啊。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:36:22</text>
+
+我觉得我们那个 always on 上线之后。至少达到的效果应该等同于内文。就是我觉得上线，我们那个赛力斯项目的那个 OI， 那个 OI run 上线之后，我觉得最保底的效果都应该达到等同于视频通话的水平。可能还要有更高的要求。但这个到时候再聊吧，我觉得这个只是说，我说你们最近可以研究研究，可以看看那个玩意带了视频之后，它到底带来了哪些？
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:36:52</text>
+
+好好，嗯。
+
+<mention-user id="ou_552053008ee6746a3e0420f414cb0fab"/> <text color="gray">02:36:58</text>
+
+体验上会。上的一些能力上的这种变化。
+
+<mention-user id="ou_b0132cdc6c6ad5889b25389173f99340"/> <text color="gray">02:37:07</text>
+
+行，好呀。嗯。
+
+<mention-user id="ou_5db39c36f6959ac9bb6e0128d774e9a9"/> <text color="gray">02:37:12</text>
+
+那这个评审也是正常通过了，然后看大家还有什么补充吗？没有的话，我稍后把这个评审的结论发群群里，然后大家看是不是都是明天下午正常和研发去评的。那就请大家稍后把那个就通过的评审。把这个需要的研发和测试都填在表里，方便研发同学去 call 人。那我们就先到这里，辛苦大家。
+
+<text color="gray">说话人 7</text> <text color="gray">用 </text><mention-user id="ou_5db39c36f6959ac9bb6e0128d774e9a9"/><text color="gray"> 的设备</text> <text color="gray">02:37:49</text>
+
+我现在上汽那个车确实感觉就是在你。

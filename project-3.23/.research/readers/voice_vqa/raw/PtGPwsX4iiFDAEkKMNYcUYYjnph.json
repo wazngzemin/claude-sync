@@ -1,0 +1,71 @@
+{
+  "ok": true,
+  "identity": "user",
+  "data": {
+    "document": {
+      "content": "<title>端侧离在线仲裁技术方案</title><h1>整体架构</h1><p>从客户端视角看，车机系统会从车机系统采集 N*Mic 和 N*Ref 的音频数据。离线语音（VehicleSpeech SDK ） SDK 会通过对音频进行处理，拆解出每一路 mic 对应的音频完成 WakeUp ASR 以及输出处理后的音频数据。</p><p></p><p>触发唤醒后，豆包 APP 会完成以下主要的几件事情  </p><ol><li seq=\"1\" seq-marker=\"1. \">和服务端建立 RTC 通道的连接</li><li seq-marker=\"2. \">和服务端建立 IM 消息通路的连接</li><li seq-marker=\"3. \">启动离线语音对话模块</li><li seq-marker=\"4. \">获取配置信息</li></ol><p></p><p>端侧的 ASR 结果将由离线对话系统处理</p><p>处理后的音频数据将通过 RTC 链路交给云端处理</p><p>在之后的端云的对话系统中，要保证上下文，VAD 时间，以及任务的一致性。</p><p></p><p></p><whiteboard comment-refs=\"c1 c2 c3\" token=\"KF8qw4R0vhwJPDbbou0ckqDEnih\"></whiteboard><p></p><h2>技术难点</h2><ol><li seq=\"1\" seq-marker=\"1. \">云端的 VAD 需要和端侧一致。因为端侧的 VAD 时间很多，并且传递给云端的音频已经是 SSP 模块处理过的，不一致会导致云端的 Speech 模块无法判停，后续业务一直卡在 Speech 侧触发 RTC 超时 </li></ol><p>      方案1: 端侧给音频标记出 VAD 的开始和结束时间，云端按照端侧标记触发后续流程</p><p>      方案2: 云端调整 VAD 时间和端侧一致 </p><ol><li seq-marker=\"1. \">端云如何标识同一轮任务 </li></ol><p>     <span comment-refs=\"c4\"> 方案：在离线对话系统中，pcm 精力 ssp，vad，对话任务链的处理后追加上 taskId 发送给云端</span></p><ol><li seq-marker=\"1. \"><span comment-refs=\"c5\">端侧接收云端任务的路径有三个路径，Froniter ，IM （Message）消息，RTC 通道。如果云端消息先于端侧触达到端侧，如何 block 住云端的结果去等待端侧 LLM 输出的结果。</span></li><li seq-marker=\"2. \">端侧需要 block Message 消息是否会影响流式上屏的效果</li></ol><p></p><h1>业务交互流程</h1><whiteboard comment-refs=\"c6 c7 c8 c9 c10 c11 c12 c13 c14 c15 c16 c17\" token=\"Nuu3wIyWFhUQOQbziC9cY4J1n9e\"></whiteboard><h2></h2><p></p><p>Todo </p><p>VAD 的事件怎么传给云端</p><p>Todo 是否可以通过撤回机制 打断消息</p><p>Todo 端侧能否阻塞住云端下发的TTS消息</p><p>Todo 配置信息到车型维度</p><p></p>",
+      "document_id": "N7lEdREQyoiCt1x0YLccx0SanNe",
+      "reference_map": {
+        "comments": {
+          "c1": {
+            "data": "<comment comment-id=\"7554242194998476802\" block-id=\"S9XgdDEwUoyq6Ox7LnZcdAuYndh\"><quote>Arbitration</quote><msg user=\"郭金龙\">缺少一个任务管理和yitu 或其他模块交互</msg></comment>"
+          },
+          "c10": {
+            "data": "<comment comment-id=\"7554367319561682947\" block-id=\"EN0Nd4W7tofk6Vx6afwcbX47nLb\"><quote>[画板]</quote><msg user=\"赵衍\">这个的输出应该是仲裁结果？不应该是采用离线结果吧</msg></comment>"
+          },
+          "c11": {
+            "data": "<comment comment-id=\"7554366909161472019\" block-id=\"EN0Nd4W7tofk6Vx6afwcbX47nLb\"><quote>[画板]</quote><msg user=\"赵衍\">这个没太懂发给仲裁模块的是什么</msg></comment>"
+          },
+          "c12": {
+            "data": "<comment comment-id=\"7554366519363436563\" block-id=\"EN0Nd4W7tofk6Vx6afwcbX47nLb\"><quote>[画板]</quote><msg user=\"赵衍\">建议不叫sessionId，可以叫QueryId或者RequestId，Session可能后面用在一个对话周期内都是同一个Id，或者多轮对话是同一个Id。后面估计得有2-3种不同层级的Id</msg></comment>"
+          },
+          "c13": {
+            "data": "<comment comment-id=\"7554365921117126660\" block-id=\"EN0Nd4W7tofk6Vx6afwcbX47nLb\"><quote>[画板]</quote><msg user=\"赵衍\">VAD开始之前也少了一个处理后的音频数据哈</msg></comment>"
+          },
+          "c14": {
+            "data": "<comment comment-id=\"7554255984136110082\" block-id=\"EN0Nd4W7tofk6Vx6afwcbX47nLb\"><quote>舍弃云端结果</quote><msg user=\"郭金龙\">通知云端 cancel 掉这次结果，是否可以通过打断的机制取消掉？</msg></comment>"
+          },
+          "c15": {
+            "data": "<comment comment-id=\"7554255364753981468\" block-id=\"EN0Nd4W7tofk6Vx6afwcbX47nLb\"><quote>白名单检出</quote><msg user=\"郭金龙\">白名单辅助 FC 协议去做仲裁</msg></comment>"
+          },
+          "c16": {
+            "data": "<comment comment-id=\"7554252512216268801\" block-id=\"EN0Nd4W7tofk6Vx6afwcbX47nLb\"><quote>SSP+音频 Cache</quote><msg user=\"郭金龙\">Cache 模块可以根据业务特点返回音频，比如拿5s前的音频</msg><msg user=\"郭金龙\">和少东确认 SSP 模块如何使用针序列通信</msg><msg user=\"郭金龙\">@郭金龙 这里和少东确认如何通过帧序列进行通信</msg></comment>"
+          },
+          "c17": {
+            "data": "<comment comment-id=\"7554243984724836380\" block-id=\"EN0Nd4W7tofk6Vx6afwcbX47nLb\"><quote>[画板]</quote><msg user=\"郭金龙\">对话任务链的管理 着重体现出来</msg></comment>"
+          },
+          "c2": {
+            "data": "<comment comment-id=\"7554241848807800833\" block-id=\"S9XgdDEwUoyq6Ox7LnZcdAuYndh\"><quote>Dialogue Task Chain(对话任务链)</quote><msg user=\"郭金龙\">对话任务分发和管理也要体现出来</msg></comment>"
+          },
+          "c3": {
+            "data": "<comment comment-id=\"7554241125746262044\" block-id=\"S9XgdDEwUoyq6Ox7LnZcdAuYndh\"><quote>WhiteList\n（白名单）</quote><msg user=\"郭金龙\">扩展成策略配置文件，不局限于一个白名单清单。需要每次从云端做更新</msg></comment>"
+          },
+          "c4": {
+            "data": "<comment comment-id=\"7554251078020808732\" block-id=\"W8pMdAb63oMGxPx9JlVc1Deinmh\"><quote>方案：端侧上传的音频数据增加 taskId，</quote><msg user=\"郭金龙\">考虑到对话流的事情</msg></comment>"
+          },
+          "c5": {
+            "data": "<comment comment-id=\"7554251317133574172\" block-id=\"HyL9dLz7do3HAPxlxTTcArdpnIh\"><quote>端侧接收云端任务的路径有三个路径，Froniter ，IM （Message）消息，RTC 通道，如果云端消息先于端侧如何 block 住云端的结果，等待端侧的结果</quote><msg user=\"郭金龙\">和锋哥确认</msg><msg user=\"郭金龙\">确认 AI Service 和 豆包的协议。</msg></comment>"
+          },
+          "c6": {
+            "data": "<comment comment-id=\"7555405601204895763\" block-id=\"EN0Nd4W7tofk6Vx6afwcbX47nLb\"><quote>[圆角矩形]</quote><msg user=\"郭金龙\">仲裁可能是多张表！</msg></comment>"
+          },
+          "c7": {
+            "data": "<comment comment-id=\"7554969919524765715\" block-id=\"EN0Nd4W7tofk6Vx6afwcbX47nLb\"><quote>[画板]</quote><msg user=\"姜锋\">端侧的端云异步双线处理？端侧的意义是什么？能力不如云端、速度体现不出来。</msg><msg user=\"郭金龙\">并不是所有任务都会等云端的结果，1. 是白名单能直接检出的会直接采纳端侧结果，cancel 掉云端结果 这是一期2.二期 端侧模型能指令的置信度提升上来后，会 cover 掉白名单之外的事情，或者产品能够圈定出端侧可以直接采纳的范围，那么也直接采纳端侧的结果。\n    从我的视角看：端侧 DM 作为一个对话链路的中心（端/云双中心），可以提升车域内命令的响应速度，还有一个最重要的点就是节省成本。</msg></comment>"
+          },
+          "c8": {
+            "data": "<comment comment-id=\"7554969377993867267\" block-id=\"EN0Nd4W7tofk6Vx6afwcbX47nLb\"><quote>[画板]</quote><msg user=\"姜锋\">cache还是白名单？</msg><msg user=\"郭金龙\">一期先做白名单检出，白名单通过云端下发</msg></comment>"
+          },
+          "c9": {
+            "data": "<comment comment-id=\"7554969160976302084\" block-id=\"EN0Nd4W7tofk6Vx6afwcbX47nLb\"><quote>[画板]</quote><msg user=\"姜锋\">1. 每次等云无法提现端侧效率\n2. 端侧有能力给云端纠错？</msg></comment>"
+          }
+        }
+      },
+      "revision_id": 852,
+      "title": "端侧离在线仲裁技术方案",
+      "url": "https://bytedance.larkoffice.com/docx/N7lEdREQyoiCt1x0YLccx0SanNe"
+    }
+  },
+  "citations": [
+    "<document reference_id=\"https://bytedance.larkoffice.com/docx/N7lEdREQyoiCt1x0YLccx0SanNe\"><title>端侧离在线仲裁技术方案</title><source_type>2</source_type><url>https://bytedance.larkoffice.com/docx/N7lEdREQyoiCt1x0YLccx0SanNe</url></document>"
+  ]
+}

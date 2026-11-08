@@ -68,3 +68,22 @@ date: 2026-04-14
 | 2026-09-10 | query | 产品/1-原始素材/会议纪要/专家知识-现状及计划讨论.md | 基于内嵌原始文字记录总结专家知识现状、点面体知识结构、Dynamic Advisor与Planner分工、自学习路线、底层感知依赖，并拆解讨论深入的原因和可复用方法论；产出产品/codex/Meeting-Summary-2026-09-09-专家知识现状及计划讨论.md。 |
 | 2026-09-11 16:40 | query | 飞书《记忆系统》v1.8 + 8·19 产品内审原始文字记录 | 使用 Codex 内置浏览器逐张核对 17 张记忆画板与 39 条评论，结合逐字稿区分现状、评审方向、最新版 PRD 与 TBD；产出记忆模块深读 v02 及 GPT Image 全链路图。 |
 | 2026-09-14 21:10 | query | 飞书：记忆系统 v1.8、AI汽车记忆方案、记忆待讨论内容、POI 同步方案、8·19 产品内审逐字稿、AI 汽车测试周会 | 重新按记忆模块全资料链取证，核对正文、总流程/隐私画板、评论、逐字稿和测试数据；区分已确认、进行中、delay、未开始及无权限证据缺口；产出 Feishu-记忆模块全源深读与会议插话指南-v03.md 和 GPT Image v02。 |
+| 2026-09-17 20:09 | query | Planner ReAct + vehicle_basic_control + FC + tool_feedback + NLG | 结合“打开主驾空调制冷”解释两轮 ReAct 闭环，区分 Planner 工具选择、车控工具内部 FC 生成、车端 ACK、ExecutionFeedback/tool_feedback 和用户话术。 |
+| 2026-09-17 20:42 | query | 飞书《座舱大模型主线全域FC协议》+《车控工具返回及NLG话术文档(DNA)》 | 回读“控制合辑（0829）”空调开关真实函数及 action/position/type/mode 参数，并核对空调 NLG 表中正常执行、已是当前状态、无配置和无权限等话术，面向初级产品经理解释 FC、SFT/RAG 与 NLG 的分工。 |
+| 2026-09-17 20:51 | query | 飞书《SLS DT调试prompt_车控工具评测》+《AIDV Planner One Page》+《赛力斯 SLS 车控排查指南》 | 核对 vehicle_basic_control 的 Planner 可见定义、ToolsNode/Agent Server 注册执行链、FC 生成与 vehicle-control-observation 下发、Frontier ACK 及 tool_feedback 回流，解释车控工具的组成和研发实现。 |
+
+| 2026-09-23 22:02 | query | comparisons/automotive-agent-to-embodied-product.md | 本地 Planner、Trigger、舱驾原件与飞书逐字稿交叉核验；职业评估报告及证据附件保存至 docs/职业发展，明确个人贡献和未验收边界 |
+
+| 2026-10-12 10:59 | query | 车控与接口概念区分 | 检索本地 Planner 工具清单及飞书控制类工具 DM 设计；用控车场景区分业务能力、模块调用接口和车企执行接口，说明受理与完成的边界。 |
+| 2026-10-12 11:05 | query | 飞书车控工具、车企接口与执行反馈 | 搜索三组关键词，读取控制类工具 DM 设计和工具返回结果优化正文；DNA话术表仅读取前部，结合具体空调案例区分能力、工具和调用入口。 |
+| 2026-10-12 11:08 | query | 飞书《车载语音助手控制类工具 DM设计》 | 回读参数补全、权限校验、执行分发与结果话术职责；用调空调例子解释 DM 对话管理及与 Planner、车企接口的关系。 |
+| 2026-10-13 | query | synthesis/saic-timed-task-trigger.md | 飞书读取上汽 SOR、DNA-530/616、Director 与触发器内外接口，按赛力斯指定章节产出上汽产品定义 Word/Markdown 和三张业务图；披露无权限与未验收边界。 |
+
+
+## 2026-10-13｜上汽定时任务标准 PRD 飞书交付
+
+用户要求写入飞书并细化流程图。在原始资料基础上补充任务中心通用 PRD，产出 v02 标准 8 章及 6 张原生白板；已发布到 https://bytedance.larkoffice.com/wiki/M9JewRfhLi5ZGvkGMTocWuUKnFg 。回读确认正文、17 张表与 6 张白板共 520 个节点完整，并在当前账号浏览器检查显示。待确认能力没有写成已上线实现。详见 synthesis/saic-timed-task-trigger.md。
+
+| 2026-10-29 12:27 | ingest | product-lectures/2026-10-29；记忆与 Director 宣讲摘要 | 追加两份逐字稿与三份需求快照；更新记忆实体和讲解方法，纠正 Director/Planner 串行误解，用于现有 HTML 的宣讲式改写。 |
+
+| 2026-10-29 19:40 | ingest | summaries/user-case-rewrite-standard.md | 追加用户长案例原件，更新学习站讲解标准；案例用于表达深度，产品事实仍逐项核对内部正文。 |

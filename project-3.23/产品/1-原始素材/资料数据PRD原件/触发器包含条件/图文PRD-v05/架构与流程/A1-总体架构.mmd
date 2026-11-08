@@ -1,0 +1,54 @@
+flowchart TB
+  subgraph CONFIG["一、配置态：把任务定义成可发布的场景"]
+    direction LR
+    LIST["场景列表<br/>筛选、详情、新建、复制"]
+    MODE["选择配置模式<br/>简单模式或 Workflow"]
+    RULE["配置判断<br/>条件节点、推理节点、节点依赖"]
+    ACTION["配置下游与运行策略<br/>建议 Query、带卡、按钮、次数与间隔"]
+    VALID["完整校验与发布<br/>范围、输入、流程、下游参数"]
+    LIST --> MODE --> RULE --> ACTION --> VALID
+  end
+  DEF["发布后的场景定义<br/>scene_id、分类、类型、范围<br/>workflow_id 与判断定义、动作、策略"]
+  VALID --> DEF
+  subgraph STATE["二、用户状态：单车选择与 AI 设置分开"]
+    direction LR
+    TC["任务中心<br/>查询本车任务并展示开关"]
+    SWITCH["Trigger 单车状态接口<br/>保存、读取每车每场景选择<br/>无记录按现有 ON 规则"]
+    AI["AI 设置与能力开关<br/>提供独立层级的真实许可"]
+    TC -->|开启或关闭指定场景| SWITCH
+    SWITCH -->|真实状态及操作结果| TC
+  end
+  subgraph RUNTIME["三、运行态：什么时候检查、怎么判断、能否交下游"]
+    direction LR
+    INPUT["端状态与 Context<br/>已接入 VLM、真实开关值"]
+    WAKE["Trigger 入口<br/>按更新获取候选场景"]
+    ROUTE{workflow_id 是否为空}
+    OLD["简单模式<br/>沿既有条件或推理链路"]
+    WF["Workflow 判断<br/>条件与模型节点<br/>PASS / REJECT / UNKNOWN"]
+    DISPATCH["既有动作分发<br/>策略检查、场景锁<br/>Advisor / Recommend / Callback"]
+    INPUT --> WAKE --> ROUTE
+    ROUTE -->|空| OLD
+    OLD -->|既有判断满足| DISPATCH
+    ROUTE -->|非空| WF
+    WF -->|唯一终点 PASS| DISPATCH
+  end
+  DEF --> WAKE
+  SWITCH -->|该车实际启停状态| WAKE
+  AI -->|按任务依赖读取| INPUT
+  subgraph DOWN["四、下游业务：卡片、用户回应与车辆动作"]
+    direction LR
+    RECOMMEND["主动推荐 → DT<br/>儿童锁、后视镜、充电口盖"]
+    VQA["DT 调 VQA<br/>仅充电场景需新增设备识别"]
+    CARD["接入业务与主动服务卡<br/>沿既有协议注册、下发卡片<br/>处理回应与车辆动作"]
+    RECOMMEND -->|儿童锁 / 后视镜：无需设备识别| CARD
+    RECOMMEND -->|充电：设备尚未识别| VQA -->|明确发现设备后询问| CARD
+  end
+  DISPATCH --> RECOMMEND
+  RECORD["运行与处理记录<br/>Workflow Run / NodeRun：输入与各节点结果<br/>History：策略允许后的下游 Action 汇总<br/>下游成功不等于车辆执行成功"]
+  WF -->|每次判断，包括不满足和未知| RECORD
+  DISPATCH -->|下游 Action 结果| RECORD
+  RECORD -->|查看当次定义与原因| LIST
+  classDef normal fill:#FFFFFF,stroke:#185DB7,color:#0D4FA8,stroke-width:1.5px;
+  classDef focus fill:#EAF3FF,stroke:#185DB7,color:#0D4FA8,stroke-width:2px;
+  class LIST,MODE,RULE,ACTION,VALID,TC,AI,INPUT,WAKE,OLD,RECOMMEND,VQA,CARD normal;
+  class DEF,SWITCH,ROUTE,WF,DISPATCH,RECORD focus;

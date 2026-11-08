@@ -1,0 +1,64 @@
+{
+  "date": "2026-10-28",
+  "reviewed": [
+    "source-rebuild-main.json",
+    "source-rebuild-async.json"
+  ],
+  "appliedChanges": [
+    {
+      "page": "R",
+      "change": "增加本地执行 R08、云端快路径 R09、拒识收尾 R10，给出显式出口；云端快路径经采信后到 R09，不强制经过 Planner。"
+    },
+    {
+      "page": "M",
+      "change": "M07 仅保留有效插话的 last_talk_content；拒识默认按 AIVA 不恢复，事件恢复合同改为有明确适用条件的文字说明。"
+    },
+    {
+      "page": "O",
+      "change": "O07 移除默认拒识 event 续讲，改为与 I/M 一致的 AIVA 打断收尾；修改边标签避免所有播完都被解释为需要续讲。"
+    }
+  ],
+  "issues": [
+    {
+      "severity": "high",
+      "page": "A",
+      "nodes": [
+        "A09",
+        "A10",
+        "A12",
+        "A05"
+      ],
+      "issue": "周期汇报被放到“目标达成→A10”之后，A12→A05 又容易表达成完成提醒后才继续采图。原文 A60 明确 VLM 独立周期出观察，TaskService 另设定时器按每分钟反馈，因此周期反馈不以语义目标达成为前提。",
+      "recommendation": "将条件命中提醒与周期汇报画成两个并列触发入口；持续观察循环由AlwaysOn调度驱动，删掉A12→A05的因果连线，保留文字说明任务未结束则独立持续。",
+      "evidence": "全源重读-20261023/async/bodies/A60.md:134,188-194,244"
+    },
+    {
+      "severity": "medium",
+      "page": "C",
+      "nodes": [
+        "C01",
+        "C02",
+        "C03"
+      ],
+      "issue": "说明已写各数据源独立，但图聚合成三个格子，只能说明汇合，无法看到车辆、记忆、事件如何并行提供数据。没有查到明确业务错接。",
+      "recommendation": "布局如需更细，拆出独立来源汇合到预注入，不要增添统一精筛。",
+      "evidence": "Context OnePage V2 链路重构与预注入说明"
+    },
+    {
+      "severity": "medium",
+      "page": "A",
+      "nodes": [
+        "A07",
+        "A13"
+      ],
+      "issue": "branch 将“任务找不到或已关闭”都指向关闭/注销A13，而正文只说不存在跳过、已关闭重新下发；不存在任务不应再表现成执行一次关闭。",
+      "recommendation": "区分不存在→跳过 与已关闭→刷新有效列表，勿统一连关闭动作。",
+      "evidence": "source-rebuild-async.json A07与branches自身的动作差异"
+    }
+  ],
+  "confirmed": [
+    "VQA入口A16与持续任务A01彼此独立，舱内端侧VLM路径不接TaskService注册，方向正确。",
+    "Context没有把V1统一精筛接到V2预注入后，方向正确。",
+    "R快路径显式出口已补，避免全流最后只剩Planner。"
+  ]
+}

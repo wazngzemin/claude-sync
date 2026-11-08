@@ -90,29 +90,57 @@ collect_files() {
 # ---- 分发文件到本地 ----
 distribute_files() {
     echo "分发文件中..."
+    mkdir -p "$CLAUDE_DIR"
+    local backup_dir
+    backup_dir=$(mktemp -d "$HOME/.claude-sync-state/pull-backup.XXXXXXXX")
+    log "被覆盖文件备份到: $backup_dir"
+    mkdir -p "$backup_dir/config"
+    for name in CLAUDE.md settings.json; do
+        if [ -f "$CLAUDE_DIR/$name" ]; then
+            cp -p "$CLAUDE_DIR/$name" "$backup_dir/config/$name"
+        fi
+    done
 
     # --- Claude 配置 ---
     local cfg="$SYNC_REPO/claude-config"
 
     [ -f "$cfg/CLAUDE.md" ] && cp "$cfg/CLAUDE.md" "$CLAUDE_DIR/CLAUDE.md"
-    [ -f "$cfg/settings.json" ] && cp "$cfg/settings.json" "$CLAUDE_DIR/settings.json"
+    if [ -f "$cfg/settings.json" ]; then
+        python3 - "$cfg/settings.json" "$CLAUDE_DIR/settings.json" <<'PYSET'
+import json, os, sys
+from pathlib import Path
+text = Path(sys.argv[1]).read_text().replace('/Users/bytedance/', os.path.expanduser('~/'))
+data = json.loads(text)
+sensitive = lambda k: any(w in k.upper() for w in ('TOKEN', 'SECRET', 'PASSWORD', 'API_KEY'))
+data['env'] = {k:v for k,v in data.get('env', {}).items() if not sensitive(k)}
+dst = Path(sys.argv[2])
+if dst.exists():
+    old = json.loads(dst.read_text())
+    data['env'].update({k:v for k,v in old.get('env', {}).items() if sensitive(k)})
+dst.write_text(json.dumps(data, ensure_ascii=False, indent=2))
+PYSET
+    fi
 
     if [ -d "$cfg/skills" ]; then
         mkdir -p "$CLAUDE_DIR/skills"
-        rsync -a --delete "$cfg/skills/" "$CLAUDE_DIR/skills/"
+        rsync -a --backup --backup-dir="$backup_dir/skills" "$cfg/skills/" "$CLAUDE_DIR/skills/"
     fi
 
     if [ -d "$cfg/plugins" ]; then
         mkdir -p "$CLAUDE_DIR/plugins"
-        rsync -a --delete "$cfg/plugins/" "$CLAUDE_DIR/plugins/"
+        rsync -a --backup --backup-dir="$backup_dir/plugins" "$cfg/plugins/" "$CLAUDE_DIR/plugins/"
     fi
 
     # 项目记忆
     if [ -d "$cfg/project-memories" ]; then
         for mem_dir in "$cfg/project-memories"/*/; do
+            [ -d "$mem_dir" ] || continue
             pname=$(basename "$mem_dir")
+            local encoded_home
+            encoded_home=${HOME//\//-}
+            pname=${pname/#-Users-bytedance-/$encoded_home-}
             mkdir -p "$CLAUDE_DIR/projects/$pname/memory"
-            rsync -a "${mem_dir}" "$CLAUDE_DIR/projects/$pname/memory/"
+            rsync -a --backup --backup-dir="$backup_dir/memories/$pname" "${mem_dir}" "$CLAUDE_DIR/projects/$pname/memory/"
         done
     fi
 
@@ -121,7 +149,7 @@ distribute_files() {
     # --- 3.23 项目 ---
     if [ -d "$SYNC_REPO/project-3.23" ]; then
         mkdir -p "$PROJECT_DIR"
-        rsync -a \
+        rsync -a --backup --backup-dir="$backup_dir/project-3.23" \
             --exclude='claude-code-sync/' \
             "$SYNC_REPO/project-3.23/" "$PROJECT_DIR/"
         log "3.23 项目已分发"
@@ -174,39 +202,22 @@ EOF
         ;;
 
     push)
-        echo "=== 推送同步 ==="
-        collect_files
-        cd "$SYNC_REPO"
-        git add -A
-        if git diff --cached --quiet; then
-            log "没有新变更"
-            SUMMARY="无变更"
-        else
-            SUMMARY=$(git diff --cached --stat | tail -1)
-            git commit -m "sync $(hostname -s) $(date '+%m-%d %H:%M')"
-            log "已提交: $SUMMARY"
-            git push 2>&1
-            log "推送完成"
-        fi
-        echo "$SUMMARY"
+        python3 "$SYNC_REPO/upload.py"
         ;;
 
     pull)
         echo "=== 拉取同步 ==="
         cd "$SYNC_REPO"
-        OUTPUT=$(git pull 2>&1)
-        echo "$OUTPUT"
-        if echo "$OUTPUT" | grep -q "Already up to date"; then
-            log "已是最新"
-        else
-            distribute_files
-            log "拉取并分发完成"
-        fi
+        # 即使仓库没有新提交，也需要恢复/安装到实际使用目录。
+        git pull --ff-only
+        python3 "$SYNC_REPO/large_files.py" restore "$SYNC_REPO"
+        mkdir -p "$HOME/.claude-sync-state"
+        distribute_files
+        log "拉取并分发完成"
         ;;
 
     status)
-        echo "=== 同步状态 ==="
-        collect_files
+        echo "=== 同步状态（只读，不收集本机文件） ==="
         cd "$SYNC_REPO"
         echo ""
         echo "--- 仓库大小 ---"
@@ -219,8 +230,8 @@ EOF
         if [ "$CHANGES" = "0" ]; then
             echo "  (无)"
         else
-            git status --short | head -20
-            [ "$CHANGES" -gt 20 ] && echo "  ... 还有 $((CHANGES - 20)) 个文件"
+            git status --short | sed -n '1,20p'
+            if [ "$CHANGES" -gt 20 ]; then echo "  ... 还有 $((CHANGES - 20)) 个文件"; fi
         fi
         echo ""
         echo "--- 最近同步 ---"

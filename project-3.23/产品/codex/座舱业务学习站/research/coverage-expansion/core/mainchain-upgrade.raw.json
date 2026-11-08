@@ -1,0 +1,28 @@
+{
+  "status": "success",
+  "source_url": "https://bytedance.larkoffice.com/wiki/GHALwJeDbi8F7kkj4uRcLZLmnjf",
+  "kind": "wiki",
+  "object_type": "docx",
+  "token": "TVAfdctIYo7vwuxUxLochEAdnoe",
+  "node": {
+    "creator": "ou_042e96079b2cc6149af7d8aea80e5467",
+    "has_child": false,
+    "node_create_time": "1756967931",
+    "node_creator": "ou_042e96079b2cc6149af7d8aea80e5467",
+    "node_token": "GHALwJeDbi8F7kkj4uRcLZLmnjf",
+    "node_type": "origin",
+    "obj_create_time": "1756967931",
+    "obj_edit_time": "1783591460",
+    "obj_token": "TVAfdctIYo7vwuxUxLochEAdnoe",
+    "obj_type": "docx",
+    "origin_node_token": "GHALwJeDbi8F7kkj4uRcLZLmnjf",
+    "origin_space_id": "7554961122303098899",
+    "owner": "ou_042e96079b2cc6149af7d8aea80e5467",
+    "parent_node_token": "S6eJwdR1NiWhS6kQjQ9cEIesnNg",
+    "space_id": "7554961122303098899",
+    "title": "AI汽车主链路升级豆包模块技术方案"
+  },
+  "content": {
+    "content": "# AI汽车主链路升级豆包模块技术方案\n\n# 背景\n\n端云链路升级至豆包音视频理想架构RTC链路，实现用户无需唤醒词即可使用的能力。意图决定方由豆包意图模型迁移至座舱方。\n\n整体技术架构：[【内部】技术架构 0827修订](https://bytedance.larkoffice.com/docx/SupzdFrzjoXqhpxiYevcGsO0nXb)\n\n# 整体设计\n\n## 业务流程\n\n## 系统交互\n\n# 详细设计\n\n## 主链路\n\n### 时序图 \n\n1. Aidv提供三个RPC接口\n\n    1. 获取Agent回复接口，接口协议符合豆包Agent协议[豆包Agent架构AgentServer交互协议](https://bytedance.larkoffice.com/wiki/UAccwFZXFiimmkkWWs2cqKX6ndf)\n\n    2. 获取Prompt信息接口，返回S2S模型需要使用的Prompt\n\n    3. 同步answer内容接口，把s2s模型的回复内容同步给座舱，一期实现回复内容全量同步，未来考虑流式同步的方案。\n\n### 开发方案 \n\n**SpeechAgent**\n\n1. 获取Prompt：在handler/agent\\_duplex\\.go文件中的preHandler方法中判断座舱~~AgentId~~AppId，调用Aidv服务提供的RPC接口，替换Prompt\n\n**Chat**\n\n1. 获取座舱Agent回复：实现chat\\_psm/producer/agent/streams/stream\\.go文件中的`Stream`接口`VehicleRaceStream`，持有两个Stream，分别调用speech和座舱Agent。\n\n2. 决策回复内容：在`VehicleRaceStream`的Callback方法中解析座舱Agent返回的意图信息，如果意图在座舱提供的意图列表内并且有回复内容时，采用座舱的回复；否则采用s2s的回复。\n\n3. 同步S2S模型回复内容：在`VehicleRaceStream`的Callback方法中，如果采用了s2s的回复，在收到end包时，异步调用座舱的历史同步接口。\n\n## ~~拒识链路~~（一期不考虑）\n\n### **时序图**\n\n1. aidv提供拒识RPC接口\n\n2. SpeechAgent调用拒识接口需要携带的参数：\n\n    1. query文本\n\n    2. conversationId\n\n    3. sectionId\n\n    4. 座舱特定参数：channel、appid、vehicleId、vehicleType、carInfo。通过客户端进行上传，透传给Aidv服务。\n\n3. 一期不处理PreQuery的请求，根据payload结构中的signal字段区分query类型。\n\n### **开发方案**\n\n**SpeechAgent**\n\n1. 在right\\_stream\\.go文件的RightStreamHandler中，接收到rightStream的Dialog类型的数据时，调用Aidv的拒识接口。\n\n2. 拒识状态定义在DialogResponse中的ext字段中。\n\n**Stream**\n\n在内部的vui\\_engine中实现拒识query丢弃的逻辑。\n\n# 豆包gateway模块\n\n## 协议内容\n\n[豆包Agent协议梳理](https://bytedance.larkoffice.com/docx/Xjctdnw6To3XLNxXqNxcWq0InPd)\n\n## 协议转换\n\n<table><tbody>\n<tr>\n<td>\n\n豆包协议\n\n</td>\n<td>\n\n座舱协议\n\n</td>\n<td>\n\n业务含义\n\n</td>\n</tr>\n<tr>\n<td>\n\nquery\\.content\\_for\\_model\n\n</td>\n<td>\n\nquery\n\n</td>\n<td>\n\n用户query文本\n\n</td>\n</tr>\n<tr>\n<td>\n\nquery\\.bizInfo\\.message\\_id\n\n</td>\n<td>\n\nquestion\\_id\n\n</td>\n<td>\n\n用户问题id\n\n</td>\n</tr>\n<tr>\n<td>\n\nquery\\.bizInfo\\.section\\_id\n\n</td>\n<td>\n\nchat\\_id\n\n</td>\n<td>\n\n话题id\n\n</td>\n</tr>\n<tr>\n<td>\n\nquery\\.bizInfo\\.conversation\\_id\n\n</td>\n<td>\n\nconversation\\_id\n\n</td>\n<td>\n\n会话id\n\n</td>\n</tr>\n<tr>\n<td>\n\nquery\\.location\n\n</td>\n<td>\n\ncommon\\_info\\.location\n\n</td>\n<td>\n\n位置信息\n\n</td>\n</tr>\n<tr>\n<td>\n\nuser\\_id\n\n</td>\n<td>\n\ncommon\\_info\\.loginAccountId\n\n</td>\n<td>\n\n登录的豆包账号id\n\n</td>\n</tr>\n<tr>\n<td>\n\ndevice\\_id\n\n</td>\n<td>\n\ncommon\\_info\\.device\\_id\n\n</td>\n<td>\n\n设备id\n\n</td>\n</tr>\n<tr>\n<td>\n\next\n\n</td>\n<td>\n\ncommon\\_info\\.xx\n\n</td>\n<td>\n\n其他座舱业务参数\n\n</td>\n</tr>\n</tbody></table>\n\n**座舱内部协议**\n\nCommonInfo\n\n<table><tbody>\n<tr>\n<td>\n\n名称\n\n</td>\n<td>\n\n类型\n\n</td>\n<td>\n\n含义\n\n</td>\n</tr>\n<tr>\n<td>\n\nchannel\n\n</td>\n<td>\n\nstring\n\n</td>\n<td>\n\n车企渠道\n\n</td>\n</tr>\n<tr>\n<td>\n\nchannel\\_app\\_id\n\n</td>\n<td>\n\nint\n\n</td>\n<td>\n\n车企渠道的来源车型id\n\n</td>\n</tr>\n<tr>\n<td>\n\ndevice\\_id\n\n</td>\n<td>\n\nstring\n\n</td>\n<td>\n\n设备id\n\n</td>\n</tr>\n<tr>\n<td>\n\nvehicle\\_id\n\n</td>\n<td>\n\nstring\n\n</td>\n<td>\n\n车辆Vin码\n\n</td>\n</tr>\n<tr>\n<td>\n\nvehicle\\_type\n\n</td>\n<td>\n\nstring\n\n</td>\n<td>\n\n车型\n\n</td>\n</tr>\n<tr>\n<td>\n\nvehicle\\_name\n\n</td>\n<td>\n\nstring\n\n</td>\n<td>\n\n车型名称\n\n</td>\n</tr>\n<tr>\n<td>\n\n~~loginAccountId~~\n\nlogin\\_account\\_id\n\n</td>\n<td>\n\nint\n\n</td>\n<td>\n\n豆包账号id\n\n</td>\n</tr>\n<tr>\n<td>\n\nlocation\n\n</td>\n<td>\n\nLocation对象\n\n</td>\n<td>\n\n位置信息包括longitude、latitude、city、district\n\n</td>\n</tr>\n</tbody></table>\n\nChatRequest\n\n<table><tbody>\n<tr>\n<td>\n\n名称\n\n</td>\n<td>\n\n类型\n\n</td>\n<td>\n\n含义\n\n</td>\n</tr>\n<tr>\n<td>\n\nquery\n\n</td>\n<td>\n\nstring\n\n</td>\n<td>\n\nasr文本\n\n</td>\n</tr>\n<tr>\n<td>\n\nchat\\_id\n\n</td>\n<td>\n\nstring\n\n</td>\n<td>\n\n话题id\n\n</td>\n</tr>\n<tr>\n<td>\n\nconversation\\_id\n\n</td>\n<td>\n\nstring\n\n</td>\n<td>\n\n会话id\n\n</td>\n</tr>\n<tr>\n<td>\n\nquestion\\_id\n\n</td>\n<td>\n\nstring\n\n</td>\n<td>\n\n问题id\n\n</td>\n</tr>\n</tbody></table>\n\n\n\n"
+  }
+}

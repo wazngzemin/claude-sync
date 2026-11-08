@@ -1,0 +1,302 @@
+# 手势识别输入类型云端接入技术方案
+
+> 部分内容由豆包生成
+> 
+> 
+
+**一句话方案**：为赛力斯手势交互新增一种独立的 query 输入模态——上游以 **input_scene=gesture** 标识手势转换出的 query，豆包网关把它映射为内部枚举 **UserInputSceneType_Gesture(8)** 并随 ChatRequest 透传、落库，后续处理复用既有语音 / Planner 链路。本 MR 只做「类型打通」，不改变任何对话处理逻辑。
+
+# 需求背景与本次范围
+
+需求来自《对内【赛力斯】手势交互需求》：驾驶场景下用隔空手势补充语音 / 触控，提供更安全自然的车内交互。整体由赛力斯侧负责 CV 手势识别，字节侧负责**输出手势场景有效信号、承接识别后的 query、端到端验收**。手势分三类：
+
+手势
+
+语义结果
+
+触发条件 / 承接方式
+
+OK
+
+确认
+
+仅豆包主动服务卡、即时交互卡弹出时；转换为对应 query 走 Planner，逻辑与语音一致
+
+左右摆手
+
+拒绝 / 取消
+
+同上，转换为对应 query 走 Planner
+
+挥手（上下 / 左右）
+
+列表翻页（上一页 / 下一页）
+
+仅导航、音乐媒体列表卡，端侧「可见即可说」命中，**不走 Planner、不在本 MR 范围**
+
+约束：仅前排摄像头、仅中控屏，后排手势不响应；手势不是唯一解，与语音、触控按「谁先触发响应谁」仲裁；本期只对手势成功触发做埋点并记录手势类型。
+
+**本 MR（!1026）定位**：手势确认 / 拒绝转换出的 query 要进入服务端，首先得让网关「认得」这是一种手势输入、并打上独立模态标记，否则会被当成普通语音。MR 因此新增一个场景字符串常量、一个内部枚举值和一条网关映射，共改动 3 个文件、净增 5 行，属底座型小改动。
+
+# 整体链路
+
+从手势识别到服务端处理的完整链路如下，黄色节点 convertSceneType 即本次代码改动的核心位置；翻页类手势在分叉处被端侧消费，不进入服务端主链路：
+
+对应需求约定的四步交互链路：① 字节客户端输出手势场景有效信号 → ② 赛力斯启动 CV 模型识别 → ③ 确认 / 取消类手势转 query（携带 input_scene=gesture）走 Planner → ④ 滑动类手势命中可见即可说。本 MR 服务于第 ③ 步的入口识别。
+
+# 代码改动详解
+
+改动沿「上游字符串 → 内部枚举 → 网关映射」三处对齐，另有一行无意义的格式对齐：
+
+文件
+
+增 / 删
+
+作用
+
+biz/service/input/define.go
+
+\+1
+
+新增上游场景字符串常量 SceneTypeGesture = \&\#34;gesture\&\#34;，统一字面量、避免硬编码
+
+biz/types/common.go
+
+\+2 / -1
+
+新增内部枚举 UserInputSceneType_Gesture = 8；另有 1 行为 gofmt 注释空格对齐，**无逻辑变化**
+
+biz/service/gateway/doubao_app/function.go
+
+\+2
+
+convertSceneType 新增一个 case，把 \&\#34;gesture\&\#34; 映射到枚举 8
+
+## ① 上游场景字符串常量（input/define.go）
+
+在 SceneType 字符串枚举中补充 gesture，与既有 launcher 并列，供网关转换时引用：
+
+```go
+type SceneType string
+
+const (
+    SceneTypeLauncher SceneType = "launcher"
+    SceneTypeGesture  SceneType = "gesture" // 新增：车内手势输入
+)
+```
+
+## ② 内部输入模态枚举（types/common.go）
+
+UserInputSceneType 是挂在单轮 query 对象 AgentQuery 上的「输入模态」枚举（int32，json 字段 user_input_scene_type），本次新增手势取值 8：
+
+```go
+type UserInputSceneType int32
+
+const (
+    UserInputSceneType_Unknown UserInputSceneType = 0 // 未知
+    UserInputSceneType_Audio   UserInputSceneType = 1 // 语音输入
+    UserInputSceneType_Guiding UserInputSceneType = 2 // 引导语类型
+    UserInputSceneType_Scene   UserInputSceneType = 3 // 推荐场景类型
+    UserInputSceneType_Advisor UserInputSceneType = 4 // 主动推荐
+    UserInputSceneType_Hint    UserInputSceneType = 5 // hint输入
+    UserInputSceneType_Skill   UserInputSceneType = 6 // skill输入
+    UserInputSceneType_Gesture UserInputSceneType = 8 // 车内手势输入（新增，值 7 当前未定义）
+)
+```
+
+## ③ 网关映射（gateway/doubao_app/function.go）
+
+上游车辆业务参数 VehicleBizParam.InputScene（json：input_scene）在 buildChatRequest 中经 convertSceneType 转为内部枚举，写入 AgentQuery.UserInputSceneType：
+
+```go
+func convertSceneType(scene string) types.UserInputSceneType {
+    switch scene {
+    case string(input.GenerateTypeGuiding):
+        return types.UserInputSceneType_Guiding
+    case string(input.GenerateTypeScene):
+        return types.UserInputSceneType_Scene
+    case "skill":
+        return types.UserInputSceneType_Skill
+    case string(input.SceneTypeGesture): // 新增分支
+        return types.UserInputSceneType_Gesture
+    default:
+        return types.UserInputSceneType_Audio // 未识别一律按语音兜底
+    }
+}
+```
+
+调用点（buildChatRequest 内）把结果挂到 ChatRequest.Query 上，随请求进入后续链路：
+
+```go
+chatRequest := types.ChatRequest{
+    Query: types.AgentQuery{
+        TriggerMethod:      types.TriggerMethodUserInput,
+        QueryType:          convertQueryType(req),
+        UserInputSceneType: convertSceneType(vehicleBizParam.InputScene), // gesture -> 8
+        Content:            req.GetQuery().GetContentForModel(),
+        // ...
+    },
+}
+```
+
+# 数据流与影响面
+
+手势模态从入口到下游的字段流转如下：
+
+阶段
+
+字段 / 位置
+
+取值与说明
+
+上游请求
+
+VehicleBizParam.InputScene（input_scene）
+
+字符串 \&\#34;gesture\&\#34;，由 director / 端侧在确认 / 拒绝手势转 query 时携带
+
+网关转换
+
+convertSceneType()
+
+\&\#34;gesture\&\#34; → UserInputSceneType_Gesture(8)
+
+请求体
+
+AgentQuery.UserInputSceneType（user_input_scene_type）
+
+= 8，随 ChatRequest 进入 Planner / 对话链路
+
+扩展字段
+
+ext\[ExtraKeySceneType\]
+
+同时保留 req.GetSceneType() 的原始字符串，供需要原始值的逻辑读取
+
+历史落库
+
+chat_history / chat_history_detail.user_input_scene_type
+
+作为 query 模态分类落库（model/chat_history/cache.go 从 reqInfo 写入），手势轮次记为 8
+
+对话处理
+
+Planner / Flow
+
+当前无手势专属分支，**完全复用语音交互逻辑**，与 PRD「逻辑与语音一致」相符
+
+埋点
+
+手势触发类型
+
+以模态 8 为锚点区分手势触发，支撑「各类手势触发次数」统计
+
+**下游现状（已全仓检索核实）**：除定义与网关映射外，当前代码库没有针对 Gesture 枚举的差异化消费分支；本 MR 是「先把模态标对、通路打通」，后续若要按手势做差异化话术、策略或统计，统一以 user_input_scene_type=8 为判断锚点即可，无需再改入口。
+
+# 枚举约定与兼容性
+
+关注点
+
+说明
+
+纯新增、零侵入
+
+只新增常量 / 枚举 / switch 分支，不改任何既有分支；存量语音、引导、推荐、skill 等场景行为不变
+
+未知值兜底
+
+convertSceneType 的 default 固定回落 UserInputSceneType_Audio(1)，即使上游漏传或传了未识别值，也按普通语音处理，不会报错或丢请求
+
+枚举跳号 7
+
+现有枚举用到 6，本次直接取 8，值 7 在代码中未定义。取值沿用源分支现状，**合入前需与客户端 / 数据侧确认 7 无外部预留语义**，避免线上对该值理解不一致
+
+为何不改 validateSceneType
+
+input/define.go 的 validateSceneType 服务于 GenerateInput 主动内容生成接口（当前仅放行 launcher），手势走的是对话链路（VehicleBizParam.InputScene → convertSceneType），不经过该校验，因此无需改动，并非遗漏
+
+与 hint 覆盖逻辑的关系
+
+buildChatRequest 在转换后还会用 IsHintInputScene() 把命中 hint 场景的请求二次覆盖为 Hint(5)；手势请求不带 hint 标记，不受该覆盖影响
+
+# 关联信息
+
+MR
+
+!1026 新增手势识别类型（stone_vehicle/aidv，状态 open）
+
+分支
+
+feature/main-develop-hands → feature/main-develop
+
+需求文档
+
+《对内【赛力斯】手势交互需求》
+
+改动文件
+
+biz/service/input/define.go、biz/types/common.go、biz/service/gateway/doubao_app/function.go
+
+相关下游
+
+biz/model/chat_history/cache.go（模态落库）、biz/dal/db/query/chat_history\*.gen.go（user_input_scene_type 字段）、biz/types/request.go（IsHintInputScene）
+
+# 自测
+
+环境：ppe_gesture
+
+Mr :https://code.byted.org/stone_vehicle/aidv/merge_requests/1026
+
+这里只自测链路，由于本身这里应该是有上下文的，比如前面应该是有主动推荐或者是豆包问题，待用户确认的场景才出现，我直接自测，会被拒识拦住，所以这里，**我用http接口自测跳过了拒识**
+
+```SQL
+curl --location --request POST 'https://api-vehicle.volcengine.com/aidv/v1/planner?channel=seres&app_id=1000&device_id=16710245599&vehicle_id=LSJEG4097SG11&account_id=wuge1&vehicle_type=model31&channel_app_id=99210&login_doubao_uid=284265488135754&chat_id=123400000001&conversation_id=123400000001&question_id=xGrLi1dFjsdqHgbkhhs' \
+--header 'X-Tt-Env: ppe_gesture' \
+--header 'Debug-Mode: 2037' \
+--header 'X-Use-Ppe: 1' \
+--header 'X-Tt-Trace: 1' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "query": {
+        "content": "用户手势表达了确认",
+        "user_input_scene_type": 8
+    },
+    "coordination_info": {
+        "request_id": "1234000000000000000001",
+        "sound_zone": "主驾"
+    },
+    "ext": {
+        "single_skip_reject": "true",
+        "first_after_wake": "true"
+    }
+}'
+
+```
+
+https://fornax.bytedance.net/space/7522018773168046082/analytics/log-query?queryID=2026091110211504A5DB1FEF86B721D630\&queryType=log_id\&logIdTime=4\&id=5204a6947912acf3
+
+```SQL
+curl --location --request POST 'https://api-vehicle.volcengine.com/aidv/v1/planner?channel=seres&app_id=1000&device_id=16710245599&vehicle_id=LSJEG4097SG11&account_id=wuge1&vehicle_type=model31&channel_app_id=99210&login_doubao_uid=284265488135754&chat_id=123400000001&conversation_id=123400000001&question_id=xGrLi1dFjsdqHgbkhhs' \
+--header 'X-Tt-Env: ppe_gesture' \
+--header 'Debug-Mode: 2037' \
+--header 'X-Use-Ppe: 1' \
+--header 'X-Tt-Trace: 1' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "query": {
+        "content": "用户手势表达了拒绝",
+        "user_input_scene_type": 8
+    },
+    "coordination_info": {
+        "request_id": "1234000000000000000002",
+        "sound_zone": "主驾"
+    },
+    "ext": {
+        "single_skip_reject": "true",
+        "first_after_wake": "true"
+    }
+}'
+```
+
+https://fornax.bytedance.net/space/7522018773168046082/analytics/log-query?queryID=2026091110254853776FF46CDB4B249B40\&queryType=log_id\&logIdTime=4\&id=724ccc619bd500aa
+

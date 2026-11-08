@@ -1,9 +1,11 @@
 ---
 title: Director（对话推理引擎）
 date: 2026-04-14
-updated: 2026-04-20
+updated: 2026-10-29
 tags: [entity, technology]
 sources:
+  - raw/articles/product-lectures/2026-10-29/director-product-lecture.md
+  - raw/articles/product-lectures/2026-10-29/director-prd.md
   - raw/articles/planner 会议.md
   - raw/articles/项目优化完整方案.md
   - raw/articles/GUI_Agent问题分类.md
@@ -16,10 +18,13 @@ status: active
 ## 定义
 Director 是车载语音助手中的核心对话推理模块，负责理解用户意图、规划任务、调用工具并生成响应。整个系统以 SP（System Prompt）为核心驱动。
 
-## 当前架构
-```
-用户请求 → Director(主模型) → Planner(任务规划) → 工具调用 → 执行结果
-```
+## 2026 年 10 月宣讲中的职责
+
+Director 与 Planner 是同一对话推理职能的名称。收到用户请求及相关背景后，它选择工具、解释返回结果并决定下一轮动作。前一步缺少的信息由工具补齐后，再进行依赖它的下一步。
+
+用户请求与背景 → Director / Planner → 工具调用 → tool_feedback → 原目标下一轮判断。
+
+下列优化与临停笔记保留原记录时点，不作为 10 月全部现行能力清单。最新宣讲见[Director 产品宣讲](../summaries/director-product-lecture.md)。
 
 ## 核心问题
 - **PE 过长**：当前 SP 约 32,800 tokens（含变量约 34,000），导致注意力分散和性能不稳定

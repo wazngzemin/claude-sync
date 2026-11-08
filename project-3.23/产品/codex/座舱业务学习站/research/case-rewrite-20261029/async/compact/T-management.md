@@ -1,0 +1,1208 @@
+# \[技术方案\]Task 任务管理设计
+# 导读
+**技术方案评审节奏**
+评审
+ | 
+目标
+ | 
+重点内容
+ | 
+第一次：链路与产品诉求
+ | 
+确认方案主体结构、是否完整覆盖产品能力
+ | 
+能力边界、典型 Case、Task 生命周期、客户端交互点、GUI 目标链路、各方向改动范围
+ | 
+第二次：技术细节
+ | 
+对齐工程落地和跨方向接口
+ | 
+模块职责、API / RPC、数据结构、状态推进、一致性、失败处理、TCC、可观测、灰度和回滚
+ | 
+**重点关注内容**
+产品
+ | 
+重点阅读 1～3 章，关注能力边界、典型 Case、生命周期和链路是否满足产品诉求。
+ | 
+服务端研发
+ | 
+重点阅读 3～5 章，关注模块职责、数据链路、现有代码改造和新增模块。
+ | 
+客户端研发
+ | 
+重点关注 3\.1，本期会尽量复用现有数据传输链路与协议。新增功能如 VLM 需要研发共同关注。
+ | 
+测试
+ | 
+重点关注 3\.1，明确现有场景和改造后的场景能力边界，输出测试 case。
+ | 
+项目
+ | 
+重点关注 3\.1，4\.9\. 各方向改动、现有能力复用、新增模块和两轮评审范围。
+ | 
+# 背景与边界
+meego
+ | 
+[\[需求\]【AI汽车】任务管理模块](https://meego.larkoffice.com/telematics/story/detail/7331319732)
+[\[需求\]【AI汽车】动态advisor逻辑和交互](https://meego.larkoffice.com/telematics/story/detail/7346127667)
+ | 
+ | 
+PRD
+ | 
+[输入管理模块及其策略](https://bytedance.larkoffice.com/wiki/C6Ciwrfn0i1Vt7kw3kgcWluxnvh)
+[对话推理引擎\(Director\) PRD](https://bytedance.larkoffice.com/wiki/XRuKwJ0VPisdUhkxH0ecY1rRn9g)
+[DT任务流整理](https://bytedance.larkoffice.com/wiki/FS7VwiAvEiq338kYpb8ckGYDnmd)
+ | 
+@郝晓伟
+ | 
+技术方案评审录屏
+ | 
+第一次：https://bytedance\.larkoffice\.com/minutes/obcntrv2ap32e1sxaul5ryb9
+ | 
+@于庆磊
+ | 
+figma
+ | 
+ | 
+ | 
+测试 case 评审
+ | 
+[【任务\(动态advisor\)】 测试集\&测试报告](https://bytedance.larkoffice.com/wiki/Ix9RwutukiGCAWkufJycQO8oniZ)
+[智能纪要：任务管理用例评审 2026年7月30日](https://bytedance.larkoffice.com/docx/HU95dAG0xo6SwpxZ8Z3chwOanUc)
+ | 
+@梁浩杰
+ | 
+背景：现有异步、周期、条件、GUI 多步/长时能力缺少统一任务载体。目标：以 Task 统一生命周期、执行关联、用户管理和状态通知。结论：
+- Task 是唯一顶层业务抽象。
+- 复用 Planner、现有规则服务、Context、GUI Agent 等能力。
+- GUI 纳入 Task 运行链路。
+## 本期范围
+> 静态 Advisor（预设）建议不属于本方案，继续由 extour 负责。
+> 
+> 本期内容会将 动态Advisor 融合到任务管理中，后续不会再有 动态Advisor 这个概念。
+> 
+> 
+场景
+ | 
+是否属于本期范围
+ | 
+说明
+ | 
+现在打开车窗
+ | 
+否
+ | 
+当前轮可同步完成的一次性 Action
+ | 
+十分钟后打开车窗
+ | 
+是
+ | 
+延时后重新进入执行链路
+ | 
+温度高于 28 度打开空调
+ | 
+是
+ | 
+满足条件后进入执行链路
+ | 
+每小时开启一次座椅按摩
+ | 
+是
+ | 
+周期产生 Run，持续到车辆下电（offline）或用户取消
+ | 
+帮我用瑞幸咖啡点一杯冰美式
+ | 
+是
+ | 
+GUI 多步闭环；GUI Agent 管理内部 step，Task 管理外层 Run 状态
+ | 
+取消每小时开启座椅按摩
+ | 
+是
+ | 
+对已有 Task 的管理操作
+ | 
+后排的宝宝哭了告诉我
+ | 
+是
+ | 
+通过 VLM 上报获取信息作条件判断，满足后进入执行链路
+ | 
+# Task 定义
+> Task 是用户发起后，无法在当前同步会话内一次完成，仍需等待、持续运行、多轮交互或后续管理的任务实体。
+> 
+> 
+## 任务维度
+维度
+ | 
+含义
+ | 
+典型取值
+ | 
+用户目标
+ | 
+Task 最终要完成什么
+ | 
+打开车窗、开启座椅按摩、完成 GUI 下单
+ | 
+激活方式
+ | 
+什么时候开始或继续执行
+ | 
+延时、条件、周期、GUI 请求
+ | 
+生命周期
+ | 
+Task 当前所处阶段
+ | 
+waiting / running / closed
+ | 
+结束条件
+ | 
+Task 何时不再产生新的 Run
+ | 
+执行完成、用户取消、车辆下电（offline）、超时或失败策略
+ | 
+执行前状态
+ | 
+本轮执行决策需要读取的信息
+ | 
+车辆、端、乘员、用户状态；决策方式支持 rule\-based / model\-based。
+ | 
+执行方式
+ | 
+激活后如何得到并执行下一步
+ | 
+重新进入 Planner；或按 GUI 标识直接推进 next step
+ | 
+用户管理
+ | 
+用户可对 Task 做什么
+ | 
+查询、取消、修改
+ | 
+对外交互
+ | 
+哪些状态或消息需要提供给下游
+ | 
+主动查询当前视图；按场景通知 running / skipped / finished / canceled
+ | 
+安全与仲裁
+ | 
+创建或执行时需满足的约束
+ | 
+冲突、数量限制、幂等、权限和安全规则
+ | 
+## 核心数据对象
+对象
+ | 
+定义
+ | 
+作用
+ | 
+Task
+ | 
+用户目标及其生命周期实体
+ | 
+管理任务整体状态、约束和结束条件
+ | 
+Run
+ | 
+Task 的一次实际执行
+ | 
+记录本轮状态、执行阶段和终止结果；GUI 多个 HTTP step 共享同一个 Run
+ | 
+Event
+ | 
+影响 Task 或 Run 的事实记录
+ | 
+执行结果、用户取消、端状态、超时等，驱动状态变化
+ | 
+Snapshot view
+ | 
+当前任务状态的结构化只读视图
+ | 
+供 Planner、HMI 或其他服务主动查询，不承担消息通知
+ | 
+# 典型 Case、整体架构和生命周期
+## 典型 Case 图组
+### 十分钟后打开车窗
+### 温度高于 28 度打开空调
+### 每小时开启一次座椅按摩
+### 取消每小时座椅按摩任务
+### 端状态上报：座椅无人，本轮跳过（任务触发判断）
+### 帮我用瑞幸咖啡点一杯冰美式
+### 后排的宝宝哭了告诉我
+### 打断与恢复
+> TODO @于庆磊
+> 
+> 
+Input Manager ~~的需求边界还没定义清楚，产品 ~~@郝晓伟~~，待确认。~~ 待明确具体节奏
+## Task 整体架构
+## 模块职责与数据
+层级 / 模块
+ | 
+职责边界
+ | 
+主要输入
+ | 
+主要输出 / 下游
+ | 
+**Task Service（整体边界）**
+ | 
+统一承载 Task 接入、语义结构化、生命周期、触发接入、运行分发、查询和消息通知
+ | 
+Task Request / Query
+ | 
+Task / Run 状态、运行请求、TaskView、TaskMessage
+ | 
+Planner / Director
+ | 
+按 action list 路由 Task Agent；任务触发回流后推理本轮 action，不判断 create / update / cancel
+ | 
+用户 query、Context、TaskView、回流任务文本
+ | 
+Task Agent 调用、本轮 action list
+ | 
+Task Agent
+ | 
+Planner 面向 Task 的纯入口；透传任务文本和类型标识，不生成 Spec、不管理生命周期
+ | 
+task action、query、任务类型标识
+ | 
+Task Request → Task Ingress
+ | 
+Task Service / Task Ingress / Handler
+ | 
+解析协议、恢复 Task / Run 关联、校验幂等，并按输入类型路由
+ | 
+Task Agent、GUI API、Trigger callback、Planner / Flow Tool Feedback、TaskView Query
+ | 
+语义请求 → Spec Builder；结构化事件 → Manager；查询 → Task Query
+ | 
+Task Service / Task Spec Builder
+ | 
+基于模型将自然语言转换为结构化任务；创建时生成 Task Spec，取消或修改时定位目标 Task
+ | 
+任务文本、TaskView、任务类型标识
+ | 
+Task Command / Task Spec → Task Manager
+ | 
+Task Service / Task Manager
+ | 
+Task 核心编排入口；处理 create / update / cancel / activate / result，推进 Task / Run 生命周期
+ | 
+Task Command、Task Event、Task / Run、Policy
+ | 
+生命周期决策、Run 决策、Task Event；协调 Repository、Trigger、Runtime 和 Message
+ | 
+Task Service / Task Repository
+ | 
+保存 Task 事实、执行轮次、事件和外部关联；提供事务与幂等能力
+ | 
+状态变化、Run 结果、Binding
+ | 
+Task / Run / Event / Binding → Manager、Task Query
+ | 
+Task Service / Trigger Adapter
+ | 
+在 Task Rule 与现有 Trigger 协议之间转换，管理规则注册、更新和取消
+ | 
+Rule Spec、Task 生命周期变化
+ | 
+Trigger 请求、rule reference / callback binding
+ | 
+Task Service / Runtime Dispatcher
+ | 
+根据运行类型选择通用任务或生态任务的执行链路，不绑定 Planner 或 GUI
+ | 
+Runnable Task / Run、runtime type / provider、当前输入
+ | 
+运行请求 → 通用执行链路或生态 Provider；执行结果 → Task Ingress
+ | 
+Task Service / Task Query
+ | 
+从 Task / Run / Event 事实生成面向调用方的 TaskView；Snapshot 仅作为可选实现
+ | 
+TaskView Query、Task / Run / Event
+ | 
+TaskView → Planner、HMI、端任务中心、业务服务
+ | 
+Task Service / Task Message Dispatcher
+ | 
+根据 Task Event、状态和分发策略生成 TaskMessage，并路由到实际消息通道
+ | 
+Task Event、Task / Run 状态、dispatch policy
+ | 
+TaskMessage → Frontier / SSE / 业务 Adapter
+ | 
+规则服务（现有 Trigger）
+ | 
+管理延时、条件、周期和 VLM 语义匹配；命中后产生 callback
+ | 
+rule config、Context signal、VLM report
+ | 
+callback \+ task\_id / callback\_id → Task Ingress
+ | 
+Context / 端状态
+ | 
+提供车辆、端、乘员和用户状态；下电等强信号可直接影响生命周期
+ | 
+端侧信号、车辆状态、用户状态
+ | 
+Context text → Trigger / 执行判断；offline event → Task Ingress
+ | 
+通用执行链路 / 生态 Provider
+ | 
+执行本轮任务；通用链路可使用 Planner、Agent、Tool 或直接执行器，生态链路通过 GUI Agent 或第三方 Provider 推进
+ | 
+Runtime dispatch request、当前输入
+ | 
+Planner / Flow Tool Feedback、GUI HTTP response、第三方 callback → Task Ingress
+ | 
+Frontier / SSE
+ | 
+承担主动消息下行和流式通知，不承担 Task 生命周期
+ | 
+active message、TaskMessage
+ | 
+Client / HMI / 端任务中心；Client 交互后通过现有入口回流
+ | 
+Observability
+ | 
+统一记录 Task 全链路 Trace、Metrics 和 Log
+ | 
+task\_id、run\_id、request\_id、recommend\_id、事件和错误
+ | 
+排障查询、指标和告警
+ | 
+## 生命周期图
+# 基于现有代码的改造设计
+## 现有链路与改造边界
+本方案沿现有 `HTTP / RPC \-\> Flow \-\> Planner \-\> Agent / Tool` 链路增加 Task 能力，不新建 Planner 主链路。`Task Service` 是整体工程边界，内部由 Ingress、Spec Builder、Manager、Repository、Trigger Adapter、Runtime Dispatcher、Task Query 和 Message Dispatcher 协作完成。
+现有代码
+ | 
+现状
+ | 
+改造
+ | 
+`planner\.DoPlan \-\> AnalyzeTaskWithText \-\> toolsNodeHandler`
+ | 
+Planner 输出 `PlannerTextOutput\{talk\_content, action\_list\}`，`ActionItem\.Params` 进入 `ExtraKeyAgentParams`
+ | 
+注册 `task\_manage` action。Planner 只路由任务文本和可选运行提示，不判断 create / update / cancel，不生成 TaskSpec
+ | 
+`system\_tool/long\_term\_task\.go`、`biz/service/goal\_list`
+ | 
+动态目标的创建、删除和端侧通知耦合在旧链路
+ | 
+新增纯入口 Task Agent；静态预设保持不动
+ | 
+`biz/service/trigger/scene\.go`
+ | 
+已封装场景注册、更新、查询和状态更新；当前注册协议的 `conditions / actions` 为字符串
+ | 
+Task 直接复用 Trigger 统一 `RuleSpec`；Trigger Adapter 负责转成现有协议并补齐 callback、scope、source 等传输字段
+ | 
+`flow/context\.go`
+ | 
+向 Planner 注入 `goal\_list`，Context 检索结果以文本为主
+ | 
+改为通过 Task Query 注入 `TaskView`；普通状态供 Trigger / 执行判断使用，`offline` 等强状态作为 Task 事件进入 Ingress
+ | 
+`recommend\.GenerateRecommend \-\> Frontier \-\> Client \-\> beforeFlow`
+ | 
+`GenerateRecommend` 内部生成 `recommend\_id` 但只返回 `error`；Client 回流后重新进入 Flow
+ | 
+拆分 ID 生成与消息下发：Task Service 先生成 `recommend\_id` 并持久化 Binding，再调用 Recommend / Frontier；`beforeFlow` 通过 `vehicle\_id \+ recommend\_id` 恢复 Task / Run，客户端无需新增 `task\_id / run\_id`
+ | 
+`MainFlow`、`FlowContext\.Responses`、`afterFlow`
+ | 
+`MainFlow` 汇总完整响应；`afterFlow` 是异步、尽力而为的通用收尾
+ | 
+`MainFlow` 汇总完整响应；现有 `afterFlow` 的主要收尾逻辑在后台异步执行，不提供 Task 状态可靠写入保证。新增独立 Task Result Hook，基于结构化 Tool / Agent Feedback，以幂等事务更新 Run / Task / Event；失败需支持重试或补偿。
+ | 
+`gui\-agent /gui/v1/process`
+ | 
+`request\_id \+ Redis` 维护 GUI 内部多步状态，HTTP 每轮返回下一步结果
+ | 
+外部 HTTP 协议不变；链路改为 `GUI API \-\> Task Service RPC \-\> GUI RPC`，Task 管理外层 Run，GUI Agent 继续管理内部 step
+ | 
+`biz/model/planner\_task`
+ | 
+保存单轮 Planner tool call 和结果
+ | 
+保持单轮审计职责，不承载跨轮 Task；Task / Run 结果由新的 Task Repository 保存
+ | 
+## 核心代码结构
+```Plain Text
+biz
+├── handler
+│   └── rpc
+│       └── task.go                   # Trigger callback、GUI API 和 Task Query 的 RPC 入口
+├── service
+│   ├── agent_server/executor/aidv_agent_list/system_tool
+│   │   ├── long_term_task.go         # 旧动态 goal 入口，灰度迁移后下线对应逻辑
+│   │   └── task_manage.go            # Task Agent：解析参数并透传给 Task Ingress
+│   ├── flow
+│   │   ├── base.go                   # beforeFlow 恢复 TaskRef；完成时触发结果回写
+│   │   ├── context.go                # goal_list 替换为 TaskView
+│   │   └── task_feedback.go          # 从结构化 Tool / Agent 结果构建 RunResult
+│   ├── task                          # Task Service 整体工程边界
+│   │   ├── base.go                   # 依赖装配与对外入口
+│   │   ├── handler.go                # 协议解析、Binding 恢复、幂等校验和输入路由
+│   │   ├── define.go                 # 替换旧定义；Task / Run / Event / Binding 等领域结构
+│   │   ├── spec_builder.go           # 自然语言 -> TaskCommand / TaskSpec
+│   │   ├── manager.go                # 核心编排、生命周期与确定性策略
+│   │   ├── repository.go             # NDB 事务与事实读写
+│   │   ├── binding.go                # 外部 ID -> Task / Run 关联
+│   │   ├── trigger_adapter.go        # RuleSpec  现有 Trigger 协议
+│   │   ├── runtime_dispatcher.go     # 通用任务 / 生态任务路由
+│   │   ├── runtime_general.go        # Recommend、Planner、Agent、Tool 等通用路径
+│   │   ├── runtime_ecosystem.go      # GUI 及后续第三方 Provider
+│   │   ├── view.go                   # 由事实生成 TaskView
+│   │   ├── message_dispatcher.go     # TaskMessage 生成与 Frontier / SSE / Adapter 路由
+│   │   └── *_test.go                 # Manager、Binding、Adapter、Dispatcher 单测
+│   ├── trigger/*                     # 复用现有 Trigger RPC 封装
+│   └── recommend/*                   # 支持指定 recommend_id，复用主动消息链路
+├── model/task                        # Task / Run / Event / Binding 数据访问封装
+├── types/task                        # RPC、TaskView、TaskMessage 等外部协议
+└── infrastructure/tcc
+    └── task_config.go                # 开关、配额、运行路由和消息策略
+```
+## 核心数据结构
+本期只保留主干对象：`Task` 是聚合根，`TaskSpec` 是任务定义，`Run` 是一次执行，`Event` 是追加事实，`Binding` 恢复外部请求关联；`TaskView` 和 `TaskMessage` 分别是查询、通知协议。Snapshot 仅可作为查询优化，不是必建表或外部协议。
+```Go
+package task
+type TaskOperation string
+const (
+	OperationCreate TaskOperation = "create"
+	OperationUpdate TaskOperation = "update"
+	OperationCancel TaskOperation = "cancel"
+	OperationQuery  TaskOperation = "query"
+)
+type RuntimeType string
+const (
+	RuntimeTypeGeneral   RuntimeType = "general"
+	RuntimeTypeEcosystem RuntimeType = "ecosystem"
+)
+type RuntimeSpec struct {
+	Type     RuntimeType `json:"type"`
+	Provider string      `json:"provider,omitempty"` // 生态任务填写 gui 或后续第三方 Provider
+}
+// EndPolicy 定义 Task 何时结束；用户取消是通用能力，不写入 Spec。
+type EndPolicy struct {
+	CloseAfterSuccess     bool  `json:"close_after_success"`
+	CloseOnVehicleOffline bool  `json:"close_on_vehicle_offline"`
+	ExpireAt              int64 `json:"expire_at,omitempty"`
+	MaxRuns               int32 `json:"max_runs,omitempty"`
+	MaxFailures           int32 `json:"max_failures,omitempty"`
+}
+type TaskSpec struct {
+	UserGoal   string                    `json:"user_goal"`
+	ExecuteText string                   `json:"execute_text"`
+	Trigger    *triggercontract.RuleSpec `json:"trigger,omitempty"` // RuleSpec 由 Trigger 公共协议定义
+	Runtime    RuntimeSpec               `json:"runtime"`
+	EndPolicy  EndPolicy                 `json:"end_policy"`
+}
+type TaskCommand struct {
+	Operation      TaskOperation `json:"operation"`
+	TargetTaskID   string        `json:"target_task_id,omitempty"`
+	Spec           *TaskSpec     `json:"spec,omitempty"`
+}
+type TaskStatus string
+const (
+	TaskStatusWaiting TaskStatus = "waiting"
+	TaskStatusRunning TaskStatus = "running"
+	TaskStatusClosed  TaskStatus = "closed"
+)
+type CloseReason string
+const (
+	CloseReasonFinished       CloseReason = "finished"
+	CloseReasonCanceled       CloseReason = "canceled"
+	CloseReasonExpired        CloseReason = "expired"
+	CloseReasonFailed         CloseReason = "failed"
+	CloseReasonVehicleOffline CloseReason = "vehicle_offline"
+)
+type RunStatus string
+const (
+	RunStatusRunning   RunStatus = "running"
+	RunStatusSucceeded RunStatus = "succeeded"
+	RunStatusFailed    RunStatus = "failed"
+	RunStatusSkipped   RunStatus = "skipped"
+	RunStatusCanceled  RunStatus = "canceled"
+)
+type RunPhase string
+const (
+	RunPhaseExecuting               RunPhase = "executing"
+	RunPhaseWaitingUserConfirmation RunPhase = "waiting_user_confirmation"
+	RunPhaseWaitingClient           RunPhase = "waiting_client"
+	RunPhaseWaitingExternal         RunPhase = "waiting_external"
+)
+```
+`triggercontract\.RuleSpec` 是目标态共享类型。首期 Trigger 接口未升级前，由 Trigger Adapter 将它序列化为现有 `RegisterSceneRequest\.conditions / actions / execute\_policy`，Task 侧不维护第二套完整规则 DSL。
+```Go
+type Task struct {
+    TaskID      string           `json:"task_id"`
+    CommonInfo  types.CommonInfo `json:"common_info"`
+    Spec        TaskSpec         `json:"spec"`
+    Status      TaskStatus       `json:"status"`
+    CloseReason CloseReason      `json:"close_reason,omitempty"`
+    RunCount    int32            `json:"run_count"`
+    Version     int64            `json:"version"`
+    CreatedAt   int64            `json:"created_at"`
+    UpdatedAt   int64            `json:"updated_at"`
+    ClosedAt    int64            `json:"closed_at,omitempty"`
+}
+type TaskRun struct {
+	RunID          string      `json:"run_id"`
+	TaskID         string      `json:"task_id"`
+	VehicleID      string      `json:"vehicle_id"`
+	Runtime        RuntimeSpec `json:"runtime"`
+	Status         RunStatus   `json:"status"`
+	Phase          RunPhase    `json:"phase,omitempty"`
+	Reason         string      `json:"reason,omitempty"`
+	IdempotencyKey string      `json:"idempotency_key"`
+	StartedAt      int64       `json:"started_at"`
+	EndedAt        int64       `json:"ended_at,omitempty"`
+}
+type TaskEvent struct {
+	EventID       string `json:"event_id"`
+	VehicleID     string `json:"vehicle_id"`
+	TaskID        string `json:"task_id"`
+	RunID         string `json:"run_id,omitempty"`
+	Type          string `json:"type"`
+	Source        string `json:"source"`
+	IdempotencyKey string `json:"idempotency_key"`
+	ExternalID    string `json:"external_id,omitempty"` // callback_id、recommend_id 等外部事件标识
+	Summary       string `json:"summary"`
+	LogID         string `json:"log_id"`
+	OccurredAt    int64  `json:"occurred_at"`
+}
+// TaskBinding 将现有外部 ID 恢复为 Task / Run，不要求客户端透传内部 ID。
+type TaskBinding struct {
+	VehicleID  string `json:"vehicle_id"`
+	Type       string `json:"type"`        // trigger_rule、recommend、gui_request、provider_session、edge_command
+	ExternalID string `json:"external_id"`
+	TaskID     string `json:"task_id"`
+	RunID      string `json:"run_id,omitempty"`
+}
+type TaskView struct {
+	TaskID        string      `json:"task_id"`
+	Summary       string      `json:"summary"`
+	Status        TaskStatus  `json:"status"`
+	CloseReason   CloseReason `json:"close_reason,omitempty"`
+	Runtime       RuntimeSpec `json:"runtime"`
+	ActiveRunID   string      `json:"active_run_id,omitempty"`
+	RunStatus     RunStatus   `json:"run_status,omitempty"`
+	RunPhase      RunPhase    `json:"run_phase,omitempty"`
+	NextTriggerAt int64       `json:"next_trigger_at,omitempty"`
+	UpdatedAt     int64       `json:"updated_at"`
+}
+type TaskMessage struct {
+	MessageID  string         `json:"message_id"`
+	Type       string         `json:"type"`
+	VehicleID  string         `json:"vehicle_id"`
+	TaskID     string         `json:"task_id"`
+	RunID      string         `json:"run_id,omitempty"`
+	TaskStatus TaskStatus     `json:"task_status"`
+	CloseReason CloseReason   `json:"close_reason,omitempty"`
+	RunStatus  RunStatus      `json:"run_status,omitempty"`
+	RunPhase   RunPhase       `json:"run_phase,omitempty"`
+	Payload    map[string]any `json:"payload,omitempty"`
+	OccurredAt int64          `json:"occurred_at"`
+}
+```
+Event 示例：Trigger 命中产生 `trigger\_matched`，携带 `task\_id \+ callback\_id`；Manager 创建 Run 后，Planner / Flow Tool Feedback 再产生 `run\_succeeded / run\_failed`，携带 `task\_id \+ run\_id`。Event 用于审计和状态推进，Run 表示执行轮次，两者不重复。
+外部结果
+ | 
+Run
+ | 
+Task
+ | 
+GUI `RUNNING`
+ | 
+`running \+ RunPhase`
+ | 
+保持 `running`
+ | 
+GUI `SUCCESS` / 通用执行成功
+ | 
+`succeeded`
+ | 
+按 EndPolicy 进入 `closed\(finished\)` 或回到 `waiting`
+ | 
+GUI `FAIL` / 通用执行失败
+ | 
+`failed`
+ | 
+达到失败策略时 `closed\(failed\)`，否则回到 `waiting`
+ | 
+Guard 跳过本轮
+ | 
+`skipped`
+ | 
+周期任务回到 `waiting`；一次性任务按策略结束
+ | 
+用户取消 / 车辆下电
+ | 
+当前 Run 结束
+ | 
+`closed\(canceled / vehicle\_offline\)`
+ | 
+VLM 条件任务的观察配置和语义目标属于 Trigger RuleSpec。端侧按云端下发的观察任务定时上报描述；Trigger 完成语义匹配并判定命中后 callback 到 Task，Task 不负责二次条件匹配。
+## Handler 接口与 TaskRuntime
+现有协议入口保持不变：Task Agent 继续使用 `ChatRequest \+ ExtraKeyAgentParams`，Trigger callback 沿用 Hertz / RPC Handler 风格，GUI 保持 `/gui/v1/process` 请求与响应。新增的 `task/handler\.go` 只负责把不同入口转换为 TaskRuntime，再调用 Manager、Dispatcher 或 View。
+入口
+ | 
+现有代码参考
+ | 
+Task Handler
+ | 
+Task Agent
+ | 
+`LongTermTask\.StreamFunc`、`ExtraKeyAgentParams`
+ | 
+`HandleTaskAction`
+ | 
+Trigger callback
+ | 
+`handler/v1/trigger\.AdvisorCallback`
+ | 
+`HandleTriggerCallback`
+ | 
+GUI HTTP 转 RPC
+ | 
+`gui\-agent handler\.Process`
+ | 
+`HandleGUIRequest`
+ | 
+Planner / Flow 结果
+ | 
+`MainFlow`、`FlowContext\.Responses`
+ | 
+`HandleRunResult`
+ | 
+端状态事件（下电）
+ | 
+Context / 状态上报链路
+ | 
+`HandleStateEvent`
+ | 
+Planner / HMI 查询
+ | 
+当前 `goal\_list` 查询入口
+ | 
+`QueryTaskView`
+ | 
+```Go
+package task
+// Handler 定义 Task Service 对内、对外的核心入口。
+type Handler interface {
+	HandleTaskAction(ctx context.Context, req *types.ChatRequest, params TaskActionParams) (*TaskHandleResult, error)
+	HandleTriggerCallback(ctx context.Context, req TriggerCallbackRequest) error
+	HandleGUIRequest(ctx context.Context, req *gui.GUIAgentRequest) (*gui.GUIAgentResponseData, error)
+	HandleRunResult(ctx context.Context, req RunResultRequest) error
+	HandleStateEvent(ctx context.Context, req StateEventRequest) error
+	QueryTaskView(ctx context.Context, req TaskViewQuery) ([]TaskView, error)
+}
+type TaskActionParams struct {
+	Query       string       `json:"query"`
+	RuntimeHint *RuntimeSpec `json:"runtime_hint,omitempty"` // GUI 等明确场景由 Planner 透传
+}
+type TriggerCallbackRequest struct {
+	Channel     string `json:"channel"`
+	VehicleID   string `json:"vehicle_id"`
+	TaskID      string `json:"task_id"`
+	CallbackID  string `json:"callback_id"`
+	TriggeredAt int64  `json:"triggered_at"`
+}
+type RunResultRequest struct {
+	Ref    TaskRef
+	Result RunResult
+}
+type StateEventRequest struct {
+	CommonInfo types.CommonInfo
+	EventID    string
+	EventType  string // 首期主要处理 vehicle_offline
+	OccurredAt int64
+}
+type TaskViewQuery struct {
+	CommonInfo types.CommonInfo
+	TaskID     string
+	ActiveOnly bool
+	Limit      int
+}
+type TaskHandleResult struct {
+	TaskID    string
+	Operation TaskOperation
+	Status    TaskStatus
+	Views     []TaskView
+}
+```
+`TaskRuntime` 是 Task 代码内最大的内存结构。每个 Handler 先创建 TaskRuntime，后续 Spec Builder、Manager、Repository 和 Runtime Dispatcher 都围绕它补充或读取数据；它不直接落库。
+```Go
+// TaskRuntime 是一次 Task 请求在服务内流转时的运行上下文。
+//
+// 不同入口先创建 TaskRuntime，Spec Builder、Task Manager、Repository、
+// Runtime Dispatcher 等模块再按处理阶段逐步补充字段。
+// 它只在当前调用链中传递，不整体写入数据库，也不是所有字段都会同时存在。
+type TaskRuntime struct {
+    // Meta 保存当前请求的公共信息和链路元数据，
+    // 例如车辆、账号、会话、Planner 和日志信息。
+    Meta TaskMeta
+    // Input 表示本次处理从哪里进入，以及携带的原始输入。
+    // 入口可能是 Task Agent、Trigger callback、GUI 请求或执行结果回写。
+    Input TaskInput
+    // Ref 用于定位已有的 Task 和 Run。
+    // 创建任务时可以为空；更新、取消、触发和结果回写时必须提供相应标识。
+    Ref *TaskRef
+    // Command 是对用户任务意图结构化后的操作指令，
+    // 例如 create、update、cancel 或 query。
+    // 主要用于 Task Agent 进入的任务管理链路。
+    Command *TaskCommand
+    // Task 是当前正在处理的任务实体。
+    // 已有任务由 Repository 加载；创建任务时由 Task Manager 生成。
+    Task *Task
+    // Spec 是创建或修改阶段生成的候选任务定义。
+    // Task 持久化成功后，以 Task.Spec 作为任务的正式定义。
+    Spec *TaskSpec
+    // Run 表示当前 Task 的一次实际执行。
+    // 等待中的规则型任务可能没有 Run；任务被激活或 GUI 开始执行后才会生成。
+    Run *TaskRun
+    // Events 保存本次处理过程中产生的任务事实，
+    // 例如任务创建、Run 开始、执行完成、跳过或任务关闭。
+    // 这些事件用于持久化、生命周期推进和下游消息通知。
+    Events []TaskEvent
+    // Trigger 保存本次 Trigger 激活相关的临时信息，
+    // 例如规则标识、callback 标识和实际触发时间。
+    // 非 Trigger 入口通常为空。
+    Trigger *TriggerRuntime
+    // Result 保存本轮执行结果，
+    // 来源可能是 Planner / Tool Feedback、GUI Provider 或其他执行链路。
+    // 非结果回写入口通常为空。
+    Result *RunResult
+    // Views 保存当前用户或车辆可见的任务视图。
+    // Spec Builder 可用它定位需要更新或取消的 Task，查询接口也可直接返回。
+    Views []TaskView
+    // ContextText 保存本轮决策临时读取的 Context 文本，
+    // 例如车辆、乘员或端状态，供模型或执行前判断使用，不随 Task 持久化。
+    ContextText string
+}
+type TaskMeta struct {
+	CommonInfo       types.CommonInfo
+	CoordinationInfo types.CoordinationInfo
+	ChatID           string
+	QuestionID       string
+	ConversationID   string
+	PlannerID        uint64
+	LogID            string
+}
+type TaskInputSource string
+const (
+	InputTaskAction      TaskInputSource = "task_action"
+	InputTriggerCallback TaskInputSource = "trigger_callback"
+	InputGUIRequest      TaskInputSource = "gui_request"
+	InputRunResult       TaskInputSource = "run_result"
+	InputStateEvent      TaskInputSource = "state_event"
+)
+type TaskInput struct {
+	Source  TaskInputSource
+	Query   string
+	Payload any // callback、GUI 请求等当轮原始数据，不落 Task Store
+}
+type TaskRef struct {
+	VehicleID string
+	TaskID    string
+	RunID     string
+}
+type TriggerRuntime struct {
+	RuleID      string
+	CallbackID  string
+	TriggeredAt int64
+}
+type RunResult struct {
+	Status RunStatus
+	Phase  RunPhase
+	Reason string
+	Detail any // 结构化 Tool / Agent / GUI 结果，仅保存必要摘要
+}
+```
+## 核心业务逻辑（伪代码）
+以下只定义首期主干流程。函数拆分、错误码、事务范围和重试方式在编码时结合现有实现微调，不在方案阶段一次性定死。
+### **Task Agent 进入 Task Handler**
+Task Agent 仍是纯入口：解析 `ExtraKeyAgentParams` 后调用 Handler。Handler 查询当前 TaskView，再由 Spec Builder 判断 create / update / cancel / query，并在创建或修改时生成 TaskSpec。
+```Go
+func (h *handler) HandleTaskAction(
+	ctx context.Context,
+	req *types.ChatRequest,
+	params TaskActionParams,
+) (*TaskHandleResult, error) {
+	runtime := NewTaskRuntime(ctx, req)
+	runtime.Input = TaskInput{Source: InputTaskAction, Query: params.Query}
+	views, err := h.view.ListActive(ctx, req.CommonInfo, h.config.TaskViewLimit)
+	if err != nil {
+		return nil, err
+	}
+	runtime.Views = views
+	command, err := h.specBuilder.Build(ctx, params.Query, params.RuntimeHint, views)
+	if err != nil {
+		return nil, err
+	}
+	runtime.Command = command
+	runtime.Spec = command.Spec
+	return h.manager.HandleCommand(ctx, runtime)
+}
+```
+### **Task Manager 处理创建、修改、取消和查询**
+```Go
+func (m *Manager) HandleCommand(ctx context.Context, runtime *TaskRuntime) (*TaskHandleResult, error) {
+	switch runtime.Command.Operation {
+	case OperationCreate:
+		return m.create(ctx, runtime)
+	case OperationUpdate:
+		return m.update(ctx, runtime)
+	case OperationCancel:
+		return m.cancel(ctx, runtime)
+	case OperationQuery:
+		return &TaskHandleResult{Operation: OperationQuery, Views: runtime.Views}, nil
+	default:
+		return nil, ErrUnsupportedOperation
+	}
+}
+func (m *Manager) create(ctx context.Context, runtime *TaskRuntime) (*TaskHandleResult, error) {
+	task := NewTask(runtime.Meta.CommonInfo, *runtime.Spec)
+	runtime.Task = task
+	// GUI 等生态任务创建后直接产生 Run；规则型任务先进入 waiting。
+	if task.Spec.Runtime.Type == RuntimeTypeEcosystem {
+		runtime.Run = NewTaskRun(task)
+	}
+	if err := m.repository.Create(ctx, runtime); err != nil {
+		return nil, err
+	}
+	if task.Spec.Trigger != nil {
+		if err := m.trigger.Register(ctx, runtime); err != nil {
+			return nil, err
+		}
+	}
+	if runtime.Run != nil {
+		if err := m.dispatcher.Start(ctx, runtime); err != nil {
+			return nil, err
+		}
+	}
+	m.message.Dispatch(ctx, BuildTaskEvents(runtime))
+	return BuildTaskHandleResult(runtime), nil
+}
+```
+`update` 负责替换可修改的 Spec 并同步 Trigger；`cancel` 负责关闭当前 Run、停止 Trigger / 生态 Provider、将 Task 置为 `closed\(canceled\)` 并发送状态消息。
+### **Trigger callback 激活 Task**
+Trigger 已经完成条件匹配。Task Handler 不再重复判断原条件，只恢复 Task、创建本轮 Run；存在额外执行前约束时，才读取 Context 决定执行或跳过。
+```Go
+func (h *handler) HandleTriggerCallback(ctx context.Context, req TriggerCallbackRequest) error {
+	runtime := &TaskRuntime{
+		Ref: &TaskRef{VehicleID: req.VehicleID, TaskID: req.TaskID},
+		Input: TaskInput{Source: InputTriggerCallback, Payload: req},
+		Trigger: &TriggerRuntime{CallbackID: req.CallbackID, TriggeredAt: req.TriggeredAt},
+	}
+	return h.manager.HandleTrigger(ctx, runtime)
+}
+func (m *Manager) HandleTrigger(ctx context.Context, runtime *TaskRuntime) error {
+	if err := m.repository.LoadTask(ctx, runtime); err != nil {
+		return err
+	}
+	runtime.Run = NewTaskRun(runtime.Task)
+	if err := m.repository.StartRun(ctx, runtime); err != nil {
+		return err
+	}
+	if runtime.Task.Spec.HasExecutionGuard() {
+		decision, err := m.guard.Decide(ctx, runtime)
+		if err != nil {
+			return err
+		}
+		if decision.Skip {
+			return m.FinishRun(ctx, runtime, RunResult{Status: RunStatusSkipped, Reason: decision.Reason})
+		}
+	}
+	return m.dispatcher.Dispatch(ctx, runtime)
+}
+```
+### **Runtime Dispatcher 选择执行链路**
+```Go
+func (d *RuntimeDispatcher) Dispatch(ctx context.Context, runtime *TaskRuntime) error {
+	switch runtime.Task.Spec.Runtime.Type {
+	case RuntimeTypeGeneral:
+		return d.dispatchGeneral(ctx, runtime)
+	case RuntimeTypeEcosystem:
+		return d.dispatchEcosystem(ctx, runtime.Task.Spec.Runtime.Provider, runtime)
+	default:
+		return ErrUnsupportedRuntime
+	}
+}
+func (d *RuntimeDispatcher) dispatchGeneral(ctx context.Context, runtime *TaskRuntime) error {
+	recommendID := NewRecommendID()
+	if err := d.binding.BindRecommend(ctx, runtime, recommendID); err != nil {
+		return err
+	}
+	return d.recommend.Push(ctx, runtime.Task.CommonInfo, runtime.Task.Spec.ExecuteText, recommendID)
+}
+```
+通用任务通过 Recommend / Frontier 唤醒 Client，Client 上行后重新进入 Planner。
+生态任务由 Provider 推进；GUI HTTP 每次通过 `request\_id` 恢复同一个 Task / Run，调用 GUI Provider 后将 `RUNNING / SUCCESS / FAIL` 映射为 RunResult，并原样返回现有 HTTP response。
+### **执行结果回写**
+Planner / Flow 在完整响应收敛后，从 `AgentObservation` 和 Tool 结果构建 RunResult，再调用 `HandleRunResult`；该步骤独立于现有异步 `afterFlow`。
+```Go
+func (h *handler) HandleRunResult(ctx context.Context, req RunResultRequest) error {
+	runtime := &TaskRuntime{
+		Ref: &req.Ref,
+		Input: TaskInput{Source: InputRunResult, Payload: req},
+		Result: &req.Result,
+	}
+	return h.manager.HandleRunResult(ctx, runtime)
+}
+func (m *Manager) HandleRunResult(ctx context.Context, runtime *TaskRuntime) error {
+	if err := m.repository.LoadTaskAndRun(ctx, runtime); err != nil {
+		return err
+	}
+	ApplyRunResult(runtime.Run, *runtime.Result)
+	ApplyTaskLifecycle(runtime.Task, runtime.Run)
+	runtime.Events = BuildResultEvents(runtime)
+	if err := m.repository.SaveResult(ctx, runtime); err != nil {
+		return err
+	}
+	m.message.Dispatch(ctx, runtime.Events)
+	return nil
+}
+```
+`HandleStateEvent` 首期主要处理 `vehicle\_offline`，关闭本次行程 Task；`QueryTaskView` 从 Task / Run / Event 生成 Planner、HMI 所需视图。所有数据库读写必须携带 `vehicle\_id`；更细的并发、幂等和补偿策略在编码阶段按真实入口补充。
+## 配置化与可观测
+### 配置化
+本期属于 Breaking Change。新旧实现涉及 Task 持久化、Trigger callback、Client 回流和生命周期状态机，无法对同一个 Task 安全切换，因此不通过 TCC 同时维护两套业务逻辑。
+配置只保留运行期安全上限：
+```Plain Text
+type TaskConfig struct {
+        MaxActiveTasks int `json:"max_active_tasks"` // 单车或单用户的活跃任务上限
+        TaskViewLimit  int `json:"task_view_limit"`  // 单次查询返回的任务数量上限
+}
+```
+灰度和回滚通过发布平台控制流量。回滚前先停止创建新 Task，等待或关闭已有活跃 Task，并注销对应 Trigger，再回滚服务版本。
+### 可观测
+基于 Fornax Trace 和结构化日志建设 Task 全链路观测。观测能力下沉到 Task Manager 执行框架，避免各 Handler 和业务逻辑重复打点。
+Task Manager 在处理开始时自动注入：
+```Plain Text
+log_id、vehicle_id、task_id、run_id、input_source、operation
+```
+状态迁移时自动记录：
+```Plain Text
+event_type、from_status、to_status、close_reason
+```
+处理结束时统一上报执行结果、耗时和错误；Repository、Trigger、Runtime Dispatcher、Message Dispatcher 等外部调用分别建立 Trace Span。
+实现形态示意：
+```Go
+func (m *Manager) Handle(ctx context.Context, runtime *TaskRuntime) (err error) {
+        observer := m.observer.Start(ctx, runtime)
+        defer observer.Finish(runtime, err)
+        return m.handle(ctx, runtime)
+}
+```
+后续沉淀 Task 排障 Skill 或工具，以 `task\_id / run\_id / log\_id` 为入口，自动聚合 Fornax Trace、日志及 Task / Run / Event 数据，输出完整执行时间线和失败节点。
+## 规则型 Task 代码调用时序图
+## 服务端改造分工
+方向
+ | 
+变更性质
+ | 
+代码落点
+ | 
+核心交付
+ | 
+不负责
+ | 
+Planner
+ | 
+基于现有能力改造
+ | 
+`biz/service/planner`、Prompt / Tool 注册
+ | 
+将 Task 类请求路由到 `task\_manage\(query, runtime\_hint?\)`；
+保持 `talk\_content \+ action\_list`；
+任务回流后根据任务文本重新推理本轮 action
+ | 
+不判断 create / update / cancel，不生成 TaskSpec，不保存 Task
+ | 
+Task Agent
+ | 
+新增 Agent / Tool
+ | 
+`system\_tool/task\_manage\.go`
+ | 
+解析 `ExtraKeyAgentParams`、构建 TaskMeta、调用 Task Ingress、返回 tool feedback
+ | 
+不调用模型生成 Spec，不定位目标 Task，不推进生命周期
+ | 
+Task Service
+ | 
+新增核心域
+ | 
+`biz/service/task`、`model/task`、`types/task`
+ | 
+Ingress、Spec Builder、Manager、Repository、Binding、Trigger Adapter、Runtime Dispatcher、Task Query、Task Message Dispatcher；
+完成事务、幂等、生命周期和外部协调
+ | 
+不做 Planner 路由，不替代 Trigger 条件匹配，不执行具体 Tool
+ | 
+Trigger
+ | 
+现有服务改造
+ | 
+`aidv\_trigger`；AIDV `biz/service/trigger`
+ | 
+统一 RuleSpec；
+规则注册 / 更新 / 停用；
+延时、周期、确定性条件和 VLM 语义匹配；
+命中后 callback
+ | 
+不推理最终 action，不管理 Task / Run 生命周期
+ | 
+Flow / Recommend / Frontier
+ | 
+基于现有能力改造
+ | 
+`flow/base\.go`、`flow/context\.go`、`flow/task\_feedback\.go`、`biz/service/recommend`、Frontier / SSE
+ | 
+向 Planner 注入 TaskView；
+在 Flow 完成处回写结构化 Tool Feedback；承担消息传输
+ | 
+不判断 Task 状态迁移，不保存 Task 事实
+ | 
+Context / 端状态
+ | 
+基于现有能力改造
+ | 
+Context 检索、状态上报、VLM report 链路
+ | 
+提供执行前状态；
+VLM 描述转发 Trigger；
+`offline` 等强状态进入 Task Ingress/Handler；
+端侧执行结果参与端云仲裁
+ | 
+不在 Context 内维护 Task，不做 VLM 目标匹配
+ | 
+GUI API / GUI Agent
+ | 
+基于现有链路改造
+ | 
+GUI API、AIDV Task RPC、GUI RPC
+ | 
+保持 `/gui/v1/process` 和 `request\_id`；
+链路改为 `GUI API \-\> Task Service RPC \-\> GUI RPC`；
+HTTP 每轮均返回；
+GUI Agent 保留 Redis 内部 step
+ | 
+不向客户端暴露 `task\_id / run\_id`，不管理 Task 外层生命周期
+ | 
+# 后续规划
+> 后续基于线上运行反馈和需求场景持续收敛 Task 核心抽象，最终将任务接入、触发、执行、生命周期和消息通知沉淀为可配置、可扩展的平台化能力。
+> 
+> 
+方向
+ | 
+概念
+ | 
+简要实现思路
+ | 
+Trigger Engine
+ | 
+演进为触发引擎，平台化
+ | 
+1. 收敛不同触发类型的注册与执行模型。
+2. 补齐规则创建、更新、版本、去重、重试和状态查询能力，并提供运营管理与观测工具。
+3. 规则模型和使用场景稳定后，再建设可视化编排和低代码配置能力。
+ | 
+生态与第三方接入
+ | 
+GUI 作为首个生态 Provider，后续第三方复用同一 Task 生命周期和 Runtime Dispatcher
+ | 
+1. 结合 Agent Server 的三方接入逻辑
+2. 定义 Provider 注册信息、能力 Schema、鉴权、创建 / 继续 / 取消 / 查询及 callback 协议；通过 `runtime\_provider` 路由
+ | 
+端云逻辑
+ | 
+部分任务端云都能执行，优先端。做好整体仲裁、冲突处理。
+ | 
+1. 消息同步
+2. 云收到端执行，取消云推理逻辑，以端上报的执行信息为准
+3. 端有排重逻辑，防止云异常下发或没有收到端同步信息情况时下发的 action。
+ | 
+重新定义 Task
+ | 
+将 Task 作为所有用户交互的统一业务载体，执行、状态、触达和仲裁均围绕 Task 驱动。
+ | 
+1. 明确 Task Scope
+2. ？？？
+ | 
+# 排期
+模块
+ | 
+工作项
+ | 
+开发人日
+ | 
+联调人日
+ | 
+Task Service
+ | 
+Task Agent、Handler/Ingress、TaskRuntime 和核心协议
+ | 
+3
+ | 
+ | 
+Spec Builder：模型调用、结果解析、create/update/cancel/query、目标 Task 定位
+ | 
+2
+ | 
+ | 
+Task/Run/Event/Binding 表、Repository、事务、CAS
+ | 
+4
+ | 
+ | 
+Manager、生命周期、Run 推进、skip/offline/result
+ | 
+3
+ | 
+ | 
+Trigger Adapter、规则生命周期和 callback 接入
+ | 
+2
+ | 
+ | 
+Runtime Dispatcher：通用任务/生态任务路由
+ | 
+2
+ | 
+ | 
+TaskView、Task Message Dispatcher
+ | 
+2
+ | 
+ | 
+Planner/Flow/Recommend：TaskView 注入、回流关联、Tool Feedback、Result Hook
+ | 
+3
+ | 
+ | 
+Fornax 观测、最小配置、基础补偿、单测和链路自测
+ | 
+3
+ | 
+ | 
+GUI Agent
+ | 
+接入 Task Service
+ | 
+3
+ | 
+2
+ | 

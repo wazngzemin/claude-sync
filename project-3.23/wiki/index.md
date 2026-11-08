@@ -1,7 +1,7 @@
 ---
 title: Wiki Index
 date: 2026-04-14
-updated: 2026-06-01
+updated: 2026-10-29
 status: active
 ---
 
@@ -13,8 +13,9 @@ status: active
 
 | 页面 | 摘要 |
 |------|------|
+| [记忆系统](entities/memory-system.md) | 生产、检索与管理用户经历和偏好，区分 10 月宣讲中的使用状态 |
 | [[director]] | 车载语音助手核心对话推理引擎，以 SP 驱动，当前面临 PE 过长问题 |
-| [[planner]] | Director 的任务规划子模块，负责意图拆解和工具调用决策 |
+| [[planner]] | 与 Director 对应的规划职能名称；10 月宣讲按同一对话推理模块理解 |
 | [[gui-agent]] | 负责图形界面操作的工具模块（外卖/订座/咖啡/停车费），3-30 前紧急优化 |
 | [[pullover-feature]] | 临停功能（Pullover）：智驾场景下即时/条件/目标三种靠边停车模式 |
 | [[seed-data]] | 种子数据：为 Planner 构造的高质量结构化数据集，用于评测和数据泛化 |
@@ -25,10 +26,12 @@ status: active
 | [[seres]] | 赛力斯：AI Car核心OEM合作伙伴，联合用户调研和产品共创 |
 | [[trigger-engine]] | 触发器引擎：条件任务执行底座，7.10后纳入信号中枢统一框架，触发事件+条件串行漏斗+多动作类型(Advisor/事件日志/TTS) |
 
+
 ## 概念页 (concepts/)
 
 | 页面 | 摘要 |
 |------|------|
+| [按真实业务讲解产品模块](concepts/product-lecture-explanation.md) | 按用户问题、输入缺口、判断、动作、反馈讲清业务交接 |
 | [[sp-compression-strategy]] | SP 压缩策略：从 34K tokens 压到 15K 以下，静态+动态示例拆分 |
 | [[planner-tool-simplification]] | Planner 职责分离方案：自然语言规划 + Flash 模型参数转换 |
 | [[evaluation-system]] | 评测体系建设：评测集扩充、自动化脚本、核心指标定义、150条种子数据 |
@@ -49,10 +52,12 @@ status: active
 | [[scenario-rag-arbitration]] | 情景RAG+仲裁模型深度拆解：知识注入四维信息源、仲裁SP四版演进、车控vs推理判断维度、8类问题分类、评测数据对比 |
 | [[data-governance-over-model-capability]] | 数据治理>模型能力：模型是最后一层接口；21%→95%→65% Skill 横跳证明瓶颈在数据/治理层；三类错误（实体歧义/陈旧/检索失败）；AI First 重设计；钉入 Planner/场景知识 Skill 质量 |
 
+
 ## 综合分析 (synthesis/)
 
 | 页面 | 摘要 |
 |------|------|
+| [上汽定时任务与触发器产品分工](synthesis/saic-timed-task-trigger.md) | 2026-10-13 飞书正文核验；按赛力斯参考结构重写上汽评审稿，区分弋途定时、豆包条件触发及后台预置，附 Word 与三张业务图 |
 | [[planner-eval-methodology]] | **正文** · Planner 评测方法论对外分享:1.0→2.0 演进叙事,3 次重构(场景化/过程归因/像人),5 阶段自动化流水线,5 条建议;完整 HTML 嵌入式图表 |
 | [[planner-eval-methodology-outline]] | 大纲 · 上文的详细骨架与每章要点 |
 | [[driver-agent-eval-query-set]] | Driver Agent 评测 query 集 |
@@ -68,6 +73,9 @@ status: active
 
 | 页面 | 来源 | 摘要 |
 |------|------|------|
+| [记忆产品宣讲与需求对照](summaries/memory-product-lecture.md) | 10 月 28 日逐字稿及记忆 PRD | 同乘分段、分层召回、开关和删除、画像与跨端状态 |
+| [Director 产品宣讲与需求对照](summaries/director-product-lecture.md) | Director 逐字稿、PRD 及探索需求 | 工具依赖、批内反馈、背景使用与能力范围 |
+| [用户提供的座舱业务案例讲解标准](summaries/user-case-rewrite-standard.md) | 用户长案例 | 用业务动作解释每次信息交接与分叉，完整正文先行，移除重复附录 |
 | [[in-car-voice-prd]] | 【AI汽车-PRD】车内语音.md | 车内语音全链路PRD：唤醒、免唤醒、降噪、音区识别、语音识别、声纹识别 |
 | [[multi-user-simultaneous-voice-interaction]] | 【AI汽车-PRD】多人同时语音交互体验.md | 多人同时语音交互：任务分类、合并策略、打断/恢复/排队机制 |
 | [[multi-level-vad-product-experience]] | 【AI汽车-PRD】多级VAD产品体验.md | 三级VAD（Soft/Hard/Semantic）及预执行、语义完整性判断 |
@@ -105,8 +113,10 @@ status: active
 | [[meeting-0710-sls-signal-context-trigger-review]] | 7月10日sls端状态接入context,接入触发器需求评审.md | 7.10 SLS端状态接入+触发器评审：信号中枢三表统一、触发事件/条件拆分、事件日志新链路、端侧触发器定位争议、730三需求、信号协议改动 |
 | [[chat-0818-trigger-edge-trigger-discussion]] | chat-0818-trigger-repeat-trigger-discussion.md | 8.18 群聊：条件任务重复触发 badcase，定论改为边沿触发（one-shot）——阈值穿越瞬间 push 一次，CD 只降频不去重 |
 
+
 ## 综合分析 (synthesis/)
 
 | 页面 | 摘要 |
 |------|------|
 | [[driver-agent-eval-query-set]] | 舱驾融合司机Agent评测Query集：101条case，覆盖条件任务/目的地任务/异常边界三大类 |
+

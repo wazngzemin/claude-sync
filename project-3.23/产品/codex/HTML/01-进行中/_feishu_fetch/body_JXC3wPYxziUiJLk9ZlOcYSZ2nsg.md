@@ -1,0 +1,599 @@
+
+<lark-table rows="4" cols="4" column-widths="100,465,100,100">
+
+  <lark-tr>
+    <lark-td>
+      版本
+    </lark-td>
+    <lark-td>
+      说明
+    </lark-td>
+    <lark-td>
+      修订人
+    </lark-td>
+    <lark-td>
+      时间
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td rowspan="2">
+      V0.1
+    </lark-td>
+    <lark-td>
+      根据左晨、嘉锋公版的梳理及赛力斯需求，创建文档
+    </lark-td>
+    <lark-td>
+      徐洋
+    </lark-td>
+    <lark-td>
+      20260630
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      根据正式评审及内部讨论修改，修改项标<text color="orange">**橙色**</text>
+      1. 新增本地流式拒识模型，alwayson态做提前音频上云判断
+			1. 音频已上云（激活态或流式判断上云），则不采纳本地拒识模型的reject，等待云端拒识结果
+    </lark-td>
+    <lark-td>
+      徐洋
+    </lark-td>
+    <lark-td>
+      20260713
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      V0.2
+    </lark-td>
+    <lark-td>
+      修改本地llm命中策略，修改项<text color="purple">标紫色</text>
+    </lark-td>
+    <lark-td>
+      徐洋
+    </lark-td>
+    <lark-td>
+      20260930
+    </lark-td>
+  </lark-tr>
+</lark-table>
+
+# 产品目标
+
+- 本地链路目标：轻量决策层，核心目标是“重准轻召、快速执行、有效分流”。
+	1. 对简单控制指令做functioncall，缩短响应时延，并提升离线场景可用性。
+	2. 对明确不响应的 query 输出 `reject`，为 Always on 提供前置流量过滤，减少无效上云。
+	3. 对本地支持范围外或低置信的需求输出“不支持”标签，云端拒识及planner 继续决策。
+	4. 通过干预缓存模块承接快速配置正则，支持将特定 query 本地直出
+- 本文范围
+	- 定义本地LLM模型的核心能力（指令理解、拒识、继承、打断）
+	- 定义本地链路的模块职责、端云链路流转及协同的关键机制
+
+# 整体链路
+
+<callout emoji="tooth" background-color="light-orange" border-color="light-orange">
+
+**设计思想**
+
+1. **本地重准轻召，云端负责开放能力**：本地只承接确定性强的拒识和简单控制指令；凡是语义开放、依赖实时信息、依赖复杂 planner、依赖第三方内容或低置信的需求，都不在本地硬召回。
+1. <text color="purple">**本地语义采纳规则：缓存规则抢跑云端，本地LLM只用于弱网，**</text>
+	1. <text color="purple">命中白名单正则的 query，优先按配置输出，优先于云端planner作抢跑</text>
+	1. <text color="purple">未命中干预时，再请求本地 LLM。</text>
+	1. 本地LLM结果是否被采纳取决于网络状态及云端结果返回
+1. **全时态前置分流**：Always on 全时态下，用户并未显式唤醒助手，端侧必须靠<text color="yellow">**流式拒识模型**</text>先判断是否需要唤醒/响应，避免所有音频直接上云造成流量浪费和误唤醒。
+1. **激活态端云双跑**：激活状态下，用户有较强交互意图。为降低响应时延，本地链路与云端链路并行启动：本地能确定执行的先执行，不能确定的等待云端。
+
+</callout>
+
+<whiteboard token="RuK1wvTyXhWBUibOOBscpgyTngf" align="left"/>
+
+【特殊说明】
+
+1. 全时态：
+	1. <text color="orange">本地</text><text color="orange">**流式拒识**</text><text color="orange">模型判断attend，则提前音频上云</text>
+		- 为提升唤醒首句响应速度，采用本地流式asr请求本地流式拒识模型，
+			- 判断attend则提前将音频流式上云，开启云端ASR识别及拒识模块请求
+			- 未判断attend则等待完整query最终请求进行判定
+		- 提前上云的query不采信本地拒识结果，需等待云端拒识决定reject或recall；~~若本地输出functioncall可以直接采纳（~~<text color="purple">0930修改后，不直接采纳本地模型fucntioncall）</text>
+	1. <text color="orange">完整query识别完后，根据本地llm的对话结果做判断</text>
+		1. ~~若输出functioncall则直接采纳，如果已提前上云，则中止云端请求~~
+		1. 若输出reject，
+			- 音频已提前上云，则等待云端拒识结果作为最终标准
+			- 音频未提前上云，则直接丢弃不唤醒不上云
+		1. 若输出<text color="purple">funcioncall或不支持</text>则将完整音频上云，请求云端ASR、拒识及planner结果
+1. 激活态：
+	1. 流式打断：在TTS播报中，用户继续说话，采用partialasr流式请求本地模型，做tts打断判断，打断后则等vadend进入主对话链路判断
+	1. 端云双跑：vad结束后，同时走端云两条链路
+		- 本地请求ASR和对话结果
+		- 音频流式上云请求云端asr及链路
+	1. 本地采纳标准
+	- ~~若本地对话输出functioncall，则直接采纳，中断云端请求；~~
+	- 若本地对话输出reject，<text color="orange">则不采信，等待云端拒识结果</text>
+	- 若本地对话返回functioncall或不支持，则等待云端结果，继续后续判断
+  <callout emoji="tooth" background-color="light-orange" border-color="light-orange">
+  **总结**
+  - 音频上云场景：
+		1. alwayson：需流式拒识判断有效
+		1. 对话处于激活态
+	- 特殊端云分工：
+		- ~~本地的functioncall可以直接采纳 ~~<text color="purple">本地模型出的functioncall仅断网和超时采纳</text>
+		- 如果音频已经上云了，那就牺牲耗时等待云端的拒识结果，不采信本地的reject
+		- 本地输出不支持则采信云端链路（拒识、planner）
+  </callout>
+
+# 详细设计
+
+## ASR
+
+1. 本地新接入豆包输入法，端云ASR整体策略：
+	1. 全时聆听态：
+		1. 上云：先用本地asr，且采用本地流式模型做判断是否有效（attend），有效则上云开启在线asr
+		1. 唤醒上屏：全时态ASR不流式上屏，最终recall后上屏fianl_asr
+	1. 激活态：
+		1. 直接双跑，同时跑端云asr，
+		1. 流式上屏：用户说话流式上屏，final_asr根据端云采纳结果做最终刷新
+1. final_asr根据端云采纳结果做判断，
+	- 采纳本地functioncall结果，则使用local_asr
+	- 采纳云端planner结果，则使用cloud_asr
+- <text color="orange">**关于流式上屏评审补充**</text>，产品只定义体验需求，不限制先用本地asr流式上屏（可能云端asr更快）
+	1. 体验快：字随嘴动，打字机效果
+	1. 保持一致：不会多个结果来回切换
+	1. 可解释性：最终刷新nlu对应的文字
+  
+## 上下文
+
+1. 支持范围：
+	- 本地上下文是公共context模块的子集，遵循现有context生成、摘要、清空、滚动策略，仅作内容筛选，保留支撑简单理解、拒识判断和本地继承所需的轻量信息。
+1. 规则过滤：
+	- 暂不支持筛选器做语义检索，仅靠类型规则做过滤
+1. 上下文窗口：
+	- 本地上下文窗口限制为 30分钟内最多10轮对话。
+	- <text color="orange">超出窗口后，本地只保留对话摘要</text>
+		- <text color="orange">对话摘要来源：支持端侧获取云端已生成的对话摘要内容</text>
+		- <text color="orange">拓展摘要生产范围：同时覆盖端和云的对话问答</text>
+
+1. 上下文同步
+	1. （930前置分流逻辑）对话流程结束后，无论本地输出 `reject`、`functioncall`、`unsupported/cloud`，都需要同步进入端云context。
+    后续修改：<text color="blue">对话流程结束后，根据端云融合的结果，将本地被采纳的结果同步给云端</text>
+  1. 若当前轮被本地拒识/不唤醒，也需要同步对话结果
+		- 本地进入context，用于拒识结果判定
+		- 云端进入情景上下文，不进DT上下文
+	1. 同步字段需包含`request_id/session_id/sound_zone/local_asr_text/cloud_asr_text/final_result_type`
+
+`function_name/function_arguments`/nlg/`timestamp`
+
+## 干预缓存
+
+1. 概述：本地链路的前置规则层，支持跳过本地LLM推理，直接采用配置的functioncall结果~~或强制上云~~，完成快速灵活的bugfix
+1. 触发顺序
+	1. 用户 query 经过离线 ASR 后，先进入干预模块。
+	1. 命中干预规则后，直接输出配置结果，不再请求本地 LLM。
+	1. 未命中干预规则时，进入本地 LLM。
+1. 干预类型
+	- 白名单：本地直接支持的query正则及对应functioncall
+	- ~~黑名单：特定query不走本地LLM，强制上云（~~<text color="purple">仲裁策略改了，干预不需要黑名单了）</text>
+
+  <lark-table rows="3" cols="4" column-widths="168,134,175,191">
+
+    <lark-tr>
+      <lark-td>
+        query
+      </lark-td>
+      <lark-td>
+        输出类型
+      </lark-td>
+      <lark-td>
+        functioncall结果
+      </lark-td>
+      <lark-td>
+        说明
+      </lark-td>
+    </lark-tr>
+    <lark-tr>
+      <lark-td>
+        ~~我的心很冷~~
+      </lark-td>
+      <lark-td>
+        ~~unsupport_cloud~~
+      </lark-td>
+      <lark-td>
+        ~~/ ~~
+      </lark-td>
+      <lark-td>
+        ~~干预上云~~
+      </lark-td>
+    </lark-tr>
+    <lark-tr>
+      <lark-td>
+        (打开|开启)车窗
+      </lark-td>
+      <lark-td>
+        local
+      </lark-td>
+      <lark-td>
+        windows_open
+      </lark-td>
+      <lark-td>
+        干预functioncall结果
+      </lark-td>
+    </lark-tr>
+  </lark-table>
+
+## 本地LLM 
+
+- 定义：
+	- <text color="purple">未命中缓存则请求本地LLM，最终是否采纳取决于端云仲裁结果</text>
+	- 本地 LLM 负责轻量语义判断，不负责开放式推理和复杂任务规划
+  <grid cols="2">
+    <column width="50">
+      能支持
+      - TTS播报中的流式打断
+			- 拒识判断
+			- 简单功能functioncall、不支持功能输出标签
+			- 少量上下文继承能力
+    </column>
+    <column width="50">
+      不支持
+      - 开放问答、联网搜索、内容生成。
+			- 复杂导航规划、地点推荐、出行推荐。
+			- 多步工具编排、长任务
+			- 依赖大量端状态、事件、长期记忆的判断。
+    </column>
+  </grid>
+
+### 流式打断及<text color="orange">上云</text>
+
+1. **需求描述**：
+	- 解决豆包 TTS 播报期间，用户继续输入导致的交互混乱、说话打不断问题。
+	- <text color="orange">alwayson下作出提前音频上云的判断</text>
+1. **变更项：**把云端实现的流式拒识能力下沉到端侧，
+	1. 用于提高打断速度，打断需求层保持一致
+	- 请求：使用partialASR流式请求流式拒识模型
+	- 响应：
+		- 流式拒识预测结果为**barge_in，**立即打断当前 TTS 播报，继续收音直到vadend，~~后续不做tts恢复~~<text color="orange">，按照对话节奏需求做恢复</text>
+		- 流式拒识预测结果为**reject****，**静默等待，等新的asr进入继续请求
+	1. <text color="orange">用于在alwayson开关开启，且对话未激活时，用户开始输入时做的提前召回判断</text>
+	- <text color="orange">整体算法效果待评估</text>
+
+### 拒识及指令理解
+
+1. 语义支持范围，详见<mention-doc token="QZgOsQquIh1M25teGcRcQ9V7nMd" type="sheet">【AI汽车】离线指令FC协议</mention-doc>
+- 一期为现有能力，二期补充智驾新功能
+
+<lark-table rows="21" cols="3" column-widths="115,154,346">
+
+  <lark-tr>
+    <lark-td>
+      领域
+    </lark-td>
+    <lark-td>
+      一级功能
+    </lark-td>
+    <lark-td>
+      二级功能
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td rowspan="8">
+      车辆控制类
+    </lark-td>
+    <lark-td>
+      空调
+    </lark-td>
+    <lark-td>
+      空调开关
+      空调温度调节
+      空调风量调节
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      座椅
+    </lark-td>
+    <lark-td>
+      座椅按摩/通风/加热开关
+      座椅按摩/通风/加热档位调节
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      灯光
+    </lark-td>
+    <lark-td>
+      阅读灯/氛围灯开关
+      氛围灯颜色调节（基础颜色）
+      危险警报灯开关
+      远近光灯开关
+      雾灯开关
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      车窗控制
+    </lark-td>
+    <lark-td>
+      车窗开关
+      后备箱开关
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      雨刮
+    </lark-td>
+    <lark-td>
+      雨刮开关
+      雨刮档位调节
+      玻璃清洗
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      方向盘
+    </lark-td>
+    <lark-td>
+      方向盘加热开关
+      方向盘加热档位调节
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      驾驶模式
+    </lark-td>
+    <lark-td>
+      驾驶模式设置
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      倒车影像
+    </lark-td>
+    <lark-td>
+      倒车影像开关
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td rowspan="2">
+      系统控制类
+    </lark-td>
+    <lark-td>
+      声音调节
+    </lark-td>
+    <lark-td>
+      音量大小调节（媒体/导航/语音/电话）
+      低速行人提示音开关
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      屏幕亮度调节
+    </lark-td>
+    <lark-td>
+      屏幕亮度调节
+      屏幕显示模式调节（白天/黑夜）
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td rowspan="5">
+      导航类
+    </lark-td>
+    <lark-td>
+      目的地设置
+    </lark-td>
+    <lark-td>
+      导航去具体地点
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      路线规划
+    </lark-td>
+    <lark-td>
+      选择第几条路线
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      途经点添加
+    </lark-td>
+    <lark-td>
+      添加具体地点为途经点
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      地图控制
+    </lark-td>
+    <lark-td>
+      放大/缩小地图
+      开始/结束导航
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      导航设置
+    </lark-td>
+    <lark-td>
+      播报模式设置
+      路线偏好设置
+      路况开关
+      限行开关
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td rowspan="2">
+      娱乐类
+    </lark-td>
+    <lark-td>
+      本地音乐播放
+    </lark-td>
+    <lark-td>
+      播放U盘/蓝牙音乐
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      媒体源切换
+    </lark-td>
+    <lark-td>
+      暂停/播放/上一首/下一首
+      播放模式设置
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td rowspan="2">
+      通讯录
+    </lark-td>
+    <lark-td>
+      本地通讯录拨号
+    </lark-td>
+    <lark-td>
+      拨打具体联系人的电话
+      拨打具体号码的电话
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      紧急电话播放
+    </lark-td>
+    <lark-td>
+      拨打道路救援电话
+      拨打紧急救援电话
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      应用控制
+    </lark-td>
+    <lark-td>
+      应用开关
+    </lark-td>
+    <lark-td>
+      打开/关闭应用（如：打开百度地图）
+    </lark-td>
+  </lark-tr>
+</lark-table>
+
+1. 拒识能力
+
+<whiteboard token="MzEgwW13th9SaWbZLencLINXnyb" width="820" height="324" align="left"/>
+
+- 高准低召：仅拒识明确query，模糊语义的case都上云二次仲裁
+	- 语义不通：为咖啡机
+	- 不含上下文的短句应答：是的、可以
+	- 明确具有呼唤对象，不是对助手发起的请求：老张你
+- 结合上下文能力、车内人数信息、视线信息，多模态作出拒识判断
+	- 目标是降低误拒，增强召回判断
+		- 看屏幕意味着更强的召回倾向，不看屏幕不代表要拒识
+		- 单人意味着更强的召回倾向，多人不意味着要拒识
+
+### 上下文继承
+
+针对车控的简单继承，要支持同音区或跨音区的简单继承
+
+1. 继承类型
+
+<lark-table rows="4" cols="2" column-widths="100,260">
+
+  <lark-tr>
+    <lark-td>
+    </lark-td>
+    <lark-td>
+      示例
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      音区继承
+    </lark-td>
+    <lark-td>
+      主驾驶：打开座椅按摩
+      副驾：我也要
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      设备继承
+    </lark-td>
+    <lark-td>
+      user：氛围灯调成红色
+      user：还是绿色吧
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      功能继承
+    </lark-td>
+    <lark-td>
+      user：空调风量调大
+      user：这什么玩意啊-reject
+      user：再大一点
+    </lark-td>
+  </lark-tr>
+</lark-table>
+
+1. 继承规则
+	- 只有在本地上下文窗口内存在明确可继承对象时，才继承。
+	- 若继承 query 夹杂新的有效指令，优先上云判断继承对象，避免本地错误合并。
+	- 支持跨拒识 query 的继承：若中间夹杂被拒识的背景语音，不清空上一轮有效上下文
+  
+## ~~后处理~~
+
+- ~~概述：在本地LLM返回结果后，允许进行函数级白名单定义，~~~~决定是否直接采纳本地functioncall结果~~~~，~~<text color="orange">~~或仅作为兜底~~</text>
+- 示例：navigation_search_poi 是否采纳=否
+
+<text color="purple">0930更新：</text>
+
+- <text color="purple">本地LLM从分流变成兜底后，不需要再定义函数后处理，不发生作用，后续看是否作为弱网/无网可采纳的标准</text>
+
+## 端云仲裁
+
+1. 本地和云端的仲裁逻辑如下
+	- （原需求为本地llm分流）本地缓存>本地白名单funcitoncall>云端planner>本地非白名单funcioncall（仅断网或超时兜底）
+	- <text color="purple">（930变更为本地llm兜底）在线时本地缓存可抢跑，无网或超时才兜底采纳本地llm</text>
+		- <text color="purple">本地正则缓存>云端planner>本地llm（仅断网或超时兜底）</text>
+		- 断网或超时：走本地模型functioncall
+1. 断网状态
+	1. 若本地输出 `functioncall` / `reject`则直接采纳，无需在白名单后处理范围内
+	1. 若本地输出 `unsupported_cloud`，但当前无网络，则播报异常话术：
+		- NLG：网络异常，请稍后再试。
+		- 频次控制：单次唤醒周期内同类网络异常 NLG 只播报一次，避免重复打扰。
+1. 超时状态
+	1. 云端请求超过 3 秒未返回，视为云端超时
+	1. 若本地已有可执行 `functioncallfunctioncall` / `reject`则采纳，无需在白名单后处理范围内
+	1. 若本地输出 `unsupported_cloud`，则播报异常话术：
+		- NLG：网络异常，请稍后再试
+		- 超时后云端结果若晚到，不再触发执行
+
+## 离线TTS
+
+- 本地具备TTS播报能力，采用思必驰三方能力输出
+- 支持特定TTS音频本地缓存
+	- 固定文本提前放置，如唤醒应答语和高频NLG播报
+	- 动态存 1000 条本地TTS的合成音频循环滚动
+
+# 埋点需求
+
+1. 事件名：`local_cloud_fusion_result`
+1. 触发时机：当前轮完成仲裁，并确定最终是否响应/执行后。
+
+<sheet token="EkD7smIJhhV1BWtf5UtciYqmn0d_19CLoe"/>
+
+1. <text color="purple">1010新增本地模型埋点 </text><text color="purple"><mention-user id="ou_797822455dda5827adab7f92fb627639"/></text><text color="purple"><mention-user id="ou_0da8910efd10d935b620d63c52c63d0d"/></text>
+	1. 当前离线模型输出的字段
+		1. classify 状态 REJECT ，WAIT，ATTEND .....
+		1. Function Call 
+		1. replyTts 衔接话术（未上线）
+	1. 几个工程状态
+		1. 开启在线 ASR
+		1. 停止在线 ASR
+		1. 请求模型的是流式结果 还是最终结果
+		1. 发起请求的 asr
+
+# 指标验收（最终验收）
+
+- ~~本地指令端到端耗时<300ms~~
+- ~~意图准确率~~
+	- ~~本地意图理解精确率>98%，高频指令召回率>70%~~
+	- ~~拒识精确率>98%，高频指令召回率>70%~~
+	- ~~打断准确率>80%~~
+  

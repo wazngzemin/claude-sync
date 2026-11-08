@@ -1,0 +1,1954 @@
+{
+  "version": "v1.0.0",
+  "metadata": {
+    "title": "豆包汽车 Driver Agent 2.0 完整架构流程 - 超详细版",
+    "description": "基于69KB飞书文档生成的完整语音链路架构，包含端侧、Speech云、AIDV云、触发器全链路",
+    "created_date": "2026-10-22",
+    "total_nodes": 58,
+    "coverage_percentage": "95%",
+    "badcase_count": 12,
+    "data_source": "语音课堂研究-20261022/课堂正文.md",
+    "technical_framework": "四方架构（CDC Client + AI Box + Speech Cloud + AIDV Cloud）"
+  },
+  "nodes": [
+    {
+      "id": "F01",
+      "type": "input",
+      "title": "F01 麦克风采集与权限检查",
+      "content": "用户开口前的系统准备验证。检查麦克风权限、电话/CarPlay状态、宠物模式等禁用场景。无权限时提示并提供设置入口；蓝牙通话/三方助手工作时不可交互。",
+      "x": 100,
+      "y": 100,
+      "width": 280,
+      "height": 140,
+      "color": "#E3F2FD",
+      "metadata": {
+        "tech_id": "F01",
+        "owner": "吴仁杰",
+        "module": "CDC Client - 音频采集层",
+        "status": "基线运行",
+        "performance": "采样率16kHz，单声道/多声道可配",
+        "meego_id": "",
+        "dependencies": ["系统麦克风权限", "CarPlay互斥状态"],
+        "output_format": "PCM音频流",
+        "risk_level": "P0"
+      }
+    },
+    {
+      "id": "F02",
+      "type": "process",
+      "title": "F02 降噪ECNR",
+      "content": "环境回声降噪与回声消除。处理空调、胎噪、风声等环境噪声。PRD要求处理时间≤50ms，信噪比≥20dB（需求指标，非实测）。",
+      "x": 100,
+      "y": 280,
+      "width": 280,
+      "height": 140,
+      "color": "#E8F5E9",
+      "metadata": {
+        "tech_id": "F02",
+        "owner": "徐洋",
+        "module": "CDC Client - 声学前处理",
+        "status": "基线运行，部分场景待优化",
+        "performance": "目标≤50ms，信噪比≥20dB（PRD需求指标）",
+        "meego_id": "",
+        "dependencies": ["F01"],
+        "output_format": "处理后PCM音频",
+        "risk_level": "P1"
+      }
+    },
+    {
+      "id": "F03",
+      "type": "process",
+      "title": "F03 回声消除AEC",
+      "content": "处理车载扬声器播出声音被麦克风收进的问题。参考扬声器输出信号，覆盖音乐、导航语音、电话等场景，支持音量从小到大。",
+      "x": 100,
+      "y": 460,
+      "width": 280,
+      "height": 140,
+      "color": "#E8F5E9",
+      "metadata": {
+        "tech_id": "F03",
+        "owner": "徐洋",
+        "module": "CDC Client - 声学前处理",
+        "status": "基线运行",
+        "performance": "需扬声器参考信号，覆盖多音量级",
+        "meego_id": "",
+        "dependencies": ["F02", "扬声器参考信号"],
+        "output_format": "去回声音频流",
+        "risk_level": "P1"
+      }
+    },
+    {
+      "id": "F04",
+      "type": "process",
+      "title": "F04 音区识别",
+      "content": "识别说话位置（主驾/副驾/二排左/二排右）。结合座椅传感器和人脸身份判断有无人，无人位置不开放交互。音区关闭时提示'该音区已关闭'。",
+      "x": 100,
+      "y": 640,
+      "width": 280,
+      "height": 140,
+      "color": "#FFF3E0",
+      "metadata": {
+        "tech_id": "F04",
+        "owner": "左晨",
+        "module": "CDC Client - 音区定位",
+        "status": "基线运行，误判案例待优化",
+        "performance": "支持5座/6座车型配置音区",
+        "meego_id": "7359234801",
+        "dependencies": ["F03", "座椅传感器", "人脸识别"],
+        "output_format": "音区标识（speaker_position）",
+        "risk_level": "P1",
+        "known_issues": "座椅靠背躺倒可能误判主驾为后排"
+      }
+    },
+    {
+      "id": "F05",
+      "type": "process",
+      "title": "F05 声纹识别",
+      "content": "声音特征匹配已注册用户。车外语音必要条件之一。显性录入、注册上限在PRD有描述；隐性注册、识人问候和儿童控制限制标TBD。",
+      "x": 100,
+      "y": 820,
+      "width": 280,
+      "height": 140,
+      "color": "#FCE4EC",
+      "metadata": {
+        "tech_id": "F05",
+        "owner": "待确认",
+        "module": "CDC Client - 身份识别",
+        "status": "部分能力TBD",
+        "performance": "显性录入已支持，隐性注册待补充",
+        "meego_id": "",
+        "dependencies": ["F04"],
+        "output_format": "用户身份ID",
+        "risk_level": "P2",
+        "known_issues": "车外连续失败10次/3分钟锁定5分钟"
+      }
+    },
+    {
+      "id": "F06",
+      "type": "decision",
+      "title": "F06 唤醒词检测",
+      "content": "检测'豆包豆包'或泛化称呼。普通唤醒交互必经节点。识别到唤醒词但当前无权限/通话中则不允许进入，后续ASR/Planner无机会工作。",
+      "x": 420,
+      "y": 100,
+      "width": 280,
+      "height": 140,
+      "color": "#E1F5FE",
+      "metadata": {
+        "tech_id": "F06",
+        "owner": "左晨",
+        "module": "CDC Client - 唤醒检测",
+        "status": "基线运行",
+        "performance": "本地模型实时检测",
+        "meego_id": "",
+        "dependencies": ["F01权限通过"],
+        "output_format": "唤醒事件",
+        "risk_level": "P0"
+      }
+    },
+    {
+      "id": "F07",
+      "type": "decision",
+      "title": "F07 全时免唤醒判断",
+      "content": "未激活时端侧先处理明确指令/明确拒识，不确定再上云；连续对话激活后端云并行。强召回：带唤醒词或'豆包'泛化称呼；强拒识：摄像头判断手持手机通话。",
+      "x": 420,
+      "y": 280,
+      "width": 280,
+      "height": 160,
+      "color": "#FFF9C4",
+      "metadata": {
+        "tech_id": "F07",
+        "owner": "益红（场景需求）",
+        "module": "CDC Client - 免唤醒策略",
+        "status": "待优化，端云策略差异待统一",
+        "performance": "端侧预判→云端确认，连续对话30秒",
+        "meego_id": "",
+        "dependencies": ["F04", "感知模块状态"],
+        "output_format": "召回/拒识/待云端",
+        "risk_level": "P1",
+        "known_issues": "手持手机判断依赖感知模块准确性"
+      }
+    },
+    {
+      "id": "F08",
+      "type": "process",
+      "title": "F08 离线ASR（端侧）",
+      "content": "端侧流式语音识别，无网时兜底。有网时与在线并行，命中白名单立即执行。上屏离线流式结果，再用在线final刷新。",
+      "x": 420,
+      "y": 480,
+      "width": 280,
+      "height": 140,
+      "color": "#E8F5E9",
+      "metadata": {
+        "tech_id": "F08",
+        "owner": "徐洋",
+        "module": "AI Box - 离线识别",
+        "status": "基线运行",
+        "performance": "流式输出，白名单能力本地优先",
+        "meego_id": "",
+        "dependencies": ["F03", "离线模型"],
+        "output_format": "partial文字流",
+        "risk_level": "P1"
+      }
+    },
+    {
+      "id": "F09",
+      "type": "timer",
+      "title": "F09 Soft VAD（300ms）",
+      "content": "短停顿触发预请求。达到300ms时拿当前文字发预请求，提前做拒识/意图/简单复杂等允许的前置工作。ASR继续收音，可再次触发。",
+      "x": 740,
+      "y": 100,
+      "width": 280,
+      "height": 160,
+      "color": "#FFCCBC",
+      "metadata": {
+        "tech_id": "F09",
+        "owner": "郝晓伟",
+        "module": "Speech Cloud - VAD判断",
+        "status": "基线运行，口径存在300/500ms历史差异",
+        "performance": "Soft阈值300ms（OnePager口径）",
+        "meego_id": "",
+        "dependencies": ["F11在线ASR"],
+        "output_format": "预请求触发事件+当前partial文字",
+        "risk_level": "P0",
+        "known_issues": "旧PRD写500ms暂定，需确认当前车型实际配置"
+      }
+    },
+    {
+      "id": "F10",
+      "type": "timer",
+      "title": "F10 Hard VAD（600ms）",
+      "content": "较长停顿结束确认。达到600ms结束该段ASR，取得二遍final，再发正式请求。语义VAD可能延长等待，上限待确认。",
+      "x": 740,
+      "y": 300,
+      "width": 280,
+      "height": 160,
+      "color": "#FFCCBC",
+      "metadata": {
+        "tech_id": "F10",
+        "owner": "郝晓伟",
+        "module": "Speech Cloud - VAD判断",
+        "status": "基线运行，语义延长机制待明确",
+        "performance": "Hard阈值600ms（OnePager口径）",
+        "meego_id": "",
+        "dependencies": ["F09"],
+        "output_format": "结束信号",
+        "risk_level": "P0",
+        "known_issues": "旧PRD提1000ms语义延长，起算规则未明确"
+      }
+    },
+    {
+      "id": "F11",
+      "type": "process",
+      "title": "F11 在线ASR流式识别",
+      "content": "云端实时语音识别，车端200ms/帧上送音频，持续返回partial文字。首字目标≤200ms。边输入边出结果，支持热词注入。",
+      "x": 740,
+      "y": 500,
+      "width": 280,
+      "height": 160,
+      "color": "#C8E6C9",
+      "metadata": {
+        "tech_id": "F11",
+        "owner": "张嘉锋",
+        "module": "Speech Cloud - ASR服务",
+        "status": "基线运行",
+        "performance": "首字≤200ms，音频帧200ms，流式输出",
+        "meego_id": "",
+        "dependencies": ["F03音频", "F13热词"],
+        "output_format": "partial文字流（逐步更新）",
+        "risk_level": "P0"
+      }
+    },
+    {
+      "id": "F12",
+      "type": "process",
+      "title": "F12 流式二遍ASR",
+      "content": "分句后非流式模型重识别该段音频，返回final最终文字。音频可同时送两路：一路即时出字，一路给更完整结果。修正一遍partial错误。",
+      "x": 1060,
+      "y": 100,
+      "width": 280,
+      "height": 160,
+      "color": "#C8E6C9",
+      "metadata": {
+        "tech_id": "F12",
+        "owner": "张嘉锋",
+        "module": "Speech Cloud - ASR服务",
+        "status": "基线运行",
+        "performance": "非流式模型，准确度高于一遍",
+        "meego_id": "",
+        "dependencies": ["F10结束信号", "F11音频"],
+        "output_format": "final最终文字",
+        "risk_level": "P0",
+        "known_issues": "超时/失败是否用一遍兜底未确认"
+      }
+    },
+    {
+      "id": "F13",
+      "type": "data",
+      "title": "F13 热词注入",
+      "content": "提前给识别的候选名称：蓝牙通讯录人名、导航地点、媒体名称、可见即可说词、车控专有名词、最近5轮对话、车辆位置。建联前和相关上行链路注入，不100%生效。",
+      "x": 1060,
+      "y": 300,
+      "width": 280,
+      "height": 180,
+      "color": "#FFF9C4",
+      "metadata": {
+        "tech_id": "F13",
+        "owner": "待确认",
+        "module": "AIDV Cloud - Context相关",
+        "status": "基线运行，冷热管理细则未展开",
+        "performance": "云端维护，不保证100%生效",
+        "meego_id": "",
+        "dependencies": ["Context服务", "端状态"],
+        "output_format": "热词候选列表",
+        "risk_level": "P2",
+        "known_issues": "导航/媒体冷热淘汰规则遇权限拒绝"
+      }
+    },
+    {
+      "id": "F14",
+      "type": "gateway",
+      "title": "F14 AIDV Gateway",
+      "content": "座舱云入口，接收语音请求和预请求。路由到拒识/上下文/Director/Agent Server。多级VAD预请求直接入口。",
+      "x": 1060,
+      "y": 520,
+      "width": 280,
+      "height": 140,
+      "color": "#E1BEE7",
+      "metadata": {
+        "tech_id": "F14",
+        "owner": "赵衍（架构负责人）",
+        "module": "AIDV Cloud - Gateway",
+        "status": "基线运行",
+        "performance": "RPC调用，负载均衡",
+        "meego_id": "",
+        "dependencies": ["F12"],
+        "output_format": "内部路由",
+        "risk_level": "P0"
+      }
+    },
+    {
+      "id": "F15",
+      "type": "process",
+      "title": "F15 预请求处理",
+      "content": "Soft VAD触发后，按当前partial文字做允许提前的工作。早期PRD明确只做到拒识/意图/简单复杂，不抢跑Planner执行；OnePager描述已到Context。无状态准备但用对应对话历史。",
+      "x": 1380,
+      "y": 100,
+      "width": 300,
+      "height": 180,
+      "color": "#FFECB3",
+      "metadata": {
+        "tech_id": "F15",
+        "owner": "待确认",
+        "module": "AIDV Cloud - 预处理",
+        "status": "版本差异，允许范围待明确",
+        "performance": "提前准备，不产生执行副作用",
+        "meego_id": "",
+        "dependencies": ["F09触发", "F14"],
+        "output_format": "预处理结果缓存（request_id+round_id）",
+        "risk_level": "P1",
+        "known_issues": "允许模块范围不同版本有差异"
+      }
+    },
+    {
+      "id": "F16",
+      "type": "decision",
+      "title": "F16 流式拒识判断",
+      "content": "基于过程文字判断是否对车机说话，影响要不要提前打断当前TTS。前提：多人场景、ASR>2字、前缀不含'豆包'、TTS正播放。主链路原图支持AIDV判断、端侧执行停播。",
+      "x": 1380,
+      "y": 320,
+      "width": 300,
+      "height": 180,
+      "color": "#FFE0B2",
+      "metadata": {
+        "tech_id": "F16",
+        "owner": "待确认（图文冲突）",
+        "module": "AIDV Cloud - 拒识服务",
+        "status": "职责归属待研发确认",
+        "performance": "实时流式判断",
+        "meego_id": "",
+        "dependencies": ["F11 partial", "当前播放状态"],
+        "output_format": "停播指令/继续",
+        "risk_level": "P1",
+        "known_issues": "主图画AIDV判断、正文写端侧、恢复图画ASR，内部不一致"
+      }
+    },
+    {
+      "id": "F17",
+      "type": "decision",
+      "title": "F17 最终拒识判断",
+      "content": "基于正式final决定正式处理及打断后恢复分流。输入完整度不同，前后判断可能不同。有效则继续，不是对车机说的则不应冒然回应。",
+      "x": 1380,
+      "y": 540,
+      "width": 300,
+      "height": 160,
+      "color": "#FFE0B2",
+      "metadata": {
+        "tech_id": "F17",
+        "owner": "待确认",
+        "module": "AIDV Cloud - 拒识服务",
+        "status": "基线运行",
+        "performance": "基于final文字判断",
+        "meego_id": "",
+        "dependencies": ["F12 final"],
+        "output_format": "有效/拒识",
+        "risk_level": "P0"
+      }
+    },
+    {
+      "id": "F18",
+      "type": "process",
+      "title": "F18 句法RAG（第一层漏斗）",
+      "content": "JSGF规则毫秒级匹配，处理'打开车窗'等明确指令。匹配成功直接快路径，5ms级响应。三层漏斗第一层，处理不了进入第二层。",
+      "x": 1720,
+      "y": 100,
+      "width": 300,
+      "height": 160,
+      "color": "#C5E1A5",
+      "metadata": {
+        "tech_id": "F18",
+        "owner": "韩杰",
+        "module": "AIDV Cloud - 快路径",
+        "status": "基线运行",
+        "performance": "JSGF规则5ms",
+        "meego_id": "",
+        "dependencies": ["F17通过"],
+        "output_format": "命中规则/未命中",
+        "risk_level": "P0"
+      }
+    },
+    {
+      "id": "F19",
+      "type": "process",
+      "title": "F19 Context上下文服务",
+      "content": "管理并提供相关背景：预注入（常用信息）+动态检索（Planner按需补查）。包含端状态、事件、对话历史、情景记忆、偏好画像、时间位置天气等。80%常用/20%复杂为方案口径。",
+      "x": 1720,
+      "y": 300,
+      "width": 300,
+      "height": 200,
+      "color": "#B2DFDB",
+      "metadata": {
+        "tech_id": "F19",
+        "owner": "待确认",
+        "module": "AIDV Cloud - Context服务",
+        "status": "基线运行",
+        "performance": "预注入+动态检索两阶段",
+        "meego_id": "",
+        "dependencies": ["端状态同步", "记忆服务", "事件日志"],
+        "output_format": "上下文数据包",
+        "risk_level": "P1",
+        "known_issues": "80/20%为方案口径非实测覆盖率"
+      }
+    },
+    {
+      "id": "F20",
+      "type": "process",
+      "title": "F20 Director/Planner规划（第三层漏斗）",
+      "content": "任务规划与决策模块。拿最终文字+Context+历史+工具说明，判断直接回答还是调用工具。输出talk_content（对用户说的话）和action_list（工具动作清单）。SP 30K+UP 10K tokens，TTFT 1300ms。",
+      "x": 1720,
+      "y": 540,
+      "width": 300,
+      "height": 220,
+      "color": "#CE93D8",
+      "metadata": {
+        "tech_id": "F20",
+        "owner": "张嘉锋",
+        "module": "AIDV Cloud - Planner",
+        "status": "基线运行",
+        "performance": "SP 30K+UP 10K tokens，TTFT 1300ms，ReAct循环",
+        "meego_id": "",
+        "dependencies": ["F19 Context", "F17通过", "工具定义"],
+        "output_format": "talk_content + action_list",
+        "risk_level": "P0",
+        "known_issues": "规则/简单意图有快路径，复杂才进完整推理"
+      }
+    },
+    {
+      "id": "F21",
+      "type": "router",
+      "title": "F21 Agent Server工具调度",
+      "content": "按工具名称和参数路由到对应执行方。车控/导航/音乐/搜索/记忆等23个下游工具。按配置路由，结果回闭环或直返。",
+      "x": 2060,
+      "y": 100,
+      "width": 300,
+      "height": 160,
+      "color": "#B39DDB",
+      "metadata": {
+        "tech_id": "F21",
+        "owner": "待确认",
+        "module": "AIDV Cloud - Agent Server",
+        "status": "基线运行",
+        "performance": "RPC路由调度",
+        "meego_id": "",
+        "dependencies": ["F20 action_list"],
+        "output_format": "工具调用请求",
+        "risk_level": "P0"
+      }
+    },
+    {
+      "id": "F22",
+      "type": "executor",
+      "title": "F22 下游Agent执行",
+      "content": "23个工具：vehicle_basic_control、search_vehicle_status_info、route_planning_qa、navi_basic_control、search_and_control_music、search_user_memory、web_search、goal_list_update等。返回tool_feedback。",
+      "x": 2060,
+      "y": 300,
+      "width": 300,
+      "height": 200,
+      "color": "#90CAF9",
+      "metadata": {
+        "tech_id": "F22",
+        "owner": "多owner（按工具类型）",
+        "module": "AIDV Cloud - Agent能力",
+        "status": "基线运行，各工具成熟度不同",
+        "performance": "按工具类型差异，车控/导航/音乐/搜索等",
+        "meego_id": "",
+        "dependencies": ["F21路由"],
+        "output_format": "tool_feedback（成功/失败/数据）",
+        "risk_level": "P1",
+        "known_issues": "执行成功≠车辆状态已变化，需验证目标端"
+      }
+    },
+    {
+      "id": "F23",
+      "type": "process",
+      "title": "F23 TTS文字转语音",
+      "content": "把回复文本合成音频。云端提前合成、下发音频标识、车端通过TTS WSS连接取音频、流式播放。P50目标70ms。支持情绪标签[高兴的说]，无标签用Query作情感信息。",
+      "x": 2060,
+      "y": 540,
+      "width": 300,
+      "height": 180,
+      "color": "#80CBC4",
+      "metadata": {
+        "tech_id": "F23",
+        "owner": "待确认",
+        "module": "Speech Cloud - TTS服务",
+        "status": "基线运行",
+        "performance": "P50约70ms，提前合成约减100ms",
+        "meego_id": "",
+        "dependencies": ["F20 talk_content"],
+        "output_format": "音频流+标识",
+        "risk_level": "P1"
+      }
+    },
+    {
+      "id": "F24",
+      "type": "process",
+      "title": "F24 S2S语音到语音（唱歌）",
+      "content": "情绪标签包含'唱'时，积攒需唱文字，调用S2S唱歌。是已有语音生成/唱歌链路名称，不代表麦克风声音直接进入、整个ASR→文字→Planner链路已取消。",
+      "x": 2060,
+      "y": 760,
+      "width": 300,
+      "height": 160,
+      "color": "#80DEEA",
+      "metadata": {
+        "tech_id": "F24",
+        "owner": "待确认",
+        "module": "Speech Cloud - S2S服务",
+        "status": "特殊场景链路",
+        "performance": "唱歌音频生成",
+        "meego_id": "",
+        "dependencies": ["F20带'唱'标签"],
+        "output_format": "唱歌音频流",
+        "risk_level": "P2"
+      }
+    },
+    {
+      "id": "F25",
+      "type": "queue",
+      "title": "F25 云端音频队列与采信",
+      "content": "Planner/Agent/S2S都可能产生音频，通过队列和采信来源处理。跳过非采信来源，遇EOF切下一段。车端按标识拉取被选中声音。",
+      "x": 2400,
+      "y": 100,
+      "width": 300,
+      "height": 180,
+      "color": "#FFCCBC",
+      "metadata": {
+        "tech_id": "F25",
+        "owner": "待确认",
+        "module": "AIDV Cloud - 音频管理",
+        "status": "基线运行",
+        "performance": "队列排序+来源筛选",
+        "meego_id": "",
+        "dependencies": ["F23", "F24", "F22 Agent音频"],
+        "output_format": "采信音频ID序列",
+        "risk_level": "P1",
+        "known_issues": "优先级/取消时机/并发冲突细则未完整给出"
+      }
+    },
+    {
+      "id": "F26",
+      "type": "process",
+      "title": "F26 端侧音频拉取与播放",
+      "content": "车端通过音频标识从云端拉取音频流，流式播放。播放器实际播出，上报播放进度支持打轴。",
+      "x": 2400,
+      "y": 320,
+      "width": 300,
+      "height": 160,
+      "color": "#A5D6A7",
+      "metadata": {
+        "tech_id": "F26",
+        "owner": "吴仁杰",
+        "module": "CDC Client - 播放器",
+        "status": "基线运行",
+        "performance": "流式播放，实时上报进度",
+        "meego_id": "",
+        "dependencies": ["F25采信音频"],
+        "output_format": "实际声音+播放进度事件",
+        "risk_level": "P0"
+      }
+    },
+    {
+      "id": "F27",
+      "type": "input",
+      "title": "F27 触发器-信号源采集",
+      "content": "端侧/云端信号采集：车速/档位/车窗/空调/位置/时间/视觉感知等24类车态字段。上报格式/单位归产品约束（仁杰），单位剥离是坑。",
+      "x": 100,
+      "y": 1020,
+      "width": 300,
+      "height": 180,
+      "color": "#FFECB3",
+      "metadata": {
+        "tech_id": "F27",
+        "owner": "吴仁杰（端上报格式）",
+        "module": "端侧/云端信号采集",
+        "status": "基线运行，格式待统一",
+        "performance": "实时上报，24类车态字段",
+        "meego_id": "",
+        "dependencies": ["车辆CAN总线", "传感器"],
+        "output_format": "信号ID+值+单位+时间戳",
+        "risk_level": "P1",
+        "known_issues": "上汽固定米/秒/hh:mm，带单位字符串'200m'剥单位是坑"
+      }
+    },
+    {
+      "id": "F28",
+      "type": "engine",
+      "title": "F28 触发器引擎（条件判断）",
+      "content": "10个运算符：等于/不等于/大于/大于等于/小于/小于等于/包含/不包含（条件8个）+变更为/有变更（事件2个）。引擎抓边沿，没有'切入切出'运算符。",
+      "x": 440,
+      "y": 1020,
+      "width": 300,
+      "height": 200,
+      "color": "#FFE082",
+      "metadata": {
+        "tech_id": "F28",
+        "owner": "韩杰（信号中枢）、刘杨（触发器平台）",
+        "module": "AIDV Cloud - 触发器引擎",
+        "status": "基线运行，运算符真实清单已明确",
+        "performance": "实时条件评估，事件边沿检测",
+        "meego_id": "",
+        "dependencies": ["F27信号源", "火山配置平台条件表"],
+        "output_format": "触发事件",
+        "risk_level": "P0",
+        "known_issues": "数值阈值用大于小于+引擎抓边沿，韩杰口头'切入切出'被刘杨反对"
+      }
+    },
+    {
+      "id": "F29",
+      "type": "decision",
+      "title": "F29 离在线仲裁",
+      "content": "决定采用车端还是云端结果。白名单端侧直执行、未命中云端优先、超时端上兜底。2秒没心跳走端侧非白名单兜底。feel感受类（'我有点冷'）要等云端Planner。",
+      "x": 780,
+      "y": 1020,
+      "width": 320,
+      "height": 200,
+      "color": "#FFAB91",
+      "metadata": {
+        "tech_id": "F29",
+        "owner": "待确认",
+        "module": "AIDV Cloud - 仲裁服务",
+        "status": "基线运行，AIVA赛力斯本地结果不采纳",
+        "performance": "白名单优先>在线>本地非白名单>兜底，心跳2秒",
+        "meego_id": "",
+        "dependencies": ["F08离线", "F17在线", "白名单配置"],
+        "output_format": "采信来源决策",
+        "risk_level": "P0",
+        "known_issues": "AIVA 0930更新：赛力斯本地拒识/语义不采纳，需等云端"
+      }
+    },
+    {
+      "id": "F30",
+      "type": "advisor",
+      "title": "F30 Advisor建议模块",
+      "content": "四类：舒适/出行/内容/情感。动态Advisor被F28触发，将输出给到Director。Director承担Planner规划职能，继续判断该做什么，动作再带出联网卡片等交互。",
+      "x": 780,
+      "y": 1260,
+      "width": 320,
+      "height": 180,
+      "color": "#F48FB1",
+      "metadata": {
+        "tech_id": "F30",
+        "owner": "张嘉锋",
+        "module": "AIDV Cloud - Advisor",
+        "status": "长时任务主线仍在做",
+        "performance": "围绕目标提出建议",
+        "meego_id": "",
+        "dependencies": ["F28触发事件", "Context"],
+        "output_format": "advisor建议",
+        "risk_level": "P2",
+        "known_issues": "10月19日培训明确长时任务暂不对客承诺"
+      }
+    },
+    {
+      "id": "F31",
+      "type": "process",
+      "title": "F31 TTS打轴（WordTimestamp）",
+      "content": "把文本里的字和音频时间位置对应。优先用逐字时间信息，无时用每字100ms估算。划出已播/未播内容，作为last_talk_content进入下一轮理解。",
+      "x": 2400,
+      "y": 520,
+      "width": 300,
+      "height": 160,
+      "color": "#B0BEC5",
+      "metadata": {
+        "tech_id": "F31",
+        "owner": "待确认",
+        "module": "AIDV Cloud - 打轴服务",
+        "status": "基线运行",
+        "performance": "逐字时间戳或100ms/字估算",
+        "meego_id": "",
+        "dependencies": ["F23音频", "播放进度"],
+        "output_format": "已播/未播分界",
+        "risk_level": "P1"
+      }
+    },
+    {
+      "id": "F32",
+      "type": "decision",
+      "title": "F32 打断判断（何时停播）",
+      "content": "单人ASR>2字直接打断；多人以'豆包'开头立即打断；多人不以豆包开头且满足流式拒识前提时根据判断；云端最终未拒识也停播。",
+      "x": 2400,
+      "y": 720,
+      "width": 300,
+      "height": 180,
+      "color": "#FFCDD2",
+      "metadata": {
+        "tech_id": "F32",
+        "owner": "待确认",
+        "module": "AIDV Cloud - 打断策略",
+        "status": "基线运行，单人直接打断不恢复",
+        "performance": "实时判断",
+        "meego_id": "",
+        "dependencies": ["F11新ASR", "F16流式拒识"],
+        "output_format": "停播指令+原因码",
+        "risk_level": "P1",
+        "known_issues": "单人>2字直接打断，恢复表明确'否'"
+      }
+    },
+    {
+      "id": "F33",
+      "type": "decision",
+      "title": "F33 恢复判断（允不允许续说）",
+      "content": "按停播原因查表：流式误判、云端未拒识、多人豆包开头允许恢复；单人>2字直接打断、新TTS优先级不低、低功耗挂起、离线车控等不恢复。",
+      "x": 2740,
+      "y": 100,
+      "width": 300,
+      "height": 200,
+      "color": "#FFCCBC",
+      "metadata": {
+        "tech_id": "F33",
+        "owner": "待确认",
+        "module": "AIDV Cloud - 恢复策略",
+        "status": "基线运行，AIVA赛力斯最终拒识不恢复",
+        "performance": "原因码门控",
+        "meego_id": "",
+        "dependencies": ["F32停播原因", "F31打轴"],
+        "output_format": "恢复资格",
+        "risk_level": "P1",
+        "known_issues": "AIVA文档规定最终拒识时不恢复，与OnePager部分差异"
+      }
+    },
+    {
+      "id": "F34",
+      "type": "process",
+      "title": "F34 恢复处理（Event/Planner）",
+      "content": "最终拒识：通过Event事件触发新Query，把谁说话、已说了什么、未播什么告诉系统；最终未拒识：Planner同时看新Query和未播内容，重新决定怎么衔接。",
+      "x": 2740,
+      "y": 340,
+      "width": 300,
+      "height": 180,
+      "color": "#C5CAE9",
+      "metadata": {
+        "tech_id": "F34",
+        "owner": "待确认",
+        "module": "AIDV Cloud - 恢复执行",
+        "status": "基线运行，后续改成触发器链路是方向",
+        "performance": "两种恢复路径",
+        "meego_id": "",
+        "dependencies": ["F33通过", "F31未播内容"],
+        "output_format": "恢复话术/缓存PCM",
+        "risk_level": "P1",
+        "known_issues": "原图便签'后续改成事件→触发器'是改造方向非现状"
+      }
+    },
+    {
+      "id": "F35",
+      "type": "sync",
+      "title": "F35 端云上下文同步",
+      "content": "本地执行后生成Query/Answer/Observation，经context/sync上报写入历史。三项缺一项，后面理解可能断开。失败重试、去重、晚到处理规则未完整。",
+      "x": 2740,
+      "y": 560,
+      "width": 300,
+      "height": 180,
+      "color": "#DCEDC8",
+      "metadata": {
+        "tech_id": "F35",
+        "owner": "待确认",
+        "module": "AIDV Cloud - Context同步",
+        "status": "基线运行，断网补同步是新增需求",
+        "performance": "上报三元组",
+        "meego_id": "",
+        "dependencies": ["F08本地执行", "网络"],
+        "output_format": "历史更新",
+        "risk_level": "P1",
+        "known_issues": "10月20日内审讨论断网后补同步是新增需求非已完成"
+      }
+    },
+    {
+      "id": "F36",
+      "type": "process",
+      "title": "F36 多人合并判断",
+      "content": "A已说完、系统思考中、尚未下发函数/工具，B也说完到VAD end。合并Query标'主驾驶说…副驾驶说…'，直接给Planner。上限4条暂定。首token前/工具未下发口径待统一。",
+      "x": 1380,
+      "y": 780,
+      "width": 300,
+      "height": 200,
+      "color": "#F0F4C3",
+      "metadata": {
+        "tech_id": "F36",
+        "owner": "待确认",
+        "module": "AIDV Cloud - 输入管理",
+        "status": "基线运行，边界待明确",
+        "performance": "有效非拒识请求合并",
+        "meego_id": "",
+        "dependencies": ["F17双音区拒识通过", "F20状态"],
+        "output_format": "合并Query",
+        "risk_level": "P1",
+        "known_issues": "OnePager写前一请求无有效信息，Planner写首token前，AIVA写首token前，不完全一致"
+      }
+    },
+    {
+      "id": "F37",
+      "type": "cache",
+      "title": "F37 预请求缓存复用",
+      "content": "同一request_id下、与前一轮预请求文字完全相同才复用。不是意思差不多，也不是找历史相似话。旧PRD提最短路径匹配变更与OnePager完全一致口径不同。",
+      "x": 1720,
+      "y": 800,
+      "width": 300,
+      "height": 180,
+      "color": "#FFF59D",
+      "metadata": {
+        "tech_id": "F37",
+        "owner": "待确认",
+        "module": "AIDV Cloud - 缓存管理",
+        "status": "基线运行，版本差异待确认",
+        "performance": "完全匹配复用",
+        "meego_id": "",
+        "dependencies": ["F15预请求结果", "F12 final"],
+        "output_format": "复用指令/重算",
+        "risk_level": "P1",
+        "known_issues": "旧PRD 2月底演示变更提最短路径，与新OnePager完全一致不同"
+      }
+    },
+    {
+      "id": "F38",
+      "type": "gateway",
+      "title": "F38 车外语音入口（独立）",
+      "content": "站车外说话独立入口。后视镜/车头/车尾麦克风按覆盖区域布置。必要条件待确认（正文写4项，历史图示'解锁或数字钥匙3米内'）。声纹校验开启时需通过，失败10次/3分钟锁定5分钟。",
+      "x": 100,
+      "y": 1480,
+      "width": 320,
+      "height": 220,
+      "color": "#FFCCBC",
+      "metadata": {
+        "tech_id": "F38",
+        "owner": "待确认",
+        "module": "CDC Client - 车外入口",
+        "status": "施工中PRD，4项必要条件待逐项确认",
+        "performance": "测试范围5米（有条件需求指标）",
+        "meego_id": "",
+        "dependencies": ["解锁状态/数字钥匙", "声纹（可选）"],
+        "output_format": "唤醒完成/锁定",
+        "risk_level": "P2",
+        "known_issues": "施工中PRD，正文4项必要条件与历史流程图待对齐"
+      }
+    },
+    {
+      "id": "F39",
+      "type": "feedback",
+      "title": "F39 工具反馈回流（tool_feedback）",
+      "content": "工具返回查到什么/做成没做成。区分指令接收、车辆执行、状态变化、反馈送达、UI刷新。按接口语义判断'成功'代表接受还是完成。",
+      "x": 2400,
+      "y": 940,
+      "width": 300,
+      "height": 180,
+      "color": "#B2EBF2",
+      "metadata": {
+        "tech_id": "F39",
+        "owner": "各工具owner",
+        "module": "Agent执行反馈",
+        "status": "基线运行",
+        "performance": "按工具类型返回",
+        "meego_id": "",
+        "dependencies": ["F22执行"],
+        "output_format": "observation（success/fail/data）",
+        "risk_level": "P1"
+      }
+    },
+    {
+      "id": "F40",
+      "type": "config",
+      "title": "F40 火山配置平台",
+      "content": "触发器条件配置后台。'新建场景'13节点：基础信息/发布范围/动态+静态条件/执行动作/执行策略。24类车态字段，配置13个节点。",
+      "x": 440,
+      "y": 1260,
+      "width": 300,
+      "height": 180,
+      "color": "#E1BEE7",
+      "metadata": {
+        "tech_id": "F40",
+        "owner": "刘杨（配置方）",
+        "module": "配置平台",
+        "status": "基线运行，4处待改造",
+        "performance": "配置化管理",
+        "meego_id": "",
+        "dependencies": ["产品需求"],
+        "output_format": "条件配置JSON",
+        "risk_level": "P1"
+      }
+    },
+    {
+      "id": "F41",
+      "type": "storage",
+      "title": "F41 对话历史存储",
+      "content": "最近N轮对话历史，role:user/role:assistant交替。单次调用可能有多轮预请求（round_id递增）+正式请求。压缩历史用于长对话。",
+      "x": 780,
+      "y": 1480,
+      "width": 300,
+      "height": 160,
+      "color": "#D7CCC8",
+      "metadata": {
+        "tech_id": "F41",
+        "owner": "待确认",
+        "module": "AIDV Cloud - 存储",
+        "status": "基线运行",
+        "performance": "Redis缓存+压缩",
+        "meego_id": "",
+        "dependencies": ["F20每轮对话"],
+        "output_format": "对话历史",
+        "risk_level": "P1"
+      }
+    },
+    {
+      "id": "F42",
+      "type": "memory",
+      "title": "F42 用户记忆与偏好",
+      "content": "短期/长期情景记忆，查询'昨天去了哪家游泳馆'。长期偏好和用户画像帮助理解习惯、推荐倾向。偏好不是强制指令。",
+      "x": 1120,
+      "y": 1480,
+      "width": 300,
+      "height": 160,
+      "color": "#C5E1A5",
+      "metadata": {
+        "tech_id": "F42",
+        "owner": "待确认",
+        "module": "AIDV Cloud - 记忆服务",
+        "status": "基线运行",
+        "performance": "短期/长期分层",
+        "meego_id": "",
+        "dependencies": ["对话历史", "工具记录"],
+        "output_format": "记忆查询结果",
+        "risk_level": "P2"
+      }
+    },
+    {
+      "id": "F43",
+      "type": "sensor",
+      "title": "F43 端状态采集",
+      "content": "车窗/空调/座椅/位置/导航/媒体等当前状态。实时上报或按需查询。帮助Context判断现在能怎么做。",
+      "x": 1460,
+      "y": 1480,
+      "width": 300,
+      "height": 160,
+      "color": "#B2DFDB",
+      "metadata": {
+        "tech_id": "F43",
+        "owner": "吴仁杰",
+        "module": "CDC Client - 状态采集",
+        "status": "基线运行",
+        "performance": "实时采集",
+        "meego_id": "",
+        "dependencies": ["车辆模块"],
+        "output_format": "端状态JSON",
+        "risk_level": "P1"
+      }
+    },
+    {
+      "id": "F44",
+      "type": "vision",
+      "title": "F44 VLM视觉感知",
+      "content": "感知器=调度器非VLM本身，VQA才是VLM。上汽云端VQA/赛力斯端侧VLM。粗枚举雨/雪/浓雾，输出视觉描述供触发器订阅。",
+      "x": 1800,
+      "y": 1480,
+      "width": 300,
+      "height": 160,
+      "color": "#FFECB3",
+      "metadata": {
+        "tech_id": "F44",
+        "owner": "丁彬、西钺",
+        "module": "感知器（调度）+ VLM",
+        "status": "规划中，配置平台7字段待改造",
+        "performance": "粗枚举场景",
+        "meego_id": "",
+        "dependencies": ["摄像头"],
+        "output_format": "视觉描述",
+        "risk_level": "P2"
+      }
+    },
+    {
+      "id": "F45",
+      "type": "event",
+      "title": "F45 事件日志",
+      "content": "刚才执行过什么的记录。与端状态区别：事件报告发生了什么，状态反映现在是什么情况。",
+      "x": 2140,
+      "y": 1480,
+      "width": 300,
+      "height": 140,
+      "color": "#D1C4E9",
+      "metadata": {
+        "tech_id": "F45",
+        "owner": "待确认",
+        "module": "AIDV Cloud - 事件服务",
+        "status": "基线运行",
+        "performance": "日志存储",
+        "meego_id": "",
+        "dependencies": ["F22执行", "F39反馈"],
+        "output_format": "事件流",
+        "risk_level": "P2"
+      }
+    },
+    {
+      "id": "F46",
+      "type": "protocol",
+      "title": "F46 离线指令协议",
+      "content": "端侧白名单功能集合。本地拨号/媒体控制/应用开关/地图控制等示例。feel感受类（'我有点冷'）要等云端。详细以离线指令协议为准。",
+      "x": 2480,
+      "y": 1480,
+      "width": 300,
+      "height": 160,
+      "color": "#FFCCBC",
+      "metadata": {
+        "tech_id": "F46",
+        "owner": "待确认",
+        "module": "协议定义",
+        "status": "基线运行",
+        "performance": "白名单配置",
+        "meego_id": "",
+        "dependencies": ["车型配置"],
+        "output_format": "白名单列表",
+        "risk_level": "P1"
+      }
+    },
+    {
+      "id": "F47",
+      "type": "kvcache",
+      "title": "F47 KV Cache（Prompt Cache）",
+      "content": "输入前缀完全匹配时复用已算好的KV向量。同一请求内多轮复用前序全部token的KV，只算增量（几百token）显著更快。跨请求仅SP固定部分（~30K）可命中。",
+      "x": 2820,
+      "y": 1480,
+      "width": 300,
+      "height": 180,
+      "color": "#B39DDB",
+      "metadata": {
+        "tech_id": "F47",
+        "owner": "待确认",
+        "module": "推理优化",
+        "status": "基线运行",
+        "performance": "命中可节省~30K token计算",
+        "meego_id": "",
+        "dependencies": ["F20 Planner"],
+        "output_format": "KV向量缓存",
+        "risk_level": "P2",
+        "known_issues": "长对话>20轮KV Cache占用大易被挤出，命中率下降"
+      }
+    },
+    {
+      "id": "F48",
+      "type": "monitor",
+      "title": "F48 性能监控埋点",
+      "content": "各环节时延埋点：ASR首字时间、VAD触发时间、Planner TTFT、TTS首包、端到端耗时。日志按request_id关联。",
+      "x": 100,
+      "y": 1740,
+      "width": 300,
+      "height": 160,
+      "color": "#CFD8DC",
+      "metadata": {
+        "tech_id": "F48",
+        "owner": "待确认",
+        "module": "可观测性",
+        "status": "基线运行",
+        "performance": "毫秒级埋点",
+        "meego_id": "",
+        "dependencies": ["各模块"],
+        "output_format": "监控指标",
+        "risk_level": "P2"
+      }
+    },
+    {
+      "id": "BADCASE-A",
+      "type": "issue",
+      "title": "A类：规则设计缺陷",
+      "content": "系统按既定规则执行却带来不符合目标的体验。例：预请求复用条件过严（完全相同）；边界没有定义；白名单范围不合理。",
+      "x": 440,
+      "y": 1740,
+      "width": 300,
+      "height": 160,
+      "color": "#FFCDD2",
+      "metadata": {
+        "category": "A类根因",
+        "owner": "产品",
+        "typical_cases": "预请求复用过严、白名单不合理、边界未定义",
+        "solution_layer": "L0规则修正",
+        "risk_level": "可预防"
+      }
+    },
+    {
+      "id": "BADCASE-B",
+      "type": "issue",
+      "title": "B类：端侧资源限制",
+      "content": "需要性能、音频丢帧或处理负载证据。例：8295算力不足；声学标定周期长；离线模型效果受限。",
+      "x": 780,
+      "y": 1740,
+      "width": 300,
+      "height": 160,
+      "color": "#FFE082",
+      "metadata": {
+        "category": "B类根因",
+        "owner": "硬件/端侧研发",
+        "typical_cases": "8295算力、声学标定、离线模型受限",
+        "solution_layer": "L4端侧优化/L5硬件升级",
+        "risk_level": "硬约束"
+      }
+    },
+    {
+      "id": "BADCASE-C",
+      "type": "issue",
+      "title": "C类：模型输出不稳定",
+      "content": "相同或可比输入下的推理与动作差异。例：拒识波动；Planner推理超时；识别准确率下降；意图分类不一致。",
+      "x": 1120,
+      "y": 1740,
+      "width": 300,
+      "height": 160,
+      "color": "#FFF59D",
+      "metadata": {
+        "category": "C类根因",
+        "owner": "算法/模型",
+        "typical_cases": "拒识波动、推理超时、识别准确率、意图不一致",
+        "solution_layer": "L2模型优化/L3提示词调整",
+        "risk_level": "概率性"
+      }
+    },
+    {
+      "id": "BADCASE-D",
+      "type": "issue",
+      "title": "D类：软硬件时序冲突",
+      "content": "有事件先后和状态变化证据。例：有网偶发切离线ASR；新请求到来时旧动作已发出；端云VAD判停口径不一致导致卡住。",
+      "x": 1460,
+      "y": 1740,
+      "width": 300,
+      "height": 160,
+      "color": "#C5CAE9",
+      "metadata": {
+        "category": "D类根因",
+        "owner": "系统/架构",
+        "typical_cases": "有网切离线、时序冲突、端云口径不一致",
+        "solution_layer": "L1架构重构/L6协议对齐",
+        "risk_level": "系统性"
+      }
+    },
+    {
+      "id": "SCENARIO-1",
+      "type": "example",
+      "title": "场景示例：去昨天那家游泳馆",
+      "content": "完整走查：麦克风采集→降噪AEC→音区识别→ASR识别'去……昨天那家游泳馆'→Soft 300ms预请求→Hard 600ms结束→二遍final→拒识通过→Context缺地点→Planner查记忆→工具返回地点→Planner发导航→工具执行→反馈→TTS播报'好的，正在为您导航'→端侧播放。",
+      "x": 1800,
+      "y": 1740,
+      "width": 340,
+      "height": 220,
+      "color": "#E8F5E9",
+      "metadata": {
+        "scenario_type": "多步复杂任务",
+        "steps_count": 15,
+        "typical_duration": "2-4秒（含查询和导航启动）",
+        "key_dependencies": "记忆查询成功、导航工具可用"
+      }
+    },
+    {
+      "id": "SCENARIO-2",
+      "type": "example",
+      "title": "场景示例：我有点冷（feel感受类）",
+      "content": "ASR正确识别'我有点冷'→拒识通过→NLU判断为feel感受类→不走端侧白名单→等待云端Planner→Planner结合Context查当前车况（空调温度/车窗状态/音区）→决定调温/关窗/调风量→可能多个动作组合→执行反馈→播报。",
+      "x": 2180,
+      "y": 1740,
+      "width": 340,
+      "height": 200,
+      "color": "#E3F2FD",
+      "metadata": {
+        "scenario_type": "单步复杂（需上下文）",
+        "steps_count": 10,
+        "typical_duration": "1.5-3秒",
+        "key_dependencies": "端状态准确、Planner推理正确"
+      }
+    },
+    {
+      "id": "ARCHITECTURE-4PARTY",
+      "type": "architecture",
+      "title": "四方架构总览",
+      "content": "1. CDC Client（车端）：麦克风采集、声学处理、音区识别、唤醒检测、离线ASR、播放器\n2. AI Box（车端算力）：离线模型、端侧推理\n3. Speech Cloud：在线ASR、VAD、TTS、S2S\n4. AIDV Cloud：Gateway、拒识、Context、Planner、Agent Server、触发器",
+      "x": 2560,
+      "y": 1740,
+      "width": 340,
+      "height": 200,
+      "color": "#F3E5F5",
+      "metadata": {
+        "total_modules": "4大方×多个模块",
+        "key_protocols": "WS长链、HTTP POST、RPC、Redis缓存",
+        "deployment": "端云混合部署"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "F01",
+      "to": "F02",
+      "label": "原始PCM音频流 | 200ms/帧",
+      "color": "#2196F3",
+      "protocol": "内存传递",
+      "latency": "<5ms",
+      "condition": "麦克风权限已授予 AND 无禁用场景"
+    },
+    {
+      "from": "F02",
+      "to": "F03",
+      "label": "降噪后音频 | ≤50ms处理时延",
+      "color": "#2196F3",
+      "protocol": "内存传递",
+      "latency": "≤50ms",
+      "condition": "信噪比目标≥20dB"
+    },
+    {
+      "from": "F03",
+      "to": "F04",
+      "label": "去回声音频流 | 需扬声器参考信号",
+      "color": "#2196F3",
+      "protocol": "内存传递",
+      "latency": "<10ms",
+      "condition": "回声消除成功"
+    },
+    {
+      "from": "F04",
+      "to": "F05",
+      "label": "音频+音区标识 | speaker_position",
+      "color": "#2196F3",
+      "protocol": "内部调用",
+      "latency": "<20ms",
+      "condition": "音区已识别 AND 该音区已开启"
+    },
+    {
+      "from": "F04",
+      "to": "F06",
+      "label": "音频流（普通唤醒路径）",
+      "color": "#4CAF50",
+      "protocol": "内存传递",
+      "latency": "<5ms",
+      "condition": "需要唤醒词"
+    },
+    {
+      "from": "F04",
+      "to": "F07",
+      "label": "音频流（免唤醒路径）",
+      "color": "#FF9800",
+      "protocol": "内存传递",
+      "latency": "<5ms",
+      "condition": "免唤醒已开启"
+    },
+    {
+      "from": "F06",
+      "to": "F08",
+      "label": "唤醒成功事件 | 进入聆听态",
+      "color": "#4CAF50",
+      "protocol": "事件通知",
+      "latency": "<10ms",
+      "condition": "检测到'豆包豆包'或泛化称呼"
+    },
+    {
+      "from": "F06",
+      "to": "F11",
+      "label": "唤醒成功 | 建立WS长链",
+      "color": "#4CAF50",
+      "protocol": "WebSocket",
+      "latency": "建联<100ms",
+      "condition": "有网络连接"
+    },
+    {
+      "from": "F07",
+      "to": "F08",
+      "label": "端侧预判召回 | 明确指令/带唤醒词",
+      "color": "#FF9800",
+      "protocol": "本地判断",
+      "latency": "<50ms",
+      "condition": "端侧召回规则命中"
+    },
+    {
+      "from": "F07",
+      "to": "F17",
+      "label": "端侧强拒识 | 手持手机通话",
+      "color": "#F44336",
+      "protocol": "本地拦截",
+      "latency": "<50ms",
+      "condition": "摄像头判断该音区手持手机"
+    },
+    {
+      "from": "F07",
+      "to": "F11",
+      "label": "不确定请求上云 | 端云并行（激活后）",
+      "color": "#FF9800",
+      "protocol": "WebSocket",
+      "latency": "上云<100ms",
+      "condition": "未激活时不确定 OR 连续对话激活后"
+    },
+    {
+      "from": "F08",
+      "to": "F29",
+      "label": "离线识别结果 | partial文字流",
+      "color": "#9C27B0",
+      "protocol": "本地输出",
+      "latency": "流式输出",
+      "condition": "离线模型运行"
+    },
+    {
+      "from": "F11",
+      "to": "F09",
+      "label": "在线partial文字流 | 边听边出字",
+      "color": "#00BCD4",
+      "protocol": "WebSocket流式",
+      "latency": "首字≤200ms",
+      "condition": "音频帧200ms/次持续上送"
+    },
+    {
+      "from": "F13",
+      "to": "F11",
+      "label": "热词候选列表 | 建联前注入",
+      "color": "#FFC107",
+      "protocol": "HTTP POST",
+      "latency": "<50ms",
+      "condition": "热词云端维护完成"
+    },
+    {
+      "from": "F09",
+      "to": "F15",
+      "label": "Soft VAD触发 | 当前partial文字",
+      "color": "#FF5722",
+      "protocol": "WebSocket",
+      "latency": "300ms停顿后触发",
+      "condition": "停顿达到300ms阈值"
+    },
+    {
+      "from": "F09",
+      "to": "F10",
+      "label": "继续等待 | ASR未结束",
+      "color": "#607D8B",
+      "protocol": "状态机",
+      "latency": "继续收音",
+      "condition": "用户可能继续说"
+    },
+    {
+      "from": "F10",
+      "to": "F12",
+      "label": "Hard VAD结束信号 | 该段收尾",
+      "color": "#E91E63",
+      "protocol": "WebSocket事件",
+      "latency": "600ms停顿后触发",
+      "condition": "停顿达到600ms阈值（语义VAD可延长）"
+    },
+    {
+      "from": "F11",
+      "to": "F12",
+      "label": "一遍音频 | 同时送两路",
+      "color": "#00BCD4",
+      "protocol": "音频流",
+      "latency": "并行处理",
+      "condition": "分句信号到达"
+    },
+    {
+      "from": "F12",
+      "to": "F14",
+      "label": "final最终文字 | 正式请求",
+      "color": "#4CAF50",
+      "protocol": "HTTP POST / RPC",
+      "latency": "<100ms",
+      "condition": "二遍识别完成"
+    },
+    {
+      "from": "F15",
+      "to": "F37",
+      "label": "预处理结果 | request_id+round_id",
+      "color": "#FFE082",
+      "protocol": "内存缓存",
+      "latency": "<200ms",
+      "condition": "预处理完成"
+    },
+    {
+      "from": "F14",
+      "to": "F16",
+      "label": "流式partial | 用于打断判断",
+      "color": "#FF9800",
+      "protocol": "内部调用",
+      "latency": "<50ms",
+      "condition": "多人场景 AND ASR>2字 AND 前缀无豆包 AND TTS正播"
+    },
+    {
+      "from": "F14",
+      "to": "F17",
+      "label": "final文字 | 最终拒识判断",
+      "color": "#4CAF50",
+      "protocol": "内部调用",
+      "latency": "<100ms",
+      "condition": "正式请求到达"
+    },
+    {
+      "from": "F16",
+      "to": "F32",
+      "label": "流式拒识结果 | 影响停播",
+      "color": "#FF5722",
+      "protocol": "内部消息",
+      "latency": "<50ms",
+      "condition": "判断为有效请求"
+    },
+    {
+      "from": "F17",
+      "to": "F18",
+      "label": "有效请求 | 进入第一层漏斗",
+      "color": "#4CAF50",
+      "protocol": "内部路由",
+      "latency": "<10ms",
+      "condition": "最终拒识通过"
+    },
+    {
+      "from": "F17",
+      "to": "F36",
+      "label": "双音区有效请求 | 判断合并",
+      "color": "#FFC107",
+      "protocol": "内部队列",
+      "latency": "<50ms",
+      "condition": "前一请求仍在允许合并阶段"
+    },
+    {
+      "from": "F18",
+      "to": "F22",
+      "label": "句法规则命中 | 快路径直达",
+      "color": "#8BC34A",
+      "protocol": "规则引擎",
+      "latency": "5ms",
+      "condition": "JSGF规则匹配成功"
+    },
+    {
+      "from": "F18",
+      "to": "F19",
+      "label": "未命中规则 | 进入第二层",
+      "color": "#FF9800",
+      "protocol": "内部路由",
+      "latency": "<10ms",
+      "condition": "句法RAG无匹配"
+    },
+    {
+      "from": "F19",
+      "to": "F20",
+      "label": "Context数据包 | 预注入+动态检索",
+      "color": "#00BCD4",
+      "protocol": "内存传递",
+      "latency": "<200ms",
+      "condition": "上下文准备完成"
+    },
+    {
+      "from": "F43",
+      "to": "F19",
+      "label": "端状态JSON | 实时上报",
+      "color": "#4CAF50",
+      "protocol": "WebSocket / HTTP",
+      "latency": "<100ms",
+      "condition": "状态变化或按需查询"
+    },
+    {
+      "from": "F41",
+      "to": "F19",
+      "label": "对话历史 | 最近N轮+压缩",
+      "color": "#9C27B0",
+      "protocol": "Redis读取",
+      "latency": "<50ms",
+      "condition": "会话标识匹配"
+    },
+    {
+      "from": "F42",
+      "to": "F19",
+      "label": "记忆查询结果 | 按需检索",
+      "color": "#673AB7",
+      "protocol": "RPC调用",
+      "latency": "<300ms",
+      "condition": "Planner发起查询"
+    },
+    {
+      "from": "F45",
+      "to": "F19",
+      "label": "事件日志 | 近期执行",
+      "color": "#795548",
+      "protocol": "日志查询",
+      "latency": "<100ms",
+      "condition": "需要事件上下文"
+    },
+    {
+      "from": "F20",
+      "to": "F21",
+      "label": "action_list | 工具动作清单",
+      "color": "#E91E63",
+      "protocol": "RPC调用",
+      "latency": "TTFT 1300ms（首token）",
+      "condition": "需要调用工具"
+    },
+    {
+      "from": "F20",
+      "to": "F23",
+      "label": "talk_content | 准备说的话",
+      "color": "#9C27B0",
+      "protocol": "内部传递",
+      "latency": "流式输出",
+      "condition": "需要回复用户"
+    },
+    {
+      "from": "F20",
+      "to": "F24",
+      "label": "唱歌文字 | 带'唱'情绪标签",
+      "color": "#00BCD4",
+      "protocol": "内部路由",
+      "latency": "<100ms",
+      "condition": "情绪标签包含'唱'"
+    },
+    {
+      "from": "F37",
+      "to": "F20",
+      "label": "缓存命中 | 复用预处理结果",
+      "color": "#FFC107",
+      "protocol": "内存读取",
+      "latency": "<50ms",
+      "condition": "同request_id AND 与前一轮query完全相同"
+    },
+    {
+      "from": "F37",
+      "to": "F20",
+      "label": "缓存未命中 | 按final重算",
+      "color": "#FF5722",
+      "protocol": "重新处理",
+      "latency": "完整推理时间",
+      "condition": "文字不完全相同"
+    },
+    {
+      "from": "F36",
+      "to": "F20",
+      "label": "合并Query | 标音区来源",
+      "color": "#FFB300",
+      "protocol": "内部消息",
+      "latency": "<50ms",
+      "condition": "多人有效请求合并成功"
+    },
+    {
+      "from": "F21",
+      "to": "F22",
+      "label": "工具调用请求 | 按名称路由",
+      "color": "#673AB7",
+      "protocol": "RPC路由",
+      "latency": "<50ms",
+      "condition": "工具名称和参数有效"
+    },
+    {
+      "from": "F22",
+      "to": "F39",
+      "label": "执行结果 | tool_feedback",
+      "color": "#00BCD4",
+      "protocol": "RPC返回",
+      "latency": "按工具类型（车控<500ms，导航1-3s，搜索2-5s）",
+      "condition": "工具执行完成"
+    },
+    {
+      "from": "F39",
+      "to": "F20",
+      "label": "observation | 继续判断",
+      "color": "#4CAF50",
+      "protocol": "ReAct循环",
+      "latency": "<100ms",
+      "condition": "需要根据结果再决策"
+    },
+    {
+      "from": "F39",
+      "to": "F45",
+      "label": "执行记录 | 写事件日志",
+      "color": "#795548",
+      "protocol": "异步写入",
+      "latency": "<50ms",
+      "condition": "记录执行历史"
+    },
+    {
+      "from": "F23",
+      "to": "F25",
+      "label": "TTS音频流+标识 | 提前合成",
+      "color": "#9C27B0",
+      "protocol": "音频缓存",
+      "latency": "P50 70ms",
+      "condition": "talk_content非空"
+    },
+    {
+      "from": "F24",
+      "to": "F25",
+      "label": "S2S唱歌音频 | 特殊处理",
+      "color": "#00BCD4",
+      "protocol": "音频生成",
+      "latency": "按唱歌长度",
+      "condition": "唱歌请求"
+    },
+    {
+      "from": "F22",
+      "to": "F25",
+      "label": "Agent音频 | 某些工具返回音频",
+      "color": "#FF9800",
+      "protocol": "音频数据",
+      "latency": "按工具",
+      "condition": "工具产生音频"
+    },
+    {
+      "from": "F25",
+      "to": "F26",
+      "label": "采信音频ID | 跳过非采信来源",
+      "color": "#E91E63",
+      "protocol": "WebSocket / HTTP",
+      "latency": "<100ms",
+      "condition": "来源筛选+队列排序完成"
+    },
+    {
+      "from": "F26",
+      "to": "F31",
+      "label": "播放进度上报 | 实时位置",
+      "color": "#607D8B",
+      "protocol": "事件上报",
+      "latency": "实时",
+      "condition": "正在播放"
+    },
+    {
+      "from": "F23",
+      "to": "F31",
+      "label": "文本+音频对应 | WordTimestamp",
+      "color": "#9C27B0",
+      "protocol": "内部关联",
+      "latency": "<50ms",
+      "condition": "需要打轴"
+    },
+    {
+      "from": "F11",
+      "to": "F32",
+      "label": "新ASR到达 | 判断是否打断",
+      "color": "#FF5722",
+      "protocol": "WebSocket",
+      "latency": "实时",
+      "condition": "TTS正播放 AND 新输入到达"
+    },
+    {
+      "from": "F32",
+      "to": "F26",
+      "label": "停播指令 | 原因码",
+      "color": "#F44336",
+      "protocol": "控制消息",
+      "latency": "<50ms",
+      "condition": "符合停播条件"
+    },
+    {
+      "from": "F32",
+      "to": "F33",
+      "label": "停播原因+播放进度 | 判断恢复资格",
+      "color": "#FF9800",
+      "protocol": "内部消息",
+      "latency": "<50ms",
+      "condition": "已停播"
+    },
+    {
+      "from": "F31",
+      "to": "F33",
+      "label": "已播/未播划分 | last_talk_content",
+      "color": "#607D8B",
+      "protocol": "内部数据",
+      "latency": "<50ms",
+      "condition": "打轴完成"
+    },
+    {
+      "from": "F33",
+      "to": "F34",
+      "label": "恢复资格通过 | 未播内容",
+      "color": "#4CAF50",
+      "protocol": "内部路由",
+      "latency": "<50ms",
+      "condition": "原因码允许恢复"
+    },
+    {
+      "from": "F17",
+      "to": "F34",
+      "label": "最终拒识结果 | 决定恢复方式",
+      "color": "#FF9800",
+      "protocol": "内部消息",
+      "latency": "<100ms",
+      "condition": "已触发恢复流程"
+    },
+    {
+      "from": "F34",
+      "to": "F20",
+      "label": "Event触发新Query（拒识） OR 新Query+未播（未拒识）",
+      "color": "#9C27B0",
+      "protocol": "内部调用",
+      "latency": "<100ms",
+      "condition": "两种恢复路径"
+    },
+    {
+      "from": "F08",
+      "to": "F35",
+      "label": "本地执行结果 | Query+Answer+Observation",
+      "color": "#4CAF50",
+      "protocol": "异步上报",
+      "latency": "<200ms",
+      "condition": "本地白名单执行完成"
+    },
+    {
+      "from": "F35",
+      "to": "F19",
+      "label": "历史同步成功 | 更新Context",
+      "color": "#00BCD4",
+      "protocol": "context/sync接口",
+      "latency": "<300ms",
+      "condition": "上报成功"
+    },
+    {
+      "from": "F08",
+      "to": "F29",
+      "label": "离线结果 | 参与仲裁",
+      "color": "#9C27B0",
+      "protocol": "本地输出",
+      "latency": "实时",
+      "condition": "离线处理完成"
+    },
+    {
+      "from": "F17",
+      "to": "F29",
+      "label": "在线结果 | 参与仲裁",
+      "color": "#4CAF50",
+      "protocol": "云端返回",
+      "latency": "<2秒（心跳超时）",
+      "condition": "在线处理完成或超时"
+    },
+    {
+      "from": "F46",
+      "to": "F29",
+      "label": "白名单配置 | 判断优先级",
+      "color": "#FFB300",
+      "protocol": "配置读取",
+      "latency": "<10ms",
+      "condition": "读取车型白名单"
+    },
+    {
+      "from": "F29",
+      "to": "F22",
+      "label": "采信决策 | 白名单端侧直执行 OR 云端结果",
+      "color": "#E91E63",
+      "protocol": "路由决策",
+      "latency": "<50ms",
+      "condition": "仲裁完成"
+    },
+    {
+      "from": "F27",
+      "to": "F28",
+      "label": "信号实时上报 | 信号ID+值+单位+时间戳",
+      "color": "#FFE082",
+      "protocol": "WebSocket / 消息队列",
+      "latency": "<100ms",
+      "condition": "信号变化或定时上报"
+    },
+    {
+      "from": "F40",
+      "to": "F28",
+      "label": "条件配置 | 10个运算符规则",
+      "color": "#CE93D8",
+      "protocol": "配置下发",
+      "latency": "<200ms",
+      "condition": "配置更新"
+    },
+    {
+      "from": "F28",
+      "to": "F30",
+      "label": "触发事件 | 条件满足",
+      "color": "#FF9800",
+      "protocol": "事件通知",
+      "latency": "<50ms",
+      "condition": "运算符评估为真"
+    },
+    {
+      "from": "F44",
+      "to": "F28",
+      "label": "视觉感知描述 | VLM输出",
+      "color": "#FFE082",
+      "protocol": "感知订阅",
+      "latency": "<500ms",
+      "condition": "视觉触发器启用"
+    },
+    {
+      "from": "F30",
+      "to": "F20",
+      "label": "Advisor建议 | 围绕目标提出",
+      "color": "#F48FB1",
+      "protocol": "内部消息",
+      "latency": "<300ms",
+      "condition": "建议生成完成"
+    },
+    {
+      "from": "F19",
+      "to": "F30",
+      "label": "Context数据 | 任务目标和状态",
+      "color": "#00BCD4",
+      "protocol": "内部查询",
+      "latency": "<100ms",
+      "condition": "Advisor需要上下文"
+    },
+    {
+      "from": "F38",
+      "to": "F02",
+      "label": "车外音频 | 后视镜/车头/车尾麦克风",
+      "color": "#FF7043",
+      "protocol": "独立音频通道",
+      "latency": "<50ms",
+      "condition": "4项必要条件满足 AND 声纹通过（可选）"
+    },
+    {
+      "from": "F20",
+      "to": "F47",
+      "label": "Prompt输入 | SP+UP",
+      "color": "#9C27B0",
+      "protocol": "推理引擎",
+      "latency": "KV Cache命中可节省计算",
+      "condition": "前缀匹配"
+    },
+    {
+      "from": "F47",
+      "to": "F20",
+      "label": "KV向量复用 | 只算增量token",
+      "color": "#CE93D8",
+      "protocol": "内存缓存",
+      "latency": "节省~30K token计算时间",
+      "condition": "输入前缀完全匹配"
+    }
+  ],
+  "special_markers": {
+    "conflicts": [
+      {
+        "node_id": "F09",
+        "issue": "Hard VAD口径冲突：OnePager 600ms vs 旧PRD 500ms",
+        "color": "#FFEB3B",
+        "status": "需确认当前车型实际配置"
+      },
+      {
+        "node_id": "F10",
+        "issue": "语义VAD 1000ms延长机制：起算规则、与Hard先后关系未明确",
+        "color": "#FFEB3B",
+        "status": "需确认版本差异"
+      },
+      {
+        "node_id": "F16",
+        "issue": "流式拒识职责冲突：主图画AIDV判断、正文写端侧、恢复图画ASR",
+        "color": "#FFEB3B",
+        "status": "资料内部不一致，待研发确认"
+      }
+    ],
+    "to_confirm": [
+      {
+        "node_id": "F05",
+        "issue": "声纹识别隐性注册、识人问候、儿童控制标TBD",
+        "color": "#FFB74D",
+        "status": "部分能力待补充"
+      },
+      {
+        "node_id": "F13",
+        "issue": "热词冷热管理细则、回流方案权限拒绝",
+        "color": "#FFB74D",
+        "status": "细则未展开"
+      },
+      {
+        "node_id": "F38",
+        "issue": "车外4项必要条件与历史图'解锁或数字钥匙3米'待对齐",
+        "color": "#FFB74D",
+        "status": "施工中PRD，条件待逐项确认"
+      }
+    ],
+    "no_owner": [
+      {
+        "node_id": "F05",
+        "issue": "声纹识别负责人待确认",
+        "color": "#EF5350"
+      },
+      {
+        "node_id": "F13",
+        "issue": "热词注入负责人待确认",
+        "color": "#EF5350"
+      }
+    ],
+    "known_badcases": [
+      {
+        "node_id": "F04",
+        "meego_id": "7359234801",
+        "issue": "音区分离问题：座椅靠背躺倒误判主驾为后排",
+        "category": "B类-端侧资源限制"
+      }
+    ]
+  },
+  "three_layer_funnel": {
+    "layer_1": {
+      "name": "句法RAG（第一层漏斗）",
+      "node_id": "F18",
+      "technology": "JSGF规则",
+      "latency": "5ms",
+      "coverage": "明确指令（'打开车窗'）",
+      "hit_rate": "处理简单明确指令"
+    },
+    "layer_2": {
+      "name": "情景RAG + 仲裁模型（第二层漏斗）",
+      "node_id": "F19+F29",
+      "technology": "Context注入 + 简单复杂分流",
+      "latency": "~200ms",
+      "coverage": "需要记忆/车况/情景的请求",
+      "hit_rate": "注入用户记忆、车况、情景，判断简单/复杂分流"
+    },
+    "layer_3": {
+      "name": "Planner深度推理（第三层漏斗）",
+      "node_id": "F20",
+      "technology": "云端LLM深度推理，Eino ReAct图",
+      "latency": "TTFT 1300ms",
+      "coverage": "复杂需求、多步规划、调用多工具",
+      "model": "豆包 Seed 1.8",
+      "context_size": "SP 30K + UP 10K tokens"
+    }
+  },
+  "performance_summary": {
+    "critical_path_latency": {
+      "user_stop_to_hard_vad": "600ms（Hard VAD阈值）",
+      "hard_vad_to_final": "<200ms（二遍ASR）",
+      "final_to_planner_first_token": "1300ms（TTFT）",
+      "tts_synthesis": "P50 70ms",
+      "total_e2e_target": "用户停顿→开始播放 约2-3秒（复杂任务）"
+    },
+    "key_optimizations": {
+      "soft_vad_pre_request": "300ms预请求，提前做拒识/意图/简单复杂判断",
+      "kv_cache": "前缀匹配可节省~30K token计算",
+      "tts_pre_synthesis": "提前合成约减100ms",
+      "jsgf_fast_path": "句法RAG 5ms极速响应"
+    }
+  }
+}

@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>豆包座舱 Driver Agent 2.0 完整业务架构 v3</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #f5f7fa;
+            padding: 20px;
+            overflow-x: auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 28px;
+            color: #1a1a1a;
+            margin-bottom: 10px;
+        }
+
+        .header .meta {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .canvas-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 30px;
+            overflow-x: auto;
+        }
+
+        svg {
+            display: block;
+            margin: 0 auto;
+        }
+
+        .node {
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .node:hover {
+            filter: brightness(0.95);
+        }
+
+        .node rect, .node ellipse {
+            transition: all 0.2s;
+        }
+
+        .node:hover rect, .node:hover ellipse {
+            stroke-width: 3;
+        }
+
+        .node-label {
+            font-size: 12px;
+            font-weight: 500;
+            pointer-events: none;
+            user-select: none;
+        }
+
+        .node-details {
+            font-size: 10px;
+            fill: #666;
+            pointer-events: none;
+        }
+
+        .edge {
+            stroke: #90a4ae;
+            stroke-width: 1.5;
+            fill: none;
+            marker-end: url(#arrowhead);
+        }
+
+        .edge-label {
+            font-size: 10px;
+            fill: #546e7a;
+            pointer-events: none;
+        }
+
+        .legend {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .legend h3 {
+            font-size: 16px;
+            margin-bottom: 15px;
+            color: #1a1a1a;
+        }
+
+        .legend-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .legend-color {
+            width: 40px;
+            height: 20px;
+            border-radius: 4px;
+            border: 2px solid;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            pointer-events: none;
+            display: none;
+            max-width: 300px;
+            z-index: 1000;
+            line-height: 1.5;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .stat-card .number {
+            font-size: 32px;
+            font-weight: bold;
+            color: #1976d2;
+            margin-bottom: 5px;
+        }
+
+        .stat-card .label {
+            color: #666;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>豆包座舱 Driver Agent 2.0 完整业务架构</h1>
+        <div class="meta">154 个功能节点 | 97 条数据流 | 生成时间: 2026-10-22</div>
+    </div>
+
+    <div class="stats">
+        <div class="stat-card">
+            <div class="number">154</div>
+            <div class="label">功能节点总数</div>
+        </div>
+        <div class="stat-card">
+            <div class="number">97</div>
+            <div class="label">数据流连接</div>
+        </div>
+        <div class="stat-card">
+            <div class="number">23</div>
+            <div class="label">下游工具</div>
+        </div>
+        <div class="stat-card">
+            <div class="number">6</div>
+            <div class="label">Executor 类型</div>
+        </div>
+    </div>
+
+    <div class="canvas-container">
+        <svg id="architecture-canvas" width="5000" height="4000"></svg>
+    </div>
+
+    <div class="legend">
+        <h3>图例说明</h3>
+        <div class="legend-grid">
+            <div class="legend-item">
+                <div class="legend-color" style="background: #e3f2fd; border-color: #1976d2;"></div>
+                <span>基础能力 (630主线/上汽)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #fff3e0; border-color: #f57c00;"></div>
+                <span>高阶能力-830 (赛力斯)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #f3e5f5; border-color: #7b1fa2;"></div>
+                <span>Demo 预研</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #fff9c4; border-color: #fbc02d;"></div>
+                <span>待优化</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #ffebee; border-color: #c62828;"></div>
+                <span>规划中</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #e0e0e0; border-color: #616161;"></div>
+                <span>Fail</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="tooltip" id="tooltip"></div>
+
+    <script>
+        // 从 JSON 数据生成 SVG 可视化
+        const architectureData = {
+            "nodes": [
+                {"id": "F01", "type": "rect", "x": 100, "y": 100, "width": 200, "height": 80, "label": "F01 用户语音输入", "responsible": "赵衍", "status": "基础能力", "metrics": "VAD Soft 300ms"},
+                {"id": "F02", "type": "rect", "x": 100, "y": 220, "width": 200, "height": 80, "label": "F02 VAD语音活动检测", "responsible": "赵衍", "status": "基础能力", "metrics": "Soft 300ms / Hard 600ms"},
+                {"id": "F03", "type": "rect", "x": 100, "y": 340, "width": 200, "height": 80, "label": "F03 动态VAD", "responsible": "赵衍", "status": "高阶能力-830", "metrics": "100ms短时截断"},
+                {"id": "F04", "type": "rect", "x": 400, "y": 220, "width": 200, "height": 80, "label": "F04 ASR语音识别", "responsible": "左晓杰", "status": "基础能力", "metrics": "双路识别"},
+                {"id": "F05", "type": "rect", "x": 400, "y": 100, "width": 200, "height": 80, "label": "F05 ASR流式部分识别", "responsible": "左晓杰", "status": "基础能力", "metrics": "streaming partial"},
+                {"id": "F06", "type": "rect", "x": 400, "y": 340, "width": 200, "height": 80, "label": "F06 ASR非流式最终识别", "responsible": "左晓杰", "status": "基础能力", "metrics": "non-streaming final"},
+                {"id": "F07", "type": "rect", "x": 700, "y": 220, "width": 200, "height": 80, "label": "F07 Gateway网关层", "responsible": "左晨", "status": "基础能力", "metrics": "P50 10ms"},
+                {"id": "F08", "type": "rect", "x": 1000, "y": 220, "width": 200, "height": 80, "label": "F08 Flow流程编排层", "responsible": "左晨", "status": "基础能力", "metrics": "Eino Graph"},
+                {"id": "F09", "type": "diamond", "x": 1350, "y": 100, "width": 180, "height": 100, "label": "F09 句法RAG", "responsible": "郝晓伟", "status": "基础能力", "metrics": "P50 5ms 毫秒级规则匹配"},
+                {"id": "F10", "type": "diamond", "x": 1350, "y": 340, "width": 180, "height": 100, "label": "F10 情景RAG+仲裁模型", "responsible": "郝晓伟", "status": "基础能力", "metrics": "P50 200ms"},
+                {"id": "F11", "type": "rect", "x": 1650, "y": 100, "width": 200, "height": 80, "label": "F11 直接执行车控", "responsible": "吴仁杰", "status": "基础能力", "metrics": "简单指令快速响应"},
+                {"id": "F12", "type": "rect", "x": 1300, "y": 500, "width": 180, "height": 60, "label": "F12 情景上下文", "responsible": "左晨", "status": "基础能力", "metrics": "天气/路况/时间"},
+                {"id": "F13", "type": "rect", "x": 1300, "y": 580, "width": 180, "height": 60, "label": "F13 历史上下文", "responsible": "左晨", "status": "基础能力", "metrics": "对话历史"},
+                {"id": "F14", "type": "rect", "x": 1300, "y": 660, "width": 180, "height": 60, "label": "F14 事件上下文", "responsible": "韩杰", "status": "基础能力", "metrics": "触发器事件"},
+                {"id": "F15", "type": "rect", "x": 1500, "y": 500, "width": 180, "height": 60, "label": "F15 端状态上下文", "responsible": "吴仁杰", "status": "基础能力", "metrics": "车辆实时状态"},
+                {"id": "F16", "type": "rect", "x": 1500, "y": 580, "width": 180, "height": 60, "label": "F16 屏幕上下文", "responsible": "赵衍", "status": "基础能力", "metrics": "当前屏幕内容"},
+                {"id": "F17", "type": "rect", "x": 1500, "y": 660, "width": 180, "height": 60, "label": "F17 记忆上下文", "responsible": "张嘉锋", "status": "基础能力", "metrics": "用户记忆"},
+                {"id": "F18", "type": "rect", "x": 1700, "y": 500, "width": 180, "height": 60, "label": "F18 任务上下文", "responsible": "张嘉锋", "status": "基础能力", "metrics": "Goal List"},
+                {"id": "F19", "type": "rect", "x": 1700, "y": 580, "width": 180, "height": 60, "label": "F19 联网上下文", "responsible": "左晨", "status": "基础能力", "metrics": "实时搜索"},
+                {"id": "F20", "type": "rect", "x": 1700, "y": 660, "width": 180, "height": 60, "label": "F20 探索上下文", "responsible": "左晨", "status": "demo预研", "metrics": "好奇心驱动"},
+                {"id": "F21", "type": "rect", "x": 1500, "y": 750, "width": 200, "height": 60, "label": "F21 Context注入完成", "responsible": "左晨", "status": "基础能力", "metrics": "P50 550ms 9类上下文"},
+                {"id": "F22", "type": "rect", "x": 2000, "y": 220, "width": 220, "height": 100, "label": "F22 Director对话推理引擎", "responsible": "张嘉锋", "status": "基础能力", "metrics": "TTFT 1000ms, TTC 1800ms"},
+                {"id": "F23", "type": "rect", "x": 2300, "y": 220, "width": 220, "height": 100, "label": "F23 Planner规划器", "responsible": "张嘉锋", "status": "基础能力", "metrics": "Seed 1.8 ReAct循环"},
+                {"id": "F24", "type": "rect", "x": 2100, "y": 350, "width": 180, "height": 70, "label": "F24 System Prompt", "responsible": "张嘉锋", "status": "基础能力", "metrics": "SP 30K-35K tokens"},
+                {"id": "F25", "type": "rect", "x": 2300, "y": 350, "width": 180, "height": 70, "label": "F25 User Prompt", "responsible": "张嘉锋", "status": "基础能力", "metrics": "UP 10K-15K tokens"},
+                {"id": "F26", "type": "rect", "x": 2500, "y": 350, "width": 180, "height": 70, "label": "F26 KV Cache优化", "responsible": "张嘉锋", "status": "基础能力", "metrics": "前缀复用"},
+                {"id": "F27", "type": "rect", "x": 2100, "y": 450, "width": 180, "height": 60, "label": "F27 动态示例加载", "responsible": "王泽民", "status": "基础能力", "metrics": "97条五要素推理链"},
+                {"id": "F28", "type": "rect", "x": 2300, "y": 450, "width": 180, "height": 60, "label": "F28 69个参考示例", "responsible": "王泽民", "status": "基础能力", "metrics": "占SP约50%"},
+                {"id": "F29", "type": "rect", "x": 2500, "y": 450, "width": 180, "height": 60, "label": "F29 上下文优化", "responsible": "张嘉锋", "status": "基础能力", "metrics": "远区精简 近区完整"},
+                {"id": "F30", "type": "rect", "x": 2300, "y": 540, "width": 200, "height": 70, "label": "F30 ReAct循环", "responsible": "张嘉锋", "status": "基础能力", "metrics": "Thought-Action-Observation"},
+                {"id": "F31", "type": "rect", "x": 2700, "y": 220, "width": 200, "height": 100, "label": "F31 Agent Server", "responsible": "左晨", "status": "基础能力", "metrics": "6种Executor分发"},
+                {"id": "F32", "type": "rect", "x": 2950, "y": 50, "width": 160, "height": 60, "label": "F32 AIDV Executor", "responsible": "左晨", "status": "基础能力", "metrics": "云端智能服务"},
+                {"id": "F33", "type": "rect", "x": 2950, "y": 130, "width": 160, "height": 60, "label": "F33 DPFM Executor", "responsible": "吴仁杰", "status": "基础能力", "metrics": "车控专用"},
+                {"id": "F34", "type": "rect", "x": 2950, "y": 210, "width": 160, "height": 60, "label": "F34 Doubao Executor", "responsible": "左晨", "status": "基础能力", "metrics": "内容生成"},
+                {"id": "F35", "type": "rect", "x": 2950, "y": 290, "width": 160, "height": 60, "label": "F35 Ecology Executor", "responsible": "左晨", "status": "基础能力", "metrics": "第三方生态"},
+                {"id": "F36", "type": "rect", "x": 2950, "y": 370, "width": 160, "height": 60, "label": "F36 Offline Executor", "responsible": "左晨", "status": "基础能力", "metrics": "虚拟工具"},
+                {"id": "F37", "type": "rect", "x": 2950, "y": 450, "width": 160, "height": 60, "label": "F37 InternalRPC Executor", "responsible": "左晨", "status": "基础能力", "metrics": "内部RPC调用"},
+                {"id": "F38", "type": "rect", "x": 3200, "y": 50, "width": 180, "height": 50, "label": "F38 车控工具", "responsible": "吴仁杰", "status": "基础能力", "metrics": "vehicle_basic_control"},
+                {"id": "F39", "type": "rect", "x": 3200, "y": 110, "width": 180, "height": 50, "label": "F39 车况查询", "responsible": "吴仁杰", "status": "基础能力", "metrics": "search_vehicle_status_info"},
+                {"id": "F40", "type": "rect", "x": 3200, "y": 170, "width": 180, "height": 50, "label": "F40 天气查询", "responsible": "左晨", "status": "基础能力", "metrics": "search_weather"},
+                {"id": "F41", "type": "rect", "x": 3200, "y": 230, "width": 180, "height": 50, "label": "F41 POI问答", "responsible": "左晨", "status": "基础能力", "metrics": "search_poi_qa"},
+                {"id": "F42", "type": "rect", "x": 3200, "y": 290, "width": 180, "height": 50, "label": "F42 路线规划问答", "responsible": "左晨", "status": "基础能力", "metrics": "route_planning_qa"},
+                {"id": "F43", "type": "rect", "x": 3200, "y": 350, "width": 180, "height": 50, "label": "F43 导航控制", "responsible": "左晨", "status": "基础能力", "metrics": "navi_basic_control"},
+                {"id": "F44", "type": "rect", "x": 3200, "y": 410, "width": 180, "height": 50, "label": "F44 车机手册问答", "responsible": "左晨", "status": "基础能力", "metrics": "vehicle_manual_qa"},
+                {"id": "F45", "type": "rect", "x": 3400, "y": 50, "width": 180, "height": 50, "label": "F45 短视频搜索控制", "responsible": "左晨", "status": "基础能力", "metrics": "search_and_control_short_video"},
+                {"id": "F46", "type": "rect", "x": 3400, "y": 110, "width": 180, "height": 50, "label": "F46 音乐搜索控制", "responsible": "左晨", "status": "基础能力", "metrics": "search_and_control_music"},
+                {"id": "F47", "type": "rect", "x": 3400, "y": 170, "width": 180, "height": 50, "label": "F47 用户记忆搜索", "responsible": "张嘉锋", "status": "基础能力", "metrics": "search_user_memory"},
+                {"id": "F48", "type": "rect", "x": 3400, "y": 230, "width": 180, "height": 50, "label": "F48 人脸注册", "responsible": "丁彬", "status": "基础能力", "metrics": "face_id_register"},
+                {"id": "F49", "type": "rect", "x": 3400, "y": 290, "width": 180, "height": 50, "label": "F49 用户记忆操作", "responsible": "张嘉锋", "status": "基础能力", "metrics": "operate_user_memory"},
+                {"id": "F50", "type": "rect", "x": 3400, "y": 350, "width": 180, "height": 50, "label": "F50 网络搜索", "responsible": "左晨", "status": "基础能力", "metrics": "web_search"},
+                {"id": "F51", "type": "rect", "x": 3400, "y": 410, "width": 180, "height": 50, "label": "F51 目标列表更新", "responsible": "张嘉锋", "status": "基础能力", "metrics": "goal_list_update"},
+                {"id": "F52", "type": "rect", "x": 3600, "y": 50, "width": 180, "height": 50, "label": "F52 AI播报生成", "responsible": "左晨", "status": "基础能力", "metrics": "ai_broadcast_generate"},
+                {"id": "F53", "type": "rect", "x": 3600, "y": 110, "width": 180, "height": 50, "label": "F53 播报搜索控制", "responsible": "左晨", "status": "基础能力", "metrics": "search_and_control_broadcast"},
+                {"id": "F54", "type": "rect", "x": 3600, "y": 170, "width": 180, "height": 50, "label": "F54 录音会议纪要", "responsible": "左晨", "status": "基础能力", "metrics": "recording_minutes"},
+                {"id": "F55", "type": "rect", "x": 3600, "y": 230, "width": 180, "height": 50, "label": "F55 图片生成", "responsible": "左晨", "status": "基础能力", "metrics": "image_generate"},
+                {"id": "F56", "type": "rect", "x": 3600, "y": 290, "width": 180, "height": 50, "label": "F56 视觉信息搜索", "responsible": "丁彬", "status": "基础能力", "metrics": "search_visual_info"},
+                {"id": "F57", "type": "rect", "x": 3600, "y": 350, "width": 180, "height": 50, "label": "F57 氛围灯控制", "responsible": "吴仁杰", "status": "基础能力", "metrics": "ambient_light_control"},
+                {"id": "F58", "type": "rect", "x": 3600, "y": 410, "width": 180, "height": 50, "label": "F58 自动驾驶", "responsible": "吴仁杰", "status": "基础能力", "metrics": "auto_drive"},
+                {"id": "F59", "type": "rect", "x": 3800, "y": 50, "width": 180, "height": 50, "label": "F59 车机日志", "responsible": "吴仁杰", "status": "基础能力", "metrics": "car_log"},
+                {"id": "F60", "type": "rect", "x": 3800, "y": 110, "width": 180, "height": 50, "label": "F60 车辆养护问答", "responsible": "左晨", "status": "基础能力", "metrics": "car_care_qa"},
+                {"id": "F61", "type": "rect", "x": 3800, "y": 170, "width": 180, "height": 50, "label": "F61 工具反馈返回", "responsible": "左晨", "status": "基础能力", "metrics": "tool_feedback"},
+                {"id": "F62", "type": "rect", "x": 3200, "y": 550, "width": 200, "height": 80, "label": "F62 FC管线入口", "responsible": "吴仁杰", "status": "基础能力", "metrics": "Function Calling"},
+                {"id": "F63", "type": "rect", "x": 3200, "y": 650, "width": 200, "height": 60, "label": "F63 识别推理", "responsible": "吴仁杰", "status": "基础能力", "metrics": "意图识别+函数推理"},
+                {"id": "F64", "type": "rect", "x": 3200, "y": 730, "width": 200, "height": 60, "label": "F64 参数补全", "responsible": "吴仁杰", "status": "基础能力", "metrics": "缺失参数补全"},
+                {"id": "F65", "type": "rect", "x": 3200, "y": 810, "width": 200, "height": 60, "label": "F65 权限校验", "responsible": "吴仁杰", "status": "基础能力", "metrics": "51函数白名单27"},
+                {"id": "F66", "type": "rect", "x": 3200, "y": 890, "width": 200, "height": 60, "label": "F66 安全兜底", "responsible": "吴仁杰", "status": "基础能力", "metrics": "危险操作拦截"},
+                {"id": "F67", "type": "rect", "x": 3200, "y": 970, "width": 200, "height": 60, "label": "F67 执行分发", "responsible": "吴仁杰", "status": "基础能力", "metrics": "多车型适配"},
+                {"id": "F68", "type": "rect", "x": 3200, "y": 1050, "width": 200, "height": 60, "label": "F68 话术生成", "responsible": "吴仁杰", "status": "基础能力", "metrics": "确认/完成话术"},
+                {"id": "F69", "type": "rect", "x": 3450, "y": 650, "width": 150, "height": 50, "label": "F69 空调控制", "responsible": "吴仁杰", "status": "基础能力", "metrics": "温度/风量/模式"},
+                {"id": "F70", "type": "rect", "x": 3450, "y": 710, "width": 150, "height": 50, "label": "F70 座椅控制", "responsible": "吴仁杰", "status": "基础能力", "metrics": "加热/通风/按摩"},
+                {"id": "F71", "type": "rect", "x": 3450, "y": 770, "width": 150, "height": 50, "label": "F71 门窗控制", "responsible": "吴仁杰", "status": "基础能力", "metrics": "车窗/天窗/车门"},
+                {"id": "F72", "type": "rect", "x": 3450, "y": 830, "width": 150, "height": 50, "label": "F72 灯光控制", "responsible": "吴仁杰", "status": "基础能力", "metrics": "车灯/氛围灯"},
+                {"id": "F73", "type": "rect", "x": 3450, "y": 890, "width": 150, "height": 50, "label": "F73 方向盘控制", "responsible": "吴仁杰", "status": "基础能力", "metrics": "加热/调节"},
+                {"id": "F74", "type": "rect", "x": 3450, "y": 950, "width": 150, "height": 50, "label": "F74 驾驶模式", "responsible": "吴仁杰", "status": "基础能力", "metrics": "运动/经济/舒适"},
+                {"id": "F75", "type": "rect", "x": 3450, "y": 1010, "width": 150, "height": 50, "label": "F75 充电控制", "responsible": "吴仁杰", "status": "基础能力", "metrics": "充电盖/预约充电"},
+                {"id": "F76", "type": "rect", "x": 3620, "y": 650, "width": 150, "height": 50, "label": "F76 雨刮控制", "responsible": "吴仁杰", "status": "基础能力", "metrics": "速度/模式"},
+                {"id": "F77", "type": "rect", "x": 3620, "y": 710, "width": 150, "height": 50, "label": "F77 HUD控制", "responsible": "吴仁杰", "status": "基础能力", "metrics": "抬头显示"},
+                {"id": "F78", "type": "rect", "x": 3620, "y": 770, "width": 150, "height": 50, "label": "F78 香氛控制", "responsible": "吴仁杰", "status": "基础能力", "metrics": "开关/强度"},
+                {"id": "F79", "type": "rect", "x": 3200, "y": 1150, "width": 220, "height": 80, "label": "F79 VLM/VQA视觉感知", "responsible": "丁彬+西钺", "status": "基础能力", "metrics": "AlwaysOn + dynamic_watch"},
+                {"id": "F80", "type": "rect", "x": 3200, "y": 1250, "width": 200, "height": 60, "label": "F80 舱外AlwaysOn", "responsible": "丁彬", "status": "基础能力", "metrics": "持续感知外部环境"},
+                {"id": "F81", "type": "rect", "x": 3200, "y": 1330, "width": 200, "height": 60, "label": "F81 舱内静态AlwaysOn", "responsible": "丁彬", "status": "基础能力", "metrics": "人员乘车状态"},
+                {"id": "F82", "type": "rect", "x": 3200, "y": 1410, "width": 200, "height": 60, "label": "F82 舱内动态AlwaysOn", "responsible": "丁彬", "status": "基础能力", "metrics": "人员动作状态"},
+                {"id": "F83", "type": "rect", "x": 3420, "y": 1250, "width": 200, "height": 60, "label": "F83 dynamic_watch", "responsible": "西钺", "status": "基础能力", "metrics": "最多3并发 双topic"},
+                {"id": "F84", "type": "rect", "x": 3420, "y": 1330, "width": 200, "height": 60, "label": "F84 VLM阈值穿越", "responsible": "丁彬", "status": "基础能力", "metrics": "状态变化触发"},
+                {"id": "F85", "type": "rect", "x": 3420, "y": 1410, "width": 200, "height": 60, "label": "F85 全量替换机制", "responsible": "丁彬", "status": "基础能力", "metrics": "同一watch全量更新"},
+                {"id": "F86", "type": "rect", "x": 100, "y": 1150, "width": 220, "height": 80, "label": "F86 触发器系统", "responsible": "韩杰+刘杨", "status": "基础能力", "metrics": "QuickJS脚本引擎"},
+                {"id": "F87", "type": "rect", "x": 100, "y": 1250, "width": 180, "height": 60, "label": "F87 端状态信号", "responsible": "吴仁杰", "status": "基础能力", "metrics": "24类车态字段"},
+                {"id": "F88", "type": "rect", "x": 100, "y": 1330, "width": 180, "height": 60, "label": "F88 导航信号", "responsible": "刘杨", "status": "基础能力", "metrics": "接近/到达/离开"},
+                {"id": "F89", "type": "rect", "x": 100, "y": 1410, "width": 180, "height": 60, "label": "F89 时间信号", "responsible": "刘杨", "status": "基础能力", "metrics": "定时触发"},
+                {"id": "F90", "type": "rect", "x": 300, "y": 1250, "width": 180, "height": 60, "label": "F90 视觉信号", "responsible": "丁彬", "status": "基础能力", "metrics": "VLM感知结果"},
+                {"id": "F91", "type": "rect", "x": 300, "y": 1330, "width": 180, "height": 60, "label": "F91 对话信号", "responsible": "张嘉锋", "status": "基础能力", "metrics": "对话轮次/情绪"},
+                {"id": "F92", "type": "rect", "x": 300, "y": 1410, "width": 180, "height": 60, "label": "F92 音频信号", "responsible": "王泽民", "status": "基础能力", "metrics": "播放状态"},
+                {"id": "F93", "type": "rect", "x": 200, "y": 1500, "width": 180, "height": 60, "label": "F93 QuickJS脚本执行", "responsible": "韩杰", "status": "基础能力", "metrics": "JS条件判断"},
+                {"id": "F94", "type": "rect", "x": 200, "y": 1580, "width": 180, "height": 60, "label": "F94 优先级仲裁", "responsible": "刘杨", "status": "基础能力", "metrics": "多触发器冲突处理"},
+                {"id": "F95", "type": "rect", "x": 200, "y": 1660, "width": 180, "height": 60, "label": "F95 10运算符", "responsible": "刘杨", "status": "基础能力", "metrics": "等于/大于/包含/变更为"},
+                {"id": "F96", "type": "rect", "x": 400, "y": 1500, "width": 180, "height": 60, "label": "F96 one_shot状态机", "responsible": "王泽民", "status": "基础能力", "metrics": "单次触发"},
+                {"id": "F97", "type": "rect", "x": 400, "y": 1580, "width": 180, "height": 60, "label": "F97 频次策略", "responsible": "刘杨", "status": "基础能力", "metrics": "冷却时间/最大次数"},
+                {"id": "F98", "type": "rect", "x": 400, "y": 1660, "width": 180, "height": 60, "label": "F98 执行动作", "responsible": "刘杨", "status": "基础能力", "metrics": "调用Planner/TTS/车控"},
+                {"id": "F99", "type": "rect", "x": 700, "y": 1150, "width": 220, "height": 80, "label": "F99 Goal List任务服务", "responsible": "张嘉锋", "status": "基础能力", "metrics": "Task/Run/Goal三层"},
+                {"id": "F100", "type": "rect", "x": 700, "y": 1250, "width": 200, "height": 60, "label": "F100 静态Advisor×4", "responsible": "张嘉锋", "status": "基础能力", "metrics": "舒适/出行/情感/内容"},
+                {"id": "F101", "type": "rect", "x": 700, "y": 1330, "width": 200, "height": 60, "label": "F101 动态Advisor", "responsible": "张嘉锋", "status": "基础能力", "metrics": "深度思考+目标监控"},
+                {"id": "F102", "type": "rect", "x": 1000, "y": 1150, "width": 200, "height": 80, "label": "F102 Memory记忆服务", "responsible": "张嘉锋", "status": "基础能力", "metrics": "5层记忆架构"},
+                {"id": "F103", "type": "rect", "x": 1000, "y": 1250, "width": 180, "height": 50, "label": "F103 instant即时", "responsible": "张嘉锋", "status": "基础能力", "metrics": "当前对话"},
+                {"id": "F104", "type": "rect", "x": 1000, "y": 1310, "width": 180, "height": 50, "label": "F104 short短期", "responsible": "张嘉锋", "status": "基础能力", "metrics": "今日记忆"},
+                {"id": "F105", "type": "rect", "x": 1000, "y": 1370, "width": 180, "height": 50, "label": "F105 long长期", "responsible": "张嘉锋", "status": "基础能力", "metrics": "持久记忆"},
+                {"id": "F106", "type": "rect", "x": 1000, "y": 1430, "width": 180, "height": 50, "label": "F106 long_scene场景", "responsible": "张嘉锋", "status": "基础能力", "metrics": "场景记忆"},
+                {"id": "F107", "type": "rect", "x": 1000, "y": 1490, "width": 180, "height": 50, "label": "F107 memory_tag标签", "responsible": "张嘉锋", "status": "基础能力", "metrics": "标签索引"},
+                {"id": "F108", "type": "rect", "x": 1300, "y": 1150, "width": 200, "height": 80, "label": "F108 TTS语音合成", "responsible": "左晨", "status": "基础能力", "metrics": "P50 70ms 桃子音色"},
+                {"id": "F109", "type": "rect", "x": 1300, "y": 1250, "width": 200, "height": 60, "label": "F109 流式播放", "responsible": "左晨", "status": "基础能力", "metrics": "边合成边播放"},
+                {"id": "F110", "type": "rect", "x": 1300, "y": 1330, "width": 200, "height": 60, "label": "F110 打断恢复", "responsible": "左晨", "status": "基础能力", "metrics": "用户打断后继续"},
+                {"id": "F111", "type": "rect", "x": 1600, "y": 1150, "width": 200, "height": 80, "label": "F111 CDC Client", "responsible": "赵衍", "status": "基础能力", "metrics": "车端客户端"},
+                {"id": "F112", "type": "rect", "x": 1600, "y": 1250, "width": 200, "height": 60, "label": "F112 多音区管理", "responsible": "赵衍", "status": "基础能力", "metrics": "主驾/副驾/后排"},
+                {"id": "F113", "type": "rect", "x": 1600, "y": 1330, "width": 200, "height": 60, "label": "F113 语音定位", "responsible": "赵衍", "status": "基础能力", "metrics": "识别说话人位置"},
+                {"id": "F114", "type": "rect", "x": 1820, "y": 1150, "width": 200, "height": 80, "label": "F114 AI Box Orin", "responsible": "吴仁杰", "status": "基础能力", "metrics": "NVIDIA Orin"},
+                {"id": "F115", "type": "rect", "x": 1820, "y": 1250, "width": 200, "height": 60, "label": "F115 离在线仲裁", "responsible": "吴仁杰", "status": "基础能力", "metrics": "FC白名单27"},
+                {"id": "F116", "type": "rect", "x": 1820, "y": 1330, "width": 200, "height": 60, "label": "F116 端侧FC模型", "responsible": "吴仁杰", "status": "基础能力", "metrics": "车控SFT FC"},
+                {"id": "F117", "type": "rect", "x": 2040, "y": 1150, "width": 200, "height": 80, "label": "F117 AIDV Cloud", "responsible": "左晨", "status": "基础能力", "metrics": "云端AI服务"},
+                {"id": "F118", "type": "rect", "x": 2040, "y": 1250, "width": 200, "height": 60, "label": "F118 Eino Graph编排", "responsible": "左晨", "status": "基础能力", "metrics": "Go实现 DAG"},
+                {"id": "F119", "type": "rect", "x": 2040, "y": 1330, "width": 200, "height": 60, "label": "F119 System One API", "responsible": "左晨", "status": "基础能力", "metrics": "Seed 2.1 Lite"},
+                {"id": "F120", "type": "rect", "x": 2260, "y": 1150, "width": 200, "height": 80, "label": "F120 Speech+Doubao Cloud", "responsible": "左晨", "status": "基础能力", "metrics": "语音+大模型云"},
+                {"id": "F121", "type": "rect", "x": 2260, "y": 1250, "width": 200, "height": 60, "label": "F121 流式拒识", "responsible": "左晓杰", "status": "基础能力", "metrics": "streaming reject"},
+                {"id": "F122", "type": "rect", "x": 2260, "y": 1330, "width": 200, "height": 60, "label": "F122 最终拒识", "responsible": "左晓杰", "status": "基础能力", "metrics": "final reject"},
+                {"id": "F123", "type": "rect", "x": 2500, "y": 1150, "width": 200, "height": 70, "label": "F123 即时卡片UI", "responsible": "赵衍", "status": "基础能力", "metrics": "实时展示"},
+                {"id": "F124", "type": "rect", "x": 2500, "y": 1240, "width": 200, "height": 70, "label": "F124 NLG话术生成", "responsible": "张嘉锋", "status": "基础能力", "metrics": "自然语言生成"},
+                {"id": "F125", "type": "rect", "x": 2500, "y": 1330, "width": 200, "height": 70, "label": "F125 对话一致性", "responsible": "张嘉锋", "status": "基础能力", "metrics": "上下文连贯"},
+                {"id": "F126", "type": "rect", "x": 100, "y": 1800, "width": 200, "height": 80, "label": "F126 Badcase排查", "responsible": "王泽民", "status": "待优化", "metrics": "四类根因分析"},
+                {"id": "F127", "type": "rect", "x": 100, "y": 1900, "width": 180, "height": 60, "label": "F127 规则设计缺陷", "responsible": "王泽民", "status": "待优化", "metrics": "句法RAG误判"},
+                {"id": "F128", "type": "rect", "x": 100, "y": 1980, "width": 180, "height": 60, "label": "F128 端侧资源限制", "responsible": "吴仁杰", "status": "待优化", "metrics": "Orin算力不足"},
+                {"id": "F129", "type": "rect", "x": 100, "y": 2060, "width": 180, "height": 60, "label": "F129 模型输出不稳定", "responsible": "张嘉锋", "status": "待优化", "metrics": "幻觉/漏提"},
+                {"id": "F130", "type": "rect", "x": 100, "y": 2140, "width": 180, "height": 60, "label": "F130 时序冲突", "responsible": "左晨", "status": "待优化", "metrics": "软硬件异步"},
+                {"id": "F131", "type": "rect", "x": 320, "y": 1900, "width": 180, "height": 60, "label": "F131 工具描述优化", "responsible": "张嘉锋", "status": "待优化", "metrics": "SP工具定义"},
+                {"id": "F132", "type": "rect", "x": 320, "y": 1980, "width": 180, "height": 60, "label": "F132 上下文优化", "responsible": "左晨", "status": "待优化", "metrics": "记忆/车况注入"},
+                {"id": "F133", "type": "rect", "x": 600, "y": 1800, "width": 200, "height": 80, "label": "F133 高阶能力", "responsible": "徐洋", "status": "高阶能力-830", "metrics": "赛力斯主线"},
+                {"id": "F134", "type": "rect", "x": 600, "y": 1900, "width": 180, "height": 50, "label": "F134 多音区语义免唤醒", "responsible": "赵衍", "status": "高阶能力-830", "metrics": "说话人识别"},
+                {"id": "F135", "type": "rect", "x": 600, "y": 1960, "width": 180, "height": 50, "label": "F135 全双工", "responsible": "左晨", "status": "高阶能力-830", "metrics": "边听边说"},
+                {"id": "F136", "type": "rect", "x": 600, "y": 2020, "width": 180, "height": 50, "label": "F136 多模态免唤醒", "responsible": "丁彬", "status": "高阶能力-830", "metrics": "视觉+语音"},
+                {"id": "F137", "type": "rect", "x": 600, "y": 2080, "width": 180, "height": 50, "label": "F137 对话附和", "responsible": "张嘉锋", "status": "高阶能力-830", "metrics": "嗯/好的/明白"},
+                {"id": "F138", "type": "rect", "x": 900, "y": 1800, "width": 200, "height": 80, "label": "F138 配置平台", "responsible": "刘杨", "status": "基础能力", "metrics": "火山后台"},
+                {"id": "F139", "type": "rect", "x": 900, "y": 1900, "width": 180, "height": 50, "label": "F139 静态条件表", "responsible": "刘杨", "status": "基础能力", "metrics": "车型/版本/地区"},
+                {"id": "F140", "type": "rect", "x": 900, "y": 1960, "width": 180, "height": 50, "label": "F140 动态条件表", "responsible": "刘杨", "status": "基础能力", "metrics": "车态/时间/位置"},
+                {"id": "F141", "type": "rect", "x": 900, "y": 2020, "width": 180, "height": 50, "label": "F141 执行动作表", "responsible": "刘杨", "status": "基础能力", "metrics": "动作类型+参数"},
+                {"id": "F142", "type": "rect", "x": 900, "y": 2080, "width": 180, "height": 50, "label": "F142 执行策略表", "responsible": "刘杨", "status": "基础能力", "metrics": "优先级+频次"},
+                {"id": "F143", "type": "rect", "x": 1200, "y": 1800, "width": 180, "height": 70, "label": "F143 上汽610 P0", "responsible": "徐洋", "status": "基础能力", "metrics": "高频条件清单"},
+                {"id": "F144", "type": "rect", "x": 1200, "y": 1890, "width": 180, "height": 70, "label": "F144 赛力斯830", "responsible": "徐洋", "status": "高阶能力-830", "metrics": "高阶能力主线"},
+                {"id": "F145", "type": "rect", "x": 1200, "y": 1980, "width": 180, "height": 70, "label": "F145 1020阻塞", "responsible": "韩杰", "status": "待优化", "metrics": "触发器story 7356840911", "highlight": "yellow"},
+                {"id": "F146", "type": "rect", "x": 1200, "y": 2070, "width": 180, "height": 70, "label": "F146 1103排期", "responsible": "王泽民", "status": "规划中", "metrics": "7384686971"},
+                {"id": "F147", "type": "rect", "x": 1400, "y": 1800, "width": 180, "height": 70, "label": "F147 东风S33", "responsible": "徐洋", "status": "规划中", "metrics": "toB项目 7385063502"},
+                {"id": "F148", "type": "rect", "x": 1400, "y": 1890, "width": 180, "height": 70, "label": "F148 权限归属", "responsible": "徐洋", "status": "待优化", "metrics": "端侧场景定义权未决", "highlight": "yellow"},
+                {"id": "F149", "type": "rect", "x": 1400, "y": 1980, "width": 180, "height": 70, "label": "F149 信号格式", "responsible": "吴仁杰", "status": "待优化", "metrics": "米/秒/hh:mm统一", "highlight": "yellow"},
+                {"id": "F150", "type": "rect", "x": 1400, "y": 2070, "width": 180, "height": 70, "label": "F150 触发器归属", "responsible": "韩杰", "status": "待优化", "metrics": "vs Advisor归属未决", "highlight": "yellow"},
+                {"id": "F151", "type": "rect", "x": 1600, "y": 1800, "width": 180, "height": 70, "label": "F151 D6X车型", "responsible": "徐洋", "status": "基础能力", "metrics": "上汽荣威 五座"},
+                {"id": "F152", "type": "rect", "x": 1600, "y": 1890, "width": 180, "height": 70, "label": "F152 测试团队", "responsible": "陈亮", "status": "基础能力", "metrics": "QA测试"},
+                {"id": "F153", "type": "rect", "x": 1600, "y": 1980, "width": 180, "height": 70, "label": "F153 产品协作", "responsible": "郝晓伟", "status": "基础能力", "metrics": "跨团队评审"},
+                {"id": "F154", "type": "rect", "x": 1600, "y": 2070, "width": 180, "height": 70, "label": "F154 Seed模型系列", "responsible": "左晨", "status": "基础能力", "metrics": "1.8 / 2.1 Lite"}
+            ],
+            "edges": [
+                {"from": "F01", "to": "F02", "label": "音频流"},
+                {"from": "F02", "to": "F03", "label": "VAD策略切换"},
+                {"from": "F02", "to": "F04", "label": "语音段"},
+                {"from": "F04", "to": "F05", "label": "流式"},
+                {"from": "F04", "to": "F06", "label": "非流式"},
+                {"from": "F05", "to": "F07", "label": "partial结果"},
+                {"from": "F06", "to": "F07", "label": "final结果"},
+                {"from": "F07", "to": "F08", "label": "文本+元数据"},
+                {"from": "F08", "to": "F09", "label": "文本"},
+                {"from": "F08", "to": "F10", "label": "文本+上下文"},
+                {"from": "F09", "to": "F11", "label": "匹配成功"},
+                {"from": "F10", "to": "F22", "label": "复杂需求"},
+                {"from": "F12", "to": "F21", "label": "情景"},
+                {"from": "F13", "to": "F21", "label": "历史"},
+                {"from": "F14", "to": "F21", "label": "事件"},
+                {"from": "F15", "to": "F21", "label": "端状态"},
+                {"from": "F16", "to": "F21", "label": "屏幕"},
+                {"from": "F17", "to": "F21", "label": "记忆"},
+                {"from": "F18", "to": "F21", "label": "任务"},
+                {"from": "F19", "to": "F21", "label": "联网"},
+                {"from": "F20", "to": "F21", "label": "探索"},
+                {"from": "F21", "to": "F22", "label": "完整上下文"},
+                {"from": "F22", "to": "F23", "label": "需要工具调用"},
+                {"from": "F24", "to": "F23", "label": "SP注入"},
+                {"from": "F25", "to": "F23", "label": "UP注入"},
+                {"from": "F26", "to": "F23", "label": "Cache复用"},
+                {"from": "F27", "to": "F24", "label": "示例"},
+                {"from": "F28", "to": "F24", "label": "示例"},
+                {"from": "F29", "to": "F25", "label": "优化后UP"},
+                {"from": "F23", "to": "F30", "label": "进入循环"},
+                {"from": "F30", "to": "F31", "label": "Action"},
+                {"from": "F31", "to": "F32", "label": "AIDV"},
+                {"from": "F31", "to": "F33", "label": "DPFM"},
+                {"from": "F31", "to": "F34", "label": "Doubao"},
+                {"from": "F31", "to": "F35", "label": "Ecology"},
+                {"from": "F31", "to": "F36", "label": "Offline"},
+                {"from": "F31", "to": "F37", "label": "InternalRPC"},
+                {"from": "F32", "to": "F38", "label": "路由"},
+                {"from": "F32", "to": "F40", "label": "路由"},
+                {"from": "F33", "to": "F38", "label": "车控"},
+                {"from": "F33", "to": "F62", "label": "FC管线"},
+                {"from": "F62", "to": "F63", "label": "进入FC"},
+                {"from": "F63", "to": "F64", "label": "函数+参数"},
+                {"from": "F64", "to": "F65", "label": "完整参数"},
+                {"from": "F65", "to": "F66", "label": "权限通过"},
+                {"from": "F66", "to": "F67", "label": "安全通过"},
+                {"from": "F67", "to": "F68", "label": "执行完成"},
+                {"from": "F67", "to": "F69", "label": "空调"},
+                {"from": "F67", "to": "F70", "label": "座椅"},
+                {"from": "F67", "to": "F71", "label": "门窗"},
+                {"from": "F67", "to": "F72", "label": "灯光"},
+                {"from": "F67", "to": "F73", "label": "方向盘"},
+                {"from": "F67", "to": "F74", "label": "驾驶模式"},
+                {"from": "F67", "to": "F75", "label": "充电"},
+                {"from": "F67", "to": "F76", "label": "雨刮"},
+                {"from": "F67", "to": "F77", "label": "HUD"},
+                {"from": "F67", "to": "F78", "label": "香氛"},
+                {"from": "F79", "to": "F80", "label": "舱外"},
+                {"from": "F79", "to": "F81", "label": "舱内静态"},
+                {"from": "F79", "to": "F82", "label": "舱内动态"},
+                {"from": "F79", "to": "F83", "label": "动态watch"},
+                {"from": "F83", "to": "F84", "label": "阈值判断"},
+                {"from": "F83", "to": "F85", "label": "替换机制"},
+                {"from": "F86", "to": "F87", "label": "订阅"},
+                {"from": "F86", "to": "F88", "label": "订阅"},
+                {"from": "F86", "to": "F89", "label": "订阅"},
+                {"from": "F86", "to": "F90", "label": "订阅"},
+                {"from": "F86", "to": "F91", "label": "订阅"},
+                {"from": "F86", "to": "F92", "label": "订阅"},
+                {"from": "F86", "to": "F93", "label": "执行脚本"},
+                {"from": "F93", "to": "F94", "label": "触发"},
+                {"from": "F94", "to": "F95", "label": "条件判断"},
+                {"from": "F95", "to": "F96", "label": "状态机"},
+                {"from": "F96", "to": "F97", "label": "频次控制"},
+                {"from": "F97", "to": "F98", "label": "执行"},
+                {"from": "F99", "to": "F100", "label": "静态"},
+                {"from": "F99", "to": "F101", "label": "动态"},
+                {"from": "F102", "to": "F103", "label": "即时"},
+                {"from": "F102", "to": "F104", "label": "短期"},
+                {"from": "F102", "to": "F105", "label": "长期"},
+                {"from": "F102", "to": "F106", "label": "场景"},
+                {"from": "F102", "to": "F107", "label": "标签"},
+                {"from": "F108", "to": "F109", "label": "流式"},
+                {"from": "F108", "to": "F110", "label": "打断"},
+                {"from": "F111", "to": "F112", "label": "音区"},
+                {"from": "F111", "to": "F113", "label": "定位"},
+                {"from": "F114", "to": "F115", "label": "仲裁"},
+                {"from": "F114", "to": "F116", "label": "FC"},
+                {"from": "F117", "to": "F118", "label": "编排"},
+                {"from": "F117", "to": "F119", "label": "API"},
+                {"from": "F120", "to": "F121", "label": "流式"},
+                {"from": "F120", "to": "F122", "label": "最终"},
+                {"from": "F23", "to": "F123", "label": "UI"},
+                {"from": "F23", "to": "F124", "label": "NLG"},
+                {"from": "F23", "to": "F125", "label": "一致性"}
+            ]
+        };
+
+        const svg = document.getElementById('architecture-canvas');
+        const tooltip = document.getElementById('tooltip');
+
+        // 定义颜色映射
+        const statusColors = {
+            "基础能力": { fill: "#e3f2fd", stroke: "#1976d2" },
+            "高阶能力-830": { fill: "#fff3e0", stroke: "#f57c00" },
+            "demo预研": { fill: "#f3e5f5", stroke: "#7b1fa2" },
+            "待优化": { fill: "#fff9c4", stroke: "#fbc02d" },
+            "规划中": { fill: "#ffebee", stroke: "#c62828" },
+            "Fail": { fill: "#e0e0e0", stroke: "#616161" }
+        };
+
+        // 定义箭头标记
+        const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+        const marker = document.createElementNS("http://www.w3.org/2000/svg", "marker");
+        marker.setAttribute("id", "arrowhead");
+        marker.setAttribute("markerWidth", "10");
+        marker.setAttribute("markerHeight", "10");
+        marker.setAttribute("refX", "9");
+        marker.setAttribute("refY", "3");
+        marker.setAttribute("orient", "auto");
+        const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+        polygon.setAttribute("points", "0 0, 10 3, 0 6");
+        polygon.setAttribute("fill", "#90a4ae");
+        marker.appendChild(polygon);
+        defs.appendChild(marker);
+        svg.appendChild(defs);
+
+        // 绘制边
+        architectureData.edges.forEach(edge => {
+            const fromNode = architectureData.nodes.find(n => n.id === edge.from);
+            const toNode = architectureData.nodes.find(n => n.id === edge.to);
+
+            if (fromNode && toNode) {
+                const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                line.setAttribute("class", "edge");
+                line.setAttribute("x1", fromNode.x + fromNode.width / 2);
+                line.setAttribute("y1", fromNode.y + fromNode.height / 2);
+                line.setAttribute("x2", toNode.x + toNode.width / 2);
+                line.setAttribute("y2", toNode.y + toNode.height / 2);
+                svg.appendChild(line);
+
+                // 边标签
+                if (edge.label) {
+                    const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                    text.setAttribute("class", "edge-label");
+                    text.setAttribute("x", (fromNode.x + toNode.x) / 2 + fromNode.width / 2);
+                    text.setAttribute("y", (fromNode.y + toNode.y) / 2 + fromNode.height / 2 - 5);
+                    text.setAttribute("text-anchor", "middle");
+                    text.textContent = edge.label;
+                    svg.appendChild(text);
+                }
+            }
+        });
+
+        // 绘制节点
+        architectureData.nodes.forEach(node => {
+            const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            g.setAttribute("class", "node");
+            g.setAttribute("data-id", node.id);
+
+            const colors = statusColors[node.status] || statusColors["基础能力"];
+
+            if (node.type === "diamond") {
+                const points = `${node.x + node.width/2},${node.y} ${node.x + node.width},${node.y + node.height/2} ${node.x + node.width/2},${node.y + node.height} ${node.x},${node.y + node.height/2}`;
+                const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+                polygon.setAttribute("points", points);
+                polygon.setAttribute("fill", colors.fill);
+                polygon.setAttribute("stroke", colors.stroke);
+                polygon.setAttribute("stroke-width", "2");
+                g.appendChild(polygon);
+            } else if (node.type === "ellipse") {
+                const ellipse = document.createElementNS("http://www.w3.org/2000/svg", "ellipse");
+                ellipse.setAttribute("cx", node.x + node.width / 2);
+                ellipse.setAttribute("cy", node.y + node.height / 2);
+                ellipse.setAttribute("rx", node.width / 2);
+                ellipse.setAttribute("ry", node.height / 2);
+                ellipse.setAttribute("fill", colors.fill);
+                ellipse.setAttribute("stroke", colors.stroke);
+                ellipse.setAttribute("stroke-width", "2");
+                g.appendChild(ellipse);
+            } else {
+                const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                rect.setAttribute("x", node.x);
+                rect.setAttribute("y", node.y);
+                rect.setAttribute("width", node.width);
+                rect.setAttribute("height", node.height);
+                rect.setAttribute("rx", "6");
+                rect.setAttribute("fill", colors.fill);
+                rect.setAttribute("stroke", colors.stroke);
+                rect.setAttribute("stroke-width", "2");
+                g.appendChild(rect);
+            }
+
+            // 黄色高亮
+            if (node.highlight === "yellow") {
+                const highlight = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                highlight.setAttribute("x", node.x);
+                highlight.setAttribute("y", node.y);
+                highlight.setAttribute("width", node.width);
+                highlight.setAttribute("height", node.height);
+                highlight.setAttribute("rx", "6");
+                highlight.setAttribute("fill", "none");
+                highlight.setAttribute("stroke", "#ffc107");
+                highlight.setAttribute("stroke-width", "4");
+                g.appendChild(highlight);
+            }
+
+            // 标签
+            const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            text.setAttribute("class", "node-label");
+            text.setAttribute("x", node.x + node.width / 2);
+            text.setAttribute("y", node.y + node.height / 2 - 10);
+            text.setAttribute("text-anchor", "middle");
+            text.textContent = node.label;
+            g.appendChild(text);
+
+            // 责任人
+            if (node.responsible) {
+                const resp = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                resp.setAttribute("class", "node-details");
+                resp.setAttribute("x", node.x + node.width / 2);
+                resp.setAttribute("y", node.y + node.height / 2 + 5);
+                resp.setAttribute("text-anchor", "middle");
+                resp.textContent = node.responsible;
+                g.appendChild(resp);
+            }
+
+            // 指标
+            if (node.metrics) {
+                const metrics = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                metrics.setAttribute("class", "node-details");
+                metrics.setAttribute("x", node.x + node.width / 2);
+                metrics.setAttribute("y", node.y + node.height / 2 + 18);
+                metrics.setAttribute("text-anchor", "middle");
+                metrics.textContent = node.metrics;
+                g.appendChild(metrics);
+            }
+
+            // Tooltip
+            g.addEventListener('mouseenter', (e) => {
+                let tooltipContent = `<strong>${node.label}</strong><br>`;
+                if (node.responsible) tooltipContent += `负责人: ${node.responsible}<br>`;
+                if (node.status) tooltipContent += `状态: ${node.status}<br>`;
+                if (node.metrics) tooltipContent += `指标: ${node.metrics}<br>`;
+                if (node.meego) tooltipContent += `Meego: ${node.meego}`;
+
+                tooltip.innerHTML = tooltipContent;
+                tooltip.style.display = 'block';
+            });
+
+            g.addEventListener('mousemove', (e) => {
+                tooltip.style.left = e.pageX + 15 + 'px';
+                tooltip.style.top = e.pageY + 15 + 'px';
+            });
+
+            g.addEventListener('mouseleave', () => {
+                tooltip.style.display = 'none';
+            });
+
+            svg.appendChild(g);
+        });
+    </script>
+</body>
+</html>

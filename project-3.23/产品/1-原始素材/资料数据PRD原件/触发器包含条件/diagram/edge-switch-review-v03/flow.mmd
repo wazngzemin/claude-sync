@@ -1,0 +1,82 @@
+flowchart TB
+    PREP["接入准备：分清三类对象<br/>展示信息：名称、说明、车型、排序；来源待确认<br/>规则：本地天气脚本；列清任务与全部受控规则对应关系<br/>开关：按车保存；与展示项、规则对应同一任务"]
+
+    subgraph SWITCH["一、任务中心到端侧开关：本次重点"]
+        A["一个任务中心<br/>接入本车适用的预设任务列表<br/>展示天气路况保护，查询已有开关"]
+        U["用户开启或关闭<br/>提交本车、任务标识与目标状态"]
+        S["开关状态管理与通知职责【接入方案待确认】<br/>按最终方案保存、查询、恢复本车选择<br/>向 Trigger 提供初始状态及变化通知<br/>不是已经确定的新服务，不由 Trigger 单独存一份"]
+        UI["任务中心按真实状态回显<br/>失败提示；未知不报成功<br/>如何确认端侧生效，由接入方案明确"]
+        T["端侧 Trigger 读取或订阅开关<br/>初始化与运行中的变化都要覆盖<br/>任务中心页面退出后仍应生效"]
+        A -->|用户操作| U
+        A -.->|初次查询当前开关| S
+        U -->|目标状态| S
+        S -->|可确认的结果与当前状态| UI
+        S -->|初始值及后续变化| T
+    end
+
+    subgraph RULE["二、Trigger 判断：开关只控制本天气任务"]
+        DATA["本地状态更新<br/>车辆状态、天气和路面识别结果"]
+        CHECK{"任务已开启、所需信息可用<br/>原天气规则满足<br/>并符合原有去重与提醒策略？"}
+        WAIT["本次不产生天气任务的新事件<br/>等待下一次有效更新<br/>不关闭通用 Trigger 或共享感知能力"]
+        EVENT["Trigger 发出天气业务事件<br/>交接任务、本次命中与场景信息<br/>不注册卡片、不执行车控"]
+        DATA --> CHECK
+        T --> CHECK
+        CHECK -->|未开启或未命中| WAIT
+        CHECK -->|命中| EVENT
+    end
+
+    subgraph CARD["三、天气业务注册卡片，承接本地确认：DT 不参与"]
+        BIZ["天气业务确定本次建议<br/>例如：当前路面湿滑，是否切换湿滑模式？"]
+        REGISTER["天气业务注册并发起卡片<br/>文案、TTS、确认取消按钮、业务回调<br/>绑定本次建议、有效范围及本地按钮表达"]
+        DISPLAY["即时交互卡排队与展示<br/>按当前语音状态播报<br/>语音不可用时保留手动点击"]
+        SHOWN{"是否真正展示且仍适用？"}
+        QUEUE["仍在排队：等待<br/>不提前接受本卡确认，不执行车辆动作"]
+        CLICK["用户手动点击确认或取消<br/>调用卡片绑定的业务回调"]
+        VOICE["用户说支持的按钮表达<br/>本地可见即可说匹配按钮<br/>进入同一按钮处理，不经过 DT"]
+        CHOICE{"天气业务核对本次选择<br/>属于当前建议？已处理过吗？<br/>确认、取消还是其他结束事件？"}
+        IGNORE["旧卡或重复回应：忽略<br/>不重复执行；不终止原先已受理动作"]
+        STOP["结束本次，不执行车控<br/>清理本次卡片与交互绑定<br/>不改变任务中心长期开关"]
+        BIZ --> REGISTER --> DISPLAY --> SHOWN
+        SHOWN -->|仍排队| QUEUE
+        QUEUE -->|轮到后检查是否仍适用| SHOWN
+        SHOWN -->|失败或过时| STOP
+        SHOWN -->|已展示：手动| CLICK
+        SHOWN -->|已展示：本地语音| VOICE
+        SHOWN -->|关闭卡片或等待超时| STOP
+        CLICK --> CHOICE
+        VOICE --> CHOICE
+        CHOICE -->|旧卡或重复| IGNORE
+        CHOICE -->|取消| STOP
+    end
+
+    subgraph EXEC["四、执行业务闭环：不回 Trigger 二次重跑规则"]
+        REQUEST["天气业务提交本次确定动作<br/>确认与本次建议绑定<br/>关闭任务时的在途处理策略需另行确认"]
+        ALLOW{"端侧执行层按已有车控限制<br/>是否允许本次动作？"}
+        DENIED["不执行，返回未执行原因<br/>天气业务结束本次处理"]
+        CONTROL["赛力斯车控执行车辆动作<br/>例如切换湿滑模式"]
+        RESULT["天气业务取得实际结果<br/>结合车控反馈和车辆状态<br/>成功、失败、暂不能确认<br/>请求已收到不等于车辆已完成"]
+        UPDATE["天气业务更新或关闭卡片<br/>清理本次按钮语音绑定<br/>结果来源与更新接口需核实"]
+        DONE["本次结束<br/>确认或取消均不改变长期开关<br/>后续更新仍先检查开关再判断规则"]
+        REQUEST --> ALLOW
+        ALLOW -->|不允许| DENIED
+        ALLOW -->|允许| CONTROL --> RESULT --> UPDATE --> DONE
+        DENIED --> DONE
+    end
+
+    PREP -.->|任务展示与开关关联| A
+    PREP -.->|任务与端侧天气规则对应| CHECK
+    EVENT --> BIZ
+    CHOICE -->|当前建议的有效确认| REQUEST
+    STOP --> DONE
+    WAIT -.->|下一次有效更新| CHECK
+    DONE -.->|下一次有效更新| CHECK
+
+    NOTE["本次待收口<br/>列表来源与稳定排序；任务与规则标识对应<br/>开关存储及通知通道；保存与实际生效的反馈<br/>任务关闭时，已排队卡、已展示卡、在途动作如何处理<br/>正式天气场景联合验收，不能用测试脚本通路替代"]
+    classDef blue fill:#e6f1fb,stroke:#185fa5,color:#0c447c;
+    classDef green fill:#e1f5ee,stroke:#0f6e56,color:#085041;
+    classDef pending fill:#faeeda,stroke:#854f0b,color:#633806;
+    classDef neutral fill:#f1efe8,stroke:#5f5e5a,color:#444441;
+    class A,U,UI,T,CHECK,EVENT blue;
+    class BIZ,REGISTER,DISPLAY,SHOWN,CLICK,VOICE,CHOICE,REQUEST,ALLOW,CONTROL,RESULT,UPDATE green;
+    class PREP,S,NOTE pending;
+    class DATA,WAIT,QUEUE,IGNORE,STOP,DENIED,DONE neutral;

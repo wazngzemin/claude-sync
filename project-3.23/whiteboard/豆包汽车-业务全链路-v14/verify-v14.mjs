@@ -1,0 +1,46 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import vm from 'node:vm';
+import {fileURLToPath} from 'node:url';
+import {createRequire} from 'node:module';
+const require=createRequire(import.meta.url);
+const {JSDOM,VirtualConsole}=require('/Users/bytedance/.npm/_npx/12f3a93219d134f5/node_modules/jsdom');
+const root=path.dirname(fileURLToPath(import.meta.url));
+const htmlpath='/Users/bytedance/Desktop/3.23/产品/codex/HTML/01-进行中/豆包汽车-业务全链路-v14.html';
+const html=fs.readFileSync(htmlpath,'utf8'),g=JSON.parse(fs.readFileSync(path.join(root,'graph-v14.json'),'utf8'));
+const issues=[],checks=[];const assert=(v,msg)=>{if(!v)issues.push(msg);else checks.push(msg);};
+const nodes=g.modules.flatMap(m=>m.nodes),nm=new Map(nodes.map(n=>[n.id,n]));
+assert(g.modules.length===16,'16 modules');assert(nodes.length===171,'171 process nodes');assert(g.tools.length===33,'33 tool rows');
+assert(new Set(nodes.map(n=>n.id)).size===nodes.length,'unique node ids');
+const overlap=(a,b)=>a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;
+let nodeOverlaps=[],labelOverlaps=[],lineOverlaps=[];
+for(let i=0;i<nodes.length;i++)for(let j=i+1;j<nodes.length;j++)if(overlap(nodes[i],nodes[j]))nodeOverlaps.push([nodes[i].id,nodes[j].id]);
+for(const e of g.edges){assert(nm.has(e.from)&&nm.has(e.to),'edge endpoints '+e.id);for(const n of nodes){if(e.labelBox&&overlap(e.labelBox,n))labelOverlaps.push([e.id,n.id]);if(n.id===e.from||n.id===e.to)continue;for(let i=1;i<e.points.length;i++){const a=e.points[i-1],b=e.points[i];if(a[0]===b[0]){if(a[0]>n.x+.1&&a[0]<n.x+n.w-.1&&Math.max(a[1],b[1])>n.y+.1&&Math.min(a[1],b[1])<n.y+n.h-.1)lineOverlaps.push([e.id,n.id]);}else if(a[1]===b[1]){if(a[1]>n.y+.1&&a[1]<n.y+n.h-.1&&Math.max(a[0],b[0])>n.x+.1&&Math.min(a[0],b[0])<n.x+n.w-.1)lineOverlaps.push([e.id,n.id]);}else issues.push('nonorthogonal '+e.id);}}}
+assert(!nodeOverlaps.length,'no overlapping process nodes');assert(!labelOverlaps.length,'no edge labels obscure node boxes');assert(!lineOverlaps.length,'no line traverses unrelated process box');
+const vc=new VirtualConsole();vc.on('jsdomError',e=>issues.push('DOM '+e.message));
+new vm.Script(html.match(/<script>([\s\S]*?)<\/script>/)[1]);
+// Offline DOM unit tests only. No browser, page navigation, external resources or network requests.
+const dom=new JSDOM(html,{url:'https://offline-diagram.test/',runScripts:'dangerously',virtualConsole:vc,beforeParse(win){win.HTMLElement.prototype.getBoundingClientRect=function(){return {x:0,y:0,left:0,top:0,width:1280,height:620,right:1280,bottom:620}};}});
+const d=dom.window.document,w=dom.window,click=s=>{let e=d.querySelector(s);if(!e)throw Error('selector missing '+s);e.dispatchEvent(new w.MouseEvent('click',{bubbles:true}));};
+assert(d.querySelectorAll('[data-node]').length===171,'DOM process cards');
+assert(d.querySelectorAll('[data-tool]').length===33,'DOM tool cards');
+assert(!d.querySelector('#canvas>svg').getAttribute('viewBox').includes('NaN'),'initial viewBox is finite');
+click('[data-node="V1"]');assert(!d.querySelector('#panel').hidden&&d.querySelector('#panelBody').textContent.includes('ASR'),'node detail opens');
+click('#moduleDetail');assert(d.querySelector('#panelBody').textContent.includes('验收指标'),'module metrics available');
+click('[data-module="D"]');assert(d.querySelector('#moduleSelect').value==='D','main path navigation');
+const before=d.querySelector('#canvas>svg').getAttribute('viewBox');click('#plus');assert(before!==d.querySelector('#canvas>svg').getAttribute('viewBox'),'zoom changes viewBox');
+click('#toolBtn');assert(d.querySelectorAll('[data-tool-open]').length===33,'all tool details listed');
+for(const t of g.tools){click(`[data-tool-open="${t.id}"]`);assert(d.querySelector('#panelBody').textContent.includes(t.mechanism),'tool mechanism '+t.id);click('#toolBtn');}
+click('#legacyBtn');assert(d.querySelectorAll('#panelBody [data-jump]').length===30,'30 original module mappings');
+click('#sourcesBtn');assert(d.querySelector('#panelBody').textContent.includes('建设中'),'scope and unresolved source boundaries visible');
+click('#learnBtn');assert(d.querySelectorAll('[data-check]').length===g.modules.flatMap(m=>m.questions||[]).length,'all self-test questions present');
+const input=d.querySelector('#search');input.value='预请求';input.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Enter',bubbles:true}));assert(d.querySelector('#panelBody').textContent.includes('V6'),'search finds preparation node');
+click('[data-node="V6"]');const note=d.querySelector('[data-note="V6"]');note.value='测试笔记';note.dispatchEvent(new w.Event('input',{bubbles:true}));assert(JSON.parse(w.localStorage.getItem('doubao-flow-v14-study')).notes.V6==='测试笔记','local notes save');
+click('[data-edge="X01"]');assert(d.querySelector('#panelBody').textContent.includes('起点 V12')&&d.querySelector('#panelBody').textContent.includes('终点 R1'),'cross connection shows precise endpoints');
+click('#caseBtn');assert(d.querySelectorAll('[data-case]').length===4,'four end-to-end walkthroughs');click('[data-case="1"]');assert(d.querySelectorAll('[data-case-module]').length===11,'scheduled-task walkthrough complete');
+click('#clear');assert(!d.querySelector('#canvas').classList.contains('inspect'),'highlight reset');
+click('#overview');assert(d.querySelector('#moduleSelect').value==='','overview navigation');
+assert(!html.match(/<script[^>]+src=/),'standalone, no external scripts');
+const result={status:issues.length?'FAIL':'PASS',checks:checks.length,modules:g.modules.length,processNodes:nodes.length,tools:g.tools.length,edges:g.edges.length,questions:g.modules.flatMap(m=>m.questions||[]).length,metrics:g.modules.flatMap(m=>m.metrics||[]).length,nodeOverlaps,labelOverlaps,lineOverlaps,issues,browserVisualTest:'Not performed: file URL rejected by browser policy. SVG previews viewed; offline DOM tests are not browser proof.',feishuPublish:'BLOCKED: lark-cli user token absent; previous board unchanged.'};
+fs.writeFileSync(path.join(root,'verification-v14.json'),JSON.stringify(result,null,2));
+console.log(JSON.stringify(result,null,2));dom.window.close();if(issues.length)process.exitCode=1;

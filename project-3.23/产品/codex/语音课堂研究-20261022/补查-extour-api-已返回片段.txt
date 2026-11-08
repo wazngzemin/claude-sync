@@ -1,0 +1,1611 @@
+# 弋途访问\-AI汽车接口访问指南
+# 变更记录
+版本
+变更内容
+变更日期
+变更人
+v1\.0
+- 初始化
+2026/08/27
+徐燃
+**本文为火山引擎智能座舱面向弋途（Extour）服务端提供的 HTTP 接口说明**，所有请求都需要验证签名，并需要访问 HTTPS 地址。本文档仅包含弋途专用接口，不包含车机客户端和公版通用接口。
+# 请求地址
+**服务端调用**：api\-vehicle\-cloud\.volcengine\.com（无 DCDN 加速，适合固定机房发起的调用，网络开支更少）
+**环境**
+**说明**
+DEMO 测试环境
+务必在请求 Header 中额外添加下列 header 信息：
+- X\-Use\-PPE : 1
+- X\-Tt\-Env: ppe\_XXX（ppe环境用于联调，具体值在对应项目联调时找火山研发同学提供）
+# 请求频次限制
+- **渠道默认限制 600 QPM**，即每分钟最多 600 次请求，超过的请求会被拒绝
+- **单设备默认限制 60 QPM**，即每分钟最多 60 次请求，超过的请求会被拒绝
+如有提升 QPM 的需求，请和行解、项目、产品沟通。
+# 接口超时配置
+所有接口最大响应时间为**3 分钟**，长连接最大空闲时间为 **3 分钟**，请务必复用长连接，避免重复 TLS 握手带来的额外时间开销（100\+ 毫秒）。
+---
+# 通用参数（公参）
+弋途接口通过 Query 参数传递公共信息，所有接口均需携带以下公参（部分接口有额外必传字段，详见各接口说明）：
+**参数**
+**如何传递**
+**是否必需**
+**说明**
+**X\-Signature**
+Request Header
+是
+鉴权使用，格式为 `ak:sign`。其中 ak 由座舱后台颁发，sign 为按照签名规范计算的签名。签名所用的 **sk** 同样由座舱后台颁发，需与 ak 成对使用并妥善保存，**不允许在请求中携带**。
+channel
+Request Query
+**是**
+渠道名，由火山分配
+app\_id
+Request Query
+**是**
+字节内部 SDK/APP 的 APPID，不同项目有不同的值
+channel\_app\_id
+Request Query
+**是**
+由火山分配的 APP ID
+vehicle\_id
+Request Query
+**是**
+车辆唯一标识（加密 VIN），字符串类型，必须保证唯一性，ID 重复会被限流
+vehicle\_type
+Request Query
+**否**
+车型参数，由火山分配，仅包含英文字母与数字
+device\_id
+Request Query
+部分接口必需
+设备 ID（int64）。触发推荐、摄像头图片等接口必需
+account\_id
+Request Query
+否
+车企登录的账户唯一标识
+~~encrypted\_doubao\_uid~~
+Request Query
+部分场景必需
+加密的豆包账号 ID。source 为 static\_advisor 时必需；账户配置查询接口用于身份识别
+volcano\_account\_uid
+Request Query
+**是**
+火山账号uid
+face\_id
+Request Query
+否
+faceID，查询context时使用，查询特定人员的记忆
+\_timestamp
+Request Query
+**~~是~~**
+鉴权使用，调用时刻的 UNIX 时间戳（秒）
+\_nonce
+Request Query
+**是**
+鉴权使用，\[0, 65535\] 之间的随机整数
+X\-Use\-PPE
+Request Header
+否
+仅用于访问测试环境，**生产环境禁用**
+X\-Tt\-Env
+Request Header
+否
+仅用于访问测试环境，**生产环境禁用**
+### 如何获取 LOGID
+`logid` 在接口响应的 `header` 里，`key` 值是 `x\-tt\-logid`。在所有问题的排查联调中必不可少，请调用方务必记录。如下图：
+# 通用响应
+所有接口统一返回以下 JSON 结构：
+```JSON
+{
+    "data": {},
+    "errno": 0,
+    "msg": "success"
+}
+```
+```JSON
+{
+    "errno": 101001,
+    "msg": "参数错误描述",
+    "tips": "发生一些错误,请稍后再试"
+}
+```
+### 通用错误码
+**错误码**
+**含义**
+**处理建议**
+0
+成功
+—
+100000
+系统内部错误
+稍后重试，若持续出现请联系技术支持并提供 logid
+101001
+参数错误/校验不通过
+检查请求参数是否完整、格式是否正确
+110600
+触发器处理异常
+Advisor 回调处理失败，检查回调参数
+110700
+弋途外部服务请求异常
+弋途侧接口异常，稍后重试
+110701
+弋途接口未查到数据
+目标/任务不存在或已过期
+110900
+摄像头图片获取失败
+所有摄像头位置均获取失败，检查 device\_id 和 positions
+---
+# API 接口列表
+**\*\*重要\*\*：新接口需要在“三方认证授权表”给弋途的channel配置上访问权限（access\_ctrl字段追加新接口）**
+**序号**
+**方法**
+**路径**
+**说明**
+1
+POST
+/aidv/v1/recommend
+触发主动推荐
+2
+GET
+/aidv/v1/advisor/callback
+Advisor 结果回调
+3
+POST
+/aidv/v1/goal/lifecycle\_callback
+Goal 生命周期回调
+4
+POST
+/aidv/v1/goal/finish
+同步目标执行结果
+5
+POST
+/aidv/v1/vehicle/resource/camera
+获取车辆摄像头图片
+6
+GET
+/aidv/v1/extour/account\_config
+查询账户配置
+7
+POST
+/aidv/v1/context/query
+Context 上下文查询
+---
+## 触发主动推荐 @向超然
+- **Method**：`POST`
+- **Path**：`/aidv/v1/recommend`
+- **Content\-Type**：`application/json`
+触发主动推荐流程，服务端接收推荐参数后，异步通过 Frontier 消息将推荐卡片推送到车端。接口成功返回仅表示指令已受理。
+#### 请求 Body 参数
+**参数**
+**类型**
+**必填**
+**说明**
+advisors\_input
+\[\]string
+是
+Advisor 输入文本列表，所有条目拼接后的总字符数不超过 1000
+advisor\_types
+\[\]string
+否
+Advisor 类型列表
+source
+string
+是
+触发来源，可选值：`simulate`（模拟器）、`trigger`（触发器）、`long\_term\_task`（长时任务）、`client\_agent`（端侧 Agent）、`static\_advisor`（静态 Advisor）、`task`（任务）
+widget
+object
+是
+推荐卡片挂件信息，详见下方 Widget 结构
+ui\_control
+object
+否
+UI 控制信息，详见下方 UIControl 结构
+play\_list
+JSON
+否
+临时透传的播放列表数据（无损透传，协议稳定后替换为强类型）
+**Widget 结构：**
+**字段**
+**类型**
+**必填**
+**说明**
+widget\_id
+string
+是
+挂件唯一标识
+title\.name
+string
+是
+卡片标题名称
+title\.desc
+string
+否
+卡片描述
+title\.icon\_url
+string
+否
+卡片图标 URL
+view\_data
+string
+否
+卡片视图数据
+**UIControl 结构：**
+**字段**
+**类型**
+**必填**
+**说明**
+biz\_type
+string
+否
+业务类型标识
+need\_confirm
+bool
+否
+是否需要用户确认
+ui\_payload\.form
+string
+否
+UI 展现形式
+ui\_payload\.text
+string
+否
+展示文本
+ui\_payload\.icon
+string
+否
+图标 URL
+ui\_payload\.cot
+string
+否
+思考链文本
+ui\_payload\.action\_list
+\[\]string
+否
+可执行动作列表
+action
+string
+否
+默认动作
+**注意**：当 `source` 为 `static\_advisor` 且渠道为 seres 时，Query 参数中 `encrypted\_doubao\_uid` 必填。
+#### 请求 Body 示例
+```JSON
+{
+    "advisors_input": ["检测到您即将出发，", "已为您规划好通勤路线"],
+    "advisor_types": ["travel"],
+    "source": "long_term_task",
+    "widget": {
+        "widget_id": "widget_001",
+        "title": {
+            "name": "通勤建议",
+            "desc": "预计 30 分钟到达",
+            "icon_url": "https://example.com/icon.png"
+        },
+        "view_data": "{}"
+    }
+}
+```
+#### 响应示例
+```JSON
+{
+    "data": {
+        "success": true
+    },
+    "errno": 0,
+    "msg": "success"
+}
+```
+---
+## Advisor 回调 @刘杨
+- **Method**：`GET`
+- **Path**：`/aidv/v1/advisor/callback`
+Advisor 处理结果的回调接口，支持模拟器（simulator）和触发器（trigger）两种来源。
+#### 请求参数
+**参数**
+**类型**
+方式
+**必填**
+**说明**
+channel
+string
+Query
+是
+渠道名
+app\_id
+int64
+Query
+是
+APP ID，必须大于 0
+vehicle\_id
+string
+Query
+是
+车辆唯一标识
+vehicle\_type
+string
+Query
+否
+车型参数
+log\_id
+string
+Query
+是
+原始 Advisor 请求的 Log ID
+advisor\_type
+string
+Query
+是
+Advisor 类型
+advisor\_result
+string
+Body
+是
+Advisor的建议结果
+callback\_from
+string
+Query
+是
+回调来源：`simulator` 或 `trigger`。不传默认为 trigger
+simulator\_id
+uint64
+Query
+条件必填
+模拟器 ID，当 `callback\_from=simulator` 时必填
+group\_id
+int64
+Query
+条件必填
+分组 ID，当 `callback\_from=simulator` 时必填
+context\_log\_id
+string
+Query
+否
+Context 查询的 Log ID
+recommend\_log\_id
+string
+Query
+否
+推荐查询的 Log ID
+#### 响应示例
+回调成功时返回 Advisor 处理结果数据：
+```JSON
+{
+    "data": { ... },
+    "errno": 0,
+    "msg": "success"
+}
+```
+---
+## 触发器相关接口@刘杨
+### 获取渠道端信号配置
+- **Method**：`GET`
+- **Path**：`/aidv/v1/trigger/signals`
+#### 请求参数（Query）
+**参数**
+**类型**
+**必填**
+**说明**
+channel
+string
+是
+渠道名
+#### 响应示例
+```JSON
+{
+    "ResponseMetadata":
+    {
+        "RequestId": "",
+        "Action": "",
+        "Version": "",
+        "Service": "",
+        "Region": ""
+    },
+    "Result":
+    {
+        "condition_logic":
+        {
+            "&&": "且",
+            "||": "或"
+        },
+        "signals":
+        [
+            {
+                "type": "vehicle",
+                "name": "车状态信号",
+                "signals":
+                [
+                    {
+                        "name": "远光灯",
+                        "code": "signal_light_0002",
+                        "args":
+                        [
+                            {
+                                "name": "状态",
+                                "code": "states",
+                                "type": "enum",
+                                "value_to_chinese_enum_map":
+                                {
+                                    "关闭": "关闭",
+                                    "显示蓝色": "显示蓝色"
+                                },
+                                "operator":
+                                [
+                                    {
+                                        "operator": "=",
+                                        "name": "等于"
+                                    }
+                                ],
+                                "primary_key": false
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "type": "vlm",
+                "name": "vlm 信号",
+                "signals":
+                [
+                    {
+                        "name": "舱内视觉输出/人物列表",
+                        "code": "vlm_inside_people",
+                        "args":
+                        [
+                            {
+                                "name": "外貌发型",
+                                "code": "appearance.hair_style",
+                                "type": "enum",
+                                "value_to_chinese_enum_map":
+                                {
+                                    "中发卷发": "中发卷发",
+                                    "中发直发": "中发直发",
+                                    "光头": "光头",
+                                    "其他": "其他",
+                                    "寸头": "寸头",
+                                    "扎辫子": "扎辫子",
+                                    "短发卷发": "短发卷发",
+                                    "短发直发": "短发直发",
+                                    "长发卷发": "长发卷发",
+                                    "长发直发": "长发直发"
+                                },
+                                "operator":
+                                [
+                                    {
+                                        "operator": "=",
+                                        "name": "等于"
+                                    },
+                                    {
+                                        "operator": "in",
+                                        "name": "包含"
+                                    }
+                                ],
+                                "primary_key": false
+                            }
+                        ]
+                    }
+                ]
+            }
+        ],
+        "dynamic_condition_logic":
+        {
+            "&&": "且",
+            "||": "或"
+        },
+        "dynamic_signals":
+        [
+            {
+                "type": "vehicle",
+                "name": "车状态信号",
+                "signals":
+                [
+                    {
+                        "name": "车门锁状态",
+                        "code": "vehicle_control_0029",
+                        "args":
+                        [
+                            {
+                                "name": "开关",
+                                "code": "switch",
+                                "type": "enum",
+                                "value_to_chinese_enum_map":
+                                {
+                                    "off": "关闭",
+                                    "on": "开启"
+                                },
+                                "operator":
+                                [
+                                    {
+                                        "operator": "change_to",
+                                        "name": "变更为"
+                                    }
+                                ],
+                                "primary_key": false
+                            },
+                            {
+                                "name": "位置",
+                                "code": "position",
+                                "type": "enum",
+                                "value_to_chinese_enum_map":
+                                {
+                                    "主驾": "主驾",
+                                    "副驾": "副驾",
+                                    "右后": "右后",
+                                    "左后": "左后",
+                                    "整车": "整车"
+                                },
+                                "operator":
+                                [
+                                    {
+                                        "operator": "=",
+                                        "name": "等于"
+                                    }
+                                ],
+                                "primary_key": true
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "type": "vlm",
+                "name": "vlm 信号",
+                "signals":
+                []
+            }
+        ],
+        "BaseResp":
+        {
+            "StatusMessage": "",
+            "StatusCode": 0
+        }
+    }
+}
+```
+### 获取支持的 Actions 列表
+- **Method**：`GET`
+- **Path**：`/aidv/v1/trigger/actions`
+#### **请求参数（Query）**
+**参数**
+**传递方式**
+**字段类型**
+**是否必需**
+**说明**
+channel
+Request Query
+String
+是
+渠道名
+vehicle\_id
+Request Query
+String
+是
+车辆唯一标识，固定填入“trigger”
+#### **响应示例**
+```SQL
+{
+    "ResponseMetadata": {
+        "RequestId": "",
+        "Action": "",
+        "Version": "",
+        "Service": "",
+        "Region": ""
+    },
+    "Result": {
+        "actions": [
+            {
+                "name": "舒适 Advisor",
+                "value": "comfort_advisor",
+                "params": [
+                    {
+                        "code": "attention",
+                        "name": "事件/注意力信息",
+                        "value": {
+                            "type": "string",
+                            "value": ""
+                        }
+                    }
+                ],
+                "simulator_supported": true
+            },
+            {
+                "name": "情感 Advisor",
+                "value": "emotion_advisor",
+                "params": [
+                    {
+                        "code": "attention",
+                        "name": "事件/注意力信息",
+                        "value": {
+                            "type": "string",
+                            "value": ""
+                        }
+                    }
+                ],
+                "simulator_supported": true
+            },
+            {
+                "name": "出行 Advisor",
+                "value": "navigation_advisor",
+                "params": [
+                    {
+                        "code": "attention",
+                        "name": "事件/注意力信息",
+                        "value": {
+                            "type": "string",
+                            "value": ""
+                        }
+                    }
+                ],
+                "simulator_supported": true
+            },
+            {
+                "name": "内容 Advisor",
+                "value": "content_advisor",
+                "params": [
+                    {
+                        "code": "attention",
+                        "name": "事件/注意力信息",
+                        "value": {
+                            "type": "string",
+                            "value": ""
+                        }
+                    }
+                ],
+                "simulator_supported": true
+            },
+            {
+                "name": "主动推荐",
+                "value": "recommend",
+                "params": [
+                    {
+                        "code": "advisors_input",
+                        "name": "建议信息",
+                        "value": {
+                            "type": "string",
+                            "value": "\"reason\": \"新乘客上车落座，友好的问候能让其感受到欢迎和关怀，营造温馨的车内氛围。询问是否需要调节车内设施，体现对乘客需求的关注，有助于提升乘客的舒适感和愉悦感。\",\
+\"advice\":\"交互助手可以友好地向新上车的后排乘客打招呼，例如说“您好,欢迎上车,祝您旅途愉快”，并询问是否需要调节座椅等车内设施。\""
+                        }
+                    }
+                ],
+                "simulator_supported": false
+            },
+            {
+                "name": "延时执行",
+                "value": "delay",
+                "params": [
+                    {
+                        "code": "delay_duration",
+                        "name": "延时时长(秒)",
+                        "value": {
+                            "type": "int",
+                            "value": ""
+                        }
+                    }
+                ],
+                "simulator_supported": false
+            },
+            {
+                "name": "自定义回调",
+                "value": "custom_callback",
+                "params": [
+                    {
+                        "code": "callback_url",
+                        "name": "回调地址",
+                        "value": {
+                            "type": "string",
+                            "value": ""
+                        }
+                    },
+                    {
+                        "code": "callback_rpc_task_service",
+                        "name": "回调任务系统",
+                        "value": {
+                            "type": "string",
+                            "value": "aidv:task_service"
+                        }
+                    }
+                ],
+                "simulator_supported": false
+            }
+        ],
+        "BaseResp": {
+            "StatusMessage": "",
+            "StatusCode": 0
+        }
+    }
+}
+```
+### 注册场景
+- **Method**：`POST`
+- **Path**：`/aidv/v1/trigger/scene`
+#### **请求参数**
+**参数**
+**传递方式**
+**字段类型**
+**是否必需**
+**说明**
+channel
+Request Query
+String
+Y
+渠道标识
+name
+Request Body
+String
+Y
+场景名称
+conditions
+Request Body
+JSON String\(\[\]Condition\)
+Y
+参考[触发器 DSL 定义【对外】](https://bytedance.larkoffice.com/docx/TuDldeM72o3ksNxtbLzc8q2tnBg)
+dynamic\_conditions
+Request Body
+JSON String\(\[\]Condition\)
+N
+actions
+Request Body
+JSON String\(\[\]Action\)
+Y
+priority
+Request Body
+Integer
+N
+优先级。默认 1，取值范围 1\-10
+source
+Request Body
+String
+Y
+来源
+- extour\_dynamic\_advisor
+effective\_scope
+Request Body
+Object
+N
+生效范围。默认本渠道所有车型、所有车辆、所有客户端版本生效
+execute\_policy
+Request Body
+Object
+N
+场景执行策略【2026\-01\-26 新增】
+tag
+Request Body
+String
+Y
+场景环境。all:所有场景  test:测试场景  formal:正式
+- 线上环境只会匹配正式场景
+- PPE环境只会匹配测试场景
+scene\_type
+Request Body
+String
+Y
+- vehicle\_resource：端状态条件场景
+`\`effective\_scope\``定义如下：
+```JSON
+{
+    "vehicle_type": [],
+    "client": [EffectiveScopeClientData],
+    "vehicle_id": []
+}
+struct EffectiveScopeClientData {
+    1: string model
+    2: list values
+}
+```
+`\`execute\_policy\``定义如下：
+```JSON
+{
+    "total_count": 100, // 总触发次数
+    "daily_count": 100, // 日触发次数
+    "power_count": 10, // 单次上电周期内触发次数
+    "execute_interval":  60 // 传递给后端时转成秒
+}
+```
+#### **响应示例**
+```JSON
+{
+    "ResponseMetadata": {
+        "RequestId": "",
+        "Action": "",
+        "Version": "",
+        "Service": "",
+        "Region": "",
+        "Error": {
+            "Code": 0,
+            "Message": ""
+        }
+    },
+    "Result": null
+}
+```
+### 删除/生效/失效 场景
+- **Method**：`POST`
+- **Path**：`/aidv/v1/trigger/scene/update\_status`
+#### **请求参数**
+**参数**
+**传递方式**
+**字段类型**
+**是否必需**
+**说明**
+scene\_id
+Request Query
+Int
+Y
+场景 ID
+status
+Request Query
+Int
+Y
+场景状态。1：有效，2：失效  3：删除
+#### **响应示例**
+```JSON
+{
+    "ResponseMetadata": {
+        "RequestId": "",
+        "Action": "",
+        "Version": "",
+        "Service": "",
+        "Region": "",
+        "Error": {
+            "Code": 0,
+            "Message": ""
+        }
+    },
+    "Result": null
+}
+```
+---
+## Goal 生命周期回调 @姜涵
+- **Method**：`POST`
+- **Path**：`/aidv/v1/goal/lifecycle\_callback`
+- **Content\-Type**：`application/json`
+- **超时**：2 秒
+弋途异步创建任务后，通过此接口回调 AIDV 通知任务创建结果或触发事件。接口基于 `idempotent\_key` 做幂等处理（有效期 30 天）。
+#### 请求 Body 参数
+**参数**
+**类型**
+**必填**
+**说明**
+event
+string
+是
+事件类型，可选值：`create\_success`（创建成功）、`create\_failed`（创建失败）、`trigger`（任务条件满足触发推荐）
+idempotent\_key
+string
+是
+幂等键，防止重复处理，30 天内有效
+occurred\_at
+int64
+是
+事件发生时间戳（Unix 秒），必须大于 0
+request\_id
+string
+条件必填
+AIDV 发起创建时的请求 ID。`create\_success` 和 `create\_failed` 时必填
+goal\_id
+string
+条件必填
+弋途生成的任务目标 ID。`create\_success` 和 `trigger` 时必填
+reason
+string
+条件必填
+失败原因。`create\_failed` 时必填
+title
+string
+条件必填
+卡片标题。`create\_success` 或 `trigger` 且 `show\_card=true` 时必填
+content
+string
+条件必填
+卡片内容。同上
+icon
+string
+条件必填
+卡片图标 URL。同上
+show\_card
+bool
+否
+是否展示卡片。未传和 false 均按不下发卡片处理
+advisors\_input
+\[\]string
+条件必填
+触发推荐时的 Advisor 输入。`trigger` 时必填，总字符数不超过 1000
+action\_id
+string
+否
+客户端动作 ID
+action\_token
+string
+否
+客户端动作 Token
+path
+string
+否
+跳转路径
+scene
+string
+否
+场景标识（如：出行、服务、娱乐、舒适、情感、内容、其他）
+此外，Body 中还需携带公共身份字段（也可通过 Query 传递）：`channel`、`vehicle\_id`、`device\_id`、`app\_id`、`channel\_app\_id`、`vehicle\_type`、`account\_id`、`login\_doubao\_uid`、`encrypted\_doubao\_uid`。
+#### 各事件类型必填字段对照
+**event**
+**额外必填字段**
+create\_success
+request\_id、goal\_id、title、content、icon
+create\_failed
+request\_id、reason
+trigger
+goal\_id、advisors\_input；若 show\_card=true，还需 title、content、icon
+#### 请求示例（create\_success）
+```JSON
+{
+    "event": "create_success",
+    "idempotent_key": "idem_abc123",
+    "occurred_at": 1756300000,
+    "request_id": "req_a1b2c3d4e5f6",
+    "goal_id": "goal_789",
+    "title": "明日出行提醒",
+    "content": "您明天早上 8 点有前往机场的行程",
+    "icon": "https://example.com/goal.png",
+    "show_card": true,
+    "channel": "extour_channel",
+    "vehicle_id": "vin_encrypted_xxx",
+    "device_id": 123456789
+}
+```
+#### 请求示例（trigger）
+```JSON
+{
+    "event": "trigger",
+    "idempotent_key": "idem_trigger_001",
+    "occurred_at": 1756300100,
+    "goal_id": "goal_789",
+    "advisors_input": ["现在路况良好，", "建议提前出发"],
+    "show_card": true,
+    "title": "出发建议",
+    "content": "当前路况畅通，建议现在出发",
+    "icon": "https://example.com/trigger.png",
+    "channel": "extour_channel",
+    "vehicle_id": "vin_encrypted_xxx",
+    "device_id": 123456789
+}
+```
+#### 响应示例
+```JSON
+{
+    "data": {
+        "success": true,
+        "duplicate": false,
+        "event": "trigger",
+        "goal_id": "goal_789",
+        "recommend_id": "a1b2c3d4e5f6..."
+    },
+    "errno": 0,
+    "msg": "success"
+}
+```
+当 `duplicate` 为 `true` 时，表示该幂等键已被处理过，为重复回调。
+---
+## 同步目标执行结果 @姜涵
+- **Method**：`POST`
+- **Path**：`/aidv/v1/goal/finish`
+- **Content\-Type**：`application/json`
+通知 AIDV 某个目标（Goal）已执行完成，AIDV 将通过 Frontier 通知客户端更新 UI 状态。
+#### 请求 Body 参数
+**参数**
+**类型**
+**必填**
+**说明**
+goal\_id
+int64
+是
+任务目标 ID（AIDV 内部数字 ID）
+#### 请求示例
+```JSON
+{
+    "goal_id": 4339456
+}
+```
+#### 响应示例
+```JSON
+{
+    "data": {
+        "success": true
+    },
+    "errno": 0,
+    "msg": "success"
+}
+```
+---
+## 获取车辆摄像头图片 @吕鹏浩
+- **Method**：`POST`
+- **Path**：`/aidv/v1/vehicle/resource/camera`
+- **Content\-Type**：`application/json`
+实时获取车辆指定位置摄像头的画面图片 URL。支持同时请求多个位置，返回成功获取到的图片。
+#### 请求 Body 参数
+**参数**
+**类型**
+**必填**
+**说明**
+device\_id
+int64
+是
+设备 ID，不能为空
+positions
+\[\]string
+是
+摄像头位置列表，不能为空。可选值：`front`（前面）、`oms`（前排）、`screen`（屏幕）、`back`（后面）
+#### 请求示例
+```JSON
+{
+    "device_id": 123456789,
+    "positions": ["front", "oms","screen","back"]
+}
+```
+#### 响应示例
+```JSON
+{
+    "data": {
+        "front": {
+            "url": "https://tos.example.com/camera/front_xxx.jpg"
+        },
+        "oms": {
+            "url": "https://tos.example.com/camera/oms_xxx.jpg"
+        }
+    },
+    "errno": 0,
+    "msg": "success"
+}
+```
+如果所有位置均获取失败，返回错误码 `110900`（摄像头图片获取失败）。部分位置失败时仅返回成功获取的位置。
+---
+## 查询账户配置 @徐燃
+- **Method**：`GET`
+- **Path**：`/aidv/v1/extour/account\_config`
+弋途集成场景下，查询指定车辆/用户的配置项（如记忆使用开关、出行规划开关等）。弋途只能查询指定 key，不能批量查询全部配置。
+#### 请求参数（Query）
+**参数**
+**类型**
+**必填**
+**说明**
+channel
+string
+是
+渠道名
+app\_id
+int64
+是
+字节内部SDK/APP的APPID，在字节云中台申请，一般用于抖音业务传递，不同项目会有不同的值
+channel\_app\_id
+int64
+是
+APP ID，同上，由火山分配
+vehicle\_id
+string
+是
+车辆唯一标识
+vehicle\_type
+string
+是
+车型
+config\_key
+string
+是
+配置项 Key。当前支持：`use\_memory`（记忆使用开关）、`use\_trip\_plan`（出行规划开关）
+encrypted\_doubao\_uid
+string
+是
+加密的豆包 UID，服务端解密后用于定位用户配置。解密失败返回参数错误
+#### 响应参数
+`config\_items` 数组中每个元素：
+**字段**
+**类型**
+**说明**
+config\_key
+string
+配置项 Key
+key\_label
+string
+配置项显示名称
+value\_type
+string
+值类型：string / number / boolean / select
+value\_options
+\[\]string
+当 value\_type 为 select 时的可选值列表
+config\_value
+string
+配置项当前值
+sort
+int32
+排序序号
+#### 请求示例
+```Text
+GET /aidv/v1/extour/account_config?channel=extour_channel&vehicle_id=vin_xxx&device_id=123456789&config_key=use_memory&encrypted_doubao_uid=ENCRYPTED_UID&_timestamp=1756300000&_nonce=12345
+```
+#### 响应示例
+```JSON
+{
+    "data": {
+        "config_items": [
+            {
+                "config_key": "use_static_advisor",
+                "key_label": "主动服务开关",
+                "value_type": "boolean",
+                "value_options": [
+                    "true",
+                    "false"
+                ],
+                "config_value": "true",
+                "sort": 0
+            }
+        ]
+    },
+    "errno": 0,
+    "msg": "success"
+}
+```
+---
+## 获取context相关信息 @向超然
+- Method: Post
+- Path: `/aidv/v1/context/query`  
+#### 参数
+参数名
+位置
+类型
+是否必传
+说明
+query
+body
+string
+否
+查询context的query
+context\_scope
+body
+\[\]string
+否
+不传默认查询全部, 按传参获取context内容
+instant\_memory: 瞬时记忆
+short\_memory: 短期记忆
+long\_memory: 长期记忆
+long\_scene\_memory: 长期情景记忆
+basic\_info: 基础联网信息（天气、日期）
+vehicle\_resource: 端状态
+scene\_description: 情景描述
+vehicle\_common\_info：车辆通用信息
+agent\_event\_info：agent相关信息
+memory\_tag: 用户记忆标签
+memory\_labeling: 记忆打标数据
+skip\_filter
+body
+bool
+否
+是否跳过精筛
+context\_custom\_params
+body
+object
+否
+instant\_memory\_params
+context\_custom\_params
+object
+否
+resource\_ids
+instant\_memory\_params
+\[\]string
+否
+瞬时记忆的信号筛选类型
+vehicle\_resource\_params
+context\_custom\_params
+object
+否
+filter\_mode
+vehicle\_resource\_params
+string
+否
+过滤模式：
+default：走默认的端状态过滤逻辑，不填写该字段的话默认走这个逻辑
+return\_all:返回全部数据，不做过滤
+return\_minimum\_result:返回必须的端状态集合
+return\_classify\_list: 根据分类列表返回，此时需要指定signal\_classify\_list参数
+signal\_classify\_list
+vehicle\_resource\_params
+\[\]string
+否
+需要查询的端状态分类列表, 如果为空会根据query来进行筛选，目前还有部分细节没确定，具体枚举类值可以私聊技术
+with\_struct
+body
+bool
+否
+传入表示需要返回结构化的数据
+memory\_tag\_params
+context\_custom\_params
+object
+否
+用户记忆标签相关配置参数
+tag\_codes
+memory\_tag\_params
+\[\]string
+否
+需要查询的用户记忆标签code，枚举值见[记忆标签枚举](https://bytedance.larkoffice.com/docx/RNx3dLTxQoZwboxKRHGcBUTGnEb)
+tag\_types
+memory\_tag\_params
+\[\]string
+否
+需要查询的用户记忆标签类型，枚举值为long\_memory和long\_scene\_memory，默认为空数组都返回；long\_memory对应由长期语义记忆推理出来的画像信息，long\_scene\_memory对应由长期情景记忆基于频次推理出来的画像信息
+#### 入参示范
+```JSON
+{
+    "query":"今天我吃了啥",
+    "context_scope":["instant_memory"],
+    "skip_filter":true,
+    "context_custom_params":{
+        "instant_memory_params":{
+            "resource_ids":[]
+        },
+        "vehicle_resource_params":{
+            "signal_classify_list":[]
+        },
+        "memory_tag_params":{
+            "tag_codes":[]
+            "tag_types":[]
+        }
+    },
+    "with_struct": true
+}
+```
+#### 回参
+因为回参定义较为复杂，具体定义参见文档：[context接口response定义](https://bytedance.larkoffice.com/docx/GauLd6OlmosdmFxf6jmc7A0JnYf)
+#### 回参示范
+```JSON
+{
+    "data": {
+        "retrieval": {
+            "basic_info": "{\"weather_info\":{\"city_info\":{\"name\":\"慈溪\",\"id\":\"101210403\",\"lat\":\"30.17714\",\"lon\":\"121.24806\",\"adm2\":\"宁波\",\"adm1\":\"浙江省\",\"country\":\"中国\",\"tz\":\"Asia/Shanghai\",\"type\":\"city\"},\"current_weather_forecast\":{\"obsTime\":\"2026-01-26T18:41+08:00\",\"temp\":\"7\",\"feelsLike\":\"3\",\"text\":\"阴\",\"windDir\":\"西北风\",\"windScale\":\"2\",\"windSpeed\":\"8\",\"humidity\":\"95\",\"precip\":\"0.1\",\"cloud\":\"100\",\"pressure\":\"1024\",\"vis\":\"4\"}},\"date_info\":{\"date\":\"2026-01-26\",\"lunar_date\":\"二〇二五年腊月初八\",\"lunar_holiday\":[\"腊八节\"]}}",
+            "long_memory": "主驾王五认为前面的车颜色不错\
+我觉得前面这个车颜色不错\
+当前空调设置为前排自动模式，温度25度，风量1档，制冷开启\
+车辆仪表盘上有绿色的眼睛还有睫毛亮着\
+我想查车窗是不是都关上了\
+王五在主驾位置与车辆进行了人车闲聊，内容为“今天天气不错”\
+我的车辆开门预警功能已经开启\
+车里有怪味，自动调节空调保持通风\
+王五觉得车内太热\
+车外有雾霾",
+            "long_scene_memory": "王五提到今天天气不错，外面的树真好看，前面的车颜色不错，前面那个是大裤衩\
+赵六因光线暗看不到路，两次询问空调当前设置温度以及近光灯是否开启，并要求如果没开就打开近光灯。\
+王五多次询问车辆多个指示灯亮着的原因，豆包告知副驾阅读灯、左/右转向灯（绿色闪烁，含提示音）为正常状态；EPB未释放提示灯（红色闪烁，2Hz）、充放电枪连接灯、后轮转向故障灯、空气悬架指示灯（均红色亮起）代表车辆故障或需立即处理，建议联系专业人员检修。王五觉得智驾风格太激进，反馈前向碰撞预警功能不灵敏，后向碰撞预警功能好像不起作用，盲区预警功能不好使，后方来车辅助功能不起作用，开门预警功能无法使用。王五因堵车缓慢表示不满，感觉轮胎漏气，觉得太热，因雨刮速度慢看不到路，车里有怪味，屁股有点热。王五反映转向不太灵敏，询问充电慢的原因。\
+用户车里的蓝牙昨天连接手机时断断续续，车里的小储物盒放着充电宝和数据线，25度空调设定是最舒适的温度\
+王五觉得车里温度25度最舒服\
+王五觉得车里温度25度最舒服。\
+王五认为车里温度25度最舒服\
+用户昨天在商场迷路后用导航出来\
+用户在车里刷短视频时习惯使用蓝牙耳机\
+2026年01月14日，王五在车内闲聊时提到下周是朋友的婚礼，最近因要做年终总结压力大，心情不美丽",
+            "short_memory": "2026年1月26日10时44分，王五让豆包播放周杰伦的歌曲，豆包执行失败并建议尝试说具体歌曲名\
+2026年1月26日15时49分，王五让豆包播放周杰伦的歌曲，豆包尝试调取热门金曲但播放失败，建议王五说具体歌曲名\
+2026年1月26日17时15分，王五让豆包播放周杰伦的歌曲，豆包因之前两次播放热门金曲失败，请求王五提供具体歌曲名，最终播放失败\
+2026年1月26日15时49分，王五说了一段类似绕口令的话，豆包表示跟不上语速，让其下次说话慢一点\
+2026年1月26日14时43分，王五表示喜欢周杰伦，豆包回应周杰伦的歌是青春BGM并提议播放，王五同意后豆包播放失败，建议说出具体歌曲名或检查网络\
+2026年1月26日15时49分，王五表示自己喜欢周杰伦，豆包回应知道其喜欢周杰伦的歌，还提到听过王五新买的《最伟大的作品》\
+2026年1月26日17时15分，王五表示喜欢周杰伦，豆包回应周杰伦的歌是青春BGM并询问王五最喜欢哪首歌\
+2026年1月26日17时15分，王五表示喜欢周杰伦，豆包回应周杰伦的歌是青春BGM并询问其最喜欢的歌曲\
+2026年1月26日17时15分，王五让豆包播放周杰伦的歌曲，因未提供具体歌曲名且此前播放热门金曲失败，豆包提示需说出具体歌曲名\
+2026年1月26日10时44分，王五表示自己喜欢周杰伦，豆包回应称周杰伦的歌是青春回忆杀且每首歌都很经典",
+            "vehicle_resource": "## ## 乘客身份信息:{名称:王五, 用户身份标识:face_wu26001, 位置:主驾}:",
+            "agent_event_info": "GUI操作任务的记录\
+2026-03-12 15:17:00,已向用户要求手动操作:当前页面需要用户手动退登操作\
+2026-03-12 15:17:00,已向用户要求手动操作:当前页面需要用户手动退登操作\
+2026-03-12 15:16:00,已向用户要求手动操作:当前页面需要用户手动登录操作\
+2026-03-12 15:16:00,已向用户要求手动操作:当前页面需要用户手动登录操作\
+",
+            "memory_tag": "氛围灯偏好:蓝色氛围灯\
+阅读灯偏好:后排阅读灯亮度调至最低档\
+车外灯偏好:自动模式\
+姓名:李华\
+性别:男性\
+年龄:32岁\
+婚姻家庭状态:已婚\
+重要的纪念日期:2017年5月20日（与妻子相识纪念日）\
+子女情况:有女儿\
+偏好的歌手:林俊杰,周杰伦\
+偏好的音乐流派:中国风,古典音乐\
+偏好的音乐语种:中文\
+偏好的导演:张艺谋\
+偏好的演员:刘德华,吴京\
+偏好的影视类型:科幻片,国漫\
+偏好的影视剧:《怪奇物语》,《权力的游戏》\
+\
+座椅通风偏好:座椅通风2档\
+座椅按摩偏好:座椅按摩3档\
+座椅位置偏好:主驾座椅高度升高3cm,主驾座椅向后移动\
+座椅其他偏好:调整座椅靠背放松,将座椅调成半躺模式放松肩膀\
+驾驶模式偏好:高速上打开辅助驾驶\
+偏好的语音助手人设风格:说话幽默\
+空调温度偏好:21度,22度\
+空调吹向偏好:空调吹脚模式\
+风量档位偏好:4档\
+空调其他偏好:切换空调模式为内循环\
+姓名:李华\
+常住地:空港佳园E组团2栋\
+职业信息:在赛力斯龙兴总部工作\
+所在行业:汽车行业\
+婚姻家庭状态:已婚，配偶为韩梅梅\
+重要的纪念日期:7月18日（女儿李丽丽的生日）\
+子女情况:有一个6岁的女儿李丽丽\
+宠物情况:养有宠物金毛，名字叫陪陪\
+偏好的新闻类型:财经新闻,重庆本地新闻\
+偏好的歌手:周杰伦,林俊杰,邓紫棋\
+偏好的歌曲:《夜曲》\
+偏好的影视类型:动漫\
+偏好的菜系:粤菜,火锅\
+偏好的出行时段:8:30左右早高峰通勤,19:00左右下班通勤,17:30左右下班通勤\
+偏好的出行日:周一,周二,周三\
+常去的目的地类型:公司,家,中央公园\
+高频具体目的地:赛力斯龙兴总部,空港佳园E组团2栋,特来电快充站,缙云山,光环花园城\
+路线选择的偏好:红绿灯少的路线,拥堵时走辅路绕行,避堵路线\
+特定道路的偏好:高速路\
+偏好的补能焦虑阈值:电量剩余20%\
+偏好的补能时机:电量剩20%时,下班途中\
+偏好的补能类型:快充\
+偏好的补能品牌:特来电\
+偏好的补能目标值:80%\
+偏好的停车场类型:地面停车场,地下停车场\
+偏好的停车场选择:太阳晒不到的车位\
+"
+        },
+        "structured_retrieval": {
+            "memory_tag": {
+                "tag_tree": {
+                    "category_code": "root",
+                    "category_name": "用户画像",
+                    "level": 0,
+                    "children": [
+                        {
+                            "category_code": "car_preference",
+                            "category_name": "用车偏好",
+                            "level": 1,
+                            "children": [
+                                {
+                                    "category_code": "seat_preference",
+                                    "category_name": "座椅偏好",
+                                    "level": 2,
+                                    "children": [
+                                        {
+                                            "category_code": "seat_ventilation",
+                                            "category_name": "座椅通风偏好",
+                                            "level": 3,
+                                            "tag_details": [
+                                                {
+                                                    "infer_result": [
+                                                        {
+                                                            "value": "座椅通风2档"
+                                                        }
+                                                    ]
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "category_code": "seat_massage",
+                                            "category_name": "座椅按摩偏好",
+                                            "level": 3,
+                                            "tag_details": [
+                                                {
+                                                    "infer_result": [
+                                                        {
+                                                            "value": "座椅按摩3档"
+                                                        }
+                                                    ]
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "category_code": "seat_position",
+                                            "category_name": "座椅位置偏好",
+                                            "level": 3,
+                                            "tag_details": [
+                                                {
+                                                    "infer_result": [
+                                                        {
+                                                            "value": "主驾座椅高度升高3cm,主驾座椅向后移动"
+                                                        }
+                                                    ]
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "category_code": "seat_other",
+                                            "category_name": "座椅其他偏好",
+                                            "level": 3,
+                                            "tag_details": [
+                                                {
+                                                    "infer_result": [
+                                                        {
+                                                            "value": "调整座椅靠背放松,将座椅调成半躺模式放松肩膀"
+                                                        }
+                                                    ]
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                },
+                                {
+                                    "category_code": "driving_preference",
+                                    "category_name": "驾驶偏好",
+                                    "level": 2,
+                                    "children": [
+                                        {
+                                            "category_code": "driving_mode",
+                                            "category_name": "驾驶模式偏好",
+                                            "level": 3,
+                                            "tag_details": [
+                                                {
+                                                    "infer_result": [
+                                                        {
+                                                            "value": "高速上打开辅助驾驶"
+                                                        }
+                                                    ]
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                },
+                                {
+                                    "category_code": "voice_assistant",
+                                    "category_name": "语音助手偏好",
+                                    "level": 2,
+                                    "children": [
+                                        {
+                                            "category_code": "voice_assistant_personality",
+                                            "category_name": "偏好的语音助手人设风格",
+                                            "level": 3,
+                                            "tag_details": [
+                                                {
+                                                    "infer_result": [
+                                                        {
+                                                            "value": "说话幽默"
+                                                        }
+                                                    ]
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                },
+                                {
+                                    "category_code": "ac_preference",
+                                    "category_name": "空调偏好",
+                                    "level": 2,
+                                    "children": [
+                                        {
+                                            "category_code": "ac_temperature",
+                                            "category_name": "空调温度偏好",
+                                            "level": 3,
+                                            "tag_details": [
+                                                {
+                                                    "infer_result": [
+                                                        {
+                                                            "value": "21度,22度"
+                                                        }
+                                                    ]
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "category_code": "ac_direction",
+                                            "category_name": "空调吹向偏好",
+                                            "level": 3,
+                                            "tag_details": [
+                                                {
+                                                    "infer_result": [
+                                                        {
+                                                            "value": "空调吹脚模式"
+                                                        }
+                                                    ]
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "category_code": "ac_fan_speed",
+                                            "category_name": "风量档位偏好",
+                                            "level": 3,
+                                            "tag_details": [
+                                                {
+                                                    "infer_result": [
+                                                        {
+                                                            "value": "4档"
+                                                        }
+                                                    ]
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "category_code": "ac_other",
+                                            "category_name": "空调其他偏好",
+                                            "level": 3,
+                                            "tag_details": [
+                                                {
+                                                    "infer_result": [
+                                                        {
+                                                            "value": "切换空调模式为内循环"
+                                                        }
+                                                    ]
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                },
+                                {
+                                    "category_code": "light_preference",
+                                    "category_name": "灯光偏好",
+                                    "level": 2,
+                                    "children": [
+                                        {
+                                            "category_code": "light_ambient",
+                                            "category_name": "氛围灯偏好",
+                                            "level": 3,
+                                            "tag_details": [
+                                                {
+                                                    "value": "蓝色氛围灯",
+                                                    "actual_result": [
+                                                        {
+                                                            "value": "蓝色氛围灯"
+                                                        }
+                                                    ]
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "category_code": "light_reading",
+                                            "category_name": "阅读灯偏好",
+                                            "level": 3,
+                                            "tag_details": [
+                                                {
+                                                    "value": "后排阅读灯亮度调至最低档",
+                                                    "actual_result": [
+                                                        {
+                                                            "value": "后排阅读灯亮度调至最低档"
+                                                        }
+                                                    ]
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "category_code": "light_exterior",
+                                            "category_name": "车外灯偏好",
+                                            "level": 3,
+                                            "tag_details": [
+                                                {
+                                                    "value": "自动模式",
+                                                    "actual_result": [
+                                                        {
+                                                            "value": "自动模式"
+                                                        }
+                                                    ]
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "category_code": "basic_profile",
+                            "category_name": "基础画像",
+                            "level": 1,
+                            "children": [
+                                {
+                                    "category_code": "basic_identity",
+                                    "category_name": "基础身份",
+                                    "level": 2,
+                                    "children": [
+                                        {
+                                            "category_code": "basic_identity_name",
+                                            "category_name": "姓名",
+                                            "level": 3,
+                                            "tag_details": [
+                                                {
+                                                    "value": "李华",
+                                                    "actual_result": [
+                                                        {
+                                                            "value": "李华"
+                                                        }
+                                                    ],
+                                                    "infer_result": [
+                                                        {
+                                           

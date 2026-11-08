@@ -1,0 +1,95 @@
+{
+  "reviewer": "finish_main",
+  "date": "2026-10-29",
+  "reviewed_file": "content/case-async-20261029.json",
+  "reviewed_chapters": ["I", "W", "F", "T", "B", "A", "G", "S"],
+  "read_scope": "逐段读完 8 章全部 intro、lessons 与 guides；定向对照原节点、输入管理、动态工具、可见即可说、Task Service、VQA、静态 Advisor 与 Planner OnePage 正文。未把参考链接存在记成全文核验。",
+  "overall": "正文已能沿场景说明输入、判断、执行、反馈和异常，没有发现把 Planner 与 Director 串成两个决策模块、把 partial 文字当正式执行、把流结束当业务完成等问题。原节点仍需与正文同步，发现项如下。",
+  "findings": [
+    {
+      "id": "ASY-REVIEW-1",
+      "severity": "high",
+      "chapter": "I",
+      "location": "baseNode I13",
+      "original": "尚未输出时，可以合并两个有效输入，重新判断符合全部要求的餐厅。",
+      "problem": "旧图仍把首 token 作为唯一合并边界，与 I/M 新正文不一致；首字未出也可能已经放行工具，重放会重复车控或下单。",
+      "evidence": "main/prose-M-tech.md:205-210 明确 Tool 放行后，旧 Input 只能作中断上下文，不可合并后作为可执行输入重放。",
+      "recommendation": "节点标题、短句和解释均先核工具是否放行；未发工具且仍在合并阶段才允许重算；已发工具保留调用与真实反馈。",
+      "status": "fixed_verified",
+      "verification": "已回读 baseNodePatches I13，明确工具尚未放行、无输出才合并；工具已放行不因未听首声而重发。"
+    },
+    {
+      "id": "ASY-REVIEW-2",
+      "severity": "medium",
+      "chapter": "A",
+      "location": "baseNode A10",
+      "original": "舱内问图取得本次画面；符合条件的车辆多轮追问可以复用前次结果。",
+      "problem": "相邻句把舱内与舱外复用范围混在一起，可能误解成舱内人物状态一直用旧图。",
+      "evidence": "A 章引用 ASY-A44/ASY-A88 的问图方案：舱内每次重新取图；适用舱外追问按槽位是否一致判断复用。",
+      "recommendation": "明确舱内每次取新图，舱外仅在对应条件满足时复用；变更对象重新取图。",
+      "status": "fixed_verified",
+      "verification": "已回读 baseNodePatches A10，范围已拆清。"
+    },
+    {
+      "id": "ASY-REVIEW-3",
+      "severity": "medium",
+      "chapter": "A",
+      "location": "baseNode A16",
+      "original": "适用的舱外、地点和通用识别先由客户端按视角抓拍，上传图片引用，再交云端工具。",
+      "problem": "将沿途地点问答与图像识别结果混作同一来源，与新正文解释冲突。",
+      "evidence": "A/a-vqa 已据问图 PRD 分开车辆专用识别、通用图像理解及位置相关沿途问答；位置相关答案来自沿途问答，图片用于交互展示。",
+      "recommendation": "地点类单独说明答案来自弋途沿途问答，不能记成视觉模型看图得出。",
+      "status": "fixed_verified",
+      "verification": "已回读 baseNodePatches A16，新增沿途问答和图片展示边界。"
+    },
+    {
+      "id": "ASY-REVIEW-4",
+      "severity": "medium",
+      "chapter": "T",
+      "location": "t-wait-run / t-channels-results",
+      "original": "已经接入的 GUI 长任务还有自己的执行方式。",
+      "problem": "已接入的概括遗漏当前单用户联调、正式多用户/并发重试/取消待验证和任务岛不展示范围，易读成可正式普遍交付。",
+      "evidence": "async/compact/T-service.md:114-115：已有启动/步骤续接/回写，但正式多用户、并发重试及用户取消需验证；任务岛暂不包含直接 GUI 和持续条件任务。",
+      "recommendation": "在解释运行和展示时就写明这些界限，不另加泛化免责声明。",
+      "status": "fixed_verified",
+      "verification": "已回读 t-wait-run 与 t-channels-results，新段落包含单用户联调及任务岛范围。"
+    },
+    {
+      "id": "ASY-REVIEW-5",
+      "severity": "medium",
+      "chapter": "W/F",
+      "location": "w-lesson-dynamic-tool / f-lesson-dynamic",
+      "original": "选择第二家餐厅并开始导航；Planner 可以把“选第二家”交给它。",
+      "problem": "例子沿用了 Planner 搜索餐厅卡，但同章 AIVA 说明该类卡片由 Planner 闭环、不登记可见即可说；缺少 real_time_card 前提会把不同卡片来源串错。",
+      "evidence": "async/compact/I-aiva.md:430-434 分别定义 Planner、静态 Advisor、系统通知、端侧自闭环四类卡片；async/compact/F-dynamic.md 明确 real_time_card 的当轮参数准入。",
+      "recommendation": "换成明确以 real_time_card 上报的系统通知卡确认/取消例子；若保留餐厅例子，应明确必须该卡被当前协议提供了对应按钮。",
+      "status": "author_fix_pending_verification"
+    },
+    {
+      "id": "ASY-REVIEW-6",
+      "severity": "medium",
+      "chapter": "F",
+      "location": "f-lesson-stream / guides.base",
+      "original": "结果回到 Planner 的路径，是整件任务继续推进的依据。",
+      "problem": "解释只沿回模型的常规路径讲，原图 F12 的已配置直返分支没有进入连续讲解，用户仍不知该箭头何时适用。",
+      "evidence": "main/review-planner-onepage.json，新读 https://bytedance.larkoffice.com/wiki/EWziwFVftiGvnlk0FA4cadqonud：命中 ReturnDirectlyTools 的工具不再回 LLM，direct_return 是结果已流式产出后的图收口节点。",
+      "recommendation": "补常规回灌与配置直返的分路；说明直返不再生成另一轮总结，也不授权所有工具自行播报。",
+      "status": "author_fix_pending_verification"
+    },
+    {
+      "id": "ASY-REVIEW-7",
+      "severity": "low",
+      "chapter": "W",
+      "location": "w-lesson-register / w-lesson-match",
+      "original": "例如控制登记规模、清理标点等；在对应长度条件下检查连续文字。",
+      "problem": "有明确规则的地方被改成泛泛概括，不能帮助读者理解实际匹配边界。局部匹配原句本身又存在数量主体不清，不能自行补成已验证阈值。",
+      "evidence": "async/W-visible-raw.json：单页不超过 500 词（随系统能力更新）；局部匹配原句为“6个以上，需连续匹配4个字以上”。",
+      "recommendation": "写明确的 500 词口径和完整匹配/前后缀/多命中责任；局部阈值保留原规则及适用主体待核，不把它硬解释成候选数或已验证的六字准入。",
+      "status": "author_fix_pending_verification"
+    }
+  ],
+  "style_check": {
+    "passed": ["所有章已有业务案例起点、必要信息、真实执行与反馈", "无裸节点编号箭头作正文教学", "无泛化的术语表、练习区或相关模块填充", "I 与 M 的执行防重放说明已一致；A/G 的二十秒与三分钟不混成同一阈值"],
+    "notes": ["部分段落仍有‘这解释了为什么’等连接句，但均承接具体机制，不构成需删的独立套话。", "未为满足字数提出新增重复总结或练习。"]
+  }
+}

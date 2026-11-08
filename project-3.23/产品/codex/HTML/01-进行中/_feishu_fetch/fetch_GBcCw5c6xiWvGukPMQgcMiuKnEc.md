@@ -1,0 +1,1 @@
+<title>AI汽车语音基础体验链路OnePager</title><h2 seq="1" seq-level="auto" seq-marker="1.">简要介绍</h2><p><b>这条链路解决四个基础体验问题：</b></p><p><b>听得准：</b></p><ol><li seq="1" seq-marker="1. ">用户开始说话后，端侧持续采集音频，以200ms一帧发送云端。<

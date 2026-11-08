@@ -1,0 +1,161 @@
+# 客户端事件上报与研发查询接口技术方案
+## 1\. 背景
+客户端需要把部分端侧事件上报到 AIDV 服务端，供后续研发排查使用。服务端不感知具体的字段含义，只提供写入、查询工具。
+- 固定索引字段：用于定位、过滤、排查。
+- 透传字段 `params`：客户端自行组织，服务端只做长度限制，不解析内容。客户端需求：[埋点上报字段](https://bytedance.larkoffice.com/docx/Quz1doELFo7gWnxmViXcXnuxnJb)
+## 2\. 接口设计
+统一使用一个 path，通过 HTTP Method 区分上传与查询。
+Method
+Path
+说明
+POST
+`/aidv/v1/client/event/report`
+客户端事件上报
+GET
+`/aidv/v1/client/event/report`
+研发查询事件
+### 2\.1 上报接口
+请求参数分为两部分：
+Body 示例：
+```JSON
+{
+  "event_name": "dialogue_reject",
+  "request_id": "69e1dc74-2568-4ca6-acee-a1423a5002d8",
+  "log_id": "4320362904772",
+  "event_time": 1779086754268,
+  "params": "{\"query\":\"你是想听和豆包\",\"sound_zone\":\"主驾\",\"status\":\"rejected\"}"
+}
+```
+字段约束：
+字段
+是否必填
+说明
+`request\_id`
+是
+请求链路 ID
+`event\_time`
+是
+事件发生时间，毫秒时间戳
+`params`
+是
+业务透传字符串，最大 8KB
+`event\_name`
+否
+事件名
+`log\_id`
+否
+日志链路 ID
+### 2\.2 查询接口
+查询接口面向研发排查。因为 GET 请求里公参和业务查询条件都放在 query string 中，为避免和公参冲突，业务查询条件统一使用 `q\_` 前缀。公共参数仍使用原字段名，例如：`app\_id`、`channel\_app\_id`、`channel`、`vehicle\_id`、`vehicle\_type`、`login\_doubao\_uid`、`device\_id`。业务查询条件：
+- `q\_request\_id = xxx`
+- `q\_log\_id = xxx`
+- `q\_device\_id = xxx`
+- `q\_event\_name = xxx`
+- 非时间字段 \+ `q\_event\_time\_start` / `q\_event\_time\_end`限制：
+- 不允许只传 `q\_event\_time\_start` / `q\_event\_time\_end` 单独查。
+- 如果同时传 `q\_event\_time\_start` 和 `q\_event\_time\_end`，要求 `q\_event\_time\_start \<= q\_event\_time\_end`。
+- `limit` 默认 20，最大 50。查询示例：
+```Plain Text
+GET /aidv/v1/client/event/report?q_request_id=xxx
+GET /aidv/v1/client/event/report?q_log_id=xxx
+GET /aidv/v1/client/event/report?q_device_id=xxx&q_event_name=dialogue_reject&q_event_time_start=1779086754000&q_event_time_end=1779086755000
+```
+## 3\. 存储设计
+新增表：`client\_event\_report`核心字段：
+字段
+说明
+`request\_id`
+请求链路 ID
+`log\_id`
+日志链路 ID
+`device\_id`
+设备 ID，从公参取
+`vehicle\_id`
+车辆 ID，从公参取
+`vehicle\_user\_id`
+用户 ID，可以映射出 doubao\_uid, vehicle\_id 等好多信息
+env
+环境信息
+`event\_name`
+事件名
+`event\_time`
+毫秒时间戳
+`params`
+业务透传字符串
+建表语句参考：
+```SQL
+-- 最新版本
+CREATE TABLE `client_event_report` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `channel_app_id` int NOT NULL COMMENT '渠道AppID',
+  `channel` varchar(64) COLLATE utf8mb4_general_ci NOT NULL COMMENT '渠道标识',
+  `env` varchar(64) COLLATE utf8mb4_general_ci NOT NULL DEFAULT '' COMMENT '环境标识',
+  `vehicle_id` varchar(256) COLLATE utf8mb4_general_ci NOT NULL COMMENT '车辆ID',
+  `device_id` varchar(256) COLLATE utf8mb4_general_ci NOT NULL COMMENT '设备ID',
+  `vehicle_user_id` bigint unsigned NOT NULL DEFAULT '0' COMMENT '汽车用户id',
+  `event_name` varchar(128) COLLATE utf8mb4_general_ci NOT NULL COMMENT '事件名',
+  `request_id` varchar(256) COLLATE utf8mb4_general_ci NOT NULL COMMENT '请求链路ID',
+  `log_id` varchar(256) COLLATE utf8mb4_general_ci NOT NULL COMMENT '日志链路ID',
+  `event_time` bigint NOT NULL COMMENT '事件发生时间，毫秒时间戳',
+  `params` text COLLATE utf8mb4_general_ci COMMENT '业务参数字符串，服务端不解析',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_request_id` (`request_id`),
+  KEY `idx_log_id` (`log_id`),
+  KEY `idx_device_time` (`device_id`,`event_time`),
+  KEY `idx_vehicle_user_id` (`vehicle_user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='客户端事件上报表'
+-- 历史版本
+CREATE TABLE `client_event_report` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `app_id` bigint unsigned NOT NULL COMMENT 'AppID',
+  `channel_app_id` int NOT NULL COMMENT '渠道AppID',
+  `channel` varchar(64) NOT NULL COMMENT '渠道标识',
+  `vehicle_id` varchar(256) NOT NULL COMMENT '车辆ID',
+  `device_id` varchar(256) NOT NULL COMMENT '设备ID',
+  `user_id` varchar(256) NOT NULL COMMENT '用户ID',
+  `event_name` varchar(128) NOT NULL COMMENT '事件名',
+  `request_id` varchar(256) NOT NULL COMMENT '请求链路ID',
+  `log_id` varchar(256) NOT NULL COMMENT '日志链路ID',
+  `event_time` bigint unsigned NOT NULL COMMENT '事件发生时间，毫秒时间戳',
+  `params` text COMMENT '业务参数字符串，服务端不解析',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_request_id` (`request_id`),
+  KEY `idx_log_id` (`log_id`),
+  KEY `idx_device_time` (`device_id`, `event_time`),
+  KEY `idx_user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='客户端事件上报表';
+```
+## 4\. 代码结构
+层级
+文件
+职责
+Route
+`route/v1\.go`
+注册 GET / POST 路由
+Handler
+`biz/handler/v1/client\_event\.go`
+参数绑定、错误处理、响应包装
+Service
+`biz/service/client\_event`
+参数校验、公参转换、记录组装
+Model
+`biz/model/client\_event`
+SQL 创建与查询
+DAL
+`biz/dal/db/model`、`biz/dal/db/query`
+gorm/gen 生成模型与类型化查询
+## 5\. 风险与约束
+- `params` 服务端不解析，只限制最大 8KB，避免客户端写入超大字段。
+- 查询接口用于研发排查，默认只返回最近 N 条，避免无分页大范围扫描。
+- 时间字段不能单独查询，必须配合至少一个非时间条件。
+- 新增表需要先完成 DB DDL，再上线服务代码。
+## 6\. 验证点
+- POST 上报成功后返回 `id` 和 `request\_id`。
+- GET 按 `q\_request\_id` 能查到上报记录。
+- GET 只传时间范围返回参数错误。
+- `params` 超过 8KB 返回参数错误。
+- `limit` 超过 50 时按 50 处理。

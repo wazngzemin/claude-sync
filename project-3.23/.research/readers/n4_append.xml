@@ -1,0 +1,16 @@
+<h2>最新 PRD 补细（2026-10 口径）</h2><p>这一节用下游工具输入输出实测表和全域 FC 协议多车企 sheet，补上"一个函数到底从哪张清单里被选出来、走哪条通道执行"的细节。</p><h3>一、每个工具自带"是否播报"字段【已确认 · 通用】</h3><p>工具清单实测字段：工具名/工具 ID/负责产品+研发/支持项目（主线/赛力斯/上汽）/<b>是否工具播报</b>/标准 query 输入要求（可处理范围+示例+易混淆排除项）/输出格式。典型：vehicle_basic_control（车窗/空调/座椅/后视镜/天窗/遮阳帘/门锁/冰箱/HUD/内外灯）、vehicle_system_settings、vehicle_communication（电话/视频）、auto_drive（泊车/巡航/变道，辅助风格只有舒适/标准/运动三档）、route_planning（AiNavi 版，支持途经点增删改、"选第二条"）。三条边界 notice：智驾≠车控、氛围灯≠车控、导航模糊点须先 POI。这与 Director PRD"下游工具无自主播报权限"互证：车控工具一律不播报。出处：下游工具输入输出整理（https://bytedance.larkoffice.com/wiki/NxMVwYmqLijlubkKE54cVHfrnib ）。</p><h3>二、FC 协议按车企分层，量级表【部分阅读 · 各车型】</h3><table><thead><tr><th><p>版本</p></th><th><p>范围与量级</p></th></tr></thead><tbody><tr><td><p>SLS 主线</p></td><td><p>RAG 定制函数 1024 行 + SFT 范围 811 行；函数字段=功能模块/一二级功能/函数名/描述/参数（必填非必填、类型、取值范围）/定制或主线/手车范围</p></td></tr><tr><td><p>上汽 DNA 量产</p></td><td><p>控制合辑 2263 行 + 定制函数范围 8 个版本（0707→0909）+ 2.0 智驾专属范围 + RAG 协议全集 1768 行 + 上汽 SFT 协议 842 行</p></td></tr><tr><td><p>赛力斯</p></td><td><p>0615 支持范围 1033 行 + 车控支持范围边界 5141 行 + 主线全量 2278 行</p></td></tr><tr><td><p>东风奕派 S33</p></td><td><p>主线 SFT 1392 行 + 定制 RAG 全集 941 行 + 按 P0/P1/P2/P3 优先级拆分 + 闲聊 199 行</p></td></tr><tr><td><p>DNA 对外</p></td><td><p>1101 主线迁移 2271 行 + 上汽单独定制函数 566 行</p></td></tr></tbody></table><p><b>资料冲突（待核）</b>：本章原文入口写"FC 协议 1115 条（车控 664/系统 170/导航 132/媒体 112/电话短信 20/应用 15）"，而 SLS 主线 sheet 写"RAG 定制函数 1024 行 + SFT 811 行"。1115 是按业务类别数的条目数，1024/811 是按 RAG 与 SFT 两种后训练形态分的行数，统计口径不同，不是同一张表的两个版本，引用时不要互相换算。</p><h3>三、三类执行通道与协议适配【已落地 · 通用】</h3><p>Agent Server 提供六条执行通道：HTTP / SSE / Kitex / MCP / Frontier / 本地工具；协议适配层支持 aidv / dpfm / doubao / ecology / internal_rpc；调用前后有 BeforeRequest / AfterResponse / AfterAgent 三个后处理钩子。特例：音乐只有结构化数据，需要转成文本再进模型上下文。出处：Agent Server One Page（https://bytedance.larkoffice.com/wiki/AQxOwJet9ieV5bkstANcvYHLn5f ）。</p><whiteboard type="mermaid">flowchart LR
+    A[Director 任务拆解] --&gt; B{协议适配层}
+    B --&gt;|aidv/dpfm/doubao/ecology/internal_rpc| C[执行通道]
+    C --&gt; D1[HTTP]
+    C --&gt; D2[SSE]
+    C --&gt; D3[Kitex]
+    C --&gt; D4[MCP]
+    C --&gt; D5[Frontier]
+    C --&gt; D6[本地工具]
+    D1 --&gt; E[BeforeRequest / AfterResponse / AfterAgent 后处理]
+    D2 --&gt; E
+    D3 --&gt; E
+    D4 --&gt; E
+    D5 --&gt; E
+    D6 --&gt; E
+    E --&gt; F[结构化 feedback 回 Director]</whiteboard><p><b>这张图怎么看（N4Q）</b>：左边是"决定做什么"的 Director，中间协议适配层按项目选协议，右边六条通道按工具类型落下去；所有通道都要过一遍前后处理钩子，结构化结果才回到 Director。音乐是特例：只有结构化数据，必须先转文本再进模型上下文。</p><h3>四、S2S 联网主题路由【已确认 · 通用】</h3><p>联网请求先按主题分流：场所询问→POI Agent；美食→POI；娱乐（音乐/影视/演出）→对应垂域；社会/知识/公司产品→车书或兜底；国际/新闻/天气→对应 agent 或 NA；风险内容→安全风控 agent，不提供检索。出处：S2S 对话工具清单（https://bytedance.larkoffice.com/wiki/QDw1w0xwGiUlI6krxcJcXGGdngb ）。</p><h3>五、车辆功能 knowhow 硬约束【已确认 · 赛力斯 M9】</h3><p>空调最低 16 度、风速最大 7 档；座椅按摩三选一（轻柔猫步/波浪放松/动态舒压）；档位最大 3 档；导航本身没有记忆能力——带记忆的地址要先查记忆再导航；阅读灯不支持语音控制；不支持后除霜除雾；不支持强劲制热/制冷。出处：Director knowhow（https://bytedance.larkoffice.com/wiki/GlZhweru4i6naMkbGv4czFeFnGo ）。</p>

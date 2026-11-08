@@ -1,0 +1,65 @@
+flowchart TB
+  START["配置人员进入场景列表<br/>按渠道、环境、类型、分类筛选"]
+  ENTRY{新建还是修改已有场景}
+  START --> ENTRY
+  NEW["新建场景<br/>先选简单 / Workflow 模式"]
+  EXIST["已有 Workflow 详情<br/>判断流程当前只读"]
+  ENTRY -->|新建| NEW
+  ENTRY -->|修改判断流程| EXIST
+  COPY["复制原场景与判断定义<br/>生成独立待配置内容<br/>原场景不变"]
+  EXIST --> COPY
+  BASE["填写名称与业务分类<br/>关联任务、确认渠道和适用车辆<br/>显示实际部署环境"]
+  NEW --> BASE
+  COPY --> BASE
+  MODE{选择的配置模式}
+  BASE --> MODE
+  SIMPLE["简单模式<br/>复用当前条件 / 推理配置<br/>不生成 workflow_id"]
+  CANVAS["Workflow 画板<br/>添加条件节点或推理节点<br/>连接依赖、不提供工具节点"]
+  MODE -->|简单| SIMPLE
+  MODE -->|Workflow| CANVAS
+  NODE["逐节点填写判断<br/>条件：信号、位置、比较方式、值<br/>推理：VLM 输入、目标、原始描述"]
+  CANVAS --> NODE
+  JOIN["实际目标节点配置汇合关系<br/>多前驱可选 AND / OR，默认 AND<br/>OR 至少两个直接前驱"]
+  NODE --> JOIN
+  WAKE["显示自动生成的启动信号<br/>有动态条件：其信号更新启动<br/>启动后仍完整检查全部条件"]
+  SIMPLE --> WAKE
+  JOIN --> WAKE
+  OUT["配置命中后的下游输入<br/>主动推荐带交互卡 / 已有出口<br/>建议 Query、带卡参数、协议按钮"]
+  WAKE --> OUT
+  POLICY["配置已有运行策略<br/>次数、周期、间隔等<br/>明确单位及实际统计口径"]
+  OUT --> POLICY
+  CHECK["保存前完整校验<br/>字段合法、无环、边有效、唯一终点<br/>全部节点可到达且最终可到终点"]
+  POLICY --> CHECK
+  OK{校验是否通过}
+  CHECK --> OK
+  ISSUES["展示全部问题并定位<br/>不生成 Workflow ID、不写入非法定义"]
+  OK -->|否| ISSUES
+  ISSUES -->|按问题定位到对应字段或节点| BASE
+  SAVE["保存场景与不可变判断定义<br/>Workflow 校验通过后生成独立 ID<br/>数据库异常与配置错误分别提示"]
+  OK -->|是| SAVE
+  TEST["测试环境验证具体 Case<br/>核对输入、节点结果、策略、下游反馈<br/>带卡动作不以模拟器预览替代联调"]
+  SAVE --> TEST
+  READY{验证通过且适用能力齐全}
+  TEST --> READY
+  REWORK["保留原有效规则<br/>修正配置、缺失信号或下游接入"]
+  READY -->|否| REWORK --> BASE
+  REPLACE{是否替换已有任务规则}
+  READY -->|是| REPLACE
+  PUBLISH["发布到明确环境与能力适用范围<br/>规则发布与单车用户选择分开"]
+  REPLACE -->|新任务| PUBLISH
+  PLAN["替换前专项确认<br/>旧新场景关联、用户选择保持<br/>避免同时生效、失败回退"]
+  REPLACE -->|替换旧规则| PLAN
+  AGREED{切换与恢复方案已确认}
+  PLAN --> AGREED
+  AGREED -->|是| PUBLISH
+  HOLD["未确认则不直接切换<br/>不把新场景默认开启覆盖原选择"]
+  AGREED -->|否| HOLD
+  LIVE["发布后核对<br/>实际适用范围、任务中心状态<br/>首个运行记录与下游联调结果"]
+  PUBLISH --> LIVE
+  LIMIT["本期限制：已有 Workflow 不支持原地修改<br/>混合判定暂不开放定时；跨模式无损转换不作承诺<br/>复制与替换策略属于拟补产品方案，需研发确认后上线"]
+  classDef normal fill:#FFFFFF,stroke:#185DB7,color:#0D4FA8;
+  classDef focus fill:#EAF3FF,stroke:#185DB7,color:#0D4FA8,stroke-width:2px;
+  classDef note fill:#F4F7F8,stroke:#73978A,color:#315449;
+  class START,NEW,EXIST,COPY,BASE,SIMPLE,CANVAS,NODE,JOIN,WAKE,OUT,POLICY,CHECK,ISSUES,SAVE,TEST,REWORK,PUBLISH,LIVE normal;
+  class ENTRY,MODE,OK,READY,REPLACE,PLAN,AGREED focus;
+  class HOLD,LIMIT note;

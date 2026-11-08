@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>触发器配置平台 · 对齐后台现状原型 v06（含豆包闪念改造）</title>
+<style>
+:root{--blue:#165dff;--ink:#1d2129;--muted:#86909c;--line:#e5e6eb;--bg:#f7f8fa;--orange:#ff7d00;--red:#f53f3f;--green:#00b42a;--purple:#722ed1}
+*{box-sizing:border-box}
+body{margin:0;font:13px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;color:var(--ink);background:var(--bg)}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:1px solid var(--line);background:#fff;border-radius:2px;padding:5px 12px;line-height:20px}
+button:hover{border-color:var(--blue);color:var(--blue)}
+button.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+button.primary:hover{background:#4080ff;color:#fff}
+button.link{border:0;color:var(--blue);padding:2px 6px}
+button:disabled{cursor:not-allowed;color:var(--muted);background:#f7f8fa}
+input,select,textarea{border:1px solid var(--line);border-radius:2px;padding:5px 10px;background:#fff;width:100%}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--blue)}
+.app{display:flex;min-height:100vh}
+/* 侧边导航：还原后台 */
+.side{width:208px;background:#00152d;flex:none;color:#c9cdd4;padding:0;min-height:100vh;position:sticky;top:0}
+.side .logo{height:56px;display:flex;align-items:center;padding:0 20px;color:#fff;font-weight:700;font-size:15px;border-bottom:1px solid rgba(255,255,255,.08)}
+.side .nav{padding:8px 0}
+.side .group{color:#86909c;font-size:12px;padding:12px 20px 6px}
+.side .item{padding:9px 20px 9px 44px;cursor:pointer;white-space:nowrap}
+.side .item.parent{padding-left:20px;color:#fff}
+.side .item.active{background:rgba(22,93,255,.18);color:#fff;box-shadow:inset:2px 0 0 var(--blue)}
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.topbar{height:56px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 20px;gap:12px}
+.topbar .crumb{color:var(--muted)}
+.topbar .me{margin-left:auto;font-size:12px;color:var(--muted)}
+.content{padding:16px 20px;flex:1}
+.card{background:#fff;border:1px solid var(--line);border-radius:2px;margin-bottom:12px}
+.card .hd{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;font-weight:600}
+.card .bd{padding:16px}
+.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.toolbar .grow{flex:1}
+table{border-collapse:collapse;width:100%}
+th,td{border-bottom:1px solid var(--line);padding:9px 12px;text-align:left;white-space:nowrap}
+th{background:#f7f8fa;color:#4e5969;font-weight:600;font-size:12px}
+td .sub{color:var(--muted);font-size:12px}
+.badge{display:inline-block;padding:1px 7px;border-radius:2px;font-size:12px;border:1px solid var(--line);background:#fff;color:#4e5969}
+.badge.blue{color:var(--blue);border-color:#bedaff;background:#e8f3ff}
+.badge.green{color:var(--green);border-color:#b7ebc8;background:#e8ffea}
+.badge.gray{color:#86909c}
+.badge.orange{color:var(--orange);border-color:#ffd8a8;background:#fff7e8}
+.badge.purple{color:var(--purple);border-color:#d9c7f5;background:#f5edff}
+.badge.new{background:var(--orange);border-color:var(--orange);color:#fff;margin-left:6px;font-size:11px;padding:0 5px}
+/* 后台表单还原 */
+.form-section{border:1px solid var(--line);margin-bottom:12px}
+.form-section .fs-hd{background:#f7f8fa;padding:9px 14px;font-weight:600;display:flex;align-items:center;gap:8px}
+.form-section .fs-bd{padding:16px}
+.fgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 24px;max-width:860px}
+.fgrid .full{grid-column:1/-1}
+.fld{display:flex;align-items:center;gap:10px}
+.fld label{width:96px;flex:none;color:#4e5969;text-align:right}
+.fld .ctl{flex:1}
+.hint{color:var(--muted);font-size:12px;margin:4px 0 0 106px}
+.cond-group{border:1px dashed var(--line);padding:12px;margin-bottom:10px;border-radius:2px}
+.cond-row{display:flex;gap:8px;margin-bottom:8px;align-items:center}
+.cond-row select,.cond-row input{width:auto;flex:1}
+.cond-title{font-weight:600;margin-bottom:8px;display:flex;justify-content:space-between}
+.action-row{border:1px solid var(--line);padding:12px;margin-bottom:10px;border-radius:2px;background:#fcfcfd}
+.strategy-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;max-width:860px}
+.strategy-grid .s-item{display:flex;align-items:center;gap:6px}
+.strategy-grid input{width:72px}
+.foot{position:sticky;bottom:0;background:#fff;border-top:1px solid var(--line);padding:12px 20px;display:flex;gap:10px;justify-content:flex-end;margin:0 -20px -16px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:14px}
+.tabs button{border:0;border-bottom:2px solid transparent;border-radius:0;background:transparent;padding:8px 14px}
+.tabs button.active{color:var(--blue);border-bottom-color:var(--blue);font-weight:600}
+/* 说明条 */
+.note-bar{background:#fff7e8;border:1px solid #ffd8a8;color:#9e5c00;padding:8px 14px;border-radius:2px;margin-bottom:12px;font-size:12px}
+.note-bar b{color:#d25f00}
+.diff-add{outline:2px dashed var(--orange);outline-offset:-1px;background:#fffaf3}
+.modal-mask{position:fixed;inset:0;background:rgba(29,33,41,.45);display:flex;align-items:center;justify-content:center;z-index:50}
+.modal{background:#fff;border-radius:4px;width:640px;max-width:92vw;max-height:86vh;overflow:auto}
+.modal .m-hd{padding:14px 18px;border-bottom:1px solid var(--line);font-weight:700;font-size:15px;display:flex;justify-content:space-between}
+.modal .m-bd{padding:18px}
+.modal .m-ft{padding:12px 18px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:10px}
+.radio-card{border:1px solid var(--line);padding:12px 14px;margin-bottom:10px;border-radius:2px;cursor:pointer}
+.radio-card:hover{border-color:var(--blue);background:#f2f7ff}
+.kv{width:100%}
+.kv td{vertical-align:top}
+.kv td:first-child{width:170px;color:#4e5969;background:#f7f8fa}
+.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#1d2129;color:#fff;padding:9px 18px;border-radius:4px;z-index:99;font-size:13px}
+.legend{font-size:12px;color:var(--muted);display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:middle}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="logo">AI 汽车管理平台</div>
+    <div class="nav">
+      <div class="group">模拟器</div>
+      <div class="item parent">模拟器管理</div>
+      <div class="group">触发器</div>
+      <div class="item active" id="navScene">场景管理</div>
+      <div class="item" id="navRecord">触发记录</div>
+      <div class="group">Agent 管理</div>
+      <div class="item parent">定义列表</div>
+      <div class="item parent">实现列表</div>
+      <div class="group">Planner 管理</div>
+      <div class="item parent">动态示例管理</div>
+      <div class="group">其他</div>
+      <div class="item parent">记忆管理</div>
+      <div class="item parent">日志查询</div>
+      <div class="item parent">快捷工具</div>
+    </div>
+  </aside>
+  <div class="main">
+    <div class="topbar">
+      <span class="crumb" id="crumb">触发器 / 场景管理</span>
+      <span class="me">wangzemin.cxzm / DoubaoIncar · 原型为本地演示，不提交真实配置</span>
+    </div>
+    <div class="content" id="app"></div>
+  </div>
+</div>
+<div id="modalRoot"></div><div id="toastRoot"></div>
+
+<script>
+'use strict';
+/* 说明：本原型 1:1 还原 aidv-admin「新建场景」页真实字段顺序与命名；
+   橙色虚线/「待开发」标签为本次改造新增项，其余为当前后台已有项。*/
+const CHANNELS=['赛力斯','上汽（演示，能力不同）'];
+const GEARS=['D','N','P','R'];
+const COND_TYPES=['车状态信号','vlm 信号'];          // 与后台“选择条件类型”一致
+const ACTIONS=[                                    // 已上线动作取自技术方案 QuerySceneActions
+  {v:'comfort_advisor',n:'舒适 Advisor'},
+  {v:'emotion_advisor',n:'情感 Advisor'},
+  {v:'navigation_advisor',n:'出行 Advisor'},
+  {v:'content_advisor',n:'内容 Advisor'},
+  {v:'recommend',n:'主动推荐'},
+  {v:'recommend_with_card',n:'主动推荐带交互卡（待开发）',dev:true},
+  {v:'delay',n:'延时执行'},
+  {v:'custom_callback',n:'自定义回调'},
+  {v:'flash_text',n:'静默文字通知（豆包闪念·待开发）',dev:true,new:true}
+];
+const ACTION_PARAMS={
+  recommend:['建议信息'],
+  recommend_with_card:['建议信息','交互卡内容'],
+  flash_text:['闪念固定文案'],
+  comfort_advisor:['事件/注意力信息'],emotion_advisor:['事件/注意力信息'],
+  navigation_advisor:['事件/注意力信息'],content_advisor:['事件/注意力信息'],
+  delay:['延时时长(秒)'],custom_callback:['回调HTTP地址','回调任务系统','回调事件系统']
+};
+const VLM_SIGNALS=[
+  {code:'vlm_inside_001',n:'舱内视觉输出（低频）',judge:'位置/性别/年龄支持条件判定；造型、物品、整体描述仅推理'},
+  {code:'vlm_inside_002',n:'舱内视觉输出（高频）',judge:'乘客动作动作描述，仅推理判定（乘客睡着用此信号）'},
+  {code:'vlm_outside',n:'舱外视觉输出',judge:'天气/路面枚举可条件判定；风景类描述当前无数据'}
+];
+const scenes=[
+  {id:4901,name:'【测试】-【lzq】-【testlzq】',channel:'赛力斯',model:'全车型',ver:'全版本',vin:'全车辆',by:'lizeqing.mql',time:'2026-10-10 16:59',on:true},
+  {id:4623,name:'【测试】-【lvpo】-【删除测试】',channel:'赛力斯',model:'全车型',ver:'全版本',vin:'v46_002',by:'malpho.urzy',time:'2026-08-14 11:25',on:true},
+  {id:9101,name:'【闪念】-后排乘客睡着',channel:'赛力斯',model:'M9',ver:'指定测试版本',vin:'演示车辆',by:'wangzemin',time:'待开发',on:false,flash:true},
+  {id:9102,name:'儿童锁保护（预设·Workflow 待开发）',channel:'赛力斯',model:'M9',ver:'指定测试版本',vin:'演示车辆',by:'wangzemin',time:'待开发',on:false}
+];
+let view='list';
+let draft=null;
+function toast(m){toastRoot.innerHTML='<div class="toast">'+esc(m)+'</div>';setTimeout(()=>toastRoot.innerHTML='',3000)}
+function esc(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function newDraft(){return{
+  name:'',priority:1,channel:'',vins:[],model:'',verOp:'',vers:[],
+  dynamic:[newCond()],static:[],
+  actions:[{type:'recommend',param:'建议信息',value:''}],
+  total:0,power:0,daily:0,minMin:0,minSec:30
+}}
+function newCond(){return{ctype:'',signal:'',field:'',op:'',value:''}}
+function newAction(){return{type:'',param:'',value:''}}
+
+/* ---------- 场景列表（还原后台） ---------- */
+function listView(){
+  app.innerHTML=`
+  <div class="card">
+    <div class="hd">场景管理
+      <span class="grow"></span>
+      <button class="primary" onclick="openCreate()">新建场景</button>
+    </div>
+    <div class="bd">
+      <div class="toolbar">
+        <span>渠道</span><select style="width:140px"><option>AIDV主线</option></select>
+        <span>环境</span><select style="width:110px"><option>全部</option><option>正式</option><option>测试</option></select>
+        <input placeholder="场景名称" style="width:170px">
+        <input placeholder="场景ID" style="width:140px">
+        <button>刷新</button><button>高级筛选</button><button>重置</button>
+      </div>
+      <table>
+        <thead><tr><th>场景ID</th><th>场景名称</th><th>渠道</th><th>适用车型</th><th>适用软件版本</th><th>指定车辆</th><th>更新人</th><th>更新时间</th><th>生效状态</th><th>操作</th></tr></thead>
+        <tbody>${scenes.map(s=>`<tr>
+          <td>${s.id}</td>
+          <td>${esc(s.name)}${s.flash?'<span class="badge new">闪念</span>':''}</td>
+          <td>${s.channel}</td><td>${s.model}</td><td>${s.ver}</td><td>${s.vin}</td>
+          <td class="sub">${s.by}</td><td class="sub">${s.time}</td>
+          <td><span class="badge ${s.on?'green':'gray'}">${s.on?'开启':'关闭'}</span></td>
+          <td><button class="link" onclick="openCreate()">编辑</button></td>
+        </tr>`).join('')}</tbody>
+      </table>
+      <div class="sub" style="margin-top:8px">共 ${scenes.length} 条（后两条为本次需求待建场景的演示数据）</div>
+    </div>
+  </div>`;
+  crumb.textContent='触发器 / 场景管理';
+}
+
+/* ---------- 新建/编辑场景（核心：完全按后台顺序） ---------- */
+function openCreate(){draft=newDraft();view='form';render()}
+function formView(){
+  app.innerHTML=`
+  <div class="note-bar"><b>原型说明：</b>本页字段、顺序、命名均按线上 <b>console.volcengine.com/aidv-admin/trigger/scene/detail</b> 还原；
+  橙色虚线框与「待开发」是本次要向后台提的改造，含 <b>vlm 推理目标配置</b> 与 <b>静默文字通知动作</b>（豆包闪念）。</div>
+  <div class="legend">
+    <span><i style="background:#fff;border:1px solid var(--line)"></i>后台已有</span>
+    <span><i style="background:#fffaf3;border:1px dashed var(--orange)"></i>本次新增 / 改造（待开发）</span>
+  </div>
+
+  <div class="form-section">
+    <div class="fs-hd">新建场景</div>
+  </div>
+
+  <div class="form-section">
+    <div class="fs-hd">基础信息</div>
+    <div class="fs-bd"><div class="fgrid">
+      <div class="fld"><label>场景名称</label><div class="ctl"><input id="f_name" placeholder="【测试/正式】-【使用方】-【场景简述】" value="${esc(draft.name)}" oninput="draft.name=this.value"></div></div>
+      <div class="fld"><label>优先级</label><div class="ctl"><input id="f_pri" type="number" min="1" value="${draft.priority}"></div></div>
+    </div>
+    <div class="hint">后台无独立「场景分类 / 来源类型」字段；preset/normal、scene_type 由后端按注册来源与条件构成，列表筛选本期不改。</div></div>
+  </div>
+
+  <div class="form-section">
+    <div class="fs-hd">发布范围</div>
+    <div class="fs-bd"><div class="fgrid">
+      <div class="fld"><label>渠道</label><div class="ctl"><select id="f_channel" onchange="draft.channel=this.value">
+        <option value="">请选择渠道</option>${CHANNELS.map(c=>`<option ${draft.channel===c?'selected':''}>${c}</option>`).join('')}</select></div></div>
+      <div class="fld"><label>指定车辆</label><div class="ctl"><input placeholder="输入或选择 vehicleID（多选），留空=全车辆"></div></div>
+      <div class="fld"><label>适用车型</label><div class="ctl"><input placeholder="默认全车型生效"></div></div>
+      <div class="fld"><label>软件版本</label><div class="ctl" style="display:flex;gap:8px">
+        <select style="width:110px"><option value="">运算符</option><option>=</option><option>&gt;=</option><option>in</option></select>
+        <input placeholder="如 1.0.1，回车确认；默认全版本"></div></div>
+    </div>
+    <div class="hint">未选渠道直接保存，后台会提示“请先选择渠道”。</div></div>
+  </div>
+
+  <div class="form-section">
+    <div class="fs-hd">触发条件
+      <span class="badge gray">动态条件表达“状态变更为”；静态条件表达“当前等于”</span>
+    </div>
+    <div class="fs-bd">
+      <div class="cond-title"><span>动态条件</span><button onclick="draft.dynamic.push(newCond());render()">+新增条件组</button></div>
+      ${draft.dynamic.map((c,i)=>condBlock(c,i,'dynamic')).join('')}
+      <div class="cond-title" style="margin-top:16px"><span>静态条件</span><button onclick="draft.static.push(newCond());render()">+新增条件组</button></div>
+      ${draft.static.length?draft.static.map((c,i)=>condBlock(c,i,'static')).join(''):'<div class="sub">无静态条件时允许为空（原四项需求之一），但动态条件与启动信号不能同时为空。</div>'}
+
+      <div class="cond-group diff-add" style="margin-top:16px">
+        <div class="cond-title"><span class="badge orange">待开发 · vlm 推理条件</span>
+          <span class="sub">闪念与预设任务的宠物 / 下雨判断共用；当前后台「条件类型」已有 vlm 信号入口，但只能选结构字段，推理目标在此补</span></div>
+        <div class="fgrid" style="max-width:none">
+          <div class="fld"><label>视觉信号</label><div class="ctl"><select id="vlm_sig" onchange="draft.vlmSig=this.value;render()">
+            <option value="">请选择</option>${VLM_SIGNALS.map(v=>`<option value="${v.code}" ${draft.vlmSig===v.code?'selected':''}>${v.n}</option>`).join('')}</select></div></div>
+          <div class="fld"><label>判断目标</label><div class="ctl"><input placeholder="例：是否有乘客在后排睡着（只判达成/未达成，不抽标签）" value="${esc(draft.vlmGoal||'')}" oninput="draft.vlmGoal=this.value"></div></div>
+          <div class="fld full"><label>范围说明</label><div class="ctl sub" id="vlmHint"></div></div>
+        </div>
+        <div class="hint">一期复用现有推理模型（doubao.Stream）；语义/小模型前置降耗后续另提。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="form-section">
+    <div class="fs-hd">执行动作设置</div>
+    <div class="fs-bd" id="actionArea">
+      ${draft.actions.map((a,i)=>actionBlock(a,i)).join('')}
+      <button onclick="draft.actions.push(newAction());render()">+新增动作</button>
+    </div>
+  </div>
+
+  <div class="form-section">
+    <div class="fs-hd">执行策略设置</div>
+    <div class="fs-bd">
+      <div class="strategy-grid">
+        <div class="s-item">执行总次数<input type="number" min="0" value="${draft.total}" onchange="draft.total=+this.value">次<span class="sub">空=无限</span></div>
+        <div class="s-item">单次上电周期内<input type="number" min="0" value="${draft.power}" onchange="draft.power=+this.value">次<span class="sub">空=无限</span></div>
+        <div class="s-item">自然日内总次数<input type="number" min="0" value="${draft.daily}" onchange="draft.daily=+this.value">次<span class="sub">空=无限</span></div>
+        <div class="s-item">执行最小间隔<input type="number" min="0" value="${draft.minMin}" onchange="draft.minMin=+this.value">分<input type="number" min="0" value="${draft.minSec}" onchange="draft.minSec=+this.value">秒</div>
+      </div>
+      <div class="hint" id="flashPolicyHint"></div>
+    </div>
+  </div>
+
+  <div class="foot"><button onclick="view='list';render()">返回</button><button onclick="validate(false)">校验</button><button class="primary" onclick="validate(true)">新建场景</button></div>`;
+  crumb.textContent='触发器 / 场景管理 / 新建场景';
+  syncVlmHint();syncFlashHint();
+}
+function condBlock(c,i,kind){
+  return `<div class="cond-group">
+    <div class="cond-row">
+      <select style="width:130px" onchange="c0('${kind}',${i},'ctype',this.value)">
+        <option value="">选择条件类型</option>
+        ${COND_TYPES.map(t=>`<option ${c.ctype===t?'selected':''}>${t}</option>`).join('')}
+      </select>
+      <select style="width:150px" onchange="c0('${kind}',${i},'signal',this.value)">
+        <option value="">选择信号</option>
+        ${c.ctype==='vlm 信号'?VLM_SIGNALS.map(v=>`<option value="${v.code}" ${c.signal===v.code?'selected':''}>${v.n}</option>`).join('')
+          :'<option>车状态信号（如：车辆行进状态）</option>'}
+      </select>
+      <select style="width:130px" onchange="c0('${kind}',${i},'field',this.value)"><option value="">选择字段</option>${c.ctype!=='vlm 信号'?'<option>状态</option>':['位置','性别','年龄'].map(f=>`<option ${c.field===f?'selected':''}>${f}</option>`).join('')}</select>
+      <select style="width:110px" onchange="c0('${kind}',${i},'op',this.value)"><option value="">选择运算符</option>${['=','!=','in','变更为'].map(o=>`<option ${c.op===o?'selected':''}>${o}</option>`).join('')}</select>
+      <input placeholder="输入值" style="width:120px" value="${esc(c.value)}" oninput="c0('${kind}',${i},'value',this.value)">
+      <button class="link" style="color:var(--red)" onclick="draft.${kind}.splice(${i},1);render()">删除</button>
+    </div>
+    <div class="sub">示例（后台已验证）：车状态信号 → 车辆行进状态 → 状态 → 变更为 → P（可选 D/N/P/R）。</div>
+  </div>`;
+}
+window.c0=(kind,i,k,v)=>{draft[kind][i][k]=v;render()};
+function actionBlock(a,i){
+  const dev=ACTIONS.find(x=>x.v===a.type)?.dev;
+  const isFlash=a.type==='flash_text';
+  const params=ACTION_PARAMS[a.type]||[];
+  return `<div class="action-row ${dev?'diff-add':''}">
+    <div class="cond-row">
+      <select style="width:230px" onchange="setActionType(${i},this.value)">
+        <option value="">选择或输入 Advisor / 动作</option>
+        ${ACTIONS.map(x=>`<option value="${x.v}" ${a.type===x.v?'selected':''}>${x.n}</option>`).join('')}
+      </select>
+      <select style="width:170px" ${!params.length?'disabled':''} onchange="draft.actions[${i}].param=this.value">
+        ${params.length?params.map(p=>`<option ${a.param===p?'selected':''}>${p}</option>`).join(''):'<option>选择或输入参数</option>'}
+      </select>
+      <button class="link" style="color:var(--red);margin-left:auto" onclick="draft.actions.splice(${i},1);render()">删除动作</button>
+    </div>
+    ${params.length?`<div style="margin-top:8px"><div class="sub" style="margin-bottom:4px">${a.param}</div>
+      <textarea rows="2" placeholder="${isFlash?'请输入命中后展示的一句固定文字（无标题、无按钮、不播报）':'请输入建议信息'}" oninput="draft.actions[${i}].value=this.value">${esc(a.value)}</textarea></div>`:''}
+    ${isFlash?`<div class="hint" style="margin-left:0">经 Frontier 下发普通通知卡，只显示正文；不走主动推荐 / DT。一期固定文案，二期接推理生成。展示时长、卡片高度、排队后过期规则待与徐洋、谢一鸣确认。</div>`:''}
+    ${a.type==='recommend_with_card'?'<div class="hint" style="margin-left:0">real_time_card 默认 {enabled:true,buttons:[确认,取消]}；content 由 DT 生成。按钮是否允许自定义口径待和樊文涛确认。</div>':''}
+  </div>`;
+}
+window.setActionType=(i,v)=>{const p=(ACTION_PARAMS[v]||[])[0]||'';draft.actions[i]={type:v,param:p,value:''};render()};
+function syncVlmHint(){const el=document.getElementById('vlmHint');if(!el)return;const v=VLM_SIGNALS.find(x=>x.code===draft.vlmSig);el.textContent=v?v.judge:''}
+function syncFlashHint(){const el=document.getElementById('flashFlashPolicyHint'||'flashPolicyHint');if(!el)return;
+  const hasFlash=draft.actions.some(a=>a.type==='flash_text');
+  el.textContent=hasFlash?'闪念类持续感知场景：执行最小间隔为必填（建议会上由业务给值，后台不预设默认），防止同一画面反复出字；频控只挡出字，不挡模型调用，降耗靠前置条件节点（如 alwaysOn 开关）。':''}
+function validate(save){
+  const errs=[];
+  const name=document.getElementById('f_name');if(name)draft.name=name.value.trim();
+  if(!draft.name)errs.push('请填写场景名称（格式：【测试/正式】-【使用方】-【场景简述】）。');
+  if(!draft.channel)errs.push('请先选择渠道。');
+  const hasVlm=!!(draft.vlmSig&&draft.vlmGoal&&draft.vlmGoal.trim());
+  const hasCond=draft.dynamic.some(c=>c.ctype&&c.signal)||draft.static.some(c=>c.ctype&&c.signal);
+  if(!hasCond&&!hasVlm)errs.push('至少配置一个触发条件或 vlm 推理目标。');
+  if(hasVlm&&!draft.vlmGoal.trim())errs.push('vlm 推理条件已选信号，请补判断目标。');
+  const acts=draft.actions.filter(a=>a.type);
+  if(!acts.length)errs.push('请至少配置一个执行动作。');
+  if(acts.some(a=>!a.value.trim()&&(ACTION_PARAMS[a.type]||[]).length))errs.push('有动作参数未填写。');
+  if(acts.some(a=>a.type==='flash_text')&&!(draft.minMin||draft.minSec))errs.push('闪念场景执行最小间隔不能为空。');
+  const box=document.createElement('div');box.id='__err';
+  let old=document.getElementById('__err');if(old)old.remove();
+  if(errs.length){const d=document.createElement('div');d.style.cssText='color:var(--red);margin-top:10px';d.innerHTML=errs.join('<br>');document.querySelector('.foot').before(d);d.id='__err';toast('校验未通过');return}
+  if(!save){toast('校验通过（原型本地校验，不代表真实后台）');return}
+  scenes.push({id:9200+scenes.length,name:draft.name,channel:draft.channel||'赛力斯',model:'按填写范围',ver:'按填写范围',vin:'按填写范围',by:'wangzemin',time:'刚刚（演示）',on:false,flash:draft.actions.some(a=>a.type==='flash_text')});
+  toast('已加入演示列表；真实创建、发布与联调需在后台完成。');view='list';render();
+}
+
+/* ---------- 触发记录（沿用后台已有入口，补闪念结果分层） ---------- */
+function recordView(){
+  app.innerHTML=`
+  <div class="card"><div class="hd">触发记录
+    <span class="grow"></span>
+    <input placeholder="场景ID" style="width:140px"><input placeholder="车辆ID" style="width:160px">
+    <select style="width:120px"><option>全部结果</option><option>PASS</option><option>REJECT</option><option>UNKNOWN</option></select>
+    <button>查询</button></div>
+    <div class="bd">
+      <div class="note-bar"><b>闪念验收口径：</b>“条件 PASS → 消息下发成功 → 客户端已展示”是三层，不能用下发成功推定用户已看到；UNKNOWN（缺描述/模型超时）不出字。</div>
+      <table><thead><tr><th>时间</th><th>场景</th><th>车辆</th><th>判定</th><th>动作下发</th><th>卡片展示</th></tr></thead><tbody>
+      <tr><td class="sub">演示</td><td>【闪念】后排乘客睡着</td><td class="sub">DEMO001</td><td><span class="badge green">PASS</span></td><td>Frontier 已接收</td><td><span class="badge green">已展示</span></td></tr>
+      <tr><td class="sub">演示</td><td>【闪念】后排乘客睡着</td><td class="sub">DEMO001</td><td><span class="badge green">PASS</span></td><td><span class="badge gray">间隔内拦截，未下发</span></td><td>—</td></tr>
+      <tr><td class="sub">演示</td><td>【闪念】后排乘客睡着</td><td class="sub">DEMO001</td><td><span class="badge orange">UNKNOWN</span></td><td>未下发</td><td>—</td></tr>
+      <tr><td class="sub">演示</td><td>【闪念】后排乘客睡着</td><td class="sub">DEMO001</td><td><span class="badge gray">REJECT</span></td><td>未下发</td><td>—</td></tr>
+      </tbody></table>
+      <div class="sub" style="margin-top:10px">Workflow 节点级判定（儿童锁等）需后端 workflow_id / QueryWorkflowRun 上线后在「触发记录」新增查看入口，本原型不虚构该页面。</div>
+    </div></div>`;
+  crumb.textContent='触发器 / 触发记录';
+}
+function render(){view==='list'?listView():view==='record'?recordView():formView()}
+navScene.onclick=()=>{view='list';render()};
+navRecord.onclick=()=>{view='record';render()};
+render();
+</script>
+</body>
+</html>

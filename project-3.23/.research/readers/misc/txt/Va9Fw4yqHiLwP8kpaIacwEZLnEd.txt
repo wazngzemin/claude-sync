@@ -1,0 +1,62 @@
+「上汽」-「抖音短视频」- 可见即可说方案时序图sequenceDiagram
+    autonumber
+    actor User as 用户
+    participant HU as 上汽车机系统
+    participant A11Y as 无障碍服务(控件)
+    participant Hotword as 豆包热词服务
+    participant ASR as ASR
+    participant Norm as 文本归一化/泛化
+    participant Match as 热词匹配模块
+    participant DY as 抖音视频SDK
+
+    Note over HU,A11Y: 1) 扫描桌面空间，收集无障碍控件文本
+    HU-&gt;&gt;A11Y: 扫描/读取控件文本
+    A11Y--&gt;&gt;HU: 控件文本列表
+
+    Note over HU,Hotword: 2) 注册控件文本为热词(含目标映射)
+    HU-&gt;&gt;Hotword: 注册热词(文本 → 控件/动作)
+    Hotword--&gt;&gt;HU: 注册成功/更新结果
+
+    Note over User,HU: 3) 用户语音 → ASR 文本
+    User-&gt;&gt;ASR: 语音指令(例: 暂停/停一下)
+    ASR--&gt;&gt;HU: ASR 文本
+
+    Note over HU,Norm: 4) 归一化/泛化 → 标准指令
+    HU-&gt;&gt;Norm: 归一化输入(ASR 文本)
+    Norm--&gt;&gt;HU: 标准文本(例: 暂停)
+
+    Note over Match,Hotword: 5) 标准文本与已注册热词匹配
+    Match-&gt;&gt;Hotword: 获取/刷新热词列表
+    Hotword--&gt;&gt;Match: 热词列表(含目标类型/目标)
+    HU-&gt;&gt;Match: 匹配(标准文本)
+    Match--&gt;&gt;HU: 匹配结果(未命中/命中 + 目标类型 + 目标)
+
+    alt 未命中
+        HU--&gt;&gt;User: 不触发快捷控制
+    else 命中
+        alt 5.1 目标类型=控件(通知上汽)
+            HU-&gt;&gt;A11Y: 模拟点击(目标控件)
+            A11Y--&gt;&gt;HU: 执行结果
+        else 5.2 目标类型=SDK(不通知上汽)
+            HU-&gt;&gt;DY: 调用接口(例: pause())
+            DY--&gt;&gt;HU: 执行结果
+        end
+    end
+流程图flowchart TD
+  subgraph INIT["初始化"]
+    A1[扫描桌面空间\n提取无障碍控件文本] --&gt; A2[注册热词到豆包\n文本到目标映射]
+  end
+
+  subgraph RT["运行时"]
+    B1[用户语音] --&gt; B2[ASR 转写文本]
+    B2 --&gt; B3[文本归一化/泛化\n标准指令]
+    B3 --&gt; C{热词匹配命中?}
+  end
+
+  A2 --&gt; L[热词列表/映射]
+  L --&gt; C
+
+  C -- 否 --&gt; D0[不触发快捷控制]
+  C -- 是 --&gt; D{执行方式}
+  D -- 5.1 控件 --&gt; E1[通知上汽\n无障碍模拟点击]
+  D -- 5.2 SDK --&gt; E2[不通知上汽\n调用抖音视频SDK]

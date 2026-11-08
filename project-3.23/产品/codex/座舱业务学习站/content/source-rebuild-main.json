@@ -1,0 +1,1579 @@
+{
+  "pages": [
+    {
+      "id": "V",
+      "scope": "车内语音 PRD 的基础输入链路；预请求分支按多级 VAD 产品与服务端方案说明。不同车型的收音、判停参数和接入版本不作统一。",
+      "intro": "用户说“去昨天那家游泳馆”时，系统先要得到一份可用的、属于这次说话的文字。这里连续发生三件事：把人声收清楚、把字认出来、确认这句话何时提交。识别到“去昨天”还不足以让导航开始，提前计算也只允许到指定的前置处理。",
+      "sourceIds": [
+        "VOICE-VOICEPRD",
+        "VOICE-VAD",
+        "VOICE-PREQUERY"
+      ],
+      "steps": [
+        {
+          "id": "V01",
+          "actor": "车端语音入口",
+          "title": "检查语音是否可用",
+          "detail": "每次语音初始化先检查麦克风权限。权限未授予时，交互区提示“未获取麦克风权限”，提供前往系统设置的入口；车型定义的通话、CarPlay 等禁止交互场景另按项目策略拦截。此时还没有可供推理的用户请求。",
+          "output": "可收音，或明确的不可用提示",
+          "next": "允许收音时进入音频处理；不允许则结束本次入口",
+          "sourceIds": [
+            "VOICE-VOICEPRD",
+            "VOICE-VAD",
+            "VOICE-PREQUERY"
+          ]
+        },
+        {
+          "id": "V02",
+          "actor": "车端声学模块",
+          "title": "把人声从车内声音中分离",
+          "detail": "麦克风采集包含人声、路噪和扬声器声音。降噪降低环境干扰，回声消除利用扬声器参考音频抵消音乐、导航和豆包自身播报。音区定位同时标出说话位置，使后续知道是谁从哪一座说话。",
+          "output": "处理后的音频与说话音区",
+          "next": "交给唤醒/交互入口和语音识别",
+          "sourceIds": [
+            "VOICE-VOICEPRD",
+            "VOICE-VAD",
+            "VOICE-PREQUERY"
+          ]
+        },
+        {
+          "id": "V03",
+          "actor": "车端交互入口",
+          "title": "接受唤醒或项目允许的免唤醒输入",
+          "detail": "普通唤醒模式响应“豆包豆包”；免唤醒是否开放、何时拒识，由当前车型的交互配置决定。音区关闭时不把该音区声音当作正常请求。说话音区用于归属输入，用户在话里指定的目标座位仍由后面的语义理解确定。",
+          "output": "属于当前交互的一段音频",
+          "next": "送入离线/在线 ASR",
+          "sourceIds": [
+            "VOICE-VOICEPRD",
+            "VOICE-VAD",
+            "VOICE-PREQUERY"
+          ]
+        },
+        {
+          "id": "V04",
+          "actor": "ASR 语音识别",
+          "title": "边听边返回过程文字",
+          "detail": "ASR 把音频转成文字。过程文字会随更多音频到来而修正，例如先得到“去昨天”，再补成“去昨天那家游泳馆”。离线业务使用离线识别，在线业务使用在线识别；上屏可以先显示离线过程文字，再用在线最终结果刷新。",
+          "output": "过程文字及随后产生的最终识别结果",
+          "next": "过程文字交判停分支；最终采用的文字进入正式请求",
+          "sourceIds": [
+            "VOICE-VOICEPRD",
+            "VOICE-VAD",
+            "VOICE-PREQUERY"
+          ]
+        },
+        {
+          "id": "V05",
+          "actor": "端侧判停",
+          "title": "短暂停顿后尝试预请求",
+          "detail": "Soft VAD 是较短停顿后的初步判停。语义完整时，可把当前文字作为预请求；预请求带相同 request_id 和递增 round_id，用来关联这次说话的多次候选。它不直接调用车控，也不直接让 Planner 执行动作。",
+          "output": "预请求 Query",
+          "next": "交云端无状态前置计算；同时继续等待最终确认",
+          "sourceIds": [
+            "VOICE-VOICEPRD",
+            "VOICE-VAD",
+            "VOICE-PREQUERY"
+          ]
+        },
+        {
+          "id": "V06",
+          "actor": "AIDV 预请求接口",
+          "title": "提前计算拒识、意图与简单复杂判断",
+          "detail": "推荐的文本链路方案让端侧通过独立 HTTP 接口提交预请求，不经过正式豆包文本对话。云端缓存拒识、意图和简单复杂判断结果。缓存只为正式请求节省等待，不能作为“用户已经说完”的证明，也不写入正式对话历史。",
+          "output": "可复用的前置结果",
+          "next": "等待正式请求核对",
+          "sourceIds": [
+            "VOICE-VOICEPRD",
+            "VOICE-VAD",
+            "VOICE-PREQUERY"
+          ]
+        },
+        {
+          "id": "V07",
+          "actor": "端侧判停与 ASR",
+          "title": "确认句尾，取得正式文字",
+          "detail": "Hard VAD 对短停顿作进一步确认；语义仍不完整时，按语义判停策略继续收音。最后提交正式文字。初版 PRD 的时间值为暂定值，后续还有预请求文本匹配改版，因此此图表达判断关系，不给所有车型规定同一毫秒数。",
+          "output": "正式 Query、request_id、round_id、音区",
+          "next": "交正式请求入口与预请求结果核对",
+          "sourceIds": [
+            "VOICE-VOICEPRD",
+            "VOICE-VAD",
+            "VOICE-PREQUERY"
+          ]
+        },
+        {
+          "id": "V08",
+          "actor": "云端入口",
+          "title": "核对预请求结果能否复用",
+          "detail": "正式文字与预请求候选满足当前版本的匹配规则时，复用前置计算；不匹配则按正式文字重新判断。请求身份把这些结果限制在同一次说话内，避免把前一句的判断用到后一句。",
+          "output": "正式输入及已完成的前置判断",
+          "next": "进入 R 端云采信与路由",
+          "sourceIds": [
+            "VOICE-VOICEPRD",
+            "VOICE-VAD",
+            "VOICE-PREQUERY"
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "to": "V02",
+          "label": "权限及场景允许",
+          "from": "V01"
+        },
+        {
+          "to": "V03",
+          "label": "处理后的音频与音区",
+          "from": "V02"
+        },
+        {
+          "to": "V04",
+          "label": "进入交互",
+          "from": "V03"
+        },
+        {
+          "to": "V05",
+          "label": "短停顿候选",
+          "from": "V04"
+        },
+        {
+          "to": "V06",
+          "label": "语义完整：预请求",
+          "from": "V05"
+        },
+        {
+          "to": "V07",
+          "label": "继续识别并等待正式判停",
+          "from": "V04"
+        },
+        {
+          "to": "V07",
+          "label": "语义未完整：继续收音",
+          "from": "V05"
+        },
+        {
+          "to": "V08",
+          "label": "缓存前置结果",
+          "from": "V06"
+        },
+        {
+          "to": "V08",
+          "label": "正式文字到达",
+          "from": "V07"
+        }
+      ],
+      "branches": [
+        {
+          "condition": "麦克风未授权或当前场景禁用",
+          "result": "在入口提示不可用，不生成正常 Query。"
+        },
+        {
+          "condition": "正式文字与预请求候选不匹配",
+          "result": "以正式文字重算前置判断；预请求结果不取得执行权。"
+        }
+      ]
+    },
+    {
+      "id": "R",
+      "scope": "端云采信按离在线仲裁 PRD 和 Director PRD 中的规则解释；白名单内容、超时与强制 Planner 开关均随车型和版本配置。",
+      "intro": "同一句话可以同时在端侧和云端处理，但最后只能按采信规则采用结果。此处先回答“由哪条链路负责这句话”，再把需要复杂推理的输入交给 Planner。离线 ASR 先上屏不等于离线动作已经获准执行。",
+      "sourceIds": [
+        "VOICE-ARBITRATION",
+        "DT-PRD",
+        "PLANNER-ONEPAGE"
+      ],
+      "steps": [
+        {
+          "id": "R01",
+          "actor": "请求入口",
+          "title": "读取正式文字与网络状态",
+          "detail": "入口接收语音模块确认的正式文字，同时携带请求身份、音区等信息。无网时直接使用离线链路；有网时允许端云并行理解。网络状态决定可用通道，白名单和云端拒识再决定是否采用具体结果。",
+          "output": "正式文字及可用通道",
+          "next": "无网走离线兜底；有网进入并行处理",
+          "sourceIds": [
+            "VOICE-ARBITRATION",
+            "DT-PRD",
+            "PLANNER-ONEPAGE"
+          ]
+        },
+        {
+          "id": "R02",
+          "actor": "端侧 FC 模型",
+          "title": "解析本地可处理的指令",
+          "detail": "端侧功能调用模型把文字转成意图和参数，例如媒体暂停、退出语音或已接入的基础控制。解析有结果只是候选，随后还要检查是否命中本车型的端侧白名单。",
+          "output": "端侧候选意图与参数",
+          "next": "交端侧白名单判断",
+          "sourceIds": [
+            "VOICE-ARBITRATION",
+            "DT-PRD",
+            "PLANNER-ONEPAGE"
+          ]
+        },
+        {
+          "id": "R03",
+          "actor": "云端前置链路",
+          "title": "判断是否应响应及是否走快路径",
+          "detail": "云端对正式输入作拒识、意图与简单复杂处理。拒识是判断这句话是否应该交给豆包处理；规则和简单意图命中时可从快路径完成，无需每句话都经过完整 Planner。OEM 强制走 Planner 的配置另有放行入口。",
+          "output": "云端拒识/快路径/Planner 路由结果",
+          "next": "拒识结束响应；快路径执行；复杂需求进入 Planner",
+          "sourceIds": [
+            "VOICE-ARBITRATION",
+            "DT-PRD",
+            "PLANNER-ONEPAGE"
+          ]
+        },
+        {
+          "id": "R04",
+          "actor": "端侧仲裁",
+          "title": "白名单命中时优先采用本地结果",
+          "detail": "命中端侧白名单的明确指令优先快速执行。本地模型对“我有点冷”这类感受输出 feel 意图时，PRD 明确要求等待云端结合车况处理，不能把一个感受机械映射成固定车控动作。",
+          "output": "本地执行权，或继续等待云端",
+          "next": "获准执行交车端；否则等云端结果",
+          "sourceIds": [
+            "VOICE-ARBITRATION",
+            "DT-PRD",
+            "PLANNER-ONEPAGE"
+          ]
+        },
+        {
+          "id": "R05",
+          "actor": "端云协调",
+          "title": "非白名单优先等待云端",
+          "detail": "未命中白名单时，云端为优先结果。云端正常返回就采用云端；链路异常或业务超时时才进入离线兜底。不同意图和 Agent 可有不同超时，不能把某一心跳阈值当作全部工具统一超时。",
+          "output": "采纳云端，或触发本地兜底",
+          "next": "云端放行交 M；本地兜底交 R06",
+          "sourceIds": [
+            "VOICE-ARBITRATION",
+            "DT-PRD",
+            "PLANNER-ONEPAGE"
+          ]
+        },
+        {
+          "id": "R06",
+          "actor": "端侧兜底",
+          "title": "采用可用离线结果或说明能力限制",
+          "detail": "无网，或云端未能在规则内给出结果时，端侧有可用结果则处理支持的本地能力；端侧也无法理解时给出离线/超时提示。此分支结束的是本次请求的云端等待，不代表云端任何晚到内容仍可继续执行。",
+          "output": "离线执行结果或无法完成说明",
+          "next": "进入端侧结果反馈与用户输出",
+          "sourceIds": [
+            "VOICE-ARBITRATION",
+            "DT-PRD",
+            "PLANNER-ONEPAGE"
+          ]
+        },
+        {
+          "id": "R07",
+          "actor": "Flow 与 Planner",
+          "title": "只放行本轮需要的推理",
+          "detail": "Planner 可在编排中预启动，但会等待继续信号。快路径已处理或拒识命中时取消预启动；确认需要 Planner 时才放行。预启动描述的是准备时机，并不是它已下发动作。",
+          "output": "本轮有效输入进入 Planner 管道",
+          "next": "交 M 输入管理，再汇合 C 上下文",
+          "sourceIds": [
+            "VOICE-ARBITRATION",
+            "DT-PRD",
+            "PLANNER-ONEPAGE"
+          ]
+        },
+        {
+          "id": "R08",
+          "actor": "端侧执行与反馈",
+          "title": "完成获准采用的本地指令",
+          "detail": "端侧白名单命中的结果取得本地执行权后，交给已接入的车端能力执行并反馈。本分支到本地结果结束，不再为了凑齐总图而经过云端 Planner；具体动作是否成功仍看执行反馈。",
+          "output": "本地执行结果与用户反馈",
+          "next": "O 输出；本次快路径结束",
+          "sourceIds": [
+            "VOICE-ARBITRATION",
+            "DT-PRD",
+            "PLANNER-ONEPAGE"
+          ]
+        },
+        {
+          "id": "R09",
+          "actor": "云端快路径 / 对应执行方",
+          "title": "完成获准采用的云端快路径",
+          "detail": "云端规则或简单意图已处理、且该结果获得采信时，由对应执行链完成并反馈。此时取消本轮预启动的 Planner，不重复发出同一动作。",
+          "output": "快路径执行结果",
+          "next": "O 输出；本次快路径结束",
+          "sourceIds": [
+            "VOICE-ARBITRATION",
+            "DT-PRD",
+            "PLANNER-ONEPAGE"
+          ]
+        },
+        {
+          "id": "R10",
+          "actor": "拒识与交互入口",
+          "title": "结束本次无效输入",
+          "detail": "云端认定本次输入不应交给豆包处理时，不放行 Planner，也不将这段文字变成工具调用。若它此前打断了播报，客户端按 I 模块的 AIVA 交互策略收尾。",
+          "output": "拒识结果与交互状态",
+          "next": "I 收尾或继续聆听",
+          "sourceIds": [
+            "VOICE-ARBITRATION",
+            "DT-PRD",
+            "PLANNER-ONEPAGE"
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "to": "R02",
+          "label": "有网：端侧处理",
+          "from": "R01"
+        },
+        {
+          "to": "R03",
+          "label": "有网：云端并行处理",
+          "from": "R01"
+        },
+        {
+          "to": "R06",
+          "label": "无网",
+          "from": "R01"
+        },
+        {
+          "to": "R04",
+          "label": "端侧候选结果",
+          "from": "R02"
+        },
+        {
+          "to": "R05",
+          "label": "未命中白名单 / feel",
+          "from": "R04"
+        },
+        {
+          "to": "R05",
+          "label": "非拒识云端结果进入采信",
+          "from": "R03"
+        },
+        {
+          "to": "R06",
+          "label": "云端异常或超时",
+          "from": "R05"
+        },
+        {
+          "to": "R07",
+          "label": "云端判定需要 Planner",
+          "from": "R05"
+        },
+        {
+          "from": "R04",
+          "to": "R08",
+          "label": "命中白名单并采用本地结果"
+        },
+        {
+          "from": "R05",
+          "to": "R09",
+          "label": "采用云端规则 / 简单意图结果"
+        },
+        {
+          "from": "R03",
+          "to": "R10",
+          "label": "云端拒识"
+        }
+      ],
+      "branches": [
+        {
+          "condition": "端侧命中白名单",
+          "result": "直接进入本地执行与反馈，不再画成仍要串行经过 Planner。"
+        },
+        {
+          "condition": "云端拒识",
+          "result": "不把这段声音继续当作有效业务指令。"
+        },
+        {
+          "condition": "云端规则快路径命中",
+          "result": "由对应快路径完成；Planner 预启动被取消。"
+        }
+      ]
+    },
+    {
+      "id": "M",
+      "scope": "输入调度按输入管理 PRD v0.5（2026-10-13）组织；本图的打断后交互统一采用 I 模块 AIVA 口径。原方案中的拒识 event 恢复属于另一份恢复合同，不作为全车型默认。",
+      "intro": "用户的新话、工具刚返回的结果、Advisor 的建议，都可能在豆包正在回答时到来。输入管理先决定现在处理谁，哪些内容合在一轮，哪些等播报结束。它不替 Planner 理解需求，而是防止两轮推理与两段播报互相抢占。",
+      "sourceIds": [
+        "INPUT-PRD",
+        "DT-PRD",
+        "VOICE-AIVA"
+      ],
+      "steps": [
+        {
+          "id": "M01",
+          "actor": "各输入来源",
+          "title": "提交有效输入",
+          "detail": "用户输入携带 query、说话人、音区与时间；Advisor 提交建议；工具提交自己的执行反馈；事件提交已发生的事实。输入管理接收这些有效消息，不能把所有消息都冒充用户刚说的一句话。",
+          "output": "带来源的输入",
+          "next": "读取当前推理和播报状态",
+          "sourceIds": [
+            "INPUT-PRD",
+            "DT-PRD"
+          ]
+        },
+        {
+          "id": "M02",
+          "actor": "输入管理",
+          "title": "检查推理、完整输出和起播状态",
+          "detail": "三个检查一起决定处理方式：Director 是否正在推理、输出是否已经完整、TTS 是否已经开始。完整输出可能意味着工具已经下发，而只出现首字并不等于动作已经下发。",
+          "output": "本轮所处阶段",
+          "next": "分别进入空闲、可合并、播报中分支",
+          "sourceIds": [
+            "INPUT-PRD",
+            "DT-PRD"
+          ]
+        },
+        {
+          "id": "M03",
+          "actor": "输入管理",
+          "title": "空闲时直接开始下一轮",
+          "detail": "Director 没在推理且没有播报时，不必为新输入额外等待。把这一批有效内容送入下一轮，随后与 Context 提供的背景一起交给 Director。",
+          "output": "可处理的输入批次",
+          "next": "交 M08",
+          "sourceIds": [
+            "INPUT-PRD",
+            "DT-PRD"
+          ]
+        },
+        {
+          "id": "M04",
+          "actor": "输入管理",
+          "title": "尚未完整输出且未起播：合并重算",
+          "detail": "新输入到来时，如果上一轮未输出完整且没有起播，打断尚在进行的推理，将新旧输入合并处理。此时旧轮还没有调用工具，可以重新考虑整个需求，而不需要假装前一个计划已经完成。",
+          "output": "新旧输入合并后的内容",
+          "next": "交 M08",
+          "sourceIds": [
+            "INPUT-PRD",
+            "DT-PRD"
+          ]
+        },
+        {
+          "id": "M05",
+          "actor": "输入管理",
+          "title": "用户新话到来：打断并保留已发生事实",
+          "detail": "当播报已开始，或模型已完整输出时，用户新话具有打断优先级。把被打断的内容和当前排队内容一起整理；如果动作已经下发，明确告诉下一轮这件事已经发生，不能因为停止说话就把执行记录抹掉。",
+          "output": "用户新话、被打断信息、已下发状态",
+          "next": "交 M08",
+          "sourceIds": [
+            "INPUT-PRD",
+            "DT-PRD"
+          ]
+        },
+        {
+          "id": "M06",
+          "actor": "输入管理",
+          "title": "其他输入在当前轮后排队",
+          "detail": "当前轮已起播或已完成输出时，普通建议和工具反馈等其他输入等待本轮推理及播报结束。下一次处理窗口到来，再把可以合并的排队输入一起送入。这样工具完成消息不会随意截断正在面向用户说的话。",
+          "output": "等待中的有效消息",
+          "next": "当前轮结束后交 M08",
+          "sourceIds": [
+            "INPUT-PRD",
+            "DT-PRD"
+          ]
+        },
+        {
+          "id": "M07",
+          "actor": "前序打断处理",
+          "title": "把有效插话与已播信息一起交回",
+          "detail": "新说话最终有效时，被打断内容可通过 last_talk_content 随新 query 传入，让下一轮知道刚才哪些内容已说、哪些没说。若新说话最终拒识，本图按 AIVA 策略结束插话、清空 ASR 并进入延时聆听，不默认再生成恢复 event。",
+          "output": "有效新 Query 与被打断信息",
+          "next": "作为 M01 的新有效输入",
+          "sourceIds": [
+            "INPUT-PRD",
+            "DT-PRD",
+            "VOICE-AIVA"
+          ]
+        },
+        {
+          "id": "M08",
+          "actor": "输入管理 → Director",
+          "title": "提交这一轮完整输入批次",
+          "detail": "同一批输入可用数组同时保留用户 query 与 Advisor 建议，分别保留各自来源。当前轮由 Director 统一判断先响应什么、做什么；下一批仍由输入管理按当时状态安排。",
+          "output": "当前轮输入批次",
+          "next": "交 C 背景汇合与 D 推理",
+          "sourceIds": [
+            "INPUT-PRD",
+            "DT-PRD"
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "to": "M02",
+          "label": "新有效输入",
+          "from": "M01"
+        },
+        {
+          "to": "M03",
+          "label": "无推理、无播报",
+          "from": "M02"
+        },
+        {
+          "to": "M04",
+          "label": "未完整输出、未起播",
+          "from": "M02"
+        },
+        {
+          "to": "M05",
+          "label": "已起播或输出完整，且是用户新话",
+          "from": "M02"
+        },
+        {
+          "to": "M06",
+          "label": "已起播或输出完整，且是其他输入",
+          "from": "M02"
+        },
+        {
+          "to": "M08",
+          "label": "直接处理",
+          "from": "M03"
+        },
+        {
+          "to": "M08",
+          "label": "新旧内容合并",
+          "from": "M04"
+        },
+        {
+          "to": "M08",
+          "label": "新话 + 已发生事实",
+          "from": "M05"
+        },
+        {
+          "to": "M08",
+          "label": "本轮推理与播报结束",
+          "from": "M06"
+        },
+        {
+          "to": "M01",
+          "label": "仅最终有效的新 Query 携被打断信息回流",
+          "from": "M07"
+        }
+      ],
+      "branches": [
+        {
+          "condition": "新输入只是被拒识的声音",
+          "result": "本图按 AIVA 交互规则不恢复 NLG，进入延时聆听。仅另外启用事件恢复合同的项目才可能向 Director 提交恢复 event，不连接到本页默认运行链。"
+        },
+        {
+          "condition": "工具已经下发后用户插话",
+          "result": "播报停止不等于工具撤销；必须将已下发事实带入后续判断。"
+        },
+        {
+          "condition": "高优任务 advice",
+          "result": "PRD 写“当前无”，不在图中画成已部署的固定输入类型。"
+        }
+      ]
+    },
+    {
+      "id": "C",
+      "scope": "Context OnePage 的 V2 方案：常用信息预注入，缺失信息由 Planner 动态检索。V1 的统一粗筛/精筛链不与 V2 串联。",
+      "intro": "当用户说“去昨天那家游泳馆”，这一轮文字只告诉 Planner 想去哪类地方，没有给出地址。Context 先送入常用背景；Planner 看过以后，仍然缺的“昨天去哪家”再通过工具查。背景从哪里来、何时查、查到后交给谁，是这一模块的主线。",
+      "sourceIds": [
+        "CONTEXT-ONEPAGE",
+        "PLANNER-ONEPAGE"
+      ],
+      "steps": [
+        {
+          "id": "C01",
+          "actor": "车端与业务服务",
+          "title": "持续产生上下文来源",
+          "detail": "车辆端状态说明此刻的车况；舱内外感知描述当前环境；事件日志记录发生过的事情；对话历史与记忆保留先前信息。它们由不同来源产生，不是每次用户说话后才临时凭空生成。",
+          "output": "端状态、感知、事件、历史与记忆",
+          "next": "写入/维护各上下文来源",
+          "sourceIds": [
+            "CONTEXT-ONEPAGE",
+            "PLANNER-ONEPAGE"
+          ]
+        },
+        {
+          "id": "C02",
+          "actor": "Context 及各数据源",
+          "title": "维护各自负责的信息",
+          "detail": "公共 Context 服务统一提供存储、维护与查询入口，各数据源负责本源内容和筛选质量。当前车况与历史行为的意义不同：昨天空调是 24 度，不能直接作为此刻温度；昨天下过指令也不等于已经形成长期偏好。",
+          "output": "可被查询的上下文内容",
+          "next": "准备常用预注入；接受按需检索",
+          "sourceIds": [
+            "CONTEXT-ONEPAGE",
+            "PLANNER-ONEPAGE"
+          ]
+        },
+        {
+          "id": "C03",
+          "actor": "Context",
+          "title": "把常用背景先交给 Planner",
+          "detail": "V2 在进入 Planner 前只提供大多数请求经常用到的数据，避免每次都广泛召回所有资料。各源独立筛选；这里不再增加一个统一模型将所有候选再精筛一次。",
+          "output": "本轮提示词所需的常用背景变量",
+          "next": "交 Planner 组装本轮上下文",
+          "sourceIds": [
+            "CONTEXT-ONEPAGE",
+            "PLANNER-ONEPAGE"
+          ]
+        },
+        {
+          "id": "C04",
+          "actor": "Planner",
+          "title": "检查现有信息够不够",
+          "detail": "Planner 将用户目的与已有背景对照。能直接回答或操作的就继续；像“昨天那家游泳馆”这样缺少具体地点的，需要补查。不能因为用户用了“昨天那家”，就自己编一个地点。",
+          "output": "直接处理决定，或具体检索需求",
+          "next": "信息足够交 D；缺失交 C05",
+          "sourceIds": [
+            "CONTEXT-ONEPAGE",
+            "PLANNER-ONEPAGE"
+          ]
+        },
+        {
+          "id": "C05",
+          "actor": "Planner → 检索工具",
+          "title": "按缺失内容调用对应查询",
+          "detail": "缺记忆就查用户记忆，缺当前车辆状态就查状态，缺外部地点/知识就调用对应检索工具。调用描述需要指明要补什么信息，而不是把全部历史再无差别塞回模型。",
+          "output": "带具体查询目的的工具调用",
+          "next": "由对应数据源查询",
+          "sourceIds": [
+            "CONTEXT-ONEPAGE",
+            "PLANNER-ONEPAGE"
+          ]
+        },
+        {
+          "id": "C06",
+          "actor": "数据源与工具",
+          "title": "返回查询结果或明确空结果",
+          "detail": "结果通过工具反馈进入后续推理。找到的是候选、某次历史记录或当前状态，要保持它原本的含义；没有找到时返回未找到，不能把查询过程当作答案。",
+          "output": "本次查询的结果",
+          "next": "交输入管理/Planner 下一轮",
+          "sourceIds": [
+            "CONTEXT-ONEPAGE",
+            "PLANNER-ONEPAGE"
+          ]
+        },
+        {
+          "id": "C07",
+          "actor": "Planner",
+          "title": "用新事实继续判断",
+          "detail": "收到反馈后，Planner 重新判断用户目标是否已经可执行。唯一地点明确就继续导航；多个候选需要澄清；仍有必要信息缺口时再查或向用户询问。这一轮得到的新事实也进入后续对话上下文。",
+          "output": "有依据的下一步动作或问题",
+          "next": "回 D 决策闭环",
+          "sourceIds": [
+            "CONTEXT-ONEPAGE",
+            "PLANNER-ONEPAGE"
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "to": "C02",
+          "label": "来源更新",
+          "from": "C01"
+        },
+        {
+          "to": "C03",
+          "label": "常用数据预注入",
+          "from": "C02"
+        },
+        {
+          "to": "C04",
+          "label": "背景已就绪",
+          "from": "C03"
+        },
+        {
+          "to": "C05",
+          "label": "仍有信息缺口",
+          "from": "C04"
+        },
+        {
+          "to": "C06",
+          "label": "对应工具检索",
+          "from": "C05"
+        },
+        {
+          "to": "C07",
+          "label": "tool_feedback",
+          "from": "C06"
+        },
+        {
+          "to": "C05",
+          "label": "还需另一项信息",
+          "from": "C07"
+        }
+      ],
+      "branches": [
+        {
+          "condition": "预注入已经足够",
+          "result": "直接进入 Planner 的回答/执行，不为所有请求强制加一次检索。"
+        },
+        {
+          "condition": "动态检索为空或多候选",
+          "result": "继续查询或向用户澄清；不把“不知道”画成已经获得目标。"
+        }
+      ]
+    },
+    {
+      "id": "D",
+      "scope": "Director PRD v1.7 与 Planner OnePage 的共同业务闭环。Planner / Director 是同一决策职能的名称；工具集合、提示词与模型以具体项目配置为准。",
+      "intro": "现在，用户输入和背景已经到齐。Director 要把“用户想达成什么”变成下一步可执行的动作，再看工具回来的事实决定继续、询问还是结束。它可以一边说话一边产生决定，但首轮答应帮忙不意味着目标已经达成。",
+      "sourceIds": [
+        "DT-PRD",
+        "PLANNER-ONEPAGE"
+      ],
+      "steps": [
+        {
+          "id": "D01",
+          "actor": "输入管理 + Context",
+          "title": "汇合本轮输入与背景",
+          "detail": "这一轮可能是用户的新需求，也可能是上次工具反馈、Advisor 建议或 event。Planner 同时取得相关历史、当前环境与可用工具定义，才能知道“刚才做了什么、现在还差什么、能够调用什么”。",
+          "output": "本轮输入、历史、背景与可用工具",
+          "next": "进入模型推理",
+          "sourceIds": [
+            "DT-PRD",
+            "PLANNER-ONEPAGE"
+          ]
+        },
+        {
+          "id": "D02",
+          "actor": "Director 模型",
+          "title": "确定当前目标和下一步",
+          "detail": "模型理解用户目标，把已知信息和缺口分开。信息不足可先查工具或问用户；足够时生成动作。对于“去昨天那家游泳馆”，先确定地点才有导航对象，不能把查记忆和去某个未知地址的导航当成无依赖并行任务。",
+          "output": "本轮行动与表达决定",
+          "next": "分别形成话术和动作清单",
+          "sourceIds": [
+            "DT-PRD",
+            "PLANNER-ONEPAGE"
+          ]
+        },
+        {
+          "id": "D03",
+          "actor": "流式输出处理",
+          "title": "提取话术、语气和表情",
+          "detail": "talk_content 是要说的文字，语气标签决定怎样说，emoji_id 驱动表情。内容逐段产生后可交 TTS；是否有话术与是否有工具动作是两件事，查询状态等场景可以先执行，再根据结果说。",
+          "output": "话术、语气、表情",
+          "next": "交 O 播报展示；本轮动作继续独立处理",
+          "sourceIds": [
+            "DT-PRD",
+            "PLANNER-ONEPAGE"
+          ]
+        },
+        {
+          "id": "D04",
+          "actor": "工具分支",
+          "title": "读取 action_list",
+          "detail": "action_list 列出本轮要调用的工具及参数。动作需要符合当前可用工具的输入要求；输入可独立完成时可以有多个动作，存在前后信息依赖时等待前一步反馈再规划下一步。",
+          "output": "具体工具任务",
+          "next": "交 E 工具执行",
+          "sourceIds": [
+            "DT-PRD",
+            "PLANNER-ONEPAGE"
+          ]
+        },
+        {
+          "id": "D05",
+          "actor": "工具执行器",
+          "title": "执行动作并返回事实",
+          "detail": "下游完成查询、车辆操作或服务请求，把结果作为 tool_feedback 与工具名称返回。成功、失败、未找到、需要用户补充等都属于事实输入，不由 Director 预先宣布。",
+          "output": "本次工具调用结果",
+          "next": "按回流规则进入下一轮",
+          "sourceIds": [
+            "DT-PRD",
+            "PLANNER-ONEPAGE"
+          ]
+        },
+        {
+          "id": "D06",
+          "actor": "Director",
+          "title": "结合反馈作下一轮决定",
+          "detail": "普通工具的结果回到模型后，再决定继续调用、向用户澄清、报告结果或结束。上一轮“正在查”只是过程；下一轮拿到唯一目标、实际执行回报后，才有依据说明这件事的进展。",
+          "output": "后续动作或结果说明",
+          "next": "需要动作回 D04；需要说明交 D03；完成则收口",
+          "sourceIds": [
+            "DT-PRD",
+            "PLANNER-ONEPAGE"
+          ]
+        },
+        {
+          "id": "D07",
+          "actor": "编排器",
+          "title": "识别结束或直返分支",
+          "detail": "没有继续动作时本轮规划收口；配置为直返的工具可以直接结束，不再强制经过模型总结。技术实现还有步数和错误保护，但不能把“图结束”直接解释为用户目标成功。",
+          "output": "链路结束及已有结果",
+          "next": "交用户输出/历史记录",
+          "sourceIds": [
+            "DT-PRD",
+            "PLANNER-ONEPAGE"
+          ]
+        },
+        {
+          "id": "D08",
+          "actor": "输入管理",
+          "title": "在中途新话到来时协调下一轮",
+          "detail": "用户插话、工具晚到、Advisor 新建议仍进入输入管理，由当时的推理和播报状态决定合并、打断或排队。Director 继续工作时必须看到已经下发的动作和被打断的信息，才能避免重复做或重复说。",
+          "output": "新的有效输入批次",
+          "next": "回 D01",
+          "sourceIds": [
+            "DT-PRD",
+            "PLANNER-ONEPAGE"
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "to": "D02",
+          "label": "输入齐备",
+          "from": "D01"
+        },
+        {
+          "to": "D03",
+          "label": "有话术/表情",
+          "from": "D02"
+        },
+        {
+          "to": "D04",
+          "label": "有动作清单",
+          "from": "D02"
+        },
+        {
+          "to": "D05",
+          "label": "发出工具调用",
+          "from": "D04"
+        },
+        {
+          "to": "D06",
+          "label": "普通工具反馈",
+          "from": "D05"
+        },
+        {
+          "to": "D04",
+          "label": "还需下一步工具",
+          "from": "D06"
+        },
+        {
+          "to": "D03",
+          "label": "给用户结果或澄清",
+          "from": "D06"
+        },
+        {
+          "to": "D07",
+          "label": "无动作，结束本轮",
+          "from": "D02"
+        },
+        {
+          "to": "D07",
+          "label": "命中直返工具",
+          "from": "D05"
+        },
+        {
+          "to": "D01",
+          "label": "后续输入",
+          "from": "D08"
+        }
+      ],
+      "branches": [
+        {
+          "condition": "只有回答、没有动作",
+          "result": "进入播报展示即可，不虚构工具调用。"
+        },
+        {
+          "condition": "工具未完成或失败",
+          "result": "继续根据实际反馈判断，不把首轮答应当作执行成功。"
+        },
+        {
+          "condition": "直返工具",
+          "result": "按配置直接收口，不能把所有工具硬画成同一个 ReAct 回环。"
+        }
+      ]
+    },
+    {
+      "id": "E",
+      "scope": "Agent Server OnePage 与三方 Agent 协议定义的通用调用；车控、导航、GUI 等业务的真实完成条件仍由各自工具定义。",
+      "intro": "Director 交出的 action_list 只是待办内容。工具层要找到真正的执行方，补齐该执行方需要的信息，把动作送出去，再区分展示文字、播报文字和给模型的执行反馈。Agent Server 负责单个 Agent 的调用适配，跨步骤规划仍由 Director 或垂域 Agent 完成。",
+      "sourceIds": [
+        "AGENT-ONEPAGE",
+        "AGENT-PROTOCOL",
+        "PLANNER-ONEPAGE"
+      ],
+      "steps": [
+        {
+          "id": "E01",
+          "actor": "Planner 工具节点",
+          "title": "把动作清单转成具体调用",
+          "detail": "工具节点读取工具名及参数，记录这次工具任务，并发出调用。工具名不是车型底层接口本身；后面还要通过已注册的 Agent 配置找到具体实现。",
+          "output": "一次具体工具调用",
+          "next": "交 Agent Server",
+          "sourceIds": [
+            "AGENT-ONEPAGE",
+            "AGENT-PROTOCOL",
+            "PLANNER-ONEPAGE"
+          ]
+        },
+        {
+          "id": "E02",
+          "actor": "Agent Server",
+          "title": "按 Agent ID 找到配置",
+          "detail": "服务查出请求端点、来源类型和调用所需元信息。模型能够说出一个工具名，并不意味着这个车型已注册、已开放或能够执行这项能力；实际可调用集合由配置给出。",
+          "output": "匹配的 Agent 配置",
+          "next": "进入上下文准备",
+          "sourceIds": [
+            "AGENT-ONEPAGE",
+            "AGENT-PROTOCOL",
+            "PLANNER-ONEPAGE"
+          ]
+        },
+        {
+          "id": "E03",
+          "actor": "Agent Server",
+          "title": "准备该工具需要的上下文",
+          "detail": "按 Agent 的依赖补充历史、端状态等输入。导航、音乐、车辆控制需要的信息不相同。这里是为某个具体执行方备料，不是再做一次全局任务规划。",
+          "output": "工具请求与必要背景",
+          "next": "交对应 Executor",
+          "sourceIds": [
+            "AGENT-ONEPAGE",
+            "AGENT-PROTOCOL",
+            "PLANNER-ONEPAGE"
+          ]
+        },
+        {
+          "id": "E04",
+          "actor": "对应 Executor",
+          "title": "适配并调用真实执行方",
+          "detail": "内置能力、DPFM、豆包能力、生态服务等由各自执行器调用。Agent Server 屏蔽它们的协议差异；涉及车辆操作的请求还要到车端/OEM 接口，涉及查询的请求返回数据，不能用同一个“执行”节点掩盖不同结果含义。",
+          "output": "下游收到的请求",
+          "next": "等待下游返回内容和状态",
+          "sourceIds": [
+            "AGENT-ONEPAGE",
+            "AGENT-PROTOCOL",
+            "PLANNER-ONEPAGE"
+          ]
+        },
+        {
+          "id": "E05",
+          "actor": "下游 Agent / 服务",
+          "title": "返回过程数据、最终结果或错误",
+          "detail": "Agent 可流式返回内容，并用 is_finish 标记此次数据返回结束。content 用于展示，tts_content 用于播报，model_content 供 Planner 总结。接口返回结束只证明这次通信结束，是否真正播放、导航、控车成功要看业务结果。",
+          "output": "分用途的响应字段",
+          "next": "交后处理与输出通道",
+          "sourceIds": [
+            "AGENT-ONEPAGE",
+            "AGENT-PROTOCOL",
+            "PLANNER-ONEPAGE"
+          ]
+        },
+        {
+          "id": "E06",
+          "actor": "Agent Server 后处理",
+          "title": "转换格式并保存此次调用结果",
+          "detail": "把不同执行器的响应转成座舱统一协议；需要时把音乐等结构化结果转换成模型能理解的文本。收到 is_finish 为 true 的回包后保存该次调用结果，结束单 Agent 调用。",
+          "output": "统一响应及模型可用结果",
+          "next": "分发至展示和模型回流",
+          "sourceIds": [
+            "AGENT-ONEPAGE",
+            "AGENT-PROTOCOL",
+            "PLANNER-ONEPAGE"
+          ]
+        },
+        {
+          "id": "E07",
+          "actor": "工具回流",
+          "title": "把执行结果交回 Director",
+          "detail": "普通工具将结果合成带 tool_name 的 tool_feedback，让 Director 知道是哪项动作的结果。回流后可以继续下一步、追问或收口；直返配置则直接结束。工具返回的失败与超时也必须保留，不能删掉后只展示“正在处理”。",
+          "output": "成功/失败/待补充等事实",
+          "next": "回 M/D 决策，或直返完成",
+          "sourceIds": [
+            "AGENT-ONEPAGE",
+            "AGENT-PROTOCOL",
+            "PLANNER-ONEPAGE"
+          ]
+        },
+        {
+          "id": "E08",
+          "actor": "端侧展示通道",
+          "title": "将卡片或透传结果交给对应端侧能力",
+          "detail": "卡片内容包含 widget_id 与双方约定的数据；透传内容按 agent_id 交端侧相应模块。它与给 Planner 的 model_content 是不同去向，显示一张卡片也不表示卡片对应的真实动作已经完成。",
+          "output": "卡片或端侧协议内容",
+          "next": "交 O 展示以及具体应用执行",
+          "sourceIds": [
+            "AGENT-ONEPAGE",
+            "AGENT-PROTOCOL",
+            "PLANNER-ONEPAGE"
+          ]
+        },
+        {
+          "id": "E09",
+          "actor": "取消与降级通道",
+          "title": "处理当前调用无法继续的情况",
+          "detail": "接入方可返回 fallback，让座舱重新决定处理方式；用户操作打断调用时，调用方发送 cancel，再结束连接，Agent Server 通知下游结束请求并保留已生成内容。取消通信不能被无条件等同于撤销车辆已经接受的动作。",
+          "output": "取消/降级信息与已生成结果",
+          "next": "返回调度方决定后续",
+          "sourceIds": [
+            "AGENT-ONEPAGE",
+            "AGENT-PROTOCOL",
+            "PLANNER-ONEPAGE"
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "to": "E02",
+          "label": "工具调用",
+          "from": "E01"
+        },
+        {
+          "to": "E03",
+          "label": "找到配置",
+          "from": "E02"
+        },
+        {
+          "to": "E04",
+          "label": "准备请求",
+          "from": "E03"
+        },
+        {
+          "to": "E05",
+          "label": "下游执行",
+          "from": "E04"
+        },
+        {
+          "to": "E06",
+          "label": "流式/最终回包",
+          "from": "E05"
+        },
+        {
+          "to": "E07",
+          "label": "模型所需结果",
+          "from": "E06"
+        },
+        {
+          "to": "E08",
+          "label": "展示或透传内容",
+          "from": "E06"
+        },
+        {
+          "to": "E09",
+          "label": "取消或下游主动降级",
+          "from": "E04"
+        }
+      ],
+      "branches": [
+        {
+          "condition": "工具返回 is_finish=true",
+          "result": "单次响应结束；仍需按业务结果区分接受、执行中和已完成。"
+        },
+        {
+          "condition": "工具返回内容为空/失败",
+          "result": "按实际结果回流，不能补写一份成功结果。"
+        },
+        {
+          "condition": "需要 UI 的任务",
+          "result": "展示内容与模型反馈分别处理，不把所有卡片强制画成模型总结后的同一分支。"
+        }
+      ]
+    },
+    {
+      "id": "DR",
+      "scope": "采用“司机 Agent_SLS 导航&泊车 D2D 相关场景”中目的地泊车主链路；这是赛力斯场景约定，不能推广成所有车型的统一链路。",
+      "intro": "“开智驾去漕河泾中心 D 栋，车停到负二层充电车位”同时包含导航终点和到达后的泊车要求。Director 负责和用户说清需求，司机 Agent 负责协调导航与泊车；地图匹配和实际驾驶仍由系统导航泊车应用与智驾域完成。",
+      "sourceIds": [
+        "CORE-DRIVER-D2D",
+        "CORE-DRIVER-PRD"
+      ],
+      "steps": [
+        {
+          "id": "DR01",
+          "actor": "Director",
+          "title": "把完整出行要求交给司机 Agent",
+          "detail": "Director 保留目的地、激活智驾、到达后停到负二层充电车位这几部分要求，将其一起交给司机 Agent。只保留“导航去 D 栋”会丢掉用户最在意的最终停车目标。",
+          "output": "包含导航与泊车条件的请求",
+          "next": "交司机 Agent 拆解",
+          "sourceIds": [
+            "CORE-DRIVER-D2D",
+            "CORE-DRIVER-PRD"
+          ]
+        },
+        {
+          "id": "DR02",
+          "actor": "司机 Agent",
+          "title": "分开导航目标和泊车约束",
+          "detail": "司机 Agent 把导航目的地与楼层、区域、车位类型等泊车要求分开处理。这里的拆解是为了让不同工具各自得到可理解的输入，并在最终下发时重新组合成同一个任务。",
+          "output": "导航 Query 与泊车约束",
+          "next": "先提取泊车字段，再交导航",
+          "sourceIds": [
+            "CORE-DRIVER-D2D",
+            "CORE-DRIVER-PRD"
+          ]
+        },
+        {
+          "id": "DR03",
+          "actor": "智驾工具/车控模型",
+          "title": "把泊车描述提取成字段",
+          "detail": "工具从“负二层充电车位”提取楼层和车位类型，返回司机 Agent。提取成功只说明自然语言被解析成了结构，不代表地图里真的存在这个车位。",
+          "output": "floor、position 等泊车信息",
+          "next": "回司机 Agent 并传给 AI Navi",
+          "sourceIds": [
+            "CORE-DRIVER-D2D",
+            "CORE-DRIVER-PRD"
+          ]
+        },
+        {
+          "id": "DR04",
+          "actor": "AI Navi",
+          "title": "缓存泊车条件并搜索目的地",
+          "detail": "导航工具带着泊车任务信息搜索 POI。若返回多个 D 栋候选，结果经过司机 Agent 回 Director，由用户选择；此时还没有可靠的导航终点，不能先开始到某个猜测地点的驾驶。",
+          "output": "POI 候选与保留的泊车约束",
+          "next": "有唯一/已选目的地后算路",
+          "sourceIds": [
+            "CORE-DRIVER-D2D",
+            "CORE-DRIVER-PRD"
+          ]
+        },
+        {
+          "id": "DR05",
+          "actor": "用户 + Director + AI Navi",
+          "title": "完成地点与路线选择",
+          "detail": "用户选择 POI 后，导航返回可用路线，再由用户语音或界面选择。选择结果继续针对同一次导航泊车任务，不能在多轮确认中漏掉原先的楼层和充电车位要求。",
+          "output": "已选目的地、路线、泊车条件",
+          "next": "交系统导航泊车 App",
+          "sourceIds": [
+            "CORE-DRIVER-D2D",
+            "CORE-DRIVER-PRD"
+          ]
+        },
+        {
+          "id": "DR06",
+          "actor": "系统导航泊车 App",
+          "title": "组装任务并匹配目标车位",
+          "detail": "应用收到导航、停泊车及激活智驾任务，使用目的地园区 POI、楼层、区域和车位类型匹配泊车地图。匹配是否成功，由该应用的地图和车位数据决定，不能由 Director 仅凭文字判定。",
+          "output": "匹配成功，或无图/有图无目标车位",
+          "next": "按不同结果交智驾或用户确认",
+          "sourceIds": [
+            "CORE-DRIVER-D2D",
+            "CORE-DRIVER-PRD"
+          ]
+        },
+        {
+          "id": "DR07",
+          "actor": "智驾域 ADC",
+          "title": "接收可执行任务并返回实际状态",
+          "detail": "成功匹配的任务交智驾域执行车位到车位能力，并反馈执行状态。智驾负责是否能执行和实际驾驶；座舱理解完成、接口接收和车辆已经泊入是不同阶段。",
+          "output": "智驾执行与结果反馈",
+          "next": "反馈至应用、工具及 Director",
+          "sourceIds": [
+            "CORE-DRIVER-D2D",
+            "CORE-DRIVER-PRD"
+          ]
+        },
+        {
+          "id": "DR08",
+          "actor": "Director + 用户",
+          "title": "无图时确认替代目标",
+          "detail": "无法直达车位时，泊车应用将原因经导航工具、司机 Agent 回 Director。Director 询问是否仍激活智驾前往目的地；用户同意再下发替代任务，不同意则取消。原文这条分支到终点可能靠边停或提示接管，不能写成自动泊入成功。",
+          "output": "用户对替代任务的明确选择",
+          "next": "同意交执行；不同意结束",
+          "sourceIds": [
+            "CORE-DRIVER-D2D",
+            "CORE-DRIVER-PRD"
+          ]
+        },
+        {
+          "id": "DR09",
+          "actor": "泊车地图界面 + 用户",
+          "title": "有图却无目标车位时重新选位",
+          "detail": "有地图但楼层、区域或目标车位不匹配时，引导用户在泊车地图界面选择其他车位。一期约定仅支持该界面完成操作；用户选好后，由系统导航泊车应用发给智驾，并回传选择后的 context。",
+          "output": "用户新选车位及更新后的背景",
+          "next": "交智驾执行并回传状态",
+          "sourceIds": [
+            "CORE-DRIVER-D2D",
+            "CORE-DRIVER-PRD"
+          ]
+        },
+        {
+          "id": "DR10",
+          "actor": "工具反馈 → Director",
+          "title": "把进展交回对话",
+          "detail": "返回结果说明的是已设置任务、匹配失败、需要选择，还是实际执行进展。Director 依据这份结果回应；用户中途改目的地或改停法，作为新的请求重新协调，不能悄悄保留与新目标冲突的旧泊车任务。",
+          "output": "与当前任务一致的结果说明",
+          "next": "回 O 用户输出；变更需求回 DR01",
+          "sourceIds": [
+            "CORE-DRIVER-D2D",
+            "CORE-DRIVER-PRD"
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "to": "DR02",
+          "label": "完整请求",
+          "from": "DR01"
+        },
+        {
+          "to": "DR03",
+          "label": "泊车描述",
+          "from": "DR02"
+        },
+        {
+          "to": "DR04",
+          "label": "提槽结果 + 导航 Query",
+          "from": "DR03"
+        },
+        {
+          "to": "DR05",
+          "label": "目的地候选",
+          "from": "DR04"
+        },
+        {
+          "to": "DR06",
+          "label": "地点与路线已确定",
+          "from": "DR05"
+        },
+        {
+          "to": "DR07",
+          "label": "成功匹配",
+          "from": "DR06"
+        },
+        {
+          "to": "DR08",
+          "label": "无图，不能直达车位",
+          "from": "DR06"
+        },
+        {
+          "to": "DR09",
+          "label": "有图，目标车位不匹配",
+          "from": "DR06"
+        },
+        {
+          "to": "DR07",
+          "label": "用户同意替代任务",
+          "from": "DR08"
+        },
+        {
+          "to": "DR07",
+          "label": "用户在界面选定车位",
+          "from": "DR09"
+        },
+        {
+          "to": "DR10",
+          "label": "实际执行反馈",
+          "from": "DR07"
+        },
+        {
+          "to": "DR01",
+          "label": "用户改变任务",
+          "from": "DR10"
+        }
+      ],
+      "branches": [
+        {
+          "condition": "只要导航加激活智驾",
+          "result": "原文场景 4 可由 Director 先调用导航，成功后调用 auto_drive；不必经过本页的完整 D2D 泊车编排。"
+        },
+        {
+          "condition": "已有导航却要求停在途经点园区",
+          "result": "SLS SOP 单泊车场景只支持导航终点；不把划掉的后续方案写成现有支持。"
+        },
+        {
+          "condition": "从泊入车位改成靠边停",
+          "result": "先取消旧泊车任务并取得取消成功，再设置新的临停目标。"
+        }
+      ]
+    },
+    {
+      "id": "O",
+      "scope": "Director 的话术/表情输出、Agent 协议及车载 TTS PRD v1.4；打断后交互与 I 模块统一采用 AIVA 口径。具体车型音频优先级由 OEM 音频管理定义。",
+      "intro": "最后的输出不是一条统一的“完成”箭头：用户可以听到话、看到卡片或表情，也可能看到车辆实际动作。话术来自 Director，卡片可能来自工具，车辆动作则有自己的执行结果。这几条线要在同一请求下对得上，而不是把“说了”当成“做成了”。",
+      "sourceIds": [
+        "DT-PRD",
+        "AGENT-PROTOCOL",
+        "VOICE-TTS",
+        "PLANNER-ONEPAGE",
+        "VOICE-AIVA"
+      ],
+      "steps": [
+        {
+          "id": "O01",
+          "actor": "Director 输出处理",
+          "title": "接收本轮要表达的内容",
+          "detail": "流式解析 talk_content 和语气标签，得到要合成的文字；emoji_id 交表情通道。工具结果还没回来时，话术只能描述当前正在做什么，不能提前宣称空调已经调到某个温度或导航已经成功。",
+          "output": "文字、语气、表情",
+          "next": "话术交 TTS；表情交机器人",
+          "sourceIds": [
+            "DT-PRD",
+            "AGENT-PROTOCOL",
+            "VOICE-TTS",
+            "PLANNER-ONEPAGE"
+          ]
+        },
+        {
+          "id": "O02",
+          "actor": "TTS 调度",
+          "title": "选择在线、离线或缓存音频",
+          "detail": "正常网络优先在线；无网、弱网、指定异常或未登录等条件按 TTS PRD 选择离线。系统警告强制离线，特殊播报风格另有在线约束。缓存精确匹配已有文本时可直接播放已有音频，未命中才走相应合成。",
+          "output": "本次可播放的音频来源",
+          "next": "交合成或缓存读取",
+          "sourceIds": [
+            "DT-PRD",
+            "AGENT-PROTOCOL",
+            "VOICE-TTS",
+            "PLANNER-ONEPAGE"
+          ]
+        },
+        {
+          "id": "O03",
+          "actor": "语音合成与播放器",
+          "title": "把文字变成音频并真正播出",
+          "detail": "在线合成或离线合成得到音频，播放器在音频管理允许后播出。云端生成完成和车内实际播完不同；缓冲、音频抢占或用户打断都可能使用户只听到一部分。",
+          "output": "播放中的音频与播放进度",
+          "next": "交播放结束/打断处理",
+          "sourceIds": [
+            "DT-PRD",
+            "AGENT-PROTOCOL",
+            "VOICE-TTS",
+            "PLANNER-ONEPAGE"
+          ]
+        },
+        {
+          "id": "O04",
+          "actor": "机器人与交互界面",
+          "title": "同步展示表情与交互状态",
+          "detail": "表情根据 Director 的 emoji 输出驱动，豆包内部交互的 TTS 联动相应动效。导航等其他业务调用同一 TTS 服务时，PRD 不要求同步展示豆包内部对话动效，不能把所有声音都画成同一机器人状态。",
+          "output": "用户可见的表情与状态",
+          "next": "与当前播报保持对应",
+          "sourceIds": [
+            "DT-PRD",
+            "AGENT-PROTOCOL",
+            "VOICE-TTS",
+            "PLANNER-ONEPAGE"
+          ]
+        },
+        {
+          "id": "O05",
+          "actor": "工具卡片通道",
+          "title": "展示属于本次工具结果的内容",
+          "detail": "Agent 响应中 content 可为卡片 JSON，widget_id 与数据交端侧渲染；它与 model_content 给模型的文字用途不同。地点候选卡让用户继续选择，结果卡展示工具返回内容；一张卡出现不等于业务目标完成。",
+          "output": "候选卡、结果卡或透传内容",
+          "next": "用户选择可产生下一轮输入",
+          "sourceIds": [
+            "DT-PRD",
+            "AGENT-PROTOCOL",
+            "VOICE-TTS",
+            "PLANNER-ONEPAGE"
+          ]
+        },
+        {
+          "id": "O06",
+          "actor": "车辆/OEM/业务应用",
+          "title": "完成具体动作并给出结果",
+          "detail": "空调是否调节、音乐是否播放、导航是否建立，由真实执行方反馈。Director 用这一事实形成结果说明。若返回的只是已接受或处理中，就保留该阶段，不能升级成“完成”。",
+          "output": "真实业务状态",
+          "next": "交工具反馈，再回 Director",
+          "sourceIds": [
+            "DT-PRD",
+            "AGENT-PROTOCOL",
+            "VOICE-TTS",
+            "PLANNER-ONEPAGE"
+          ]
+        },
+        {
+          "id": "O07",
+          "actor": "播放与输入管理",
+          "title": "处理播完或中途打断",
+          "detail": "正常播完进入后续聆听状态。用户插话使播报中断时，保留已播与未播内容；最终有效的新 Query 可携带 last_talk_content 进入下一轮。最终拒识时，本图按 AIVA 策略不恢复 NLG，不额外触发默认续讲。",
+          "output": "正常播完状态，或有效插话及被打断信息",
+          "next": "交 M 输入管理 / D 下一轮判断",
+          "sourceIds": [
+            "DT-PRD",
+            "AGENT-PROTOCOL",
+            "VOICE-TTS",
+            "PLANNER-ONEPAGE",
+            "VOICE-AIVA"
+          ]
+        },
+        {
+          "id": "O08",
+          "actor": "Director → 用户",
+          "title": "按结果完成这一次交流",
+          "detail": "用户最后听到的说明应与工具事实一致：已完成就说明结果，需要选择就提出具体选项，失败就说明失败和能够继续的步骤。当前一轮交流结束后，后续操作、用户新话和异步结果继续走同一输入管理链。",
+          "output": "可理解且对应实际状态的交互结果",
+          "next": "新输入回到 M；需继续动作回 E",
+          "sourceIds": [
+            "DT-PRD",
+            "AGENT-PROTOCOL",
+            "VOICE-TTS",
+            "PLANNER-ONEPAGE"
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "to": "O02",
+          "label": "话术和语气",
+          "from": "O01"
+        },
+        {
+          "to": "O04",
+          "label": "emoji 与交互信息",
+          "from": "O01"
+        },
+        {
+          "to": "O03",
+          "label": "合成或缓存音频",
+          "from": "O02"
+        },
+        {
+          "to": "O07",
+          "label": "播完或被打断",
+          "from": "O03"
+        },
+        {
+          "to": "O08",
+          "label": "卡片内容供用户理解/选择",
+          "from": "O05"
+        },
+        {
+          "to": "O08",
+          "label": "工具回流后形成结果说明",
+          "from": "O06"
+        },
+        {
+          "to": "O08",
+          "label": "正常结束或有效新输入进入下一轮",
+          "from": "O07"
+        },
+        {
+          "to": "O01",
+          "label": "下一轮生成新的表达",
+          "from": "O08"
+        }
+      ],
+      "branches": [
+        {
+          "condition": "在线合成中途断流",
+          "result": "本 TTS PRD 明确不包含在线转离线的断点续播；不能画成已有自动能力。"
+        },
+        {
+          "condition": "导航或系统警告调用 TTS",
+          "result": "使用自己的业务与优先级约定，不等同于一轮 Director 对话。"
+        },
+        {
+          "condition": "音频播完但工具仍处理中",
+          "result": "交流可进入后续状态，但业务不能据此标为成功。"
+        },
+        {
+          "condition": "插话最终拒识",
+          "result": "按本图统一的 AIVA 策略不恢复 NLG，回到延时聆听；不走默认 event 恢复链。"
+        }
+      ]
+    }
+  ],
+  "removedFlows": [
+    {
+      "id": "V-mechanism",
+      "reason": "由逐条核对正文的明确交接图替代；旧泛化主机制图不与新图叠加。"
+    },
+    {
+      "id": "R-mechanism",
+      "reason": "由逐条核对正文的明确交接图替代；旧泛化主机制图不与新图叠加。"
+    },
+    {
+      "id": "M-mechanism",
+      "reason": "由逐条核对正文的明确交接图替代；旧泛化主机制图不与新图叠加。"
+    },
+    {
+      "id": "C-mechanism",
+      "reason": "由逐条核对正文的明确交接图替代；旧泛化主机制图不与新图叠加。"
+    },
+    {
+      "id": "D-mechanism",
+      "reason": "由逐条核对正文的明确交接图替代；旧泛化主机制图不与新图叠加。"
+    },
+    {
+      "id": "E-mechanism",
+      "reason": "由逐条核对正文的明确交接图替代；旧泛化主机制图不与新图叠加。"
+    },
+    {
+      "id": "O-mechanism",
+      "reason": "由逐条核对正文的明确交接图替代；旧泛化主机制图不与新图叠加。"
+    },
+    {
+      "id": "O-reply-prefix-extraction",
+      "reason": "历史 Lotus 前缀/表情提取方案不能与当前 Director emoji 输出无差别并列成同一运行链。"
+    }
+  ],
+  "overviewEdges": [
+    {
+      "from": "V",
+      "to": "R",
+      "label": "正式文字、请求身份、音区"
+    },
+    {
+      "from": "R",
+      "to": "M",
+      "label": "云端放行的有效请求"
+    },
+    {
+      "from": "M",
+      "to": "D",
+      "label": "当前轮输入批次"
+    },
+    {
+      "from": "C",
+      "to": "D",
+      "label": "常用背景与相关上下文"
+    },
+    {
+      "from": "D",
+      "to": "E",
+      "label": "工具名、参数与本轮动作"
+    },
+    {
+      "from": "E",
+      "to": "M",
+      "label": "异步回流等需重新准入的工具反馈"
+    },
+    {
+      "from": "E",
+      "to": "D",
+      "label": "普通 ReAct 工具结果"
+    },
+    {
+      "from": "D",
+      "to": "O",
+      "label": "话术、语气与表情"
+    },
+    {
+      "from": "E",
+      "to": "O",
+      "label": "卡片、端侧内容和执行结果"
+    },
+    {
+      "from": "O",
+      "to": "M",
+      "label": "打断信息或后续用户输入"
+    },
+    {
+      "from": "D",
+      "to": "DR",
+      "label": "需要协调导航与泊车的请求"
+    },
+    {
+      "from": "DR",
+      "to": "E",
+      "label": "导航和智驾工具调用"
+    },
+    {
+      "from": "DR",
+      "to": "D",
+      "label": "执行状态或待澄清信息"
+    },
+    {
+      "from": "E",
+      "to": "C",
+      "label": "检索上下文来源"
+    },
+    {
+      "from": "C",
+      "to": "E",
+      "label": "按需检索结果"
+    }
+  ],
+  "toolScope": {
+    "description": "不能用固定的 23、40 或 46 宣称当前车型全部在线工具数。Planner OnePage 明确通过 GetPlannerAgentList 取得在线工具集合，并把名称、描述、参数、notice 与 tips 注入模型；Agent Server 再按 agent_id 查询注册配置及执行器类型。本站原始目录混合了不同项目、补充定义和退役项，应称“资料中的工具目录”。实际某轮可调用数量要看该渠道/车型当轮注入的 tool_list。",
+    "sourceIds": [
+      "PLANNER-ONEPAGE",
+      "AGENT-ONEPAGE"
+    ],
+    "mechanism": "模型 action_list → 工具节点 → Agent Server 按 agent_id 查注册信息 → 补齐依赖上下文 → 对应 Executor 调用 → 统一回包及业务后处理 → model_content/tool_feedback 回模型；content 卡片和 tts_content 的去向分别处理。直返工具不再回模型。"
+  },
+  "toolCorrections": []
+}

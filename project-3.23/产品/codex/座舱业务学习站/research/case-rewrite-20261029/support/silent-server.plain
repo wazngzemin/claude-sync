@@ -1,0 +1,1040 @@
+# \[一期\]条件触发屏幕系统静默信息展示服务端技术方案
+# 需求背景
+## 需求简介
+**需求类型**
+**产品需求（一期）**
+Meego链接
+[\[需求\]【SLS】PHUD感知可视化产品需求](https://meego.larkoffice.com/telematics/story/detail/7379941483?super_app=1&open_type=open_in_page&target_width=700&min_width=550&is_nearest_order=1)
+PRD链接
+[条件触发屏幕系统静默信息展示 PRD](https://bytedance.larkoffice.com/docx/J0Redv242ok9UzxFHzQcZRhJnvh)
+[【AIVA\-PRD】PHUD 感知可视化产品需求文档](https://bytedance.larkoffice.com/docx/H5xDdjkpvoHLepxHshucQqMGn64#share-W2dEdbq6aotJJdx9U8lckf8Xnld)
+PM
+@张嘉锋@黄亚娜
+研发Owner
+@刘杨@童德欣
+需求群
+## 需求合作方
+合作方
+接口人
+职责/技术方案（含链接）
+客户端
+@谢一鸣
+对接云端frontier下发协议，并确认展示策略、配合端到端联调。
+QA
+@马绿坡@洪友芳
+覆盖命中、未命中、重复触发、异常参数、下游故障与端侧展示。
+前端
+@李泽清
+触发器管理后台【快捷模式】改造
+## 需求点提炼
+一期目标：触发器支持通过预设场景方式感知VLM识别结果，通过推理触发的方式进行判定，判定通过后下发配置的PHUD动效，一期支持13个场景
+- VLM低频、VLM高频、VLM舱外信号
+# 整体架构
+## 业务架构
+## 系统架构
+## 影响范围
+- 条件触发兼容已有场景
+- 推理触发支持后台配置，不影响已有链路
+# 详细方案
+## 功能设计
+### VIM信号接入
+> [thrift/aidv/context\_info/scene\_description\.thrif](https://code.byted.org/stone_vehicle/vehicle_idl/blob/master/thrift/aidv/context_info/scene_description.thrift?ref_type=heads)
+> 
+> [【端状态】端侧模型格式梳理](https://bytedance.larkoffice.com/wiki/MN4JwSA64iCPQ8kn4YHcJ7bQnbc?sheet=60e53b)：**当前仅赛力斯渠道接入，后续会有更多渠道**
+> 
+> 
+Resource ID
+表格任务
+代码结构
+字段类型
+判定方式
+`vlm\_inside\_001`
+舱内 Always On\_低频
+`InCarNormalFrequencyData`
+enum \+ caption
+`\`PassengerInfos\[\]\.Position、PassengerInfos\[\]\.Gender、PassengerInfos\[\]\.AgeRange\``支持条件判定，其他参数仅支持推理判定
+`vlm\_inside\_002`
+舱内 Always On\_高频
+`InCarHighFrequencyData`
+caption
+推理判定
+`vlm\_outside`
+舱外 AlwaysOn
+`OutCarNormalFrequencyData`
+caption
+推理判定
+#### 舱内低频：vlm\_inside\_001
+结构化字段
+类型
+值域或语义
+赛力斯表格示例
+`PassengerInfos\[\]\.Position`
+enum
+主驾区域、副驾区域、中控扶手区域、主驾后方区域、副驾后方区域、后方正中区域
+```JSON
+{
+    "乘客列表": [
+        {
+            "位置": "主驾区域",
+            "性别": "男",
+            "年龄": "中青年（28-35岁）",
+            "造型描述": "穿白色衬衫+深色薄外套"
+        }
+    ],
+    "物品和动物列表": [
+        {
+            "位置": "中控扶手区域",
+            "物品和动物描述": "放置有水杯"
+        },
+        {
+            "位置": "副驾区域",
+            "物品和动物描述": "放有公文包"
+        }
+    ],
+    "不安全因素": "",
+    "整体描述": "舱内仅主驾位有一名28-35岁男性驾驶员，情绪平稳无波动，无社交交互"
+}
+```
+`PassengerInfos\[\]\.Gender`
+enum
+男、女、未知
+`PassengerInfos\[\]\.AgeRange`
+enum
+婴儿、儿童、青中年、老年
+`PassengerInfos\[\]\.AppearanceDesc`
+caption
+乘客造型的自然语言描述
+`Objects\[\]\.Position`
+enum
+与位置枚举相同
+`Objects\[\]\.Desc`
+caption
+2\-15 字物品或动物描述
+`UnsafeFactor`
+caption
+儿童不安全行为描述，无异常时为空
+`OverallDesc`
+caption
+舱内整体自然语言描述
+#### 舱内高频：vlm\_inside\_002
+结构化字段
+类型
+值域或语义
+赛力斯表格示例
+`PassengerActions\[\]\.Position`
+enum
+与舱内低频位置枚举相同
+```JSON
+{
+    "乘客列表": [
+        {
+            "位置": "副驾区域",
+            "动态": "神色平静，右手持手机打电话，左手持水杯饮水"
+        },
+        {
+            "位置": "主驾区域",
+            "动态": "正常驾驶和转头查看车外情况"
+        },
+        {
+            "位置": "副驾后方区域",
+            "动态": "头依靠在中间乘客肩膀上睡觉"
+        },
+        {
+            "位置": "后方正中区域",
+            "动态": "平静地睡觉"
+        },
+        {
+            "位置": "主驾后方区域",
+            "动态": "低头使用电子产品"
+        }
+    ]
+}
+```
+`PassengerActions\[\]\.Action`
+caption
+乘客动作和神态的自然语言描述
+位置在Context中会映射为以下结果，触发器在使用同步过来的原始数据构造结构化数据时也需要做映射：
+```Go
+var mappingSoundZoneToModelResult = map[string]string{
+    "主驾区域":   "主驾",
+    "副驾区域":   "副驾",
+    "后方正中区域": "二排中",
+    "副驾后方区域": "右后",
+    "主驾后方区域": "左后",
+}
+```
+#### 舱外 AlwaysOn：vlm\_outside
+结构化字段
+类型
+值域或语义
+赛力斯表格示例
+`WeatherDesc\[\]`
+enum（多选）
+下雨、下雪、浓雾
+```SQL
+{"天气情况描述": ["下雨", "浓雾"], "路面情况描述": "路面湿滑"} 
+```
+`RoadSurfaceDesc`
+enum（单值）
+路面湿滑、路面覆雪结冰
+#### 舱内低频条件信号
+字段
+Code
+类型
+值域
+运算符
+主键
+位置
+`position`
+`enum`
+主驾、副驾、左后、二排中、右后、中控扶手区域
+=
+是
+性别
+`gender`
+`enum`
+男、女、未知
+`=、\!=、in`
+否
+年龄
+`age\_range`
+`enum`
+婴儿、儿童、青中年、老年
+`=、\!=、in`
+否
+##### AIDV中结构化数据示例
+```Thrift
+{
+    "in_car":
+    {
+        "normal_frequency_data":
+        {
+            "passenger_infos":
+            [
+                {
+                    "position": "主驾区域",
+                    "gender": "男",
+                    "age_range": "成年",
+                    "appearance_desc": "黑色短发，黄色羽绒服，戴普通眼镜"
+                },
+                {
+                    "position": "副驾区域",
+                    "gender": "女",
+                    "age_range": "青年",
+                    "appearance_desc": "棕色长发，蓝色连衣裙，戴耳机"
+                }
+            ],
+            "objects":
+            [
+                {
+                    "position": "中控",
+                    "desc": "手机"
+                },
+                {
+                    "position": "副驾座椅",
+                    "desc": "背包"
+                },
+                {
+                    "position": "后排地板",
+                    "desc": "矿泉水瓶"
+                }
+            ],
+            "unsafe_factor": "主驾未系安全带",
+            "overall_desc": "一排主驾有穿黄色羽绒服的成年男性，副驾有一位青年女性，副驾座椅上有背包，后排地板有矿泉水瓶"
+        },
+        "high_frequency_data":
+        {
+            "passenger_actions":
+            [
+                {
+                    "position": "主驾区域",
+                    "action": "驾驶中"
+                },
+                {
+                    "position": "副驾区域",
+                    "action": "正在看手机"
+                }
+            ]
+        }
+    },
+    "out_car":
+    {
+        "normal_frequency_data":
+        {
+            "weather_desc":
+            [
+                "晴天",
+                "白天光线充足"
+            ],
+            "road_surface_desc": "干燥沥青路面，无积水、无结冰"
+        }
+    }
+}
+```
+##### 触发器返回给前端的数据
+`QueryTriggerSignals`的`\`signals\``字段增加返回静态VLM信号参数如下：
+```JSON
+{
+  "type": "vlm",
+  "name": "VLM 信号",
+  "signals": [
+    {
+      "name": "舱内视觉输出（低频）",
+      "code": "vlm_inside_001",
+      "args": [
+        {
+          "name": "位置",
+          "code": "position", 
+          "type": "enum",
+          "value_to_chinese_enum_map": {
+            "主驾": "主驾",
+            "副驾": "副驾",
+            "二排中": "二排中",
+            "右后": "右后",
+            "左后": "左后"
+          },
+          "operator": [{"operator": "=", "name": "等于"}],
+          "primary_key": true
+        },
+        {
+          "name": "性别",
+          "code": "gender",
+          "type": "enum",
+          "value_to_chinese_enum_map": {
+            "男": "男",
+            "女": "女",
+            "未知": "未知"
+          },
+          "operator": [{"operator": "=", "name": "等于"},{"operator": "!=", "name": "不等于"},{"operator": "in", "name": "包含"}],
+          "primary_key": false
+        },
+        {
+          "name": "年龄",
+          "code": "age_range",
+          "type": "enum",
+          "value_to_chinese_enum_map": {
+            "婴儿": "婴儿",
+            "儿童": "儿童",
+            "青中年": "青中年",
+            "老年": "老年"
+          },
+          "operator": [{"operator": "=", "name": "等于"},{"operator": "!=", "name": "不等于"},{"operator": "in", "name": "包含"}],
+          "primary_key": false
+        }
+      ]
+    }
+  ]
+}
+```
+#### 舱内低频推理信号\&舱外信号
+返回给前端的数据结构如下：
+```JSON
+{
+    "vlm_inside_001":
+    {
+        "name": "舱内视觉输出（低频）",
+        "type": "scene",
+        "desc": "",
+        "image_desc": "",
+        "args":
+        {
+            "result":
+            {
+                "name": "结果",
+                "desc": "表示端侧模型输出结果",
+                "type": "str",
+                "value_to_chinese_enum_map":
+                {}
+            }
+        },
+        "level1": "座舱视觉信号",
+        "level2": "持续视觉感知",
+        "timeliness": "重启前始终有效",
+        "image_count": ""
+    },
+    "vlm_inside_002":
+    {
+        "name": "舱内视觉输出（高频）",
+        "type": "scene",
+        "desc": "",
+        "image_desc": "",
+        "args":
+        {
+            "result":
+            {
+                "name": "结果",
+                "desc": "表示端侧模型输出结果",
+                "type": "str",
+                "value_to_chinese_enum_map":
+                {}
+            }
+        },
+        "level1": "座舱视觉信号",
+        "level2": "持续视觉感知",
+        "timeliness": "重启前始终有效",
+        "image_count": ""
+    },
+    "vlm_outside":
+    {
+        "name": "舱外描述",
+        "type": "scene",
+        "desc": "",
+        "image_desc": "",
+        "args":
+        {
+            "result":
+            {
+                "name": "结果",
+                "desc": "表示端侧模型输出结果",
+                "type": "str",
+                "value_to_chinese_enum_map":
+                {}
+            }
+        },
+        "level1": "座舱视觉信号",
+        "level2": "环境相关识别",
+        "timeliness": "重启前始终有效",
+        "image_count": ""
+    }
+}
+```
+#### 触发器服务端改造点
+位置
+当前问题
+改造要求
+`signal\_define\.go`
+当前分支 `vlmSignalStr=\{\}`，前端无法获取 VLM 条件元数据。
+和端状态信号参数格式类似，修改`vlmSignalStr`的值
+`VLMSignalFormat`
+运行时依赖上报 key 和后缀匹配
+复用当前`\`VLMSignalFormat\.ConvertToMap\``方法，需要**测试正确性**
+场景注册校验
+非法枚举或运算符可能进入规则存储。
+检查 `\`checkValidConditions\`` 是否支持 VLM 信号
+### Context支持返回结构化VLM数据
+> 一个场景中如果配置了多个VLM信号，就需要从Context中查询除当前上报信号外的其他信号数据
+> 
+> 
+获取到的是结构化数据，给模型推理时需要转成文本，参考以下代码：
+### AIDV同步VLM信号到Trigger
+当前已有链路：`\`biz/service/context/source/signal/resource/report\_scene\_type\.go\``
+同步原始数据给触发器，触发器将原始数据反序列化成结构体用于条件判定，原始数据用于模型推理。
+结构化数据格式复用 `\`biz/service/context/source/vlm\_description/business\.go\``的`\`ChangeToSceneDescriptionPack\``的处理，IDL如下：
+反序列化代码示例：
+```Thrift
+func *unmarshalRawData*(ctx context.Context, vlmDesc *model.VehicleResourceInfo, scene context_info.SceneDescriptionPack) context_info.SceneDescriptionPack {}
+```
+1. 注意转结构化数据时需要[\[一期\]条件触发屏幕系统静默信息展示服务端技术方案](https://bytedance.larkoffice.com/docx/Bl4AdeDEqoyar7xAL7QcG3Bbnyh#share-HaVxdoAnFoydjExmCbNcdkhCnFb)
+2. 执行条件判定时，需要将 in\_car\.normal\_frequency\_data\.passenger\_infos 结构的值转换成类似 \&\#34;vlm\_inside\_001\.主驾\.sex\&\#34;、\&\#34;vlm\_inside\_001\.副驾\.age\_range\&\#34;才能复用已有的规则引擎做比较，示例代码：
+```Go
+func changePassengerInfosToMap(passengerInfos []*context_info.PassengerInfo) map[string]string {
+    const resourceID = "vlm_inside_001"
+    result := make(map[string]string, len(passengerInfos)*3)
+    for _, passengerInfo := range passengerInfos {
+        if passengerInfo == nil || passengerInfo.GetPosition() == "" {
+            continue
+        }
+        keyPrefix := resourceID + "." + passengerInfo.GetPosition() + "."
+        result[keyPrefix+"性别"] = passengerInfo.GetGender()
+        result[keyPrefix+"年龄"] = passengerInfo.GetAgeRange()
+        result[keyPrefix+"造型描述"] = passengerInfo.GetAppearanceDesc()
+    }
+    return result
+}
+```
+#### VLM信号上传示例
+##### vlm\_inside\_001
+```SQL
+{
+    "resource_value": [
+        {
+            "event_time": "2026-10-19T19:19:23.073+08:00",
+            "id": "vlm_inside_001",
+            "subresource": [
+                {
+                    "result": "{\"action\":\"\",\"agent\":\"always_on_agent_inside_state\",\"cmd\":\"start\",\"err_msg\":\"\",\"expected_image_count\":1,\"has_person\":\"unknown\",\"model_result\":{\"不安全因素\":\"\",\"乘客列表\":[{\"位置\":\"主驾区域\",\"年龄\":\"青中年\",\"性别\":\"男\",\"造型描述\":\"短发，戴耳钉，穿连帽卫衣\"},{\"位置\":\"副驾区域\",\"年龄\":\"青中年\",\"性别\":\"男\",\"造型描述\":\"戴眼镜，穿长袖外套\"}],\"整体描述\":\"两名乘客坐在座位上，主驾乘客在睡觉，副驾乘客在操作手机，氛围安静\",\"物品和动物列表\":[{\"位置\":\"副驾区域\",\"物品和动物描述\":\"有手机和笔记本电脑\"}]},\"node_status\":{\"err_msg\":\"\",\"error_type\":\"NONE\",\"node\":\"VLM_analyze\",\"node_status\":\"OK\",\"request_id\":\"schedule-cmd-always_on_agent_inside_state-1792408758533-2\",\"retryable\":false,\"status\":\"OK\"},\"payload\":{\"action\":\"OPEN_AGENT\",\"agent\":\"always_on_agent_inside_state\",\"client_id\":\"ls-1792401363967-2\",\"commandAgentUUID\":\"signal-cmd-always_on_agent_inside_state-1792401364435\",\"control_payload\":{\"_control_event_id\":\"a2e86d7a-27ae-4e5e-b3d4-09fe195e9445\",\"_control_sequence\":2,\"client_id\":\"ls-1792401363967-2\",\"cmd_id\":\"CMD_INSIDE_ALWAYSON_ON\"},\"source\":\"signal_trigger_workflow\",\"timestamp\":\"2026-10-19T09:16:04Z\",\"topic\":\"TOPIC_INSIDE_ALWAYSON\"},\"people_info\":\"\",\"request_id\":\"schedule-cmd-always_on_agent_inside_state-1792408758533-2\",\"session_id\":\"signal-session-open-inside-alwayson-state\",\"stage\":\"Result_return\",\"topic\":\"TOPIC_INSIDE_ALWAYSON\",\"vlm_signal_id\":\"vlm_inside_001\",\"workflow_id\":\"wf_always_on_agent_inside_state_7414118_12\"}"
+                }
+            ]
+        }
+    ],
+    "report_cycle_flag": "2026-10-19 17:16:06.507_2b5e281e-d62b-4da0-b41b-3b95c6d090f0",
+    "report_type": "Update"
+}
+{
+    "action": "",
+    "agent": "always_on_agent_inside_state",
+    "cmd": "start",
+    "err_msg": "",
+    "expected_image_count": 1,
+    "has_person": "unknown",
+    "model_result": {
+        "不安全因素": "",
+        "乘客列表": [
+            {
+                "位置": "主驾区域",
+                "年龄": "青中年",
+                "性别": "男",
+                "造型描述": "短发，戴耳钉，穿连帽卫衣"
+            },
+            {
+                "位置": "副驾区域",
+                "年龄": "青中年",
+                "性别": "男",
+                "造型描述": "戴眼镜，穿长袖外套"
+            }
+        ],
+        "整体描述": "两名乘客坐在座位上，主驾乘客在睡觉，副驾乘客在操作手机，氛围安静",
+        "物品和动物列表": [
+            {
+                "位置": "副驾区域",
+                "物品和动物描述": "有手机和笔记本电脑"
+            }
+        ]
+    },
+    "node_status": {
+        "err_msg": "",
+        "error_type": "NONE",
+        "node": "VLM_analyze",
+        "node_status": "OK",
+        "request_id": "schedule-cmd-always_on_agent_inside_state-1792408758533-2",
+        "retryable": false,
+        "status": "OK"
+    },
+    "payload": {
+        "action": "OPEN_AGENT",
+        "agent": "always_on_agent_inside_state",
+        "client_id": "ls-1792401363967-2",
+        "commandAgentUUID": "signal-cmd-always_on_agent_inside_state-1792401364435",
+        "control_payload": {
+            "_control_event_id": "a2e86d7a-27ae-4e5e-b3d4-09fe195e9445",
+            "_control_sequence": 2,
+            "client_id": "ls-1792401363967-2",
+            "cmd_id": "CMD_INSIDE_ALWAYSON_ON"
+        },
+        "source": "signal_trigger_workflow",
+        "timestamp": "2026-10-19T09:16:04Z",
+        "topic": "TOPIC_INSIDE_ALWAYSON"
+    },
+    "people_info": "",
+    "request_id": "schedule-cmd-always_on_agent_inside_state-1792408758533-2",
+    "session_id": "signal-session-open-inside-alwayson-state",
+    "stage": "Result_return",
+    "topic": "TOPIC_INSIDE_ALWAYSON",
+    "vlm_signal_id": "vlm_inside_001",
+    "workflow_id": "wf_always_on_agent_inside_state_7414118_12"
+}
+```
+##### vlm\_inside\_002
+```SQL
+{
+    "resource_value": [
+        {
+            "event_time": "2026-10-19T20:27:40.660+08:00",
+            "id": "vlm_inside_002",
+            "subresource": [
+                {
+                    "result": "{\"action\":\"\",\"agent\":\"always_on_agent_inside_action\",\"cmd\":\"start\",\"err_msg\":\"\",\"expected_image_count\":1,\"has_person\":\"unknown\",\"model_result\":{\"乘客列表\":[{\"位置\":\"副驾区域\",\"动态\":\"手撑着眼镜，低头看电脑\"}]},\"node_status\":{\"err_msg\":\"\",\"error_type\":\"NONE\",\"node\":\"VLM_analyze\",\"node_status\":\"OK\",\"request_id\":\"schedule-cmd-always_on_agent_inside_action-1792412858235-1\",\"retryable\":false,\"status\":\"OK\"},\"payload\":{\"action\":\"UPDATE_AGENT\",\"agent\":\"always_on_agent_inside_action\",\"client_id\":\"ls-1792409959784-3\",\"commandAgentUUID\":\"signal-cmd-always_on_agent_inside_action-1792411860142\",\"control_payload\":{\"_control_event_id\":\"98569317-3afb-45b8-b3a0-bbcfbc61f799\",\"_control_sequence\":17,\"client_id\":\"ls-1792409959784-3\",\"cmd_id\":\"CMD_INSIDE_HIGH_UP_UPDATE\",\"params\":\"{\\\"action\\\":\\\"update\\\",\\\"user_prompt\\\":[]}\"},\"params\":\"{\\\"action\\\":\\\"update\\\",\\\"user_prompt\\\":[]}\",\"source\":\"signal_trigger_workflow\",\"timestamp\":\"2026-10-19T12:11:00Z\",\"topic\":\"TOPIC_INSIDE_HIGH_TASK\"},\"people_info\":\"\",\"request_id\":\"schedule-cmd-always_on_agent_inside_action-1792412858235-1\",\"session_id\":\"signal-session-open-inside-high-action\",\"stage\":\"Result_return\",\"topic\":\"TOPIC_INSIDE_HIGH_TASK\",\"vlm_signal_id\":\"vlm_inside_002\",\"workflow_id\":\"wf_always_on_agent_inside_action_2916844_518\"}"
+                }
+            ]
+        }
+    ],
+    "report_cycle_flag": "2026-10-19 20:20:02.190_2f80324d-4153-4dba-8a4e-91cea355a973",
+    "report_type": "Update"
+}
+{
+    "action": "",
+    "agent": "always_on_agent_inside_action",
+    "cmd": "start",
+    "err_msg": "",
+    "expected_image_count": 1,
+    "has_person": "unknown",
+    "model_result": {
+        "乘客列表": [
+            {
+                "位置": "副驾区域",
+                "动态": "手撑着眼镜，低头看电脑"
+            }
+        ]
+    },
+    "node_status": {
+        "err_msg": "",
+        "error_type": "NONE",
+        "node": "VLM_analyze",
+        "node_status": "OK",
+        "request_id": "schedule-cmd-always_on_agent_inside_action-1792412858235-1",
+        "retryable": false,
+        "status": "OK"
+    },
+    "payload": {
+        "action": "UPDATE_AGENT",
+        "agent": "always_on_agent_inside_action",
+        "client_id": "ls-1792409959784-3",
+        "commandAgentUUID": "signal-cmd-always_on_agent_inside_action-1792411860142",
+        "control_payload": {
+            "_control_event_id": "98569317-3afb-45b8-b3a0-bbcfbc61f799",
+            "_control_sequence": 17,
+            "client_id": "ls-1792409959784-3",
+            "cmd_id": "CMD_INSIDE_HIGH_UP_UPDATE",
+            "params": "{\"action\":\"update\",\"user_prompt\":[]}"
+        },
+        "params": "{\"action\":\"update\",\"user_prompt\":[]}",
+        "source": "signal_trigger_workflow",
+        "timestamp": "2026-10-19T12:11:00Z",
+        "topic": "TOPIC_INSIDE_HIGH_TASK"
+    },
+    "people_info": "",
+    "request_id": "schedule-cmd-always_on_agent_inside_action-1792412858235-1",
+    "session_id": "signal-session-open-inside-high-action",
+    "stage": "Result_return",
+    "topic": "TOPIC_INSIDE_HIGH_TASK",
+    "vlm_signal_id": "vlm_inside_002",
+    "workflow_id": "wf_always_on_agent_inside_action_2916844_518"
+}
+```
+##### vlm\_outside
+```SQL
+{
+    "resource_value": [
+        {
+            "event_time": "2026-10-19T20:27:42.724+08:00",
+            "id": "vlm_outside",
+            "subresource": [
+                {
+                    "result": "{\"action\":\"\",\"agent\":\"always_on_agent_outside\",\"cmd\":\"start\",\"err_msg\":\"\",\"expected_image_count\":1,\"has_person\":\"unknown\",\"model_result\":{\"天气情况描述\":[],\"所见文字描述\":\"地下停车场内，墙面蓝白相间，地面光洁，有立柱和消防管道\",\"路面情况描述\":\"\"},\"node_status\":{\"err_msg\":\"\",\"error_type\":\"NONE\",\"node\":\"VLM_analyze\",\"node_status\":\"OK\",\"request_id\":\"schedule-cmd-always_on_agent_outside-1792412860660-3\",\"retryable\":false,\"status\":\"OK\"},\"payload\":{},\"people_info\":\"\",\"request_id\":\"schedule-cmd-always_on_agent_outside-1792412860660-3\",\"session_id\":\"schedule-bg_always_on\",\"stage\":\"Result_return\",\"topic\":\"TOPIC_OUTSIDE_ALWAYSON\",\"vlm_signal_id\":\"vlm_outside\",\"workflow_id\":\"wf_always_on_agent_outside_2919265_513\"}"
+                }
+            ]
+        }
+    ],
+    "report_cycle_flag": "2026-10-19 20:20:02.190_2f80324d-4153-4dba-8a4e-91cea355a973",
+    "report_type": "Update"
+}
+{
+    "action": "",
+    "agent": "always_on_agent_outside",
+    "cmd": "start",
+    "err_msg": "",
+    "expected_image_count": 1,
+    "has_person": "unknown",
+    "model_result": {
+        "天气情况描述": [],
+        "所见文字描述": "地下停车场内，墙面蓝白相间，地面光洁，有立柱和消防管道",
+        "路面情况描述": ""
+    },
+    "node_status": {
+        "err_msg": "",
+        "error_type": "NONE",
+        "node": "VLM_analyze",
+        "node_status": "OK",
+        "request_id": "schedule-cmd-always_on_agent_outside-1792412860660-3",
+        "retryable": false,
+        "status": "OK"
+    },
+    "payload": {},
+    "people_info": "",
+    "request_id": "schedule-cmd-always_on_agent_outside-1792412860660-3",
+    "session_id": "schedule-bg_always_on",
+    "stage": "Result_return",
+    "topic": "TOPIC_OUTSIDE_ALWAYSON",
+    "vlm_signal_id": "vlm_outside",
+    "workflow_id": "wf_always_on_agent_outside_2919265_513"
+}
+```
+#### TriggerRun接口的改造
+代码位置：
+```Thrift
+func *TriggerRun*(ctx context.Context, req *trigger.TriggerRunRequest) (*trigger.TriggerRunResponse, error) {}
+```
+##### InferenceTrigger方法的改造
+1. 当前模型判定成功后直接回调任务系统，应该改成回调对应场景配置好的Action，和条件触发的逻辑类似，复用
+```Thrift
+func *SingleTask*(ctx context.Context, params *trigger.ByteScheduleSignalTriggerParams, taskInfo *trigger.ByteScheduleTaskInfo, cbManager *utils.CallbackManager, logID string) (*triggertypes.SceneExecuteResult, error) {}
+```
+可以参考 https://code\.byted\.org/stone\_vehicle/aidv\_trigger/merge\_requests/160?dv\_filepath=biz%2Fservice%2Ftrigger%2Faction\_dispatcher\.go 中的 action\_dispatcher\.go 方法，所有 Action 的执行都走该方法，在 feature/trigger\-preset 分支中关于 Action 执行的改动都可以迁移过来
+### 其他改造
+将所有公参抽到 CommonInfo中，**本次开发可以使用以下分支**
+https://code\.byted\.org/stone\_vehicle/vehicle\_idl/merge\_requests/92
+https://code\.byted\.org/stone\_vehicle/aidv/merge\_requests/1163
+https://code\.byted\.org/stone\_vehicle/aidv\_trigger/merge\_requests/162
+### Case场景
+> **下文已废弃，见产品PRD：**[【AIVA\-PRD】PHUD 感知可视化产品需求文档](https://bytedance.larkoffice.com/docx/H5xDdjkpvoHLepxHshucQqMGn64#share-Ex3odgTBFoehFmxbNfEcRfuZnDI)
+> 
+> 
+待@黄亚娜输出动效素材包，人工上传到 TOS 上
+已和产品确认仅需要支持场景1、9、10、12
+**序号**
+**分类**
+**感知类型**
+**PHUD 画面**
+**感知源**
+**动效ID**
+1
+日常感知
+Always on（全时态感知）
+背景绿色粒子\+乘员方位常显
+VLM：舱内AlwaysOn（高频\+低频）
+**`cabin\_always\_on`**
+2
+安全报警
+疲劳提醒
+红色脉冲遮罩\+疲劳动效
+CV：疲劳提醒（持续闭眼/打哈欠）
+**`driver\_fatigue\_alert`**
+3
+安全报警
+分心提醒
+分心强提醒动效
+CV：分心提醒（猫头鹰式/蜥蜴式）
+**`driver\_distraction\_alert`**
+4
+主动服务
+车内人脸识别（Face ID）
+扫描线\+光点汇聚动效
+CV：人脸识别（DMS）\+ FACEID（OMS）
+**`cabin\_face\_identification`**
+5
+主动服务
+电话提醒
+声波震动蓝色持续态
+CV：危险动作\-打电话识别；
+VLM：舱内AlwaysOn\-高频\-打电话
+**`front\_occupant\_phone\_call\_alert`**
+6
+日常感知
+驾驶员头部/视线落点
+视线方向指示\+头部姿态
+—
+**`driver\_gaze\_tracking`**
+7
+日常感知
+多模态控车（手势）
+手势识别反馈动效
+CV：静态手势/动态手势（OMS全舱）
+**`vehicle\_gesture\_control`**
+8
+主动服务
+睡觉
+Z字\+呼吸绿色持续态
+CV：乘员睡眠识别（OMS全舱）；
+VLM：舱内AlwaysOn\-高频\-睡觉
+**`cabin\_occupant\_sleep`**
+9
+日常感知
+P0
+猫狗（宠物）
+爪印跳跃橙色动效
+VLM：舱内AlwaysOn\-低频识别（动物/物品识别）
+**`cabin\_pet\_presence`**
+10
+主动服务
+主副驾头部温度
+热浪红光晕/冰晶蓝光晕
+—
+**front\_occupant\_head\_temperature**
+**driver\_head\_temperature\_high**
+**driver\_head\_temperature\_low**
+**front\_passenger\_head\_temperature\_high**
+**front\_passenger\_head\_temperature\_low**
+11
+事件分享
+车外人脸识别
+方向箭头流\+人员轮廓
+CV：舱外行人识别FACE\_ID（6个周视）
+**`exterior\_face\_identification`**
+12
+事件分享
+车外手持行李箱（大件）
+舱外物品感知动效
+VLM：迎宾空间\-识别大件物品
+**`exterior\_luggage\_detection`**
+13
+事件分享
+充电设施
+充电状态感知动效
+—
+**`exterior\_charging\_station\_detection`**
+1. 动效文件存储到 TOS：https://cloud\.bytedance\.net/tos/bucket/20001969/objects?x\-resource\-account=public\&x\-bc\-region\-id=bytedance\&x\-bc\-vregion=China\-North\&region=default
+目录使用：vehicle/aidv/seres/phud\_effects/\{动效ID\}
+TOS的使用和签名代码可以参考：`\`biz/infrastructure/tos/tos\.go\``，动效文件使用`\`GetTosFileUrl\``方法
+2. 动效配置存储到TCC中，随时可以增加
+### 前端改造
+[触发器配置平台改造PRD](https://bytedance.larkoffice.com/wiki/TW0pwbGmyit1KGkVPazcX6mSnYb#share-NC4xdoqMcondRhxuOEucX3PEn9g)中非Workflow部分，以下纯是个人想法：
+https://4f1194b6575b\.aime\-app\.bytedance\.net/
+## 接口设计
+### 对内接口设计
+#### `QueryTriggerActions`
+> 返回的phud\_effects结果更改
+> 
+> 
+```SQL
+旧值：
+{
+    "name": "PHUD动效",
+    "value": "phud_effects",
+    "params":
+    [
+        {
+            "code": "effect_ids",
+            "name": "动效标识列表",
+            "value":
+            {
+                "type": "string",
+                "value": "[\"cabin_always_on\",\"cabin_face_identification\",\"cabin_occupant_sleep\",\"cabin_pet_presence\",\"driver_distraction_alert\",\"driver_fatigue_alert\",\"driver_gaze_tracking\",\"driver_head_temperature_high\",\"driver_head_temperature_low\",\"exterior_face_identification\",\"exterior_luggage_detection\",\"front_occupant_head_temperature\",\"front_occupant_phone_call_alert\",\"front_passenger_head_temperature_high\",\"front_passenger_head_temperature_low\",\"vehicle_gesture_control\"]"
+            }
+        }
+    ],
+    "simulator_supported": false
+}
+新值：
+{
+    "name": "PHUD动效",
+    "value": "phud_effects",
+    "params":
+    [
+        {
+            "code": "effect_ids",
+            "name": "动效标识列表",
+            "value":
+            {
+                "type": "enum",
+                "value": "[{\"id\":\"cabin_always_on\",\"name\":\"动效名称\",\"view_url\":\"TOS签名后的地址\"},{\"id\":\"cabin_face_identification\",\"name\":\"\",\"view_url\":\"\"},{\"id\":\"cabin_occupant_sleep\",\"name\":\"\",\"view_url\":\"\"},{\"id\":\"cabin_pet_presence\",\"name\":\"\",\"view_url\":\"\"},{\"id\":\"driver_distraction_alert\",\"name\":\"\",\"view_url\":\"\"},{\"id\":\"driver_fatigue_alert\",\"name\":\"\",\"view_url\":\"\"},{\"id\":\"driver_gaze_tracking\",\"name\":\"\",\"view_url\":\"\"},{\"id\":\"driver_head_temperature_high\",\"name\":\"\",\"view_url\":\"\"},{\"id\":\"driver_head_temperature_low\",\"name\":\"\",\"view_url\":\"\"},{\"id\":\"exterior_face_identification\",\"name\":\"\",\"view_url\":\"\"},{\"id\":\"exterior_luggage_detection\",\"name\":\"\",\"view_url\":\"\"},{\"id\":\"front_occupant_head_temperature\",\"name\":\"\",\"view_url\":\"\"},{\"id\":\"front_occupant_phone_call_alert\",\"name\":\"\",\"view_url\":\"\"},{\"id\":\"front_passenger_head_temperature_high\",\"name\":\"\",\"view_url\":\"\"},{\"id\":\"front_passenger_head_temperature_low\",\"name\":\"\",\"view_url\":\"\"},{\"id\":\"vehicle_gesture_control\",\"name\":\"\",\"view_url\":\"\"}]"
+            }
+        }
+    ],
+    "simulator_supported": false
+}
+```
+Bug修复【DONE】
+```Thrift
+scene.TriggerActionsResponse QueryTriggerActions(1: scene.TriggerSignalsRequest req)
+改成
+scene.TriggerActionsResponse QueryTriggerActions(1: scene.TriggerActionsRequest req)
+```
+#### `QueryTriggerSignals`
+> 返回新增 VLM/其他位置型信号元数据
+> 
+> https://code\.byted\.org/stone\_vehicle/vehicle\_idl/blob/feature/trigger\-involve\-vlm/thrift/trigger/scene\.thrift?ref\_type=heads
+> 
+> 
+```Thrift
+struct TriggerSignalsRequest {
+    1: required string channel
+    255: base.*Base *Base
+}
+struct TriggerSignalsResponse {
+    1: map condition_logic *// 静态条件条件组运算符*
+*    **2: list signals **// 静态信号列表，返回 VLM 舱内低频仅返回位置、性别、年龄*
+*    *3: map dynamic_condition_logic *// 动态条件条件组运算符*
+*    *4: list dynamic_signals *// 动态信号列表*
+    *// 新前端改用读这两个参数，后端兼容新旧字段*
+*    *5: optional ConditionSignals condition_signals
+    6: optional InferenceSignals inference_signals
+*    *255: base.*BaseResp *BaseResp
+}
+struct ConditionSignals {
+    1: map condition_logic
+*    2: list signals // 静态信号列表，返回 VLM 舱内低频仅返回位置、性别、年龄*
+    3: map dynamic_condition_logic
+    4: list dynamic_signals
+}
+struct InferenceSignals {
+    1: map logic
+    2: list signals
+}
+```
+#### `QueryScene`
+前端展示时严格按 `scene\.source` 分类：
+`source == \&\#34;aidv\_backend\&\#34;` 展示为“预置场景”；
+`source \!= \&\#34;aidv\_backend\&\#34;` 展示为“动态场景”（包括空值及其他来源值）
+```Thrift
+struct QuerySceneRequest {
+    1: optional string channel
+    2: required i64 scene_id
+    3: required i32 page_size
+    4: required i32 page_number
+    5: i32 status *// 场景状态 1:生效 2:失效 3:删除*
+*    *6: optional string name
+    7: optional common.*SceneTag *scene_tag  *// 场景环境。all:所有场景  test:测试场景  formal:正式*
+*    *8: optional common.*SceneSource *source *// 请求来源*
+*    *9: optional string login_username *// 用户名*
+*    *255: base.*Base *Base
+}
+struct QuerySceneResponse {
+    1: list scene_list
+    2: i64 total
+    255: base.BaseResp BaseResp
+}
+struct SceneInfo {
+    1: required i64 scene_id
+    2: optional string name
+    3: optional string conditions
+    4: optional string actions
+    5: optional i32 priority
+    6: optional i8 status
+    7: EffectiveScope effective_scope // 只有获取单个时才会返回范围
+    8: string channel
+    9: string update_time
+    10: optional string dynamic_conditions // 动态参数条件
+    11: optional ExecutePolicy execute_policy // 执行策略
+    12: optional string login_username // 用户名
+    13: optional common.SceneTag tag  // 场景环境。all:所有场景  test:测试场景  formal:正式
+    14: optional InferenceParams inference_params // 模型推理场景参数
+    15: optional ConditionParams condition_params // 条件参数
+}
+```
+#### RegisterScene
+```Thrift
+typedef string SceneType
+const SceneType SceneTypeVehicleResource = "vehicle_resource" *// 端状态条件场景*
+const SceneType SceneTypeTimer = "timer" *// 定时场景*
+const SceneType SceneTypeVlmInference = "vlm_inference" *// 模型推理场景*
+typedef string SceneSource
+const SceneSource SourceAIDVBackend = "aidv_backend" *// 触发器后台*
+const SceneSource SourceAIDVTaskService = "aidv_task_service" *// 任务系统*
+const SceneSource SourceExtourDynamicAdvisor = "extour_dynamic_advisor" *// 弋途动态 Advisor*
+typedef string SceneTag
+const SceneTag SceneTagAll = "all"
+const SceneTag SceneTagTest = "test"
+const SceneTag SceneTagFormal = "formal"
+struct RegisterSceneRequest {
+    1: required string channel
+    2: required string name
+    3: optional string conditions
+    4: required string actions
+    5: optional i32 priority
+    6: required common.*SceneSource *source *// 请求来源*
+*    *7: EffectiveScope effective_scope *// 生效的范围*
+*    *8: optional string dynamic_conditions *// 动态参数条件*
+*    *9: optional ExecutePolicy execute_policy *// 执行策略*
+*    *10: optional string login_username *// 用户名*
+*    *11: optional common.*SceneType *scene_type *// 场景类型。默认是 SceneTypeVehicleResource*
+*    *12: optional TimerParams timer_params *// 定时场景参数*
+*    *13: optional string external_unique_id *// 外部系统唯一ID，可以使用任务系统ID*
+*    *14: optional common.*SceneTag *tag  *// 场景环境。all:所有场景  test:测试场景  formal:正式*
+* **   *15: optional InferenceParams inference_params *// 模型推理场景参数*
+*    *16: optional ConditionParams condition_params *// 条件参数*
+*    *255: base.*Base *Base
+}
+struct RegisterSceneResponse {
+    1: i64 scene_id
+    255: base.*BaseResp *BaseRespe
+}
+struct InferenceParams {
+    1: required string goal *// 推理目标*
+*    *2: optional string original_query *// 原始用户query*
+    3: optional string conditions *// 条件列表*
+}
+struct ConditionParams {
+    1: optional string conditions *// 静态条件*
+*    *2: optional string dynamic_conditions *// 动态条件*
+*    *3: optional string condition_signals_list *// 条件信号列表*
+*    *4: optional string dynamic_condition_signals_list *// 动态条件信号列表*
+}
+```
+`\`InferenceParams\.conditions\``示例：
+```JSON
+[
+    {
+        "id": 0,
+        "type": "vlm",
+        "code": "vlm_inside_001.result",
+        "name": "舱内视觉输出（低频）.结果",
+        "value":
+        {
+            "type": "string",
+            "value": ""
+        },
+        "operator": "=",
+        "logic": "&&",
+        "group_index": 0,
+        "group_logic": "&&",
+        "operator_name": ""
+    },
+    {
+        "id": 1,
+        "code": "vlm_outside.result",
+        "name": "舱外描述.结果",
+        "value":
+        {
+            "type": "enum",
+            "value": ""
+        },
+        "operator": "=",
+        "logic": "&&",
+        "group_index": 0,
+        "group_logic": "&&",
+        "operator_name": ""
+    }
+]
+```
+#### TriggerRun
+```Thrift
+struct TriggerInfo {
+    1: required common.*TriggerMatchMode *mode
+    2: required string data *// 条件触发时传递的端状态信号，弃用，需要在aidv改用condition_params*
+*    *3: optional ConditionTriggerParams condition_params // 同步vlm数据还是使用该字段，TriggerRun 在筛选出场景后，根据场景类型判断出是推理触发时走 *InferenceTrigger 逻辑，在这个方法中处理vlm数据*
+    4: optional InferenceTriggerParams inference_params
+}
+struct ConditionTriggerParams {
+    1: required string data
+}
+struct FaceInfo {
+    1: required string face_id
+    2: required string position
+}
+struct TriggerRunRequest {
+    1: required string channel
+    2: required i64 app_id
+    3: required i64 channel_app_id
+    4: required i64 login_doubao_uid
+    5: required string vehicle_type
+    6: required string vehicle_id
+    7: optional string client_version
+    8: required TriggerInfo trigger_info
+    9: optional string face_id
+    10: optional string sound_zone
+    11: optional i64 device_id
+    12: optional string account_id
+    13: optional double longitude
+    14: optional double latitude
+    15: required string encrypted_doubao_uid
+    16: optional list face_info
+    17: required string volcano_account_uid
+    255: base.*Base *Base
+}
+struct TriggerRunResponse {
+    255: base.*BaseResp *BaseResp
+}
+```
+# 开发估时和里程碑
+**工作项**
+**子项**
+**重要度**
+**工时\(PD\)**
+**备注**
+VLM信号接入
+\-
+P0
+3
+AIDV同步Trigger后改造
+\-
+P0
+1
+前端接口适配
+\-
+P0
+1
+TriggerRun接口的改造
+\-
+P0
+2
+其他改造
+\-
+P1
+0\.5
+# 评审记录
+## 一审记录
+日期
+评审范围
+结论
+决策与待确认项
+2026\-10\-21

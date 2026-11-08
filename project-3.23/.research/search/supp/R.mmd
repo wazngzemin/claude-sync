@@ -1,0 +1,13 @@
+flowchart TD
+    RP1["RP1 系统音频采集<br/>N*Mic + N*Ref 麦克风阵列"] --> RP2["RP2 VehicleSpeech SDK<br/>采集+前端信号处理"]
+    RP2 --> RP3["RP3 VehicleDialogueManager<br/>两路并行"]
+    RP3 -->|"在线处理逻辑"| RP3a["RP3a OnlineHandler<br/>送云端 ASR"]
+    RP3 -->|"端侧模型输出"| RP3b["RP3b LocalLMHandler<br/>端侧 LLM 先跑一遍"]
+    RP3a --> RP4["RP4 Arbitration 仲裁块<br/>ArbitrationStrategy + 白名单 WhiteList + TaskAlignHandler 任务对齐"]
+    RP3b --> RP4
+    RP4 -->|"路径1 白名单命中/端侧能处理"| RP5["RP5 离线直返 FC<br/>端侧 LLM 直接出车控结果<br/>经 IM/Frontier 带 requestid 返回"]
+    RP4 -->|"路径2 端侧处理不了"| RP6["RP6 Block 住等待云端<br/>云端 ASR/LLM 回来后<br/>更新上下文再走 FC"]
+    RP5 --> RP7["RP7 对话任务分发<br/>DialogueTaskDispatcher"]
+    RP6 --> RP7
+    RP7 --> RP8["RP8 车控指令下发 / TTS 播报"]
+    RP9["RP9 VAD 一致性贯穿<br/>VAD开始/结束事件 + ASR结果追踪requestid<br/>黑台线 ASR 仲裁 + ASR纠错"] -.-> RP4

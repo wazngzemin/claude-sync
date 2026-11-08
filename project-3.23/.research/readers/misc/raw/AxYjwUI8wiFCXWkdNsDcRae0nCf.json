@@ -1,0 +1,32 @@
+{
+  "ok": true,
+  "identity": "user",
+  "data": {
+    "document": {
+      "content": "<title>【AI汽车】可见即可说框架需求文档</title><h2 seq=\"auto\" seq-level=\"auto\" seq-marker=\"1.\">需求背景</h2><p>传统语音交互框架需用户记忆固定指令，且指令需提前配置，适配成本高；“可见即可说” 框架旨在解决该问题，通过自动解析界面元素、动态生成语音指令，实现 “屏幕显示什么，用户说什么就能操作”，降低用户使用门槛，同时为开发者提供轻量化、易集成的接入方案</p><h2 seq=\"auto\" seq-level=\"auto\" seq-marker=\"2.\">可见即可说完整流程</h2><p></p><whiteboard token=\"RP6vwTrVVhDOxMbu5G3cB1dInef\"></whiteboard><h2 seq=\"auto\" seq-level=\"auto\" seq-marker=\"3.\">核心模块</h2><h3>1. 界面元素解析模块</h3><ul><li>通过无障碍服务界面（等技术方式）变化实时扫描当前屏幕，提取所有可交互元素（如：按钮、文本框、列表项、菜单等）的关键信息，仅将最顶层页面进行扫描。</li><li><b>责任方：车企或各业务模块</b></li></ul><h3>2. 语音指令生成模块</h3><ul><li>将界面元素信息转化为自然语言语音指令，让用户能通过“说文字”触发操作，同时避免指令冲突。</li><li>关键逻辑：<ul><li>指令提取：直接将元素的“显示文本”作为核心指令（如按钮文本“打开相机”→ 语音指令“打开相机”）。</li><li><span comment-refs=\"c1\">冲突处理：</span><span comment-refs=\"c1\">若多个元素文本相同（如列表中多个“删除”按钮），需补充位置描述（如“删除第3个”）或上下文信息（如“删除当前联系人”）。</span></li><li>指令生成时需过滤掉符号、标点等信息。</li><li>动态更新：界面变化时（如切换页面、弹出弹窗），实时更新指令库，确保“所见即所说”的实时性。</li></ul></li><li>输出：动态维护的“语音指令-界面元素”映射库，包括热词指令和对应的泛化词指令 以及与它对应的ID。</li><li><b>责任方：车企或者各业务模块</b></li></ul><h3>3. 语音识别模块</h3><ul><li>将用户的语音输入转化为文本，为后续指令匹配提供基础。</li><li>ASR选择：<ul><li>在线ASR：将可见即可说注册的「语音指令集」作为「动态热词」进行在线ASR增强。</li><li>离线ASR：将可见即可说注册的「语音指令集」作为「动态热词」进行离线ASR增强。</li><li>ASR选择策略与免唤醒多音区交互策略相同。<ul><li>免唤醒时走纯离线</li><li>唤醒后离在线并行处理，离线有结果执行离线结果，离线无结果等待在线结果。</li></ul></li></ul></li><li><b>责任方：字节语音模块</b></li></ul><h3>4. 指令匹配与意图理解模块</h3><p>将ASR识别出的文本与注册的“语音指令库”进行匹配，确定用户意图对应的界面元素和操作。</p><ul><li>关键逻辑：<ul><li>精确匹配：直接比对识别文本与指令库中的核心指令（如“确认”→ 匹配文本为“确认”的按钮）。</li><li><span comment-refs=\"c2\">模糊匹配：在全局指令中支持在指令前增加（点击/点一下/帮我选/选择</span><span comment-refs=\"c2\">+指令集</span><span comment-refs=\"c2\">）作为前缀信息，指令后可增加，吧，啦，等语气词。</span></li><li><span comment-refs=\"c3\">歧义消解</span><span comment-refs=\"c3\">：若匹配到多个元素（如两个“返回”按钮），将多个匹配的结果，返回给“注册方”，由注册方自行选择使用。</span></li><li>局部匹配：6个以上，需连续匹配4个字以上。</li><li>当一页面注册词：不超过500个词（随系统能力更新）</li></ul></li><li>输出：匹配的指令集以及指令集对应的ID信息。</li><li><b>责任方：字节语音模块</b></li></ul><h3>5. 操作执行反馈模块</h3><ul><li>根据匹配结果，通过模拟用户操作（点击、输入、滚动等），与应用/系统交互。</li><li>输出：操作执行结果（成功/失败），反馈给用户。</li><li>反馈方式：<ul><li>语音反馈：<ul><li>成功播报：好的/搞定了。</li><li>失败：抱歉，没执行成功。</li><li>需将执行结果“成功”“失败”以及需要播报的内容，传给豆包。由豆包统一播报。</li></ul></li><li>视觉反馈：<ul><li>模拟点击时需要有UI点击动效。</li><li>失败时：按照系统提示方式呈现，如toast文字提示等，失败的文言不进行播报。</li></ul></li></ul></li><li><b>责任方：车企/各业务模块</b></li></ul><h2 seq=\"auto\" seq-level=\"auto\" seq-marker=\"4.\">主链路关系</h2><h3 seq=\"auto\" seq-level=\"auto\" seq-marker=\"4.1\">系统优先级</h3><p>可见即可说属于在语音系统面向 “视觉界面交互场景” 的定制化交互模式，为了让用户看到什么就能说什么，少推理快响应，因此它的优先级应该比较高。</p><p>下面列出语音系统各个模块的优先级</p><table><colgroup><col/><col/><col/></colgroup><tbody><tr><td><p>优先级顺序</p></td><td><p>内容</p></td><td><p>描述</p></td></tr><tr><td><p>P0</p></td><td><p>用户自定义任务</p></td><td><p>用户自定义创建的任务场景</p></td></tr><tr><td><p>P1</p></td><td><p>可见即可说</p></td><td><p>针对界面上的文字，进行模拟点击，仅支持简单表达，无推理能力</p></td></tr><tr><td><p>P2</p></td><td><p>FAQ</p></td><td><p>高频的问答且回答不能出错的指令</p></td></tr><tr><td><p>P3</p></td><td><p>端侧LLM</p></td><td><p>端侧能理解的功能</p></td></tr><tr><td><p>P4</p></td><td><p>云端LLM</p></td><td><p>云端大模型能理解的功能</p></td></tr></tbody></table><h3 seq=\"auto\" seq-level=\"auto\" seq-marker=\"4.2\">历史对话</h3><p>可见即可说的内容，需进行对话历史中。需在历史对话中标记出来自模拟点击事件，防止下一轮模型推理错误。</p><p></p>",
+      "document_id": "B168dIDM2oPZ5yxB1gJc3VzNnVc",
+      "reference_map": {
+        "comments": {
+          "c1": {
+            "data": "<comment comment-id=\"7584702666467790043\" block-id=\"YoNQd3jqNouYttxmk8jcP9Zbnkf\"><quote>冲突处理：若多个元素文本相同（如列表中多个“删除”按钮），需补充位置描述（如“删除第3个”）或上下文信息（如“删除当前联系人”）。</quote><msg user=\"赵衍\">这个车企注册的时候直接就是注册“删除第3个”是吧<reaction key=\"Yes\" users=\"左晨\"/></msg></comment>"
+          },
+          "c2": {
+            "data": "<comment comment-id=\"7584725184137972954\" block-id=\"Vw7Bdf9fpoTizRxfwyNc0rEdnOc\"><quote>模糊匹配：支持在指令前增加（点击/点一下/帮我选/选择+指令集）作为前缀信息，指令后可增加，吧，啦，等语气词。</quote><msg user=\"赵衍\">这块是固定逻辑，还是要根据场景区分？可能需要进一步说明一下</msg><msg user=\"左晨\">为固定全局逻辑。</msg></comment>"
+          },
+          "c3": {
+            "data": "<comment comment-id=\"7584725331483888861\" block-id=\"DLS1dxtM8oEmmhx8798cvqaGnMe\"><quote>歧义消解：若匹配到多个元素（如两个“返回”按钮），将多个匹配的结果，返回给“注册方”，由注册方自行选择使用。</quote><msg user=\"赵衍\">此处需要和客户确认，是否存在多个注册方，如果是多个注册方有相同的，该怎么处理？<reaction key=\"Yes\" users=\"左晨\"/></msg><msg user=\"左晨\">这个可以和客户后面聊聊。</msg></comment>"
+          },
+          "c4": {
+            "data": "<comment comment-id=\"7620370155662478525\" is_whole=\"true\"><msg user=\"左晨\">短期SOP：先按此进行。长期：图像理解方式持续演进（类GUI Agent）</msg></comment>"
+          }
+        }
+      },
+      "revision_id": 770,
+      "title": "【AI汽车】可见即可说框架需求文档",
+      "url": "https://bytedance.larkoffice.com/docx/B168dIDM2oPZ5yxB1gJc3VzNnVc"
+    }
+  },
+  "citations": [
+    "<document reference_id=\"https://bytedance.larkoffice.com/docx/B168dIDM2oPZ5yxB1gJc3VzNnVc\"><title>【AI汽车】可见即可说框架需求文档</title><source_type>2</source_type><url>https://bytedance.larkoffice.com/docx/B168dIDM2oPZ5yxB1gJc3VzNnVc</url></document>"
+  ]
+}

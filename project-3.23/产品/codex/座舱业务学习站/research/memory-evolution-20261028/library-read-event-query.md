@@ -1,0 +1,34 @@
+# 事件\(event\)触发新一轮query技术方案
+
+# 需求背景
+
+[事件——Director新增输入（MVP版）](https://bytedance.larkoffice.com/wiki/XO3DwVkOCi1l16kqyROc7boEnFb)
+
+期望用户在车上的一些用车交互事件，例如tts被拒识query打断、手动操作屏幕或者物理按键、开关门上下车等事件，能够用事件的方式替用户触发新一轮query，让豆包能对这些事件有响应回复；
+
+
+
+# 技术方案
+
+## 临时方案
+
+当前需求先做“拒识query打断TTS”事件触发advisor
+
+## 改动细节
+
+1. 客户端tts被打断时上报哪些内容，什么条件会上报这个数据？需要能拼接出tts播报了哪些，没播报哪些，数据进redis缓存key为request\_id；@陈民瑞
+
+2. 云端判断query被拒识时查询上一个query的request\_id在redis缓存是否有被打断记录（上报很快吧，是否需要增加延迟等待？），有的话根据被打断记录拼接advisor，并下发advisor的frontier消息给客户端（改成“event: xxxx”）；@陈民瑞@徐燃
+
+3. 客户端收到advisor发起新query，已有链路；
+
+4. planner收到advisor发起的qurey，根据“advisor:xxx”还是“event:xxx”分别作处理，需要考虑四音区合并event的逻辑和event输入给模型的拼接；@王兴
+
+    1. Query: \&\#34;event:xxx\&\#34;
+
+    2. Answer：模型输出；
+
+
+
+
+

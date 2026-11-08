@@ -1,0 +1,105 @@
+{
+  "reviewed": [
+    {
+      "file": "content/lecture-home-20261029.js",
+      "scope": "renderCourseLecture 全部 11 个正文段落和 5 个阶段标题，逐段检查主线与独立分支",
+      "paragraphCount": 11
+    },
+    {
+      "file": "content/lecture-nodes-20261029.json",
+      "nodeIds": [
+        "G11",
+        "A18"
+      ],
+      "scope": "全部标题沿用项、lines 与 paragraphs；对照语义 SP、并发推理方案与 Task Service 过滤规则"
+    },
+    {
+      "file": "research/lecture-rewrite-20261029/baseline-data.json",
+      "moduleIds": [
+        "I",
+        "W",
+        "F",
+        "T",
+        "B",
+        "A",
+        "G",
+        "S"
+      ],
+      "scope": "逐项读取 120 个原始节点，对照本轮 31 节宣讲；必要修订写入 content/lecture-async-nodes-20261029.json，保持节点 ID、坐标和连线",
+      "nodeCount": 120
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "file": "content/lecture-home-20261029.js",
+      "pageId": "course-lecture",
+      "path": [
+        "renderCourseLecture",
+        "paragraphs",
+        6
+      ],
+      "match": "查询、导航和语音播报可能有不同的完成时间。任务已受理时，用户可以得到受理确认；真正完成导航启动后，才有导航结果。对于已经结束当前请求、之后才回来的异步消息，${moduleLink('M', '输入管理首期方案')}会把它作为新的输入安排处理。${moduleLink('DR', '司机 Agent')}承接舱驾协同中的专项任务，普通导航请求仍按导航能力处理。",
+      "problem": "把“当前请求已结束后才回来的异步消息”统称为 Input Manager 首期的新输入，会把尚未纳入首期的独立异步 Tool callback 写成现有处理能力；同时没有说清普通 tool_feedback 的下一轮推理也要经过 Input Manager。",
+      "evidence": "research/lecture-rewrite-20261029/source-补查-input-management.md 第 51–55 行规定同一模型轮 action_list 收集完整反馈批次，经 Input Manager 取得续轮调用；第 69 行明确独立异步 callback / 持久结果回流当前不存在、后续单独设计。文后第 256、285 行仍残留未来异步设计，不能覆盖首期范围。",
+      "replaceWith": "工具执行期间，用户可以继续提出新要求。${moduleLink('M', '输入管理首期方案')}把同一批普通工具结果收齐后，再安排 Director 续轮推理；已经发出的动作保留实际结果。未来任务到点形成的提醒、Advisor 的主动建议则是新的业务输入，空闲时处理，忙时等待。${moduleLink('DR', '司机 Agent')}承接舱驾协同中的专项任务，普通导航请求仍按导航能力处理。"
+    },
+    {
+      "severity": "medium",
+      "file": "content/lecture-home-20261029.js",
+      "pageId": "course-lecture",
+      "path": [
+        "renderCourseLecture",
+        "paragraphs",
+        7
+      ],
+      "match": "用户再说“十分钟后提醒我休息”，这次需要保存一个未来目标。${moduleLink('T', '任务服务')}负责登记目标和后续状态；${moduleLink('G', '云端触发器')}或${moduleLink('L', '端侧触发器')}按对应方案等待条件成立。时间到了，条件命中结果交给下游，再由下游继续判断和执行提醒。${moduleLink('P', '配置平台')}负责预设场景的条件、范围和动作配置，${moduleLink('B', '信号与状态')}提供判断条件所需的车辆变化。",
+      "problem": "“十分钟后提醒”紧接“G 或 L 按对应方案等待条件”容易读成这个定时任务可以任意选择端侧或云端触发；具体哪个模块保存目标、谁计时、回调给谁仍不够明确。",
+      "evidence": "自建 Task Service 的原设计 A02/A03 和时间触发器方案明确任务登记后由时间调度到点回调 Task Service；端侧条件触发器是另一条按项目接入的本地场景路径。现有 lecture-async-20261029.json 的 t-wait-run、g-dispatch 已分别说明。",
+      "replaceWith": "用户再说“十分钟后提醒我休息”，${moduleLink('T', '任务服务')}先保存提醒目标，再把执行时刻登记给${moduleLink('G', '时间调度与云端触发能力')}。十分钟到达后，调度回调任务服务；任务仍有效，才生成本次提醒，接回主链输出。状态类场景则使用${moduleLink('B', '信号与状态')}提供的变化，由云端或已接入的${moduleLink('L', '端侧触发器')}按本项目规则判断。${moduleLink('P', '配置平台')}保存预设场景的条件、生效范围和动作出口。"
+    },
+    {
+      "severity": "medium",
+      "file": "content/lecture-home-20261029.js",
+      "pageId": "course-lecture",
+      "path": [
+        "renderCourseLecture",
+        "paragraphs",
+        8
+      ],
+      "match": "条件也可以来自视觉。例如“宝宝哭了提醒我”需要${moduleLink('A', '视觉感知')}观察指定座位、描述所见，再判断是否满足任务目标。${moduleLink('S', 'Advisor')}根据情景提出服务建议，由 Director 结合用户当前意图决定是否采用。${moduleLink('U', '任务中心')}展示和管理已创建的任务，${moduleLink('H', '静默展示与 PHUD')}承接适合轻提示的输出。",
+      "problem": "视觉段把“观察后判断目标”合成一句，后面立即接 Advisor，读者容易误读成 VLM 自己决定目标达成，或所有视觉用户任务都要经过静态 Advisor。用户一直卡在谁等待、谁判断、谁执行，这里应把交接直接串出来。",
+      "evidence": "A06/A60 视觉动态任务原文：Task Service 维护目标列表、先核 task_id 和 20 秒时效、逐项调用 TriggerRun；A14/A15 语义触发器拿目标和观察判断，命中回 Task Service；静态 Advisor PRD 的预设/动态事件与子目标是独立服务来源。",
+      "replaceWith": "用户说“宝宝哭了提醒我”，任务服务把指定座位和观察目标交给${moduleLink('A', '视觉感知')}。视觉返回观察文字，任务服务检查任务和时效，再交云端语义触发器判断目标；达成后回到任务服务，接回 Director 完成本次提醒。${moduleLink('S', '静态 Advisor')}还有独立的主动服务来源，它根据事件、车况和已有目标提出建议，再由 Director 判断如何采用。${moduleLink('U', '任务中心')}展示和管理任务，${moduleLink('H', '静默展示与 PHUD')}承接已接入场景的轻提示。"
+    },
+    {
+      "severity": "medium",
+      "file": "content/lecture-nodes-20261029.json",
+      "nodeId": "G11",
+      "path": [
+        "paragraphs"
+      ],
+      "problem": "三种语义结果已修正，但首次达成的停止机制被写成泛化的“按任务状态停止”，三分钟窗口也失去了“暂定、根据联调再更改”的状态。应明确触发场景先记已达成，再由 Task Service 清理；两层时效不能写成统一固定配置。",
+      "evidence": "research/lecture-rewrite-20261029/async-source-compact/A15.md 第 82–84 行：允许并发推理；首条达成记录场景已达成，后续不再请求模型或执行动作，等待 TaskService 删除；3min 后注明“根据联调结果再更改”。A06 TaskService 入口另有 20 秒时效检查。",
+      "replaceWith": [
+        "语义判断把当前观察与任务目标对应起来。例如目标是“二排右侧宝宝哭了”，就检查座位、对象和行为。观察明确描述该位置宝宝啼哭，返回“达成”；看见左后乘客哭，或文字不足以证明目标宝宝在哭，返回“未达成”，等待后续观察。",
+        "如果目标是“宝宝发烧了”，仅凭视觉描述无法可靠判断，返回“无法判断”。相机失败或模型调用超时则属于观察或调用异常，分别保留失败原因。语义模型只判断本次文字，不把不同帧拼成尚未提供的行为事实。",
+        "连续观察可以并发推理，首条达成后，触发场景先记录已达成，后续请求不再启动新推理和动作，等待 Task Service 清理。语义层暂定用三分钟窗口拒绝旧上报，数值待联调调整；Task Service 入口另有二十秒检查，先筛掉过期任务观察。"
+      ]
+    },
+    {
+      "severity": "low",
+      "file": "content/lecture-nodes-20261029.json",
+      "nodeId": "A18",
+      "path": [
+        "paragraphs",
+        0
+      ],
+      "problem": "首段最后一句“下游根据区别决定继续等待还是处理能力限制”没有指明接收方，也容易暗示“无法判断”已有确定任务处理动作；次段又说该动作未定义。直接交代各结果的产生位置即可。",
+      "evidence": "A14 语义 SP 将可判断目标的证据不足归为未达成；目标本质不可视觉判断才为无法判断。A06/A60 未完整定义无法判断后的取消、澄清或告知动作，不能从分类补出统一下游决策。",
+      "replaceWith": "相机或视觉模型调用失败时，本次没有取得有效观察，错误回到发起调用的业务。取得观察以后，语义判断再比较目标：目标可以由视觉判断但当前证据不足，返回“未达成”；目标本身超出视觉能力，例如判断发烧，返回“无法判断”。这两个业务结果与取图、接口失败分别记录。"
+    }
+  ],
+  "baseNodePatches": "content/lecture-async-nodes-20261029.json",
+  "mergeNote": "G11/A18 已由 content/lecture-nodes-20261029.json 提供，不在 baseNodePatches 重复提交；按本审稿两条替换后应用该补丁。homepage paragraphs 路径使用 renderCourseLecture 中 <p> 的零基索引，match 为可直接定位的原始模板文本。"
+}

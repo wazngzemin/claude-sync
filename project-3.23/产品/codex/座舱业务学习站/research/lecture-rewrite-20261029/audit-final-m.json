@@ -1,0 +1,84 @@
+{
+  "reviewed": [
+    {
+      "file": "content/lecture-main-20261029.json",
+      "sha256": "ae176844cb80e5692deeb46b85f466a85e66d133846c0e9ae72aaaa0e6aa01d4",
+      "pageId": "M",
+      "scope": "仅修订回读：4 节正文、2 组 guide、M-mechanism 流程及 M3/M9/M10 原图节点。未重新全面审核。"
+    },
+    {
+      "file": "content/lecture-home-20261029.js",
+      "scope": "仅回读普通工具反馈汇集、Input Manager 续轮、Task/Advisor 新输入三处衔接。"
+    }
+  ],
+  "findings": [
+    {
+      "severity": "medium",
+      "file": "content/lecture-main-20261029.json",
+      "path": [
+        "teaching",
+        "lessons",
+        0,
+        "paragraphs",
+        2
+      ],
+      "match": "同一消息重复到达时，系统按来源编号识别重发。用户请求使用 request_id，任务的一次运行使用 task_run_id，工具反馈通过 tool_call_id 找回原调用。一次同步调用批次的续轮，与独立异步结果新建输入分别管理。",
+      "problem": "最后一句又把独立异步结果新建输入写成当前已分别管理，与本页首期范围和 E8→M1 的后续扩展说明冲突。",
+      "evidence": "research/lecture-rewrite-20261029/source-补查-input-management.md:46–69：首期仅同步工具完整批次续轮；独立异步 callback / 持久结果回流当前不存在。",
+      "replaceWith": "同一消息重复到达时，系统按来源编号识别重发。用户请求使用 request_id，任务的一次运行使用 task_run_id，工具反馈通过 tool_call_id 找回原调用。首期同步工具反馈仍围绕原目标续轮；独立异步结果怎样新建输入，留到后续接入时再定义。",
+      "pageId": "M"
+    },
+    {
+      "severity": "medium",
+      "file": "content/lecture-main-20261029.json",
+      "path": [
+        "teaching",
+        "lessons",
+        2,
+        "paragraphs",
+        2
+      ],
+      "match": "播放是否结束由客户端报告。STARTED 表示实际起播，PROGRESS 记录播到哪里；FINISHED 要等服务端发出本轮音频结束边界，并且本地解码与播放队列全部耗尽。ABORTED 表示这一轮声音已被永久终止。服务端生成完文字时，车里可能还在说最后一句，因此输出是否可以接上，要看实际播放状态。",
+      "problem": "FINISHED 写成服务端“发出”结束边界，仍可能在客户端尚未收到边界时被理解为已经满足。源方案明确要求客户端收到整轮结束标记且全部解码与播放队列耗尽。",
+      "evidence": "research/lecture-rewrite-20261029/source-补查-input-management.md:522–525、539–543：已收到 TaskRoundEnd，round_end_seen=true，且对应轮全部 Provider 解码队列和播放器渲染尾部耗尽。",
+      "replaceWith": "播放是否结束由客户端报告。STARTED 表示实际起播，PROGRESS 记录播到哪里；FINISHED 要等客户端收到本轮音频结束标记，并且本地解码与播放队列全部耗尽。ABORTED 表示这一轮声音已被永久终止。服务端生成完文字时，车里可能还在说最后一句，因此输出是否可以接上，要看实际播放状态。",
+      "pageId": "M"
+    },
+    {
+      "severity": "medium",
+      "file": "content/lecture-main-20261029.json",
+      "path": [
+        "baseNodePatches",
+        8,
+        "paragraphs",
+        0
+      ],
+      "match": "客户端真正出声时上报 STARTED，播放期间上报 PROGRESS。FINISHED 要等服务端发出本轮音频结束边界，且本地解码与播放队列全部耗尽；它回到 M9 后可释放仍有效的候选，而不会重新触发同一轮推理。",
+      "problem": "M10 原图节点与正文有同一处 FINISHED 边界表述，需要一起改为客户端实际收到结束标记。",
+      "evidence": "research/lecture-rewrite-20261029/source-补查-input-management.md:522–525、539–543。",
+      "replaceWith": "客户端真正出声时上报 STARTED，播放期间上报 PROGRESS。FINISHED 要等客户端收到本轮音频结束标记，且本地解码与播放队列全部耗尽；它回到 M9 后可释放仍有效的候选，而不会重新触发同一轮推理。"
+    }
+  ],
+  "confirmed": [
+    {
+      "topic": "ComputePermit / OutputPermit",
+      "result": "M 正文、M-mechanism guide、base guide 和 M3/M9 均已一致：完整批次到齐且预跑开启可先计算；候选保留内部，发布条件满足后释放同一候选；播放结束不重复发起模型调用。"
+    },
+    {
+      "topic": "候选失效与副作用",
+      "result": "有效新输入使未发布候选失效并重算；STARTED/PROGRESS 只更新播放事实，不触发候选重算；已受理工具继续回传真正结果、不因停播重放。"
+    },
+    {
+      "topic": "FINISHED / ABORTED / 无音频",
+      "result": "除两处“发出”应改“客户端收到”外，正文已说明 FINISHED 等队列耗尽；ABORTED 为不可恢复的永久终止；无音频轮走独立结束条件。M10 的临时暂停恢复已保留本次策略允许的前提。"
+    },
+    {
+      "topic": "同步反馈与独立 callback",
+      "result": "导语、base guide、指标和首页同步反馈说明已一致：普通同步完整反馈批次经 Input Manager 继续原目标；Task/Advisor 为新业务输入；E8→M1 的独立 callback 标为后续扩展。仅 m-lesson-1 最末一句需同步范围。"
+    },
+    {
+      "topic": "首页衔接",
+      "result": "首页先讲 E 汇集同批反馈，再讲 M 安排续轮，没有将独立异步 callback 宣称为首期已接入，也未把需要等待未来条件的任务混作普通同步工具反馈。无需为本轮修订改首页。"
+    }
+  ]
+}

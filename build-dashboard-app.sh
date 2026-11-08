@@ -10,11 +10,46 @@ cd "$SYNC"
 # 启动器
 cat > "$SYNC/launch.sh" << 'LAUNCH'
 #!/bin/bash
+set -euo pipefail
 PORT=9527
-cd "$HOME/.claude-sync"
-if lsof -i :$PORT -sTCP:LISTEN >/dev/null 2>&1; then open "http://localhost:$PORT"; exit 0; fi
-nohup python3 sync-server.py </dev/null >/tmp/sync-server.log 2>&1 &
-for i in $(seq 1 40); do curl -s "http://localhost:$PORT/api/status" >/dev/null 2>&1 && break; sleep 0.3; done
+CODEX_PORT=9528
+SYNC_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SYNC_DIR"
+if ! curl -fsS "http://localhost:$PORT/api/status" >/dev/null 2>&1; then
+  LISTENER_PID="$(lsof -tiTCP:$PORT -sTCP:LISTEN 2>/dev/null | head -1 || true)"
+  if [ -n "$LISTENER_PID" ]; then
+    LISTENER_CMD="$(ps -p "$LISTENER_PID" -o command= 2>/dev/null || true)"
+    LISTENER_CWD="$(lsof -a -p "$LISTENER_PID" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -1 || true)"
+    if [[ "$LISTENER_CMD" == *"sync-server.py"* && "$LISTENER_CWD" == "$SYNC_DIR" ]]; then
+      kill "$LISTENER_PID"; sleep 0.5
+    else
+      echo "端口 $PORT 已被其他程序占用：$LISTENER_CMD" >&2; exit 1
+    fi
+  fi
+  nohup python3 "$SYNC_DIR/sync-server.py" </dev/null >/tmp/claude-sync-server.log 2>&1 &
+  for i in $(seq 1 40); do
+    if curl -fsS "http://localhost:$PORT/api/status" >/dev/null 2>&1; then break; fi
+    sleep 0.3
+  done
+fi
+if ! curl -fsS "http://localhost:$CODEX_PORT/api/codex/status" >/dev/null 2>&1; then
+  CODEX_PID="$(lsof -tiTCP:$CODEX_PORT -sTCP:LISTEN 2>/dev/null | head -1 || true)"
+  if [ -n "$CODEX_PID" ]; then
+    CODEX_CMD="$(ps -p "$CODEX_PID" -o command= 2>/dev/null || true)"
+    CODEX_CWD="$(lsof -a -p "$CODEX_PID" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -1 || true)"
+    if [[ "$CODEX_CMD" == *"codex-server.py"* && "$CODEX_CWD" == "$SYNC_DIR" ]]; then
+      kill "$CODEX_PID"; sleep 0.5
+    else
+      echo "端口 $CODEX_PORT 已被其他程序占用，Codex 页面未启动：$CODEX_CMD" >&2
+      open "http://localhost:$PORT"; exit 0
+    fi
+  fi
+  nohup python3 "$SYNC_DIR/codex-server.py" </dev/null >/tmp/codex-sync-server.log 2>&1 &
+  for i in $(seq 1 40); do
+    if curl -fsS "http://localhost:$CODEX_PORT/api/codex/status" >/dev/null 2>&1; then break; fi
+    sleep 0.3
+  done
+fi
 open "http://localhost:$PORT"
 LAUNCH
 chmod +x "$SYNC/launch.sh"

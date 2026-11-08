@@ -1,0 +1,34 @@
+import fs from 'node:fs';import crypto from 'node:crypto';import {createRequire}from'node:module';
+const require=createRequire(import.meta.url),{JSDOM,VirtualConsole}=require('/Users/bytedance/.npm/_npx/12f3a93219d134f5/node_modules/jsdom');
+const work='research/lecture-rewrite-20261029',m=JSON.parse(fs.readFileSync(work+'/candidate-manifest.json'));
+const before=fs.readFileSync(m.baseline,'utf8'),b=JSON.parse(before.match(/<script>const DATA=([\s\S]*?);<\/script>/)[1]),a=JSON.parse(fs.readFileSync(work+'/candidate-data.json'));
+const script=fs.readFileSync(work+'/candidate-app.js','utf8');
+const payload=JSON.stringify(a).replace(/</g,'\\u003c').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029');
+let after=before.replace(/<script>const DATA=[\s\S]*?<\/script>/,()=>'<script>const DATA='+payload+';</script>');after=after.replace(/(<\/script>\s*<script>)[\s\S]*?(<\/script>\s*<\/body>)/,(_,x,y)=>x+script+y);
+const errors=[];let checks=0;const check=(ok,label)=>{checks++;if(!ok)errors.push(label)};const same=(x,y)=>JSON.stringify(x)===JSON.stringify(y);
+check(crypto.createHash('sha256').update(after).digest('hex')===m.sha256,'candidate content hash');
+check(m.sameStyles,'original v14 styles preserved');
+check(same(b.pages.map(p=>p.id),a.pages.map(p=>p.id)),'all module IDs/order preserved');
+check(m.changes.pages.length===24,'all 24 module drafts applied');
+check(same(b.base.modules.map(p=>[p.id,p.nodes.map(n=>[n.id,n.x,n.y,n.w,n.h])]),a.base.modules.map(p=>[p.id,p.nodes.map(n=>[n.id,n.x,n.y,n.w,n.h])])),'291 nodes and all original coordinates preserved');
+check(same(b.base.edges.map(e=>[e.id,e.from,e.to]),a.base.edges.map(e=>[e.id,e.from,e.to])),'459 original edge endpoints preserved');
+check(a.walkthroughs.length===4&&a.walkthroughs.reduce((n,p)=>n+p.steps.length,0)===48,'4 walkthroughs and 48 steps');
+check(m.svgTextOverflow.length===0,'original SVG node/tool text fits');
+for(const p of b.pages){const ap=a.pages.find(x=>x.id===p.id);check(same(p.teaching.lessons.map(l=>l.id).sort(),ap.teaching.lessons.map(l=>l.id).sort()),'all lesson IDs retained '+p.id);for(const section of ap.sections||[]){const l=ap.teaching.lessons.find(x=>x.id===section.teachingTarget);if(l)check(same(section.paragraphs,l.paragraphs),'legacy chapter synchronized '+p.id+' '+section.teachingTarget);}for(const f of p.flows){const af=ap.flows.find(x=>x.id===f.id);check(af&&same(f.nodes.map(n=>n.id),af.nodes.map(n=>n.id))&&same(f.edges.map(e=>[e.from,e.to]),af.edges.map(e=>[e.from,e.to])),'flow topology retained '+f.id);}}
+const vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push('jsdom '+e.message));
+const options={runScripts:'dangerously',pretendToBeVisual:true,url:'file://'+m.output,virtualConsole:vc,beforeParse(w){w.scrollTo=()=>{};w.HTMLElement.prototype.scrollIntoView=()=>{};w.matchMedia=()=>({matches:false,addEventListener(){},removeEventListener(){}});}};
+const mockHtml=after.replace('    mountFigures();','    /* Batch route check; full SVG mounting checked separately below. */');
+const dom=new JSDOM(mockHtml,options),w=dom.window,d=w.document;
+const route=hash=>{w.history.replaceState(null,'','#'+hash);w.dispatchEvent(new w.HashChangeEvent('hashchange'));check(!w.__siteLastError,'route error '+hash)};
+for(const p of a.pages){route('module/'+p.id);check(d.querySelector('h1')?.textContent===p.title,'page title '+p.id);check(!/多练几个场景|你需要能回答的关键问题|接下来可以怎样改进|把自己的理解记下来|需要逐项对照时，打开这张表/.test(d.querySelector('#page-root').textContent),'removed panels '+p.id);check(d.querySelectorAll('[data-teaching-lesson]').length===p.teaching.lessons.length,'all lessons displayed '+p.id);const base=a.base.modules.find(n=>n.id===p.id);if(base)check(d.querySelectorAll('[data-base-node]').length===base.nodes.length,'node disclosures '+p.id);check(!d.querySelector('#page-root textarea'),'no notebook '+p.id);}
+for(const n of a.base.modules.flatMap(p=>p.nodes)){route('node/'+n.id);check(d.querySelector('h1')?.textContent===n.title,'node title '+n.id);for(const p of n.paragraphs)check(d.querySelector('#page-root').textContent.includes(p),'node text '+n.id);}
+for(const t of [...a.base.tools,...a.base.supplementalDefinitions]){route('tool/'+t.id);check(d.querySelector('h1')?.textContent===(t.label||t.name),'tool title '+t.id);for(const p of t.paragraphs)check(d.querySelector('#page-root').textContent.includes(p.replaceAll('`','')),'tool paragraph '+t.id);}
+for(const scene of a.walkthroughs){route('walkthrough/'+scene.id);check(d.querySelectorAll('[data-walkthrough-step]').length===scene.steps.length,'walkthrough steps '+scene.id);}
+for(const name of ['home','map','tools','walkthrough','sources','search'])route(name);
+check(!script.includes('把刚才的过程放回完整图'),'old section narration removed');dom.window.close();
+const live=new JSDOM(after,options);for(const id of ['V','D','K','A','SE']){live.window.history.replaceState(null,'','#module/'+id);live.window.dispatchEvent(new live.window.HashChangeEvent('hashchange'));check(live.window.document.querySelectorAll('.svg-shell svg').length>0,'mounted SVG '+id);check(!live.window.__siteLastError,'SVG mount error '+id);}live.window.close();
+const svgValues=s=>{const dom=new JSDOM(s,{contentType:'image/svg+xml'});const paths=[...dom.window.document.querySelectorAll('path,polyline')].map(n=>n.getAttribute('d')||n.getAttribute('points'));dom.window.close();return paths;};check(same(svgValues(b.originalSvg),svgValues(a.originalSvg)),'all original SVG connector paths preserved');
+for(const p of a.pages)for(const f of p.flows){check(!!p.teaching.guides[f.id]?.paragraphs?.length,'guide for every detail diagram '+f.id);const xml=new JSDOM(a.diagrams[f.id],{contentType:'image/svg+xml'});check(!xml.window.document.querySelector('parsererror'),'SVG parsed '+f.id);for(const n of f.nodes){const g=xml.window.document.querySelector(`[data-step="${n.id}"]`);check(!!g&&g.textContent.includes(n.id+' ·'),'visible node ID '+f.id+' '+n.id);}xml.window.close();}
+const forbidden=/OnePager 给出|OnePage 给出|本页把它保留|本页明确|本轮未|本次取得材料|不能据此臆造/g;const prose=fs.readFileSync(work+'/candidate-prose.md','utf8');check(!forbidden.test(prose),'requested author asides removed from teaching prose');
+const report={version:m.version,contentHash:m.sha256,checks,errors,counts:{modules:a.pages.length,lessons:a.pages.reduce((n,p)=>n+p.teaching.lessons.length,0),nodes:a.base.modules.reduce((n,p)=>n+p.nodes.length,0),edges:a.base.edges.length,tools:a.base.tools.length+a.base.supplementalDefinitions.length,walkthroughs:a.walkthroughs.length,steps:a.walkthroughs.reduce((n,p)=>n+p.steps.length,0),diagrams:a.pages.reduce((n,p)=>n+p.flows.length,0)},styleIdentical:m.sameStyles,browserVisual:'not performed: local browser access previously blocked by policy',svgVisual:'pending'};
+fs.writeFileSync(work+'/verification.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));if(errors.length)process.exitCode=1;

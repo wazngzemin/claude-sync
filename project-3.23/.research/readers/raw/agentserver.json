@@ -1,0 +1,68 @@
+{
+  "ok": true,
+  "identity": "user",
+  "data": {
+    "document": {
+      "content": "<title>【AI汽车】Agent Server One Page</title><h1>服务定位</h1><whiteboard comment-refs=\"c1\" token=\"VzZKwVM23hkH45bCtw9cUh6qnYl\"></whiteboard><p>Agent Server处于整个链路的最底层，其主要职责是对外提供通用的方法调用各类Agent，为外部调用方屏蔽Agent调用细节。Agent Server具备<span comment-refs=\"c2\">Agent信息管理</span>、对外适配各方Agent调用协议、Agent预处理和后处理等功能，但不具体负责根据Planner的规划对Agent进行编排调度工作。编排调度会有专门的LLM调度模块负责，Agent Server专注于单Agent的管理和调用等。</p><whiteboard comment-refs=\"c3 c4 c5 c6\" token=\"U31wwns5OhzK2dbm7uKcKAy0nSe\" type=\"mermaid\">mindmap\n  root((Agent Server 职责))\n    管理面\n      Agent 定义管理\n        英文名 中文名 UI 名称 能力描述\n      租户实现管理\n        channel + channel_app_id 隔离\n        AgentType IntegrationType Endpoint 鉴权\n      版本与环境管理\n        草稿 环境绑定 发布\n        启用 禁用 复制 删除\n      动态工具信息\n        Director 可见性\n        description param_desc notice tips\n    控制面\n      运行时实现选择\n        agent_id + 租户 + 环境\n        环境草稿覆盖发布配置\n      工具发现与准入\n        Planner 可见性过滤\n        DirectAgent 直调\n        用户权限预检查\n      控制指令\n        Redirect 最多两次\n        Interrupt 结束当前调用\n        Fallback 无通用自动重规划\n      生命周期控制\n        Context 取消向下游传播\n        少数任务允许 WithoutCancel\n    数据面与执行面\n      请求转换与协议适配\n        aidv dpfm doubao ecology internal_rpc\n      执行通道\n        HTTP SSE Kitex MCP Frontier 本地工具\n      业务 Processor\n        BeforeRequest AfterResponse AfterAgent\n      响应与收尾\n        ChatResponse TTS 历史\n        工具结果监听与观测\n    职责边界\n      Planner 负责编排 工具选择 总结\n      Agent Server 负责单次调用及调用内控制\n      通用 Context 自动装配尚未完全实现\n</whiteboard><h1>详细设计</h1><h2>业务架构</h2><whiteboard token=\"YlygwKteZhzMXDboatPcLOr2nDb\"></whiteboard><h2>总体流程</h2><whiteboard comment-refs=\"c7 c8 c9\" token=\"Ls4lwkItyhtSMab93izc2urXnhh\"></whiteboard><p>上图展示了Agent Server中调用单个具体Agent时的总体流程，主要分为预处理、Agent/Tools调用和后处理三个部分。</p><h4>预处理</h4><ol><li seq=\"1\" seq-marker=\"1. \">根据调用Agent Server接口时传入的agent_id，从数据库中检索出对应的Agent配置信息（包含请求端点、来源类型等和调度相关的重要元信息）</li><li seq-marker=\"2. \">根据Agent元信息从请求参数或context模块中获取对应的上下文依赖</li><li seq-marker=\"3. \">根据Agent需要为Agent添加业务后处理逻辑</li></ol><h4>Agent/Tools调用</h4><ol><li seq=\"1\" seq-marker=\"1. \">在正式调用阶段，会根据Agent的类型（豆包、DPFM等）由对应的Executor执行</li></ol><h4>后处理</h4><ol><li seq=\"1\" seq-marker=\"1. \">通用后处理操作：将不同Executor的响应会转成座舱Agent协议中定义的回包格式</li><li seq-marker=\"2. \">对部分特殊业务Agent，执行自定义的后处理逻辑：如音乐只有结构化数据，需要将结构化数据转成文本作为模型上下文使用</li><li seq-marker=\"3. \">对Agent输出结果，Agent Server会在IsFinish为true的包时将收到的结果存入历史表中并结束此次Agent调用过程。</li></ol><h2>Context获取</h2><table><colgroup><col/><col/></colgroup><tbody><tr><td><p>类型</p></td><td><p>说明</p></td></tr><tr><td><p>History获取</p></td><td><p>用户历史对话记录（包含Q、A）</p></td></tr><tr><td><p>Memory获取</p></td><td><p><span comment-refs=\"c10\">长短期记忆，</span><span comment-refs=\"c10\">传递和使用方式</span><span comment-refs=\"c10 c11\">待定</span></p></td></tr><tr><td><p>端状态获取</p></td><td><p></p></td></tr><tr><td><p><span comment-refs=\"c12\">SystemPrompt获取及</span><span comment-refs=\"c12 c13\">渲染</span></p></td><td><p><del><span comment-refs=\"c12\">部分Agent支持传自定义SP时使用</span></del></p><p>Agent内部自行从Fornax上获取SP</p></td></tr><tr><td><p><span comment-refs=\"c12\">UserPrompt获取及渲染</span></p></td><td><p><del><span comment-refs=\"c12\">部分Agent的输入Query需要按照特定格式构造时使用</span></del></p><p>Agent内部自行从Fornax上获取UP</p></td></tr></tbody></table><h2>Agent协议</h2><blockquote><p><del><span comment-refs=\"c14\">参考文档：</span></del><del><span comment-refs=\"c14\"><cite doc-id=\"Q4KWd1Nu1oh9vIxfarEc7mpsnLb\" file-type=\"docx\" title=\"【WIP】座舱agent协议\" type=\"doc\"></cite></span></del></p><p>参考后续IDL里的定义</p></blockquote><p>座舱侧Agent协议中包含消息协议、控制协议</p><p>消息协议：</p><ul><li>上下文信息传递：<ul><li>历史消息</li><li>端状态信息</li><li>长短期记忆</li></ul></li><li>控制协议：     <ul><li>预请求协商</li><li>Fallback逻辑</li><li>下一跳目标Agent指定（支持用于A2A场景）</li></ul></li></ul><h3>调用流程</h3><p><b>正常流程</b></p><whiteboard token=\"MhHiwZ6V2hMEqDbn2oycrS36nse\"></whiteboard><p><b>Fallback流程</b></p><whiteboard comment-refs=\"c15\" token=\"KPtywAvEwhF9qAbYuRhcHO2Gnmd\"></whiteboard><p><b>Redirect流程</b></p><whiteboard token=\"SZ9nw5iBahT95XbWBWucaR4tn6b\"></whiteboard><p>调用过程中如用户操作打断了本次请求，调用方可通过Context发送cancel信号，然后再断开连接。Agent Server在收到cancel信号后会通知下游服务结束请求，并在历史表中记录已生成内容。</p><h3><span comment-refs=\"c16\">IDL</span></h3><p>IDL定义统一在代码仓库中管理https://bits.bytedance.net/code/stone_vehicle/vehicle_idl/blob/master/thrift/aidv/agent/agent_base.thrift?ref_type=heads</p><p></p><h2>Agent 管理平台</h2><p>主要用于处理agent相关信息，新建或者管理Agent实现</p><img name=\"image.png\" alt=\"这是火山引擎AI汽车管理平台中Agent管理平台的相关界面，界面以表格形式展示了已有的Agent定义列表，包含ID、英文名称、中文名称、IDL显示名称、描述、更新人、更新时间、操作等列，还设置了“新建Agent定义”的操作按钮，可用于创建新的Agent定义，界面还提供了分页控件，当前表格共30条数据，支持分页查看内容。\" mime=\"image/png\" scale=\"1.000000\" src=\"QgBnbU7GqoYrGHxhnzicwmWZn4e\"/><p><cite doc-id=\"LCIvwi858iuqvWkTN7mcVZrBnhb\" file-type=\"wiki\" title=\"Agent 管理平台使用 SOP\" type=\"doc\"></cite></p><p></p><h2>三方Agent协议</h2><p>外部客户有需求将自己的Agent接入到整体链路中使用的场景。为减少此场景下座舱侧适配成本，客户需要基于座舱侧对外的Agent协议进行实现并提供服务接入点。座舱侧将客户Agent相关的信息注册到座舱链路中，在需要时直接调用。</p><p><cite doc-id=\"ZS6rd5ytKomVEwxDVebcKGTkn6d\" file-type=\"docx\" title=\"三方Agent接入协议\" type=\"doc\"></cite></p><p></p><h2></h2>",
+      "document_id": "KDJpd1kTmoDgEexJpTicZAlin8e",
+      "reference_map": {
+        "comments": {
+          "c1": {
+            "data": "<comment comment-id=\"7600358259597315019\" block-id=\"Sm1QdljDuoFhr3xwN4ecWkbbnRW\"><quote>[画板]</quote><msg user=\"于庆磊\">GUI Agent 是一个持续/长时任务，这种场景下，链路上的交互大致是如何设计的</msg></comment>"
+          },
+          "c10": {
+            "data": "<comment comment-id=\"7548368607765921795\" block-id=\"IW1YdRyTuo0quHxcUWUcimBbnIf\"><quote>长短期记忆，传递和使用方式待定</quote><msg user=\"向超然\">理想中会暴露出两种方式给上层使用：\n1. 根据query或者agent的输入，自动推荐相关的context信息。\n2. 由agent指定相关的context信息使用并返回。</msg></comment>"
+          },
+          "c11": {
+            "data": "<comment comment-id=\"7600371231161928656\" block-id=\"IW1YdRyTuo0quHxcUWUcimBbnIf\"><quote>待定</quote><msg user=\"于庆磊\">定了么，哈哈</msg></comment>"
+          },
+          "c12": {
+            "data": "<comment comment-id=\"7548368125768482819\" start-block-id=\"T92gdq6Rpow9olxs0n4c0zlGnDg\" end-block-id=\"H7EMdssXiozY9AxaCFtctlJhnGg\"><quote>SystemPrompt 部分Agent支持传自定义SP时使用 UserPrompt 部分Agent的输入Query需要按照特定格式构造时使用</quote><msg user=\"向超然\">up和sp应该有个模块单独管理，放context里不太合适</msg><msg user=\"吕鹏浩\">@向超然 嗯嗯，这里想表达的意思是Agent Server来获取Agent需要的context信息，不负责具体管理。我改下标题描述</msg></comment>"
+          },
+          "c13": {
+            "data": "<comment comment-id=\"7600369872568060879\" block-id=\"T92gdq6Rpow9olxs0n4c0zlGnDg\"><quote>渲染</quote><msg user=\"于庆磊\">渲染指的是？</msg></comment>"
+          },
+          "c14": {
+            "data": "<comment comment-id=\"7664860765190474933\" block-id=\"ZTWsd0BAnoIpxzxk54ycVA2ZnUb\"><quote>参考文档：【WIP】座舱agent协议</quote><msg user=\"马超\">[三方Agent接入协议](https://bytedance.larkoffice.com/docx/ZS6rd5ytKomVEwxDVebcKGTkn6d)这两个协议有区别吗？</msg><msg user=\"马超\">@吕鹏浩</msg></comment>"
+          },
+          "c15": {
+            "data": "<comment comment-id=\"7548369763615555587\" block-id=\"PocxduJ6PogusTx0We0cc1BBnHg\"><quote>[画板]</quote><msg user=\"向超然\">当前语义下，fallback和redirect有区别嘛</msg><msg user=\"吕鹏浩\">@向超然 重新画了幅图；fallback是Agent发现自己不能当前query，也不知道应当由其他哪个agent处理，交回给Planner来处理。Redirect是Agent知道接下来应当交给哪个Agent执行时，指定任务调度模块接下来调度这个Agent<reaction key=\"OK\" users=\"向超然\"/></msg></comment>"
+          },
+          "c16": {
+            "data": "<comment comment-id=\"7548371312411181057\" block-id=\"JYDld31UUoHGMnxtg0DcnqcbnNg\"><quote>IDL</quote><msg user=\"向超然\">目前设计，agent服务是会放在aidv这个repo里？那这个idl的用处是？aidv同时提供rpc</msg><msg user=\"向超然\">和http？</msg></comment>"
+          },
+          "c2": {
+            "data": "<comment comment-id=\"7548337981378691091\" block-id=\"Jm1OdZWAnoY60CxazP7cBxsLnsd\"><quote>Agent信息管理</quote><msg user=\"左晓杰\">Agent 的注册是在这里么</msg><msg user=\"吕鹏浩\">是的，目前是人工维护增加</msg><msg user=\"左晓杰\">[【PRD】A2A Agent注册及任务管理](https://bytedance.larkoffice.com/wiki/IqoDwySbXissu2kOrhgcz7OynPd) 感觉把我们想做的事 都做完了..</msg><msg user=\"陈民瑞\">这个更适合做我们内部aidv单独实现的agent ，然后提供mcp的方式做调用。对于外部客户的不太合适。所以还是会有一层管理。</msg></comment>"
+          },
+          "c3": {
+            "data": "<comment comment-id=\"7686402363356810168\" block-id=\"Q4hwdCgh0ok2a0xNoVocEsLdnUb\"><quote>业务自定义Hook支持</quote><msg user=\"于庆磊\">哪个场景用到这个了？</msg><msg user=\"吕鹏浩\">DPFM接入的Agent基本上都用到了；给外部的基本没有，都是外部方处理好给过来<reaction key=\"OK\" users=\"于庆磊\"/></msg></comment>"
+          },
+          "c4": {
+            "data": "<comment comment-id=\"7686402274922384329\" block-id=\"Q4hwdCgh0ok2a0xNoVocEsLdnUb\"><quote>DirectAgent 直调</quote><msg user=\"于庆磊\">哪个场景用到这个能力了？可以帮忙举个例子么？</msg><msg user=\"吕鹏浩\">测试场景用，Agent管理平台里有个测试页面，可以指定测试某个Agent的输出<reaction key=\"OK\" users=\"于庆磊\"/></msg></comment>"
+          },
+          "c5": {
+            "data": "<comment comment-id=\"7686402170568068055\" block-id=\"Q4hwdCgh0ok2a0xNoVocEsLdnUb\"><quote>动态工具信息</quote><msg user=\"于庆磊\">这个现在用起来了么？感觉好像还是拼接在 sp 里面的</msg><msg user=\"吕鹏浩\">目前PE版本的没用起来</msg></comment>"
+          },
+          "c6": {
+            "data": "<comment comment-id=\"7686401118984785162\" block-id=\"Q4hwdCgh0ok2a0xNoVocEsLdnUb\"><quote>管理面</quote><msg user=\"于庆磊\">这个指的是那个后台么？<reaction key=\"Yes\" users=\"吕鹏浩\"/></msg></comment>"
+          },
+          "c7": {
+            "data": "<comment comment-id=\"7600366760662944734\" block-id=\"FNfldREMZoiigzxgUnJcuTkPntf\"><quote>[画板]</quote><msg user=\"于庆磊\">GUI Agent 在这个位置么？\n\n是所有第三方 agent 都必须是 http 协议么？</msg></comment>"
+          },
+          "c8": {
+            "data": "<comment comment-id=\"7548345725260857348\" block-id=\"FNfldREMZoiigzxgUnJcuTkPntf\"><quote>[画板]</quote><msg user=\"左晓杰\">Agent 有哪些信息，EP 是一个，还有别的么</msg></comment>"
+          },
+          "c9": {
+            "data": "<comment comment-id=\"7548278242147909660\" block-id=\"FNfldREMZoiigzxgUnJcuTkPntf\"><quote>后处理</quote><msg user=\"陈民瑞\">这里面两个顺序反了，应该都先通用处理，将通用的参数转为我们的协议，然后再在通用参数的基础上处理特殊协议<reaction key=\"OK\" users=\"吕鹏浩\"/></msg></comment>"
+          }
+        }
+      },
+      "revision_id": 1806,
+      "title": "【AI汽车】Agent Server One Page",
+      "url": "https://bytedance.larkoffice.com/docx/KDJpd1kTmoDgEexJpTicZAlin8e"
+    }
+  },
+  "citations": [
+    "<document reference_id=\"https://bytedance.larkoffice.com/docx/KDJpd1kTmoDgEexJpTicZAlin8e\"><title>【AI汽车】Agent Server One Page</title><source_type>2</source_type><url>https://bytedance.larkoffice.com/docx/KDJpd1kTmoDgEexJpTicZAlin8e</url></document>"
+  ]
+}

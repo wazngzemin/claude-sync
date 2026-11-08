@@ -1,0 +1,25 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import {execFileSync} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
+const dir=path.dirname(fileURLToPath(import.meta.url));
+const v=JSON.parse(fs.readFileSync(path.join(dir,'verification-v14.json'),'utf8'));
+const layout=JSON.parse(fs.readFileSync(path.join(dir,'layout-report.json'),'utf8'));
+if(v.status!=='PASS'||v.issues.length||layout.labelWarnings.length)throw Error('Validation must pass before local delivery');
+// Local conversion only. This script has no credentials and never edits the Feishu board.
+execFileSync('npx',['-y','@larksuite/whiteboard-cli@^0.2.11','-i','./业务全链路-v14.svg','--to','openapi','--format','json','-o','./native-v14.json'],{cwd:dir,maxBuffer:32*1024*1024,timeout:60000,stdio:['ignore','pipe','pipe']});
+const native=JSON.parse(fs.readFileSync(path.join(dir,'native-v14.json'),'utf8'));
+const types=native.nodes.reduce((a,n)=>(a[n.type]=(a[n.type]||0)+1,a),{});
+const arrows=native.nodes.filter(n=>n.type==='connector'&&n.connector?.end?.arrow_style!=='none').length;
+if(!types.text_shape||!types.connector||arrows<240)throw Error('Native editable nodes or arrowheads missing');
+const text=native.nodes.filter(n=>n.type==='text_shape').map(n=>n.text?.text||'').join('\n');
+for(const s of ['二遍 ASR','输入管理','长期方向','user_memory_search','任务中心','没有','33'])if(!text.includes(s)&&s!=='没有')throw Error('Missing native text '+s);
+const src='/Users/bytedance/Desktop/3.23/产品/codex/HTML/01-进行中/豆包汽车-业务全链路-v14.html';
+const dst='/Users/bytedance/Desktop/3.23/产品/codex/HTML/02-已交付/豆包汽车-业务全链路-v14.html';
+const hash=p=>crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
+if(fs.existsSync(dst)){if(hash(src)!==hash(dst))throw Error('A different v14 delivery already exists; do not overwrite it');}else fs.copyFileSync(src,dst,fs.constants.COPYFILE_EXCL);
+const stats={html:dst,sha256:hash(dst),nativeNodes:native.nodes.length,types,arrowheads:arrows,feishuChanged:false,feishuBlocker:'lark-cli user authorization absent',browserVisualTest:v.browserVisualTest};
+fs.writeFileSync(path.join(dir,'delivery-v14.json'),JSON.stringify(stats,null,2));
+fs.writeFileSync(path.join(dir,'交付说明-v14.md'),`# 豆包汽车业务全链路 v14\n\n本地 HTML：${dst}\n\n当前版包含 16 个业务分区、171 个流程节点、242 条连接、33 个业务工具条目、原图 30 区块去向、4 个贯穿案例、58 个自测问题和 59 项指标口径。每个流程节点有展开说明和上下游定位，可记本地笔记并导出 Markdown。\n\n## 验证边界\n\nSVG 已实际渲染并查看语音、Director、任务、视觉、输出等分区。结构与离线 DOM 测试通过，未发现节点重叠、连线穿越无关节点或线标遮挡节点。浏览器禁止本次 file URL 预览，因此不能把离线 DOM 测试说成实际浏览器验收。\n\n## 飞书状态\n\n尚未更新现有飞书画板。lark-cli 当前用户 token 已清除，读备份也返回 need_user_authorization。没有执行删除、覆盖或追加。请在终端运行 \`lark-cli auth login\` 完成用户授权，后续需先备份现有画板，再写入并在线回读验证。\n\n\`native-v14.json\` 已转换为可编辑原生文字、形状和连接线；\`业务全链路-v14.svg\` 为可缩放矢量源稿，不是把整张图作为截图贴上去。\n\n## 资料边界\n\n较新 Director/Task 文档与 10 月 22 日逐字稿决定当前主链；三份用户原始文档用于对照全局模块与演进。规划、待宣讲、测试、按车型搭载、字段未读全及待确认事项均保留，不推定全部已上线。工具数为最新 PRD 的 33 个业务行、34 个英文标识，不是全车型实际加载量。\n`);
+console.log(JSON.stringify(stats,null,2));

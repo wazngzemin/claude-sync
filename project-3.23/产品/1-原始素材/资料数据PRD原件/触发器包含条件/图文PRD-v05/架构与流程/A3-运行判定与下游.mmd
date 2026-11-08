@@ -1,0 +1,78 @@
+flowchart TB
+  subgraph PH1["一、启动与分流：信号更新只决定开始检查"]
+    direction TB
+    REPORT["端状态更新或已配置 VLM 更新"]
+    WAKE["生成实际启动信号<br/>有动态条件：只用其信号 ID<br/>无动态条件：条件涉及的全部 ID<br/>推理入口：配置的 VLM ID"]
+    CANDIDATE["按既有入口获取候选场景<br/>采用发布范围和本车实际状态"]
+    ROUTE{候选场景 workflow_id 是否为空}
+    OLD["为空：沿既有简单链路<br/>条件走 runStatic / runDynamic<br/>推理走已有 InferenceTrigger"]
+    SNAP["非空：建立本次运行上下文<br/>scene_id、workflow_id、车辆、启动方式<br/>输入、动作与执行策略快照"]
+    REPORT --> WAKE --> CANDIDATE --> ROUTE
+    ROUTE -->|空| OLD
+    ROUTE -->|非空| SNAP
+  end
+  subgraph PH2["二、Workflow 判断：汇合关系决定是否运行真实目标节点"]
+    direction TB
+    RUN["创建 Run 和各 NodeRun<br/>来源节点进入判断；按依赖限并发调度"]
+    SOURCE{待处理节点是否无前驱}
+    KIND{READY 节点的实际类型}
+    CONDITION["条件节点<br/>读取并规整已有信号、Context 与旧值<br/>完整判断静态和动态条件"]
+    INFER["推理节点<br/>目标 + 原始描述 + 已有 VLM 输入<br/>复用模型推理，不调用 DT / VQA"]
+    RESULT["节点输出互斥结果<br/>PASS 满足 / REJECT 不满足<br/>UNKNOWN 缺输入、错误或超时"]
+    PRE{目标节点如何汇合直接前驱}
+    AND["AND 全部满足<br/>全部 PASS → READY<br/>任一 REJECT → 跳过<br/>全终态且有 UNKNOWN → 未知跳过"]
+    OR["OR 任一满足<br/>任一 PASS → 立即 READY<br/>全终态无 PASS → 跳过<br/>有 UNKNOWN 优先按未知，否则不满足"]
+    EXEC["目标节点进入 READY<br/>接着执行自己的条件或推理<br/>汇合通过不代表该节点 PASS"]
+    SKIP["SKIPPED：不执行该节点<br/>保存由 REJECT 或 UNKNOWN 阻断的原因"]
+    NODELOG["持续记录节点阶段与业务结果<br/>其他分支继续，不因 OR 通过自动取消"]
+    ALL{全部节点已到不可逆终态}
+    END["取得唯一终点的有效结果<br/>FINISHED 取自身结果<br/>FAILED 为 UNKNOWN<br/>SKIPPED 取阻断结果"]
+    VERDICT{本次 Workflow 最终结果}
+    JUDGEEND["REJECT / UNKNOWN<br/>保存本次判断及原因<br/>结束，不进入下游动作"]
+    SNAP --> RUN --> SOURCE
+    SOURCE -->|Source 无前驱| KIND
+    SOURCE -->|有前驱| PRE
+    KIND -->|condition| CONDITION --> RESULT
+    KIND -->|inference| INFER --> RESULT
+    RESULT --> NODELOG
+    PRE -->|AND| AND
+    PRE -->|OR| OR
+    AND -->|READY| EXEC
+    OR -->|READY| EXEC
+    AND -->|阻断| SKIP
+    OR -->|阻断| SKIP
+    EXEC --> KIND
+    SKIP --> NODELOG
+    NODELOG --> ALL
+    ALL -->|否：继续调度其余节点| SOURCE
+    ALL -->|是| END --> VERDICT
+    VERDICT -->|不满足或无法判断| JUDGEEND
+  end
+  subgraph PH3["三、策略与下游：判断通过后才提交既有 Action"]
+    direction TB
+    POLICY["共用场景动作分发<br/>检查既有执行策略"]
+    ALLOW{策略是否允许本次下发}
+    LOCK["取得场景执行锁<br/>不是按 run_id 代替去重"]
+    LOCKOK{成功取得锁}
+    BLOCK["策略或执行锁拦截<br/>记录真实原因，不报为模型不满足"]
+    HISTORY["预创建 History 记录<br/>关联本次 Run 与场景"]
+    ACTION["按配置并发执行已有 Action<br/>Advisor / Recommend / Callback<br/>不在 Workflow 内放车控工具节点"]
+    DOWN["三项云端任务：主动推荐 → DT<br/>儿童锁与后视镜无需新增设备识别<br/>充电场景：DT 调 VQA 再判断是否询问"]
+    FEEDBACK["下游沿既有卡片协议处理用户回应<br/>接入业务处理车辆动作与真实反馈<br/>Trigger 不注册拉卡、不承接车控工具"]
+    FINISH["全部 Action 结束后<br/>一次汇总更新 History.execute_result<br/>查询 Run 时关联下游 Action 结果"]
+    VERDICT -->|PASS| POLICY
+    OLD -->|既有判断命中| POLICY
+    POLICY --> ALLOW
+    ALLOW -->|允许| LOCK --> LOCKOK
+    ALLOW -->|不允许| BLOCK
+    LOCKOK -->|否| BLOCK
+    LOCKOK -->|是| HISTORY --> ACTION --> DOWN --> FEEDBACK
+    ACTION -->|等待各 Action 返回| FINISH
+  end
+  LIMIT["限制说明：节点仅条件或推理；Workflow 等全部节点终态后收敛<br/>混合启动信号如何汇总需确认；混合定时当前不开放<br/>History 的 Action 成功不等于卡片已展示或车辆动作成功"]
+  classDef normal fill:#FFFFFF,stroke:#185DB7,color:#0D4FA8;
+  classDef focus fill:#EAF3FF,stroke:#185DB7,color:#0D4FA8,stroke-width:2px;
+  classDef note fill:#F4F7F8,stroke:#73978A,color:#315449;
+  class REPORT,WAKE,CANDIDATE,OLD,SNAP,RUN,CONDITION,INFER,RESULT,EXEC,SKIP,NODELOG,END,POLICY,LOCK,HISTORY,ACTION,DOWN,FEEDBACK,FINISH normal;
+  class ROUTE,SOURCE,KIND,PRE,AND,OR,ALL,VERDICT,ALLOW,LOCKOK focus;
+  class JUDGEEND,BLOCK,LIMIT note;

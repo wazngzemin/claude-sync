@@ -1,0 +1,44 @@
+<title>【AI汽车】Agent Server One Page</title><h1>服务定位</h1><whiteboard comment-refs="c1" token="VzZKwVM23hkH45bCtw9cUh6qnYl"></whiteboard><p>Agent Server处于整个链路的最底层，其主要职责是对外提供通用的方法调用各类Agent，为外部调用方屏蔽Agent调用细节。Agent Server具备<span comment-refs="c2">Agent信息管理</span>、对外适配各方Agent调用协议、Agent预处理和后处理等功能，但不具体负责根据Planner的规划对Agent进行编排调度工作。编排调度会有专门的LLM调度模块负责，Agent Server专注于单Agent的管理和调用等。</p><whiteboard comment-refs="c3 c4 c5 c6" token="U31wwns5OhzK2dbm7uKcKAy0nSe" type="mermaid">mindmap
+  root((Agent Server 职责))
+    管理面
+      Agent 定义管理
+        英文名 中文名 UI 名称 能力描述
+      租户实现管理
+        channel + channel_app_id 隔离
+        AgentType IntegrationType Endpoint 鉴权
+      版本与环境管理
+        草稿 环境绑定 发布
+        启用 禁用 复制 删除
+      动态工具信息
+        Director 可见性
+        description param_desc notice tips
+    控制面
+      运行时实现选择
+        agent_id + 租户 + 环境
+        环境草稿覆盖发布配置
+      工具发现与准入
+        Planner 可见性过滤
+        DirectAgent 直调
+        用户权限预检查
+      控制指令
+        Redirect 最多两次
+        Interrupt 结束当前调用
+        Fallback 无通用自动重规划
+      生命周期控制
+        Context 取消向下游传播
+        少数任务允许 WithoutCancel
+    数据面与执行面
+      请求转换与协议适配
+        aidv dpfm doubao ecology internal_rpc
+      执行通道
+        HTTP SSE Kitex MCP Frontier 本地工具
+      业务 Processor
+        BeforeRequest AfterResponse AfterAgent
+      响应与收尾
+        ChatResponse TTS 历史
+        工具结果监听与观测
+    职责边界
+      Planner 负责编排 工具选择 总结
+      Agent Server 负责单次调用及调用内控制
+      通用 Context 自动装配尚未完全实现
+</whiteboard><h1>详细设计</h1><h2>业务架构</h2><whiteboard token="YlygwKteZhzMXDboatPcLOr2nDb"></whiteboard><h2>总体流程</h2><whiteboard comment-refs="c7 c8 c9" token="Ls4lwkItyhtSMab93izc2urXnhh"></whiteboard><p>上图展示了Agent Server中调用单个具体Agent时的总体流程，主要分为预处理、Agent/Tools调用和后处理三个部分。</p><h4>预处理</h4><ol><li seq="1" seq-marker="1. ">根据调用Agent Server接口时传入的agent_id，从数据库中检索出对应的Agent配置信息（包含请求端点、来源类型等和调度相关的重要元信息）</li><li seq-marker="2. ">根据Agent元信息从请求参数或context模块中获取对应的上下文依赖</li><li seq-marker="3. ">根据Agent需要为Agent添加业务后处理逻辑</li></ol><h4>Agent/Tools调用</h4><ol><li seq="1" seq-marker="1. ">在正式调用阶段，会根据Agent的类型（豆包、DPFM等）由对应的Executor执行</li></ol><h4>后处理</h4><ol><li seq="1" seq-marker="1. ">通用后处理操作：将不同Executor的响应会转成座舱Agent协议中定义的回包格式</li><li seq-marker="2. ">对部分特殊业务Agent，执行自定义的后处理逻辑：如音乐只有结构化数据，需要将结构化数据转成文本作为模型上下文使用</li><li seq-marker="3. ">对Agent输出结果，Agent Server会在IsFinish为true的包时将收到的结果存入历史表中并结束此次Agent调用过程。</li></ol><h2>Context获取</h2><table><colgroup><col/><col/></colgroup><tbody><tr><td><p>类型</p></td><td><p>说明</p></td></tr><tr><td><p>History获取</p></td><td><p>用户历史对话记录（包含Q、A）</p></td></tr><tr><td><p>Memory获取</p></td><td><p><span comment-refs="c10">长短期记忆，</span><span comment-refs="c10">传递和使用方式</span><span comment-refs="c10 c11">待定</span></p></td></tr><tr><td><p>端状态获取</p></td><td><p></p></td></tr><tr><td><p><span comment-refs="c12">SystemPrompt获取及</span><span comment-refs="c12 c13">渲染</span></p></td><td><p><del><span comment-refs="c12">部分Agent支持传自定义SP时使用</span></del></p><p>Agent内部自行从Fornax上获取SP</p></td></tr><tr><td><p><span comment-refs="c12">UserPrompt获取及渲染</span></p></td><td><p><del><span comment-refs="c12">部分Agent的输入Query需要按照特定格式构造时使用</span></del></p><p>Agent内部自行从Fornax上获取UP</p></td></tr></tbody></table><h2>Agent协议</h2><blockquote><p><del><span comment-refs="c14">参考文档：</span></del><del><span comment-refs="c14"><cite doc-id="Q4KWd1Nu1oh9vIxfarEc7mpsnLb" file-type="docx" title="【WIP】座舱agent协议" type="doc"></cite></span></del></p><p>参考后续IDL里的定义</p></blockquote><p>座舱侧Agent协议中包含消息协议、控制协议</p><p>消息协议：</p><ul><li>上下文信息传递：<ul><li>历史消息</li><li>端状态信息</li><li>长短期记忆</li></ul></li><li>控制协议：     <ul><li>预请求协商</li><li>Fallback逻辑</li><li>下一跳目标Agent指定（支持用于A2A场景）</li></ul></li></ul><h3>调用流程</h3><p><b>正常流程</b></p><whiteboard token="MhHiwZ6V2hMEqDbn2oycrS36nse"></whiteboard><p><b>Fallback流程</b></p><whiteboard comment-refs="c15" token="KPtywAvEwhF9qAbYuRhcHO2Gnmd"></whiteboard><p><b>Redirect流程</b></p><whiteboard token="SZ9nw5iBahT95XbWBWucaR4tn6b"></whiteboard><p>调用过程中如用户操作打断了本次请求，调用方可通过Context发送cancel信号，然后再断开连接。Agent Server在收到cancel信号后会通知下游服务结束请求，并在历史表中记录已生成内容。</p><h3><span comment-refs="c16">IDL</span></h3><p>IDL定义统一在代码仓库中管理https://bits.bytedance.net/code/stone_vehicle/vehicle_idl/blob/master/thrift/aidv/agent/agent_base.thrift?ref_type=heads</p><p></p><h2>Agent 管理平台</h2><p>主要用于处理agent相关信息，新建或者管理Agent实现</p><img name="image.png" alt="这是火山引擎AI汽车管理平台中Agent管理平台的相关界面，界面以表格形式展示了已有的Agent定义列表，包含ID、英文名称、中文名称、IDL显示名称、描述、更新人、更新时间、操作等列，还设置了“新建Agent定义”的操作按钮，可用于创建新的Agent定义，界面还提供了分页控件，当前表格共30条数据，支持分页查看内容。" mime="image/png" scale="1.000000" src="QgBnbU7GqoYrGHxhnzicwmWZn4e"/><p><cite doc-id="LCIvwi858iuqvWkTN7mcVZrBnhb" file-type="wiki" title="Agent 管理平台使用 SOP" type="doc"></cite></p><p></p><h2>三方Agent协议</h2><p>外部客户有需求将自己的Agent接入到整体链路中使用的场景。为减少此场景下座舱侧适配成本，客户需要基于座舱侧对外的Agent协议进行实现并提供服务接入点。座舱侧将客户Agent相关的信息注册到座舱链路中，在需要时直接调用。</p><p><cite doc-id="ZS6rd5ytKomVEwxDVebcKGTkn6d" file-type="docx" title="三方Agent接入协议" type="doc"></cite></p><p></p><h2></h2>

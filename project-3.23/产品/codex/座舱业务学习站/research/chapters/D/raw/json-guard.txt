@@ -1,0 +1,150 @@
+# Planner json输出保障
+# edit 2026-08-17 https://bytedance.larkoffice.com/wiki/PNjwwtwtaiFG2VkGI5gcO3UjnSc
+Planner json输出保障
+输出优化保障(一)
+背景
+Planner基模/sft模型部署和评测
+上2.1-turbo模型之后，在上面文档的2.1.5之后，依旧有json问题，QA评测大概是38/4000,还是有不小的比例，如下：director格式badcase
+json字段保障
+与方舟平台沟通，上次输出优化以后，json schema以后，但是还是保证合法json，如果要保证json的具体字段和层级，需要精确的传入格式，具体格式如下：
+
+Name:   "planner_text_output",
+    Strict: true,
+    Schema: map[string]any{
+       "type": "object",
+       "properties": map[string]any{
+          "talk_content": map[string]any{
+             "type": "string",
+          },
+          "talk_or_not": map[string]any{ //云端其实不需要，产品希望模型继续输出
+             "type": "string",
+          },
+          "action_list": map[string]any{
+             "type": "array",
+             "items": map[string]any{
+                "type": "object",
+                "properties": map[string]any{
+                   "action_id": map[string]any{
+                      "type": "string",
+                   },
+                   "tool_name": map[string]any{
+                      "type": "string",
+                   },
+                   "params": map[string]any{
+                      "type":                 "object",
+                      "additionalProperties": true,
+                   },
+                },
+                "required":             []string{"action_id", "tool_name", "params"},
+                "additionalProperties": false,
+             },
+          },
+          "emoji_id": map[string]any{
+             "type": "string",
+          },
+       },
+       "required":             []string{"talk_or_not", "talk_content", "emoji_id", "action_list"},
+       "additionalProperties": false,
+    },
+},
+并且2.1-turbo是支持的，这个文档可以看模型是否支持这个功能：https://docs.volcengine.com/docs/82379/1958523?lang=zh
+image.png
+
+具体改动可以看mr
+mr：https://code.byted.org/stone_vehicle/aidv/merge_requests/804
+评测
+环境：ppe_saic_dna_pe
+Planner 性能报告（20260729-pe）
+Director评测-数据汇总版本
+QA评测，没有不符合预期的json，并且性能没有影响
+
+输出优化保障(二)
+背景
+在上述优化做完以后，做到100%模型输出json合法，并且100%模型输出json字段和层级符合预期，但是有新的问题出现
+image.png
+
+模型输出的json顺序不确定了，会概率性如图所示，这样会有2个问题：
+1.tts的文本晚了，首token不变，但是首字晚了，会有延迟体感
+2.强依赖这个输出json字段顺序的功能，aibot，会影响功能
+3.由于模型有学习历史对话，后面的会学习，会加大顺序不符合预期的概率
+问题排查
+image.png
+
+做了几组实验，1.8的顺序是好的，那就是2.1-turbo有特殊之处。
+继续和方舟同学沟通，传入的json_schema用了golang的map，而map本身是无序的，问题应该就在于这里：
+image.png
+
+结论，用struct来重写json_schema
+优化改动
+json_schema
+用struct来重写json_schema，注意Properties字段，如下：
+
+arkParams := doubao.ArkModel{
+    ModelConfig: ark.ChatModelConfig{
+       //ServiceTier: thrift.StringPtr("fast"),
+       Timeout: pkg_util.PtrIfNotZero(time.Second * 60),
+       ResponseFormat: &ark.ResponseFormat{
+          Type: model.ResponseFormatJSONSchema,
+          JSONSchema: &model.ResponseFormatJSONSchemaJSONSchemaParam{
+             Name:   "planner_text_output",
+             Strict: true,
+             Schema: struct {
+                Type                 string   `json:"type"`
+                Properties           any      `json:"properties"`
+                Required             []string `json:"required"`
+                AdditionalProperties bool     `json:"additionalProperties"`
+             }{
+                Type: "object",
+                Properties: struct {
+                   TalkOrNot   any `json:"talk_or_not"`
+                   TalkContent any `json:"talk_content"`
+                   EmojiID     any `json:"emoji_id"`
+                   ActionList  any `json:"action_list"`
+                }{
+                   TalkOrNot: map[string]any{"type": "string"},
+                   TalkContent: map[string]any{"type": "string"},
+                   EmojiID: map[string]any{"type": "string"},
+                   ActionList: map[string]any{
+                      "type": "array",
+                      "items": struct {
+                         Type                 string   `json:"type"`
+                         Properties           any      `json:"properties"`
+                         Required             []string `json:"required"`
+                         AdditionalProperties bool     `json:"additionalProperties"`
+                      }{
+                         Type: "object",
+                         Properties: struct {
+                            ActionID any `json:"action_id"`
+                            ToolName any `json:"tool_name"`
+                            Params   any `json:"params"`
+                         }{
+                            ActionID: map[string]any{"type": "string"},
+                            ToolName: map[string]any{"type": "string"},
+                            Params: map[string]any{"type": "object", "additionalProperties": true},
+                         },
+                         Required: []string{"action_id", "tool_name", "params"},
+                         AdditionalProperties: false,
+                      },
+                   },
+                },
+                Required: []string{"talk_or_not", "talk_content", "emoji_id", "action_list"},
+                AdditionalProperties: false,
+             },
+          },
+       },
+    },
+    Messages:              state.Messages,
+    Channel:               chatReq.CommonInfo.Channel,
+    FunctionKey:           ark_config.FuncPlannerAnalyzeText,
+    SystemPromptVariables: systemPromptVariables,
+    SPHardening:           true,
+}
+mr:https://code.byted.org/stone_vehicle/aidv/merge_requests/877
+历史记录保障
+为避免模型偶现顺序错而引起后续轮次学习的问题，在模型输出存储的时候，+反序列化顺序保障，在存储，之前原本是输出的string直接落库
+mr:https://code.byted.org/stone_vehicle/aidv/merge_requests/872
+收益
+保障模型json输出字段严格有序，提升tts首字耗时，
+image.png
+
+

@@ -1,0 +1,115 @@
+AI 汽车能力边界注入技术方案
+背景与目标
+PRD：https://bytedance.larkoffice.com/wiki/BT7XwV7UUicaOHkLQHscavMInCd
+
+image.png
+
+方案概览
+能力边界检查链路由 Flow 侧异步启动，Planner 侧消费结果。整体分为四步：
+
+runPrepare 中异步调用 query.AbilityCheckWithNotify。
+AbilityCheck 流式读取模型输出，解析到系统依赖字段后立即通过 ctx_msg.SendMsgKV 通知调用方。
+Planner 在前置阶段等待一次 MsgKeyAbilityCheckResult，复用解析后的 AbilityCheckResponse 做 query 改写和 Capability 注入。
+Text Planner 构造 prompt 时，从 system prompt variables 中读取 Capability，获得动态能力上下文。
+这个设计保留了“早通知”和“完整上报”两个目标：系统依赖字段可提前进入 Planner，模型流仍会继续消费到 EOF，TimeCost 里仍能拿到完整 output。
+详细设计
+模型
+
+
+配置项
+
+内容
+
+Function Key / SP Key
+
+aicar.ability.check
+
+模型 EP
+
+ep-20260827160039-v5rld
+ep-20260903223330-tdj52
+ep-20260829163048-sqq7m
+
+SP 链接
+
+https://fornax.bytedance.net/space/7522018773168046082/prompt/develop/7590118518957655298
+代码中未显式传入 SystemPrompt 时，会通过 FunctionKey 走 Fornax 获取 SP；当前能力检查链路使用的 key 与 function key 保持一致。
+AbilityCheck 模型调用
+新增能力检查入口位于 biz/service/query/ability_check.go。AbilityCheck 保留原签名并委托给 AbilityCheckWithNotify，新函数支持传入回调：
+
+func AbilityCheckWithNotify(ctx context.Context, chatReq *types.ChatRequest, notify func(*AbilityCheckResponse)) (*AbilityCheckResponse, error)
+模型以流式方式返回 JSON。代码会持续拼接 output，并在流中尽早解析 can_implement、reason 和 required_capabilities。当 can_implement=true 时，只需要知道可以执行，立即通知；当 can_implement=false 时，需要等 reason 与 required_capabilities 都解析完成后再通知。
+返回结构
+AbilityCheckResponse 扩展了 required capabilities：
+
+type AbilityCheckResponse struct {
+    Reason               string   `json:"reason"`
+    RequiredCapabilities []string `json:"required_capabilities,omitempty"`
+}
+RequiredCapabilities 的元素对应工具能力 key，例如 media_basic_control、music_search。
+ Knowhow 映射
+这里需要注意的是：
+与产品以及张弛沟通拉齐，当前产品的诉求是做大规模评测，先做效果和性能验证，因此，产品提供的能力边界描述这个边界的知识是直接写死在代码里的一个map来实现的，但是这个不能作为上学方案，要上线需要产品基于评测结果后，提产品化需求，研发侧提供的思路是，工具的知识需要统一在工具平台上管理，在下图中可以添加前端页面功能模块，然后供产品录入和管理，系统统一从工具平台获取。
+image.png
+
+
+下面是本次快速发布评测的临时方案：
+新增 biz/service/query/ability_knowhow.go，维护工具能力到原子能力说明的映射：
+
+var AbilityKnowhowMap = map[string][]string{...}
+map 的 key 是能力名，value 是原子能力数组。每个数组 item 对应飞书表格中的一行原子能力，包含工具子能力、功能描述、前置条件、特殊说明和 query 示例。
+同时提供两个方法：
+
+func GetAbilityKnowhow(capability string) ([]string, bool)
+func JoinAbilityKnowhow(capabilities ...string) string
+JoinAbilityKnowhow 会按传入 key 的顺序拼接内容，每个 key 前加标题：{key}的原子能力如下：，每个原子能力按 1、2、3 编号，多个 key 的结果用换行连接。
+ Planner 注入
+Planner 中 rewritePlannerQueryWithAbilityCheckResult 负责等待一次能力检查结果，并返回 *query.AbilityCheckResponse。这份结果同时用于两件事：
+当 CanImplement=false 且 Reason 非空时，改写用户 query，追加系统提示。
+当 CanImplement=false 且 RequiredCapabilities 非空时，注入能力 Knowhow。
+AnalyzeTaskWithText 与 runTextPlanner 透传 abilityCheckResp，waitForSystemPromptVariables 接收该对象并调用 fillAbilityKnowhow：
+
+systemPromptVariables["capability"] = capabilityKnowhow
+这里的 capability 是 Planner prompt 可使用的变量，值为 JoinAbilityKnowhow 拼接后的工具能力说明。
+注意，这里需要产品同步晓伟修改planner的SP才行，@陈芮婷
+研发自测验证
+基础信息
+环境：ppe_aidv_ability
+mr：
+功能验证
+fornax.bytedance.net
+模型上报
+image.png
+
+模型真实耗时
+只记录系统所需的输出的耗时，全部输出只作为上报，系统只依赖前2个字段
+image.png
+
+query拼接
+image.png
+
+capability注入
+image.png
+
+性能初评
+由于模块是planner的前置，因此他的耗时会影响体验，要尽可能小，虽然现在已经和context以及车书改写并行
+当前产品优先选择的是2.0 lite，2.0 mini作为备选，2.0lite还是太大，速度应该不能达成，下面都先研发自测验证一下
+下面是使用QA的随机query，不考虑准确率，这里只看性能，可以通过首token来初步评估
+2.0 lite
+0215
+image.png
+
+0428
+image.png
+
+2.0 mini
+image.png
+
+目前看，2.0 mini可能可行，需要QA测试，2.0 lite基本上是不可行
+
+9.8号补充
+账号加白，申请2.0lite模型单元：
+ep-20260908121205-7k6z8，速度基本满足要求
+
+
+

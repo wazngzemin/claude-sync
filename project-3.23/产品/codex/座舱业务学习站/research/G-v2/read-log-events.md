@@ -1,0 +1,50 @@
+# 事件与 SOP 研究读取记录
+
+- 已读 V-STANDARD.md 全文、component-cards.md 1~82（分段读取；重点任务65~74、SP75~82），Planner 提示词输入1~4及 task_agent 完整说明；仅作为标准和相邻边界。
+- event-tech.md 全文 1~328：输出 EVT-F001~008、EVT-K001。
+- event-template.md 单行 JSON 61190 字符：解析全部外层，检查完整 content_excerpt；原始证据自带 partial/truncated，内部摘要范围不足，不声明完整原表。输出 EVT-F009。
+- event-prd.md 全文1~1845：去掉HTML排版逐段读取，含版本历史、全部事件/任务示例、Q&A与划线删除内容；输出 EVT-F010~015、EVT-C001~002。
+- event-trigger.md 全文1~924：逐段读完，含全部模板/JSON/Thrift、划线方案及估时；输出 EVT-F016~024、EVT-C003~004。注意删除的事件同步方案不得当现状。
+- event-transcript.md 全文1~2124：逐段读取所有发言，会议为2026-08-11，保留共识/现状/待办并以文字记录覆盖技术方案仍残留旧描述；输出 EVT-F025~038、EVT-C005~007。
+- event-template-register/7ef11f.json：读取全部JSON外层、14个非空原始行（含富文本）及2个规范化事件；body_range_partial；输出EVT-F040。
+- event-template-register/TXmgZY.json：读取全部JSON外层、3个非空原始行（含富文本）及2个规范化事件；body_range_complete；输出EVT-F041。
+- event-template-register/tLxzXp.json：读取全部JSON外层、2个非空原始行（含富文本）及0个规范化事件；body_range_complete；输出EVT-F042。
+- event-template-register/OiIiqT.json：读取全部JSON外层、5个非空原始行（含富文本）及1个规范化事件；body_range_partial；输出EVT-F043。
+- event-template-register/Ng8FiS.json：读取全部JSON外层、28个非空原始行（含富文本）及23个规范化事件；body_range_complete；输出EVT-F044。
+- event-template-register/lvx6qs.json：读取全部JSON外层、1个非空原始行（含富文本）及0个规范化事件；body_range_complete；输出EVT-F045。
+- event-template-register/1nHVer.json：读取全部JSON外层、6个非空原始行（含富文本）及1个规范化事件；body_range_complete；输出EVT-F046。
+- event-template-register/KqEqAs.json：读取全部JSON外层、12个非空原始行（含富文本）及5个规范化事件；body_range_complete；输出EVT-F047。
+- event-template-register/phh6Cq.json：读取全部JSON外层、13个非空原始行（含富文本）及2个规范化事件；body_range_complete；输出EVT-F048。
+- event-template-register/tW9cLl.json：读取全部JSON外层、0个非空原始行（含富文本）及0个规范化事件；body_range_complete；输出EVT-F049。
+- event-template-register/JjAZED.json：读取全部JSON外层、24个非空原始行（含富文本）及4个规范化事件；body_range_partial；输出EVT-F050。
+- event-template-register/vAgUDz.json：读取全部JSON外层、48个非空原始行（含富文本）及26个规范化事件；body_range_complete；输出EVT-F051。
+- AI汽车SOP功能清单 (1).xlsx：用python3 -I+openpyxl只读遍历全部13张表和全部行，核表头与相关项，输出sop-items.md 31条来源行、EVT-F052~053；首轮read_only EmptyCell无row属性已改values_only逐行枚举完成，无遗漏工作表。
+- memory-events/README.md全文、event-production-consumption-20261023.md触发器生产/使用/接口167~333行、supplemental-searches.json全部元数据已读；与event-tech主体同源不重复计事实。memory-system-20261023.md触发相关画报1107~1140和隐私1475/1503为点击出图与敏感词触发，非云端条件触发器；memory-poi-sync-20261023.md全文关键词未命中云触发器，仅记忆同步，留K。
+- T-v2/facts.md已读触发/回调/视觉/定时/车型/时长和冲突相关段（重点70~140、170~310、310~402）；交接40条事实EVT-F054~093；cases.md逐条读48条相关真实问题并交接EVT-C008~055（原T-R号仍留标题）；继续补设计条目。
+- coverage-expansion/sweep-config/SF-20.md：关键词命中与前后完整条目已读（SF-84无关键词命中），保留计划/DOING标签、早期里程碑不外推11月。
+- coverage-expansion/sweep-config/SF-287.md：关键词命中与前后完整条目已读（SF-84无关键词命中），保留计划/DOING标签、早期里程碑不外推11月。
+- coverage-expansion/sweep-config/SF-28.md：关键词命中与前后完整条目已读（SF-84无关键词命中），保留计划/DOING标签、早期里程碑不外推11月。
+- coverage-expansion/sweep-config/SF-128.md：关键词命中与前后完整条目已读（SF-84无关键词命中），保留计划/DOING标签、早期里程碑不外推11月。
+- coverage-expansion/sweep-config/SF-19.md：关键词命中与前后完整条目已读（SF-84无关键词命中），保留计划/DOING标签、早期里程碑不外推11月。
+- coverage-expansion/sweep-config/SF-84.md：关键词命中与前后完整条目已读（SF-84无关键词命中），保留计划/DOING标签、早期里程碑不外推11月。
+- coverage-expansion/sweep-config/SF-243.md：关键词命中与前后完整条目已读（SF-84无关键词命中），保留计划/DOING标签、早期里程碑不外推11月。
+- coverage-expansion/sweep-config/SF-110.md：关键词命中与前后完整条目已读（SF-84无关键词命中），保留计划/DOING标签、早期里程碑不外推11月。
+- coverage-expansion/sweep-config/SF-61.md关键词命中完整上下文已读；SF-61唯一trigger命中为闭合HTML标签内文本之外无独立G事实（周报整车smoke58%不是触发器通过率）；其余新增EVT-F102~115与EVT-C056~057。
+- coverage-expansion/sweep-config/SF-167.md关键词命中完整上下文已读；SF-61唯一trigger命中为闭合HTML标签内文本之外无独立G事实（周报整车smoke58%不是触发器通过率）；其余新增EVT-F102~115与EVT-C056~057。
+- coverage-expansion/sweep-config/SF-157.md关键词命中完整上下文已读；SF-61唯一trigger命中为闭合HTML标签内文本之外无独立G事实（周报整车smoke58%不是触发器通过率）；其余新增EVT-F102~115与EVT-C056~057。
+- coverage-expansion/sweep-config/SF-168.md关键词命中完整上下文已读；SF-61唯一trigger命中为闭合HTML标签内文本之外无独立G事实（周报整车smoke58%不是触发器通过率）；其余新增EVT-F102~115与EVT-C056~057。
+- coverage-expansion/sweep-config/SF-109.md关键词命中完整上下文已读；SF-61唯一trigger命中为闭合HTML标签内文本之外无独立G事实（周报整车smoke58%不是触发器通过率）；其余新增EVT-F102~115与EVT-C056~057。
+- coverage-expansion/sweep-config/SF-189.md关键词命中完整上下文已读；SF-61唯一trigger命中为闭合HTML标签内文本之外无独立G事实（周报整车smoke58%不是触发器通过率）；其余新增EVT-F102~115与EVT-C056~057。
+- coverage-expansion/sweep-evaluation/SV-38*.md：已读G关键词相关完整条目；38/246/120以对应文字记录为准，66/70文字记录仅forbidden失败不据AI纪要定共识，165仅枚举标签无G业务新事实，259只取旧工具合同不照抄旧提示词。新增EVT-F116~127、EVT-C058~062。
+- coverage-expansion/sweep-evaluation/SV-47*.md：已读G关键词相关完整条目；38/246/120以对应文字记录为准，66/70文字记录仅forbidden失败不据AI纪要定共识，165仅枚举标签无G业务新事实，259只取旧工具合同不照抄旧提示词。新增EVT-F116~127、EVT-C058~062。
+- coverage-expansion/sweep-evaluation/SV-138*.md：已读G关键词相关完整条目；38/246/120以对应文字记录为准，66/70文字记录仅forbidden失败不据AI纪要定共识，165仅枚举标签无G业务新事实，259只取旧工具合同不照抄旧提示词。新增EVT-F116~127、EVT-C058~062。
+- coverage-expansion/sweep-evaluation/SV-246*.md：已读G关键词相关完整条目；38/246/120以对应文字记录为准，66/70文字记录仅forbidden失败不据AI纪要定共识，165仅枚举标签无G业务新事实，259只取旧工具合同不照抄旧提示词。新增EVT-F116~127、EVT-C058~062。
+- coverage-expansion/sweep-evaluation/SV-259*.md：已读G关键词相关完整条目；38/246/120以对应文字记录为准，66/70文字记录仅forbidden失败不据AI纪要定共识，165仅枚举标签无G业务新事实，259只取旧工具合同不照抄旧提示词。新增EVT-F116~127、EVT-C058~062。
+- coverage-expansion/sweep-evaluation/SV-200*.md：已读G关键词相关完整条目；38/246/120以对应文字记录为准，66/70文字记录仅forbidden失败不据AI纪要定共识，165仅枚举标签无G业务新事实，259只取旧工具合同不照抄旧提示词。新增EVT-F116~127、EVT-C058~062。
+- coverage-expansion/sweep-evaluation/SV-220*.md：已读G关键词相关完整条目；38/246/120以对应文字记录为准，66/70文字记录仅forbidden失败不据AI纪要定共识，165仅枚举标签无G业务新事实，259只取旧工具合同不照抄旧提示词。新增EVT-F116~127、EVT-C058~062。
+- coverage-expansion/sweep-evaluation/SV-165*.md：已读G关键词相关完整条目；38/246/120以对应文字记录为准，66/70文字记录仅forbidden失败不据AI纪要定共识，165仅枚举标签无G业务新事实，259只取旧工具合同不照抄旧提示词。新增EVT-F116~127、EVT-C058~062。
+- coverage-expansion/sweep-evaluation/SV-66*.md：已读G关键词相关完整条目；38/246/120以对应文字记录为准，66/70文字记录仅forbidden失败不据AI纪要定共识，165仅枚举标签无G业务新事实，259只取旧工具合同不照抄旧提示词。新增EVT-F116~127、EVT-C058~062。
+- coverage-expansion/sweep-evaluation/SV-120*.md：已读G关键词相关完整条目；38/246/120以对应文字记录为准，66/70文字记录仅forbidden失败不据AI纪要定共识，165仅枚举标签无G业务新事实，259只取旧工具合同不照抄旧提示词。新增EVT-F116~127、EVT-C058~062。
+- coverage-expansion/sweep-evaluation/SV-70*.md：已读G关键词相关完整条目；38/246/120以对应文字记录为准，66/70文字记录仅forbidden失败不据AI纪要定共识，165仅枚举标签无G业务新事实，259只取旧工具合同不照抄旧提示词。新增EVT-F116~127、EVT-C058~062。
+- T-v2/cases.md的S001~176设计/测试条目按用户原话、前提、触发条件、预期与来源逐项审读，选择35条触发机制差异完整交接EVT-D001~035；其余同类话术和T/U操作保留回指，不增加事故数。
+- event-template-register/README.md已全文读取16行，66条事件记录/64个ID是当次已读范围而非上线总数；三表尾部partial、重复ID与空表边界均保留。

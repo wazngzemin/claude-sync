@@ -1,0 +1,178 @@
+# 「豆包」-「美团订座」卡片一闪而过问题排查 | wiki/Phopw0BvViDjaEki9MAcBtbKn4c | edit(BJ): 2026-07-22 17:07 | type docx
+「豆包」-「美团订座」卡片一闪而过问题排查
+
+结论：本次“大卡一闪而过”不是工具展示状态触发，也不是 AI Canvas 15 秒超时。直接原因是大卡展示后收到 QueryRelation(related=false)，QueryRelationHelper 认为当前 request 没有展示业务卡片，返回 closeCanvas=true，随后 SaicStrategy 主动下发 HideCanvasForMessageCard，画布进程执行 hideAICanvasNow。
+一、问题背景
+日志文件：/Users/bytedance/Downloads/dna_1617.txt
+问题时间：2026-07-22 16:23 左右。实际大卡一闪链路发生在 16:22:05.860 - 16:22:07.177，随后 16:23 左右继续进入下一轮美团订座工具展示。
+用户现象：美团订座相关 AI Canvas 大卡刚展示出来，很快就消失。
+涉及 requestId：a4d183e4-3827-4082-8b94-d499dd95b123
+涉及大卡消息：life_service_canvas_a4d183e4-3827-4082-8b94-d499dd95b123，bizTag=life_service_canvas_card，command=reserve_shop_list。
+二、关键结论
+工具展示状态只影响豆包 ASR 工具展示区，以及在大卡已可见时影响退出协调器的保活/倒计时挂起；它不负责创建或关闭本次 life service AI Canvas 大卡。
+本次大卡真实显示成功：画布进程执行了 AICanvasViewManager.showCard，并上报 AICanvas visibility changed: true。
+大卡消失由主进程主动下发 HideCanvasForMessageCard(now=false) 触发。
+触发隐藏的上游是 QueryRelation(related=false)，不是工具状态、不是超时、不是崩溃。
+误判点在 QueryRelationHelper.currentRequestHasDisplayCard：该字段只通过主进程的 cellType != null 标记展示过卡片，但 life service 大卡是在画布进程侧渲染，未回写该状态，导致即使大卡已显示，主进程仍认为 hasDisplayCard=false。
+三、关键日志时间线
+
+
+时间
+
+日志证据
+
+含义
+
+16:22:05.844
+
+CanvasRelayAbility: sendData MessageReceiveData(... life_service_canvas_a4d183e4..., bizTag=life_service_canvas_card, command=reserve_shop_list ...)
+
+主进程把美团订座列表大卡数据发送到 AI Canvas。
+
+16:22:05.852
+
+AICanvasStrategy onReceiveData MessageReceiveData(... life_service_canvas_a4d183e4...)
+
+画布进程收到大卡消息。
+
+16:22:05.860
+
+AICanvasStrategy handleMessage, can transform to life_service_canvas_card
+
+消息成功转换为 life service canvas card。
+
+16:22:05.860
+
+AICanvasViewManager showCard start, cardKey=a4d183e4..., stateCount=1
+
+开始展示大卡。
+
+16:22:05.919
+
+AICanvas visibility changed: true
+
+大卡宿主真实可见。
+
+16:22:05.983
+
+AICardExit 收到事件：卡片展示(cardType=CANVAS, requestId=a4d183e4...)
+
+主进程退出协调器确认 Canvas 会话已激活。
+
+16:22:07.159
+
+QueryRelationFrontier ... message={"is_related":false}, requestId=a4d183e4...
+
+云端/前沿下发当前 query 不相关事件。
+
+16:22:07.170
+
+QueryRelationHelper handleQueryRelation ... related=false ... hasDisplayCard=false
+
+本地判断该 request 没有展示卡片，进入关闭逻辑。
+
+16:22:07.170
+
+QueryRelation hide canvas because current canvas request is unrelated
+
+隐藏大卡的直接判定点。
+
+16:22:07.170
+
+CanvasRelayAbility: sendData HideCanvasForMessageCard(now=false)
+
+主进程主动向画布进程发送隐藏指令。
+
+16:22:07.177
+
+AICanvasStrategy receive HideCanvasForMessageCard, hide canvas immediate=false
+
+画布进程收到隐藏指令。
+
+16:22:07.177
+
+AICanvasViewManager hideAICanvasNow
+
+大卡被实际隐藏。
+四、流程图：日志事件时序
+
+五、代码触发链路
+
+
+模块
+
+代码位置
+
+作用
+
+主进程路由
+
+SaicStrategy.handleDataForAICanvas(...)
+
+收到 NovaData.QueryRelation 后调用 QueryRelationHelper.handleQueryRelation，如果返回 true，则发送 HideCanvasForMessageCard。
+
+关闭判定
+
+QueryRelationHelper.handleQueryRelation(...)
+
+当 related=false 且 currentRequestHasDisplayCard=false 时，返回 true 并打印 QueryRelation hide canvas because current canvas request is unrelated。
+
+画布进程
+
+AICanvasStrategy.onReceiveData(...)
+
+收到 HideCanvasForMessageCard 后调用 AICanvasViewManager.hideAICanvas(data.now)。
+
+实际隐藏
+
+AICanvasViewManager.hideAICanvasNow()
+
+调用 pluginViewContainer.hideContainer() 并上报 visibility=false。
+QueryRelationHelper 关键逻辑
+fun handleQueryRelation(data: NovaData.QueryRelation): Boolean {
+    val hasDisplayCard = currentRequestHasDisplayCard
+    if (!data.related && !hasDisplayCard) {
+        UiLog.i(TAG, "QueryRelation hide canvas because current canvas request is unrelated")
+        return true
+    }
+    return false
+}
+SaicStrategy 触发隐藏
+is NovaData.QueryRelation -> {
+    val closeCanvas = QueryRelationHelper.handleQueryRelation(data)
+    if (closeCanvas) {
+        CanvasRelayAbility.sendData(NovaData.HideCanvasForMessageCard())
+    }
+}
+AICanvasStrategy 执行隐藏
+is NovaData.HideCanvasForMessageCard -> {
+    UiLog.i(TAG, "receive HideCanvasForMessageCard, hide canvas immediate=${data.now}")
+    AICanvasViewManager.getInstance().hideAICanvas(data.now)
+}
+六、流程图：代码链路与误判点
+
+七、为什么会误判
+QueryRelationHelper.currentRequestHasDisplayCard 只在主进程执行 recordMessageRoute(msg, cellType) 时更新：
+currentRequestHasDisplayCard 的更新条件
+fun recordMessageRoute(msg: UiMessage, cellType: String?) {
+    val requestId = msg.getRequestId()?.takeIf { it.isNotEmpty() } ?: return
+    if (currentRequestId != requestId) return
+
+    if (!cellType.isNullOrEmpty()) {
+        currentRequestHasDisplayCard = true
+    }
+}
+但这次 life service 大卡是 life_service_canvas_card，它在画布进程 AICanvasStrategy.handleMessage 中被转换并展示。主进程侧普通文本消息因为 disable_answer_display=true 且 cellType=null，被路由为 NON_UI，没有把 currentRequestHasDisplayCard 置为 true。
+因此状态出现不一致：画布侧大卡已经可见，但主进程 QueryRelationHelper 仍认为当前 request 没有展示卡片。当 related=false 到来时，就错误触发了隐藏。
+八、排查思路复盘
+先确认用户描述中的“卡片”到底是工具展示区还是 AI Canvas 大卡，避免把 tool_display_bridge 的 HIDE 误认为大卡隐藏。
+按 requestId 串联日志，分别跟踪 showCard、AICanvas visibility changed、HideCanvasForMessageCard、hideAICanvasNow。
+确认大卡真实展示过：必须同时看到 showCard start 和 visibility changed: true。
+在 hideAICanvasNow 前向上追溯最近的主动隐藏指令，定位到 CanvasRelayAbility.sendData HideCanvasForMessageCard。
+继续向上追溯该隐藏指令的来源，定位到 QueryRelationHelper.handleQueryRelation 的 related=false && hasDisplayCard=false 分支。
+最后对照代码确认 hasDisplayCard 的更新口径，发现画布侧 life service 大卡展示未同步给主进程状态。
+九、后续定位建议
+如果后续再出现 AI Canvas 大卡一闪，优先 grep：AICanvasViewManager、HideCanvasForMessageCard、QueryRelation hide canvas、卡片展示(cardType=CANVAS、卡片已收口(cardType=CANVAS。
+判断是否为同类问题时，重点看是否存在 showCard/visibility=true 后紧跟 QueryRelation(related=false) 和 HideCanvasForMessageCard。
+若要修复，需要让主进程正确知道 life service canvas card 已经展示，或调整 QueryRelationHelper 对 related=false 的关闭条件，避免仅凭 currentRequestHasDisplayCard=false 关闭已经可见的大卡。
+

@@ -1,0 +1,53 @@
+# CORE 逐源已读记录
+
+- raw/articles/chat-0818-trigger-repeat-trigger-discussion.md：1-45 全部；3 条事实、1 条真实问题；日期为摄入日不是可证实的消息发生日。
+- research/case-rewrite-20261029/async/G-trigger.md：1-818 全文；15 条事实、3 张候选卡片；历史快照与最新 11 月讨论不得混写。
+- research/case-rewrite-20261029/async/G-trigger.json：解开 content[0].text 与内层 content.content；正文与同名 Markdown 一致=True；源 URL=https://bytedance.larkoffice.com/wiki/Xk6xwM3l8iK4oCkXIMlcIo4hnFc；另有结构元数据。
+- research/case-rewrite-20261029/async/G-event.json：解开 content[0].text 与内层 content.content；正文与同名 Markdown 一致=True；源 URL=https://bytedance.larkoffice.com/wiki/Aowjw935OiMyEcki7FFco33QnTh；另有结构元数据。
+- research/case-rewrite-20261029/async/G-time.json：解开 content[0].text 与内层 content.content；正文与同名 Markdown 一致=True；源 URL=https://bytedance.larkoffice.com/wiki/Ha0LwvsK3iSfB9kJ7pXccouxnGd；另有结构元数据。
+- research/case-rewrite-20261029/async/G-event.md：1-924 全部；9 条事实、1 条设计缺口、1 张候选卡片；识别删除范围与接口草案。
+- research/case-rewrite-20261029/async/G-time.md：1-554 全部；7 条事实、2 条设计场景、1 张候选卡片；保留早期上限/修改方式/跨下电冲突。
+- raw/articles/trigger-requirements-full-chain-detail.html：全文 1-1086（正文去标签、1～13 需求和词典；中段回原行号读透）；10 条事实、4 条问题/设计风险；此为 6 月解释稿，端云铁律与后续云端方案有版本冲突。
+- raw/articles/saic-timed-trigger-20261013/doc1.md：全文 1-1290，去空表格后 365 行完整读取；3 条事实、1 张候选卡片；接口废弃标识保留。
+- raw/articles/saic-timed-trigger-20261013/external1.md：全文 1-81；2 条事实。
+- raw/articles/saic-timed-trigger-20261013/doc2.md：全文 1-2587，去空表格 705 行；7 条事实、1 张候选卡片；MVP 2025-12 历史范围，旧接口已废弃，选型调研不可当全量现行仲裁。
+- raw/articles/saic-timed-trigger-20261013/next0.md：全文 1-2554，去空表格 714 行完整读；6 条事实；接口字段与默认过滤、单位均保留。
+- raw/articles/saic-timed-trigger-20261013/external0.md：全文 1-2039，去空表格 938 行；4 条事实；全部 Python 示例只读未执行。
+- raw/articles/saic-timed-trigger-20261013/partner_first.md：全文 1-755，去空表格 191 行；5 条事实；验收值空白、Preview 范围单独标。
+- raw/articles/saic-timed-trigger-20261013/partner1.md：全文 1-750，去空表格 254 行；8 条事实、3 条真实问题/设计限制；保留 0805 澄清与删去 30 次上限。
+- raw/articles/saic-timed-trigger-20261013/doc0.md：全文 1-3194，去空表格 682 行；5 条 G 相关事实；非触发模块亦通读，SOR 目标与交付实绩区分。
+- raw/articles/saic-timed-trigger-20261013/next1.md：全文 1-2272，去空表格 664 行；4 条 G 相关事实；现行工具名和输入格式以 11-17 SP 为准。
+- raw/articles/saic-timed-trigger-20261013/seres.md：1-554 全文，文件内容与已完整读完 G-time.md 逐字符一致；不重复事实，保留重复来源。
+- raw/articles/entities Advisor 主动服务模块.md：1-31 全文；1 条事实；用户给定简称实际文件为此名。
+- wiki/concepts/trigger-condition-taxonomy.md：1-93 全文；回源核对分类、阈值边沿、时间/距离部署；1 条事实对照。
+- wiki/concepts/signal-hub.md：1-75 全文；三表/112/730 范围为 7.10 会议线索，待回源而非直接用作运行事实。
+- wiki/entities/trigger-engine.md：1-123 全文；回源 08-18、6 月稿，保留端侧 scope 未决及重构目标边界。
+- wiki/synthesis/saic-timed-task-trigger.md：1-30 全文；已回 doc0/partner_first/partner1/external0 核对；1 条边界事实。
+- wiki/summaries/chat-0818-trigger-edge-trigger-discussion.md：1-64 全部，已回原始截图转录核对，不新增重复事实。
+- wiki/summaries/meeting-0710-sls-signal-context-trigger-review.md：1-142 全部，已找到实际更名路径并读文字记录回源。
+- wiki/summaries/trigger-requirements-full-chain-detail.md：1-84 全部，已回对应 HTML 核对，不新增重复事实。
+- wiki/summaries/meeting-0531-seres-requirement-alignment.md：1-261 全部，随后回原会议相关段；仅相关事实才收入 G。
+- wiki/synthesis/trigger-platform-lecture-v2.md：1-655 全文；分原稿、11 月源、旧定时稿核对；2 条冲突/证据边界事实，11 月最新源由另一研究者详核。
+- wiki/synthesis/trigger-platform-lecture-v2-slim.md：1-111 全文；为强化版派生副本，删旧建新、早期上限、边沿“已实现”表述按原始证据校正。
+- 产品/1-原始素材/会议纪要/7月10日sls端状态接入context,接入触发器需求评审 .md：1-881 文字记录全篇；10 条事实、2 条接入问题/风险；核对三表/范围/东风奇瑞/端侧分工/原子动作。
+- raw/articles/meeting-0531-seres-requirement-alignment.md：按 wiki 触发相关点回源，读取 2620-2650、5030-5180、6900-6990 及关键词上下文；4 条事实（非用户要求全读的新增原会议，只取 G 相关）。
+- research/case-rewrite-20261029/async/S-advisor.md：1-406 全文；5 条事实，触发/G与建议生成/S、输入排队/M分清。
+- research/case-rewrite-20261029/support/P.md：相关段 1-120、198-330、504-1502（配置字段/唤醒/判断/频控/记录/四模板读透）；12 条事实、4 条设计案例、2 张候选卡；平台交互细节留 P。
+- research/case-rewrite-20261029/support/preset.md：G 相关段 1-474、565-640、1404-1636、2001-2327、2739-3012、3243、3689-3836；6 条事实，保留静默/确认、P/非P、湿度分支冲突；其余卡片细节留 L/U。
+- research/case-rewrite-20261029/support/L.md：相关段 74-230、244-702；5 条事实、1 条问题示例；端侧调度细节留 L。
+- research/case-rewrite-20261029/async/S-prd.md：G 相关段 1-140、380-420、610-655、720-770、2320-2395；2 条分工事实；Advisor 内部详细业务留 S。
+- research/case-rewrite-20261029/async/S-progress.md：关键词定位相关段 1-85、240-310、650-725、1260-1335、1640-1690、1777-1840、1860-1930、2440-2555；4 条事实、4 条真实测试/联调案例；日期和单模块/端到端分开。
+- research/chapters/B/raw/endstate-event-onepage.txt：1-180 相关全文，角色与状态/事件分工已在B，将作为回指；其中默认事件窗口与现行SP不同不转抄。
+- research/chapters/B/raw/endstate-query-tech.txt：1-250及300-325相关段，3条方案事实；通知体仍待触发器对齐。
+- research/chapters/B/raw/endstate2-signal.txt：1-175及1120-1180相关段，1条trigger_usable事实。
+- research/chapters/C/raw/h2-biweekly.txt：关键段710-775、1900-2005、3185-3320、5350-5385；4条排期/现状事实，端侧不统一协议分期保留。
+- research/chapters/W/raw/fe-biweekly.txt：70-115，1条前端计划。
+- research/chapters/R/raw/m0915-weekly.txt：1065-1100、1550-1580，1条排期未对齐事实，模型换2.0mini只是待评测设想。
+- research/chapters/R/raw/e68-weekly.txt：表头及主动服务/动态任务/端状态行（13、14、21）与关键日期列；3条事实、2条真实问题；整体通过率不当触发器准确率。
+- research/chapters/B/raw/chat-endstate-30d.txt：相关关键词与消息片段已读，原文件JSON在59999字符处截断无法完整解析；截图多为无权限附件，无新的可独立确证G规则事实；记录为partial，不虚称完整群聊。
+
+## 交付计数与勘误
+
+- 本研究者最终追加 CORE-F001～155 共 155 条事实、CORE-C001～024 共 24 条案例/问题/设计风险、CORE-K001～009 共 9 条候选概念卡。
+- 位置勘误：E68 端状态上报行实际在 research/chapters/R/raw/e68-weekly.txt:23（非21）；CORE-F152、CORE-C023及读日志该项应以23为准。
+- 每份指定核心原件和wiki均已读；新增B/S/P/L材料按 G 相关段读取；未启浏览器、未改原材料/网页/正式卡片。

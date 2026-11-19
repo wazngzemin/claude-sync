@@ -1,0 +1,232 @@
+「豆包」-「定位」- 经纬度上报
+结论摘要
+流程图速览
+下面 3 张图用于快速理解 ae6cd813 版本下的定位触发、轮询与上传链路。
+图 1：整体定位与上传链路
+
+图 2：触发场景与时间间隔
+
+图 3：轮询与当前问题边界
+
+
+读图建议：先看图 1 理解主链路，再看图 2 区分不同触发场景的限流策略，最后看图 3 理解为什么当前问题已经基本排除“端上没取到/没发起上传”。
+
+本文基于 flow_android commit ae6cd813493b486e09f0f75d3982884c356c34b2，以及本轮对 /Users/bytedance/Documents/result.txt 的日志排查，梳理豆包定位触发、轮询、限流、SDK 上传接口和当前经纬度问题的已确认边界。
+端上统一入口是 LocationClient.singleLocate(scene, coordinateType, callback)，多数场景最终都会进入 BDLocationClient.getLocation。
+单次定位会设置 uploadSource=FlowLocation、maxCacheTime=0、locateType=AMAP、isUpload=true，因此端上调用定位时默认会要求 SDK 上传。
+经纬度上传接口是 https://api-normal.doubao.com/location/submit-v2/，日志中表现为 BDLocation: NetworkRequest post Path:/location/submit-v2/，随后 api_trace monitorApiOk。
+ae6cd813 版本中，车机场景轮询默认 60s，但仍保留 flow_location_config.vehicle_polling_interval 服务端覆盖能力；这点和之后“不要服务端下发”的最终要求需要区分。
+当前日志已确认端上能周期性获取定位并触发 /location/submit-v2/ 上传；仍未从端上代码确认“服务端通过中台 SDK 读到旧时间”的最终原因，剩余边界更偏 SDK 后端或云端存储/读取策略。
+核心代码位置
+
+
+模块
+
+文件与行号
+
+职责
+
+定位实现
+
+common/location/impl/src/mainland/java/com/larus/common/location/impl/LocationClient.kt:152
+
+singleLocate 主入口，负责权限、间隔、次数、BDLocation option、回调和轮询启动。
+
+轮询调度
+
+common/location/impl/src/mainland/java/com/larus/common/location/impl/FlowLocationScheduler.kt:60
+
+启动 POLL 轮询；车机场景单独走常驻轮询。
+
+配置
+
+common/location/impl/src/mainland/java/com/larus/common/location/impl/settings/FlowLocationConfig.kt:5
+
+冷热启动次数、缓存间隔、普通轮询间隔、车机轮询间隔配置。
+
+本地计数与时间
+
+common/location/impl/src/mainland/java/com/larus/common/location/impl/settings/LocalLocationKeva.kt:50
+
+保存最近定位时间 LCT，控制冷热启动/VUI 唤醒间隔与每日次数。
+
+埋点
+
+common/location/impl/src/mainland/java/com/larus/common/location/impl/event/LocationEventHelper.kt:47
+
+上报 location_update、location_update_error，并按 scene 标记 type。
+定位触发场景
+冷启动定位
+存在两条初始化路径，取决于 FeedOptConfigManager.getAppLaunchOptV3Cache() 的配置。
+InitStartLocationFeedShowTask.runInternal：当 appLaunchOptV3.enable=true 且 asyncInitLocationAfterFeed=true 时，执行 LocationService.init() 和 LocationService.singleLocate(LocateScene.COLD_LAUNCH)，代码位置 app/src/main/java/com/larus/init/task/InitStartLocationFeedShowTask.kt:24-29。
+InitLazyInitLocationTask.runInternal：当不走 feed show 异步初始化路径时，执行 LocationService.init() 和 LocationService.singleLocate(LocateScene.COLD_LAUNCH)，代码位置 app/src/main/java/com/larus/init/task/firstframe/InitLazyInitLocationTask.kt:16-23。
+冷启动定位会经过 LocationClient.checkLocateInterval：COLD_LAUNCH/HOT_LAUNCH 共用 keva.checkLaunchLocateInterval(config)，即距离上次定位时间需超过 update_cache_interval，默认 60s。代码位置 LocationClient.kt:333-341、LocalLocationKeva.kt:95-99。
+冷启动还受每日次数限制：cold_update_count 默认 1440，且依赖 BuildConfig.FEATURE_ENABLE_LAUNCH_LOCATION 开关。代码位置 FlowLocationConfig.kt:6-10、LocalLocationKeva.kt:57-71。
+热启动定位
+热启动入口来自 ActivityStackManager.OnAppBackGroundListener.onAppForeground。
+InitStartLocationFeedShowTask.onAppForeground 调用 LocationService.singleLocate(LocateScene.HOT_LAUNCH)，代码位置 app/src/main/java/com/larus/init/task/InitStartLocationFeedShowTask.kt:36-38。
+InitLazyInitLocationTask.onAppForeground 调用 LocationService.singleLocate(LocateScene.HOT_LAUNCH)，代码位置 app/src/main/java/com/larus/init/task/firstframe/InitLazyInitLocationTask.kt:30-32。
+热启动定位同样受 update_cache_interval 默认 60s 控制，并受 hot_update_count 默认 1440 的每日次数限制。代码位置 FlowLocationConfig.kt:11-20、LocalLocationKeva.kt:77-93。
+车机语音服务定位
+NovaService.onCreate 后延迟 8000ms 调用 LocationService.singleLocate(LocateScene.VUI_CMD)，代码位置 business/vehicle/impl/src/main/java/com/larus/vehicle/nova/service/NovaService.kt:25-31。
+VUI_CMD 在 checkLocateInterval 中直接返回 true，不受冷热启动 60s 缓存间隔影响；它属于用户主动触发类场景，会在 location_update 埋点中累计 proactive_trigger_index。代码位置 LocationClient.kt:333-343、LocationEventHelper.kt:105-139。
+Dora 唤醒定位
+LocationClient 实现 DoraWakeStateChangeCallback。onStateChange 中，当状态为 WAKE_UP 且 App 在后台时，调用 singleLocate(LocateScene.VUI_AWAKE)。代码位置 LocationClient.kt:560-565。
+VUI_AWAKE 受 awaken_update_cache_interval 控制，默认 60s；判断逻辑是距本地 LCT 最近定位时间超过阈值才允许定位。代码位置 FlowLocationConfig.kt:21-25、LocalLocationKeva.kt:101-104。
+小程序与授权补定位
+小程序 getLocation：AppletHostSystemActionServiceImpl.getLocation 调用 LocationService.singleLocate(LocateScene.APPLET)，成功后把 latitude/longitude 回传小程序。代码位置 business/applet/impl/src/main/java/com/bytedance/applet/impl/AppletHostSystemActionServiceImpl.kt:28-50。
+位置权限授权后重发问题：LocationUtils.resendQuestion 调用 LocationService.singleLocate(LocateScene.MSG_NEED_LOC)，成功后重新发送带 need_location=1 的消息。代码位置 business/applet/impl/src/main/java/com/bytedance/applet/utils/LocationUtils.kt:33-51。
+APPLET、MSG_NEED_LOC、SERVER_CMD、VUI_CMD、REALTIME_CALL_VIDEO_CMD 在 checkLocateInterval 中都是 true，不受本地 LCT 缓存间隔拦截。代码位置 LocationClient.kt:333-343。
+轮询定位流程与时间间隔
+轮询启动条件
+LocationClient.singleLocate 完成参数校验和 BDLocation option 设置后，有两处会启动轮询：
+在 singleLocate 主流程末尾，如果 SettingsService.forVehicle() 为 true，会调用 scheduler.startPoll(scene, coordinateType, false)，代码位置 LocationClient.kt:323-328。
+在定位回调 wrapLocationCallback 中，如果结果为 SUCCESS/TIME_OUT/SDK_INTERNAL_ERROR/NOT_SUPPORT_CONTINUOUS 且 scene.canTriggerPoll() 为 true，会调用 scheduler.startPoll(scene, coordinateType, true)，代码位置 LocationClient.kt:402-423。
+如果定位失败原因是 NOT_INITIALIZED、NO_PERMISSION、NO_IMPL_MODULE、REACH_LIMITATION、NO_GPS、NO_DATA、INTERVAL_NOT_REACH，则不会开启轮询。代码位置 LocationClient.kt:390-400。
+ae6cd813 中的车机轮询
+FlowLocationScheduler.startPoll 进入协程后，如果 SettingsService.forVehicle() 为 true，优先走车机常驻轮询分支：
+轮询周期 delayTime = (config.vehiclePollingIntervalSeconds ?: 60).coerceAtLeast(60) * 1000。
+默认值来自 FlowLocationConfig.vehiclePollingIntervalSeconds=60。
+服务端仍可通过 flow_location_config.vehicle_polling_interval 动态覆盖，但最小会被 coerceAtLeast(60) 限制为不低于 60s。
+每一轮调用 singleLocateSuspend(coordinateType)，内部再调用 locationService.singleLocate(LocateScene.POLL, ...)。
+POLL 场景 checkLocateInterval 恒为 true，且 hasLimit 不参与冷热启动次数限制，因此轮询定位不会被 LCT 的 60s 缓存间隔挡住。
+代码位置：FlowLocationScheduler.kt:79-93、FlowLocationScheduler.kt:140-169、FlowLocationConfig.kt:52-57、LocationClient.kt:333-343。
+
+版本口径注意：ae6cd813 仍保留 vehicle_polling_interval 服务端覆盖能力。用户后续提出“不要服务端下发”后，需要以后续提交为准；不能把 ae6cd813 描述成完全不依赖服务端配置。
+非车机普通轮询
+如果不是车机场景，FlowLocationScheduler 会走普通轮询：
+前 polling_reduce_frequency_count 次，随机等待 polling_start_interval 到 polling_end_interval 秒后定位。默认 polling_reduce_frequency_count=1000，polling_start_interval=60s，polling_end_interval=180s。
+超过降频次数后，随机等待 polling_reduce_frequency_start_interval 到 polling_reduce_frequency_end_interval 秒后定位。默认 600s 到 900s。
+如果任一随机区间配置为 null，则 getNextLocateDelay 返回 0，可能跳过或停止轮询。
+代码位置：FlowLocationScheduler.kt:95-134、FlowLocationConfig.kt:26-50、FlowLocationScheduler.kt:173-181。
+经纬度获取与上传链路
+端上调用链
+业务入口调用 LocationService.singleLocate(scene)。
+LocationClient.singleLocate 做初始化、权限、GPS、间隔和次数校验。
+通过 BDLocationClientOption 设置 SDK 参数：uploadSource=FlowLocation、maxCacheTime=0、locateType=AMAP、accuracyLevel=POI、triggerType=MANUAL、locationMode=Hight_Accuracy、isUpload=true。
+调用 mClient.getLocation，SDK 回调 BDLocation。
+按 coordinateType 转换经纬度：GCJ_O2 取 location.gcJ02，WGS_84 取原始 longitude/latitude。
+封装 GeoLocationInfo 回调给业务，同时 SDK 内部根据 isUpload=true 发起上传。
+核心代码位置：LocationClient.kt:152-210、LocationClient.kt:229-299。
+上传接口
+端上代码没有直接拼接 /location/submit-v2/，而是通过 BDLocation SDK 上传。LocationClient 设置 BDLocationClientOption.isUpload=true 和 uploadSource=FlowLocation 后，SDK 日志显示发起：
+SDK 上传接口
+POST https://api-normal.doubao.com/location/submit-v2/
+这也是服务端/中台侧应排查的接口：如果端上日志已有 NetworkRequest post Path:/location/submit-v2/ 且 monitorApiOk，则说明请求至少在客户端侧成功完成。
+本轮日志证据
+日志文件：/Users/bytedance/Documents/result.txt。刷新后的日志中，10:50:20 到 10:51:28 之间发现 7 组完整上传：构造 body、标记 upload_source、POST /location/submit-v2/、api_trace monitorApiOk。
+
+
+时间
+
+日志行
+
+logId
+
+结论
+
+10:50:20.980 - 10:50:21.350
+
+58369/58370/58489/59155
+
+202607161050205013620AD127D3FF6C9E
+
+SDK 生成 body，upload_source=FlowLocation，POST submit-v2，客户端 monitorApiOk。
+
+10:50:31.702 - 10:50:32.222
+
+69493/69494/69504/69669
+
+20260716105031B60BDBF02D16F66A2CBC
+
+同上，客户端上传成功。
+
+10:50:42.375 - 10:50:42.784
+
+79150/79151/79160/79366
+
+202607161050426A844755F013A527AD00
+
+同上，客户端上传成功。
+
+10:50:52.971 - 10:50:53.442
+
+84692/84693/84702/84914
+
+2026071610505296D948F1FDC46872E1DB
+
+同上，客户端上传成功。
+
+10:51:03.618 - 10:51:04.012
+
+95582/95583/95590/96104
+
+202607161051039268F3EDA361617C0515
+
+同上，客户端上传成功。
+
+10:51:15.399 - 10:51:15.807
+
+108815/108816/108843/109320
+
+202607161051154EDC6C6555D181715139
+
+同上，客户端上传成功。
+
+10:51:27.540 - 10:51:28.019
+
+117304/117305/117312/118193
+
+2026071610512714A1421E52C1A000DC8C
+
+同上，客户端上传成功。
+典型日志形态
+BDLocation: getSubmitUploadBody: originExtraStr: null, wrappedExtraStr: {}
+BDLocation: getLocationInfo upload_source:FlowLocation-upload_interval:300-extra:null
+BDLocation: NetworkRequest post Path:/location/submit-v2/
+api_trace: [monitorApiOk] https://api-normal.doubao.com/location/submit-v2/... logId=...
+当前经纬度问题的判断
+已确认
+端上 common/location 的 singleLocate 链路没有看到“经纬度相同就不上报”的去重逻辑。
+LocationClient 每次 singleLocate 都设置 isUpload=true，并把 uploadSource 设置为 FlowLocation。
+刷新日志里多次出现 /location/submit-v2/，且有 monitorApiOk，说明 BDLocation SDK 确实发出了上传请求。
+轮询路径拿到的经纬度与上传动作可以在日志里关联：loc_poll / LocationClient 证明端上获取，BDLocation / api_trace 证明 SDK 上传。
+不能直接下结论的部分
+仅凭端上日志还不能证明云端存储一定更新了“最新位置时间”。monitorApiOk 只能证明客户端请求成功，不能证明服务端写入策略。
+如果服务端通过中台 SDK 读到的仍是旧时间，需要继续确认 SDK 后端或云端读取接口是否存在“经纬度相同不更新时间”的策略。
+日志中的 upload_interval:300 来自 BDLocation SDK 内部日志，不等同于 ae6cd813 车机轮询代码里的 vehiclePollingIntervalSeconds。它需要 SDK 同学解释具体语义。
+下一步建议
+用本次表格中的 logId 请求 SDK/后端同学查 /location/submit-v2/ 的服务端落库结果：是否收到、是否写库、写入时间字段是什么。
+同时查服务端通过中台 SDK 读取的位置接口：读取的数据源、缓存 TTL、是否按坐标变化才刷新 update_time。
+继续抓端上日志时重点保留关键字：loc_poll、LocationClient、BDLocation、/location/submit-v2/、monitorApiOk、logId、gpsTime、ageMs、lat、lng。
+排查关键字
+
+
+关键字
+
+用途
+
+loc_poll
+
+查看轮询是否启动、周期、每轮结果、POLL 经纬度和 gpsTime。
+
+LocationClient
+
+查看 singleLocate 是否被调用、SDK option、getLocation 回调、经纬度转换和结果分支。
+
+loc_event
+
+查看 location_update/location_update_error 埋点是否发出。
+
+BDLocation
+
+查看 SDK 是否构造上传 body、upload_source、upload_interval 和网络请求路径。
+
+/location/submit-v2/
+
+确认经纬度上传接口是否真正发起。
+
+monitorApiOk
+
+确认客户端侧 submit-v2 请求成功及对应 logId。
+

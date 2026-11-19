@@ -1,0 +1,498 @@
+# 「豆包」-「Director」-_总结话术上屏慢链路梳理 | wiki/FMVJwZ5zmiJ6Dzk9ZyScGUCDnAc | edit(BJ): 2026-05-30 10:11 | type docx
+「豆包」-「Director」- 总结话术上屏慢链路梳理
+
+1. 豆包语音联网查询链路总览
+
+核心结论：对“今天金价怎么样？”这类联网查询问题，用户可见链路通常分成两个阶段：搜索中的铺垫话术 与 搜索完成后的总结性话术。从当前 Android 仓库能确认的事实看，客户端主要负责 ASR 结果接入、联网搜索意图透传、FlowIM/Nova 消息接收、搜索 block / 文本消息展示；而“具体文案如何生成、何时返回”主要在服务端 / Director / 搜索编排侧完成。
+下面按“用户 query → ASR → Chat 发消息 → FlowIM / 服务端编排 → 铺垫话术 → 总结性话术 → Nova / UI 上屏”的顺序梳理整条链路，便于后续排查“是上游没返回、IM 没到、还是客户端展示慢”。
+
+
+
+阶段
+
+作用
+
+典型文案 / 载体
+
+客户端显示入口
+
+关键代码锚点
+
+铺垫话术
+
+在联网搜索进行中，先给用户可感知反馈，避免长时间静默
+
+searchQueryBlock.summary / summaryV2
+
+TextSwitchBlockView 轮播或完成态首条文案
+
+
+TextSwitchBlockView.generateSwitchList / bindData：flowSDK/business/mainbot/impl/src/main/java/com/larus/bmhome/chat/deepresearch/view/TextSwitchBlockView.kt:56
+
+总结性话术
+
+联网搜索完成后，给出归纳后的结论与来源摘要
+
+searchQueryResultBlock.summary 或文本消息内容
+
+ContentSearchReferenceBlockHolder / Nova 文本下行展示
+
+ContentSearchReferenceBlockHolder.handleSearchReferenceBlock：flowSDK/business/mainbot/impl/src/main/java/com/larus/bmhome/blockarch/holder/content/ContentSearchReferenceBlockHolder.kt:80
+用户 query 进入语音识别：用户说“今天金价怎么样？”，语音识别成功后，ASR 结果通过 coreInputAbility?.onAsrResultSuccess(content) 进入 Chat 输入链路。代码入口见 flowSDK/business/flow-voice-input/impl/src/main/java/com/larus/asr/ChatBottomSpeakerComponent.kt:1102。
+客户端确定是否要走联网搜索：Chat 层通过 ActiveSwitchType.NETSEARCH 读取“联网搜索”开关状态，最终调用 ActiveSwitchHelper.isSwitchOpen(...)。代码见 flowSDK/business/chat/impl/src/main/java/com/larus/bmhome/instruction/InstructionInputComponent.kt:1836。
+发送 query 时透传联网搜索意图：真正发消息时，客户端会把 need_net_search 写入 message ext，然后由 FlowIMSDK.messageService().sendMessage(...) 发出。代码见 flowSDK/business/chat/impl/src/main/java/com/larus/bmhome/chat/model/strategy/ChatSendStrategy.kt:186。
+FlowIM / 服务端编排阶段：Android 仓库里可以确认 FlowIM 是统一消息通道，SDK 初始化入口在 app/src/main/java/com/larus/init/task/InitFlowIMSDKTask.kt:52。此后是否真正触发 web search、何时返回铺垫话术 / 总结性话术，主要由服务端 / Director / 搜索编排侧决定。
+铺垫话术返回并展示：TYPE_BLOCK_SEARCH_QUERY（搜索过程 block）对应的文案由 searchQueryBlock.summary / summaryV2 驱动；未完成态可轮播，完成态使用首条文案。代码见 flowSDK/business/mainbot/api/src/main/java/com/larus/bmhome/chat/deepresearch/view/BlockContentType.kt:11 与 flowSDK/business/mainbot/impl/src/main/java/com/larus/bmhome/chat/deepresearch/view/TextSwitchBlockView.kt:118。
+总结性话术返回并展示：联网搜索完成后，结果头部使用 searchQueryResultBlock.summary，由 ContentSearchReferenceBlockHolder 组装为头部标题和来源列表。代码见 flowSDK/business/mainbot/impl/src/main/java/com/larus/bmhome/blockarch/holder/content/ContentSearchReferenceBlockHolder.kt:84。
+Nova / 车机文本可见上屏：FlowIM 回来的文本消息由 NovaServiceBinder 注册观察并分发 MessageReceiveData / MessageUpdateData；在当前仓库里，可明确看到的文本可见入口是 MessageTextFloatWindow.recordMessage() → MessageTextAdapter.updateA()。代码见 business/vehicle/impl/src/main/java/com/larus/vehicle/nova/service/NovaServiceBinder.kt:342、business/vehicle/impl/src/main/java/com/larus/vehicle/ui/window/messagetext/MessageTextFloatWindow.kt:189、business/vehicle/impl/src/main/java/com/larus/vehicle/ui/window/messagetext/MessageTextAdapter.kt:80。
+
+
+
+如何理解“铺垫话术慢”：如果 need_net_search 已透传、query 已发出，但迟迟没有看到 TYPE_BLOCK_SEARCH_QUERY 或相应文本上屏，就要优先判断：是上游未及时返回搜索过程 block，还是客户端拿到消息后没有及时展示。
+
+
+当前仓库的边界：能确认 展示入口，也能确认 联网搜索意图透传；但“铺垫话术 / 总结性话术的生成策略”不在 Android 本地代码中，排查时需结合 FlowIM 日志与服务端时序一起看。
+客户端透传联网搜索意图this.put(
+    "need_net_search",
+    ActiveSwitchHelper.isSwitchOpen(bot?.botId.orEmpty(), ActiveSwitchType.NETSEARCH.value).toString()
+)
+FlowIMSDK.messageService().sendMessage(newRequest, callback)
+搜索中 / 搜索完成文案的客户端展示入口// 搜索中的铺垫话术
+val title = data.content?.searchQueryBlock?.summary ?: data.content?.searchQueryBlock?.summaryV2
+
+// 搜索完成后的总结性话术
+val resultTitle = block?.summary.orEmpty()
+
+2. VehicleDialogueManagement 链路拆解（结合端侧离在线仲裁方案）
+
+核心结论：VehicleDialogueManagement 不是一个单纯的“语音回调类”，而是车机端对话内核的总控入口：它负责把 VoiceClient 的 Wakeup / VAD / ASR 事件接入到 DialogueSession，再通过 Interceptor + Session + Platform + Arbitration 这条 handler 链，完成“本地执行 / 远端发送”的分流。结合 wiki《端侧离在线仲裁技术方案》看，当前代码已经落地了“端侧离线 + 云端联网”的双轨设计，但也存在一个明显现实差异：远端发送主链目前仍然直连 NovaAbility.sendTextMsg，并未完全走 IDialogueChannel 抽象。
+本节同时对照 wiki 《端侧离在线仲裁技术方案》 的“整体架构 / 业务交互流程”，基于当前仓库最新代码梳理 VehicleDialogueManagement 的真实运行链路，重点回答三个问题：它从哪里被拉起、它如何决定本地还是云端处理、云端结果如何回流到 Nova/TTS/UI。
+
+
+
+层次
+
+核心对象
+
+职责
+
+关键代码锚点
+
+宿主装配层
+
+VehicleSpeechService / NovaAbility
+
+启动 VoiceAbility、NovaServiceBinder，并创建 VehicleDialogueManagement(linker)，注册 handler / plugin
+
+business/vehicle/impl/src/main/java/com/larus/vehicle/service/VehicleSpeechService.kt:59
+business/vehicle/impl/src/main/java/com/larus/vehicle/nova/NovaAbility.kt:145
+
+DM 内核层
+
+VehicleDialogueManagement / DialogueSession
+
+
+接收 Wakeup/VAD/ASR，构造 DialogueRequest，串行驱动 handler 链，取消旧任务
+
+
+business/dialogue-management/impl/src/main/java/com/larus/vehicle/dm/impl/VehicleDialogueManagement.kt:80
+business/dialogue-management/impl/src/main/java/com/larus/vehicle/dm/impl/session/DialogueSession.kt:59
+
+插件总线层
+
+DialoguePluginController / VoicePlugin
+
+注册插件生命周期，向 linker 绑定 session listener，并把 VoiceClient 事件转换成 DM 可消费的 voice listener
+
+business/dialogue-management/impl/src/main/java/com/larus/vehicle/dm/impl/pluigns/DialoguePluginController.kt:46
+business/dialogue-management/impl/src/main/java/com/larus/vehicle/dm/impl/pluigns/VoicePlugin.kt:77
+
+仲裁 / 分发层
+
+DialogueArbitrationHandler / DialoguePlatformHandler
+
+决定本地还是远端处理；本地走车控执行，远端走发送消息链路
+
+
+business/dialogue-management/impl/src/main/java/com/larus/vehicle/dm/impl/handler/DialogueArbitrationHandler.kt:39
+business/vehicle/impl/src/main/java/com/larus/vehicle/nova/dialogue/DialoguePlatformHandler.kt:57
+
+执行与回流层
+
+ExecutionPlugin / NovaServiceBinder
+
+本地车控直接调 VehiclePlatform；远端文本发给 Nova/FlowIM，云端回复再回流到 NovaAbility 处理 TTS/UI
+
+
+business/vehicle/impl/src/main/java/com/larus/vehicle/plugin/ExecutionPlugin.kt:45
+business/vehicle/impl/src/main/java/com/larus/vehicle/nova/service/NovaServiceBinder.kt:342
+宿主先把 DM 内核装起来：VehicleSpeechService.onCreate() 会先初始化 VoiceAbility、NovaServiceBinder，再调用 NovaAbility.init()。代码见 business/vehicle/impl/src/main/java/com/larus/vehicle/service/VehicleSpeechService.kt:59。
+NovaAbility 负责总装配：在 NovaAbility.init() 中创建 NovaDialogueInitial、VehicleDialogueManagement(linker)，注册 alwaysOnInterceptorHandler、senderHandler、arbitrationHandler，并补齐 WakeupPlugin、ExecutionPlugin、NovaTimerPlugin 等插件。代码见 business/vehicle/impl/src/main/java/com/larus/vehicle/nova/NovaAbility.kt:152。
+VehicleDialogueManagement 真正初始化 DM 内核：init() 内部先走 VehicleLLMNativeHelper.init(finalPath) 做本地 LLM 初始化，再执行 session.prepare(dialogueContext)、内置插件注册、pluginController.dispatchOnCreate()、start() 和 voice listener 绑定。代码见 business/dialogue-management/impl/src/main/java/com/larus/vehicle/dm/impl/VehicleDialogueManagement.kt:80。
+VoicePlugin 把 VoiceClient 事件转成 DM 事件：VoicePlugin.onCreate() 注册 VoiceClient.registerVoiceEventListener(...)，把 onVadStart/onVadStop/onWakeup/onAsrResult 转发给 IDialogueVoiceListener；而 VehicleDialogueManagement 在 init 后把自己的 voiceListener 订阅到 IDialogueVoiceService 上。代码见 business/dialogue-management/impl/src/main/java/com/larus/vehicle/dm/impl/pluigns/VoicePlugin.kt:27 与 business/dialogue-management/impl/src/main/java/com/larus/vehicle/dm/impl/VehicleDialogueManagement.kt:117。
+最终 ASR 会触发真正的一轮对话：在 onAsrResult() 中，只有 isFinal && online 才会继续走主链；如果 matchVC=true，说明被“可见即可说”拦截，直接 return；否则先 DialogueTaskManager.cancelAllTasks()，再构造 DialogueRequest 送进 dialogue(request)。代码见 business/dialogue-management/impl/src/main/java/com/larus/vehicle/dm/impl/VehicleDialogueManagement.kt:130。
+DialogueSession 是真正的请求输送带：它从 frameChannel 串行读取 DialogueRequest，收到新请求时会先取消旧任务，然后构造 DialogueHandleFlow 依次执行 handler。代码见 business/dialogue-management/impl/src/main/java/com/larus/vehicle/dm/impl/session/DialogueSession.kt:59。
+当前 handler 顺序是固定的：DialogueSession.prepare() 先放入 InterceptorHandler、SessionHandler，再追加 NovaAbility 注入的 AlwaysOnInterceptorHandler、DialoguePlatformHandler、DialogueArbitrationHandler。也就是说，主链顺序实际上是“基础拦截 → session 建立 → always on 拦截 → 平台分发包装 → 本地/远端仲裁”。代码见 business/dialogue-management/impl/src/main/java/com/larus/vehicle/dm/impl/session/DialogueSession.kt:119 与 business/vehicle/impl/src/main/java/com/larus/vehicle/nova/NovaAbility.kt:153。
+SessionHandler 先建立 requestId 级别的仲裁缓存：每次请求一进来先创建 TaskResult 放入 NovaTaskCache，再把共享 DialogueContext 挂到 request 上，后续仲裁、本地采纳、云端抢占都围绕这个缓存对象更新。代码见 business/dialogue-management/impl/src/main/java/com/larus/vehicle/dm/impl/handler/SessionHandler.kt:28 与 business/dialogue-management/impl/src/main/java/com/larus/vehicle/dm/impl/cache/NovaTaskCache.kt:20。
+DialoguePlatformHandler 负责“包装上下文 + 对接执行层”：它会把 historyCache.fetchAllHistory() 和 vehicleInfo 注入请求，再调用 next.doWork() 交给仲裁器；如果本地结果被采纳，它会走 processInLocal() 触发车控执行；如果要云端处理，它会走 processInRemote()。代码见 business/vehicle/impl/src/main/java/com/larus/vehicle/nova/dialogue/DialoguePlatformHandler.kt:57。
+DialogueArbitrationHandler 是“本地 vs 云端”的核心决策器：唤醒态请求会先 processInRemote()，同时启动本地 LLM 推理；非唤醒态则本地优先。如果本地结果命中白名单，就采纳本地；否则转到远端。这里的“已被云端采纳/是否拒识/来自哪一侧”都写回 NovaTaskCache。代码见 business/dialogue-management/impl/src/main/java/com/larus/vehicle/dm/impl/handler/DialogueArbitrationHandler.kt:46。
+ExecutionPlugin 是执行层落点：本地执行调用 VehiclePlatform.sendVehicleControl(...)；远端执行理论上可以走 linker.sendMessage(...)，但当前实现中该分支被写成 if (false)，实际固定走 NovaAbility.sendTextMsg(...)。代码见 business/vehicle/impl/src/main/java/com/larus/vehicle/plugin/ExecutionPlugin.kt:95。
+云端回流不经过 VehicleDialogueManagement 主循环，而是回到 Nova 宿主：远端文本发出后，后续的 IM/云端消息由 NovaServiceBinder 监听并转换成 NovaData.MessageReceiveData / MessageUpdateData，再交给 NovaAbility.handleNovaData() 做 TTS、状态和 UI 处理。代码见 business/vehicle/impl/src/main/java/com/larus/vehicle/nova/service/NovaServiceBinder.kt:342。
+
+
+wiki 设计点
+
+当前代码中的对应实现
+
+结论
+
+wiki 提到：唤醒后客户端要建立 RTC / IM / 离线对话模块
+
+VehicleSpeechService 先启动 NovaServiceBinder，再 NovaAbility.init() 拉起 DM 内核；DM 自身并不负责创建 RTC/IM 连接
+
+代码与 wiki 的宏观方向一致，但职责边界更清晰：RTC/IM 属于宿主层，DM 负责对话编排
+
+wiki 提到：端侧 ASR 交给离线对话系统处理
+
+VoicePlugin 把 VoiceClient 事件转发给 VehicleDialogueManagement.voiceListener，最终在 onAsrResult() 中构造 DialogueRequest
+
+已在代码中完全落地
+
+wiki 提到：端云需要用 taskId 保证同一轮任务一致性
+
+SessionHandler + NovaTaskCache 用 requestId/taskId 作为主键，记录 isProcess / isReject / from
+
+已在代码中落地，且是仲裁主干
+
+wiki 提到：云端消息可能先到，需要 block / 仲裁
+
+DialogueArbitrationHandler 在唤醒态中并发“先发云端 + 本地推理”，再通过 NovaTaskCache 判断是否被云端抢占
+
+已部分落地，但更偏缓存判定，不是一个统一的“阻塞队列式”下行闸门
+
+wiki 隐含假设：linker 负责上下行链路
+
+接口层有 IDialogueChannel / NovaDialogueChannel，但当前远端主发送链仍直接走 NovaAbility.sendTextMsg
+
+这是设计与现状的最大差异
+
+
+
+当前链路的几个风险点：
+ExecutionPlugin 的远端发送没有完全走 linker 抽象，宿主耦合仍然偏重。代码见 business/vehicle/impl/src/main/java/com/larus/vehicle/plugin/ExecutionPlugin.kt:104。
+VehicleDialogueManagement.reset() 只显式调用了 session.sessionHandler.reset()，但 SessionHandler.reset() 目前是空实现。代码见 business/dialogue-management/impl/src/main/java/com/larus/vehicle/dm/impl/VehicleDialogueManagement.kt:239 与 business/dialogue-management/impl/src/main/java/com/larus/vehicle/dm/impl/handler/SessionHandler.kt:57。
+云端回流主链在 NovaServiceBinder → NovaAbility.handleNovaData，并不回到 VehicleDialogueManagement 主循环，因此排查时不能只盯 DM 内核。
+
+
+排查 VehicleDialogueManagement 相关问题时，建议按这 4 个断点看：
+有没有收到最终 ASR，且 matchVC 是否把请求提前拦截。入口：business/dialogue-management/impl/src/main/java/com/larus/vehicle/dm/impl/VehicleDialogueManagement.kt:130。
+DialogueSession 是否真正消费到 request，旧任务是否被取消。入口：business/dialogue-management/impl/src/main/java/com/larus/vehicle/dm/impl/session/DialogueSession.kt:64。
+DialogueArbitrationHandler 最终判到本地还是远端。入口：business/dialogue-management/impl/src/main/java/com/larus/vehicle/dm/impl/handler/DialogueArbitrationHandler.kt:39。
+如果走远端，继续看 ExecutionPlugin → NovaAbility.sendTextMsg → NovaServiceBinder，不要停在 DM 内核层。
+VehicleDialogueManagement 触发一轮正式对话的核心入口if (isFinal && online) {
+    if (matchVC) return
+    DialogueTaskManager.cancelAllTasks()
+    dialogue(
+        DialogueRequest(
+            requestId = taskId,
+            originQuery = content,
+            position = position,
+            soundZone = position.toPosition().soundZone,
+            awakeTask = awake
+        )
+    )
+}
+当前远端发送主链的真实实现private fun executeRemoteMessage(action: RemoteMessageAction): ExecutionResult {
+    val linker = pluginContext?.manager()?.getLinker()
+    if (false) {
+        linker?.sendMessage(LinkerMessage.Text(frame))
+    } else {
+        NovaAbility.sendTextMsg(action.text, action.requestId, action.soundZone.toPosition())
+    }
+    return ExecutionResult(status = ExecutionStatus.ACCEPTED, output = RemoteMessageOutput(delivered = true))
+}
+
+3. 排查范围与目标
+排查时间窗聚焦在 2026-05-25 15:49:56 ~ 15:51:11。本次只关注一个问题：联网查询场景下，铺垫性话术已经快速返回并播报，但总结性话术为什么要约 1 分钟后才到端。
+
+
+维度
+
+本次关注点
+
+关键证据
+
+用户 query
+
+查询请求何时进入 Nova / FlowIM 正式发送链路
+
+15:49:56.806 sendText=帮我查询一下实时的金价不要缓存
+
+铺垫性话术
+
+首包、完整文本、前台展示与播报是否正常
+
+15:49:59.507 content={"text":"好"}；15:49:59.760 好的，我这就帮你查询最新的实时金价。
+
+总结性话术
+
+为什么在铺垫播报完成后没有立即继续下发
+
+15:51:10.824 llm_first_package_cost=73494；结合定位结果确认服务端在等待“播报完成”状态
+
+4. 全链路总览
+本次有效链路应收敛为：用户 query → Nova / FlowIM 发消息 → 铺垫性话术返回并播报 → 端上应回传“播报完成” → 服务端继续下发总结性话术 → 前台显示与播报。
+
+
+
+已确认正常：query 发出、铺垫性话术返回、端上前台展示、总结性话术到端后的渲染，全都不是本次瓶颈。
+
+
+真正异常断点：铺垫性话术播报完成后，端上没有向服务端回传“播报完成”状态，导致服务端一直等待，直到超时后才继续下发总结性话术。
+
+5. 关键时序图
+
+
+阶段
+
+关键时间
+
+结论
+
+请求发出到铺垫首包
+
+15:49:56.806 → 15:49:59.507
+
+仅约 2.7s，说明初始请求与铺垫性话术生成并不慢。
+
+铺垫完整播报到总结首包
+
+15:49:59.760 → 15:51:10.824
+
+这段约 71s 的空窗期是本次核心异常，根因是端上未回传“播报完成”。
+
+总结首字到前台显示
+
+15:51:10.867 → 15:51:10.924
+
+仅几十毫秒，客户端收到总结性话术后展示并不慢。
+
+时序结论：用户感知到的“1 分钟后才有总结性话术”，本质不是前台渲染慢，而是总结性话术在服务端等待条件满足前根本没有开始下发。
+
+6. 分层链路拆解
+6.1 用户 query 与下行发起链路
+
+
+阶段
+
+关键日志
+
+判断
+
+用户 query 发送
+
+15:49:56.806 NovaServiceBinder sendText=帮我查询一下实时的金价不要缓存
+
+请求成功进入 Nova / IM 链路，不存在“消息没发出去”的问题。
+
+铺垫性话术首包
+
+15:49:59.507 onReceiveMessage content={"text":"好"}
+
+服务端快速进入“先给铺垫性话术”的阶段。
+
+铺垫性话术全文
+
+15:49:59.760 好的，我这就帮你查询最新的实时金价。
+
+铺垫性话术完整下发正常。
+
+这一层结论：请求发起与铺垫性话术返回正常，问题不在 query 输入、Nova 发消息或首轮下行生成。
+6.2 铺垫播报完成与总结性话术等待链路
+
+
+阶段
+
+关键日志
+
+判断
+
+铺垫性话术前台展示
+
+15:50:06.411 TextCell bind ... 好的，我这就帮你查询最新的实时金价。
+
+端上已经完成铺垫性话术展示与播报，不存在“铺垫根本没出来”的问题。
+
+总结性话术首包统计
+
+15:51:10.824 llm_first_package_cost=73494
+
+这里记录的是服务端等待后的总首包耗时，不能再解释成纯渲染慢。
+
+总结性话术首字到端
+
+15:51:10.867 NovaServiceBinder onReceiveMessage ... content={"text":"这"}
+
+一旦服务端开始继续下发，总结性话术立即进入客户端处理链路。
+
+总结性话术前台显示
+
+15:51:10.875 MessageTextFloatWindow updateA ... 这；15:51:10.924 TextCell bind preview=这
+
+端上在几十毫秒内完成刷新，可排除前台展示层卡住 1 分钟。
+
+这一层结论：真正的断点在“铺垫性话术播报完毕后，端上没有回传播报完成状态”，服务端因此持续等待，直到超时后才继续下发总结性话术。
+
+7. 关键时间线
+
+结论前置：这次“总结性话术晚到约 1 分钟”不是客户端收到消息后展示慢，而是铺垫性话术播报结束后，端上没有向服务端上报‘播报完成’状态，服务端因此一直等待，直到超时后才继续下发总结性话术。
+
+
+时间
+
+事件
+
+证据
+
+分析
+
+15:49:56.806
+
+用户发起查询“帮我查询一下实时的金价不要缓存”
+
+NovaServiceBinder sendText=帮我查询一下实时的金价不要缓存
+
+请求正常发出，链路起点明确。
+
+15:49:59.507
+
+铺垫性话术首包到达
+
+content={"text":"好"}，llm_first_package_cost=2150
+
+服务端快速返回铺垫话术，说明“接入联网搜索 + 首次回应”阶段是正常的。
+
+15:49:59.760
+
+铺垫性话术完整文本下发
+
+好的，我这就帮你查询最新的实时金价。
+
+端上已进入“先播铺垫，再等总结”的正常交互态。
+
+15:50:06.411
+
+AICanvas 已完成铺垫话术展示
+
+TextCell bind ... preview=好的，我这就帮你查询最新的实时金价。
+
+铺垫话术在端上展示和播报均已落地，问题不在这一步的可见渲染。
+
+15:49:59.760 ~ 15:51:10.824
+
+服务端持续等待“铺垫播报完成”状态
+
+结合现象与定位结论：总结性话术在这一阶段一直未下发，直到接近 1 分钟超时点才继续。
+
+核心慢点不在总结性话术到端后的展示，而在铺垫话术播报结束后的状态回传缺失。
+
+15:51:10.824 ~ 15:51:10.829
+
+总结性话术首包统计出现
+
+flow_im_message_receive_content_first_package，llm_first_package_cost=73494，total_first_package_cost=73655
+
+这里记录到的 73s，本质上反映的是服务端等待完成信号后的总首包耗时，而不是“端上渲染 73s”。
+
+15:51:10.867
+
+总结性话术首字到达端上
+
+NovaServiceBinder onReceiveMessage ... content={"text":"这"}
+
+一旦服务端开始下发，总结性话术就立刻进入客户端处理链路。
+
+15:51:10.875 ~ 15:51:10.924
+
+端上浮窗 / Canvas 立即刷新总结性话术
+
+MessageTextFloatWindow updateA ... 这；TextCell bind preview=这
+
+客户端在几十毫秒内完成接收、分发和渲染，可排除“端上展示层卡住 1 分钟”。
+
+8. 断点判断与根因归类
+
+
+
+已确认事实
+query 发出、Nova/FlowIM 收发消息都正常，铺垫性话术在 2~3 秒内返回。
+铺垫性话术已经在端上展示并播报，不存在“前半段根本没播出来”的问题。
+总结性话术真正到达端上后，NovaServiceBinder、MessageTextFloatWindow、AICanvas 都在几十毫秒内完成刷新。
+用户感知的“慢 1 分钟”发生在铺垫性话术播报结束与总结性话术开始下发之间。
+
+
+最终根因
+根因已定位为：铺垫性话术端上播报完毕后，没有给服务端上报“播报完毕”状态。服务端因此一直等待该状态，直到接近 1 分钟超时后，才继续下发总结性话术。
+所以现象上看起来像“总结性话术云端出得慢”，但更准确地说，是端上缺失播报完成回传，触发了服务端等待超时。
+
+
+责任边界
+不是总结性话术到端后的 UI 渲染问题。
+不是单纯的 LLM 或检索首包生成慢。
+准确边界应定义为：端上播报状态回传缺失 → 服务端等待播报完成 → 超时后才继续下发总结性话术。
+
+归因口径建议：本次问题应统一表述为：铺垫性话术播报完成后，端上未向服务端回传播报完成状态，导致服务端等待约 1 分钟超时后才下发总结性话术；因此用户感知为总结话术晚到。
+
+9. 关键代码锚点
+
+
+模块
+
+代码位置
+
+作用
+
+ASR 结果进入 Chat
+
+flowSDK/business/flow-voice-input/impl/src/main/java/com/larus/asr/ChatBottomSpeakerComponent.kt:1102
+
+onAsrResultSuccess(content) 把用户 query 接入后续对话发送链路。
+
+联网搜索开关判断
+
+flowSDK/business/chat/impl/src/main/java/com/larus/bmhome/instruction/InstructionInputComponent.kt:1836
+
+判断是否开启联网搜索能力。
+
+联网搜索意图透传
+
+flowSDK/business/chat/impl/src/main/java/com/larus/bmhome/chat/model/strategy/ChatSendStrategy.kt:186
+
+发送消息时把 need_net_search 写入 ext。
+
+Nova 下行消息接收
+
+business/vehicle/impl/src/main/java/com/larus/vehicle/nova/service/NovaServiceBinder.kt:342
+
+接收 onReceiveMessage / onUpdateMessage 并分发到 UI。
+
+消息浮窗文本入列
+
+business/vehicle/impl/src/main/java/com/larus/vehicle/ui/window/messagetext/MessageTextFloatWindow.kt:189
+
+recordMessage() 把收到的文本写入问答浮窗。
+
+消息浮窗答案刷新
+
+business/vehicle/impl/src/main/java/com/larus/vehicle/ui/window/messagetext/MessageTextAdapter.kt:80
+
+updateA() 负责把回答文本更新到前台列表。
+
+补充说明：与“铺垫性话术播报完成状态回传”直接相关的端上代码链路，需要在后续修复中继续补齐并补日志；当前文档先聚焦已证实的消息接收与前台显示锚点。
+
+10. 下一步建议
+补齐铺垫性话术 TTS 播报完成后的服务端状态上报，确保服务端能在收到“播报完成”后立即继续下发总结性话术。
+补充关键日志：至少串起 request_id、reply_id、tts_audio_id、TTS start / finish、播报完成上报结果，便于后续一眼判断是否再次卡在“等待播报完成”。
+服务端侧补充区分指标：正常收到播报完成继续下发 vs 等待超时后兜底继续下发，避免后续再把此类问题误判成“LLM 首包慢”。
+对外结论统一口径：问题本质是端上未回传铺垫性话术播报完成状态，导致服务端等待超时后才下发总结性话术；不是总结性话术到端后的展示问题。
+

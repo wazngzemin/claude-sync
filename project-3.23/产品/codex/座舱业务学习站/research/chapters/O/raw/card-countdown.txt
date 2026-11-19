@@ -1,0 +1,479 @@
+# 「豆包」-「赛力斯」-_卡片倒计时退出策略技术评审 | wiki/UK2zw3rO6iojiKkAnAwcQpHPnDb | edit(BJ): 2026-10-23 21:26 | type docx
+「豆包」-「赛力斯」- 卡片倒计时退出策略技术评审
+【AIVA-PRD】VUI主交互需求
+Seres 渠道 CellManager 注册卡片清单
+
+整体思路设计：Seres 卡片退出策略统一收敛为“内容展示完成后才允许进入普通退出倒计时”。退出协调器只维护列表级会话、倒计时和 CountdownBlocker；子卡片内容完成状态由 CardContentCompletionTracker 聚合；视频播放状态由 CardPlaybackTracker 聚合。
+1. 背景
+1.1 需求背景
+Seres 渠道的卡片展示存在异步内容、TTS、工具区和视频播放等多类生命周期。若卡片展示后立即启动普通退出倒计时，可能出现内容尚未完成、视频正在播放或 TTS 仍在播报时卡片被自动隐藏的问题。
+目标是把“卡片是否可以退出”的判断从TTS 状态、工具区状态和视频播放状态，调整为由内容完成、TTS 状态、工具区状态和视频播放状态共同决定。
+1.2 现状与问题
+
+
+现状问题
+
+影响
+
+卡片展示后忽略了内容是否展示完成
+
+异步图片、视频、复杂子卡片还未进入可展示终态时，卡片可能提前退出。
+
+同一个 requestId 下存在多张子卡片
+
+单张卡片完成不能代表所属 screen 下的整组内容完成，需要按 screen 聚合判断。
+
+视频播放生命周期和普通内容完成混在一起
+
+短视频播放中应持续展示对应 screen；暂停、结束或停止后，该 screen 才重新进入倒计时。
+
+TTS 和工具区状态会影响卡片退出
+
+TTS 播放或工具区忙碌时，应阻塞其归属 screen 的普通退出倒计时；无法识别归属时再降级阻塞所有活跃 screen。
+
+内容完成通知可能缺失
+
+需要 watchdog 兜底，避免卡片永久悬停。
+1.3 设计目标
+卡片展示后不立即启动所属 screen 的普通 10 秒退出倒计时。
+同一个 requestId 下按 screen 分别聚合子卡片内容完成状态；某个 screen 下所有子卡片完成展示后，才移除该 screen 的 CONTENT_NOT_FINISHED。
+内容完成不区分成功或失败，只要内容已进入可展示终态即可。
+内容等待 watchdog 设置为 3 分钟；超时后记录异常日志，并进入倒计时兜底流程。
+TTS 播放期间阻塞其归属 screen 的普通退出倒计时，卡片退出时不主动停止 TTS。
+短视频未播放时所属 screen 按 10 秒倒计时；进入播放状态后该 screen 持续展示；暂停、结束或停止后，该 screen 重新开始 10 秒倒计时。
+工具区忙碌期间阻塞其归属 screen 的普通退出倒计时；无法识别归属时，降级阻塞所有活跃 screen。
+视频卡片增加卡片内关闭按钮，用户主动关闭时收起卡片，不影响三方 App 播放和 TTS。
+2. Seres 卡片退出模块设计
+2.1 整体设计
+整体设计按“列表渲染、内容完成聚合、播放状态聚合、退出协调”拆分职责。RecyclerView 和 Adapter 只负责 View 生命周期；退出策略由 SeresCardExitCoordinator 统一处理。多屏场景下，SeresCardExitCoordinator 维护 request 根会话，并在根会话下按 screen 拆分 ScreenCardExitSession，各屏幕独立维护 blockers、watchdog、普通倒计时和隐藏动作。
+
+2.2 职责边界
+
+
+模块
+
+职责
+
+MessageListAdapter
+
+只负责标准 Adapter 生命周期，不维护卡片完成状态和倒计时。
+
+CardContentCompletionTracker
+
+维护当前列表中各个子卡片的内容完成状态，判断是否全部完成。
+
+CardPlaybackTracker
+
+维护视频子卡片播放状态，判断当前是否存在正在播放的视频。
+
+SeresCardExitCoordinator
+
+维护退出会话、CountdownBlocker、watchdog、普通倒计时、一次性外部延迟消费以及最终隐藏动作。
+2.3 会话模型
+ActiveCardListExitSession 表示当前 MessageFloatWindow 这一轮列表的 request 根会话，不表示某一张具体子卡片，也不直接承载具体屏幕的倒计时状态。多屏场景下，blockers、内容 watchdog 和普通退出倒计时下沉到 ScreenCardExitSession 中按屏幕独立维护；cardType、cardInstanceId 和每张子卡片的加载状态仍由对应 tracker 维护。
+ActiveCardListExitSession
+private data class ActiveCardListExitSession(
+    val requestId: String?,
+    val policy: SeresCardExitPolicy,
+
+    /** 当前 request 下按屏幕拆分的退出子会话。 */
+    val screenSessions: Map<CardDisplayScreen, ScreenCardExitSession>,
+)
+
+private data class ScreenCardExitSession(
+    val screen: CardDisplayScreen,
+
+    /** 当前屏幕维度的倒计时阻塞原因。 */
+    val blockers: Set<CountdownBlocker>,
+
+    /** 当前屏幕等待内容完成的 watchdog 截止时间。 */
+    val contentWatchdogDeadlineMs: Long?,
+
+    /** 当前屏幕普通退出倒计时截止时间。 */
+    val countdownDeadlineMs: Long?,
+
+    /** 当前屏幕尚未消费的一次性外部延迟请求。 */
+    val pendingOneShotDelays: Map<String, OneShotExitDelay>,
+)
+
+private data class OneShotExitDelay(
+    val cardInstanceId: String,
+    val delayMs: Long,
+    val reason: String,
+    val createdAtMs: Long,
+)
+2.4 CountdownBlocker
+协调器只需要判断 blockers 是否为空。单屏场景下，blockers 可以理解为当前列表级阻塞原因；多屏场景下，blockers 下沉到各个屏幕子会话中独立维护，详见 2.8 多屏独立倒计时策略。
+CountdownBlocker
+enum class CountdownBlocker {
+    /** 至少有一张子卡片的内容还没有完成。 */
+    CONTENT_NOT_FINISHED,
+
+    /** 当前屏幕归属的 TTS 正在播放。 */
+    TTS_PLAYING,
+
+    /** 工具区仍然处于忙碌状态。 */
+    TOOL_BUSY,
+
+    /** 至少有一张视频卡片正在播放。 */
+    VIDEO_PLAYING,
+
+    /** 用户正在点击或滑动卡片，交互结束后需要重新倒计时。 */
+    USER_INTERACTING,
+}
+
+private fun canStartCountdown(blockers: Set<CountdownBlocker>): Boolean {
+    return blockers.isEmpty()
+}
+2.4.1 一次性外部延迟请求
+一次性外部延迟请求用于支持某张卡片主动要求本轮多展示一段时间，例如卡片负责人希望在内容完成后额外延迟 10 秒再允许自动收起。它不属于 CountdownBlocker：blocker 表示当前还不能进入倒计时，外部延迟表示已经可以进入倒计时，但本次倒计时的截止时间需要追加一次额外时长。
+OneShotExitDelay
+data class OneShotExitDelay(
+    val requestId: String?,
+    val screen: CardDisplayScreen,
+    val cardInstanceId: String,
+    val delayMs: Long,
+    val reason: String,
+    val createdAtMs: Long,
+)
+外部延迟请求只消费一次。某个 screen 的 blockers 清空并准备启动普通退出倒计时时，如果存在未消费的一次性延迟请求，则本次倒计时在普通 10 秒基础上追加该延迟。
+延迟请求一旦参与本次倒计时计算，就立即视为已消费并从 pendingOneShotDelays 中移除。后续如果本次倒计时又被 TTS、工具区、视频播放或用户交互打断，下一次重新启动倒计时时不再复用这次延迟，恢复普通 10 秒倒计时。
+如果倒计时已经启动后才收到一次性延迟请求，则只影响当前正在运行的这一轮倒计时；消费后同样移除请求，后续重新计时不再继承。
+同一个 screen 下多张卡片同时存在未消费延迟时，本轮倒计时统一消费这些请求，额外延迟取其中最大的 delayMs，避免多个卡片把展示时间无限叠加。
+requestId 切换、screen 隐藏、窗口隐藏或用户主动关闭卡片时，未消费的一次性延迟请求直接清理，不跨会话继承。
+2.5 内容完成模型
+CardContentCompletionTracker 独立维护列表中所有子卡片的内容完成状态，不放入 ActiveCardListExitSession，也不负责 TTS、工具区、视频播放和倒计时。多屏场景下，它需要按 screen 聚合完成状态，为每个 ScreenCardExitSession 独立判断是否可以移除 CONTENT_NOT_FINISHED。
+CardContentCompletionTracker
+enum class CardContentLoadState {
+    /** 内容仍在加载中，或从完成态重新回到加载态。 */
+    LOADING,
+
+    /** 内容已经进入可展示终态，成功态和失败态都属于完成。 */
+    FINISHED,
+}
+
+private data class CardContentItemState(
+    val screen: CardDisplayScreen,
+    val cardInstanceId: String,
+    val cardType: String,
+    val contentState: CardContentLoadState = CardContentLoadState.LOADING,
+)
+
+private class CardContentCompletionTracker {
+    private val cardItems = linkedMapOf<CardDisplayScreen, MutableMap<String, CardContentItemState>>()
+
+    fun begin(screen: CardDisplayScreen, items: List<CardContentItemState>)
+    fun updateContentState(
+        screen: CardDisplayScreen,
+        cardInstanceId: String,
+        state: CardContentLoadState,
+    ): Boolean
+    fun isAllFinished(screen: CardDisplayScreen): Boolean
+    fun clear(screen: CardDisplayScreen)
+    fun clearAll()
+}
+各卡片负责人需要在内容状态变化时上报，并携带当前卡片所属 screen。内容已经进入可展示终态时上报 FINISHED；如果同一张卡片后续因为重新请求、刷新、分页、图片重载等原因又回到加载态，则上报 LOADING。成功和失败都属于 FINISHED，退出策略不区分二者。某个 screen 全部 FINISHED 后，只移除该 screen 的 CONTENT_NOT_FINISHED；任意卡片从 FINISHED 回到 LOADING 时，需要重新给该 screen 加入 CONTENT_NOT_FINISHED，并取消该 screen 已启动的普通退出倒计时，等待该 screen 再次全部 FINISHED 后重新判断倒计时。
+2.6 视频播放模型
+CardPlaybackTracker 独立维护视频子卡片的播放状态，不放入 ActiveCardListExitSession，也不与 CardContentCompletionTracker 混合。多屏场景下，它对外提供按 screen 聚合的结果：某个屏幕当前是否存在正在播放的视频卡片。
+CardPlaybackState
+enum class CardPlaybackState {
+    NOT_STARTED,
+    PLAYING,
+    PAUSED,
+    ENDED,
+    STOPPED,
+}
+
+private data class CardPlaybackItemState(
+    val screen: CardDisplayScreen,
+    val cardInstanceId: String,
+    val playbackState: CardPlaybackState,
+)
+
+private class CardPlaybackTracker {
+    fun update(screen: CardDisplayScreen, cardInstanceId: String, state: CardPlaybackState)
+    fun hasPlaying(screen: CardDisplayScreen): Boolean
+    fun clear(screen: CardDisplayScreen)
+    fun clearAll()
+}
+
+
+播放状态
+
+退出策略
+
+NOT_STARTED
+
+允许所属 screen 启动普通倒计时。
+
+PLAYING
+
+给所属 screen 加入 VIDEO_PLAYING，并取消该 screen 的普通倒计时。
+
+PAUSED / ENDED / STOPPED
+
+从所属 screen 移除对应视频播放状态；该 screen 下所有视频都停止后，移除 VIDEO_PLAYING，并按该 screen 重新开始 10 秒倒计时。
+2.7 状态流转
+
+2.8 多屏独立倒计时策略
+多屏交互场景下，卡片可能分别展示在主驾屏幕和后排屏幕。PRD 要求前后屏独立展示、互不影响，并独立维持前后排屏幕的多轮卡片维持规则，各自计时。因此退出策略不能只维护一套 request 级倒计时，需要在 request 根会话下按屏幕维护独立的退出子会话。
+2.8.1 会话拆分
+requestId 仍然表示本轮交互的根会话；具体的 blockers、内容 watchdog、普通退出倒计时和隐藏动作下沉到屏幕维度维护。
+多屏退出会话
+private data class ActiveCardListExitSession(
+    val requestId: String?,
+    val policy: SeresCardExitPolicy,
+    val screenSessions: Map<CardDisplayScreen, ScreenCardExitSession>,
+)
+
+private data class ScreenCardExitSession(
+    val screen: CardDisplayScreen,
+
+    /** 当前屏幕维度的倒计时阻塞原因。 */
+    val blockers: Set<CountdownBlocker>,
+
+    /** 当前屏幕等待内容完成的 watchdog 截止时间。 */
+    val contentWatchdogDeadlineMs: Long?,
+
+    /** 当前屏幕普通退出倒计时截止时间。 */
+    val countdownDeadlineMs: Long?,
+)
+文档中用 CardDisplayScreen 表示屏幕归属，落地时应复用项目中已有的屏幕枚举或展示目标字段。主驾屏幕和后排屏幕至少需要能被区分。
+2.8.2 屏幕级倒计时规则
+
+
+规则
+
+说明
+
+内容状态
+
+CardContentCompletionTracker 需要按 screen 聚合内容状态。某个屏幕的卡片全部 FINISHED 后，只移除该屏幕的 CONTENT_NOT_FINISHED；任意卡片重新变为 LOADING 时，只给该屏幕重新加入 CONTENT_NOT_FINISHED。
+
+普通倒计时
+
+某个屏幕的 blockers 清空后，只启动该屏幕自己的 10 秒倒计时。
+
+一次性外部延迟
+
+某个屏幕 blockers 清空并准备启动倒计时时，如果存在未消费的一次性延迟请求，则本次倒计时在普通 10 秒基础上追加最大 delayMs；这些延迟请求随本次计算立即消费，后续重新倒计时恢复普通 10 秒。
+
+倒计时取消
+
+倒计时期间如果该屏幕新增 blocker，只取消该屏幕倒计时；另一个屏幕的倒计时不受影响。已消费的一次性延迟不会因为倒计时被取消而恢复。
+
+隐藏动作
+
+倒计时结束后只隐藏对应 screen 的卡片区域。所有 screen session 都结束后，再清理 request 根会话。
+
+内容 watchdog
+
+watchdog 按 screen 独立触发。某个屏幕内容状态长时间停留在 LOADING，只触发该屏幕兜底流程，不阻塞另一个已经完成的屏幕。
+2.8.3 blocker 作用域
+
+
+blocker
+
+作用域
+
+说明
+
+CONTENT_NOT_FINISHED
+
+屏幕级
+
+哪个屏幕存在未完成内容，就只阻塞哪个屏幕的倒计时。
+
+VIDEO_PLAYING
+
+屏幕级
+
+哪个屏幕的视频正在播放，就只阻塞哪个屏幕。多个视频同时存在时，该屏幕下所有视频都停止后才移除。
+
+USER_INTERACTING
+
+屏幕级
+
+用户点击或滑动哪个屏幕上的卡片，就取消该屏幕当前倒计时；交互结束后如果没有其他 blocker，则重新启动 10 秒倒计时。
+
+TTS_PLAYING
+
+优先屏幕级
+
+TTS 应优先按本次交互的音区或屏幕归属映射到对应屏幕，避免后排无关 query 的 TTS 延长前排卡片生命周期。若当前链路无法识别归属，可临时映射到所有活跃屏幕，并记录降级日志。
+
+TOOL_BUSY
+
+优先屏幕级
+
+工具区事件能带 screen 时，只阻塞对应屏幕；无法识别 screen 时，降级阻塞所有活跃屏幕并记录日志。
+2.8.4 手动点击或滑动卡片后的重新计时
+手动点击或滑动卡片属于用户对卡片的主动操作，应该刷新该屏幕卡片的生命周期。处理原则如下：
+用户开始点击、滑动或拖拽卡片时，给对应 screen 加入 USER_INTERACTING，并取消该 screen 当前倒计时。
+用户交互结束后，移除 USER_INTERACTING；如果该 screen 没有其他 blocker，则重新启动 10 秒倒计时。
+如果点击触发页面跳转、应用拉起或用户主动关闭卡片，则按页面跳转或主动关闭逻辑处理，不再重新启动普通倒计时。
+主驾屏幕上的手动操作只刷新主驾屏幕倒计时；后排屏幕上的手动操作只刷新后排屏幕倒计时。
+2.8.5 状态流转
+
+2.8.6 典型场景
+
+
+场景
+
+预期策略
+
+前排新闻卡片展示完成后，后排发起无关 query 并触发 TTS
+
+后排 TTS 不延长前排卡片生命周期；前排卡片按自身 10 秒倒计时退出。
+
+后排图片仍在加载，主驾内容已完成
+
+主驾屏幕可以先进入 10 秒倒计时；后排屏幕继续等待图片完成或 watchdog 兜底。
+
+用户滑动后排卡片
+
+只取消并重启后排屏幕倒计时；主驾屏幕倒计时不受影响。
+
+前后排语义相关，需要同时刷新相同控件
+
+两个 screen session 都更新内容完成状态，并分别按各自 blocker 判断是否重新倒计时。
+3. 各业务的接入改造
+3.1 子卡片内容完成上报
+requestId 作为当前列表会话的根分组 key，screen 用于区分主驾屏幕和后排屏幕，cardInstanceId 作为某个 screen 下具体子卡片的身份。MessageFloatWindow 提交完整列表快照后，CardContentCompletionTracker 按 screen 记录预期卡片集合，并等待该 screen 下各子卡片上报内容状态变化。外部调用方既可以通知某张卡片内容加载完成，也可以通知同一张卡片重新恢复到 LOADING 状态；协调器根据该 screen 的聚合结果决定移除或重新加入 CONTENT_NOT_FINISHED。
+
+
+注意：cardInstanceId 应表示当前这一次列表渲染中、某个 screen 下的子卡片实例。如果同一个 messageId 或 replyId 会被复用，需要结合 screen 和当前列表渲染版本生成新的 cardInstanceId，避免旧屏幕或旧轮次的异步完成事件误命中新一轮内容。
+3.2 视频卡片播放接入
+多个视频卡片同时存在时，只有全部视频停止播放后才移除 VIDEO_PLAYING。视频播放期间可能持续展示，因此视频卡片需要额外提供卡片内关闭按钮。
+
+3.3 TTS 与工具区接入
+TTS 播放时加入 TTS_PLAYING，普通退出倒计时暂停。
+TTS 播放结束时移除 TTS_PLAYING；如果没有其他 blocker，则启动 10 秒倒计时。
+卡片退出时不调用 stopTts，不主动打断 TTS。
+工具区忙碌时加入 TOOL_BUSY，工具完成后移除 TOOL_BUSY。
+如果视频正在播放，即使 TTS 和工具都结束，也不能启动普通退出倒计时。
+3.5 视频卡片关闭按钮
+关闭按钮由卡片宿主发起收起请求，不直接操作 SeresCardExitCoordinator。用户主动关闭后只收起卡片，不停止 TTS，也不操作三方 App 播放状态。
+
+4. 兼容性&稳定性
+4.1 行为兼容
+
+
+项目
+
+约定
+
+Adapter 生命周期
+
+MessageListAdapter 继续只负责标准 Adapter 生命周期，不承载 Seres 退出策略。
+
+卡片展示语义
+
+内容成功和失败均可触发内容完成，退出策略不区分二者。
+
+TTS 语义
+
+卡片退出时不停止 TTS，避免退出 UI 时打断语音播报。
+
+视频语义
+
+卡片退出不操作三方 App 播放状态；视频播放中的自动退出由 VIDEO_PLAYING blocker 阻断。
+外部延迟语义：外部一次性延迟只影响下一次可启动或正在运行的退出倒计时；消费一次后立即恢复普通 10 秒倒计时。卡片主动关闭、页面跳转、request 切换或窗口隐藏不等待外部延迟。
+4.2 稳定性兜底
+内容完成通知缺失时，3 分钟 watchdog 进入兜底流程。
+watchdog 触发时需要记录异常日志，便于定位未上报完成的 cardInstanceId 和 cardType。
+某个 screen 倒计时期间如果新增 blocker，需要取消该 screen 的倒计时，等待该 screen blockers 清空后重新开始。
+用户手动点击或滑动卡片时，需要取消对应屏幕当前倒计时；交互结束后如果没有其他 blocker，则重新启动 10 秒倒计时。
+外部一次性延迟请求被消费后，不因后续 blocker 新增、倒计时取消或重新启动而恢复；下一次倒计时恢复普通 10 秒。
+requestId 切换或窗口隐藏时，需要清理 tracker 和 coordinator 会话，避免旧状态污染下一轮。
+4.3 监控与排查
+建议记录完整的退出决策日志：requestId、screen、当前 screen 的 cardInstanceId 集合、未完成卡片、screen blockers、watchdog 截止时间、倒计时截止时间、一次性外部延迟请求、视频播放集合以及最终隐藏原因。request 根会话日志用于确认整体生命周期，screen 子会话日志用于还原每个屏幕为什么退出或为什么继续展示。
+
+
+日志点
+
+建议字段
+
+开始列表退出会话
+
+requestId、policy、screenSessions.keys、各 screen 的 cardInstanceId 列表、cardType 列表。
+
+子卡片内容状态变化
+
+requestId、screen、cardInstanceId、cardType、oldState、newState、该 screen 是否全部 FINISHED、是否重新加入 CONTENT_NOT_FINISHED。
+
+blocker 变化
+
+requestId、screen、oldBlockers、newBlockers、变化原因。
+
+一次性延迟申请
+
+requestId、screen、cardInstanceId、delayMs、reason、createdAtMs、是否覆盖同卡片旧请求。
+
+一次性延迟消费
+
+requestId、screen、被消费的 cardInstanceId 列表、maxDelayMs、oldDeadline、newDeadline、delayConsumed=true。
+
+watchdog 触发
+
+requestId、screen、停留在 LOADING 的 cardInstanceId、cardType、等待时长。
+
+倒计时开始或取消
+
+requestId、screen、deadline、取消原因、新增 blocker、是否携带已消费的一次性延迟。
+
+最终隐藏
+
+requestId、screen、hideReason、是否用户主动关闭、是否全部 screen session 已结束。
+5. Roadmap
+5.1 为什么拆分
+退出策略拆成 CardContentCompletionTracker、CardPlaybackTracker 和 SeresCardExitCoordinator，是为了避免把子卡片状态、播放状态、TTS、工具区和倒计时全部堆在一个会话对象里。这样每个模块只处理一类事实，最终由 coordinator 聚合决策。
+5.2 分阶段推进
+
+
+阶段
+
+目标
+
+验收重点
+
+阶段一
+
+接入列表级退出会话、CountdownBlocker、内容完成 tracker 和 watchdog。
+
+普通卡片不会在内容未完成时提前退出；watchdog 能兜底。
+
+阶段二
+
+接入视频播放 tracker、TTS blocker、Tool blocker 和视频关闭按钮。
+
+视频播放期间不自动退出，暂停/结束/停止后重新倒计时；TTS 和 Tool 期间倒计时暂停。
+
+阶段三
+
+补齐日志、异常排查字段和复杂嵌套 RecyclerView 场景。
+
+可以从日志复盘每一次退出或不退出的原因。
+6. TODO确认项
+确认所有需要等待内容完成的卡片类型，以及每类卡片上报 FINISHED 和重新回到 LOADING 的准确时机。
+确认 cardInstanceId 生成规则，避免 messageId 或 replyId 复用导致旧事件误命中新会话。
+确认内容 watchdog 的最终时长是否固定为 3 分钟，或是否需要按卡片类型配置。
+确认哪些卡片类型允许申请一次性外部延迟，以及每类卡片申请延迟的触发时机、delayMs 和 reason 枚举。
+确认 Tool 生命周期与 SeresCardExitCoordinator 的事件来源和状态映射。
+确认 TTS 生命周期回调是否覆盖播放开始、完成、错误和中断。
+7. 验收清单
+同一个 requestId 下按 screen 独立聚合内容加载状态，某个 screen 下所有子卡片 FINISHED 后才移除该 screen 的 CONTENT_NOT_FINISHED。
+卡片展示后不会立即启动所属 screen 的普通 10 秒倒计时。
+内容成功和失败均可以触发内容完成。
+某张子卡片从 FINISHED 重新回到 LOADING 后，只给所属 screen 重新加入 CONTENT_NOT_FINISHED，并取消该 screen 已启动的普通退出倒计时。
+内容完成通知缺失时，3 分钟 watchdog 能进入兜底流程。
+视频播放期间只阻塞所属 screen 自动退出，暂停、结束或停止后重新倒计时 10 秒。
+TTS 播放期间只阻塞其归属 screen 的倒计时，卡片退出时不停止 TTS。
+用户手动点击或滑动卡片后，只重启对应屏幕的 10 秒倒计时，不影响其他屏幕。
+某张卡片申请一次性外部延迟后，只影响下一次可启动或正在运行的退出倒计时，消费后恢复普通 10 秒倒计时。
+一次性外部延迟已消费后，如果倒计时被 TTS、工具区、视频播放或用户交互取消，后续重新倒计时不再复用该延迟。
+同一 screen 下多个视频子卡片同时存在时，只有该 screen 下全部视频停止播放后才移除 VIDEO_PLAYING。
+用户点击视频卡片关闭按钮后能够正常收起卡片。
+MessageListAdapter 不承载 Seres 退出策略和 blocker 聚合逻辑。
+
+

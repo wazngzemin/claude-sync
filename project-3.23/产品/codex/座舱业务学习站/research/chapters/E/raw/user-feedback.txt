@@ -1,0 +1,1499 @@
+AIDV 用户反馈技术方案
+适用范围：对话卡片点踩、语音 AI 总结反馈。依据 PRD V1.3（2026-09-17）设计，供 AIDV、CDC、ADC/AIBOX、VSHD 联合评审。
+
+核心结论
+卡片反馈：全部预设标签（含“其他”）在卡片消失时按端侧最终状态处理；最终未点踩不提交，最终点踩由 AIDV 提交 VSHD。
+语音反馈：report_id 生命周期由云端维护；提前下发 start_collect，用户确认后通过 Frontier 下发 submit，由 CDC 补齐日志与附件并提交 VSHD。
+职责边界：Planner 只负责路由与最终播报，Issue Report Agent 负责状态和执行，Feedback Model 负责判断与动作决策；执行结果通过 tool feedback 返回 Planner。
+范围与目标
+目标
+支持对话卡片全部预设标签的点踩与取消点踩；卡片消失时仅提交最终有效点踩，点赞由客户端自行处理。
+支持用户通过语音主动反馈整车或智驾问题，最多追问 3 轮。
+支持 AI 生成不超过 100 字的问题总结，由用户确认后提交。
+支持卡片存续期间在端侧维护点踩状态，并在卡片消失时提交最终有效反馈；语音反馈提交幂等，取消时终止上传并删除已采集数据。
+非目标
+不定义 CDC、ADC、AIBOX 内部的日志采集实现。
+不改变 VSHD 的工单处理和用户中心展示逻辑。
+人员分工
+
+
+责任方
+
+负责人
+
+主要职责
+
+关键交付
+
+产品
+
+@单如水（ZJ）@陆云帆（SLS）
+
+确认反馈入口、交互流程、采集时机、确认/取消规则及验收口径；协调跨团队决策。
+
+PRD、交互稿、验收标准
+
+AIDV Planner
+
+@李明骏
+
+识别需要进入 Issue Report Agent 的请求并仅转发 query；接收 Agent tool feedback 后生成最终文本与 TTS。
+
+Planner 路由 Prompt、query-only 转发协议与测试
+
+AIDV Issue Report
+
+@张驰Ricky@单如水
+
+执行模型推理，负责反馈意图理解、完整性判断、澄清、总结分类和动作决策；创建 report_id；生成并执行 start_collect/review/submit/cancel Function Call；持久化结果；向 Planner 返回 tool feedback；submit 后收集并组装上下文。
+
+Issue Report Agent 模型协议、Function Call、状态与幂等逻辑
+
+豆包客户端
+
+@姜锋
+
+在 vehicle_biz_params 中增加 input_scene（mock query）
+
+
+
+车控客户端 / 车机 HMI
+
+
+@樊晓天
+
+
+展示反馈入口和确认卡片；消费 start_collect、review、submit 下行指令；按钮通过 Chat/Planner 链路上行，并在 vehicle_biz_params 中携带 input_scene=button；“可见即可说”通过语音链路上行并携带 input_scene=guiding。report_id 仅用于消费云端下行和 CDC 采集幂等，不通过 ChatRequest 回传。
+
+端侧交互、协议接入与状态展示
+
+CDC
+
+@王华 （产品）@杨壮（研发）@zhaohang （研发）
+
+
+收到一次 start_collect 后持续采集；按 report_id 幂等管理任务；提交时提供日志与附件，取消或超时时停止采集并清理。
+
+采集、停止、清理及附件接口
+
+ADC / AIBOX
+
+
+
+配合 CDC 提供反馈所需的端侧数据与附件能力，并明确数据格式、采集边界和失败降级。
+
+端侧数据接口与联调说明
+
+VSHD
+
+@王洪明（产品） @lixu（研发）  @邱敏（项目）
+
+
+接收 AIDV 云端提交的卡片最终反馈，按 report_id 幂等创建工单；同时接收 CDC 提交的语音反馈正文、conversation_context 和附件，完成工单处理和用户中心展示。
+
+提交接口、工单状态与错误码
+
+联合测试
+
+@高铖
+
+
+覆盖意图识别、澄清、提前采集、review、三类确认/取消输入、上下文组装、幂等、超时和异常降级。
+
+联调环境、测试用例与验收报告
+总体方案
+系统架构：反馈能力由 Planner、Issue Report Agent、Feedback Model、issue_reports、/feedback/dislike、Frontier、CDC 和 VSHD 协同完成。Planner 负责路由与播报，Agent 负责流程编排、状态管理和幂等，Model 负责信息完整性判断与动作决策。
+模型职责：Planner 仅向 Issue Report Agent 转发 query。Issue Report Agent 执行模型推理，负责信息完整性判断、澄清、总结分类和动作决策，并生成业务 Function Call；执行结果通过 tool feedback 返回 Planner 播报。
+卡片点踩：卡片展示期间的交互仅由端侧维护。卡片消失时，最终未点踩则结束；最终点踩则携带完整 labels 调用一次 AIDV，AIDV 生成 report_id、落库并向 VSHD 提交一次。
+语音反馈：“我要反馈问题”“导航有些问题”等输入由 Planner 路由给 Issue Report Agent。Agent 首次确认进入反馈流程后创建 report_id 并下发 start_collect，让 CDC 在澄清期间同步采集日志；描述清楚后由 Agent 生成分类、总结和 review。用户确认提交后才查询历史并组装 conversation_context，随后由端侧、CDC 完成数据汇总并提交 VSHD。
+确认与取消：按钮点击、“可见即可说”和泛化语音均进入 Chat/Planner 语音链路。Planner 只转发 query 和请求上下文；Issue Report Agent 结合 input_scene、语义及云端维护的当前反馈任务判断是否生成 submit/cancel Function Call，并统一执行状态与幂等校验。
+总体流程简图
+
+完整全链路时序图
+
+对话卡片点踩
+处理规则
+预设标签：支持多选，取有害/不安全、信息虚假、没有帮助、遗忘上下文、记忆使用不当、其他；最终提交时至少选择 1 项。
+端侧交互：卡片展示期间，用户可以点踩、取消点踩或调整标签；端侧仅维护当前选择，不调用云端接口。
+提交时机：卡片消失时读取端侧最终状态。最终未点踩时直接结束，不提交反馈；最终点踩时调用一次 POST /feedback/dislike，并提交完整 labels 集合。
+目标回答：request_id 是端云对话协同标识，用于锚定被评价回答；AIDV 根据 request_id 和当前登录上下文查询目标回答、log_id 与上下文，并校验其属于当前用户和车辆。
+幂等：同一 vehicle_id、request_id、source 只创建一条卡片反馈记录。接口重试返回已有结果，不重复落库或提交 VSHD。
+VSHD 提交：AIDV 对最终有效反馈生成 report_id、组装完整 labels 与 conversation_context，并向 VSHD 提交一次。
+调用流程图
+
+语音 AI 总结反馈
+核心流程
+启动采集：Planner 将 query 转发给 Issue Report Agent。Agent 首次确认进入反馈流程后创建 report_id 并下发 start_collect；描述不完整时由 Agent 生成澄清 tool feedback，CDC 在此期间持续采集。
+生成确认内容：信息完整后，Issue Report Agent 模型生成不超过 100 字的 summary 和 category；Agent 校验、持久化并下发 review，再将执行结果以 tool feedback 返回 Planner。
+提交或取消：用户确认后查询反馈触发前最多 20 个已完成轮次，并汇总反馈触发语、Agent 追问和用户补充，组装 history 与 feedback_dialogue，再通过 Frontier 下发 submit；端侧/CDC 补齐用户、车辆、日志和附件后提交 VSHD。取消或超过 3 轮仍无法补齐时，停止采集并清理数据。
+统一流程：反馈意图与问题描述
+
+确认、取消与模型约束
+
+活动任务定位
+端侧后续请求不携带 report_id。Issue Report Agent 在当前 channel、vehicle_id、account_id 范围内，筛选 source=voice_feedback、report_status 为 COLLECTING/REVIEW_READY/CONTEXT_COLLECTING 且未过期的记录，按 created_at 倒序取最近一条；未命中活动任务时不执行反馈操作。
+确认与取消：按钮、“可见即可说”和泛化语音统一进入 Chat/Planner，Planner 仅转发 query；按钮入口在 vehicle_biz_params 中携带 input_scene=button，“可见即可说”携带 input_scene=guiding，泛化语音可不传 input_scene。submit 仅允许 REVIEW_READY，cancel 仅允许 COLLECTING 或 REVIEW_READY；Agent 校验归属和状态，并按 report_id + action 幂等处理，终态冲突返回当前状态。
+模型约束：Issue Report Agent 最多澄清 3 轮；summary 不超过 100 个汉字，只基于本次反馈描述与澄清内容，不新增用户未表达的事实。
+数据与接口契约
+本章分为三部分：6.1 定义 Planner query-only 转发、Feedback Model 输入输出、业务 Function Call 与 tool feedback；6.2 定义链路与接口协议；6.3 定义反馈数据的数据库表设计。
+Planner、Issue Report Agent 与 Feedback Model 协议 @李明骏@张驰Ricky@单如水
+
+边界约定：Issue Report Agent 是 Planner 调用的应用工具；Feedback Model 是该 Agent 内部调用的模型。Feedback Model 的输出必须先经过 Agent 校验和执行，不能直接作为 Planner action 或 Frontier payload。
+Planner 输出 @李明骏
+Planner Model 输出 envelope
+{
+  "talk_or_not": "no",
+  "talk_content": "",
+  "emoji_id": "",
+  "action_list": [{
+    "action_id": "act_xxx",
+    "tool_name": "issue_report",
+    "params": {
+      "query": "用户本轮输入"
+    }
+  }]
+}
+
+
+字段
+
+类型
+
+必填
+
+说明
+
+tool_name
+
+string
+
+是
+
+目标值为 issue_report；实际字面值取在线 Agent Registry 的 Name，代码侧通过 Agent ID 绑定，部署前必须校验两者一致。
+
+params.query
+
+string
+
+是
+
+当前轮需要交给 Issue Report Agent 处理的用户输入。按钮、“可见即可说”和泛化语音同样只转发对应 query。
+Planner 不在调用 Agent 前自行追问或宣称操作成功；Agent 返回 tool feedback 后，Planner 再据实际结果生成文本与 TTS。
+Issue Report Agent 输入输出 @张驰Ricky
+Issue Report Agent 的输入来自三部分：Planner 转发的 query、原始请求中的场景上下文，以及 Agent 按当前会话从服务端读取的反馈任务上下文。Agent 不信任模型生成的任务 ID、状态或归属信息。
+Agent 输入
+Feedback Report Agent 输入（逻辑结构）
+{
+  "query": "用户本轮输入",
+  "request_context": {
+    "input_scene": "guiding"
+  },
+  "task_context": {
+    "report_id": "rpt_xxx",
+    "feedback_status": "COLLECTING | REVIEW_READY"
+  }
+}
+
+
+字段
+
+必填
+
+来源与约束
+
+query
+
+是
+
+来自 Planner 的 params.query，在 Runner 中映射为 Agent 请求的 Query.Content。
+
+request_context.input_scene
+
+否
+
+来自 AgentPayload.ext.vehicle_biz_params 中的 input_scene：button 映射为按钮输入（UserInputSceneType=9），guiding 映射为引导语输入（2），scene 映射为推荐场景输入（3），skill 映射为 Skill 输入（6）；空值或其他值按普通语音（1）处理。Button(9) 保留输入来源标识，但业务处理逻辑与 Audio(1) 一致。
+
+task_context.report_id / feedback_status
+
+否
+
+由 Agent 按时间和状态从服务端活动任务中读取，不属于端侧上行协议。不存在活动任务时为空，模型不得生成或猜测。
+Agent 输出
+Agent 返回给 Planner 的是 tool feedback，表示模型决策经过校验和业务执行后的实际结果，而不是 Feedback Model 的原始 JSON。
+Feedback Report Agent 输出
+{
+  "success": true,
+  "action": "review",
+  "report_id": "rpt_xxx",
+  "status": "REVIEW_READY",
+  "message": "反馈内容已整理，请确认是否提交"
+}
+
+
+字段
+
+必填
+
+说明
+
+success
+
+是
+
+本次语义决策对应的业务处理是否成功。
+
+action
+
+是
+
+实际处理的动作：clarify、start_collect、review、submit 或 cancel。
+
+report_id
+
+有任务时是
+
+当前反馈任务 ID；首次 start_collect 成功后返回服务端创建的 ID。
+
+status
+
+否
+
+当前服务端状态，用于表达成功、幂等命中或状态冲突。
+
+message
+
+是
+
+提供给 Planner 的事实性结果或澄清文案，不得与真实执行结果冲突。
+字段承载与赋值链路
+上面的 JSON 是 Agent 校验模型输出并执行业务动作后生成的逻辑结果，记为 agent_result。它不是 Feedback Model 的原始输出，也不是 Planner 最终下发给客户端的响应。Agent 将 agent_result 序列化后写入内部 ChatResponse 的 model_content；Go 结构体字段名为 ModelContent，JSON 字段名为 model_content。
+Feedback Report Agent 内部 ChatResponse
+{
+  "content": "",
+  "model_content": "{\"success\":true,\"action\":\"review\",\"report_id\":\"rpt_xxx\",\"status\":\"REVIEW_READY\",\"message\":\"反馈内容已整理，请确认是否提交\"}"
+}
+Planner 汇总工具响应时拼接各响应的 ChatResponse.ModelContent，并包装成 tool_name + tool_feedback 注入 Planner Model 上下文。其中 tool_feedback 的值等于汇总后的 model_content；tool_feedback 是 Planner 上下文字段名，不是 ChatResponse 字段。
+注入 Planner Model 的工具结果
+{
+  "tool_name": "issue_report",
+  "tool_feedback": "{\"success\":true,\"action\":\"review\",\"report_id\":\"rpt_xxx\",\"status\":\"REVIEW_READY\",\"message\":\"反馈内容已整理，请确认是否提交\"}"
+}
+Feedback Model 输出 action、reply、summary、category 等模型决策字段。
+Issue Report Agent 解析并校验模型输出，结合服务端状态执行业务 Function Call，生成 agent_result。
+Agent 将 agent_result 序列化并赋值给 ChatResponse.ModelContent，对应 JSON 字段 model_content。
+Planner 将 ModelContent 汇总为 tool_feedback，并与 Registry 中的 tool_name 一起注入 Planner Model 上下文。
+Planner Model 依据实际 tool_feedback 生成最终文本与 TTS，再由外层 ChatResponse 下发客户端。
+约束：Feedback Model 输出协议中不定义 model_content；model_content 仅属于 Agent/Planner 框架的 ChatResponse 承载层。Agent 不得把未经校验、未经业务执行的 Feedback Model 原始 JSON 直接写入 model_content 返回 Planner。
+Feedback Model 输入输出 @张驰Ricky@单如水
+Issue Report Agent 每轮调用 Feedback Model。Model 只负责理解当前轮语义并返回结构化决策；任务状态维护、字段校验、持久化和业务 Function Call 均由 Agent 负责。
+
+核心约束：Model 的 action 只允许 clarify、review、submit、cancel。start_collect 由 Agent 在首次进入且不存在有效活动任务时生成，不属于 Model action。
+统一输入协议
+Feedback Model 输入
+{
+  "query": "用户本轮输入",
+  "feedback_status": "COLLECTING | REVIEW_READY",
+  "feedback_dialogue": [
+    {
+      "role": "user | assistant",
+      "content": "当前反馈任务内的对话"
+    }
+  ]
+}
+
+
+字段
+
+类型
+
+必填
+
+Agent 赋值与 Model 使用约束
+
+query
+
+string
+
+是
+
+Planner 转发的本轮用户原话，不改写。Model 用于判断当前动作并提取本轮新增信息。
+
+feedback_status
+
+string
+
+是
+
+Agent 从服务端活动任务读取，只传 COLLECTING 或 REVIEW_READY。仅用于辅助理解阶段，不能替代 Agent 的业务状态校验。
+
+feedback_dialogue
+
+array
+
+否
+
+只包含当前反馈任务中的触发语、Agent 澄清、用户补充及确认操作；不得混入无关历史对话，也不得据此虚构事实。
+敏感字段隔离：report_id、账号、车辆标识、时间戳、日志和幂等键均不传给 Model。此类字段由 Agent 或服务端在执行阶段补充，Model 不生成、不修改，也不依赖这些字段作出动作判断。
+统一输出协议
+Feedback Model 输出
+{
+  "action": "clarify | review | submit | cancel",
+  "reply": "候选回复文案",
+  "summary": "不超过100个汉字的问题描述",
+  "category": "固定分类枚举"
+}
+
+
+字段
+
+clarify
+
+review
+
+submit
+
+cancel
+
+约束
+
+action
+
+必填
+
+必填
+
+必填
+
+必填
+
+只能取四个约定值。
+
+reply
+
+必填
+
+必填
+
+必填
+
+必填
+
+clarify 为具体追问；其他动作为候选文案，不能提前宣称执行成功。
+
+summary
+
+不返回
+
+必填
+
+不返回
+
+不返回
+
+不超过 100 个汉字，完整描述问题对象和异常现象；同时用于落库和确认页展示，不新增用户未表达的事实。
+
+category
+
+不返回
+
+必填
+
+不返回
+
+不返回
+
+必须为固定英文枚举，无法判断时使用 other。
+Model 必须只输出一个合法 JSON 对象，不添加 Markdown 代码块、前言、句首标记或解释文字；非当前 action 所需字段直接省略。Model 原始输出不能直接作为 Planner tool feedback 或 Frontier payload。
+动作与状态约束
+
+
+Model action
+
+允许的输入状态
+
+Model 判断条件
+
+Agent 行为
+
+clarify
+
+COLLECTING、REVIEW_READY
+
+问题对象或异常现象不明确，或确认页修改意图不明确。
+
+不调用 Frontier，返回具体追问；最多澄清 3 轮。
+
+review
+
+COLLECTING、REVIEW_READY
+
+描述已完整，或用户修改了确认页内容。
+
+校验并持久化 summary、category，再调用 Frontier 下发 review。
+
+submit
+
+REVIEW_READY
+
+用户明确确认提交。
+
+重新校验服务端状态，组装上下文，再调用 Frontier 下发 submit。
+
+cancel
+
+COLLECTING、REVIEW_READY
+
+用户明确取消或放弃。
+
+校验任务非终态，再调用 Frontier 下发 cancel。
+用户未明确确认时不得输出 submit。确认页上的补充或修改应重新输出 review；修改意图不明确时先输出 clarify。Agent 检测到首次进入且不存在有效活动任务时，先创建任务并下发一次 start_collect，随后以 COLLECTING 状态调用 Model。
+分类枚举
+
+map_navigation
+assisted_driving
+ai_voice
+media
+ecosystem_app
+third_party_app
+ecosystem_iot
+vehicle_control_settings
+desktop
+account
+dashcam
+parking_camera
+vision
+permission_privacy
+vehicle_center
+phone
+phone_vehicle_connect
+rescue_service
+maintenance
+casting
+other
+review 时 category 只能取上述值。建议类暂按现有技术方案返回领域枚举，无法判断时返回 other。
+完整分场景示例见 Feedback Agent 与 Feedback Model 输入输出协议。
+Feedback Agent 返回与 Frontier 调用时序
+model_content 是 Feedback Agent 每轮结束时返回 Planner 的结果载体；Frontier 仅在动作需要驱动车端业务状态时调用。调用 Frontier 后，Agent 仍须依据实际执行结果生成 model_content，不能在执行前向 Planner 宣称成功。
+
+Agent 动作与业务 Function Call
+
+
+动作
+
+决策来源
+
+Agent 行为
+
+start_collect
+
+Agent 检测到首次进入且无有效 report_id
+
+创建 report_id 和最小任务并下发 start_collect。该动作不由 Feedback Model 输出。
+
+clarify
+
+Model 判断描述不足或语义不明确
+
+不生成业务 Function Call，直接以 tool feedback 返回具体追问；最多 3 轮。
+
+review
+
+Model 判断描述完整
+
+校验并持久化 summary、category，再下发 review。
+
+submit
+
+Model 识别明确确认
+
+Agent 校验任务处于 REVIEW_READY 后执行 submit，组装 conversation_context 并通过 Frontier 下发 submit 业务指令。
+
+cancel
+
+Model 识别明确取消，或澄清超限/放弃
+
+Agent 校验任务状态后执行 cancel，停止采集并清理任务数据。
+Function Call 示例
+start_collect
+{
+  "report_id": "rpt_xxx",
+  "start_time": 1789000000,
+  "longest_time": 600,
+  "functions": [{
+    "function_code": "问题和建议反馈",
+    "params": [{"action": "start_collect"}]
+  }]
+}
+review
+{
+  "report_id": "rpt_xxx",
+  "summary": "导航规划多次出现绕路",
+  "category": "map_navigation",
+  "functions": [{
+    "function_code": "问题和建议反馈",
+    "params": [{"action": "review"}]
+  }]
+}
+submit、cancel 沿用同一 function_code，params.action 分别为 submit、cancel。业务 Function Call 的最终端云字段、路由和载荷以 6.2 为准；Feedback Model 不得自行生成 report_id、时间戳、归属信息或幂等键。
+校验、状态与幂等
+Planner 侧只校验 issue_report 调用 envelope 和 query，不校验 Issue Report 业务 action 参数。
+Issue Report Agent 校验模型 JSON、action 与字段组合；非法输出不执行部分字段，也不下发 Function Call。
+同一反馈任务仅允许一次有效 start_collect；report_id 由 Issue Report 服务端生成。
+review 仅在 summary、category 校验通过后下发；summary 不超过 100 个汉字。
+submit/cancel 必须由云端按当前会话定位到有效的非终态 report_id，并校验归属和状态；按钮、“可见即可说”和泛化语音遵守同一规则，均不依赖端侧回传任务 ID。
+业务侧按 report_id + action 幂等处理。终态冲突返回当前状态，不重复下发 Frontier、提交 VSHD 或清理 CDC。
+Function Call 执行结果以 tool feedback 返回 Planner；Planner 只负责基于结果播报，不提前假定成功。
+链路与接口协议 @樊晓天@张驰Ricky@姜锋
+6.1 内部处理与 6.2 端云协议的对应关系
+
+适用边界：6.1 仅描述语音反馈的 Planner → Issue Report Agent → Feedback Model 内部链路。卡片点踩不经过这三层，直接由 /feedback/dislike 进入 AIDV 业务服务并同步 VSHD。
+
+
+功能阶段
+
+6.2 端侧上行
+
+6.1 内部处理
+
+6.2 端侧下行 / 后续链路
+
+进入反馈
+
+ChatRequest：首次问题描述
+
+Planner 调用 issue_report(query)；Agent 无活动任务时创建 report_id，并将 query 与任务上下文交给 Model
+
+Frontier：start_collect；Planner 根据 Agent 实际结果返回 ChatResponse
+
+继续澄清
+
+ChatRequest：补充问题描述
+
+Model 输出 clarify；Agent 不执行业务 Function Call，仅返回澄清 tool feedback
+
+ChatResponse：澄清文本与 TTS；不下发 Frontier 指令
+
+进入确认页
+
+ChatRequest：描述已完整
+
+Model 输出 review；Agent 校验并持久化 summary、category 等字段
+
+Frontier：review；ChatResponse 返回实际处理结果
+
+确认提交
+
+ChatRequest：确认；按钮入口在 vehicle_biz_params 中携带 input_scene=button，“可见即可说”携带 input_scene=guiding，泛化语音可不传 input_scene
+
+Model 输出 submit；Agent 校验 REVIEW_READY，组装 conversation_context 并执行 submit
+
+Frontier：submit → 端侧/CDC 补齐日志和附件 → VSHD；执行结果经 tool feedback 返回 ChatResponse
+
+取消反馈
+
+ChatRequest：取消；按钮入口在 vehicle_biz_params 中携带 input_scene=button，“可见即可说”携带 input_scene=guiding，泛化语音可不传 input_scene
+
+Model 输出 cancel；Agent 校验活动任务并执行取消、清理任务数据
+
+Frontier：cancel，停止 CDC 采集；不提交 VSHD；结果经 ChatResponse 返回
+统一返回链：Model 输出只是决策候选；Agent 校验并执行后生成 agent_result → ChatResponse.model_content → Planner tool_feedback，Planner 最后生成 6.2 中面向端侧的 ChatResponse 文本与 TTS。
+通道与关联标识
+
+
+通道
+
+方向
+
+用途
+
+ChatRequest
+
+端 → 云
+
+承载语音反馈、补充描述以及全部确认/取消操作。按钮、“可见即可说”和泛化语音统一使用 Chat/Planner 语音链路。
+
+HTTP
+
+端 → 云
+
+卡片消失且最终状态为点踩时，端侧调用 POST /feedback/dislike；AIDV 组装最终反馈并提交 VSHD。
+
+ChatResponse
+
+云 → 端
+
+流式返回澄清、确认和处理结果的文本与 TTS。
+
+Frontier
+
+云 → 端
+
+通过车控 FunctionResponse 下发 start_collect、review、submit 和 cancel 业务指令；动作位于 functions[].params[].action，反馈字段位于 functions[].data。
+request_id：关联同一轮 ChatRequest、ChatResponse 与 Frontier 消息。
+report_id：由 AIDV 云端生成并维护，关联同一反馈任务的 start_collect、后续澄清、review、submit 和 cancel。随 start_collect、review、submit 下行指令提供给端侧，端侧按 report_id + action 幂等消费，但后续 ChatRequest 不回传该字段。
+场景一：卡片点踩
+上行：POST /aidv/v1/feedback/dislike
+卡片展示期间的点踩、取消点踩和标签调整均由端侧维护，不调用云端。卡片消失时，若最终状态为未点踩，则不发起请求；若最终状态为点踩，则端侧提交一次最终结果。AIDV 根据 request_id 和当前登录上下文定位被评价回答，并从服务端对话记录派生 log_id、query、sound_zone 和上下文快照。
+卡片点踩请求
+{
+  "app_id": 1,
+  "channel_app_id": 1001,
+  "channel": "dongfeng",
+  "vehicle_id": "vehicle-123",
+  "vehicle_type": "model-a",
+  "account_id": "account-42",
+  "tob_device_id": "device-123",
+  "client_version": "1.2.3",
+  "login_doubao_uid": 123456,
+  "pdid": "",
+  "log_id":"",
+  "request_id": "req-123",
+  "labels": [
+    "unhelpful"
+  ]
+}
+
+
+
+字段
+
+必填
+
+说明
+
+request_id
+
+是
+
+被评价回答的端云协同标识，也是卡片反馈唯一业务键的一部分。
+
+labels
+
+是
+
+卡片消失时的完整标签数组，包含 1 至 6 个不重复枚举值。允许值为 unsafe、false_info、unhelpful、forgot_context、memory_misuse、other。
+服务端派生：channel、vehicle_id、account_id 从 CommonInfo 获取；log_id、query、sound_zone、目标回答及历史上下文按 request_id 查询，不接受客户端重复声明。
+标签处理：服务端校验枚举、去重并按固定枚举顺序归一化；输入顺序不参与业务比较。
+重试幂等：同一 vehicle_id、request_id、source 只创建一条记录。重复请求返回已有结果，不重复提交 VSHD。
+下行：HTTP Response
+卡片反馈提交结果
+{
+  "report_id": "rpt_xxx",
+  "request_id": "req_xxx",
+  "labels": ["unhelpful", "forgot_context"],
+  "record_action": "created",
+  "created_at_ms": 1789000010000
+}
+record_action 取 created 或 unchanged；同一业务键重试时返回已有记录并标记 unchanged，不重复落库或提交 VSHD。
+场景二：语音反馈
+上行：发起与补充
+vehicle_biz_params 在 AgentPayload.ext 中是 JSON 字符串。下面按解码前后的结构展示反馈相关字段，原有车辆参数保持不变。
+AgentPayload 相关字段：首次描述反馈问题
+{
+  "query": {
+    "content": "我想反馈一个问题，导航规划总是绕路"
+  },
+  "ext": {
+    "vehicle_biz_params": "<序列化后的 VehicleBizParam JSON>"
+  }
+}
+vehicle_biz_params 解码后
+{
+  "vehicle_id": "vehicle_xxx",
+  "coordination_info": {
+    "request_id": "req_xxx"
+  }
+}
+后续补充反馈信息
+{
+  "query": {
+    "content": "主要是在早高峰导航时频繁绕路"
+  },
+  "ext": {
+    "vehicle_biz_params": "{\"vehicle_id\":\"vehicle_xxx\",\"coordination_info\":{\"request_id\":\"req_followup_xxx\"}}"
+  }
+}
+
+按钮确认输入：携带 input_scene=button
+{
+  "query": {
+    "content": "确认"
+  },
+  "ext": {
+    "vehicle_biz_params": "{\"vehicle_id\":\"vehicle_xxx\",\"input_scene\":\"button\",\"coordination_info\":{\"request_id\":\"req_confirm_xxx\"}}"
+  }
+}
+网关解析 VehicleBizParam 后，将 input_scene 转换为内部 ChatRequest.Query.UserInputSceneType。端侧只需在 vehicle_biz_params 中上报 input_scene 等场景信息，不注册或透传 issue_report_id。Issue Report Agent 在当前用户和车辆范围内，按时间与状态查询最近一条活动任务并取得 report_id。
+上行：确认与取消
+确认/取消统一走 Chat/Planner 链路。按钮点击时，端侧将“确认”或“取消”作为本轮 query，并在 vehicle_biz_params 中携带 input_scene=button；网关将其转换为 ChatRequest.Query.UserInputSceneType=9（Button），后续业务判断与普通语音输入 Audio(1) 保持一致。“可见即可说”仍进入语音链路，ASR 阶段通过 extra.screen_page_hotword 注入页面候选词，并携带 input_scene=guiding，网关映射为 Guiding(2)。泛化语音可不传 input_scene，网关按 Audio(1) 处理。Planner 对三类入口都只向 Issue Report Agent 转发 query；Agent 结合语义、输入场景和云端按时间与状态筛选出的当前反馈任务决定并执行 submit/cancel Function Call。
+按钮确认上行；取消时将 query.content 改为“取消”
+{
+  "query": {
+    "content": "确认"
+  },
+  "ext": {
+    "vehicle_biz_params": "{\"vehicle_id\":\"vehicle_xxx\",\"input_scene\":\"button\",\"coordination_info\":{\"request_id\":\"req_confirm_xxx\"}}"
+  }
+}
+
+
+输入类型
+
+上行标记
+
+处理方式
+
+按钮点击
+
+input_scene=button；网关映射 UserInputSceneType=9
+
+端侧将按钮语义转换为“确认”或“取消”query，经 ChatRequest 进入 Planner；UserInputSceneType 保留值 9 以标识按钮来源，但 Agent 的语义判断、活动任务定位及 submit/cancel 执行逻辑均与 Audio(1) 一致。
+
+“可见即可说”
+
+input_scene=guiding；ASR extra.screen_page_hotword
+
+screen_page_hotword 为 ASR 注入页面候选词，input_scene=guiding 标识该轮为引导语场景；识别文本经 ChatRequest 进入 Planner。
+
+泛化语音
+
+无确定性提示词标记
+
+正常进入 Planner 并转发给 Issue Report Agent；Agent 仅在语义明确且云端存在当前活动反馈任务时生成 submit/cancel Function Call，否则返回澄清 tool feedback。
+submit 只对当前处于 REVIEW_READY 的反馈生效；cancel 可对 COLLECTING 或 REVIEW_READY 生效。云端在当前 channel、vehicle_id、account_id 范围内筛选 source=voice_feedback、非终态且未过期的记录，按 created_at 倒序取最近一条，并校验状态与归属。
+云端返回实际业务处理结果；Planner 链路的文本/TTS 必须与该结果一致，不得在执行前宣称提交或取消成功。
+云端未找到当前活动任务时，不执行 submit/cancel，并返回 DRAFT_NOT_FOUND 或 DRAFT_EXPIRED。未处于反馈上下文的泛化“确认”“取消”按普通对话处理。
+任务已提交或已取消后，冲突操作返回当前终态，端侧据此更新展示。
+下行：ChatResponse
+Planner Model 消费 tool_feedback 后生成最终 ChatResponse。此处 content 和 tts_content 是面向客户端的文本；model_content 是 Planner 最终响应中供后续 Agent 上下文使用的内容，不等同于内部 Agent 返回的原始 model_content，也不等同于 tool_feedback。描述不完整时只返回澄清结果，不下发 review。
+Planner 最终下行 ChatResponse：澄清文本与 TTS
+{
+  "chunk_type": 1,
+  "is_finish": true,
+  "content_type": 1,
+  "content": "请具体描述一下导航出现了什么问题",
+  "tts_content": "请具体描述一下导航出现了什么问题",
+  "model_content": "反馈信息尚不完整，继续澄清",
+  "error_code": 0
+}
+Planner 最终下行 ChatResponse：确认执行结果
+{
+  "chunk_type": 1,
+  "is_finish": true,
+  "content_type": 1,
+  "content": "反馈已提交",
+  "tts_content": "反馈已提交",
+  "model_content": "反馈提交成功",
+  "error_code": 0
+}
+取消成功时 content、tts_content 和 model_content 分别返回对应的取消结果，不得在业务执行完成前提前生成成功文案。
+下行：Frontier 业务指令 @姜锋
+业务指令复用车控 Function Call 的 Frontier 下发链路：Method 使用 VehicleControl，AIDVMessage.message_type 使用 TypeVehicleControl，message 直接承载 FunctionResponse JSON，目标设备为当前请求中的 DeviceID。Method 是 Frontier 业务路由字段，message_type 是该业务内的消息分类
+Frontier PushRequest → AIDVMessage → FunctionResponse
+{
+  "ProductID": 1181,
+  "AppID": 853927,
+  "Service": "<Frontier.ServiceID，按环境配置>",
+  "Method": 1,
+  "Devices": [
+    {
+      "UserID": 0,
+      "DeviceID": 123456789
+    }
+  ],
+  "Payload": "<AIDVMessage JSON bytes>",
+  "TTL": 5,
+  "MessageID": "<32 位 UUID>",
+  "AllIDC": true,
+  "QoS": 2,
+  "PushOnlyByDeviceCode": 1
+}
+
+// Payload 解码后：AIDVMessage
+{
+  "request_id": "req_xxx",
+  "message_type": 1,
+  "message": "<FunctionResponse JSON>"
+}
+
+// message 解码后：FunctionResponse
+{
+  "functions": [
+    {
+      "function_code": "问题和建议反馈",
+      "params": [
+        {"action": "start_collect"}
+      ],
+      "data": {
+        "report_id": "rpt_xxx",
+        "start_time": 1789000000,
+        "longest_time": 600
+      }
+    }
+  ],
+  "sound_zone": "driver",
+  "is_simple_vehicle_control": true
+}
+ProductID、AppID 和 Service 取当前环境的 Frontier 配置；
+Method=1 表示 VehicleControl（车控 Function Call 业务通道）；
+message_type=1 表示 TypeVehicleControl；message 直接承载 FunctionResponse JSON。
+UserID 固定为 0，DeviceID 取当前请求；
+MessageID 每次下发生成，QoS=2、TTL=5 秒、AllIDC=true、PushOnlyByDeviceCode=1。PayloadEncoding、PayloadType、Extended、各类 Filter、DowngradeToQos0WhenStorageErr 和 Base 在本链路中未设置，不参与业务协议。
+AIDVMessage.message 是序列化后的 FunctionResponse JSON 字符串。动作位于 functions[].params[].action，report_id 等反馈专属字段位于 functions[].data；sound_zone 沿用当前声区，is_simple_vehicle_control 固定为 true。AIDVMessage.request_id 关联当前对话轮次，report_id 关联整个反馈任务。start_collect、review、submit 和 cancel 可能来自不同对话轮次，因此 AIDV 云端按用户、车辆、时间和状态定位并维护 report_id；各类下行均携带 report_id，供客户端和 CDC 幂等消费。
+start_collect
+Issue Report Agent 首次确认进入反馈流程后下发一次，用于通知客户端启动 CDC 日志采集。后续澄清沿用同一 report_id，不重复下发。
+AIDVMessage.message 解码后：start_collect
+{
+  "functions": [
+    {
+      "function_code": "问题和建议反馈",
+      "params": [
+        {"action": "start_collect"}
+      ],
+      "data": {
+        "report_id": "rpt_xxx",
+        "source": "voice_feedback",
+        "feedback_time_ms": 1789000000000,
+        "start_time": 1789000000,
+        "longest_time": 600
+      }
+    }
+  ],
+  "sound_zone": "driver",
+  "is_simple_vehicle_control": true
+}
+review
+Issue Report Agent 模型判断信息完整并输出 review 后，由 Agent 校验、持久化并下发。只携带确认展示所需字段，不携带 conversation_context。
+AIDVMessage.message 解码后：review
+{
+  "functions": [
+    {
+      "function_code": "问题和建议反馈",
+      "params": [
+        {"action": "review"}
+      ],
+      "data": {
+        "report_id": "rpt_xxx",
+        "source": "voice_feedback",
+        "feedback_time_ms": 1789000000000,
+        "summary": "导航规划多次出现绕路",
+        "category": "map_navigation"
+      }
+    }
+  ],
+  "sound_zone": "driver",
+  "is_simple_vehicle_control": true
+}
+cancel
+用户取消、主动放弃或澄清超限时，Issue Report Agent 校验并终止当前活动任务，通过 Frontier 下发 cancel，通知端侧/CDC 停止采集并清理任务数据；该动作不提交 VSHD。
+AIDVMessage.message 解码后：cancel
+{
+  "functions": [
+    {
+      "function_code": "问题和建议反馈",
+      "params": [
+        {"action": "cancel"}
+      ],
+      "data": {
+        "report_id": "rpt_xxx",
+        "source": "voice_feedback"
+      }
+    }
+  ],
+  "sound_zone": "driver",
+  "is_simple_vehicle_control": true
+}
+submit
+用户确认后，Issue Report Agent 组装 conversation_context，并通过 Frontier 下发 submit。端侧/CDC 使用该载荷补齐 userid、PDID、VIN、log_uri 和 attachments 后提交 VSHD。
+AIDVMessage.message 解码后：submit
+{
+  "functions": [
+    {
+      "function_code": "问题和建议反馈",
+      "params": [
+        {"action": "submit"}
+      ],
+      "data": {
+        "report_id": "rpt_xxx",
+        "source": "voice_feedback",
+        "version": 1,
+        "operation": "upsert",
+        "feedback_time_ms": 1789000000000,
+        "feedback_type": "问题",
+        
+        "summary": "导航规划多次出现绕路",
+        "category": "map_navigation",
+        "conversation_context": {
+          "schema_version": 1,
+          "history": [
+            {
+              "request_id": "req_prev",
+              "log_id": "log_prev",
+              "timestamp_ms": 1788999999000,
+              "query": "附近有充电站吗",
+              "answer": "附近有三个充电站",
+              "output_resources": [
+                {
+                  "resource_type": "image",
+                  "url": "https://example.com/history-image.jpeg"
+                }
+              ]
+            }
+          ],
+          "feedback_dialogue": [
+            {
+              "role": "user",
+              "text": "我想反馈一个问题，导航规划总是绕路",
+              "timestamp_ms": 1789000000000
+            },
+            {
+              "role": "assistant",
+              "text": "主要在什么场景下出现",
+              "timestamp_ms": 1789000001000
+            },
+            {
+              "role": "user",
+              "text": "主要是在早高峰导航时频繁绕路",
+              "timestamp_ms": 1789000005000
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "sound_zone": "driver",
+  "is_simple_vehicle_control": true
+}
+端侧/CDC 补齐后：提交 VSHD
+语音反馈提交 VSHD
+{
+  "userid": "user_xxx",
+  "PDID": "pdid_xxx",
+  "VIN": "vin_xxx",
+  "report_id": "rpt_voice_xxx",
+  "version": 1,
+  "operation": "upsert",
+  "feedback_time_ms": 1789000000000,
+  "feedback_type": "问题",
+  
+  "summary": "导航规划多次出现绕路",
+  "category": "map_navigation",
+  "log_uri": "tos://bucket/path/log.zip",
+  "attachments": [
+    {
+      "resource_type": "image",
+      "id": "resource_xxx",
+      "url": "https://example.com/image"
+    }
+  ],
+  "conversation_context": {
+    "schema_version": 1,
+    "history": [
+      {
+        "request_id": "req_prev",
+        "log_id": "log_prev",
+        "timestamp_ms": 1788999999000,
+        "query": "附近有充电站吗",
+        "answer": "附近有三个充电站",
+        "output_resources": [
+          {
+            "resource_type": "image",
+            "url": "https://example.com/history-image.jpeg"
+          }
+        ]
+      }
+    ],
+    "feedback_dialogue": [
+      {
+        "role": "user",
+        "text": "我想反馈一个问题，导航规划总是绕路",
+        "timestamp_ms": 1789000000000
+      },
+      {
+        "role": "assistant",
+        "text": "主要在什么场景下出现",
+        "timestamp_ms": 1789000001000
+      },
+      {
+        "role": "user",
+        "text": "主要是在早高峰导航时频繁绕路",
+        "timestamp_ms": 1789000005000
+      }
+    ]
+  }
+}
+端侧/CDC 补齐：userid、PDID、VIN、log_uri 和 attachments。
+云端透传：report_id、version、operation、反馈结构化字段及 conversation_context。
+取消语音反馈：只停止采集并清理数据，不提交 VSHD。
+幂等与结果语义
+客户端按 report_id + action 幂等处理。同一 report_id 重复收到 start_collect 时不得重复创建采集任务，重复收到 review 时不得重复创建确认卡片。
+Frontier Push 成功只表示消息已被 Frontier 接受，不等同于 CDC 已经开始或完成采集。
+conversation_context 字段说明
+conversation_context 按反馈来源区分两种结构。预设标签点踩遵循 AIDV 与 VSHD 卡片反馈协议，包含 history 与唯一 target_turn；语音反馈包含反馈触发前的 history，以及记录触发语、Agent 追问和用户补充的 feedback_dialogue。两种场景的 history 均使用相同的 Turn 结构。语音反馈的 conversation_context 不在 start_collect 或 review 中生成、下发，用户确认 submit 后再组装并交由端侧、CDC 提交 VSHD。
+语音反馈 conversation_context
+{
+  "schema_version": 1,
+  "history": [
+    {
+      "request_id": "req_prev",
+      "log_id": "log_prev",
+      "timestamp_ms": 1788999999000,
+      "query": "附近有充电站吗",
+      "answer": "附近有三个充电站",
+      "output_resources": [
+        {
+          "resource_type": "image",
+          "url": "https://example.com/history-image.jpeg"
+        }
+      ]
+    }
+  ],
+  "feedback_dialogue": [
+    {
+      "role": "user",
+      "text": "我要反馈一下问题",
+      "timestamp_ms": 1789000000000
+    },
+    {
+      "role": "assistant",
+      "text": "你要反馈什么问题",
+      "timestamp_ms": 1789000001000
+    },
+    {
+      "role": "user",
+      "text": "导航一直让我绕路",
+      "timestamp_ms": 1789000005000
+    }
+  ]
+}
+history：最多 20 个已完成轮次，按时间升序排列；卡片点踩取 target_turn 之前的轮次，语音反馈取反馈触发之前的轮次。没有历史时传空数组，反馈过程不写入 history。
+feedback_dialogue：仅用于语音反馈，属于对外 conversation_context；按时间顺序记录反馈触发语、Agent 追问和用户补充，保留完整多轮澄清过程，最多 3 轮追问。
+target_turn：仅用于预设标签点踩，表示被点踩的唯一目标轮次，并与 history 使用相同的 Turn 结构；语音反馈使用 feedback_dialogue 表达多轮澄清，不要求 target_turn。
+query / answer：query 与 answer 均为 string，分别保存该轮用户输入和向用户展示的文本回答；纯图片回答允许 answer 为空字符串。
+sound_zone：sound_zone 不属于 conversation_context；如其他业务链路需要，应在该链路既有字段中传递。
+output_resources：回答产生的图片统一写入 output_resources；Resource 仅包含 resource_type 和 url，当前 resource_type 固定为 image，没有图片时省略 output_resources。
+Widget、FunctionCall、Planner observation 和 tool feedback 不纳入反馈历史。
+conversation_context 通过 ChatResponse、Frontier 和 ThirdAgent 通道传输；总大小、字段长度和资源数量使用通道配置限制，超限时返回 INVALID_ARGUMENT。
+预设标签点踩使用 account_id 作为 AIDV 内部归属键；提交 VSHD 的 userid、PDID、VIN 由 AIDV 从请求上下文补齐。语音反馈同样使用 account_id 定位云端任务，VSHD 所需 userid、PDID、VIN 由语音客户端或 CDC 在提交前补齐。account_id 与 VSHD userid 是不同协议字段，不做直接等值映射。
+公共枚举
+
+
+字段
+
+允许值
+
+labels
+
+unsafe、false_info、unhelpful、forgot_context、memory_misuse、other
+
+conversation_context.output_resources[].resource_type
+
+image
+
+feedback_dialogue[].role
+
+user、assistant
+query.user_input_scene_type：用户输入场景枚举。0 = Unknown（未知），1 = Audio（语音输入），2 = Guiding（引导语），3 = Scene（推荐场景），4 = Advisor（主动推荐），5 = Hint（Hint 输入），6 = Skill（Skill 输入），9 = Button（按钮输入）。
+按钮输入处理约束：Button(9) 在请求、历史记录及下游协议中保留枚举值 9，用于标识输入来源；所有需要按输入形态执行分支的业务逻辑均与 Audio(1) 一致。生成卡片反馈上下文时，Button(9) 与 Audio(1) 的 input_scene_type 均映射为 voice。
+卡片反馈枚举：labels 为包含 1 至 6 个不重复枚举值的数组，服务端按固定枚举顺序归一化；record_action 取 created 或 unchanged。
+错误与降级
+
+
+错误码
+
+retryable
+
+处理
+
+UNAUTHENTICATED
+
+false
+
+引导用户完成 OEM、豆包登录。
+
+FORBIDDEN_TARGET
+
+false
+
+request_id 对应的目标回答不属于当前用户，或云端按时间与状态查询到的反馈任务归属校验失败。
+
+INVALID_ARGUMENT
+
+false
+
+参数或枚举值非法。
+
+TARGET_NOT_FOUND
+
+false
+
+目标对话不存在。
+
+DRAFT_NOT_FOUND
+
+false
+
+跨轮反馈草稿不存在。
+
+DRAFT_EXPIRED
+
+false
+
+反馈草稿已超过 longest_time。
+
+INTERNAL_ERROR
+
+true
+
+提示稍后重试。
+失败响应
+{
+  "error_code": "FORBIDDEN_TARGET",
+  "error_message": "目标回答不属于当前用户",
+  "retryable": false
+}
+conversation_context 的 schema_version 固定为 1，history 可为空数组。卡片点踩必须包含 target_turn；语音反馈必须包含按时间顺序排列的 feedback_dialogue。Turn 中 request_id 与 output_resources 为可选字段，缺少场景必填字段或超过通道限制时返回 INVALID_ARGUMENT。
+AIDV 与 VSHD 协议
+AIDV → VSHD 卡片反馈提交
+卡片消失且最终状态为点踩时，AIDV 组装完整业务 Body 并向 VSHD 提交一次。userid、PDID、VIN 由 AIDV 从请求上下文补齐；source 仅用于 AIDV 库内区分，不写入 VSHD 请求。
+卡片反馈提交 VSHD
+{
+  "userid": "user_xxx",
+  "PDID": "pdid_xxx",
+  "VIN": "vin_xxx",
+  "report_id": "rpt_xxx",
+  "labels": ["unhelpful", "forgot_context"],
+  "conversation_context": {
+    "schema_version": 1,
+    "history": [],
+    "target_turn": {
+      "request_id": "req_xxx",
+      "log_id": "log_xxx",
+      "timestamp_ms": 1789000000000,
+      "query": "导航去公司",
+      "answer": "已为你规划路线",
+      "output_resources": [
+        {
+          "resource_type": "image",
+          "url": "https://example.com/route-image.jpeg"
+        }
+      ]
+    }
+  }
+}
+
+
+字段
+
+必填
+
+说明
+
+report_id
+
+是
+
+AIDV 为本次最终反馈生成的唯一标识。
+
+labels
+
+是
+
+卡片消失时的完整有效标签数组，包含 1 至 6 个已归一化枚举值。
+
+conversation_context
+
+是
+
+包含 history 和 target_turn，用于还原被评价回答及其上下文。
+单次提交：卡片存续期间不向 AIDV 或 VSHD 提交中间状态；VSHD 只接收卡片消失后的最终有效反馈。
+完整性：每次请求携带完整 labels 和 conversation_context，VSHD 不依赖其他请求补全内容。
+失败重试：AIDV 使用 report_id 重试同一请求；VSHD 幂等返回，不创建重复反馈。
+数据库表设计
+issue_reports 统一承载卡片点踩与语音反馈。source 区分两类生命周期；report_id 标识反馈任务；request_id 标识触发反馈的对话轮次。语音反馈后续操作按归属、时间和状态查询当前任务。
+字段定义
+
+
+字段
+
+类型
+
+约束/默认值
+
+说明
+
+id
+
+bigint unsigned
+
+主键，自增
+
+记录主键。
+
+report_id
+
+varchar(64)
+
+非空
+
+问题上报唯一标识；卡片反馈创建时生成，接口重试复用。
+
+source
+
+varchar(32)
+
+非空
+
+上报来源，取 card_dislike 或 voice_feedback。
+
+report_status
+
+tinyint
+
+非空，默认 0
+
+上报状态：0 卡片待提交；10 信息收集中；20 待用户确认；30 提交中；100 已提交；110 已取消；120 已过期。
+
+channel
+
+varchar(64)
+
+非空
+
+业务渠道。
+
+channel_app_id
+
+int unsigned
+
+非空，无默认值
+
+渠道应用 ID。
+
+vehicle_id
+
+varchar(256)
+
+非空，无默认值
+
+NDB 分片键。
+
+account_id
+
+varchar(256)
+
+非空
+
+问题上报归属账号，对应 CommonInfo.AccountID。
+
+vehicle_type
+
+varchar(256)
+
+非空，默认空字符串
+
+车型。
+
+edge_version
+
+varchar(128)
+
+非空，默认空字符串
+
+车端版本。
+
+request_id
+
+varchar(256)
+
+非空，无默认值
+
+请求幂等键；卡片反馈用于锚定回答，语音反馈用于保证 start 幂等。
+
+query
+
+varchar(2048)
+
+非空，默认空字符串
+
+用户反馈文本。
+
+labels
+
+json
+
+可空
+
+卡片点踩标签；仅 card_dislike 使用。
+
+conversation_context
+
+json
+
+可空
+
+服务端组装的会话上下文；卡片点踩保存 history 和 target_turn，语音反馈保存 history 和 feedback_dialogue。
+
+summary
+
+varchar(100)
+
+可空
+
+模型整理后的问题摘要；仅 voice_feedback 使用，作为确认页展示和提交的问题描述。
+
+feedback_type
+
+varchar(16)
+
+可空
+
+语音反馈类型，当前取“问题”。
+
+category
+
+varchar(64)
+
+可空
+
+语音反馈问题分类，遵循 6.1 枚举。
+
+log_id
+
+varchar(128)
+
+非空，默认空字符串
+
+请求链路标识。
+
+expires_at
+
+datetime(3)
+
+可空
+
+语音反馈活动任务过期时间。
+
+created_at
+
+datetime(3)
+
+非空，默认当前时间
+
+创建时间，同时作为反馈触发时间。
+
+updated_at
+
+datetime(3)
+
+非空，默认当前时间并自动更新
+
+更新时间；终态时间由 report_status 结合该字段表达。
+表设计约束：物理表名为 issue_reports，使用 vehicle_id 作为 NDB 分片键，表注释包含 NDB_SHARE_TABLE；report_id、source、channel、channel_app_id、vehicle_id、account_id 与 request_id 均非空且不设置默认值，report_status 非空且默认 0，vehicle_type、edge_version、query、log_id 非空且默认空字符串；channel_app_id 使用 int unsigned，服务层另行校验其必须大于 0；created_at 默认当前时间，updated_at 默认当前时间并在更新时自动刷新；字符集为 utf8mb4，排序规则为 utf8mb4_general_ci。
+字段收敛：不同环境使用独立数据库，因此不保存 env；语音反馈以 summary 作为确认页展示和最终提交的问题描述，不再保存或透传 problem_desc。表中只保留当前链路实际读写的字段。
+expires_at：仅用于 voice_feedback 活动任务。它防止后续“确认/取消”误命中过早的未完成任务，并作为任务转为 EXPIRED、停止 CDC 采集和清理临时数据的依据。start_collect 建档时使用服务端当前时间赋值：expires_at = now + feedback_task_ttl；建议 feedback_task_ttl 默认 10 分钟并支持配置。review 成功后可按确认等待窗口重新赋值；clarify 不写库，因此不刷新。活动任务查询必须满足 expires_at > NOW()，超时清理任务以当前非终态为条件原子更新为 EXPIRED。该字段不读取客户端时钟，也不由 feedback_time_ms、start_time 或 longest_time 推导。
+状态定义与流转
+
+
+字段
+
+值
+
+语义
+
+report_status
+
+10 COLLECTING
+
+start_collect 已建档；澄清期间保持该状态。
+
+report_status
+
+20 REVIEW_READY
+
+模型结果已持久化并成功下发 review。
+
+report_status
+
+30 SUBMITTING
+
+用户已确认，submit 被原子认领且确认时的 conversation_context 快照已持久化；正在执行后续提交，同一 submit 可安全重试。
+
+report_status
+
+100 SUBMITTED
+
+已完成提交，为不可逆终态。
+
+report_status
+
+110 CANCELED
+
+用户取消或澄清失败后放弃，为不可逆终态。
+
+report_status
+
+120 EXPIRED
+
+超过 expires_at 后关闭，为不可逆终态。
+start：插入最小 issue_reports 记录，report_status=COLLECTING，并写入 report_id、source、归属字段、request_id、query 和 expires_at；created_at 作为反馈触发时间。
+clarify：不执行 Function Call，不产生额外数据库写入。
+review：仅允许 COLLECTING → REVIEW_READY；模型结果按 summary、feedback_type、category 等结构化字段持久化，不再写入 report_analyze，校验或下发失败时不推进状态。
+submit：仅允许 REVIEW_READY → SUBMITTING → SUBMITTED；确认时先组装 conversation_context，并在 REVIEW_READY → SUBMITTING 的 CAS 更新中原子持久化该不可变快照，后续提交完成后再以 SUBMITTING → SUBMITTED 的 CAS 更新收口。卡片点踩保存 schema_version、history 和 target_turn；语音反馈保存 schema_version、history 和完整 feedback_dialogue。history 可为空，各场景必填字段必须完整。
+cancel：允许 COLLECTING 或 REVIEW_READY → CANCELED，并通知端侧停止采集和清理数据。终态时间由 updated_at 记录；SUBMITTED、CANCELED、EXPIRED 不接受反向状态变更。
+索引、幂等与并发
+
+
+索引
+
+字段
+
+用途
+
+PRIMARY KEY
+
+id
+
+数据库存储主键。
+
+uniq_vehicle_report
+
+vehicle_id, report_id
+
+保证问题上报 ID 在车辆内唯一，并支撑按 report_id 执行状态 CAS 更新。
+
+uniq_vehicle_request_source
+
+vehicle_id, request_id, source
+
+覆盖语音反馈 start 并发重试和卡片反馈创建幂等。
+所有 review、submit、cancel 使用“vehicle_id + report_id + 当前状态”作为条件执行 CAS 更新，并检查 affected_rows；活动任务查询在 vehicle_id 分片内使用 channel、account_id、source、report_status 和 expires_at 校验归属与有效状态。语音反馈以 report_id + action 实现业务幂等；卡片点踩和语音反馈创建均以 vehicle_id + request_id + source 保证幂等，并发唯一键冲突时回读已有记录。当前不额外创建普通查询索引，后续根据数据量和慢查询评估补充。
+卡片点踩落库规则
+卡片反馈仅在卡片消失且最终状态为点踩时创建记录。AIDV 生成 report_id，保存归一化后的完整 labels 和 conversation_context，并提交 VSHD；卡片展示期间的本地状态不写入 issue_reports。
+唯一键：使用 vehicle_id、request_id、source 定位唯一记录；channel 和 account_id 用于归属校验。
+创建：首次请求插入完整卡片反馈记录并提交 VSHD。
+重试：唯一键冲突时读取并返回已有记录，不更新 labels，不重复提交 VSHD。
+关键约束
+幂等：语音反馈的 start_collect、review、submit、cancel 以 report_id + action 去重；卡片反馈以 vehicle_id + request_id + source 保证创建幂等，AIDV 与 VSHD 均不得生成重复反馈。
+归属校验：request_id、log_id 必须属于当前 channel、vehicle_id、account_id；语音反馈 report_id 由云端按归属、时间和状态查询 issue_reports 取得，并再次校验任务状态。
+隐私：日志不打印对话正文、用户身份、PDID 和附件地址。
+观测：记录意图识别、Frontier 下发、上下文组装和最终操作结果，使用统一 Trace 与指标基础设施；观测失败不得阻塞反馈主链路。
+验收标准
+卡片展示期间的点踩、取消点踩和标签调整均只改变端侧本地状态，不调用 AIDV 或 VSHD。
+卡片消失时，最终未点踩则不提交；最终点踩则携带 request_id 和 1 至 6 个不重复标签调用一次 /feedback/dislike，AIDV 组装上下文并向 VSHD 提交一次。
+同一业务键的接口重试返回已有 report_id 和提交结果，不重复落库或提交 VSHD。
+Issue Report Agent 首次确认进入反馈流程后立即生成 report_id 并下发一次 start_collect；信息不足时最多澄清 3 轮，完整后生成并下发 review。
+Planner 仅转发 query；Issue Report Agent 执行模型推理，生成 summary/category 和业务 Function Call。
+按钮、“可见即可说”和泛化语音统一经 Planner 转发给 Issue Report Agent；端侧不回传 report_id，Agent 按当前用户/车辆、source、非终态、未过期和 created_at 倒序定位最近一条活动任务后判断 submit/cancel，并校验归属、状态和幂等。
+语音反馈后续轮次始终复用按时间和状态筛选出的最近一条非终态 report_id；进入 SUBMITTED、CANCELED 或 EXPIRED 后不再命中，下一次反馈生成新的 report_id。
+预设标签点踩在卡片消失后通过 /feedback/dislike 提交最终有效状态，AIDV 组装 history 与 target_turn 并提交 VSHD；语音反馈的 review 不收集上下文，确认 submit 后组装 schema_version、history 与完整 feedback_dialogue，并通过 Frontier 下发 submit，端侧/CDC 补齐日志和附件后提交 VSHD；cancel 停止采集并清理。
+联调约束
+
+语音端侧或 CDC 在提交 VSHD 前补齐 userid、PDID、VIN，字段类型统一为字符串；日志输出按隐私规范脱敏。
+确认与取消统一使用 ChatRequest 进入 Planner；业务执行结果通过 tool feedback 返回，文本与 TTS 必须与实际结果一致。
+input_scene 放在 AgentPayload.ext.vehicle_biz_params 对应的 VehicleBizParam JSON 中；端侧不注册或透传 issue_report_id，Issue Report Agent 按当前用户/车辆、时间和状态从 issue_reports 查询最近一条非终态 report_id。
+function_code 固定为“问题和建议反馈”；Issue Report Agent 执行 start_collect、review、submit、cancel Function Call。
+卡片反馈仅在卡片消失且最终状态为点踩时提交；VSHD 按 report_id 幂等处理重试，不创建重复反馈。
+参考
+【机密】用户反馈_PRD_V1.2_20260616
+

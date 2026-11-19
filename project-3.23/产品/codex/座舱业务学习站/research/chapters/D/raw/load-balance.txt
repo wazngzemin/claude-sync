@@ -1,0 +1,656 @@
+# Planner 动态负载均衡技术方案
+# edit 2026-10-21 https://bytedance.larkoffice.com/wiki/Pgusw3wsdi2NdWkVdCmcH53onyh
+Planner 动态负载均衡技术方案
+
+结论：使用 planner.dynamic_load_balance 单一 Key 同时承载静态 SFT 白名单、基础比例与动态策略，在 Planner 调用前按 PE/SFT 路由组健康度做请求级原子路由和渐进调权；Endpoint、Prompt Key、备用 Endpoint 与模型元信息必须作为 RouteBundle 一次性选择。控制面异常或快照过期时使用同一原子配置的静态字段；仅当最新有效快照中 PE、SFT 均为 Circuit OPEN 时，跳过 Planner，复用 DPFM 单意图按 OEM 映射直达一个 Agent。该最差降级不支持多意图，并对每个 fallback 请求异步发送且只发送一条飞书 Bot 告警。
+术语表
+
+
+术语
+
+含义
+
+PE Planner
+
+基于 Pro/较大基模、较长 Prompt 和示例工程实现的 Planner。当前输入约 4 万 Token，主要使用公共资源池。
+
+SFT Planner
+
+基于 Lite/较小模型训练得到的 Planner。当前输入约 1.5 万 Token，可绑定模型单元，但容量弹性响应较慢。
+
+RouteBundle
+
+一次模型调用所需的完整路由信息，至少包含 variant、primary endpoint、backup endpoint、prompt key、模型元信息和配置版本。
+业务背景
+Planner 当前存在 PE 与 SFT 两套能力。PE 版本效果迭代快、依赖较长 Prompt，但公共资源池会受其他业务影响，容易出现时延波动和尖刺；SFT 版本输入更短且可购买模型单元，稳定性更可控，但模型迭代周期长、固定成本更高，突发流量超过模型单元容量时无法快速弹性扩容。
+现有代码基线
+
+
+能力
+
+现状与结论
+
+静态 SFT 切流
+
+biz/infrastructure/tcc/planner_dynamic_load_balance.go 读取 planner.dynamic_load_balance；单个 channel 配置同时包含 vehicle_id 白名单、rate 基础比例和动态健康策略，比例分桶继续使用 FNV 取模。
+
+SFT 模型与 Prompt 覆盖
+
+biz/config/ark_config/saic_dna.go 通过 FuncPlannerAnalyzeText 与 FuncPlannerAnalyzeTextSFT 按 channel/appID 管理 PE、SFT 模型接入点；biz/service/oem/saicdna/base.go 只组装包含 Prompt 与模型信息的静态 RouteSet，不再硬编码 SFT Endpoint。
+
+Planner 模型调用
+
+biz/service/planner/planner_text.go 在一次 Planner 请求内只 Resolve 一次并将不可变 RouteBundle 放入 GraphState，BuildMessages 与 ArkModel 复用同一结果；Flow 在启动 Planner 前先判断双方是否均为 Circuit OPEN。
+
+主备 Endpoint
+
+biz/service/doubao/client.go 的主备重试已绑定显式 RouteBundle，备用 Endpoint 必须与主 Endpoint 同 variant。当前不会在同一请求失败后运行时跨 variant 重放；健康状态在下一轮全局快照更新后影响后续请求。
+
+模型指标
+
+每次实际 Endpoint attempt 都记录请求、错误、open/partial error、TTFT 与正常完成 TTC，并按实例维护固定桶累计直方图；Leader 做累计差分后形成全局滑动窗口。fallback 另有 planner.router.fast_fallback.count 和逐请求飞书 Bot 告警。
+
+临时 Endpoint 覆盖
+
+endpoint.top_priority 只描述 Endpoint 和 ServiceTier，不包含 Planner variant 与 Prompt Key。动态路由开启时不能继续对 Planner 盲目覆盖 Endpoint。
+目标与非目标
+目标
+按 channel 独立控制 PE/SFT 基础比例、动态开关、调节边界和故障强制模式。
+控制面异常不影响请求主链路；支持一键关闭、固定比例和强制单路由。
+PE、SFT 均不可用时不继续调用 Planner；使用 DPFM 单意图和 OEM 映射直达一个 Agent，并保证每个 fallback 请求有一条可追踪的飞书 Bot 告警。
+非目标
+本期不解决 PE 与 SFT 输出效果的在线自动评判，质量差异继续通过离线评测和灰度观测把关。
+本期不自动购买、扩缩模型单元，只消费可用容量或负载信号。
+不把多个 PE Endpoint 当成独立算力池。若其背后共享公共资源池，Endpoint 间切换只能解决接入点故障，不能解决共享池整体拥塞。
+前置依赖与实施边界
+
+
+依赖
+
+要求
+
+不可用时策略
+
+Endpoint 负载接口
+
+最好提供容量利用率、并发、排队、限流状态，按 Endpoint 查询，数据延迟应小于一个健康窗口。
+
+不阻塞一期；仅用调用侧被动指标判断。
+
+Redis 全局控制面
+
+复用 AIDV 现有 Redis。实例每秒上报一条累计直方图；Leader 每秒聚合一次并发布全局 HealthSnapshot。所有操作均在后台协程执行。
+
+Redis 不可用时不阻塞请求；使用最近有效本地快照，超过 5 秒回退静态切流。方舟负载接口和 VMetrics 查询不再是一期前置依赖。
+
+SFT 备用 Endpoint
+
+必须与 SFT 主 Endpoint 使用相同模型版本和 Prompt 协议。
+
+SFT 不做 Endpoint 级重试，路由组 OPEN 后切 PE。
+上线门槛：全局自动调权不再依赖外部聚合查询接口，但必须先完成 Redis 控制面影子验证：实例报告新鲜度、Leader 唯一性、全局样本量、P90 与线上 VMetrics 对账一致。动态关闭或快照过期时必须在 5 秒内恢复静态切流。
+概要设计
+
+全局调度控制面
+采用“实例内聚合、Redis 低频控制面、单 Leader 计算、本机原子路由”。所有 AIDV 实例在进程内记录每次 Planner attempt，并维护固定桶宽的累计直方图；后台协程每 1 秒将一条实例累计报告写入 Redis Hash。请求线程不访问 Redis。
+实例报告：每实例每秒一次 HSET，内容为 channel + variant + endpoint_alias 的累计请求数、错误数、TTFT/TTC 直方图及 generation。Leader 使用相邻报告做差，只合并本秒增量，避免重复计数。
+全局聚合：实例通过 SET NX PX 竞争 Leader，租约 3 秒；仅 Leader 每秒 HGETALL 一次，合并所有有效实例报告并维护 10 秒全局滑动窗口。
+快照发布：Leader 每秒计算 HealthSnapshot，通过 Lua 在校验锁 owner 后原子写入 Redis，快照 TTL 为 5 秒，失去租约的旧 Leader 无法覆盖新结果。
+实例消费：所有实例每秒 GET 一次全局快照，加入确定性启动偏移以摊平 Redis 峰值，校验版本和新鲜度后写入 atomic.Pointer。
+失败降级：Redis 或快照异常时继续使用最近有效快照；超过 5 秒清空本地快照，并使用 planner.dynamic_load_balance 同一渠道配置中的 vehicle_id 与 rate 执行静态路由。TCC 读取失败时使用进程内最近合法配置。
+Redis 压力模型：N 个实例约为 N 次 HSET/s + N 次 GET/s；Leader 额外 1 次 HGETALL/s、1 次快照写入/s 和 1 次租约续期/s。Redis 不保存逐请求数据，也不参与 RouteBundle 决策。
+四层策略
+静态基线层：使用 planner.dynamic_load_balance 内同一 channel 的 vehicle_id 与 rate，不再读取独立静态 Key。
+动态修正层：HealthController 周期性生成不可变 HealthSnapshot，Router 在 min_sft_rate 与 max_sft_rate 内调整有效比例。
+请求内 Endpoint 重试层：仅在首 Token 前且错误可恢复时切换到同 variant 的显式备用 Endpoint，不在同一请求内跨 variant 重放。
+Planner 最差降级层：请求开始时若本机最新有效快照显示 PE、SFT 均为 Circuit OPEN，则不启动 Planner，等待 DPFM IntentOnlyData 并按 OEM 映射直达一个 Agent；每个命中请求异步发送一条飞书 Bot 告警。
+RouteBundle 原子路由
+核心数据结构示意
+type PlannerVariant string
+
+const (
+    VariantPE  PlannerVariant = "pe"
+    VariantSFT PlannerVariant = "sft"
+)
+
+type RouteBundle struct {
+    Variant        PlannerVariant
+    PromptKey      string
+    PrimaryEndpoint string
+    BackupEndpoint  string
+    ModelName       string
+    ModelVersion    string
+    ServiceTier     string
+    ConfigVersion   string
+    EffectiveRate   int
+    DecisionReason  string
+}
+
+type DecisionInput struct {
+    Channel   string
+    VehicleID string
+    ChatID    string
+    LogID     string
+}
+Resolver 在一次请求内只执行一次，并把 RouteBundle 直接传给 ArkModel 与 BuildMessages。禁止 GetModelInfo、GetPromptKey 在后续链路中再次读取动态状态。
+路由优先级
+TCC 强制模式：force_pe 或 force_sft，用于故障处置和回滚。
+现有 VehicleIDs 白名单：保持强制 SFT，除非 SFT 路由组 OPEN；是否允许 OPEN 时切 PE 由 fail_open_to_peer 控制，默认允许。
+auto 模式：按有效比例做稳定哈希。
+static 模式或动态快照不可用：按同一份 planner.dynamic_load_balance 配置中的 vehicle_id 白名单与 rate 做稳定分桶。
+全部配置不可用：保持当前默认 PE 行为。
+endpoint.top_priority 兼容规则：动态路由开启后，Planner 不再接受只包含 endpoint 的通用覆盖，因为无法确认 Prompt 兼容性。紧急切换统一使用 planner.dynamic_load_balance 的 mode 和预注册 route alias；非 Planner 功能保持原逻辑。动态路由关闭时保留现有行为。
+动态调节算法
+健康信号
+每个 channel + variant + endpoint 形成独立统计序列。健康判断至少使用以下数据：
+
+
+指标
+
+定义
+
+request_count
+
+窗口内实际调用尝试次数，成功失败都计数。
+
+error_rate
+
+非用户取消、非业务主动终止的失败尝试数 / request_count。
+
+TTFT P90
+
+从发起模型请求到收到首 Token 的 P90。
+
+TTC P90
+
+从发起请求到流正常结束的 P90。
+
+load_ratio
+
+容量利用率、并发或排队指标，取决于方舟负载接口最终能力。
+用户主动取消 context.Canceled 不计入 Endpoint 错误率；DeadlineExceeded、限流、5xx、ClosedEndpoint、连接失败和首 Token 前流中断计入。首 Token 后的流中断单独标记 partial_stream_error，不自动跨 variant 重试。
+当前 Planner 时延基线与默认阈值：实测 TTFT 约 700ms、TTC 约 1.5s。默认使用 10 秒全局滑动窗口，每 1 秒重新计算；min_requests=20。TTFT P90 ≥ 1500ms、TTC P90 ≥ 3000ms 或错误率 ≥ 10% 视为坏窗口，连续 3 个坏窗口进入 DEGRADED；错误率 ≥ 50% 或出现 ClosedEndpoint 立即 OPEN。连续 5 个健康窗口恢复。阈值通过 planner.dynamic_load_balance 调整。
+TTC 仅统计正常完成的耗时分布；首 Token 后异常单独计入 partial_stream_error 和 errors，不把异常结束时间混入正常 TTC P90，避免掩盖流中断问题。
+状态机
+
+
+
+状态
+
+进入条件
+
+路由行为
+
+HEALTHY
+
+指标未越线，或恢复窗口连续满足阈值。
+
+向基础比例缓慢回归。
+
+DEGRADED
+
+连续 bad_windows 个有效窗口越线。
+
+若对端健康，每周期移动 adjust_step；若对端也异常，保持比例。
+
+OPEN
+
+ClosedEndpoint、连续连接失败，或错误率达到不可用阈值。
+
+该 Endpoint 权重置零；有同 variant 备用 Endpoint 时仅供后续请求或首 Token 前重试使用。路由组无可用 Endpoint 时，后续请求选择对端 variant；若 PE、SFT 路由组均为 OPEN，新请求进入 Planner fallback，不再调用 Planner。
+
+RECOVERING
+
+OPEN 冷却结束后进入半开探测。
+
+仅放少量探测流量；连续 good_windows 健康后恢复。
+
+UNKNOWN
+
+样本不足、数据源超时或快照过期。
+
+不主动增流，退回基础比例或最近可信比例。
+比例调整规则
+设基础 SFT 比例为 base，当前有效比例为 current，单步调整为 step：
+PE DEGRADED 且 SFT HEALTHY：effective = min(current + step, max_sft_rate)。
+SFT DEGRADED 且 PE HEALTHY：effective = max(current - step, min_sft_rate)。
+双方 HEALTHY：每个恢复周期向 base 移动 recovery_step，禁止一次跳回。
+双方 DEGRADED：保持 current，避免在两条异常路由之间振荡；某一 variant 全部 Endpoint OPEN 时，将后续 Planner 流量移向对端。
+PE、SFT 路由组均为 OPEN：不再计算有效 Planner 比例；新请求跳过 Planner，进入 DPFM 单意图直达 Agent 的最差降级。
+任一方 UNKNOWN：不因 UNKNOWN 增加其流量；全 UNKNOWN 时回到 base。
+健康窗口为 10 秒滑动窗口，但 Controller 每 1 秒重算一次，不等待整窗结束；连续窗口计数因此表示连续秒级评估结果。比例调整仍受 min_hold_seconds（默认 10 秒）约束，避免每秒振荡。使用 vehicle_id 做稳定哈希；vehicle_id 为空时使用 chat_id，再为空使用 log_id。哈希盐包含 channel 和 route config version，保证同一版本下稳定且配置变更后可控重分桶。
+故障切换约束
+
+备用 Endpoint 必须属于同一 variant，且模型版本、输出协议与 Prompt 兼容。
+首 Token 前失败只允许切同 variant 的显式备用 Endpoint；同 variant 主备均失败时，本请求返回错误，不在同一请求内切另一 variant 或进入 fallback。错误观测进入全局窗口，后续请求由新快照重新决策。
+首 Token 后失败不自动重放，直接沿用现有错误处理，避免重复文本或重复工具调用。
+仅对可恢复错误重试；参数错误、鉴权错误、内容审核、业务取消不重试。
+总重试耗时受 Planner 60 秒 Timeout 约束，且故障切换预算应单独限制，建议首期不超过 500ms。
+仅当最新有效全局快照中 PE、SFT 均为 Circuit OPEN 时进入最差降级快路径；UNKNOWN、DEGRADED、RECOVERING、动态调度关闭或快照过期均不得触发。
+快路径复用并行预跑的 DPFM IntentOnlyData，按 OEM 的 GetPlannerFallbackIntentToAgent 映射直接调用一个 Agent，不启动 Planner。该路径不支持多意图拆解；意图结果为空、未映射或 Agent 未发布时返回明确错误，禁止重新进入 Planner。
+每个进入 fallback 的请求恰好触发一次异步飞书 Bot 告警：成功映射在 Agent 分发前发送 agent_dispatching；DPFM 结果失败发送 intent_failed；意图未映射发送 intent_unmapped。Agent 后续结果不补发。Bot 发送失败最多重试 3 次且不阻塞主链路。
+告警包含 env、channel、AppID、DPFM intent、目标 Agent ID、ChatID、LogID、状态和单意图限制；禁止包含用户 Query、Prompt、凭证或完整请求体。
+配置设计
+统一使用单一 TCC Key planner.dynamic_load_balance。每个 channel 配置同时承载静态 SFT 白名单 vehicle_id、基础比例 rate、动态开关、模式、调节边界和健康阈值。Endpoint 与 Prompt 的稳定映射仍由代码管理，TCC 不承载凭证或复杂模型定义。原 planner_sft_traffic_split 不再被新代码订阅，PPE 暂时保留旧配置仅用于旧版本回滚。
+planner.dynamic_load_balance 示例
+{
+  "saic-dna": {
+    "vehicle_id": [],
+    "rate": 40,
+    "enabled": true,
+    "mode": "auto",
+    "min_sft_rate": 10,
+    "max_sft_rate": 70,
+    "adjust_step": 10,
+    "recovery_step": 5,
+    "window_seconds": 10,
+    "min_requests": 20,
+    "bad_windows": 3,
+    "good_windows": 5,
+    "min_hold_seconds": 10,
+    "stale_seconds": 30,
+    "fail_open_to_peer": true,
+    "degraded_error_rate": 0.10,
+    "open_error_rate": 0.50,
+    "degraded_ttft_p90_ms": 1500,
+    "degraded_ttc_p90_ms": 3000
+  }
+}
+mode 可选 auto、static、force_pe、force_sft。rate 为必填字段且必须在 [0,100]；vehicle_id 为 SFT 白名单。所有数字字段必须做范围校验；配置不合法时整条 channel 配置拒绝生效并记录原因，继续使用最近一次合法配置。min_sft_rate 不得大于 rate，max_sft_rate 不得小于 rate。单个 channel 的静态与动态字段共同参与 config_version 计算，任一字段变化都会形成新的原子配置版本。
+健康阈值已开放到 TCC，缺省值按当前实测基线设置：TTFT≈700ms、TTC≈1.5s，对应降级阈值为 TTFT P90 1500ms、TTC P90 3000ms。上线前需通过影子数据校准，不建议直接降低到接近均值的位置。
+详细代码设计
+新增模块
+
+
+路径
+
+职责
+
+biz/service/planner/router/define.go
+
+定义 Variant、RouteBundle、Decision、HealthState、Snapshot。
+
+biz/service/planner/router/resolver.go
+
+实现优先级、稳定哈希、静态回退和请求级原子决策。
+
+biz/service/planner/router/controller.go
+
+每秒基于 10 秒全局窗口执行健康状态机、迟滞和比例渐进调整；LastAdjustedAt 随快照持久化，Leader 切换后仍遵守 min_hold_seconds。
+
+biz/service/planner/router/coordinator.go
+
+实现实例报告、Leader 租约、全局增量合并、Lua 防旧 Leader 覆盖、Redis 快照发布/拉取及 5 秒静态回退。
+
+biz/service/planner/router/observer.go
+
+记录每次 Endpoint attempt，并维护秒级滑窗和进程累计直方图；累计报告固定大小，不随请求量增长。
+
+biz/service/planner/router/metrics.go
+
+统一路由决策、状态切换、权重和 fallback 指标。
+新增快路径模块：biz/service/flow/planner_fallback_processor.go 在双 OPEN 时等待已并行预跑的 DPFM IntentOnlyData，读取 OEM 映射，复用单 Agent 执行器直达 Agent；同时输出错误、上报 planner.router.fast_fallback.count，并保证每个 fallback 请求只调用一次 AsyncSendLarkTextMessage。
+OEM 扩展：AgentProvider 新增 GetPlannerFallbackIntentToAgent() map[string]string。映射值使用稳定 Agent ID，执行前解析为当前 channel/appID 实际发布的工具名。Master 提供默认映射，例如 vehicle_control -> 车控 Agent；OEM 可按渠道覆盖。该映射与普通 is_simple 的 GetIntentToTool 分离，避免变更正常流量语义。
+Router 扩展：Resolver.BothRoutesOpen(channel) 只读取本机 atomic Snapshot；仅动态配置启用且双方状态严格为 OPEN 时返回 true，不访问 Redis。
+现有文件改造
+
+
+路径
+
+改造点
+
+biz/infrastructure/tcc/keys.go
+
+新增 KeyPlannerDynamicLoadBalance。
+
+biz/infrastructure/tcc/client.go
+
+注册新配置 Getter；保持读取失败返回 error，不静默生成危险默认值。
+
+biz/infrastructure/tcc/planner_dynamic_load_balance.go
+
+配置结构、默认值补全、范围校验和按 channel 查询。
+
+biz/service/planner/planner_text.go
+
+llmNodeHandler 开始模型调用前只 Resolve 一次，将 RouteBundle 同时传入 ArkModel 和 BuildMessages；保存 decision_id 供日志关联。
+
+biz/service/doubao/define.go
+
+ArkModel 增加 PromptKey、BackupEndpoint、Variant、DecisionID；GetBackupEndpoint 优先使用显式同变体备 Endpoint。
+
+biz/service/doubao/client.go
+
+BuildMessages 优先使用显式 PromptKey；每次实际 Endpoint attempt 都上报终态；错误指标记录 usedModel 而不是初始 am。
+
+biz/service/oem/saicdna/base.go
+
+通过 ark_config.GetMaasModelFunctions(ctx, channel, appID, functionKey) 读取 PE/SFT 接入点并组装 RouteSet；新增 OEM 级 GetPlannerFallbackIntentToAgent 映射，默认 vehicle_control 指向车控 Agent。非 Planner OEM 行为不变。
+
+biz/infrastructure/metrics/define.go、metric.go
+
+注册路由指标；标签必须是有限集合，禁止 vehicle_id、chat_id、log_id 作为指标标签。
+
+main.go
+
+在 cache.Init 和 metrics.Init 后启动 globalRuntime。使用 sync.Once，后台按实例确定性偏移启动，再每 1 秒同步；退出遵循 context。
+Flow 编排：biz/service/flow/orchestrator.go、processor.go 在 PreStartPlanner 前固化 PlannerRoutesUnavailable；命中双 OPEN 时跳过 Planner，并让 PlannerFallbackProcessor 以最高优先级承接。
+单 Agent 复用：biz/service/flow/simple_intent_processor.go、intent.go 抽取 runSingleIntentAgent 与 getAgentIDToTool，供普通简单意图和 Planner fallback 共用执行协议。
+OEM 端口：biz/service/oem_port/agent.go 增加 GetPlannerFallbackIntentToAgent，由 OEM 管理 DPFM 单意图到稳定 Agent ID 的映射。
+飞书告警：biz/infrastructure/notification/lark.go 增加 PlannerFallbackBots，当前复用大模型调用失败报警群；沿用异步发送与最多 3 次重试，不影响请求主链路。
+HealthProvider 接口
+接口示意
+type HealthProvider interface {
+    Query(ctx context.Context, req HealthQuery) (HealthSample, error)
+}
+
+type HealthSample struct {
+    WindowStart time.Time
+    WindowEnd   time.Time
+    Requests    int64
+    Errors      int64
+    TTFTP90Ms   int64
+    TTCP90Ms    int64
+    LoadRatio   *float64
+    Source      string
+}
+Controller 仍只依赖 HealthProvider。当前生产实现由 globalHealthProvider 承接：Leader 将各实例累计报告转换为不重复的秒级全局增量，再复用 LocalHealthProvider 的滑动窗口查询。后续如接入方舟容量接口，可作为额外信号，不改变请求链路。
+请求时序
+Resolver 读取最近的不可变 Snapshot、TCC 策略和静态 Route 定义，生成 RouteBundle。
+BuildMessages 使用 RouteBundle.PromptKey 构建消息；NewArkModel 使用 RouteBundle.PrimaryEndpoint。
+Observer 记录实际 attempt。失败切备 Endpoint 时沿用同一 decision_id，并生成新的 attempt 序号。
+后台每秒上报实例累计直方图；Leader 合并全局增量、计算并发布快照；实例拉取后更新 atomic.Pointer。请求线程只读本机快照，不访问 Redis、不加全局锁。
+Flow 在 PreStartPlanner 前读取本机有效 Snapshot 并将双 Circuit OPEN 结果固化为 PlannerRoutesUnavailable。仅该条件命中时跳过 Planner；UNKNOWN、DEGRADED、RECOVERING、动态关闭或快照过期继续走正常 Planner/静态基线。
+PlannerFallbackProcessor 优先于 AlwaysPlanner 和普通 SimpleIntent。它最多等待 2 秒复用 runPrepare 已写入的 DPFM IntentOnlyData，按 OEM 映射解析当前 channel/appID 发布的工具名，并通过 runSingleIntentAgent 直达一个 Agent。
+在三个互斥分支之一发送且只发送一次异步飞书 Bot 告警：agent_dispatching、intent_failed 或 intent_unmapped；之后继续输出已有 refusal、arbitration 与 Agent 流式帧，不因 Bot 发送失败阻塞请求。
+快路径 AnswerSource 记为 CloudAgent，不创建 Planner Graph、Planner History 或 Planner Task；状态在请求期间不重判，已启动或已输出首 Token 的 Planner 请求绝不切换到 fallback。
+可观测性
+指标
+
+
+指标名建议
+
+类型/数值
+
+标签
+
+planner.router.decision.count
+
+Counter，每次路由决策 +1
+
+channel、variant、endpoint_alias、reason、mode
+
+planner.router.attempt.count
+
+Counter，每次 Endpoint 尝试 +1
+
+channel、variant、endpoint_alias、status、error_code、stage
+
+planner.router.health.value
+
+Gauge/Timer，健康指标值
+
+channel、variant、endpoint_alias、metric、source
+
+planner.router.weight
+
+Gauge/Timer，当前有效比例
+
+channel、variant、reason
+
+planner.router.transition.count
+
+Counter，状态迁移 +1
+
+channel、variant、endpoint_alias、from、to、reason
+
+planner.router.snapshot.age_ms
+
+Gauge/Timer，快照年龄
+
+channel、source
+同时修正现有模型埋点：请求计数必须在 attempt 开始时上报，成功/失败终态分开；TTFT/TTC 在所有终态结束；Endpoint 标签使用实际调用 Endpoint；context.Canceled 单列，不混入服务错误。
+快路径指标：planner.router.fast_fallback.count，Counter；标签为 channel、intent、agent_id、result（started / finished / failed）。指标中的 started 表示 Agent 调用已开始，与飞书告警状态 agent_dispatching 区分。日志前缀为 [PlannerFastFallback]，记录 skip_planner、意图映射和失败原因。
+日志
+决策日志使用固定前缀 [PlannerRouterDecision]，状态变更使用 [PlannerRouterTransition]，至少包含：
+
+decision_id, channel, variant, endpoint_alias, backup_alias,
+base_sft_rate, effective_sft_rate, bucket, mode, reason,
+pe_state, sft_state, health_snapshot_version, config_version, log_id
+状态迁移日志额外记录触发窗口的 requests、error_rate、ttft_p90_ms、ttc_p90_ms、load_ratio、连续好/坏窗口数。禁止记录 API Key、完整 Prompt、完整请求体以及 vehicle_id 指标标签；请求日志如需关联 vehicle_id，沿用现有日志脱敏规范。
+告警
+每个 Planner fallback 请求必须异步发送一条且仅一条飞书 Bot 告警，不做环境过滤，PPE 与生产均发送。
+成功解析 OEM 映射时在 Agent 调用前发送 agent_dispatching；DPFM 结果异常发送 intent_failed；意图未映射发送 intent_unmapped。三个分支互斥，Agent 后续结果不补发。
+告警发送复用 PlannerFallbackBots，当前指向大模型调用失败报警群；公共发送器失败最多重试 3 次，发送结果不阻塞也不改变 fallback 请求结果。
+消息包含 env、channel、AppID、DPFM intent、Agent ID、ChatID、LogID、状态、时间和单意图限制；不包含用户 Query、Prompt、凭证或完整请求体。
+控制面另需关注任一主 Endpoint 进入 OPEN、PE/SFT 同时 DEGRADED、快照陈旧、比例达到边界、partial_stream_error 与配置校验失败突增。
+数据与接口设计
+数据库：无数据库表变更。Redis 仅保存三个短期控制面对象：实例健康报告 Hash（10 秒 TTL）、Leader 锁（3 秒租约）和全局路由快照（5 秒 TTL）。HealthSnapshot 在各实例内通过 atomic.Pointer 保存；TCC 为策略来源。Redis 不保存逐请求记录。
+对外接口：无 HTTP/RPC 接口变更，现有 Planner 请求与流式响应协议保持兼容。
+内部接口：新增 Resolver、HealthProvider 和 AttemptObserver 接口；ArkModel 增加可选字段，默认空值保持现有调用行为。
+异常策略
+
+
+异常
+
+处理
+
+TCC 读取失败
+
+使用进程内最近合法的完整 channel 配置；无历史值时该 channel 不启用动态快照，路由保持默认 PE。不得从另一个 TCC Key 拼接静态字段。
+
+健康查询超时/报错
+
+保留最近可信 Snapshot；超过 stale_seconds 后状态转 UNKNOWN，并回基础比例。
+
+Controller panic
+
+循环边界 recover、记录错误并继续下一周期；请求路径始终可静态回退。
+Redis 读写失败：失败只影响后台控制面，不能向 Planner 请求返回错误。实例继续使用最近有效快照；快照年龄超过 5 秒后清空并回退静态比例。
+Leader 切换：租约 3 秒自动过期。新 Leader 首次读取累计报告只建立基线，不重复合并历史请求；后续按差值恢复全局窗口。快照写入通过 Lua 同时校验 leader owner，旧 Leader 即使计算滞后也无法覆盖。
+实例退出或报告损坏：报告超过 10 秒、generation 变化、实例 ID 不匹配或 JSON 非法时忽略并由 Leader 清理对应字段。
+PE、SFT 同时 Circuit OPEN：仅最新有效且动态配置启用的本机快照可触发。新请求在 PreStartPlanner 前固化 PlannerRoutesUnavailable，跳过 Planner，并使用 DPFM 单意图和 OEM 映射直达一个 Agent；每请求异步发送一条飞书 Bot 告警。已启动的 Planner 请求不切换，防止重复文本或工具调用。
+DPFM、映射或 Bot 异常：DPFM IntentOnlyData 最多等待 2 秒。结果超时、反序列化失败或 intent_type 为空时发送一次 intent_failed；OEM 未映射时发送一次 intent_unmapped；随后输出系统错误且不得回流 Planner。成功映射时先异步发送一次 agent_dispatching，再调用 Agent。Bot 发送失败由公共发送器重试，不能阻塞请求或触发第二条业务告警。该路径不保证多意图，复合指令最多执行 DPFM 返回的单个意图。
+恢复：任一路由从 OPEN 进入 RECOVERING 后立即停止快路径，由 Planner 承接半开探测；每个请求只在开始时判定一次，不中途迁移。
+影响范围
+业务逻辑：仅影响 FuncPlannerAnalyzeText；其他模型调用保持原行为。
+Flow 编排：双 OPEN 时不创建 Planner Graph/History/Task，改为 DPFM 单意图直达单 Agent；无法识别和执行多意图。
+OEM：各 OEM 维护 Planner fallback 的意图到 Agent ID 映射；未配置的意图明确失败，不使用通用默认 Agent 猜测。
+告警：每个 fallback 请求产生一次异步飞书 Bot 消息，PPE 同样会发送；需评估极端故障时的群消息量。
+Prompt：PE 使用 planner.token_compression.saic_dna，SFT 使用 director.task.analyze_text_saic_dna；必须与 variant 原子绑定。
+稳定性：修改 ArkModel 重试和埋点逻辑属于共享代码，测试需覆盖 Generate、Stream 和非 Planner 调用。
+风险预估
+
+
+风险
+
+缓解措施
+
+模型与 Prompt 错配
+
+RouteBundle 原子决策；禁止后续重复读取动态状态；单测强校验。
+
+指标滞后或误报
+
+最小样本、连续窗口、迟滞、限速、快照过期回退。
+
+多实例决策不一致
+
+优先使用同一全局聚合指标源和确定性算法；每实例上报有效比例，按实例核对。
+
+公共池共享故障域
+
+按 route group 聚合健康；共享池异常时只向 SFT 转移，不在 PE Endpoint 间反复切换。
+
+SFT 模型单元被突发打满
+
+max_sft_rate、load_ratio 前置信号、渐进调权和边界告警。
+
+重试放大请求量
+
+仅快速失败重试、单次备 Endpoint、总预算限制、OPEN 后直接避开。
+
+修改共享 ArkModel
+
+新增字段全部可选；保持默认分支；补充共享单测和回归。
+Fallback 单意图损失：DPFM 只能给出一个意图，复合指令可能只执行部分需求。仅在双 Circuit OPEN 的最差场景启用；消息、日志和告警均明确 multi_intent_supported=false。
+逐请求告警风暴：双路由持续 OPEN 时告警量等于 fallback QPS。当前需求要求每条发送，代码不采样、不聚合；上线前应确认 Bot/群限频和故障期可接受量。Bot 失败只异步重试，不反向影响用户请求。
+告警隐私：只发送诊断标识和路由元数据，不发送用户 Query、Prompt、凭证或完整请求体。
+灰度、发布与回滚
+TCC 合并迁移顺序：先在 planner.dynamic_load_balance 发布包含 vehicle_id 与 rate 的新版本，旧代码会忽略新增字段；再部署只读取合并 Key 的新代码。迁移期间不删除 planner_sft_traffic_split，确保旧版本可直接回滚。待回滚窗口结束并确认无旧实例后，再单独下线旧 Key。PPE 已按该顺序发布配置 v4 和服务版本 1.0.0.7008（commit b99b650cb）。
+阶段 0：观测补齐。只补 RouteBundle、attempt 指标和日志，动态开关关闭；验证 PE/SFT 实际流量、错误率和延迟基线。
+阶段 1：影子计算。Controller 计算建议比例但不生效，对比建议比例、真实异常和人工判断，至少观察一个完整业务周期。
+阶段 2：小步自动调权。单 channel 开启，adjust_step 不超过 5%，动态边界限制在基础比例上下 10%，观察告警和效果。
+阶段 3：扩大边界。确认误切率、振荡次数、SFT 容量和 Planner 质量后逐级扩大，禁止一次全量。
+回滚：将 mode 设为 static 或 enabled=false，立即使用 planner.dynamic_load_balance 中同一份 vehicle_id + rate 静态路由；代码回滚不依赖数据库操作。迁移期间保留旧 planner_sft_traffic_split 仅供旧版本代码回滚读取，新版本不会订阅该 Key。force_pe/force_sft 只用于短时应急，配置必须设置操作记录和到期检查。
+测试方案与验收标准
+单元测试
+配置默认值、非法范围、min/max 与基础比例冲突、最近合法配置保留。
+稳定哈希分布误差、同输入稳定性、配置版本变更后的重分桶。
+HEALTHY、DEGRADED、OPEN、RECOVERING、UNKNOWN 全状态迁移。
+双方 DEGRADED 时保持比例；双方 Circuit OPEN 时停止 Planner 并进入单 Agent fallback；单方异常按 step 调节；恢复时渐进回基线。
+快照过期、健康源报错、样本不足时静态回退。
+RouteBundle 中 variant、PromptKey、主备 Endpoint 一致性。
+SFT 主 Endpoint 失败时不得直接使用 PE BackupEndpoint 和 SFT Prompt。
+并发读写 Snapshot 通过 go test -race。
+多实例累计报告首次只建基线、后续只合并增量，同一报告重复读取不得重复计数。
+Leader 租约丢失后发布快照必须被 Lua 拒绝；新 Leader 不得覆盖为旧版本。
+Redis 快照缺失、损坏、旧版本和超过 5 秒时，本机快照按预期保留或清空。
+按 TTFT≈700ms、TTC≈1.5s 验证正常基线不误降级；持续 TTFT 2s / TTC 4s 连续 3 次评估后进入 DEGRADED。
+BothRoutesOpen 仅在动态配置启用且 PE、SFT 均为 OPEN 时返回 true；任一为 HEALTHY、DEGRADED、RECOVERING、UNKNOWN 或配置关闭时返回 false。
+PlannerFallbackProcessor 双 OPEN 时优先于 AlwaysPlanner 和普通 SimpleIntent；验证不启动 Planner、DPFM IntentOnlyData 解析、OEM vehicle_control 到车控 Agent 映射、未映射意图和 DPFM 超时失败。
+验证每个 fallback 请求只调用一次飞书 Bot：成功映射为 agent_dispatching，DPFM 异常为 intent_failed，未映射为 intent_unmapped；Agent 后续错误不再发送。校验消息包含必要诊断字段且不包含用户 Query。
+故障注入 PE/SFT 同时 OPEN，确认只产生一次 Agent 调用、无 Planner 模型请求；任一路由进入 RECOVERING 后恢复 Planner 半开探测。复合指令验收口径为仅执行 DPFM 单意图，不承诺多意图完整性。
+集成与故障注入
+模拟 PE TTFT 升高，验证连续 bad_windows 后 SFT 比例按步长增加。
+模拟 SFT 限流，验证流量减少且不低于 min_sft_rate；OPEN 时按策略切 PE。
+模拟双方 DEGRADED，验证保持当前比例且不振荡；模拟 PE、SFT 均为 Circuit OPEN，验证新请求跳过 Planner、只调用一个映射 Agent，并且每请求只发送一条飞书 Bot 告警。
+模拟 ClosedEndpoint、连接超时、首 Token 前错误和首 Token 后中断，验证重试边界。
+模拟监控接口超时和返回陈旧数据，验证请求延迟不受影响且最终回静态比例。
+上线验收
+
+
+验收项
+
+标准
+
+主链路额外开销
+
+Router 决策 P99 小于 1ms，无同步外部 I/O。
+
+静态兼容
+
+动态关闭时，白名单和 Rate 命中结果与当前实现一致。
+
+比例准确性
+
+样本量足够时，实际 SFT 比例与有效比例偏差不超过 2 个百分点。
+
+路由一致性
+
+线上不存在 variant、PromptKey、Endpoint 不匹配记录。
+
+稳定性
+
+单次异常不触发调权；调权频率符合 min_hold_seconds；无持续来回振荡。
+
+可回滚
+
+TCC 关闭后一个配置刷新周期内恢复静态切流。
+
+可解释性
+
+任一请求可通过 log_id/decision_id 查到路由原因和实际 Endpoint；任一状态变更可还原触发指标。
+
+最差降级
+
+PE、SFT 均为 Circuit OPEN 时，新请求无 Planner 模型调用且只执行一个 OEM 映射 Agent；UNKNOWN、DEGRADED、RECOVERING 和快照过期不得误触发。
+
+告警完整性
+
+每个 fallback 请求对应一条 Bot 业务告警，状态为 agent_dispatching、intent_failed 或 intent_unmapped；告警不含用户 Query，Bot 失败不增加主链路延迟。
+AI 实施任务拆分
+已完成：原子路由与 attempt 观测。RouteBundle、显式 Prompt/主备 Endpoint、稳定哈希、同变体重试边界已接入。
+已完成：全局 Redis 控制面。实例累计直方图、1 秒报告、Leader 租约、全局窗口、Lua 原子发布、1 秒拉取和 5 秒回退已实现。
+已完成：原子策略配置。planner.dynamic_load_balance 已合并 vehicle_id、rate、模式、比例边界、窗口、迟滞、错误率和 TTFT/TTC 阈值；Controller 与 Resolver 不再读取 planner_sft_traffic_split，并保留最近合法完整配置。
+已完成：核心测试。覆盖累计差分去重、全局 P90、快照版本/过期、时延基线、状态迟滞和 race。
+已完成：Planner 最差降级。双 Circuit OPEN 判定、跳过 Planner、DPFM 单意图、OEM 意图到 Agent 映射、单 Agent 执行、错误处理、fallback 指标与日志已实现。
+已完成：逐请求飞书 Bot 告警。每个 fallback 请求在 agent_dispatching、intent_failed、intent_unmapped 三个互斥状态中发送一条异步消息；不包含用户 Query，发送失败不阻塞请求。
+待执行：影子对账。在 auto 调权关闭时对比 Redis 全局窗口与 VMetrics 的请求数、错误率、TTFT/TTC P90，持续观察至少一个业务高峰。
+待执行：容量灰度。确认 Redis 实例数、Hash 大小和网络流量；按 5%→20%→50%→100% 开启 auto，并验证调权频率和模型效果。
+待执行：SFT 备用资源。补齐同模型版本的备用 Endpoint 后再开启 SFT Endpoint 级重试。
+待执行：Fallback PPE 验证。在 ppe_aidv_planner_dynamic 注入双方 Circuit OPEN，验证无 Planner 请求、单 Agent 执行、三类告警状态、一次请求一条 Bot、恢复至 RECOVERING 后停止 fallback，并评估持续故障时的群消息量。
+设计 Checklist 自查
+
+
+编号
+
+检查项
+
+是否通过
+
+说明
+
+7
+
+共享 ArkModel 是否有回归覆盖
+
+待实施
+
+实施必选项
+
+8
+
+真实健康接口是否已确认
+
+待确认
+
+自动调权门槛
+
+9
+
+SFT 同模型备用 Endpoint 是否具备
+
+待确认
+
+故障切换门槛
+待评审问题
+方舟是否提供可在线查询 Endpoint 实时容量/负载的稳定接口？数据延迟、限频和鉴权方式是什么？
+生产实例规模和 Redis 容量上限是多少？按 2N+O(1) ops/s 评估通常可接受，但上线前需核对单实例报告大小、健康报告 Hash 总大小和跨机房网络流量；规模较大时可按 instance_id 分片 Hash。
+SFT 模型单元的安全最大 QPS/TPM、突发余量和备用 Endpoint 是否已经准备？
+PE 与 SFT 的效果差异是否允许同一 vehicle 在配置版本变化后切换？是否需要按会话固定 variant？本方案默认同一请求固定、跨请求按 vehicle_id 稳定。
+PE 所有 Endpoint 是否确实共享同一公共资源池？若共享，健康聚合和告警应以 route group 为主，Endpoint 为辅。
+评审记录
+
+
+评审方向
+
+负责人
+
+结论
+
+Planner 业务与效果
+
+待填写
+
+
+
+方舟资源与负载接口
+
+待填写
+
+
+
+服务端稳定性
+
+待填写
+
+
+
+测试
+
+待填写
+
+
+实现记录（2026-10-14）：已基于 commit 754891ba7 的单实例暂存实现，补齐 Redis 全局控制面、1 秒计算/拉取、Leader 原子发布、全局直方图、时延阈值配置和快照过期回退。核心目标测试及 router race 测试通过；完整 planner 包测试仍存在既有 TestLLMProcessStream 空 ChatReq 崩溃，需独立修复测试夹具。
+实现记录（2026-10-19）：已补齐 Planner 最差降级与逐请求飞书 Bot 告警：仅双 Circuit OPEN 时跳过 Planner，复用 DPFM 单意图按 OEM 映射直达 Agent；每请求在 agent_dispatching、intent_failed、intent_unmapped 中发送一条异步告警。目标测试、主程序编译和 router/flow 目标 race 测试通过；代码尚未提交和重新部署 PPE，Fallback PPE 故障注入仍待执行。

@@ -1,0 +1,207 @@
+AiCar-端状态上传和查询测试方法
+基本介绍
+收集实车的一些基本信息(比如:空调的状态，轮胎的状态，车速，状态灯....)存入数据库，对外提供查询的接口根据输入的query筛选出相关的状态信息
+用例设计
+端状态上传支持清单
+E68项目-J2平台车控&端状态需求清单
+端状态查询
+image.png
+
+image.png
+
+实例：
+前置条件：对应的状态已经上传到对应的数据库
+query：现在胎压是多少  预期筛选出：轮胎状态
+query：我有点热    预期筛选出：空调相关状态(强关联)，座椅通风相关状态(弱关联)，车窗状态(弱关联)，车内外温度(弱关联)，车辆速度(弱关联)
+query：我的屁股有点热    预期筛选出：座椅通风相关状态(强关联)，座椅加热相关状态(弱关联)，车窗状态(弱关联)，车内外温度(弱关联)，空调相关状态(弱关联)，车辆速度(弱关联)
+结果评分标准
+
+实车测试
+端状态上传测试
+客户端
+测试方法
+在车辆操作对应的内容（比如：将空调温度调整到24度），或者通过模拟信号(比如：模拟对应的can信号或者根据一些命令修改信号值)
+在数据库中查询对应的车辆信息看是否正常落库
+注：任何数据以落库为准，数据库数据未正常落库或者数据错误即测试不通过
+需要使用到的adb命令如下：
+查询客户端上报日志及上报的logid
+adb logcat | grep -E --color=always 'on receive report increment|LogInterceptor'
+注释：
+on receive report increment 是客户端上报端状态信息的关键字
+LogInterceptor 是查询各种与云端接口交互时获取对应的logid的关键字
+一般logid是跟着上报最近的那个logid如下图
+image.png
+
+根据信号id进行过滤相关信号的日志
+adb logcat | grep -E  --color=always "interaction_0002"
+image.png
+
+服务端数据库查询
+查询链接地址：https://cloud.bytedance.net/rds/detail/db/cn/vehicle_aidv/autoSQL?db_name=vehicle_aidv&region=cn&x-resource-account=public&x-bc-region-id=bytedance&x-bc-vregion=China-North&x-bc-vdc=cn
+vehicle_resource_info 表中的信息是当前端状态最新的的信息
+vehicle_resource_info_history 表中记录端状态上报的历史信息
+
+根据vehicle_id查询端状态当前信息
+select * from vehicle_resource_info WHERE vehicle_id = "1swYTEGdKtqCuXIjORNHaxaqsZI8dURjv6PWtbXkJXo="  ORDER BY resource_id  LIMIT 400;
+根据vehicle_id和信号id查询该信号历史上报信息
+select * from vehicle_resource_info_history WHERE vehicle_id = "1swYTEGdKtqCuXIjORNHaxaqsZI8dURjv6PWtbXkJXo=" and resource_id = 'vehicle_control_0022' ORDER BY expiration_time DESC LIMIT 450;
+image.png
+
+上图是数据库中一些关键的字段
+端状态上报的一些特殊逻辑
+车辆仅首次上电上报时会将该车辆在数据库vehicle_resource_info表中的数据进行清空，重新将新的数据进行落库，这时created_at时间应该都是大于等于该时间，有小于该时间的数据，说明上报是有问题的。
+     首次上报还要注意一些状态灯的信息，一些车辆的协议是只有该灯开启状态才会有相关的信息，默认是关闭状             态，那这种情况首次上报的时候是需要将这些默认状态进行上报的
+首次上电上报后后面的数据都是进行更新上报
+常见的问题
+上报数据字段错误
+
+05-12 08:40:06.118 29194 31117 I AiCar   : NovaReportEventImpl on receive report increment： {"resource_value":[{"event_time":"2026-05-12T07:50:24.910+08:00","id":"adsd_0022","subresource":[{"mode":"警示"}]}],"report_cycle_flag":"202605120750_0d73e877c24b478db17a6b2d5d980462","report_type":"Update"}
+image.png
+
+需求要求字段是switch，上传的字段是mode， 服务端在入库的时候会进行字段校验不通过的不会进行落库
+上报的字段值不对导致落库失败
+当取值范围是on/off，客户端上传开启/关闭，服务端进行了值校验，校验不通过就不会落库
+image.png
+
+上传信息与实践不一致
+该车辆无第三排座椅，上传的数据有该数据
+
+05-13 08:02:13.703   521  4116 I AiCar   : NovaReportEventImpl on receive report increment： {"resource_value":[{"event_time":"2026-05-13T08:00:16.540+08:00","id":"vehicle_control_0049","subresource":[{"position":"车顶","states":"0"},{"position":"车顶前","states":"0"},{"position":"车顶后","states":"0"},{"position":"主驾","states":"0"},{"position":"副驾","states":"0"},{"position":"二排左","states":"0"},{"position":"二排右","states":"0"},{"position":"三排左","states":"0"},{"position":"三排右","states":"0"}]}],"report_cycle_flag":"202605130800_8d466b94a647403e8ffa0c78f455ac0c","report_type":"Update"} 
+上传信息重复
+上传有多个右后的数据，这样的数据仍可以正常落库，但是后面的数据会将前面的数据覆盖（比如：右后最终落库数据是{"position":"右后","switch":"off"}）
+
+05-13 08:26:56.254   521  6112 I AiCar   : NovaReportEventImpl on receive report increment： {"resource_value":[{"event_time":"2026-05-13T08:00:16.536+08:00","id":"vehicle_control_0027","subresource":[{"degree":"100","position":"主驾","switch":"on"},{"degree":"12","position":"副驾","switch":"on"},{"degree":"40","position":"右后","switch":"on"},{"degree":"37","position":"右后","switch":"on"},{"degree":"43","position":"右后","switch":"on"},{"position":"右后","switch":"off"},{"degree":"87","position":"右后","switch":"on"},{"position":"左后","switch":"off"}]}],"report_cycle_flag":"202605130800_8d466b94a647403e8ffa0c78f455ac0c","report_type":"Update"}
+断网测试方法
+车机不开启无线网络和移动网络
+操作对应的信号，比如：打开空调，空调温度先调节到26度然后在调节到27度
+监测客户端上传日志有重试上报的日志
+开启网络
+监测客户端上传日志和数据库落库数据
+弱网测试
+车机通过实地模拟或者软件模拟弱网情况
+操作对应的信号，比如：打开空调，空调温度先调节到26度然后在调节到27度
+监测客户端上传日志如果接口超时有重试上传日志
+解除弱网限制
+监测客户端上传日志和数据库落库数据
+端状态查询测试
+测试方法
+fornax链接：https://fornax.bytedance.net/space/7522018773168046082/analytics/trace
+获取请求query的logid 然后在fornax或者argos中查看相关的日志
+context查询端状态简略请求链路
+
+fornax相关节点日志查询
+预请求日志查询
+查看context预请求结果
+image.png
+
+image.png
+
+在使用节点查看端状态查询的结果
+image.png
+
+查看conetxt预请求的结果和获取context预请求的logid
+image.png
+
+查询context预请求相关过程信息
+根据上图获取的logid可以在fornax查询对应的信息
+image.png
+
+image.png
+
+image.png
+
+context预请求超时，然后走正常conetxt请求的日志
+image.png
+
+需要进行二次端状态查询的日志
+端状态二次筛选目前使用的是tob的链路，模型sp中是没有历史的
+image.png
+
+常见问题分析方式
+首次筛选应该筛选确未筛选出相关的端状态
+首次筛选端状态是固定一部分内容进行筛选的，内容范围是核心端状态知识梳理，未在范围内未筛选出是正常现象
+先查看端状态模型筛选结果，排除模型筛选错误其他都是context服务端的问题
+需要二次端状态筛选未进行筛选
+这种情况输出planner任务管理的问题，目前二次筛选有planner自己决定是否调用
+二次端状态筛选未筛选出相关的数据
+image.png
+
+查看planner改写query是否合理，不合理的情况就是planner的bug
+planner改写合理模型输出结果不对，筛选模型问题
+筛选模型输出正确但context输出结果不对，属于conetxt工程端问题
+image.png
+
+接口模拟测试
+端状态上传
+当无实车的情况，可以通过接口进行测试，该方法仅能测试状态信息通过接口上传到数据库这部分链路，车端的信号收集和上传只能实车进行测试
+接口文档：公版-AI汽车接口访问指南
+接口url地址：https://api-vehicle.volcengine.com/aidv/v1/vehicle/resource
+接口参数示例：
+
+{
+    "report_type": "Full",  // Full首次上传， Updata 更新上传
+    "report_cycle_flag": "1039261527043621397",
+    "resource_value": [ // 可以一次上传多个信号
+        {
+            "event_time": "2026-04-15T20:18:32.000+08:00",  //事件发生的事件
+            "id": "system_control_0004",  // 信号id
+            "subresource": [  // 该信号的内容
+                {
+                    "states": "已占用",
+                    "position": "中后"
+                },
+                {
+                    "states": "未占用",
+                    "position": "右后"
+                },
+                {
+                    "states": "已占用",
+                    "position": "主驾"
+                },
+                {
+                    "states": "已占用",
+                    "position": "副驾"
+                },
+                {
+                    "states": "已占用",
+                    "position": "左后"
+                }
+            ]
+        },
+        {
+            "event_time": "2026-04-15T20:18:32.000+08:00",
+            "id": "vehicle_control_0027",
+            "subresource": [
+                {
+                    "switch": "off",
+                    "position": "主驾",
+                    "degree": "60%"
+                },
+                {
+                    "switch": "off",
+                    "position": "副驾",
+                    "degree": "61%"
+                },
+                {
+                    "switch": "off",
+                    "position": "左后",
+                    "degree": "61%"
+                },
+                {
+                    "switch": "off",
+                    "position": "右后",
+                    "degree": "61%"
+                }
+            ]
+        }
+        ]
+}
+服务端数据库查询
+内容与上文实车测试>>端状态上传>>服务端数据库查询 一样
+端状态查询
+无实车时可以通过接口进行测试，测试步骤如下：
+先通过接口模拟上报端状态，确认上报成功后
+通过context查询接口或者planner查询接口进行测试
+context接口：公版-AI汽车接口访问指南
+planner接口：公版-AI汽车接口访问指南
+

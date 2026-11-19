@@ -1,0 +1,68 @@
+对话事件日志生成链路总结
+一、方案摘要
+本方案总结了 aidv 系统中“人人对话”与“人机对话”事件日志的生成流程。事件生成主要分为在线云端判定链路与端侧模型同步链路。两路数据最终在异步事件上报中心 ReportByChat 汇聚，并根据对话的结束状态（finish_type）与回复来源（answer_source）进行分类落库。
+
+关键结论：
+人人对话：对应被拒识的对话（finish_type=1），包含在线云端拒识及端侧模型判定拒识。
+人机对话：对应正常结束的对话（finish_type=0），目前仅对云端产生的回复生成事件日志及短期记忆任务。
+端侧同步：离线或持续聆听下的端侧拒识通过 context/sync 接口同步至云端，并回填 answer_source=1。
+二、业务定义与字段映射
+系统中通过 chat_history 表的两个关键字段来区分事件类型：
+
+
+事件名称
+
+业务定义
+
+finish_type
+
+answer_source
+
+资源标识 (resource_id)
+
+人人对话
+
+用户 query 被判定为无效或需拒识，不产生业务答复。
+
+1 (Refusal)
+
+
+-1 (云端拒识) / 1 (端侧)
+
+
+human_dialogue_content
+
+人机对话
+
+用户 query 正常响应，产生闲聊答复或执行了车控指令。
+
+0 (Success)
+
+0 (Cloud) / 2 (Planner) / 4 (Agent)
+
+bot_dialogue_chat / bot_dialogue_tool_call
+三、流程与数据流转
+在线链路与端侧链路的流转过程如下：
+
+3.1 在线链路 (Online Path)
+判定阶段：MainFlow 调用 Orchestrator，通过“拒识 SFT 模型”对当前对话进行评分。
+标记阶段：若判定为拒识，设置 finish_type=1 且 answer_source=-1；否则标记为 finish_type=0 并继续执行 Planner/Agent 逻辑。
+触发阶段：对话流结束后，在 afterFlow 逻辑中异步调用 event_report.ReportByChat。
+生成阶段：ReportByChat 读库分类，由于 finish_type=1，生成“人人对话”事件，内容仅保留用户 Query。
+3.2 端侧链路 (Edge Path)
+判定阶段：端侧设备在离线无网或 Always-on 持续聆听状态下，使用端侧模型判定拒识。
+上报阶段：客户端通过 POST /context/sync 接口批量同步对话历史。
+转换阶段：云端 HistorySync 服务接收请求，将历史记录转化为 chat_history 结构，强制标记 answer_source=1 (端侧)。
+触发阶段：对于新增加的拒识记录（finish_type=1），系统会取出原始对话时间 CreatedAt，异步调用 ReportByChat。
+生成阶段：同样走拒识分支，生成“人人对话”事件。
+四、核心逻辑细节 (Code Reference)
+基于 feature/20261102_event 分支的代码确认：
+判定逻辑：biz/service/event/report/report_chat_event.go 中的 getChatInfoFromDatabase 函数。
+finish_type == 1 时，直接判定为 ManToManChatType(0) 并提前返回。
+finish_type == 0 时，需校验 answer_source 是否属于云端集合 {0, 2, 4}，否则不生成人机事件（端侧成功对话目前会被过滤）。
+同步入口：biz/handler/v1/context/sync.go 接收端侧数据，由 biz/service/context_sync/history.go 处理入库及异步上报触发。
+五、结论
+事件日志的生成确保了所有被识别的意图（无论成功或拒识）都能被回溯。
+人人对话 链路通过覆盖云端与端侧的拒识场景，实现了对无效交互的全量捕获。
+人机对话 链路深度绑定云端处理结果，为后续的记忆任务和效果评估提供数据基础。
+

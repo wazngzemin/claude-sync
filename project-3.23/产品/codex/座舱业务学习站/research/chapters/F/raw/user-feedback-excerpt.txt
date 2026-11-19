@@ -1,0 +1,33 @@
+# AIDV 用户反馈技术方案（10/27）model_content→tool_feedback 段（chapters/E/raw/user-feedback.txt）
+是
+
+提供给 Planner 的事实性结果或澄清文案，不得与真实执行结果冲突。
+字段承载与赋值链路
+上面的 JSON 是 Agent 校验模型输出并执行业务动作后生成的逻辑结果，记为 agent_result。它不是 Feedback Model 的原始输出，也不是 Planner 最终下发给客户端的响应。Agent 将 agent_result 序列化后写入内部 ChatResponse 的 model_content；Go 结构体字段名为 ModelContent，JSON 字段名为 model_content。
+Feedback Report Agent 内部 ChatResponse
+{
+  "content": "",
+  "model_content": "{\"success\":true,\"action\":\"review\",\"report_id\":\"rpt_xxx\",\"status\":\"REVIEW_READY\",\"message\":\"反馈内容已整理，请确认是否提交\"}"
+}
+Planner 汇总工具响应时拼接各响应的 ChatResponse.ModelContent，并包装成 tool_name + tool_feedback 注入 Planner Model 上下文。其中 tool_feedback 的值等于汇总后的 model_content；tool_feedback 是 Planner 上下文字段名，不是 ChatResponse 字段。
+注入 Planner Model 的工具结果
+{
+  "tool_name": "issue_report",
+  "tool_feedback": "{\"success\":true,\"action\":\"review\",\"report_id\":\"rpt_xxx\",\"status\":\"REVIEW_READY\",\"message\":\"反馈内容已整理，请确认是否提交\"}"
+}
+Feedback Model 输出 action、reply、summary、category 等模型决策字段。
+Issue Report Agent 解析并校验模型输出，结合服务端状态执行业务 Function Call，生成 agent_result。
+Agent 将 agent_result 序列化并赋值给 ChatResponse.ModelContent，对应 JSON 字段 model_content。
+Planner 将 ModelContent 汇总为 tool_feedback，并与 Registry 中的 tool_name 一起注入 Planner Model 上下文。
+Planner Model 依据实际 tool_feedback 生成最终文本与 TTS，再由外层 ChatResponse 下发客户端。
+约束：Feedback Model 输出协议中不定义 model_content；model_content 仅属于 Agent/Planner 框架的 ChatResponse 承载层。Agent 不得把未经校验、未经业务执行的 Feedback Model 原始 JSON 直接写入 model_content 返回 Planner。
+Feedback Model 输入输出 @张驰Ricky@单如水
+Issue Report Agent 每轮调用 Feedback Model。Model 只负责理解当前轮语义并返回结构化决策；任务状态维护、字段校验、持久化和业务 Function Call 均由 Agent 负责。
+
+核心约束：Model 的 action 只允许 clarify、review、submit、cancel。start_collect 由 Agent 在首次进入且不存在有效活动任务时生成，不属于 Model action。
+
+Model 输出 cancel；Agent 校验活动任务并执行取消、清理任务数据
+
+Frontier：cancel，停止 CDC 采集；不提交 VSHD；结果经 ChatResponse 返回
+统一返回链：Model 输出只是决策候选；Agent 校验并执行后生成 agent_result → ChatResponse.model_content → Planner tool_feedback，Planner 最后生成 6.2 中面向端侧的 ChatResponse 文本与 TTS。
+通道与关联标识

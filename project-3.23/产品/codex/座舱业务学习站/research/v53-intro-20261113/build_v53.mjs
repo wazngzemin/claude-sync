@@ -1,0 +1,51 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
+import {fileURLToPath} from 'node:url';
+import {createRequire} from 'node:module';
+import {marked} from '/Users/bytedance/.npm/_npx/9a880fdca0b012fd/node_modules/marked/lib/marked.esm.js';
+const require=createRequire(import.meta.url);
+const {JSDOM}=require('/Users/bytedance/.npm/_npx/12f3a93219d134f5/node_modules/jsdom');
+const dir=path.dirname(fileURLToPath(import.meta.url));
+const basePath=path.resolve(dir,'../../../HTML/01-进行中/豆包汽车-业务学习站-v52.html');
+const output=basePath.replace('v52.html','v53.html');
+assert(!fs.existsSync(output),'Never overwrite an existing version');
+const sourcePath='/private/tmp/claude-501/-Users-bytedance-Desktop-3-23/d1d6888c-c947-4227-bbf6-6d61c9195d26/scratchpad/v53-intro-source.md';
+const base=fs.readFileSync(basePath,'utf8'),source=fs.readFileSync(sourcePath,'utf8');
+const scripts=[...base.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/g)];
+const data=Function(scripts.find(m=>/^\s*const DATA\s*=/.test(m[2]))[2]+';return DATA')();
+const original=structuredClone(data),v=data.pages.find(p=>p.id==='V');
+const blocks=[...source.matchAll(/^## (入门 [1-5]｜[^\n]+)\n([\s\S]*?)(?=^## |$(?![\s\S]))/gm)];
+assert.equal(blocks.length,5);
+const introSections=blocks.map((m,i)=>{
+ const dom=new JSDOM(marked.parse(m[2],{gfm:true})),doc=dom.window.document;
+ for(const table of doc.querySelectorAll('table')){
+  const wrapper=doc.createElement('div');wrapper.className='voice-table-scroll';wrapper.tabIndex=0;wrapper.setAttribute('role','region');wrapper.setAttribute('aria-label','本节对照表，可横向滚动');
+  table.before(wrapper);wrapper.append(table);table.querySelectorAll('thead th').forEach(th=>th.setAttribute('scope','col'));
+ }
+ const html=doc.body.innerHTML;dom.window.close();return{id:'v53-intro-'+(i+1),title:m[1],html};
+});
+const addedSentence='第一次读，先看下面的入门 1～5；后面的第一～五段是同一条链路的细讲。';
+assert(v.v34.intro.endsWith('</p>')&&v.v34.intro.includes('下面跟着这次请求'));
+v.v34.intro+='<p>'+addedSentence+'</p>';
+v.v34.sections.unshift(...introSections);
+const plain=html=>{const d=new JSDOM(html);const t=d.window.document.body.textContent;d.window.close();return t;};
+const indexed=introSections.map(s=>({id:s.id,title:s.title,paragraphs:[plain(s.html)],sourceIds:[]}));
+v.sections.unshift(...structuredClone(indexed));v.teaching.lessons.unshift(...structuredClone(indexed));
+v.teaching.intro=[plain(v.v34.intro)];
+const html=base.replace(/<script([^>]*)>([\s\S]*?)<\/script>/g,(all,attrs,body)=>{
+ if(attrs.includes('id="learning-doc-data"'))body=JSON.stringify({revision:'v53',pages:{}});
+ else if(/^\s*const DATA\s*=/.test(body))body='\nconst DATA='+JSON.stringify(data).replaceAll('</','<\\/')+';\n';
+ else if(body.includes('function renderModule'))body=body.replaceAll("revision: 'v52'","revision: 'v53'").replaceAll('我的修订-v52.html','我的修订-v53.html');
+ else return all;
+ return '<script'+attrs+'>'+body+'</script>';
+}).replace('<title>豆包汽车业务学习站 v52</title>','<title>豆包汽车业务学习站 v53</title>');
+assert.deepEqual(data.pages.filter(p=>p.id!=='V'),original.pages.filter(p=>p.id!=='V'));
+assert.deepEqual(v.v34.sections.slice(5),original.pages.find(p=>p.id==='V').v34.sections);
+fs.writeFileSync(output,html,{flag:'wx'});
+fs.writeFileSync(path.join(dir,'source.md'),source);
+fs.writeFileSync(path.join(dir,'baseline-data.json'),JSON.stringify(original));
+fs.writeFileSync(path.join(dir,'candidate-data.json'),JSON.stringify(data));
+fs.writeFileSync(path.join(dir,'integrity.json'),JSON.stringify({basePath,output,sourcePath,baseSha256:crypto.createHash('sha256').update(base).digest('hex'),sourceSha256:crypto.createHash('sha256').update(source).digest('hex'),introIds:introSections.map(s=>s.id)},null,2));
+console.log(output);

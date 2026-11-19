@@ -34,7 +34,11 @@
 底层：下游 Agent 执行（车控/音乐/导航/搜索等），返回 tool_feedback
 ```
 
+> 注（2026-11-17）：这是早期设计。演进路线是：意图分类加规则分发 → 感知、思考、执行的快慢思考 → 现行由 Planner 统一决策；云端不再单独做简单/复杂仲裁，明确指令的快路由车上固定规则、云端车控干预承担。详见学习站 D 章第十一段。
+
 ### Planner 单次调用的输入结构
+
+> 注（2026-11-17）：赛力斯 ME7 现行提示词为 4 类输入（user_query / advisor / tool_feedback / event）、4 项输出（talk_or_not / talk_content / emoji_id / action_list）、6 条顶层注意事项、24 个参考示例块、12 个动态插槽（status、query_related_memory、user_profile、even_stream、env_info 等），固定工具 28 个（含 task_agent、auto_drive、两个高德工具、trip_planning、customised_playlist、parking_fee_pay、restaurant_reserve 等），旧工具名多已改名。详见学习站 SP 章和 research/planner-sp-20261117/。
 
 每次调用 = 向 LLM 发送一条 `[SP, UP]` 请求，获取 JSON 决策。
 
@@ -49,6 +53,8 @@
 - assistant 侧：Planner的JSON输出（talk_or_not/talk_content/action_list）
 
 ### 23个下游工具
+
+> 注（2026-11-17）：赛力斯 ME7 现行提示词为 4 类输入（user_query / advisor / tool_feedback / event）、4 项输出（talk_or_not / talk_content / emoji_id / action_list）、6 条顶层注意事项、24 个参考示例块、12 个动态插槽（status、query_related_memory、user_profile、even_stream、env_info 等），固定工具 28 个（含 task_agent、auto_drive、两个高德工具、trip_planning、customised_playlist、parking_fee_pay、restaurant_reserve 等），旧工具名多已改名。详见学习站 SP 章和 research/planner-sp-20261117/。
 
 vehicle_basic_control / search_vehicle_status_info / search_weather / search_poi_qa / route_planning_qa / navi_basic_control / vehicle_manual_qa / search_and_control_short_video / search_and_control_music / search_user_memory / face_id_register / operate_user_memory / web_search / goal_list_update / ai_broadcast_generate / search_and_control_broadcast / recording_minutes / image_generate / search_visual_info / ambient_light_control / auto_drive / car_log / car_care_qa
 

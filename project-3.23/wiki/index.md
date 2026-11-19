@@ -64,6 +64,7 @@ status: active
 | [新手引导触发链路 PRD](synthesis/onboarding-agent-prd.md) | 按晚间方案修订，触发器与 DT 闭环，撤掉独立 Agent |
 | [自学习四种方式与内核连续性整合](synthesis/self-learning-and-agent-kernel.md) | 串起 9 月专家知识与 11 月内核讨论，附完整业务案例、验收样本与会上发言 |
 | [上汽定时任务与触发器产品分工](synthesis/saic-timed-task-trigger.md) | 2026-10-13 飞书正文核验；按赛力斯参考结构重写上汽评审稿，区分弋途定时、豆包条件触发及后台预置，附 Word 与三张业务图 |
+| [触发器平台宣讲稿 v2](synthesis/trigger-platform-lecture-v2.md) | 在原对外版基础上补动态 Advisor 条件/定时任务、query 语义触发、新手引导、展车模式、workflow 编排、四层回传、进度表与预判问答；标注已确认/规划/讨论中 |
 | [[planner-eval-methodology]] | **正文** · Planner 评测方法论对外分享:1.0→2.0 演进叙事,3 次重构(场景化/过程归因/像人),5 阶段自动化流水线,5 条建议;完整 HTML 嵌入式图表 |
 | [[planner-eval-methodology-outline]] | 大纲 · 上文的详细骨架与每章要点 |
 | [[driver-agent-eval-query-set]] | Driver Agent 评测 query 集 |

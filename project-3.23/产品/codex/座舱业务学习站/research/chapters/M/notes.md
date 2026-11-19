@@ -1,26 +1,26 @@
 # M 章（输入管理）研究笔记
 
-取证日期：2026-11-08。全部原文用 lark-cli（用户身份、只读）或飞书只读 MCP 拉取；会议一律读“文字记录”逐字稿，没有用 AI 纪要下结论（7/20 排期会的 AI 纪要只用来定位，结论按逐字稿）。
+取证日期：2026-11-08（2026-11-09 按审稿意见修订）。时间一律为北京时间：wiki 编辑时间原先按本机时区记录，已加 12 小时改为北京时间；群聊按消息 create_time 换算。全部原文用 lark-cli（用户身份、只读）或飞书只读 MCP 拉取；会议一律读“文字记录”逐字稿，没有用 AI 纪要下结论（7/20 排期会的 AI 纪要只用来定位，结论按逐字稿）。
 状态标记：【已上线】【已定方案】【开发中】【讨论中】【待确认】【历史方案】。
 
 ## 1. 读取清单
 
 | # | 标题 | 链接 | 编辑时间 | 读到哪 |
 |---|---|---|---|---|
-| 1 | [技术方案]输入管理模块设计 | https://bytedance.larkoffice.com/wiki/UsHgwkm2Sig3blkAttBclYb0n4g | 2026-10-23 05:02 | 全文 1209 行逐行读完（比 10/29 旧副本多了“现状与问题”表、预跑/许可、执行 ID 改为全局唯一）；8 张泳道图、架构图是图片，读不到 |
-| 2 | 输入管理模块及其策略（PRD，郝晓伟） | https://bytedance.larkoffice.com/wiki/C6Ciwrfn0i1Vt7kw3kgcWluxnvh（docx JgpgdAjV0ol49vxTFSPcBpG3nVh） | 节点 2026-11-02 03:01；正文变更记录最后一版 v0.5 = 2026-10-13 | 全文，含“以下内容无需查看/先不看”的旧版段落；“历史已上线的策略”是图片，读不到 |
-| 3 | 【AI汽车-PRD】多人同时语音交互体验 | https://bytedance.larkoffice.com/wiki/U4xLwmQNki1Pu5kpyAGcHWtmngf | 2026-08-24 02:11 | 全文 |
+| 1 | [技术方案]输入管理模块设计 | https://bytedance.larkoffice.com/wiki/UsHgwkm2Sig3blkAttBclYb0n4g | 2026-10-23 17:02 | 全文 1209 行逐行读完（与 research/lecture-rewrite-20261029 目录里存的副本相比，现行版多了“现状与问题”表、预跑/许可、执行 ID 改为全局唯一；那份副本存于 10/29 但内容早于 10/23 定稿，具体版本日期待核）；8 张泳道图、架构图是图片，读不到 |
+| 2 | 输入管理模块及其策略（PRD，郝晓伟） | https://bytedance.larkoffice.com/wiki/C6Ciwrfn0i1Vt7kw3kgcWluxnvh（docx JgpgdAjV0ol49vxTFSPcBpG3nVh） | 节点 2026-11-02 15:01；正文变更记录最后一版 v0.5 = 2026-10-13 | 全文，含“以下内容无需查看/先不看”的旧版段落；“历史已上线的策略”是图片，读不到 |
+| 3 | 【AI汽车-PRD】多人同时语音交互体验 | https://bytedance.larkoffice.com/wiki/U4xLwmQNki1Pu5kpyAGcHWtmngf | 2026-08-24 14:11 | 全文 |
 | 4 | Director(对话推理引擎) PRD v1.7 | https://bytedance.larkoffice.com/wiki/XRuKwJ0VPisdUhkxH0ecY1rRn9g | 节点 2026-11-02；正文 v1.7=10-12 | 变更记录、模块输入、对话节奏（打断恢复）、冲突处理需求、其他工程策略、性能目标 |
 | 5 | [已废弃] 冲突处理策略 | https://bytedance.larkoffice.com/wiki/WK9Cw8Bx7iSEsskVbYxcgS5Mn3d | — | **无权限（131006）** |
 | 6 | 工程需求：允许 tool feedback 异步返回 | https://bytedance.larkoffice.com/wiki/GRqXwB3wmi2Clfk6GHZclHyInRb | — | **无权限（131006）** |
-| 7 | 【AI汽车-PRD】语音交互打断策略 | https://bytedance.larkoffice.com/wiki/FLlSwl1GoicNugkWWLCcFxtmnhl | 2026-02-10 | 全文（属 I 章，只取边界） |
-| 8 | 【AI汽车-PRD】多音区全时免唤醒交互 | https://bytedance.larkoffice.com/wiki/W7kxwMqwmitpjSkv9BAcakO1nSR | 2026-08-24 | 关键词定位（拒识不打断、soft/hard 上云） |
+| 7 | 【AI汽车-PRD】语音交互打断策略 | https://bytedance.larkoffice.com/wiki/FLlSwl1GoicNugkWWLCcFxtmnhl | 2026-02-11 10:55 | 全文（属 I 章，只取边界） |
+| 8 | 【AI汽车-PRD】多音区全时免唤醒交互 | https://bytedance.larkoffice.com/wiki/W7kxwMqwmitpjSkv9BAcakO1nSR | 2026-08-24 14:12 | 关键词定位（拒识不打断、soft/hard 上云） |
 | 9 | AIDV Planner One Page | https://bytedance.larkoffice.com/wiki/EWziwFVftiGvnlk0FA4cadqonud | 2026-09-10 | 输入预处理 / 流式主循环两段 |
 | 10 | 事件(event)触发新一轮 query 技术方案 | https://bytedance.larkoffice.com/wiki/A3jYw2EFtiJSSqkRpJocFPQGnRg | 2026-10-08 | 全文（短） |
 | 11 | 【AI汽车-主线】发版 Release Note（26.1.13） | https://bytedance.larkoffice.com/wiki/FCYEwjW0EiIcGdkTSokcbak1nAb | 2026-01-13 | 需求合入表 |
 | 12 | 【AI汽车-主线】发版 Release Note（26.3.26） | https://bytedance.larkoffice.com/wiki/E0UZwkHyeirLWZkM5h4c3amBnBh | 2026-03-26 | 技术优化合入表 |
-| 13 | 汽车服务端周报 | https://bytedance.larkoffice.com/wiki/FouOwkkXZihfATk4edEcclsln6g | 2026-11-06 | 11 期里所有“输入管理”条目（0713 期起） |
-| 14 | 2026年H2服务端工程双周报 | https://bytedance.larkoffice.com/wiki/MvTIwiTZGif70SkNdtrcrM0lnsg | 2026-11-02 | “输入管理”条目（与周报一致） |
+| 13 | 汽车服务端周报 | https://bytedance.larkoffice.com/wiki/FouOwkkXZihfATk4edEcclsln6g | 2026-11-06 14:23 | 11 期里所有“输入管理”条目（0713 期起） |
+| 14 | 2026年H2服务端工程双周报 | https://bytedance.larkoffice.com/wiki/MvTIwiTZGif70SkNdtrcrM0lnsg | 2026-11-02 13:49 | “输入管理”条目（与周报一致） |
 | 15 | 文字记录：AI汽车-产品宣讲1-主交互（徐洋） 10/19 | https://bytedance.larkoffice.com/docx/W9VLd0csvoMXj4xVNSsclU0wn8Z | — | 全文；重点 00:12:55–00:16:58、00:28:30、00:58:18–01:00:55 |
 | 16 | 文字记录：AI汽车-产品宣讲3-DT（郝晓伟）10/22 | https://bytedance.larkoffice.com/docx/Is0mdygy3oQmEixHRUNcolvXnRb | — | 00:11:16–00:20:32、00:35:17–00:36:39 |
 | 17 | 文字记录：任务管理&触发器排期+输入管理规划 7/20 | https://bytedance.larkoffice.com/docx/LVKVdbgf6o5OtRxcQfEcNqu9nOb | — | 全文（23 分钟） |
@@ -29,8 +29,8 @@
 | 20 | 文字记录：产品需求内审 10/27、11/3 | 10/27 https://bytedance.larkoffice.com/docx/KzT0dXbmVor6dExOOO4cwjjcn3f；11/3 https://bytedance.larkoffice.com/docx/GZ8DdDHYxoP13IxOGQdcGBamnvB | — | 10/27 全文（17 分钟）；11/3 00:21:55–00:33:48 |
 | 21 | 豆包路测观点与问题提炼（8/11 路测） | v-lesson-20261107/raw/road-0811.txt | — | 打断相关条目 |
 | 22 | 问题汇总 0914 | v-lesson-20261107/raw/issues-0914.txt | — | “串线”条目 |
-| 23 | 群聊：触发器平台化（10/21） | oc_6973065eff24817f343144ea10659a2a | — | 10/21 全部消息 |
-| 24 | 群聊：【内部】主动推荐需求讨论（DNA 项目）（11/7） | oc_c78e3817187567ada1f9499d1813c5f6 | — | 11/7 全部消息 |
+| 23 | 群聊：触发器平台化（10/23，11:54 建群） | oc_6973065eff24817f343144ea10659a2a | — | 10/23 全部消息（11:54–14:17） |
+| 24 | 群聊：【内部】主动推荐需求讨论（DNA 项目）（11/6） | oc_c78e3817187567ada1f9499d1813c5f6 | — | 11/6 全部消息（15:33–20:11） |
 | 25 | 飞书消息搜索“输入管理”（30 天） | — | — | 58 条，除 23/24 外为机器人卡片和无关消息 |
 
 ## 2. 按链路步骤整理的事实
@@ -70,7 +70,7 @@
 | 宣讲 1：多人同时说，第二句判定后第一句 planner 还没出首 token→音区合并重推；已出首 token→“直接打断第一个指令，丢弃就好了” | 宣讲1 00:15:30 | 当时线上规则 |
 | 宣讲 1：DT 已调工具、在等结果时是空闲的，可以响应新 query，结果回来时“要合并输入给 DT 再去进行总结，这块晓伟应该有一个优化需求在跟” | 宣讲1 00:58:18 | 当时线上现状 + 在跟的优化 |
 | 高优 advice：结构预留，当前没有这类输入 | PRD、技术方案 | 已定（未启用） |
-| 10/21 触发器平台化群：张嘉锋提出“基于 query 的触发”是直接打断 DT 还是等 DT 回复后再推，建议前者；陈西钺“用户主动发起的打断 DT 保证快速响应更合理”；郝晓伟“之前在做输入管理模块的规划时候已经预留了这种能力”；王泽民：还是走主动服务链路 | 群聊 10/21 | 讨论中 |
+| 10/23 触发器平台化群：张嘉锋提出“基于 query 的触发”是直接打断 DT 还是等 DT 回复后再推，建议前者；陈西钺“用户主动发起的打断 DT 保证快速响应更合理”；郝晓伟“感觉可以前者”“这种加一个特殊标识就可实现”“之前在做输入管理模块的规划时候已经预留了这种能力”；王泽民问“还是走主动服务的那条链路吧”，郝晓伟 14:17 回“对的” | 群聊 10/23 | 最终走哪条路待确认 |
 
 ### 步骤 4：组装本轮输入
 | 事实 | 出处 | 状态 |
@@ -128,7 +128,7 @@
 2. **多人同时语音 PRD（8/24 版）**：定义“同时说”（FC 还没下发时其他人也说完）→合并给 Planner；任务执行中按任务类型（文本/控制）决定打断、提示音还是排队，排队要界面可感知。
 3. **输入管理 PRD（7/11 起，10/13 v0.5）**：把所有 DT 输入收进一个模块，用“推理是否完成 × TTS 是否起播 × 输入类型”定处理；旧版里的 advisor 有效时间、同 advisor 只留最新、长程工具反馈不参与合并等写在“先不看”区，未进新策略。
 4. **技术方案（10/23）**：落成三种 Chat 状态 + 两档优先级 + 合并属性 + 执行重放边界 + 全局唯一执行身份 + 客户端播放事件 + 超时兜底；多音区合并收编进来。
-5. **还在往前走**：高优 advice（预留）、query 触发直接打断 DT（10/21 讨论）、异步工具结果（后续扩展）、外部主动推荐接口（11/7 讨论）。
+5. **还在往前走**：高优 advice（预留）、query 触发直接打断 DT（10/23 讨论）、异步工具结果（后续扩展）、外部主动推荐接口（11/6 讨论）。
 
 ### 取舍
 - **只用一个交互流 vs 并行多窗口**：PRD/DT 宣讲明确选一个流，代价是必须排队。
@@ -147,8 +147,8 @@
 ### 争议 / 未定
 1. P1 在“推理中、未起播”时是合并还是排队（PRD v0.5 合并；技术方案准入表排队；技术方案 Event 行和预跑章节又写合并重算）——待确认。
 2. 合并后有 advisor 时动作算“主动推荐”还是“用户指令”（11/3 内审，背景是左晨提的原子能力调用要区分“AI 推荐”还是“语音 query”来源，客户端按来源做安全拦截；郝晓伟：来源可以区分，advisor 有前缀；左晨记“存在输入管理合并的情况……都下发为主动推荐”，郝晓伟“后面有什么问题了到时候我们再看”）——内审暂定。
-3. query 触发器触发时直接打断 DT（10/21 群聊倾向打断，王泽民说走主动服务链路）——讨论中。
-4. 上汽自己的主动推荐要不要通过接口进 DT（11/7 群：赵益红担心增加 DT 调用、影响输入管理；左晨提议拉张航讨论，“开口子给外部以 mock 一条 advice 的方式”）——讨论中。
+3. query 触发器触发时直接打断 DT（10/23 群聊先倾向打断，随后郝晓伟同意王泽民“走主动服务的那条链路”）——最终走法待确认。
+4. 上汽自己的主动推荐要不要通过接口进 DT（11/6 群：赵益红担心增加 DT 调用、影响输入管理；左晨提议拉张航讨论，“开口子给外部以 mock 一条 advice 的方式”）——讨论中。
 5. 静态 advisor 打招呼的时效（10/27 内审：陶广滨方案在 advice 后拼“仅本次上车后尚未与豆包交互时允许输出，否则静默丢弃”，由 DT 判断；徐洋问用户中途说话会不会取消推理重推，赵益红：“目前不支持有人说话我再打断”）——advisor 侧方案，已内审。
 6. advice 被 DT 消费的回执（10/27 内审：赵益红要知道 advice 有没有被承接；张航：advisor 一旦被拼进输入就等于进了 DT）——待对齐。
 7. PRD 里 @徐洋 的问题：“一个字都还没播报，能否上报播报被打断信息？”——未见答复。
@@ -171,3 +171,12 @@
 - 技术方案里“测试 Case & 录屏”“Meego 需求”链接为空或未读；模块在开发，没有测试报告。
 - 上汽 / 赛力斯差异：原文只说“兼容豆包 IP 和非豆包 IP，主线通用”，按 channel+vehicle_id 灰度；哪个项目先上、RTC 链路属于哪个项目：待确认。
 - 线上没有输入管理相关指标（排队时长、合并次数等）；技术方案只列了要建设的观测项（queue_depth / oldest_age / lease / stale output / recovery）。
+
+## 6. 审稿后补充核实（2026-11-09）
+- PRD v0.5 合并条件原文：“如果director正在推理 且 未输出完整 且 TTS未起播：打断正在进行的推理，新输入和旧输入合并进行推理”；“未输出完整：表明还未调用工具，包括了首token未出以及首token出了但模型还没输出完的情况”。“以首字为界”是 10/19 宣讲 1 讲的线上规则；“首 Token 前统一描述为打断并合并重推”是技术方案对 PRD 的转述。
+- PRD v0.5 对“正在推理 且 未输出完整 且 TTS已起播 + user input”写“打断正在进行的推理和播报，新输入和旧输入合并进行推理”；技术方案 S2 场景写 RESPONDING 时“E_new 的可执行 Input 只有 B”，范围表又写“当模型推理未完成时可合并旧当前轮输入”——第二处口径冲突，待确认。
+- 技术方案第 431 行：“mergeable / isolated 只决定出队后是合并处理还是单独处理”；第 719 行：“第二轮被补话时，待重推的是本轮 feedback + 新用户 + waiting”。
+- 11/3 内审“AI 推荐 / 语音 query”来源区分是左晨转述的赛力斯诉求（除雾时 AI 推荐关空调应被拒）。
+- 8/13：BAB 命名者为陈芮婷；徐洋解释此前未优化的原因：“之前对这个问题的时候觉得在整体 planner 的优先级这里是可接受的，所以没有特殊去优化”。8/11、9/14 case 的直接表现是 DT 拿到旧回答后自己续说，新方案对其改善未验证。
+- 周报 10/26–11/6 期与 11/2–11/13 期都写“开发（进度55%）”，两期未更新。
+- 技术方案无“Chat 每辆车一个”的说法，按 channel + vehicle_id + chat_id 定位一个 Chat。

@@ -1,0 +1,10 @@
+const {chromium}=require('/Users/bytedance/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const fs=require('fs');const path=require('path');
+(async()=>{const dir=path.resolve('简历/核验'); const browser=await chromium.launch({executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',headless:true});
+const page=await browser.newPage();const errors=[];page.on('pageerror',e=>errors.push(String(e)));page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});const requests=[];page.on('request',r=>requests.push(r.url()));
+await page.goto('file://'+path.resolve('简历/简历-王泽民-具身智能产品经理.html'));await page.emulateMedia({media:'print'});
+const print=await page.evaluate(()=>({title:document.title,sections:[...document.querySelectorAll('.page')].map(x=>({height:x.getBoundingClientRect().height,scrollHeight:x.scrollHeight})),bullets:[...document.querySelectorAll('li')].map(x=>({id:x.dataset.evidence,height:x.getBoundingClientRect().height,lines:x.getBoundingClientRect().height/parseFloat(getComputedStyle(x).lineHeight)}))}));
+await page.pdf({path:dir+'/Chrome-A4打印核验.pdf',preferCSSPageSize:true,printBackground:true,displayHeaderFooter:false});
+await page.emulateMedia({media:'screen'});await page.setViewportSize({width:1100,height:1400});await page.screenshot({path:dir+'/桌面.png',fullPage:true});await page.setViewportSize({width:375,height:812});
+const mobile=await page.evaluate(()=>({width:innerWidth,scrollWidth:document.documentElement.scrollWidth,bodyWidth:document.body.scrollWidth,padding:[...document.querySelectorAll('.page')].map(x=>getComputedStyle(x).paddingLeft),overflow:[...document.querySelectorAll('body *')].filter(e=>e.getBoundingClientRect().right>375.5).map(e=>e.tagName)}));await page.screenshot({path:dir+'/手机375.png',fullPage:true});
+fs.writeFileSync(dir+'/浏览器检查.json',JSON.stringify({print,mobile,errors,requests},null,2));console.log(JSON.stringify({print,mobile,errors,requestCount:requests.length}));await browser.close()})().catch(e=>{console.error(e);process.exit(1)});

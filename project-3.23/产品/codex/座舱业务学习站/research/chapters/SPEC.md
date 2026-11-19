@@ -38,3 +38,11 @@
 2. `content.py`：定义 `INTRO`（HTML 字符串）和 `SECTIONS`（列表，每项 `dict(id, title, html)`），id 用 `<章ID小写>-xxx`。可 `import sys; sys.path.insert(0, '<v-lesson-20261106 目录>')` 后复用 `content.py` 里的 `p, ul, table, fold, say` 等 helper 和 `content_v39.py` 里的 `h3, hand, note`。图用占位 `<!--fig:<key>|<标题>-->`，紧跟 `<div class="v34-howto"><div class="v34-howto-h">怎么看这张图</div>…</div>`；原图用 `<!--original-->`。依据链接用 `<p class="v34-src">依据：<a href=…>…</a> · …</p>`。
 3. `diagrams.py`：用 `svgkit.py` 画本章的图，key 用 `<章ID小写>-xxx`，运行后输出 `diagrams.json`（key → SVG 字符串）和 `svg/*.svg`；用 `rsvg-convert` 渲染 PNG 自查压字、穿线、文字溢出。
 4. `selfcheck.md`：逐条对照本规范第一节 7 条和第二节结构自查的结果。
+
+## 五、详细程度标杆（2026-11-10 用户追加）
+用户给出 `R/user-sample-asr-reject.md` 的样稿，并要求“要按照这么详细来讲解”。凡讲到机制（识别、判断、模型、记忆、触发、执行），都要到这个细度：
+- 先说清它不是什么、和哪个易混概念不同（同名不同义要点明）。
+- 用同一个例子在不同时间点的状态讲过程；说明输入实际有什么、没有什么，结论怎样随输入变化。
+- 讲模型时讲到：读什么输入、输出什么标签、训练样本长什么样、数据从哪来、怎样标注、用什么方法训练、怎样评测、各版本数字、已知短板。
+- 区分原文示例（注出处）和教学示例（明说是示例）。
+- 末尾用主例把整条链路串一遍。

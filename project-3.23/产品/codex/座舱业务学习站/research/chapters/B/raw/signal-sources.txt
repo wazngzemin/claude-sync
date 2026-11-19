@@ -1,0 +1,122 @@
+【AI汽车】端侧信号获取途径及其适用范围
+
+commoninfo和端状态 二者的本质区别是：时效性（变化量）
+commoninfo是完全实时的，其数据一定是描述请求当下的。其公共属性更强，属于整个项目共用，commoninfo的信息也可以去支持context更好的去做检索
+大部分端状态的信息更新并不频繁（可能存在延迟），其数据为定时/增量上报。其由 所需该信息的模型/agent/工具按需检索、订阅
+
+信号类型
+commoninfo
+适用范围：
+公共参数，如果缺失会无法调用云端服务，用于鉴权/渠道路由等场景。如：渠道名、DeviceID
+常用参数，如果缺失可正常使用，但会导致常用场景缺失重要推理参考。如：车当前所在地经纬度
+差异服务标识参数，如果缺失可正常使用，但会导致无法提供个性化服务。如，face_id
+格式&例子：
+
+type CommonInfo struct {
+        AppID          int64   `json:"app_id" query:"app_id" form:"app_id" vd:"hasValue($)"`                         // 字节内部SDK/APP的APPID，在字节云中台申请，一般用于抖音业务传递，不同项目会有不同的值
+        ChannelAppID   int32   `json:"channel_app_id" query:"channel_app_id" form:"channel_app_id" vd:"hasValue($)"` // 我们分配给请求方的APPID，由项目自定义
+        Channel        string  `json:"channel" query:"channel" form:"channel" vd:"hasValue($)"`                      // 渠道名
+        VehicleID      string  `json:"vehicle_id" query:"vehicle_id" form:"vehicle_id" vd:"hasValue($)"`             // 车辆唯一标识，加密的车VIN码
+        VehicleType    string  `json:"vehicle_type" query:"vehicle_type" form:"vehicle_type" vd:"hasValue($)"`       // 车型参数
+        AccountID      string  `json:"account_id" query:"account_id" form:"account_id"`                              // 车企账号ID
+        DeviceID       int64   `json:"device_id" query:"device_id" form:"device_id"`                                 // 业务是对面提供SDK，所以没有这个字段，会通过 TobDeviceID 或 VehicleID 转换
+        TobDeviceID    string  `json:"tob_device_id" query:"tob_device_id" form:"tob_device_id"`
+        Iid            int64   `json:"iid" query:"iid" form:"iid"`
+        VehicleName    string  `json:"vehicle_name" query:"vehicle_name" form:"vehicle_name"` // 车型名称
+        DevicePlatform string  `json:"device_platform" query:"device_platform" form:"device_platform"`
+        DeviceBrand    string  `json:"device_brand" query:"device_brand" form:"device_brand"`
+        DeviceModel    string  `json:"device_model" query:"device_model" form:"device_model"`
+        OsVersion      string  `json:"os_version" query:"os_version" form:"os_version"`
+        ClientVersion  string  `json:"client_version" query:"client_version" form:"client_version"` // 客户端版本，可以是APP版本，也可以是SDK版本
+        AC             string  `json:"ac" query:"ac" form:"ac"`                                     // 网络类型
+        City           string  `json:"city" query:"city" form:"city"`
+        District       string  `json:"district" query:"district" form:"district"`
+        Longitude      float64 `json:"longitude" query:"longitude" form:"longitude"`               // 经度
+        Latitude       float64 `json:"latitude" query:"latitude" form:"latitude"`                  // 纬度
+        LoginDoubaoUID uint64  `json:"login_doubao_uid" query:"login_doubao_uid" vd:"hasValue($)"` // 豆包账号ID
+        FaceID         string  `json:"face_id" query:"face_id"`                                    // face_id
+        IsLogin        bool    `json:"-"`                                                          // 豆包账号是否已登录标识
+        ASRTaskId      string  `json:"asr_task_id"`
+}
+
+端状态
+适用范围：
+应用时会筛选：使用时会按语义相关性筛选的状态范围。如，车窗状态、剩余电量
+应用时无需筛选：云端模型、agent、服务按需订阅的状态用于组合成其所需的参考内容。如乘客动作
+格式&例子：
+【仅对内】「主线」场景感知状态信号库
+
+上报方式
+
+
+信号类型
+
+
+
+获取方式
+
+例子
+
+变化频率
+
+commoninfo
+
+
+
+随请求作为公共参数上报
+
+车型参数
+
+NA
+
+端状态
+
+
+实时动态信号
+
+
+上电后全量更新并上报
+业务方（OEM）及时推送变化状态
+
+车速、当前位置、电池状态
+
+高频变化
+
+
+
+
+准静态信号
+
+上电后全量更新并上报
+增量变化（2种都可能）
+定期低频轮询
+业务方（OEM）数据变化通知
+控制对应功能时查询
+
+香氛状态、车窗状态
+
+低频变化
+
+
+
+静态信号
+
+特定时间点获取
+控制音乐功能时查询
+
+应用会员开通状态
+
+用户交互后变化
+
+应用方式
+订阅
+应用模块需求，可定制需要持续关注的状态信息。每轮推理可固定获得特定状态信息（内部可直接拼接、外部需获取全量后自行过滤）
+如Planner订阅了：车机时间、动力和电源状态、导航状态、当前位置、乘客身份信息、座位占座信息。
+检索
+方法1: 支持调用车辆状态查询工具（search_vehicle_status_info）
+方法2: 支持在接口里带特定参数检索（default）（return_classify_list:）
+公版-AI汽车接口访问指南
+全量获取
+支持在接口里带特定参数检索（return_all：全量）（return_minimum_result：全量中的核心范围）
+
+

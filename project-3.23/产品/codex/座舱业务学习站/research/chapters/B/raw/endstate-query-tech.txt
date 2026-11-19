@@ -1,0 +1,320 @@
+端状态上报链路与 Context 查询端状态链路技术方案
+本文基于总方案文档 
+
+1. 背景与范围
+1.1 背景
+总方案已明确端状态服务内部只处理标准 v2 端状态对象，并以 signal_info 保存最新态、signal_info_history 保存历史留痕。客户端侧需要支持“启动时全量上报”和“状态变化时增量上报”两类入口；Context 侧需要把端状态服务返回的信号 JSON 与信号定义解析成可被下游消费的端状态上下文。
+1.2 本文目标
+明确客户端、frontier、Gateway、端状态微服务、存储和下游通知之间的上报调用链。
+明确端状态微服务在校验、历史合并、新增/修改拆分、双表入库和订阅通知中的处理边界。
+明确 Context 查询端状态时的数据格式、aidv 调用方式和 JSON + 定义解析逻辑。
+补充接口、错误处理、幂等、观测和待确认问题，便于后续研发拆解。
+1.3 非目标
+不重新设计端状态 v2 信号协议、信号注册中心和管理后台发版流程。
+不把 v1 兼容结构、旧协议转换、触发器业务判断逻辑耦合进端状态微服务。
+不覆盖事件日志、ASR 热词等与端状态逻辑不一致的数据类型。
+2. 总体链路与组件边界
+
+
+组件
+
+职责
+
+边界
+
+客户端 SDK
+
+在客户端启动或端状态变化时组织上报参数，经 frontier 长连接发送。
+
+不直接访问端状态微服务；可做本地去重、离线缓存和补偿上报。
+
+frontier
+
+承载客户端长连接消息，转发端状态上报请求。
+
+不解析业务字段，不做信号定义校验。
+
+Gateway
+
+完成鉴权、限流、路由，并通过 RPC 调用端状态微服务。
+
+不做历史合并，不持久化端状态。
+
+端状态微服务
+
+校验信号、合并最新态、写入 signal_info / signal_info_history、通知订阅方。
+
+只处理标准端状态对象，不承接旧协议查询模式。
+
+Context / aidv
+
+Context 发起端状态查询，aidv 调端状态微服务并解析为上下文格式。
+
+业务消费格式在 Context / aidv 层组织，端状态服务只返回标准对象与定义。
+3. 端状态上报链路
+3.1 触发入口
+上报入口分为两类：一是客户端启动时查询全量端状态并上报，用于初始化云端最新态；二是端状态变化时由车企调用客户端 SDK 触发上报，用于低延迟同步状态变化。两类入口在服务端统一进入 ReportVehicleState，差异通过 report_type 或 report_mode 表达。网关Gateway转发时，如果客户端上报了idl中不存在的数据，不会报错，报给端状态微服务的数据匹配不上的话会是空数据，例如"value":{}，端状态服务可以埋点统计这种数据；
+
+3.2 请求模型
+上报请求以“单车批量信号”为单位，必须携带业务来源、渠道、车辆标识、请求标识和端侧事件时间。服务端对 signal_states 逐条校验，校验通过的数据进入后续级联、历史查询和合并流程；校验不通过的数据不参与写入，并按 signal_id 写入响应中的 id_2_failedMsg，客户端可同时拿到成功数据和失败原因。
+ReportVehicleState 请求 / 响应草案
+struct ReportVehicleSignalRequest {
+    1: required string business_type
+    2: required string channel          // 渠道 / 项目标识
+    3: required i32 channel_app_id      // 标识来源
+    4: required i64 app_id
+    5: required string vehicle_id       // 车辆标识
+    6: required string vehicle_type
+    7: optional string log_id           // LogID
+    8: required string report_type      // full / update_all / update_item
+    9: required list<ReportSignalState> signal_states
+}
+
+struct ReportVehicleSignalResponse {
+    1: optional list<ReportSignalState> succeed_signal_states // 校验通过并进入写入链路的数据
+    2: optional map<string, string> id_2_failedMsg             // key 为 signal_id，value 为失败原因
+    255: optional base.BaseResp base_resp
+}
+3.3 服务端处理流程
+请求基础参数校验：校验 business_type、channel、channel_app_id、vehicle_id、report_type、log_id 和 signal_states 是否完整；请求级字段缺失或 signal_states 为空时整请求失败。
+批量加载信号定义：按 channel + signal_id  批量查询注册中心（做本地缓存），获得信号类型、字段层级、枚举、范围、单位和渠道配置。
+逐条信号校验：对每个 signal_state 做存在性、字段层级、值类型、必填字段、枚举、范围和单位定义校验；校验通过的数据放入 succeed_signal_states，校验失败的数据写入 id_2_failedMsg。
+级联处理：只对校验通过的数据执行端状态级联规则，生成需要补充写入或清理的派生状态。例如上汽车门打开时，清理对应位置的 faceID 端状态数据。
+历史最新态查询：对“校验通过数据 + 级联派生数据”按 business_type + channel + channel_app_id + vehicle_id + signal_id 查询 signal_info，得到旧的完整最新态；若 event_ts 早于库中最新 event_time，则该信号进入失败或丢弃结果并打点。
+历史合并：full 覆盖整个信号；update 以新上报字段覆盖旧字段；struct 递归合并，array 按当前协议整体替换。
+拆分新增与修改集合：历史不存在且合并后存在的信号进入新增集合；历史存在且合并后发生变化的信号进入修改集合；无变化信号不通知下游，但可按需要写入去重指标。
+构建历史数据：基于请求参数、old_value_json、report_value_json、new_value_json、event_time、log_id 构建 signal_info_history，用于对账、排查和回放；级联产生的数据需要标记 cascade_source。
+事务入库：在同一事务中 upsert signal_info 并 insert signal_info_history；signal_info 保存合并后的完整最新态，signal_info_history 保存本次上报、级联和合并过程。
+刷新缓存：MySQL 事务成功后刷新 Redis 最新态；缓存写失败不回滚 MySQL，但必须记录异常并支持回源补偿。
+下游通知与响应：对新增和修改后的最新数据集合触发通知；接口响应返回 succeed_signal_states 和 id_2_failedMsg，让客户端区分成功上报数据与失败原因。
+3.4 合并规则
+
+
+场景
+
+处理方式
+
+说明
+
+全量上报
+
+整体覆盖
+
+客户端启动时查询到的全量状态覆盖旧完整态；仍需校验 event_ts，避免离线补偿覆盖新状态。
+
+基础类型增量
+
+字段覆盖
+
+bool / string / int / float 没有更小粒度，update 直接覆盖完整 value。
+
+struct 增量
+
+递归 merge
+
+新字段覆盖旧字段，未上报字段沿用历史值；缺失必填字段仅在 full 或 insert 场景判非法。
+
+array 增量
+
+整体替换
+
+例如途经点列表，需要每次都上报全量数据，整体替换。如果清空途经点则给空列表；
+3.5 入库数据
+signal_info 保存可查询、可合并的最新态；signal_info_history 保存每次请求和合并结果。历史表的 report_value_json 应直接由请求参数构建，new_value_json 应保存最终完整最新态，old_value_json 应保存合并前旧值。
+
+
+表
+
+写入内容
+
+主要用途
+
+signal_info
+
+business_type、channel、channel_app_id、vehicle_id、signal_id、value_json、event_time、expiration_time、created_at、updated_at。
+
+最新态查询、增量合并、Redis miss 回源。
+
+signal_info_history
+
+report_type、report_value_json、old_value_json、new_value_json、event_time、log_id、created_at、updated_at。
+
+对账、回放、异常定位、订阅通知追溯。
+3.6 下游通知
+Notifier 只对“有效状态变化”发通知。通知订阅可按 channel、business_type、signal_id、system、subsystem 注册；一个变更命中多个订阅时逐一通知，单个订阅失败不影响其他订阅，但需要进入重试或补偿队列。
+通知体示例，待与触发器
+{
+  "business_type": "aidv",
+  "channel": "sls",
+  "channel_app_id": "10001",
+  "vehicle_id": "vin_xxx",
+  "signal_id": "vehicle.door.status",
+  "report_type": "update",
+  "old_value": {"vehicle":{"ac":{"power":"off"}}},
+  "new_value": {"vehicle":{"ac":{"power":"on"}}},
+  "event_ts": 1792140000000,
+  "created_at": 1792140000500,
+  "log_id": "20261016xxxx"
+}
+4. Context 查询端状态链路
+4.1 查询目标与边界
+Context 是 aidv 内部的查询能力，不再定义或输出“信号名 / 字段名 / 字段值 / 单位”的扁平化 ContextVehicleSignal 结构。aidv 内 Context 只负责按下游意图组织查询条件并调用端状态微服务；端状态微服务按 IDL 返回 QueryVehicleSignalResponse，其中 signal_states 是 map<string, SignalState>。
+
+4.2 IDL 数据结构
+查询链路以 signal.thrift 中的结构为准。端状态微服务查询数据库中的 newValue / oldValue 后，将值转换为 IDL 中定义的 TypedSignalValue，再叠加信号定义 Metadata、端状态变更时间和过期时间，组装成 SignalState。
+QueryVehicleSignal 与 SignalState 相关 IDL 摘要
+struct QueryVehicleSignalRequest {
+    1: required string channel
+    2: required string vehicle_id
+    3: required i32 channel_app_id
+    4: optional list<string> signal_ids
+    5: optional string data_type
+    6: optional string system
+    7: optional string subsystem
+    8: optional bool need_metadata
+}
+
+struct QueryVehicleSignalResponse {
+    1: optional string channel
+    2: optional string vehicle_id
+    3: optional i32 channel_app_id
+    4: optional map<string, SignalState> signal_states
+    255: optional base.BaseResp base_resp
+}
+
+struct SignalState {
+    1: required SignalMetaData meta_data
+    2: required TypedSignalValue newValue
+    3: required TypedSignalValue oldValue
+    4: optional i64 event_ts
+    5: optional i64 expiration_time
+}
+
+struct SignalMetaData {
+    1: optional string system
+    2: optional string subsystem
+    3: optional string signal_name
+    4: required SignalMetaDataNode root_node
+}
+
+struct SignalMetaDataNode {
+    1: required string node_type
+    2: required string node_id
+    3: required string node_name
+    4: required i32 level
+    5: required string field_key
+    6: required string value_type
+    7: required bool is_required
+    8: required string unit
+    255: optional list<SignalMetaDataNode> children_nodes
+}
+
+struct TypedSignalValue {
+    1: optional VehicleSignalValue vehicle
+    ...
+}
+4.3 查询与组装流程
+确定查询条件：aidv 内 Context 根据下游请求确定 channel、vehicle_id、channel_app_id、signal_ids、system和subsystem 。
+aidv调用端状态查询接口：aidv 内 Context 调用端状态微服务 QueryVehicleSignal，查询的结构化数据不做处理，按照sp需要做自然文本拼接；
+signal读取端状态数据：端状态微服务优先从 Redis 读取最新态；缓存未命中或需要历史对比信息时回源 MySQL，从 signal_info获取 newValue、oldValue、event_ts 和 expiration_time。
+转换 TypedSignalValue：服务端根据 signal_id 的三段式路径和 IDL 中的 VehicleSignalValue 结构，把 newValue / oldValue 转成对应的 TypedSignalValue。最新态查询返回的 SignalState.value 取 newValue；涉及变更对比时，oldValue 也按同样规则转换，不新增扁平字段格式。
+补齐 Metadata：服务端从信号定义中读取 SignalMetaData，包括 system、subsystem、signal_name 和 root_node；root_node 下沉字段层级、field_key、value_type、unit、is_required 和 children_nodes。
+组装 SignalState：服务端将 SignalMetaData、TypedSignalValue、event_ts、expiration_time 组装成 SignalState，并按 signal_id 写入 QueryVehicleSignalResponse.signal_states。
+返回 aidv 内 Context：新增一个端状态2.0的数据源查询实现，结构化数据直接透传 IDL 定义对象给下游业务。文本数据需要同端状态1.0的文本拼接规则去拼接端状态2.0的文本；
+4.4 数据映射约束
+值结构：newValue / oldValue 必须映射到 TypedSignalValue 下的具体分支，例如 vehicle.light、vehicle.ac.power。
+元数据来源：单位、字段层级、必填属性和值类型来自 SignalMetaData。
+时间字段：event_ts 表示端状态变更时间，expiration_time 表示端状态过期时间，两者直接写入 SignalState。
+Context 边界：aidv 内 Context 不做“解析信号名 / 字段名 / 字段值 / 单位”的二次加工，结构化数据直接透传。
+4.5 查询工具开发，放在工具sdk中
+封装方法用于给触发器查询具体属性值，例如输入SignalMetaData、TypedSignalValue、"vehicle.ac.temperature.row1_driver"，返回"23"；
+封装方法让上游业务能从SignalMetaData中获取端状态的值，例如输入SignalMetaData、TypedSignalValue、"vehicle.ac.temperature"=="off"，返回idl中定义的ACTemperature对象
+4.6 端状态服务的其他查询方法
+提供查询某个渠道的信号定义及子节点的元数据查询方法，用于触发器页面配置场景事下拉展示信号id和节点匹配条件；
+5. 可靠性、观测与错误处理
+5.1 幂等与乱序
+请求幂等：建议客户端 SDK 为每次上报生成 request_id；服务端按 business_type + channel + vehicle_id + request_id 做短期去重。避免数据重新入库；
+状态乱序：signal_info.event_time 只允许被更新的 event_ts 覆盖；旧 event_ts 请求写 history 或仅打点需按产品排查诉求确认。
+补偿上报：客户端离线期间按 signal_ts 从旧到新补偿；服务端仍以 event_ts 做最终保护。
+5.2 返回给上游的错误码建议
+
+
+错误类型
+
+触发条件
+
+处理建议
+
+REQUEST_INVALID
+
+缺少 channel、vehicle_id、signal_states 等请求级字段，或 signal_states 为空。
+
+整请求失败，不进入逐条校验。
+
+SIGNAL_NOT_FOUND
+
+单个 signal_id / signal_name 未注册或对渠道不可见。
+
+该 signal_id 写入 id_2_failedMsg，其余通过校验的数据继续处理。
+
+SCHEMA_MISMATCH
+
+字段层级、类型、枚举、范围、单位定义不匹配。
+
+该 signal_id 写入 id_2_failedMsg，失败信息包含字段路径和期望类型。
+
+CASCADE_FAILED
+
+级联规则执行失败，例如派生状态生成失败或级联目标定义缺失。
+
+关联 signal_id 写入 id_2_failedMsg；已通过且不依赖该级联的数据可继续处理。
+
+OUT_OF_ORDER
+
+event_ts 早于当前最新态。
+
+该 signal_id 丢弃或写入 id_2_failedMsg，并记录乱序指标。
+
+STORE_FAILED
+
+MySQL 写入失败或事务提交失败。
+
+本次待写入集合失败，客户端按 request_id 重试。
+5.3 观测指标
+上报质量：上报 QPS、成功率、失败率、失败错误码分布、信号校验失败 TopN、限频命中量。
+数据质量：新增/修改/无变化/乱序丢弃数量，full 与 update 占比，信号字段缺失率。
+通知质量：订阅命中数、通知成功率、失败重试量、下游耗时 P95 / P99。
+查询质量：QueryVehicleSignal QPS、SignalState 组装耗时、TypedSignalValue 转换失败数、缓存 miss 回源率、过期信号数量。
+6. 风险与待确认问题
+
+
+事项
+
+风险 / 问题
+
+建议结论
+
+部分失败策略
+
+总方案强调一次请求整体校验；如果批量里单个信号非法，是否允许成功写入其他信号需要明确。
+
+允许部分信号成功入库，返回上报成功的信号id和失败的信号及对应的错误码。
+
+history 写入范围
+
+乱序、无变化、校验失败是否写 history 会影响排查能力和存储成本。
+
+建议成功合并必写；乱序丢弃和无变化只打点，不做历史上报数据保存。
+
+复杂级联
+
+业务定制级联可能把触发器逻辑重新带入端状态服务。
+
+建议仅保留协议级联和必要兜底，复杂业务级联走专项评审。
+7. 交付拆解建议
+接口与数据结构确认：确认 ReportVehicleSignal、QueryVehicleSignal、TypedSignalValue、SignalState、SignalMetaData 的字段和命名。
+写入主链路实现：完成校验、反射匹配、历史查询、merge、双表入库和缓存刷新。
+订阅通知实现：完成订阅配置、命中匹配、逐个通知、失败重试和指标。
+Context 查询适配：完成 aidv 内 Context 调用端状态微服务、newValue / oldValue 转 TypedSignalValue、SignalState 组装和 IDL 对象透传。
+联调与灰度：按客户端全量上报、状态变化上报、缓存 miss 回源、Context 查询四类场景验收。
+

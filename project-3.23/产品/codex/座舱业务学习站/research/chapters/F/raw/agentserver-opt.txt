@@ -1,0 +1,266 @@
+【AgentServer技术优化】类型收敛&租户隔离&管理平台
+背景
+解决 AgentServer 现存技术债务：
+部分 Agent 未纳入AgentServer调度体系，仍通过硬编码方式接入系统。
+租户隔离逻辑依赖硬编码实现，缺乏灵活性与可维护性。
+建设可视化管理平台，实现 Agent 全生命周期的统一管控。
+系统设计
+Agent调度
+AgentServer模块主要通过AgentType、EndpointMeta两个信息来控制Agent的调度。
+
+
+现状：
+
+
+问题：
+存在一部分Agent游离在AgentServer体系外，硬编码拼接到Director的可用工具列表中。
+Agent的来源维度信息穿透到了类型维度，系统需感知Agent的来源并做适配处理。
+
+理想：
+
+
+优势：
+所有Agent统一由AgentServer模块管理、调度。
+生态Agent都由提供方完成协议的适配（可用Wrapper形式），AgentServer仅感知endpoint节点和调用方式，各方职责明确，系统解耦。
+
+综合优先级，方案确定性，工作量等维度考虑，本期只收拢游离在AgentServer体系外的Agent。
+租户隔离
+租户可在系统支持的Agent列表中选择自己业务需要的能力，并且可定义与其他租户不同的实现方式。
+概要设计
+
+
+现状：
+
+问题：
+租户Agent包含全量主线Agent+租户定制Agent，只能通过硬编码的方式删除业务不需要的Agent。
+当同一个Agent需要不同的实现时，只能通过新增类似Agent的方式实现，造成系统Agent列表冗余，通用性低。
+
+理想：
+
+优势：
+Agent定义与实现解耦，系统视角中不存在职责边界不清晰的Agent。
+同一个Agent在不同租户之间的实现方式完全隔离，不会互相影响。
+同一个Agent在租户下可以存在多个草稿版本，可以在不同生效环境中进行实验对比。
+模型设计
+
+AgentDefine定义Agent的基本信息，同一个Agent在系统中只有一个AgentDefine对象。
+AgentConfig配置Agent具体的实现方式，同一个Agent在不同租户下可以有不同的配置，对应不同的实现方式。
+仅发布状态的Agent存在AgentConfig对象，信息变更覆盖原值，channel+channel_app_id+agent_id维度唯一。
+AgentVersion存储Agent的不同实现版本，同一个Agent在同一个租户下，可以有1个发布版本和多个草稿版本，草稿版本只在指定环境内生效。
+新建、编辑Agent时，先创建AgentVersion对象，发布后创建AgentConfig对象。
+agent_type标识类型，自建型、离线型Agent通过云/端编码实现，需要配合服务部署实现多版本；生态型Agent的调用逻辑已抽象出框架，通过配置即可实现多版本。
+version_status标识版本状态，包括草稿、发布两种状态。
+version_num标识版本号，采用整数形式，每次新建草稿Agent时，版本号+1。
+AgentEnv存储草稿版本应用到的生效环境，channel+channel_app_id+agent_id+env维度唯一。当需要在同一环境中切换Agent的不同版本时，更新对应记录的agent_version_id即可。冗余存储租户信息，简化查询的过程。
+离线型Agent的执行结果同步，需要改造为使用云端接口下发的AgentID。@郭金龙
+版本状态
+
+管理平台
+生态Agent系统流程
+新建&编辑Agent定义
+
+主动缓存AgentDefine信息，通过Cronjob定时2h刷新，每次新增&更新define表，服务启动时触发刷新。string结构，key：agent_server:define，有效期3h。
+新建&编辑草稿Agent
+
+在 version 表插入一条新记录：version_status = 0（草稿状态） , version_num+1。
+草稿Agent应用到指定环境
+
+同一个Agent的草稿版本，可以在多个环境中生效，在env表中对应多条数据。
+一个环境中同一个Agent只能有一个版本生效，切换已有版本时，更新env表中对应的agent_version_id即可，无需在version表中增加数据。
+发布草稿Agent
+
+事务操作：
+在 version 表中，将version_status = 1（发布状态） 的老版本软删除。
+在 version 表中，将参数中指定id的记录更新为 version_status = 1（发布状态）。
+在env表中，删除指定agent_version_id的记录。
+覆盖config表，将 version表中指定id记录的核心数据（agent_meta, endpoint_meta 等） Upsert（插入或更新） 到config表。
+使用可接入的Agent
+
+管理界面查询租户的Agent实现列表
+界面原型图：
+image.png
+
+租户与Agent的关系会整合为两级维度：使用维度、版本维度。
+使用维度：系统所有的Agent会在指定租户下分为两组：已使用组和未使用组。
+版本维度：已使用的Agent中，同一个Agent会包含多个版本，包括1个发布版本和多个草稿版本，草稿版本只在指定环境生效。
+举例：
+上汽-99220租户：
+已使用Agent列表：
+POI-Agent
+发布版本：AI-Navi版本，生效环境：*
+草稿版本1：一方版本，生效环境：env1
+草稿版本2：ToB版本，生效环境：env2
+未使用Agent列表：
+S2S-Agent
+
+针对Agent的草稿版本，提供删除接口，把历史未发布的草稿版本直接删除。
+主链路查询Agent
+
+主链路查询时，同一个Agent只存在一个版本，使用环境匹配，版本号最大的Agent版本。
+Director构建SP时，需要动态加载工具信息。@李明骏
+缓存租户已发布的agent列表，string格式，key：agent_server:publish:{channel}:{channel_app_id}，缓存时间5m。
+自建Agent开发流程
+
+由于自建型Agent是通过编码实现的，需要先在平台创建草稿状态Agent，拿到AgentID后在代码中映射到对相应的实现对象。
+数据库设计
+
+CREATE TABLE `agent_define` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `agent_id` varchar(64) NOT NULL COMMENT 'Agent ID',
+  `name` varchar(128) NOT NULL COMMENT '名称',
+  `show_name` varchar(64) NOT NULL COMMENT '展示名称',
+  `description` text COMMENT '描述',
+  `created_by` varchar(64) NOT NULL COMMENT '创建人',
+  `updated_by` varchar(64) NOT NULL COMMENT '修改人',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_agent_id` (`agent_id`),
+  UNIQUE KEY `uniq_name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='Agent定义表';
+
+CREATE TABLE `agent_config` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `agent_id` varchar(64) NOT NULL COMMENT 'Agent ID',
+  `desc_overwrite` text COMMENT '覆盖的描述',
+  `channel` varchar(64) NOT NULL COMMENT '渠道',
+  `channel_app_id` int NOT NULL COMMENT '渠道标识id',
+  `agent_type` int NOT NULL COMMENT '类型（0:aidv，1:dpfm，2:doubao，3:ecology，4:offline）',
+  `version` int NOT NULL COMMENT '版本号',
+  `integration_type` int NOT NULL COMMENT '集成类型（0:云端, 1:车机端）',
+  `status` int NOT NULL COMMENT '状态（0:禁用, 1:启用）',
+  `agent_meta` json NOT NULL COMMENT 'Agent元信息',
+  `endpoint_meta` json DEFAULT NULL COMMENT '接入元信息（自建、离线型Agent无效）',
+  `created_by` varchar(64) NOT NULL COMMENT '创建人',
+  `updated_by` varchar(64) NOT NULL COMMENT '修改人',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_channel_app_agent_id` (`channel`,`channel_app_id`,`agent_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='Agent配置表，只保存发布的配置';
+
+CREATE TABLE `agent_version` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `agent_id` varchar(64) NOT NULL COMMENT 'Agent ID',
+  `desc_overwrite` text COMMENT '覆盖的描述',
+  `channel` varchar(64) NOT NULL COMMENT '渠道',
+  `channel_app_id` int NOT NULL COMMENT '渠道标识id',
+  `agent_type` int NOT NULL COMMENT '类型（0:aidv，1:dpfm，2:doubao，3:ecology，4:offline）',
+  `integration_type` int NOT NULL COMMENT '集成类型（0:云端, 1:车机端）',
+  `agent_meta` json NOT NULL COMMENT 'Agent元信息',
+  `endpoint_meta` json DEFAULT NULL COMMENT '接入元信息（自建、离线型Agent无效）',
+  `version_num` int NOT NULL COMMENT '版本号',
+  `version_status` int NOT NULL COMMENT '版本状态（0:草稿，1:发布）',
+  `created_by` varchar(64) NOT NULL COMMENT '创建人',
+  `updated_by` varchar(64) NOT NULL COMMENT '修改人',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `deleted_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '删除时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_agent_id` (`agent_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='Agent版本表';
+
+CREATE TABLE `agent_draft_env` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `agent_id` varchar(64) NOT NULL COMMENT 'Agent ID',
+  `channel` varchar(64) NOT NULL COMMENT '渠道',
+  `channel_app_id` int NOT NULL COMMENT '渠道标识id',
+  `target_env` varchar(64) NOT NULL COMMENT '生效环境，逗号分隔',
+  `agent_version_id` bigint NOT NULL COMMENT '草稿版本id，对应agent_version表id',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_channel_app_agent_env` (`channel`,`channel_app_id`,`agent_id`,`target_env`),
+  Key `idx_agent_version_id` (`agent_version_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='草稿Agent的应用环境表';
+接口信息
+
+跳转BAM平台后，选择最新版本号
+
+
+接口
+
+接口文档链接
+
+查询Agent定义列表
+
+
+https://cloud.bytedance.net/bam/rd/vehicle.model.aidv/api_doc/show_doc?version=1.0.25&endpoint_id=4080478&x-resource-account=public&x-bc-region-id=bytedance
+
+新建/编辑Agent定义
+
+
+https://cloud.bytedance.net/bam/rd/vehicle.model.aidv/api_doc/show_doc?version=1.0.9&endpoint_id=4080533&x-resource-account=public&x-bc-region-id=bytedance
+
+新建/编辑Agent实现
+
+https://cloud.bytedance.net/bam/rd/vehicle.model.aidv/api_doc/show_doc?version=1.0.9&endpoint_id=4083941&x-resource-account=public&x-bc-region-id=bytedance
+
+查询Agent实现列表
+
+
+https://cloud.bytedance.net/bam/rd/vehicle.model.aidv/api_doc/show_doc?version=1.0.9&endpoint_id=4080616&x-resource-account=public&x-bc-region-id=bytedance
+
+Agent实现详情
+
+
+https://cloud.bytedance.net/bam/rd/vehicle.model.aidv/api_doc/show_doc?version=1.0.17&endpoint_id=4085094&x-resource-account=public&x-bc-region-id=bytedance
+
+草稿Agent应用到环境
+
+https://cloud.bytedance.net/bam/rd/vehicle.model.aidv/api_doc/show_doc?version=1.0.26&x-resource-account=public&x-bc-region-id=bytedance&endpoint_id=4098830
+
+发布草稿Agent
+
+https://cloud.bytedance.net/bam/rd/vehicle.model.aidv/api_doc/show_doc?version=1.0.29&endpoint_id=4136281&x-resource-account=public&x-bc-region-id=bytedance
+
+激活/禁用
+
+https://cloud.bytedance.net/bam/rd/vehicle.model.aidv/api_doc/show_doc?version=1.0.18&x-resource-account=public&x-bc-region-id=bytedance&endpoint_id=4085274
+
+删除草稿
+
+https://cloud.bytedance.net/bam/rd/vehicle.model.aidv/api_doc/show_doc?version=1.0.24&endpoint_id=4095711&x-resource-account=public&x-bc-region-id=bytedance
+
+使用可接入的agent
+
+https://cloud.bytedance.net/bam/rd/vehicle.model.aidv/api_doc/show_doc?version=1.0.20&x-resource-account=public&x-bc-region-id=bytedance&endpoint_id=4085313
+
+获取Agent填写选项
+
+https://cloud.bytedance.net/bam/rd/vehicle.model.aidv/api_doc/show_doc?version=1.0.14&endpoint_id=4084875&x-resource-account=public&x-bc-region-id=bytedance
+
+获取mcp工具列表
+
+https://cloud.bytedance.net/bam/rd/vehicle.model.aidv/api_doc/show_doc?version=1.0.21&x-resource-account=public&x-bc-region-id=bytedance&endpoint_id=4085387
+
+测试Agent
+
+https://cloud.bytedance.net/bam/rd/vehicle.model.aidv/api_doc/show_doc?version=1.0.26&x-resource-account=public&x-bc-region-id=bytedance&endpoint_id=4098829
+开发节奏
+
+
+阶段
+
+实现内容
+
+Meego
+
+一期
+
+Agent调度模块类型收敛
+
+
+
+二期
+
+租户隔离&管理平台
+
+
+
+三期
+
+主链路切换至新Agent体系&删除老Agent体系代码
+
+
+

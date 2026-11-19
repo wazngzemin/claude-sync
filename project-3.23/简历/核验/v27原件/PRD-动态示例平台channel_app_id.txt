@@ -1,0 +1,613 @@
+版本：v1.0 评审稿。关联需求：[动态示例平台增加 channel_app_id 参数](https://meego.larkoffice.com/621366168d154dca7fe56b44/story/detail/7397075754)。本文另建，不覆盖原登记稿，也不修改 Meego 已有字段。
+
+# 需求概述
+
+**在动态示例平台的渠道和车型之间增加 channel_app_id 多选配置；一条示例可适用于多个 APPID，但每个 APPID 必须分别绑定自己的车型范围。**“通用车型”只表示当前渠道、当前 APPID 内的所有车型，不能跨项目自动生效。Director 选择动态示例时同步增加 APPID 过滤，页面、保存数据与实际注入使用同一套范围规则。
+
+本轮产品已确认 APPID 多选。11 月 10 日纪要写多选，原始讨论后段曾倾向按单租户分别配置；本稿按本轮选择收口为多选，不把历史讨论中的分歧写成已实现能力。[会议纪要](https://bytedance.larkoffice.com/docx/DhPCd0ONqoUXnXx2n7oc2Xqonuf)、[原始讨论 11:03–16:01](https://bytedance.larkoffice.com/docx/EciUdcHdFoH8Oxxzkc4cPe40nFf)
+
+本文把会议已明确的项目隔离目标写成需求，把多选后的页面、校验、兼容和上线细节写成拟定规则，供研发评审。真实 APPID 清单、项目对应车型及性能预算仍需核对，未核对前不填写猜测的数字。
+
+# 协作方与交付职责
+
+- **产品：王泽民。**收口字段规则、生效范围及验收结果；不以页面能保存代替运行效果验收。
+- **需求与交付协作：李小军、贾学华。**核对 GR／PR 的实际项目标识、正式与测试租户，以及车型配置字和展示名称；提供需要拆分的存量示例清单。
+- **技术评审：王晓东、张弛。**会议明确两人核对方案可行性和技术路径；平台、检索、Director 参数透传及发布责任在评审中分别认领，不从参会关系推定全部开发归属。[分工依据](https://bytedance.larkoffice.com/docx/DhPCd0ONqoUXnXx2n7oc2Xqonuf)
+- **测试对接：高铖，待认领确认。**群内张弛回复“应该是高铖”，属于对接线索，不写成正式排期承诺。群内后续讨论
+
+Meego 创建时临时挂在产品名下的项目经理、服务端和算法角色只是占位，本稿不把这些占位当作真实研发分工。项目经理、开发人力、联调和上线窗口由评审后回填。
+
+# 背景与问题：为什么已有车型还不够
+
+动态示例是一组“用户 Query → 决策分析”的经验，检索后注入系统提示词，帮助 Planner 处理特定问题。它不是车辆能力清单，也不是车辆真实状态；同一问题在不同项目下可能需要不同处理，因此先判断示例是否适用，再判断语义是否相似。[既有平台 PRD](https://bytedance.larkoffice.com/docx/FE3sddcCtoyy75xW2iuc4yVenxe)、[动态示例解 bug 指南](https://bytedance.larkoffice.com/docx/G7sfddVxEo7TH1x1PoxcDBwZnKe)
+
+上汽 GR 横展原先沿用 PR 的动态示例，随后出现差异化需求。平台已有渠道和车型维度，但大量示例配在“通用车型”下；仍用这个通用范围，GR 和 PR 会同时拿到示例；改成逐个车型配置，又需要重复维护多条相同内容。问题不在于缺少一个车型名称，而在于**缺少“这个通用范围属于哪个项目”的边界**。[原始讨论 03:15–10:31](https://bytedance.larkoffice.com/docx/EciUdcHdFoH8Oxxzkc4cPe40nFf)
+
+群内出现过纯油车询问续航，却被回复“电量已经用完”的问题。这是差异化示例不应混用的真实线索，但不能只凭这段记录断言全部根因来自动态示例；端状态内容、工具返回和模型采用过程仍需要分开核对。GR／PR 是项目标识，不在代码里直接等同于“纯电／混动／纯油”，具体能力以实际配置和状态为准。问题与车型讨论
+
+会议最终明确按“渠道 → APPID／项目 → 具体车型”组织，并让 Director 同步增加 APPID 匹配；通用车型隶属于 channel 加 APPID。channel_app_id 是渠道下应用／租户标识，不是豆包客户端的 app_id，也不能通过用户 Query 或车型名称猜出。[原始讨论 11:21、14:14、15:47](https://bytedance.larkoffice.com/docx/EciUdcHdFoH8Oxxzkc4cPe40nFf)、[既有接口分别定义 channel_app_id 与 app_id](https://bytedance.larkoffice.com/wiki/ExtGwiADMijNBDkXo2Xcmocdncg?from=lark_search_qa&ccm_open_type=lark_search_qa#doxcnEtlX82RJGwyJDVmq5NnsLh)
+
+以下截图为转发中的现有界面，保留完整画面。它证明渠道、车型及通用车型的展示状态，不代表新增 APPID 已上线。[截图原消息](https://applink.feishu.cn/client/chat/open?openChatId=oc_096178569f994150a1909a1c4978d151&position=61)
+
+<image token="HHlWb42wHoLGr6xb8BGcKWgInIb" width="1134" height="345" align="center"/>
+
+# 目标与完成标准
+
+本次要同时解决隔离和复用：PR 专属示例不进入 GR，GR 专属示例不进入 PR；真正相同的示例可以一条记录覆盖多个明确选中的 APPID；每个项目仍可使用自己的通用车型。不能为了减少配置次数，把“通用”重新变成跨项目全部生效。
+
+- **隔离正确：**在评审确认的渠道、APPID、车型、环境和场景域正反例集合中，不适用示例的注入数为 0。这是验收目标，不是已测结果。
+- **配置一致：**同一示例保存后，详情回显、检索过滤元数据和 Director 实际注入的范围一致；APPID 与车型绑定不发生丢失、串位或意外扩大。
+- **复用成立：**一条共享示例绑定两个 APPID，内容修改一次，两个范围按同一发布版本更新；取消其中一个 APPID 后，该 APPID 不再使用该示例。
+- **存量可控：**每条受影响的旧示例能说明迁移后的范围和理由；未知归属有明确处置，不能自动赋予新 GR 项目。
+- **可排查：**能区分参数缺失、范围未匹配、语义未召回、注入失败与模型回答错误。查询性能和配置生效时延先测当前基线，预算由技术评审确认，不虚设成功率或毫秒指标。
+
+# 使用人群与约束
+
+直接用户是维护动态示例的产品、运营、质量及交付同学。他们需要知道一条示例会影响哪些项目，而不是背诵 APPID 数字。后台展示“项目名称 + APPID + 租户用途”，保存稳定标识；同名项目或名称调整不能改变已有记录的归属。正式租户与测试租户分别显式选择，不能因为名称相近默认共同勾选。
+
+研发需要在保存、索引／过滤元数据和 Director 参数透传之间维持同一规则；测试需要用同一 Query 切换项目和车型验证差异。车主是间接受益者，应获得与当前车况、实际能力一致的回答，而不是“电量／续航／充电口”等错误项目示例。
+
+本期沿用现有渠道、车型、环境和场景域规则，只增加项目边界；不新建租户、改计费或鉴权，不重做车书、端状态或车控工具，也不把油车识别逻辑全塞进动态示例。本次不新增车型多选能力：每个 APPID 范围沿现有“通用车型／具体车型”选择；未来如需在同一 APPID 下选多个具体车型，另行评估。
+
+# 产品价值与方案取舍
+
+只加 GR 车型选项不能约束现有通用示例；要求所有通用示例复制到每个车型又会增加维护量；依赖模型自己识别项目，不能保证确定性的隔离。本稿采用“APPID 多选 + 每个 APPID 独立车型范围”：范围先过滤，共用内容一次维护，差异内容分别维护。
+
+多选的代价是编辑页必须展示每个 APPID 的绑定，而不能只放两组平铺标签。假设选择 PR 的 APPID 和 GR 的 APPID，同时选了 PR 的某个车型，若把两个数组独立保存，就可能误表示“PR、GR 都能使用 PR 车型示例”。因此数据和页面都按 APPID 逐项绑定；不采用 APPID 数组与车型数组的任意组合。
+
+本稿不新增“全部 APPID”选项。配置人员显式选择有限的 APPID，新增项目不会自动继承共享示例。“通用车型”是这个 APPID 内的动态范围，会覆盖其后新增的合法车型；如果内容依赖某项配置能力，就应选具体车型，不用通用。
+
+# 功能方案
+
+## 配置流程和运行流程
+
+**配置流程：**打开动态示例 → 选择渠道 → 多选 APPID → 为每个 APPID 选择通用或具体车型 → 填写 Query 和决策分析 → 选择现有环境／场景域 → 查看生效范围摘要 → 校验、保存和发布。范围摘要应让配置人员直接看到“哪个项目的哪些车型使用这条内容”。
+
+**运行流程：**接入层取得可信渠道、channel_app_id、车型和当前环境 → 动态示例检索入口收到这些参数 → 在现有渠道／环境／场景域过滤基础上增加 APPID 及其绑定车型过滤 → 在适用候选池中做语义召回 → Director 注入返回的示例 → 模型结合真实上下文决策。具体参数透传经过哪些服务由技术设计落实；本稿规定输入输出和效果，不凭空指定新的 RPC 名称。
+
+平台负责维护范围，检索侧负责把不适用内容挡在候选池之外，Director 负责使用实际返回的示例。模型不承担 APPID 判定。查到了、注入了、模型采用了、回答正确是四件事，日志和验收不能混为一次成功。
+
+## 字段与页面
+
+<lark-table rows="7" cols="3" header-row="true" column-widths="150,220,450">
+
+  <lark-tr>
+    <lark-td>
+      配置项
+    </lark-td>
+    <lark-td>
+      交互／保存
+    </lark-td>
+    <lark-td>
+      规则
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      渠道
+    </lark-td>
+    <lark-td>
+      沿用现有控件和标识
+    </lark-td>
+    <lark-td>
+      APPID 选项受当前渠道约束。切换渠道时清除不合法 APPID 及车型绑定，保存前再次服务端校验。
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      channel_app_id
+    </lark-td>
+    <lark-td>
+      多选；至少选择一个
+    </lark-td>
+    <lark-td>
+      只展示当前有权配置的合法 APPID。不允许自由输入未知标识；不允许空值隐式表示全部。若渠道有多个值，选项必须带渠道归属。
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      每个 APPID 的车型范围
+    </lark-td>
+    <lark-td>
+      独立配置卡：通用车型或一个具体车型
+    </lark-td>
+    <lark-td>
+      新增 APPID 时范围初始为空，不默认通用。通用与具体车型互斥；车型只能来自该渠道、该 APPID 的映射。
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      环境
+    </lark-td>
+    <lark-td>
+      保持现有单选／输入
+    </lark-td>
+    <lark-td>
+      APPID 不是环境替代物。保留当前环境与 prod 的既有合并规则，但所有环境候选仍必须先过项目边界。
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      场景域、状态
+    </lark-td>
+    <lark-td>
+      沿用已有配置
+    </lark-td>
+    <lark-td>
+      不因为 APPID 匹配就跳过场景域、有效状态和删除标记；不新增旁路上线方式。
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      Query／决策分析
+    </lark-td>
+    <lark-td>
+      沿用现有编辑
+    </lark-td>
+    <lark-td>
+      一条多 APPID 示例共享一份内容；不同 APPID 需要不同答案时，拆成范围不重叠的独立示例。
+    </lark-td>
+  </lark-tr>
+</lark-table>
+
+列表页在渠道与车型之间增加 APPID 筛选，并展示项目范围摘要。APPID 筛选多选表示“匹配任一个所选 APPID”；与渠道、车型、环境、状态等条件取交集。若筛选同时包含 APPID 和具体车型，必须命中同一条绑定，不能 APPID 命中一项、车型命中另一项。默认列表查找维持原有管理语义；“看见这个环境的记录”不等于预览该环境运行时的合并候选池。
+
+新增／编辑页先多选 APPID，再按 APPID 展开车型卡。删除一个 APPID 同时移除它的车型绑定，并提示范围缩小；新增 APPID 不复制其他项目车型。详情页回显每项真实绑定。保存前展示明确摘要，例如“上汽 DNA → 项目 PR〔A_PR〕 → 通用车型；上汽 DNA → 项目 GR〔A_GR〕 → 通用车型”。A_PR、A_GR 是本文演示代号，不是真实 APPID。
+
+现有复制、批量导入导出若已提供，应使用同一校验：复制保留原范围但不自动发布；格式保留 APPID 与车型的配对。旧格式缺少 APPID 时返回明确校验信息，不能补成全部 APPID。批量能力未上线时，本期不以补建批量平台为前置，研发迁移也不得绕过范围验证。
+
+## 保存结构：保存配对，而不是两组独立标签
+
+逻辑记录包括示例 ID、共享内容、环境／场景域及适用范围列表。每个范围元素是一组“channel + channel_app_id + 车型范围”。下面是约束示意，不是已有接口 schema；物理表、接口路径和字段类型由研发在评审后定稿。
+```json {wrap}
+{
+  "app_scopes": [
+    {"channel": "saic-dna", "channel_app_id": "A_PR", "vehicle_scope": {"mode": "ALL"}},
+    {"channel": "saic-dna", "channel_app_id": "A_GR", "vehicle_scope": {"mode": "SPECIFIC", "vehicle_type": "T_GR_01"}}
+  ]
+}
+```
+
+同一记录、同一 channel + APPID 仅有一个范围元素；提交重复项应报错或按明确协议去重，不允许后一个隐式覆盖前一个。ALL 必须没有具体车型；SPECIFIC 必须存在合法车型。APPID、车型作为标识按字符串原样比较，不能通过数字格式化改变值。
+
+服务端独立校验权限、项目归属与车型映射，不能只依赖页面下拉。保存内容、版本和范围时保持同一次变更的一致性；检索元数据未同步完成前，不宣称新版本已生效。只改范围也必须刷新过滤元数据／缓存；仅改 Query 的向量重建沿现有规则处理，不把“没改 Query”当作无需同步范围的理由。
+
+## 运行时过滤及异常处理
+
+**项目匹配与车型匹配是同一范围元素内的且关系；多个范围元素之间是或关系。**只有 channel_app_id 与当前请求相同，并且车型为该项目内通用或该请求的具体车型，才通过新增的范围校验。其他现有门禁仍全部满足后，才参与语义召回。
+```plaintext {wrap}
+可用示例 = 原有渠道匹配
+         AND 原有场景域／有效状态匹配
+         AND 示例环境属于 {当前环境, prod}
+         AND 存在同一个范围元素满足：
+             归属渠道适用当前请求
+             AND channel_app_id = 当前请求 channel_app_id
+             AND (车型范围 = 该 APPID 内 ALL
+                  OR 具体车型 = 当前请求车型)
+```
+
+既有 PRD 评论明确运行时召回“当前环境 + prod”，新版继续保留 prod 通用生效；所以本稿不是“当前环境为空时才走 prod”。请求就是 prod 时只处理一份 prod 候选。prod 也必须符合 APPID 和车型范围，不能作为跨项目放宽过滤的理由。历史 master 通用渠道仍走原有渠道语义，但必须加已确认的 APPID 范围；具体全球通用数据迁移由下节收口。[环境与 master 语义见原 PRD 评论](https://bytedance.larkoffice.com/docx/FE3sddcCtoyy75xW2iuc4yVenxe)
+
+<lark-table rows="6" cols="3" header-row="true" column-widths="220,410,190">
+
+  <lark-tr>
+    <lark-td>
+      异常
+    </lark-td>
+    <lark-td>
+      拟定处理
+    </lark-td>
+    <lark-td>
+      保留证据
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      请求缺少或无效 APPID
+    </lark-td>
+    <lark-td>
+      本次返回空动态示例，不猜项目、不回退其他 APPID；主对话按已有无示例路径继续。迁移期仅允许已核准旧绑定，不能用通用逻辑兜底。
+    </lark-td>
+    <lark-td>
+      参数缺失／无效原因
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      APPID 与可信渠道不一致
+    </lark-td>
+    <lark-td>
+      不参与检索；记录映射异常，不能相信客户端随意传入的项目范围。
+    </lark-td>
+    <lark-td>
+      渠道映射校验结果
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      车型缺失／未知
+    </lark-td>
+    <lark-td>
+      APPID 合法时仅可使用该 APPID 内 ALL 范围；具体车型示例不适用，不跨 APPID 查询相同名称车型。
+    </lark-td>
+    <lark-td>
+      车型无法匹配原因
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      目标池为空或低相似度
+    </lark-td>
+    <lark-td>
+      返回空动态示例；不拿其他项目或场景域内容补足 TopK。
+    </lark-td>
+    <lark-td>
+      过滤为空与语义未召回分开
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      范围同步失败／缓存陈旧
+    </lark-td>
+    <lark-td>
+      维持上一已发布且完整的版本，不启用部分新范围；失败版本显示未生效。到达关闭某范围的承诺时限仍未收敛，拦截该条而非继续扩大使用。
+    </lark-td>
+    <lark-td>
+      配置版本与索引版本
+    </lark-td>
+  </lark-tr>
+</lark-table>
+
+当前环境与 prod 中同一业务问题若存在相互矛盾内容，不能依赖 APPID 多选自动解决。沿用现有去重／排序，不在本期发明未验证的语义覆盖算法；发布评审要清理范围相交的冲突条目。同一示例经多个范围或环境命中按示例 ID 和发布版本去重；不同记录并非同一 ID，必须分别检查内容。
+
+## 典型配置与预期结果
+
+设两类演示项目：A_PR、A_GR；A_GR 内两个演示配置款 T_GR_01、T_GR_02。它们不承诺对应实际动力类型。同一 Query 可以有不同决策，但示例只提供经验，不能覆盖本车能力和最新状态。
+
+<lark-table rows="6" cols="3" header-row="true" column-widths="150,300,370">
+
+  <lark-tr>
+    <lark-td>
+      示例
+    </lark-td>
+    <lark-td>
+      配置
+    </lark-td>
+    <lark-td>
+      预期候选范围
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      PR 专属
+    </lark-td>
+    <lark-td>
+      A_PR → ALL
+    </lark-td>
+    <lark-td>
+      A_PR 合法车型可进入候选；A_GR 任何车型都不能进入。
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      GR 项目通用
+    </lark-td>
+    <lark-td>
+      A_GR → ALL
+    </lark-td>
+    <lark-td>
+      A_GR 下 T_GR_01、T_GR_02 均可进入；A_PR 不适用。通用内容不能断言每款 GR 都有同一功能。
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      GR 配置款专属
+    </lark-td>
+    <lark-td>
+      A_GR → T_GR_01
+    </lark-td>
+    <lark-td>
+      只允许 A_GR、T_GR_01 的请求进入；T_GR_02 或另一 APPID 的同名车型不进入。
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      真正共享的内容
+    </lark-td>
+    <lark-td>
+      A_PR → ALL；A_GR → ALL
+    </lark-td>
+    <lark-td>
+      明确适用于这两个项目；新加入的第三 APPID 不自动继承。两个项目内容不同则不得共用一条。
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      不同车型范围复用
+    </lark-td>
+    <lark-td>
+      A_PR → ALL；A_GR → T_GR_01
+    </lark-td>
+    <lark-td>
+      A_PR 全部车型和 A_GR 的 T_GR_01 可进入；A_GR 的 T_GR_02 不能借用 A_PR 的 ALL。
+    </lark-td>
+  </lark-tr>
+</lark-table>
+
+## 存量迁移与发布一致性
+
+**旧记录的 APPID 空值不能直接解释为全部 APPID。**这会把原先只服务 PR 的通用示例自动开放给 GR，恰好重现本次要解决的问题。迁移规则采用“先保留已确认历史范围，再显式扩展”的保守方案。
+
+1. 导出受影响旧记录的 ID、内容、渠道、车型、环境、状态和已知服务项目，并保留变更前快照。旧数据规模先核对，不估算一个未经证实的数量。
+1. 能唯一确认项目的记录绑定原项目；明确跨项目共享的记录由内容负责人确认后绑定有限 APPID；归属不明的记录进入待核清单。不能单凭车型 display name、通用标记或空字段判定共享。
+1. 在目标上汽渠道开启强制 APPID 匹配前，完成活跃记录归属和请求参数透传。核不清的记录不能扩大到新项目；若暂停会造成原项目回归，应推迟该渠道切换，不静默丢失旧覆盖。
+1. 保存与过滤元数据完成双端核对后，按 channel + APPID 范围灰度。新 GR 只有通过适配审查的条目可用，不继承未知旧示例。其他渠道未经迁移验证不强制切换，也不改变既有规则。
+1. 新增 APPID、把具体车型改为通用、把专属环境改为 prod，都属于扩大生效范围。必须走现有内容发布／复核路径，并保存变更前后范围；本期不另建全套审批系统。
+
+编辑已生效内容或范围时，拟采用“旧发布版本继续有效，新版本待校验发布”；取消未发布修改不影响旧版本。对紧急停止某个范围，需要独立关闭已生效范围并同步缓存，不能误以为保存草稿就已停止。若平台暂不支持并存版本，研发必须提供等效的原子切换和回退办法；不接受半份新范围生效。
+
+回滚恢复上一完整内容与范围版本，并核对缓存和过滤元数据。不得通过关闭 APPID 过滤、重新允许所有项目拿到通用示例来回滚。若无法安全恢复，则先关闭受影响示例或新项目动态示例入口，主对话使用无示例路径，原项目回归由上线负责人确认。
+
+## 日志、权限与测试定位
+
+配置修改记录操作者、示例 ID、版本、变更前后范围、发布结果及同步状态。运行记录至少关联请求诊断编号、可信 channel／channel_app_id、车型、环境、场景域、过滤原因、候选／召回／最终注入的示例 ID 和版本。诊断日志遵守现有访问权限和脱敏要求，不记录凭证；无需为本功能新增用户画像或个人数据。
+
+排查先判断运行参数和范围，再看召回、注入及回答：配置关联错属于规则／映射问题；传参丢失属于接口链路问题；缓存不同步属于配置生效时序问题；正确示例已注入而仍回答错误属于示例质量、提示词或模型采用问题。不要把所有失败归到“大模型不稳定”，也不把多次正确回答当作隔离机制正确的证明。
+
+## 验收用例
+
+下表使用前述演示代号，真实项目映射由交付确认后替换。范围类测试用固定可召回 Query 和可识别示例内容，先验候选／注入日志，再检查回答；不以模型偶然没说错掩盖错项目示例已经注入。
+
+<lark-table rows="21" cols="3" header-row="true" column-widths="65,360,395">
+
+  <lark-tr>
+    <lark-td>
+      编号
+    </lark-td>
+    <lark-td>
+      操作／输入
+    </lark-td>
+    <lark-td>
+      预期结果
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      01
+    </lark-td>
+    <lark-td>
+      新增记录不选 APPID，或新增 APPID 后不选车型范围
+    </lark-td>
+    <lark-td>
+      阻止保存并定位缺失项；不会默认通用或全部 APPID。
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      02
+    </lark-td>
+    <lark-td>
+      A_PR、A_GR 多选并分别绑定范围，保存后重开详情
+    </lark-td>
+    <lark-td>
+      APPID、车型与版本完整回显；未变成两个独立数组组合。
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      03
+    </lark-td>
+    <lark-td>
+      通过接口提交别的渠道 APPID 或不属于 APPID 的车型
+    </lark-td>
+    <lark-td>
+      服务端拒绝，不能仅靠前端限制；无权范围不写入。
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      04
+    </lark-td>
+    <lark-td>
+      ALL 同时带具体车型；重复 APPID；未知标识
+    </lark-td>
+    <lark-td>
+      按明确校验拒绝，不静默扩大或覆盖。
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      05
+    </lark-td>
+    <lark-td>
+      PR 专属 ALL 示例，分别从 A_PR、A_GR 发相同 Query
+    </lark-td>
+    <lark-td>
+      仅 A_PR 的候选和注入可含该示例；A_GR 为 0。
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      06
+    </lark-td>
+    <lark-td>
+      GR ALL 示例；从 T_GR_01、T_GR_02、A_PR 发请求
+    </lark-td>
+    <lark-td>
+      前两者可用，A_PR 不可用；不把 GR 项目当作统一动力类型。
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      07
+    </lark-td>
+    <lark-td>
+      A_PR → ALL；A_GR → T_GR_01，从 A_GR／T_GR_02 请求
+    </lark-td>
+    <lark-td>
+      不能命中；不可借用另一绑定的 ALL。列表组合筛选也同样不命中。
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      08
+    </lark-td>
+    <lark-td>
+      两个 APPID 有同名车型，记录只绑定其中一个
+    </lark-td>
+    <lark-td>
+      APPID 不同则不适用，不能只比车型名称。
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      09
+    </lark-td>
+    <lark-td>
+      记录同时绑定两个 APPID，修改共享内容并发布
+    </lark-td>
+    <lark-td>
+      同一版本在两个范围生效；旧版本和新范围不混合。
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      10
+    </lark-td>
+    <lark-td>
+      从共享记录移除 A_GR 或新增第三 APPID
+    </lark-td>
+    <lark-td>
+      移除发布后 A_GR 不再用；新增第三项不默认 ALL，旧项目不自动扩展。
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      11
+    </lark-td>
+    <lark-td>
+      缺失 APPID、无效 APPID、APPID／渠道不一致
+    </lark-td>
+    <lark-td>
+      返回空动态示例及诊断原因，不回退其他项目；主流程继续原无示例路径。
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      12
+    </lark-td>
+    <lark-td>
+      APPID 合法、车型缺失或未知
+    </lark-td>
+    <lark-td>
+      仅同 APPID 的 ALL 可用，具体车型示例均不适用。
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      13
+    </lark-td>
+    <lark-td>
+      当前测试环境和 prod 均有同 APPID 合法示例；prod 另有其他 APPID 示例
+    </lark-td>
+    <lark-td>
+      前两份按既有规则共同形成候选，后者剔除；不是目标环境为空才读 prod。
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      14
+    </lark-td>
+    <lark-td>
+      请求环境为 prod；同一示例被多个合法范围命中
+    </lark-td>
+    <lark-td>
+      prod 和示例 ID／版本去重，不重复注入。
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      15
+    </lark-td>
+    <lark-td>
+      APPID 匹配但场景域、有效状态或删除标记不通过
+    </lark-td>
+    <lark-td>
+      不能注入；新增维度不绕过旧门禁。
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      16
+    </lark-td>
+    <lark-td>
+      适用候选为空或未达到现有语义阈值
+    </lark-td>
+    <lark-td>
+      返回空；不跨项目补 TopK，日志能区别两个原因。
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      17
+    </lark-td>
+    <lark-td>
+      仅改范围、不改 Query；模拟索引／缓存同步失败
+    </lark-td>
+    <lark-td>
+      旧完整版本继续，失败版本未生效；恢复后新范围收敛，版本可追踪。
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      18
+    </lark-td>
+    <lark-td>
+      旧记录 APPID 为空，GR 新接入；执行回滚
+    </lark-td>
+    <lark-td>
+      不视为空＝全部；按核准映射迁移。回滚不关闭隔离，不泄漏到 GR。
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      19
+    </lark-td>
+    <lark-td>
+      正式／测试租户未同时选中；新增项目或更换渠道
+    </lark-td>
+    <lark-td>
+      未选租户不适用；新增项目不继承，渠道变化不保留非法绑定。
+    </lark-td>
+  </lark-tr>
+  <lark-tr>
+    <lark-td>
+      20
+    </lark-td>
+    <lark-td>
+      回放续航类原问题和原 PR 稳定 Query
+    </lark-td>
+    <lark-td>
+      检查示例范围和注入正确；再检查车辆真实状态、工具结果与回答一致。隔离通过与模型效果回归分别记结论。
+    </lark-td>
+  </lark-tr>
+</lark-table>
+
+## 评审待确认项
+
+- **项目字典：**真实 GR／PR APPID、正式与测试用途、车型稳定标识及名称；字典接口和维护人由平台／交付确认。原始文字记录的 APPID 数字有转写歧义，不能据此直接上线配置。
+- **多选实现：**本稿采用每个 APPID 独立范围。研发确认存储结构、现有车型控件复用方式、接口长度／数量限制、映射失效处置；若有上限需页面和接口一致提示，不默默截断。
+- **现有全局通用：**master 等跨渠道通用记录在目标 APPID 下的迁移清单，由内容负责人复核；未明确映射不自动向新项目开放。不把本稿当作删除全局数据的执行授权。
+- **生效与性能预算：**明确保存到实际检索一致的承诺时限、缓存清理方式、灰度与回滚入口；提交有／无新过滤的延迟、错误率和候选规模对照。
+- **人力与排期：**王晓东、张弛核对技术路径，测试对接高铖待确认；开发角色、QA、发布负责人和上线窗口单独认领，不从临时 Meego 占位推断。
+
+# 发布规划与上线门槛
+
+第一版本必须作为一项闭环交付：APPID 多选与逐项目车型绑定、服务端校验、检索／Director APPID 过滤、旧数据核准迁移、日志及安全回滚同时具备。平台页面先上线但运行时尚未过滤时只能作为未开放的准备能力，不能对配置人员表示“现在已按项目隔离”。通用控件美化、跨项目模板推荐、更大的批量能力和额外车型多选不属于本次必交付范围。
+
+1. **评审与准备：**确认项目字典、配对数据协议和待确认项，核对存量及请求参数覆盖；平台和检索分别评估人天，给出联调依赖。
+1. **开发与联调：**存储／接口和过滤实现可并行，但最终按同一版本端到端验证；验证测试租户不因 prod 通用而越过 APPID 边界。
+1. **灰度：**先在显式测试范围检查全部隔离用例，再按核准 APPID 灰度；验证 PR 回归和 GR 差异化用例，记录配置与注入证据。
+1. **放量：**项目字典、活跃存量迁移、错误请求处置和回滚演练全部通过，产品与测试确认后进入正式范围；未关闭跨项目泄漏或版本不一致问题不放量。
+
+当前未获真实开发工时和固定上线日期，本稿不新增 DDL 或修改已建需求的优先级。上线完成以“配置范围正确保存且运行时真实过滤、迁移和回滚验证通过”为准，不以新增字段、页面截图或 Meego 状态单独作为完成证明。

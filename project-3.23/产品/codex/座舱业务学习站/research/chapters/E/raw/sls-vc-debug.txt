@@ -1,0 +1,231 @@
+赛力斯 SLS 车控排查指南
+
+快速判断
+云端无工具调用：查是否拒识、打断、Planner为啥不调用工具。
+FC 正确但 ACK 超时：查环境内的AIDV_RPC服务是否三机房部署、日志查是否下发Frontier、如已下发但10秒未收到结果转客户端分析。
+FC ACK 成功但实际未执行：查FC是否和Query能匹配，如能匹配转客户端分析
+车控排查顺序：“拒识、打断-> Query语义 → Planner → FC 协议 → 云端下发 → FC ACK → 端侧执行”从顶层开始分析，不从客户端侧错误反推。
+
+参考文档&相关群
+协议与能力
+SLS 标准语义 / FC 协议表
+SLS 全功能清单（标准语义清单）
+赛力斯 E68 AI 可控原子能力
+SLS 车控工具 OnePage
+
+DPFM分支：feature/aidv-develop-seres
+更新协议时可以使用座舱提效官机器人，输入下面的指令，机器人会自动读取飞书表格并更新代码提一个新MR
+
+我在飞书分享了一个应用给你，点击链接查看 https://applink.larkoffice.com/T99K2tfOgYkm
+
+给赛力斯seres完成SFT车控更新，分支是feature/aidv-develop-seres，表格链接是https://bytedance.larkoffice.com/wiki/Z3wewToJtirMJUkbBmpcncc7ned?sheet=WNb92l 。1个Sheet页“【sls】SFT范围（全功能）”，需要用分支里的脚本执行。代码仓库是stone_vehicle/data_provider_for_model
+排查与测试
+赛力斯 E68 QA 测试文档
+相关群
+
+
+
+
+人员
+
+分工
+
+@李宛玉
+
+FC产品
+
+@杜想军
+
+FC算法
+
+@李明骏
+
+Planner
+
+@王培鹤
+
+车控客户端Owner
+
+@尹泽陆
+
+车控客户端
+
+@王霖
+
+车控客户端
+
+@陈果果
+
+车控客户端
+标准排查流程
+
+SLS 的车控为ToB主线的一步SFT+RAG筛选方案，仲裁逻辑优先使用SFT结果，如果SFT输出结果不在函数白名单或者枚举值参数不在范围内则使用RAG结果。
+
+Fornax查询
+准备输入
+收集 LogID、用户 Query、预期结果、实际结果、发生时间、视频。
+Planner 与工具选择
+在Fornax trace中，确认 intent-and-refusal / reject-analyse 是 RECALL 还是 REJECT。
+检查是否有DoPlan cancel、context canceled，排除后续 Query 或 Advisor 抢占。
+确认工具列表已注入，当前轮实际产生 vehicle_basic_control 等车控工具 span。
+若 Planner 回答完整但 action_list 为空、无工具 span，优先判定模型无工具直答，查前几轮历史是否有调用工具但执行失败的。
+image.png
+
+FC 协议核对
+调用车控工具后，如果客户端反馈FC有问题，看Planner的改写结果是否有问题，如改写有问题转Planner算法；如Planner改写无问题，转车控算法分析
+image.png
+
+下发与 ACK
+查Span：vehicle-control-observation可以看到给客户端下发的FC和ACK结果。
+image.png
+
+在Input里展示的是云端下发的FC，如果function_code=cannot_process则是FC输出错误同样给FC算法；
+Output时客户端回复的FC执行结果，云端只看function_code、msg和status，如果status=0且msg为空字符串，云端会默认填充“执行成功，可简洁回复做好了｜完成”给Planner。
+注意云端不看tts_code和tts_content，这两个字段无意义。
+Argos日志
+在Fornax不可用用时，需要通过Argos日志分析，建议让用aidv-bug-triage提供LogID让AI分析。
+拒识、打断和Planner输出
+看vehicle.model.aidv_rpc PSM的日志
+拒识关键字：pushMsg、reject，如果为false表示未拒识、为true表示拒识
+
+pushMsg, messageId:55111168825790210, message:{"message_type":10001,"message":"{\"reject\":false,\"asr_task_id\":\"\"}","request_id":"9acd5024-52b3-4180-bb9f-f1554a1f9d88"}
+打断关键字：ShouldBreak return true
+
+ShouldBreak return true, after first token, break by query, version:1788584522342, query:[{"query":"是什么地方啊 然后他就说右边是然后就没有再往下说了他的那个 语音大屏识别显示一直就是刚刚我说的右边是什么地方呀","sound_zone":"副驾","speaker_name":"未注册用户","query_log_id":"20260905130201A6020A0EC93AB6CE14D4"}]
+Planner输出关键字：doubao.Stream msg
+下面这种是拒识模型输出
+
+doubao.Stream msg: {"role":"assistant","content":"RECALL\n{\"","response_meta":{"finish_reason":"length","usage":{"prompt_tokens":3401,"prompt_token_details":{"cached_tokens":3128},"completion_tokens":4,"total_tokens":3405,"completion_token_details":{}}},"extra":{"ark-request-id":"0217891061610177e77bd8ff261b6b3300f4d6901dcda1de530ad","ark-model-name":"doubao-seed-2-0-lite-260428","ark-service-tier":"default"}} 
+这种是Planner输出，action_list里就是调用的工具
+
+doubao.Stream msg: {"role":"assistant","content":"{\"talk_or_not\":\"yes\",\"talk_content\":\"好的，这就回到地图首页。\",\"emoji_id\":\"finger_ok\",\"action_list\":[{\"action_id\":\"1\",\"tool_name\":\"navi_basic_control\",\"params\":{\"query\":\"回到地图首页\"}}]}","response_meta":{"finish_reason":"stop","usage":{"prompt_tokens":47348,"prompt_token_details":{"cached_tokens":44088},"completion_tokens":54,"total_tokens":47402,"completion_token_details":{}}},"extra":{"ark-model-name":"doubao-seed-2-1-turbo-260628","ark-service-tier":"default","ark-request-id":"0217891061612287e77bd8ff261b6b3300f4d6901dcda1de4d1ef"}} 
+这个也是Planner输出，但没有调用工具
+
+doubao.Stream msg: {"role":"assistant","content":"{\"talk_or_not\":\"yes\",\"talk_content\":\"搞定。\",\"emoji_id\":\"finger_ok\",\"action_list\":[]}","response_meta":{"finish_reason":"stop","usage":{"prompt_tokens":47455,"prompt_token_details":{"cached_tokens":46904},"completion_tokens":25,"total_tokens":47480,"completion_token_details":{}}},"extra":{"ark-request-id":"0217891061649157e77bd8ff261b6b3300f4d6901dcda1d131196","ark-model-name":"doubao-seed-2-1-turbo-260628","ark-service-tier":"default"}} 
+FC协议下发与响应
+如果Planner有调用车控工具，可以从日志看FC模型返回和是否下发FC
+FC模型返回关键字：SSE stream finished, response lines
+
+event: info
+retry: 1000
+data: {"error_code":0,"error_message":"","content":"","stage":"plugin","plugin_name":"function_call"}
+
+id: 2
+event: info
+retry: 1000
+data: {"error_code":0,"error_message":"","content":"","stage":"summary","plugin_name":"function_call","observation":"{\"functions\":[{\"function_code\":\"位置复位\",\"params\":null}]}"}
+
+id: 3
+event: info
+retry: 1000
+data: {"error_code":0,"error_message":"","content":"","stage":"summary","debug_info":{"model_info":{"function-tool-call":{"model_info":{"model_name":"Doubao-Seed-2.0-lite","model_version":"260428","endpoint":"ep-20260710120845-dkzbb"},"token_info":{"prompt_tokens":6234,"completion_tokens":14,"total_tokens":6248},"cost_duration":1041,"ttft":1041,"log_id":"0217891061636398bace614be3acd9db1ef33fa7d6bffa01b5024","service_tier":"default","finish_reason":"tool_calls"}},"slot_data":"[{\"function_code\":\"位置复位\",\"params\":null}]","log_id":"2026091113560069CFF77FFFB5B6731C6F","plugin_info":{"function-call-one-step":{"plugin_time":1042,"plugin_params":"位置复位:","plugin_response":"[{\"function_code\":\"位置复位\",\"params\":null}]"},"getFcRagData":{"plugin_time":115,"plugin_params":"回到地图首页","plugin_response":"[\"位置复位\",\"指定应用主页面返回\",\"一般地点检索\",\"单目的地导航\",\"SR模式开关\",\"途经点查看\"]"}},"token_info":{"prompt_tokens":6234,"completion_tokens":14,"total_tokens":6248},"total_time":1183}}
+
+id: 4
+event: finish
+retry: 1000
+data:
+标黄的就是FC模型返回
+Frontier下发关键字：pushWithRequestId, message
+
+pushWithRequestId, message:{"session_id":5541273777410,"message_type":1,"message":"{\"functions\":[{\"function_code\":\"位置复位\"}],\"sound_zone\":\"主驾\",\"is_simple_vehicle_control\":false}","request_id":"9acd5024-52b3-4180-bb9f-f1554a1f9d88","planner_round_id":"8628634340354_1"}
+客户端响应是否离线：frontier push response
+Code ：30001 离线
+
+Info 2026-09-21 12:40:14.700 server.go:175 10.112.37.131 vehicle.model.aidv_rpc 2026092112401339551151D2375E91B860 default single_dc lf 2066543106073771740 _podname=dp-3d124fef03-5ccb5bc946-wpxch _ipv6=0:0:0:0:0:0:0:0 __vregion=China-North _batchid=305429e6ae1b4374ab3f8a85f839d1d6000000000000029f _env=ppe_aidv_seres_test _env_type=ppe _flags=0 _ifppe=true _language=go _msg=_user_not_login_ 2451271154431065 frontier push response, messageId:56027516573799682, response: {"Results":[{"UserID":0,"DeviceID":2451271154431065,"Code":30001,"ConnUUID":"","DevicePlatform":6,"ClientVersion":0,"ConnTag":"","BackgroundStatus":-1,"MessageID":"56027516573799682"}],"TraceID":"02178996561468900000000000000000000ffff0ac2645eaa6888","MessageID":"56027516573799682","BaseResp":{"StatusMessage":"SUCCESS","StatusCode":0}} 
+客户端执行结果关键字：[AgentVehicleControl] frontierResp
+
+[AgentVehicleControl] frontierResp: {"req_id":"9acd5024-52b3-4180-bb9f-f1554a1f9d88","vehicle_control_exec_status":[{"function_code":"位置复位","msg":"","status":0,"tts_code":"Global_04","tts_content":"好的，没问题。"}]} 
+
+现象—根因矩阵
+
+
+现象
+
+强证据
+
+优先根因
+
+下一步
+
+请求被拒识
+
+intent-and-refusal=REJECT
+
+拒识问题
+
+转拒识同学排查
+
+Planner 被取消
+
+ShouldBreak、DoPlan cancel、context canceled
+
+后续 Query / Advisor 抢占
+
+定位触发抢占的 Query 或事件，此类一般不属于问题，符合预期
+
+有回答但无工具 span
+
+action_list=0，且工具已注入
+
+模型无工具直答
+
+
+简单看下历史中是否有类似Query已调用工具但端侧回复执行失败，如有捞之前的历史LogID给客户端；如无转Planner算法排查
+
+FC 函数或参数错误
+
+function_code / params 与真值表不一致
+
+Planner / FC 生成或映射
+
+
+转车控算法
+
+push 成功但 ACK 超时
+
+pushWithRequestId 后 pushAndWait 超时
+
+客户端 / Frontier ACK / 端侧回传
+
+转客户端
+
+
+ACK 成功但车辆未动作
+
+端侧已有执行结果，车辆状态无变化
+
+车控 App / 车服务 / 硬件
+
+转客户端
+3.1 常见误判
+看到 Frontier push 日志，不等于设备收到并执行；最终看单设备 Results（Code：30000） 和 ACK。
+
+可用 Skill
+
+
+Skill
+
+适用场景
+
+最小输入
+
+产出
+
+aidv-bug-triage
+https://skills.bytedance.net/skill/skills:skills.byted.org/vehicle/aiforse/aidv-bug-triage?fromSpaceId=skills.byted.org%2Fvehicle%2Faiforse&fromSpaceName=skills.byted.org%2Fvehicle%2Faiforse
+
+AIDV / Fornax 车控问题完整排查
+
+
+logid；可选 Query、预期、实际
+
+最高置信根因、关键证据、Owner 方向
+
+
+
+
+
+
+
+
+

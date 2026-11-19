@@ -1,0 +1,10 @@
+import fs from 'node:fs/promises';
+import {fileURLToPath} from 'node:url';
+import {FileBlob, SpreadsheetFile} from '@oai/artifact-tool';
+const dir=fileURLToPath(new URL('.',import.meta.url));
+const wb=await SpreadsheetFile.importXlsx(await FileBlob.load(dir+'赛力斯端状态信号库-原始下载-20261117.xlsx'));
+console.log((await wb.inspect({kind:'sheet',include:'id,name',maxChars:4000})).ndjson);
+const s=wb.worksheets.getItem('【New】sls端状态v1.3');
+console.log(JSON.stringify(s.getRange('AT360:AW383').values));
+const p=await wb.render({sheetName:s.name,range:'AT368:AW381',scale:1,format:'png'});
+await fs.writeFile(dir+'before.png',new Uint8Array(await p.arrayBuffer()));
